@@ -1,0 +1,298 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String    @id @default(cuid())
+  email          String?   @unique
+  phone          String?   @unique
+  passwordHash   String?
+  name           String?
+  avatar         String?
+  role           String    @default("USER")
+  plan           String    @default("FREE")
+  credits        Int       @default(100)
+  planExpiry     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lastLoginAt    DateTime?
+  isBlocked      Boolean   @default(false)
+  industryPackId String?
+
+  conversations     Conversation[]
+  images            GeneratedImage[]
+  videos            GeneratedVideo[]
+  musics            GeneratedMusic[]
+  payments          Payment[]
+  usageLogs         UsageLog[]
+  otpCodes          OtpCode[]
+  crmContacts       CrmContact[]
+  businessAnalyses  BusinessAnalysis[]
+  socialPosts       SocialPost[]
+  generatedWebsites GeneratedWebsite[]
+  industryPack      IndustryPack?      @relation(fields: [industryPackId], references: [id])
+  company           Company?
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  phone     String
+  code      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String?
+  tool      String?
+  model     String   @default("claude-haiku-4-5-20251001")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String
+  content        String
+  tokens         Int?
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+model GeneratedImage {
+  id        String   @id @default(cuid())
+  userId    String
+  prompt    String
+  style     String   @default("realistic")
+  url       String
+  isPublic  Boolean  @default(false)
+  credits   Int      @default(5)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model GeneratedVideo {
+  id        String   @id @default(cuid())
+  userId    String
+  prompt    String
+  duration  Int      @default(5)
+  url       String
+  isPublic  Boolean  @default(false)
+  credits   Int      @default(20)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model GeneratedMusic {
+  id        String   @id @default(cuid())
+  userId    String
+  prompt    String
+  genre     String   @default("pop")
+  duration  Int      @default(30)
+  url       String
+  isPublic  Boolean  @default(false)
+  credits   Int      @default(10)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  userId    String
+  amount    Int
+  plan      String
+  status    String   @default("PENDING")
+  gateway   String   @default("zarinpal")
+  refId     String?
+  authority String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UsageLog {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  model     String?
+  tokens    Int?
+  credits   Int      @default(1)
+  metadata  String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SiteSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model Prompt {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  category  String   @default("general")
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  usedCount Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CrmContact {
+  id          String    @id @default(cuid())
+  userId      String?
+  name        String
+  phone       String?
+  email       String?
+  company     String?
+  status      String    @default("lead")
+  source      String    @default("organic")
+  plan        String?
+  totalSpent  Int       @default(0)
+  notes       String?
+  tags        String?
+  lastContact DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User? @relation(fields: [userId], references: [id])
+}
+
+model Package {
+  id          String   @id @default(cuid())
+  name        String
+  nameEn      String
+  price       Int
+  duration    Int      @default(30)
+  credits     Int
+  features    String
+  isActive    Boolean  @default(true)
+  isFeatured  Boolean  @default(false)
+  color       String   @default("#ea580c")
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model LlmModel {
+  id          String   @id @default(cuid())
+  name        String
+  provider    String   @default("anthropic")
+  modelId     String   @unique
+  description String?
+  maxTokens   Int      @default(4096)
+  creditCost  Int      @default(1)
+  isActive    Boolean  @default(true)
+  isPrimary   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model BusinessAnalysis {
+  id           String   @id @default(cuid())
+  userId       String
+  businessName String
+  industry     String
+  result       String
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SocialPost {
+  id        String   @id @default(cuid())
+  userId    String
+  platform  String
+  topic     String
+  content   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model GeneratedWebsite {
+  id           String   @id @default(cuid())
+  userId       String
+  businessName String
+  htmlCode     String
+  brief        String
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model IndustryPack {
+  id               String   @id @default(cuid())
+  slug             String   @unique
+  name             String
+  emoji            String
+  tagline          String
+  valueProposition String
+  targetCustomers  String
+  painPoints       String
+  agents           String
+  outcomes         String
+  kpis             String
+  tier             String   @default("professional")
+  price            Int      @default(299)
+  color            String
+  gradientFrom     String
+  gradientTo       String
+  isActive         Boolean  @default(true)
+  sortOrder        Int      @default(0)
+  users            User[]
+  companies        Company[]
+}
+
+model BusinessCategory {
+  id        String    @id @default(cuid())
+  name      String
+  nameEn    String
+  icon      String    @default("🏢")
+  color     String    @default("#ea580c")
+  isActive  Boolean   @default(true)
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  companies Company[]
+}
+
+model Company {
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  name           String
+  industry       String
+  website        String?
+  phone          String?
+  email          String?
+  address        String?
+  size           String?
+  revenue        String?
+  industryPackId String?
+  categoryId     String?
+  isActive       Boolean   @default(true)
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  industryPack IndustryPack?     @relation(fields: [industryPackId], references: [id])
+  category     BusinessCategory? @relation(fields: [categoryId], references: [id])
+}
