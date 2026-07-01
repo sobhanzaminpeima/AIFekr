@@ -18,6 +18,28 @@
 
 ---
 
+## Demo Accounts
+
+Live demo is running at **http://193.162.129.138**
+
+### Regular Users
+
+| Name | Email | Password | Plan | Credits |
+|------|-------|----------|------|---------|
+| Ali Rezaei | `ali@test.com` | `test1234` | Free | 500 |
+| Sara Mohammadi | `sara@test.com` | `test1234` | Basic | 1,000 |
+
+### Admin & Super Admin
+
+| Role | Email | Password | Plan |
+|------|-------|----------|------|
+| Admin | `admin@test.com` | `admin1234` | Pro |
+| Super Admin | `super@aifekr.com` | `super1234` | Pro |
+
+> Admin panel is accessible at `/admin` — only ADMIN and SUPER_ADMIN roles can access it.
+
+---
+
 ## About
 
 **AiFekr** is a full-featured AI platform that combines ChatGPT-style streaming chat, image/video/music generation, and specialized business AI tools — all with complete Persian (RTL) and English (LTR) bilingual support.
