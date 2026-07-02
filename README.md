@@ -10,7 +10,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)](https://typescriptlang.org)
 [![Prisma](https://img.shields.io/badge/Prisma-5-2D3748?logo=prisma)](https://prisma.io)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-38bdf8?logo=tailwindcss)](https://tailwindcss.com)
-[![Claude AI](https://img.shields.io/badge/Powered_by-Claude_AI-ea580c)](https://anthropic.com)
+[![Multi-Provider AI](https://img.shields.io/badge/AI-Multi--Provider_Router-ea580c)](#ai-router)
 
 **[🌐 Live Demo](http://193.162.129.138)**
 
@@ -48,10 +48,49 @@ Live demo is running at **http://193.162.129.138**
 
 ## Features
 
+### 🔀 AI Router — automatic provider fallback
+
+The platform never depends on a single AI provider.  
+`src/lib/ai/router.ts` tries providers in priority order and falls back
+automatically when one errors, rate-limits, or takes >10 s to deliver its
+first token.
+
+| Provider | Default priority | Strengths |
+|----------|-----------------|-----------|
+| Anthropic Claude | 1st | general, creative, business |
+| OpenAI GPT | 2nd | code, complex reasoning |
+| Google Gemini | 3rd | translation, factual, fast |
+| DeepSeek | 4th | math, code |
+
+**How it works**
+
+1. The router detects the prompt *category* (code / math / creative / …) and
+   picks the best provider for that category.
+2. If that provider fails, the next healthy provider is tried automatically.
+3. Every fallback event is written to `ProviderFallbackLog` in the database.
+4. The **Admin → Provider Fallback Log** page (`/admin/provider-fallback`)
+   shows which providers failed, how often, and what categories triggered it.
+
+**Environment variables**
+
+```bash
+AI_PROVIDER_PRIORITY="claude,openai,gemini,deepseek"  # override order
+FORCE_PROVIDER_FAILURE="claude"                        # test fallback locally
+```
+
+**Testing fallback**
+
+```bash
+FORCE_PROVIDER_FAILURE=claude npx ts-node scripts/test-router-fallback.ts
+# Expected: router skips claude, succeeds with openai (or next healthy provider)
+```
+
+---
+
 ### 🤖 AI Chat
-- Streaming chat powered by Claude (Haiku / Sonnet / Opus)
+- Streaming chat via the multi-provider router (real-time SSE, token-by-token)
 - **Voice input** — send messages by speaking (Web Speech API)
-- **Voice output** — have AI responses read aloud (TTS), just like ChatGPT
+- **Voice output** — have AI responses read aloud (TTS)
 - Conversation history with automatic titling
 - Full Markdown, code blocks, and table rendering
 
@@ -101,7 +140,8 @@ Live demo is running at **http://193.162.129.138**
 Frontend:    Next.js 14 (App Router) + TypeScript + Tailwind CSS
 Backend:     Next.js API Routes (Edge + Node.js)
 Database:    SQLite (better-sqlite3) via Prisma ORM
-AI:          Anthropic Claude API (@anthropic-ai/sdk)
+AI:          Multi-provider router (Claude / OpenAI GPT / Google Gemini / DeepSeek)
+             with automatic fallback — see src/lib/ai/router.ts
 Media:       Fal.ai (image/video), Replicate
 Auth:        JWT (jsonwebtoken) + bcryptjs
 Storage:     AWS S3 / Cloudflare R2
