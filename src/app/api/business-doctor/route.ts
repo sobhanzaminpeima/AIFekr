@@ -1,49 +1,55 @@
 export const dynamic = "force-dynamic";
-
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { streamChat, getModelForPlan } from "@/lib/ai/claude";
+import { routedStreamChat } from "@/lib/ai/router";
 
-const SYSTEM_PROMPT = `You are an expert business consultant and strategist with 20+ years of experience across multiple industries. You provide comprehensive, actionable business analysis and recommendations. Structure your responses with clear sections using markdown headers. Be specific, data-driven, and practical.`;
+const SYSTEM_PROMPT = `شما یک مشاور کسب‌وکار حرفه‌ای با ۲۰ سال تجربه هستید. پاسخ‌هایتان را به فارسی بدهید مگر کاربر انگلیسی بنویسد. تحلیل‌های دقیق، عملی و مبتنی بر داده ارائه دهید. از هدرهای markdown استفاده کنید.`;
 
-function buildPrompt(data: {
-  businessName: string;
-  industry: string;
-  revenue: string;
-  teamSize: string;
-  challenge: string;
-  goals: string;
-}) {
-  return `Analyze this business and provide a comprehensive diagnostic report:
+async function getBusinessProfile(userId: string): Promise<Record<string, string>> {
+  try {
+    const company = await prisma.company.findUnique({ where: { userId } });
+    if (!company) return {};
+    let extra: Record<string, string> = {};
+    try { extra = JSON.parse(company.notes || "{}"); } catch {}
+    return {
+      name: company.name,
+      industry: company.industry,
+      website: company.website || "",
+      size: company.size || "",
+      revenue: company.revenue || "",
+      ...extra,
+    };
+  } catch { return {}; }
+}
 
-Business Name: ${data.businessName}
-Industry: ${data.industry}
-Monthly Revenue: ${data.revenue}
-Team Size: ${data.teamSize}
-Top Challenge: ${data.challenge}
-Business Goals: ${data.goals}
+function buildPrompt(profile: Record<string, string>, question: string): string {
+  const hasProfile = Object.keys(profile).length > 0;
+  
+  const profileSection = hasProfile ? `
+## اطلاعات کسب‌وکار این کاربر (Knowledge Base):
+- نام: ${profile.name || "نامشخص"}
+- صنعت: ${profile.industry || "نامشخص"}
+- اندازه تیم: ${profile.size || "نامشخص"}
+- درآمد: ${profile.revenue || "نامشخص"}
+- وب‌سایت: ${profile.website || "ندارد"}
+- توضیح کسب‌وکار: ${profile.description || "ثبت نشده"}
+- محصولات/خدمات: ${profile.products || "ثبت نشده"}
+- مشتریان هدف: ${profile.targetCustomers || "ثبت نشده"}
+- رقبا: ${profile.competitors || "ثبت نشده"}
+- مزیت رقابتی: ${profile.uniqueValue || "ثبت نشده"}
+- مدل کسب‌وکار: ${profile.businessModel || "ثبت نشده"}
+- اهداف: ${profile.goals || "ثبت نشده"}
+- چالش‌ها: ${profile.challenges || "ثبت نشده"}
+- نقاط قوت: ${profile.strengths || "ثبت نشده"}
+` : "";
 
-Please provide a detailed analysis with the following sections:
+  return `${profileSection}
 
-## SWOT Analysis
-(Strengths, Weaknesses, Opportunities, Threats — each with 3-4 specific points)
+## سوال/درخواست کاربر:
+${question}
 
-## Key Challenges
-(Deep dive into the top 3 challenges this business faces)
-
-## Action Plan
-### 30-Day Quick Actions
-### 60-Day Milestones
-### 90-Day Transformations
-
-## KPI Recommendations
-(5-7 specific KPIs this business should track with target values)
-
-## Quick Wins
-(3-5 things the business can do THIS WEEK to see immediate improvement)
-
-Be specific to the ${data.industry} industry and the challenges mentioned. Provide actionable, concrete recommendations.`;
+${hasProfile ? "لطفاً با توجه به اطلاعات کسب‌وکار بالا، پاسخ دقیق و شخصی‌سازی شده بدهید." : ""}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -52,37 +58,44 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { businessName, industry, revenue, teamSize, challenge, goals } = body;
+    const { question, businessName, industry, revenue, teamSize, challenge, goals } = body;
 
-    if (!businessName || !industry || !challenge) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-    }
+    const profile = await getBusinessProfile(user.id);
+    
+    // Support both new (question) and legacy (form fields) mode
+    const finalQuestion = question || `
+تحلیل جامع کسب‌وکار:
+- نام: ${businessName}
+- صنعت: ${industry}
+- درآمد: ${revenue}
+- تیم: ${teamSize}
+- چالش: ${challenge}
+- اهداف: ${goals}
 
-    const model = getModelForPlan(user.plan);
-    const prompt = buildPrompt({ businessName, industry, revenue, teamSize, challenge, goals });
+لطفاً یک گزارش تشخیص کامل با SWOT، چالش‌های کلیدی، برنامه عملیاتی ۳۰/۶۰/۹۰ روزه و KPIها ارائه دهید.`;
 
+    const prompt = buildPrompt(profile, finalQuestion);
     let fullResult = "";
 
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
         try {
-          await streamChat(
+          await routedStreamChat(
             [{ role: "user", content: prompt }],
             SYSTEM_PROMPT,
-            model,
             (text) => {
               fullResult += text;
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
-            }
+            },
+            (_provider) => {},
           );
 
-          // Save to DB
           await prisma.businessAnalysis.create({
             data: {
               userId: user.id,
-              businessName,
-              industry,
+              businessName: profile.name || businessName || "نامشخص",
+              industry: profile.industry || industry || "نامشخص",
               result: fullResult,
             },
           });
@@ -91,18 +104,14 @@ export async function POST(req: NextRequest) {
           controller.close();
         } catch (err) {
           console.error("Business doctor stream error:", err);
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "Analysis failed" })}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "تحلیل با خطا مواجه شد" })}\n\n`));
           controller.close();
         }
       },
     });
 
     return new Response(stream, {
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
-      },
+      headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" },
     });
   } catch (err) {
     console.error("Business doctor error:", err);

@@ -1,104 +1,91 @@
 export const dynamic = "force-dynamic";
-
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { streamChat, getModelForPlan } from "@/lib/ai/claude";
+import { routedStreamChat } from "@/lib/ai/router";
 
-const SYSTEM = `You are an elite social media strategist and copywriter with 15 years of experience growing brands to millions of followers. You understand platform algorithms, audience psychology, viral triggers, and content formats deeply. You always write in the language the user specifies (Persian/Farsi or English). Your posts are compelling, on-brand, and optimized for maximum reach and engagement.`;
+const SYSTEM = `شما یک استراتژیست شبکه‌های اجتماعی حرفه‌ای هستید. پست‌های جذاب، ویروسی و بهینه برای هر پلتفرم می‌نویسید. پاسخ‌ها را به زبانی که کاربر مشخص می‌کند بنویسید.`;
 
-const PLATFORM_GUIDES: Record<string, string> = {
-  instagram: "Instagram: Hook in first 2 lines (before 'more'), 1500-2200 chars optimal, storytelling captions, 5-10 relevant hashtags (mix of popular and niche), CTA at end. Use line breaks for readability. Carousel posts get 3x reach.",
-  linkedin: "LinkedIn: Professional yet personable, thought leadership, 1300 chars optimal, personal stories with business lessons perform best, 3-5 relevant hashtags, strong first line hook, end with question or CTA. Long-form performs well on weekdays.",
-  twitter: "Twitter/X: Under 280 chars per tweet, hook in first 5 words, threads get more engagement (number each tweet 1/n), use 1-2 hashtags max, ask questions, contrarian takes drive retweets.",
-  facebook: "Facebook: Community-focused, story-based, 100-250 chars for feed posts (longer for groups), include a question, emotional storytelling, Facebook video/reels get prioritized, native video over YouTube links.",
-  tiktok: "TikTok: Script for video, strong hook in first 3 seconds (text to say OUT LOUD), trendy audio suggestions, 15-60 seconds optimal, text on screen tips, 3-5 trending hashtags, end with CTA to follow.",
-};
-
-function buildPrompt(data: {
-  brandName: string; topic: string; platform: string; tone: string;
-  hashtags: boolean; emojis: boolean; language?: string; industry?: string; targetAudience?: string;
-}) {
-  const platformGuide = PLATFORM_GUIDES[data.platform.toLowerCase()] || PLATFORM_GUIDES.instagram;
-  const hashtagNote = data.hashtags ? "Include relevant hashtags." : "Do NOT include hashtags.";
-  const emojiNote = data.emojis ? "Use strategic emojis for visual breaks and emotion (don't overdo it)." : "Do NOT use emojis.";
+function buildPrompt(data: { brandName: string; topic: string; platform: string; tone: string; hashtags: boolean; emojis: boolean; language?: string; industry?: string; targetAudience?: string }) {
   const lang = data.language || "fa";
+  const hashNote = data.hashtags ? "هشتگ مرتبط اضافه کن." : "هشتگ اضافه نکن.";
+  const emojiNote = data.emojis ? "از ایموجی مناسب استفاده کن." : "ایموجی استفاده نکن.";
+  return `${lang === "fa" ? "پست شبکه اجتماعی به فارسی بنویس." : "Write social media post in English."}
 
-  return `${lang === "fa" ? "پست‌های شبکه اجتماعی بنویس به زبان فارسی." : "Write social media posts in English."}
+برند: ${data.brandName}
+${data.industry ? `صنعت: ${data.industry}` : ""}
+${data.targetAudience ? `مخاطبان: ${data.targetAudience}` : ""}
+موضوع: ${data.topic}
+لحن: ${data.tone}
+پلتفرم: ${data.platform}
+${hashNote} ${emojiNote}
 
-Brand: ${data.brandName}
-${data.industry ? `Industry: ${data.industry}` : ""}
-${data.targetAudience ? `Target Audience: ${data.targetAudience}` : ""}
-Topic/Campaign: ${data.topic}
-Tone: ${data.tone}
-Platform: ${data.platform}
+۳ پست متمایز و حرفه‌ای بنویس:
 
-Platform Best Practices: ${platformGuide}
-${hashtagNote}
-${emojiNote}
-
-Create 3 HIGH-PERFORMING post variations. Each must be distinctly different (different angle, format, hook strategy):
-
-## پست اول — Hook اطلاعاتی
-**نوع:** آموزشی / اطلاع‌رسانی
-**کپشن:**
+## پست اول — آموزشی/اطلاع‌رسانی
+**متن:**
 [متن کامل پست]
+**بهترین زمان:** [روز، ساعت]
+**ایده تصویر/ویدیو:** [توضیح دقیق محتوای بصری]
+${data.hashtags ? "**هشتگ‌ها:** [هشتگ‌ها]" : ""}
 
-**بهترین زمان انتشار:** [روز و ساعت]
-**نکته بهینه‌سازی:** [یک نکته خاص برای این پلتفرم]
-**ایده ویژوال:** [توضیح تصویر یا ویدیو پیشنهادی]
-
-## پست دوم — Hook احساسی
-**نوع:** داستان / احساسی
-**کپشن:**
+## پست دوم — احساسی/داستانی
+**متن:**
 [متن کامل پست]
+**بهترین زمان:** [روز، ساعت]
+**ایده تصویر/ویدیو:** [توضیح دقیق محتوای بصری]
+${data.hashtags ? "**هشتگ‌ها:** [هشتگ‌ها]" : ""}
 
-**بهترین زمان انتشار:** [روز و ساعت]
-**نکته بهینه‌سازی:** [یک نکته خاص]
-**ایده ویژوال:** [توضیح]
-
-## پست سوم — Hook تبلیغاتی
-**نوع:** ترویجی / فروش
-**کپشن:**
+## پست سوم — ترویجی/فروش
+**متن:**
 [متن کامل پست]
+**بهترین زمان:** [روز، ساعت]
+**ایده تصویر/ویدیو:** [توضیح دقیق محتوای بصری]
+${data.hashtags ? "**هشتگ‌ها:** [هشتگ‌ها]" : ""}
 
-**بهترین زمان انتشار:** [روز و ساعت]
-**نکته بهینه‌سازی:** [یک نکته خاص]
-**ایده ویژوال:** [توضیح]
-
-## استراتژی کلی
-[۲-۳ جمله درباره رویکرد کلی برای این کمپین]`;
+## استراتژی کمپین
+[۳-۴ جمله استراتژی کلی]`;
 }
 
 function buildCalendarPrompt(data: { brandName: string; platform: string; topic: string; language?: string; industry?: string }) {
   const lang = data.language || "fa";
-  return `${lang === "fa" ? "تقویم محتوایی به زبان فارسی بنویس." : "Write content calendar in English."}
+  return `${lang === "fa" ? "تقویم محتوایی ۷ روزه به فارسی بنویس." : "Write 7-day content calendar in English."}
 
-Create a professional 7-day social media content calendar for:
-Brand: ${data.brandName}
-${data.industry ? `Industry: ${data.industry}` : ""}
-Platform: ${data.platform}
-Theme/Campaign: ${data.topic}
-
-Use the 5-3-2 rule: 5 educational, 3 engagement, 2 promotional posts per 10 posts.
+برند: ${data.brandName}
+${data.industry ? `صنعت: ${data.industry}` : ""}
+پلتفرم: ${data.platform}
+موضوع: ${data.topic}
 
 ## تقویم محتوایی ۷ روزه — ${data.brandName}
 
 **روز ۱ — شنبه**
-- نوع محتوا: [Educational/Promotional/Engagement/UGC/Story]
-- هوک (جمله اول): [دقیقاً چه بنویسد تا توجه جلب شود]
+- نوع: [آموزشی/احساسی/تبلیغاتی/تعاملی]
+- هوک (جمله اول جذاب): [دقیق بنویس]
 - ایده اصلی محتوا: [توضیح کامل]
-- ایده ویژوال: [عکس/ویدیو/گرافیک]
-- هشتگ‌های پیشنهادی: [۵-۷ هشتگ]
-- بهترین زمان: [ساعت]
+- ایده بصری: [عکس/ویدیو/گرافیک - توضیح دقیق]
+- هشتگ‌ها: [۵-۷ هشتگ]
+- بهترین زمان: [ساعت دقیق]
 
 **روز ۲ — یکشنبه**
-[همین فرمت]
+[همین قالب]
 
-[ادامه تا روز ۷]
+**روز ۳ — دوشنبه**
+[همین قالب]
 
-## نکات استراتژیک هفته
-[۳-۵ نکته مهم برای اجرای موفق این تقویم]`;
+**روز ۴ — سه‌شنبه**
+[همین قالب]
+
+**روز ۵ — چهارشنبه**
+[همین قالب]
+
+**روز ۶ — پنجشنبه**
+[همین قالب]
+
+**روز ۷ — جمعه**
+[همین قالب]
+
+## نکات اجرایی
+[۵ نکته کلیدی برای اجرای موفق این تقویم]`;
 }
 
 export async function POST(req: NextRequest) {
@@ -108,8 +95,6 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { type = "posts" } = body;
-    const model = getModelForPlan(user.plan);
-
     const prompt = type === "calendar" ? buildCalendarPrompt(body) : buildPrompt(body);
     let fullContent = "";
 
@@ -117,37 +102,28 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         const encoder = new TextEncoder();
         try {
-          await streamChat([{ role: "user", content: prompt }], SYSTEM, model, (text) => {
+          await routedStreamChat([{ role: "user", content: prompt }], SYSTEM, (text) => {
             fullContent += text;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
-          });
+          }, (_p) => {});
 
           if (type === "posts" && body.platform && body.topic) {
-            await prisma.socialPost.create({
-              data: {
-                userId: user.id,
-                platform: body.platform,
-                topic: body.topic,
-                content: fullContent,
-              },
-            });
+            await prisma.socialPost.create({ data: { userId: user.id, platform: body.platform, topic: body.topic, content: fullContent } });
           }
 
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();
         } catch (err) {
+          const msg = err instanceof Error ? err.message : "خطا";
           console.error("Social stream error:", err);
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "Failed" })}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: msg })}\n\n`));
           controller.close();
         }
       },
     });
 
-    return new Response(stream, {
-      headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" },
-    });
+    return new Response(stream, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" } });
   } catch (err) {
-    console.error("Social error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

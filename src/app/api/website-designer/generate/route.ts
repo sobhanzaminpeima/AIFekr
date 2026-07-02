@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { streamChat, getModelForPlan } from "@/lib/ai/claude";
+import { routedStreamChat } from "@/lib/ai/router";
 
 const SYSTEM = `You are an award-winning web designer and senior developer with expertise in modern design systems, UX principles, and conversion optimization. You create stunning, professional websites that convert visitors to customers.
 

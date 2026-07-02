@@ -1,63 +1,84 @@
 export const dynamic = "force-dynamic";
-
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { streamChat, getModelForPlan } from "@/lib/ai/claude";
+import { routedStreamChat } from "@/lib/ai/router";
 
 const AGENT_PERSONAS: Record<string, string> = {
-  ceo: "You are the CEO Agent — visionary leader focused on big-picture strategy, company mission, and long-term growth.",
-  marketing: "You are the Marketing Agent — growth-focused expert in branding, customer acquisition, campaigns, and market positioning.",
-  finance: "You are the Finance Agent — numbers-driven CFO focused on ROI, budget, cash flow, profitability, and financial risks.",
-  seo: "You are the SEO Agent — digital visibility expert focused on search rankings, organic traffic, content strategy, and technical SEO.",
-  sales: "You are the Sales Agent — revenue-focused expert in pipeline management, closing deals, customer relationships, and sales process.",
-  product: "You are the Product Manager — user-centric expert focused on product roadmap, features, UX, and market fit.",
-  legal: "You are the Legal Advisor — risk-aware expert focused on compliance, contracts, intellectual property, and regulatory concerns.",
+  ceo: "شما مدیرعامل (CEO) هستید — رهبر دیدمند با تمرکز بر استراتژی کلی، ماموریت شرکت و رشد بلندمدت.",
+  marketing: "شما مدیر بازاریابی هستید — متخصص رشد با تمرکز بر برندینگ، جذب مشتری، کمپین‌ها و جایگاه‌یابی بازار.",
+  finance: "شما مدیر مالی (CFO) هستید — متخصص اعداد با تمرکز بر ROI، بودجه، جریان نقدی و ریسک‌های مالی.",
+  seo: "شما متخصص سئو هستید — کارشناس دیجیتال با تمرکز بر رتبه‌بندی موتور جستجو، ترافیک ارگانیک و استراتژی محتوا.",
+  sales: "شما مدیر فروش هستید — متخصص درآمد با تمرکز بر pipeline فروش، بستن معاملات و روابط مشتری.",
+  product: "شما مدیر محصول هستید — متخصص کاربر-محور با تمرکز بر roadmap محصول، ویژگی‌ها و تجربه کاربری.",
+  legal: "شما مشاور حقوقی هستید — متخصص ریسک با تمرکز بر انطباق، قراردادها و مسائل قانونی.",
 };
 
 const AGENT_COLORS: Record<string, string> = {
-  ceo: "#ea580c",
-  marketing: "#8b5cf6",
-  finance: "#10b981",
-  seo: "#3b82f6",
-  sales: "#f59e0b",
-  product: "#ec4899",
-  legal: "#6b7280",
+  ceo: "#ea580c", marketing: "#8b5cf6", finance: "#10b981",
+  seo: "#3b82f6", sales: "#f59e0b", product: "#ec4899", legal: "#6b7280",
 };
 
-function buildMeetingPrompt(topic: string, agents: string[]) {
-  const agentList = agents.map((a) => `- ${a.toUpperCase()} AGENT: ${AGENT_PERSONAS[a] || a}`).join("\n");
+async function getBusinessProfile(userId: string): Promise<string> {
+  try {
+    const company = await prisma.company.findUnique({ where: { userId } });
+    if (!company) return "";
+    let extra: Record<string, string> = {};
+    try { extra = JSON.parse(company.notes || "{}"); } catch {}
+    
+    const profile = { name: company.name, industry: company.industry, size: company.size, revenue: company.revenue, ...extra };
+    
+    const lines = [
+      `شرکت: ${profile.name}`,
+      `صنعت: ${profile.industry}`,
+      profile.size && `اندازه تیم: ${profile.size}`,
+      profile.revenue && `درآمد: ${profile.revenue}`,
+      extra.description && `توضیح: ${extra.description}`,
+      extra.products && `محصولات/خدمات: ${extra.products}`,
+      extra.targetCustomers && `مشتریان هدف: ${extra.targetCustomers}`,
+      extra.competitors && `رقبا: ${extra.competitors}`,
+      extra.uniqueValue && `مزیت رقابتی: ${extra.uniqueValue}`,
+      extra.goals && `اهداف: ${extra.goals}`,
+      extra.challenges && `چالش‌ها: ${extra.challenges}`,
+    ].filter(Boolean);
+    
+    return lines.join("\n");
+  } catch { return ""; }
+}
 
-  return `You are facilitating a strategic business meeting. The following AI agents are attending:
+function buildMeetingPrompt(topic: string, agents: string[], businessContext: string) {
+  const agentList = agents.map((a) => `- ${a.toUpperCase()}: ${AGENT_PERSONAS[a] || a}`).join("\n");
+  const contextSection = businessContext ? `\n## اطلاعات شرکت (Knowledge Base):\n${businessContext}\n` : "";
+
+  return `شما مجری یک جلسه استراتژیک کسب‌وکار هستید. ایجنت‌های زیر در جلسه شرکت دارند:
 
 ${agentList}
+${contextSection}
+## موضوع جلسه: ${topic}
 
-MEETING TOPIC: ${topic}
+یک جلسه واقعی و کاربردی را در قالب زیر شبیه‌سازی کنید (به فارسی):
 
-Simulate a realistic, productive meeting with these EXACT phases:
+---فاز ۱: بیانیه‌های افتتاحیه---
+هر ایجنت دیدگاه کوتاه خود را نسبت به موضوع بیان می‌کند (۲-۳ جمله).
+قالب: **[نام ایجنت]:** [بیانیه]
 
----PHASE 1: OPENING STATEMENTS---
-Each agent briefly introduces their perspective on the topic (2-3 sentences each).
-Format: **[AGENT NAME]:** [statement]
+---فاز ۲: بحث و تبادل نظر---
+ایجنت‌ها به دیدگاه‌های یکدیگر اشاره می‌کنند، چالش می‌کشند و ایده‌ها را توسعه می‌دهند. حداقل ۲ تبادل برای هر ایجنت.
+قالب: **[نام ایجنت]:** [بیانیه]
 
----PHASE 2: DISCUSSION---
-Agents debate key points, reference each other's views, challenge assumptions, and build on ideas. At least 2 exchanges per agent.
-Format: **[AGENT NAME]:** [statement]
+---فاز ۳: تصمیمات و اقدامات---
+**تصمیمات مورد توافق:**
+۱. [تصمیم]
+۲. [تصمیم]
 
----PHASE 3: DECISIONS & ACTION ITEMS---
-Agents reach consensus on:
-**AGREED DECISIONS:**
-1. [Decision]
-2. [Decision]
+**اقدامات:**
+- [ ] [وظیفه] — مسئول: [ایجنت]، مهلت: [بازه زمانی]
+- [ ] [وظیفه] — مسئول: [ایجنت]، مهلت: [بازه زمانی]
 
-**ACTION ITEMS:**
-- [ ] [Task] — Owner: [Agent], Deadline: [timeframe]
-- [ ] [Task] — Owner: [Agent], Deadline: [timeframe]
+**خلاصه جلسه:**
+[۲-۳ جمله درباره نتایج]
 
-**MEETING SUMMARY:**
-[2-3 sentence summary of outcomes]
-
-Make the debate realistic — agents should sometimes disagree and negotiate. Keep each agent in character throughout.`;
+ایجنت‌ها گاهی اوقات اختلاف نظر داشته باشند و مذاکره کنند. هر ایجنت در نقش خود بماند.`;
 }
 
 export async function POST(req: NextRequest) {
@@ -68,38 +89,37 @@ export async function POST(req: NextRequest) {
     const { topic, agents } = await req.json();
 
     if (!topic || !agents?.length || agents.length < 2) {
-      return NextResponse.json({ error: "Topic and at least 2 agents required" }, { status: 400 });
+      return NextResponse.json({ error: "موضوع و حداقل ۲ ایجنت الزامی است" }, { status: 400 });
     }
 
-    const model = getModelForPlan(user.plan);
+    const businessContext = await getBusinessProfile(user.id);
 
     const conv = await prisma.conversation.create({
-      data: { userId: user.id, title: `Meeting: ${topic.slice(0, 50)}`, tool: "meeting", model },
+      data: { userId: user.id, title: `Meeting: ${topic.slice(0, 50)}`, tool: "meeting", model: "auto" },
     });
 
-    const prompt = buildMeetingPrompt(topic, agents);
+    const prompt = buildMeetingPrompt(topic, agents, businessContext);
     let fullTranscript = "";
 
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
-
         const agentColors = JSON.stringify(AGENT_COLORS);
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ meta: { agentColors, conversationId: conv.id } })}\n\n`));
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ meta: { agentColors, conversationId: conv.id, hasBusinessContext: !!businessContext } })}\n\n`));
 
         try {
-          await streamChat(
+          await routedStreamChat(
             [{ role: "user", content: prompt }],
-            "You are a meeting facilitator AI. Run structured business meetings with multiple AI agent personas.",
-            model,
+            "شما مجری جلسه هوش مصنوعی هستید که جلسات استراتژیک با چند ایجنت برگزار می‌کنید.",
             (text) => {
               fullTranscript += text;
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
-            }
+            },
+            (_provider) => {},
           );
 
           await prisma.message.create({
-            data: { conversationId: conv.id, role: "user", content: `Meeting Topic: ${topic}\nAgents: ${agents.join(", ")}` },
+            data: { conversationId: conv.id, role: "user", content: `موضوع جلسه: ${topic}\nایجنت‌ها: ${agents.join(", ")}` },
           });
           await prisma.message.create({
             data: { conversationId: conv.id, role: "assistant", content: fullTranscript },
@@ -109,7 +129,7 @@ export async function POST(req: NextRequest) {
           controller.close();
         } catch (err) {
           console.error("Meeting stream error:", err);
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "Meeting failed" })}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "جلسه با خطا مواجه شد" })}\n\n`));
           controller.close();
         }
       },

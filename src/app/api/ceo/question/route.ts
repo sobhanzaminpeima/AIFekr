@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { streamChat, getModelForPlan } from "@/lib/ai/claude";
+import { routedStreamChat } from "@/lib/ai/router";
 
 const SYSTEM_PROMPT = `You are an experienced CEO advisor and business strategist with 20+ years of experience leading Fortune 500 companies and scaling startups. You provide concise, actionable, executive-level advice.
 
@@ -38,8 +38,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Question is required" }, { status: 400 });
     }
 
-    const model = getModelForPlan(user.plan);
-
+    
     let convId = conversationId;
     if (!convId) {
       const conv = await prisma.conversation.create({
@@ -63,7 +62,7 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         const encoder = new TextEncoder();
         try {
-          await streamChat(apiMessages, SYSTEM_PROMPT, model, (text) => {
+          await routedStreamChat(apiMessages, SYSTEM_PROMPT, (text) => {
             fullResponse += text;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
           });

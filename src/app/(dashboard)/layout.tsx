@@ -11,22 +11,21 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const token = cookieStore.get("token")?.value;
 
   if (!token) redirect("/login");
-
   const payload = verifyToken(token);
   if (!payload) redirect("/login");
 
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { id: true, name: true, credits: true, plan: true, isBlocked: true },
+    select: { id: true, name: true, credits: true, plan: true, isBlocked: true, industryPackId: true },
   });
 
   if (!user || user.isBlocked) redirect("/login");
 
   const conversations = await prisma.conversation.findMany({
     where: { userId: user.id },
-    select: { id: true, title: true, updatedAt: true },
+    select: { id: true, title: true, updatedAt: true, projectId: true },
     orderBy: { updatedAt: "desc" },
-    take: 20,
+    take: 30,
   });
 
   return (

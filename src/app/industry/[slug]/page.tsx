@@ -4,37 +4,26 @@ import Link from "next/link";
 import { prisma } from "@/lib/db/prisma";
 import { verifyToken } from "@/lib/auth/jwt";
 import { getServerLang } from "@/lib/i18n/server";
+import ActivateButton from "@/components/industry/ActivateButton";
 
 export const dynamic = "force-dynamic";
 
 const strings = {
   fa: {
-    agents: "عوامل هوش مصنوعی",
-    agent: "عامل",
-    painPoints: "مشکلاتی که حل می‌کند",
-    outcomes: "نتایج مورد انتظار",
-    kpis: "شاخص‌های کلیدی داشبورد",
-    month: "در ماه",
-    activate: "فعال‌سازی بسته",
-    loginToActivate: "برای فعال‌سازی وارد شوید",
-    back: "← بازگشت به همه بسته‌ها",
-    gold: "طلایی",
-    pro: "حرفه‌ای",
-    registerFirst: "ثبت‌نام و فعال‌سازی",
+    agents: "عوامل هوش مصنوعی", agent: "عامل", painPoints: "مشکلاتی که حل می‌کند",
+    outcomes: "نتایج مورد انتظار", kpis: "شاخص‌های کلیدی داشبورد", month: "در ماه",
+    activate: "فعال‌سازی بسته", loginToActivate: "برای فعال‌سازی وارد شوید",
+    back: "← بازگشت به همه بسته‌ها", gold: "طلایی", pro: "حرفه‌ای",
+    registerFirst: "ثبت‌نام و فعال‌سازی", alreadyActive: "بسته شما فعال است",
+    goToBusiness: "رفتن به داشبورد کسب‌وکار",
   },
   en: {
-    agents: "AI Agents",
-    agent: "agents",
-    painPoints: "Problems It Solves",
-    outcomes: "Expected Outcomes",
-    kpis: "Dashboard KPIs",
-    month: "per month",
-    activate: "Activate Pack",
-    loginToActivate: "Login to Activate",
-    back: "← Back to All Packs",
-    gold: "Gold",
-    pro: "Professional",
-    registerFirst: "Register & Activate",
+    agents: "AI Agents", agent: "agents", painPoints: "Problems It Solves",
+    outcomes: "Expected Outcomes", kpis: "Dashboard KPIs", month: "per month",
+    activate: "Activate Pack", loginToActivate: "Login to Activate",
+    back: "← Back to All Packs", gold: "Gold", pro: "Professional",
+    registerFirst: "Register & Activate", alreadyActive: "Your pack is active",
+    goToBusiness: "Go to Business Dashboard",
   },
 };
 
@@ -48,10 +37,18 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;
   let userId: string | null = null;
+  let userPackId: string | null = null;
+
   if (token) {
     const payload = verifyToken(token);
-    if (payload) userId = payload.userId;
+    if (payload) {
+      userId = payload.userId;
+      const u = await prisma.user.findUnique({ where: { id: userId }, select: { industryPackId: true } });
+      userPackId = u?.industryPackId || null;
+    }
   }
+
+  const isCurrentPack = userPackId === pack.id;
 
   let agents: { name: string; role: string; description: string; icon: string }[] = [];
   let outcomes: { metric: string; description: string }[] = [];
@@ -107,7 +104,6 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
             </div>
           </div>
 
-          {/* Pain Points */}
           {painPoints.length > 0 && (
             <div className="rounded-2xl p-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
               <h2 className="text-xl font-bold mb-4" style={{ color: "var(--text-primary)" }}>{s.painPoints}</h2>
@@ -121,7 +117,6 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
             </div>
           )}
 
-          {/* Outcomes */}
           {outcomes.length > 0 && (
             <div className="rounded-2xl p-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
               <h2 className="text-xl font-bold mb-5" style={{ color: "var(--text-primary)" }}>{s.outcomes}</h2>
@@ -150,24 +145,30 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
             <div className="text-4xl font-bold mb-1" style={{ color: pack.color }}>${pack.price}</div>
             <div className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>{s.month}</div>
 
-            {userId ? (
-              <form action={`/api/packs/${pack.slug}`} method="POST">
-                <button type="submit" className="w-full py-3 rounded-xl font-semibold text-white transition-all"
+            {isCurrentPack ? (
+              <div>
+                <div className="mb-3 text-sm font-medium py-2 rounded-xl" style={{ background: `${pack.color}20`, color: pack.color }}>
+                  ✓ {s.alreadyActive}
+                </div>
+                <Link href="/business-doctor"
+                  className="block w-full py-3 rounded-xl font-semibold text-white text-center"
                   style={{ background: pack.color }}>
-                  {s.activate}
-                </button>
-              </form>
+                  {s.goToBusiness}
+                </Link>
+              </div>
+            ) : userId ? (
+              <ActivateButton slug={pack.slug} color={pack.color} label={s.activate} />
             ) : (
-              <Link href={`/register?pack=${pack.slug}`}
-                className="block w-full py-3 rounded-xl font-semibold text-white text-center transition-all mb-2"
-                style={{ background: pack.color }}>
-                {s.registerFirst}
-              </Link>
-            )}
-            {!userId && (
-              <Link href="/login" className="block text-sm mt-2" style={{ color: "var(--text-muted)" }}>
-                {s.loginToActivate}
-              </Link>
+              <>
+                <Link href={`/register?pack=${pack.slug}`}
+                  className="block w-full py-3 rounded-xl font-semibold text-white text-center mb-2"
+                  style={{ background: pack.color }}>
+                  {s.registerFirst}
+                </Link>
+                <Link href="/login" className="block text-sm mt-2" style={{ color: "var(--text-muted)" }}>
+                  {s.loginToActivate}
+                </Link>
+              </>
             )}
           </div>
 

@@ -296,3 +296,18 @@ model Company {
   industryPack IndustryPack?     @relation(fields: [industryPackId], references: [id])
   category     BusinessCategory? @relation(fields: [categoryId], references: [id])
 }
+
+/// Logged every time the AI router falls back to a different provider.
+/// Used by the admin panel to surface reliability issues.
+model ProviderFallbackLog {
+  id           String   @id @default(cuid())
+  /// Provider that failed (e.g. "claude", "openai")
+  fromProvider String
+  /// Provider that took over; null if all failed
+  toProvider   String?
+  /// Error or timeout message (truncated to 500 chars)
+  reason       String
+  /// Detected prompt category (code, math, general, …)
+  category     String   @default("general")
+  createdAt    DateTime @default(now())
+}
