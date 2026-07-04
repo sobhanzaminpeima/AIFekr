@@ -8,6 +8,7 @@ import CurrencySelector from "@/components/ui/CurrencySelector";
 import DemoChat from "@/components/landing/DemoChat";
 import Image from "next/image";
 import { Building2, UserPlus, Bot, Stethoscope, Crown, Search, Smartphone, Globe, Users, Package } from "lucide-react";
+import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -112,6 +113,7 @@ export default async function HomePage() {
   try {
     packs = await prisma.industryPack.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, take: 8 });
   } catch {}
+
 
   return (
     <div className="min-h-screen" dir={dir} style={{ background: "#0a0a0f", color: "#f5f5f5" }}>
@@ -261,6 +263,7 @@ export default async function HomePage() {
 
       {/* Footer */}
       <footer className="py-8 px-6 text-center text-sm" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.3)" }}>
+        <SocialFooterLinks />
         <p>{s.footer}</p>
       </footer>
     </div>

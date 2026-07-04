@@ -68,6 +68,9 @@ const SECTIONS = [
       { key: "contact_phone", label: "تلفن تماس", type: "text", default: "021-12345678" },
       { key: "contact_telegram", label: "آیدی تلگرام پشتیبانی", type: "text", default: "@aifekr_support" },
       { key: "contact_address", label: "آدرس", type: "text", default: "تهران، ایران" },
+      { key: "social_instagram", label: "لینک اینستاگرام", type: "text", default: "" },
+      { key: "social_telegram", label: "لینک کانال تلگرام", type: "text", default: "" },
+      { key: "social_youtube", label: "لینک یوتیوب", type: "text", default: "" },
     ],
   },
   {

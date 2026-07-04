@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { prisma } from "@/lib/db/prisma";
 import { Mail, Phone, MapPin, MessageCircle } from "lucide-react";
+import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +82,10 @@ export default async function ContactPage() {
           );
         })}
       </section>
+
+      <footer className="py-8 px-6 text-center" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <SocialFooterLinks />
+      </footer>
     </div>
   );
 }

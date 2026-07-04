@@ -13,6 +13,7 @@ import {
   FolderOpen, Folder, FolderPlus, X, Check, MoreHorizontal, Trash2, ArrowLeft, Zap,
 } from "lucide-react";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
+import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
 import CurrencySelector from "@/components/ui/CurrencySelector";
 import { useTranslation } from "@/lib/i18n";
 import { formatNumber } from "@/lib/utils/jalali";
@@ -424,6 +425,9 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
           )}
           <div className="flex gap-2">
             <LanguageSwitcher className="flex-1 justify-center" />
+            <ThemeSwitcher className="flex-1 justify-center" />
+          </div>
+          <div className="flex gap-2">
             <CurrencySelector className="flex-1 justify-center" />
           </div>
           <div className="flex gap-2">

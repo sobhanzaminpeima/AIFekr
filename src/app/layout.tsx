@@ -12,9 +12,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const cookieStore = await cookies();
   const lang = (cookieStore.get("lang")?.value === "en") ? "en" : "fa";
   const dir = lang === "en" ? "ltr" : "rtl";
+  const theme = (cookieStore.get("theme")?.value === "light") ? "light" : "dark";
 
   return (
-    <html lang={lang} dir={dir}>
+    <html lang={lang} dir={dir} data-theme={theme}>
       <body className="antialiased">
         {children}
         <Toaster

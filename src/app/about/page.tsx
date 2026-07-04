@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { prisma } from "@/lib/db/prisma";
 import { Sparkles, Target, Users, Rocket } from "lucide-react";
+import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -68,7 +69,7 @@ export default async function AboutPage() {
         ))}
       </section>
 
-      <section className="pb-24 px-6 text-center">
+      <section className="pb-16 px-6 text-center">
         <Link
           href="/register"
           className="inline-block px-10 py-4 rounded-2xl text-white font-bold text-lg transition-all hover:opacity-90"
@@ -77,6 +78,10 @@ export default async function AboutPage() {
           همین حالا رایگان شروع کن
         </Link>
       </section>
+
+      <footer className="py-8 px-6 text-center" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <SocialFooterLinks />
+      </footer>
     </div>
   );
 }
