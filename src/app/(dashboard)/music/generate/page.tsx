@@ -69,8 +69,15 @@ export default function MusicGeneratePage() {
     });
     const data = await res.json();
     if (!res.ok) { setStatus("failed"); setProgress(0); return toast.error(data.error || "خطا در تولید موزیک"); }
-    setPredictionId(data.predictionId);
     setMusicId(data.musicId);
+    if (data.status === "succeeded" && data.output) {
+      // Some providers (e.g. ElevenLabs) return the finished audio
+      // synchronously — no prediction to poll for.
+      setAudioUrl(data.output);
+      setStatus("succeeded");
+      return;
+    }
+    setPredictionId(data.predictionId);
     setStatus("polling");
   }
 
