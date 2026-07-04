@@ -122,6 +122,15 @@ export default function ChatInterface({ conversationId, systemPrompt, title }: {
             try {
               const parsed = JSON.parse(data);
               if (parsed.provider) setActiveProvider(parsed.provider);
+              if (parsed.reset) {
+                // Previous provider failed mid-response; server already
+                // discarded the partial text — clear it here too so the
+                // next provider's answer doesn't append onto a half one.
+                accumulated = "";
+                setMessages((prev) =>
+                  prev.map((m) => m.id === assistantId ? { ...m, content: "" } : m)
+                );
+              }
               if (parsed.error) throw new Error(parsed.error);
               if (parsed.text) {
                 accumulated += parsed.text;

@@ -76,7 +76,16 @@ export async function POST(req: NextRequest) {
               // Notify client which provider was selected
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ provider: provider.name })}\n\n`));
             },
-            model
+            model,
+            ({ partial }) => {
+              // Previous provider failed mid-response — discard whatever it
+              // already streamed so the next provider's answer isn't
+              // concatenated onto a half-finished one.
+              if (partial) {
+                assistantContent = "";
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ reset: true })}\n\n`));
+              }
+            }
           );
 
           // Save assistant message

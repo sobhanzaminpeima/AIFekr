@@ -2,6 +2,69 @@ import fs from "fs";
 import path from "path";
 import { PROVIDERS, getAvailableProviders, streamProvider, type ChatMessage, type Provider } from "./providers";
 
+const STALL_TIMEOUT_MS = 10_000; // 10s — applies to first token AND any gap between chunks
+
+/**
+ * Wraps streamProvider with a *rolling* inactivity timeout (resets on every
+ * chunk) so a provider that goes silent mid-response — not just before the
+ * first token — is caught and treated as a failure instead of hanging
+ * forever. Chunks are forwarded to onChunk live for real-time streaming;
+ * the thrown error carries a `partial` flag so the caller knows whether any
+ * text was already shown before this provider failed.
+ */
+async function streamWithStallGuard(
+  provider: Provider,
+  messages: ChatMessage[],
+  systemPrompt: string,
+  onChunk: (text: string) => void
+): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    let receivedAny = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const fail = (e: Error) => {
+      (e as Error & { partial?: boolean }).partial = receivedAny;
+      reject(e);
+    };
+
+    const arm = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        fail(
+          new Error(
+            receivedAny
+              ? `Timeout: stream stalled for ${STALL_TIMEOUT_MS / 1000}s mid-response`
+              : `Timeout: no token within ${STALL_TIMEOUT_MS / 1000}s`
+          )
+        );
+      }, STALL_TIMEOUT_MS);
+    };
+
+    arm();
+    streamProvider(provider, messages, systemPrompt, (text) => {
+      if (settled) return; // already timed out — ignore late chunks
+      receivedAny = true;
+      onChunk(text);
+      arm();
+    })
+      .then(() => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve();
+      })
+      .catch((err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        fail(err instanceof Error ? err : new Error(String(err)));
+      });
+  });
+}
+
 function getDisabledProviders(): Set<string> {
   try {
     const cfg = JSON.parse(fs.readFileSync(path.join(process.cwd(), "src/lib/ai/provider-config.json"), "utf-8"));
@@ -81,7 +144,16 @@ export async function routedStreamChat(
   systemPrompt: string,
   onChunk: (text: string) => void,
   onProviderSelected: (provider: Provider) => void,
-  userPreferredModel?: string
+  userPreferredModel?: string,
+  /**
+   * Fired when a provider fails *after* already streaming some chunks via
+   * onChunk, right before the next provider is tried with the same
+   * messages. Callers must use this to discard any partial text already
+   * shown to the user (reset their accumulator / tell the client to clear
+   * the message bubble) — otherwise the next provider's full response gets
+   * silently concatenated onto the previous provider's half-finished one.
+   */
+  onFallback?: (info: { from: Provider; partial: boolean }) => void
 ): Promise<Provider> {
   const message = messages[messages.length - 1]?.content ?? "";
   const primary = selectProvider(message, userPreferredModel);
@@ -89,10 +161,13 @@ export async function routedStreamChat(
 
   // Try primary
   try {
-    await streamProvider(primary, messages, systemPrompt, onChunk);
+    await streamWithStallGuard(primary, messages, systemPrompt, onChunk);
     return primary;
   } catch (err) {
-    console.warn(`[Router] ${primary.name} failed:`, err);
+    const error = err instanceof Error ? err : new Error(String(err));
+    const partial = (error as Error & { partial?: boolean }).partial ?? false;
+    console.warn(`[Router] ${primary.name} failed:`, error.message);
+    onFallback?.({ from: primary, partial });
   }
 
   // Fallback chain — try all other enabled providers
@@ -101,10 +176,13 @@ export async function routedStreamChat(
     try {
       console.log(`[Router] Falling back to ${fallback.name}`);
       onProviderSelected(fallback);
-      await streamProvider(fallback, messages, systemPrompt, onChunk);
+      await streamWithStallGuard(fallback, messages, systemPrompt, onChunk);
       return fallback;
     } catch (err) {
-      console.warn(`[Router] ${fallback.name} also failed:`, err);
+      const error = err instanceof Error ? err : new Error(String(err));
+      const partial = (error as Error & { partial?: boolean }).partial ?? false;
+      console.warn(`[Router] ${fallback.name} also failed:`, error.message);
+      onFallback?.({ from: fallback, partial });
     }
   }
 
