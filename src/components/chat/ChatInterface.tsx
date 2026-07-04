@@ -61,6 +61,28 @@ export default function ChatInterface({ conversationId, systemPrompt, title }: {
     return () => { window.speechSynthesis?.cancel(); };
   }, []);
 
+  // Load previous messages when opening an existing conversation
+  useEffect(() => {
+    if (!conversationId) return;
+    setCurrentConvId(conversationId);
+    setMessages([]);
+    fetch(`/api/chat/history?conversationId=${conversationId}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.messages?.length) {
+          setMessages(
+            data.messages.map((m: { id: string; role: "user" | "assistant"; content: string; timestamp: string }) => ({
+              id: m.id,
+              role: m.role,
+              content: m.content,
+              timestamp: new Date(m.timestamp),
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+  }, [conversationId]);
+
   async function sendMessage(text: string) {
     if (!text.trim() || streaming) return;
 
