@@ -44,6 +44,7 @@ model User {
   company           Company?
   ownedTeam         Team?              @relation("TeamOwner")
   teamMembership    TeamMember?
+  seoConnection     SeoConnection?
 
   @@index([industryPackId])
 }
@@ -351,6 +352,24 @@ model GeneratedWebsite {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+/// Lets the SEO agent actually apply changes instead of only suggesting
+/// them. "aifekr" needs no credentials (writes GeneratedWebsite.htmlCode
+/// directly); "wordpress" needs a site URL + an Application Password the
+/// user generates in wp-admin (never their real account password);
+/// "other" has no auto-apply path — the agent only outputs recommendations.
+model SeoConnection {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  platform      String // "wordpress" | "aifekr" | "other"
+  siteUrl       String?
+  wpUsername    String?
+  wpAppPassword String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model IndustryPack {
