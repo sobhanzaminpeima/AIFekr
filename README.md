@@ -12,7 +12,7 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-38bdf8?logo=tailwindcss)](https://tailwindcss.com)
 [![Multi-Provider AI](https://img.shields.io/badge/AI-Multi--Provider_Router-ea580c)](#ai-router)
 
-**[🌐 Live Demo](http://185.81.96.229:3000)**
+**[🌐 Live Demo](https://aifekr.com/)**
 
 </div>
 
