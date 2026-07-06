@@ -302,7 +302,7 @@ export default function SocialPage() {
           <button onClick={generateIgPost} disabled={igGenerating || !form.brandName || !form.topic}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50 mb-4" style={{ background: "var(--primary)" }}>
             {igGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-            تولید پست + ۵ هشتگ ویروسی (از فرم بالا)
+            تولید پست + ۵ هشتگ پرتعامل (از فرم بالا)
           </button>
 
           {igCaption && (

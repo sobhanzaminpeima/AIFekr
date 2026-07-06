@@ -4,7 +4,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { routedStreamChat } from "@/lib/ai/router";
 
-const SYSTEM = `شما یک استراتژیست شبکه‌های اجتماعی حرفه‌ای هستید. پست‌های جذاب، ویروسی و بهینه برای هر پلتفرم می‌نویسید. پاسخ‌ها را به زبانی که کاربر مشخص می‌کند بنویسید.`;
+const SYSTEM = `شما یک استراتژیست شبکه‌های اجتماعی حرفه‌ای هستید. پست‌های جذاب، پرتعامل و بهینه برای هر پلتفرم می‌نویسید. پاسخ‌ها را به زبانی که کاربر مشخص می‌کند بنویسید.`;
 
 function buildPrompt(data: { brandName: string; topic: string; platform: string; tone: string; hashtags: boolean; emojis: boolean; language?: string; industry?: string; targetAudience?: string }) {
   const lang = data.language || "fa";
