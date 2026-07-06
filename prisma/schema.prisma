@@ -45,6 +45,8 @@ model User {
   ownedTeam         Team?              @relation("TeamOwner")
   teamMembership    TeamMember?
   seoConnection     SeoConnection?
+  instagramConn     InstagramConnection?
+  scheduledPosts    ScheduledPost[]
 
   @@index([industryPackId])
 }
@@ -359,6 +361,46 @@ model GeneratedWebsite {
 /// directly); "wordpress" needs a site URL + an Application Password the
 /// user generates in wp-admin (never their real account password);
 /// "other" has no auto-apply path — the agent only outputs recommendations.
+/// One Instagram Business account per user, linked via Facebook OAuth
+/// (Instagram Graph API requires a Business/Creator account connected to a
+/// Facebook Page — there's no way around that, it's a Meta platform rule).
+model InstagramConnection {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  igUserId     String
+  igUsername   String?
+  pageId       String
+  accessToken  String
+  tokenExpiry  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// A generated Instagram post queued to go out. mode="auto" actually calls
+/// the Instagram Graph API at scheduledFor (gated to PRO/TEAM plans —
+/// see src/lib/utils/planGates.ts); mode="manual" just sits here so the
+/// user can copy the caption/hashtags and post it themselves.
+model ScheduledPost {
+  id            String    @id @default(cuid())
+  userId        String
+  caption       String
+  hashtags      String
+  imageUrl      String?
+  scheduledFor  DateTime
+  mode          String // "auto" | "manual"
+  status        String    @default("PENDING") // PENDING | PUBLISHED | FAILED
+  igMediaId     String?
+  errorMessage  String?
+  createdAt     DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status, scheduledFor])
+}
+
 model SeoConnection {
   id            String   @id @default(cuid())
   userId        String   @unique
