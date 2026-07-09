@@ -16,6 +16,9 @@ import StepGrid from "@/components/landing/StepGrid";
 import PackGrid from "@/components/landing/PackGrid";
 import FeatureGrid from "@/components/landing/FeatureGrid";
 import FinalCta from "@/components/landing/FinalCta";
+import StatsBar from "@/components/landing/StatsBar";
+import PricingSection from "@/components/landing/PricingSection";
+import FaqSection from "@/components/landing/FaqSection";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +60,26 @@ const STR = {
     ctaDesc: "همین الان بسته صنعتی خود را انتخاب کنید و عوامل AI را به کار بگیرید",
     ctaButton: "شروع رایگان — همین الان",
     footer: "© ۲۰۲۵ AiFekr — پلتفرم هوش مصنوعی کسب‌وکار",
+    stats: [
+      { label: "ایجنت فعال", value: "۱۷" },
+      { label: "بسته صنعتی", value: "۸" },
+      { label: "آپتایم", value: "٪۹۹.۹" },
+      { label: "کاربر فعال", value: "+۱۰۰۰" },
+    ],
+    pricingTitle: "قیمت‌گذاری شفاف",
+    pricingSubtitle: "بدون هزینه پنهان — همه چیز روشن است",
+    popularLabel: "محبوب‌ترین",
+    freeLabel: "رایگان",
+    perMonth: "تومان/ماه",
+    viewAllPricing: "مشاهده همه پکیج‌ها ←",
+    faqTitle: "سوالات متداول",
+    faqSubtitle: "پاسخ سوالات رایج شما اینجاست",
+    faqs: [
+      { q: "آیا نیاز به نصب چیزی هست؟", a: "خیر، AiFekr کاملاً تحت وب است و روی هر مرورگری اجرا می‌شود." },
+      { q: "آیا داده‌های من امن هستند؟", a: "بله، تمام داده‌ها رمزنگاری شده و مطابق استانداردهای امنیتی نگهداری می‌شوند." },
+      { q: "می‌توانم بسته را تغییر دهم؟", a: "بله، هر زمان می‌توانید بسته خود را ارتقا یا تغییر دهید." },
+      { q: "آیا پشتیبانی فارسی دارید؟", a: "بله، تیم پشتیبانی به زبان فارسی در دسترس شماست." },
+    ],
   },
   en: {
     brand: "AiFekr",
@@ -95,6 +118,26 @@ const STR = {
     ctaDesc: "Choose your industry pack now and deploy your AI agents",
     ctaButton: "Get Started Free — Now",
     footer: "© 2025 AiFekr — AI Platform for Business",
+    stats: [
+      { label: "Active Agents", value: "17" },
+      { label: "Industry Packs", value: "8" },
+      { label: "Uptime", value: "99.9%" },
+      { label: "Active Users", value: "1,000+" },
+    ],
+    pricingTitle: "Transparent Pricing",
+    pricingSubtitle: "No hidden fees — everything is clear",
+    popularLabel: "Most Popular",
+    freeLabel: "Free",
+    perMonth: "/mo",
+    viewAllPricing: "View All Packages →",
+    faqTitle: "Frequently Asked Questions",
+    faqSubtitle: "Answers to common questions",
+    faqs: [
+      { q: "Do I need to install anything?", a: "No, AiFekr is fully web-based and runs in any browser." },
+      { q: "Is my data secure?", a: "Yes, all data is encrypted and stored according to security standards." },
+      { q: "Can I change my plan?", a: "Yes, you can upgrade or change your plan at any time." },
+      { q: "Do you offer support?", a: "Yes, our support team is available to help." },
+    ],
   },
 };
 
@@ -117,6 +160,24 @@ export default async function HomePage() {
   try {
     packs = await prisma.industryPack.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, take: 8 });
   } catch {}
+
+  let packages: { planCode: string; name: string; nameEn: string; price: number; credits: number; features: string; isFeatured: boolean; color: string }[] = [];
+  try {
+    packages = await prisma.package.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, take: 3 });
+  } catch {}
+  const pricingPlans = packages.map((p) => {
+    let features: string[] = [];
+    try { features = JSON.parse(p.features); } catch {}
+    return {
+      planCode: p.planCode,
+      name: lang === "fa" ? p.name : p.nameEn,
+      price: p.price,
+      credits: p.credits,
+      features,
+      isFeatured: p.isFeatured,
+      color: p.color,
+    };
+  });
 
 
   return (
@@ -149,6 +210,13 @@ export default async function HomePage() {
           ctaStart={s.ctaStart}
           ctaViewPacks={s.ctaViewPacks}
         />
+      </section>
+
+      {/* Stats */}
+      <section className="px-6 pb-20">
+        <Reveal>
+          <StatsBar stats={s.stats} />
+        </Reveal>
       </section>
 
       {/* Demo Chat */}
@@ -192,6 +260,38 @@ export default async function HomePage() {
             <h2 className="text-3xl font-bold text-center mb-12">{s.featuresTitle}</h2>
           </Reveal>
           <FeatureGrid features={s.features} />
+        </div>
+      </section>
+
+      {/* Pricing */}
+      {pricingPlans.length > 0 && (
+        <section className="py-20 px-6" style={{ background: "rgba(255,255,255,0.02)" }}>
+          <div className="max-w-5xl mx-auto">
+            <Reveal>
+              <h2 className="text-3xl font-bold text-center mb-4">{s.pricingTitle}</h2>
+              <p className="text-center mb-12" style={{ color: "rgba(255,255,255,0.5)" }}>{s.pricingSubtitle}</p>
+            </Reveal>
+            <PricingSection
+              plans={pricingPlans}
+              popularLabel={s.popularLabel}
+              freeLabel={s.freeLabel}
+              perMonth={s.perMonth}
+              startButton={s.navRegister}
+              viewAll={s.viewAllPricing}
+              viewAllHref="/register"
+            />
+          </div>
+        </section>
+      )}
+
+      {/* FAQ */}
+      <section className="py-20 px-6">
+        <div className="max-w-2xl mx-auto">
+          <Reveal>
+            <h2 className="text-3xl font-bold text-center mb-4">{s.faqTitle}</h2>
+            <p className="text-center mb-12" style={{ color: "rgba(255,255,255,0.5)" }}>{s.faqSubtitle}</p>
+          </Reveal>
+          <FaqSection faqs={s.faqs} />
         </div>
       </section>
 
