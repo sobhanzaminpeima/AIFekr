@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
-import { sendOTP } from "@/lib/sms/kavenegar";
+import { sendOTP } from "@/lib/sms/smsir";
 
 // شماره‌های تست — همیشه کد 1234
 const TEST_PHONES = ["09000000000", "09000000001", "09000000002"];
