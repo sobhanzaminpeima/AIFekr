@@ -9,6 +9,8 @@ import DemoChat from "@/components/landing/DemoChat";
 import Image from "next/image";
 import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
 import AnimatedNavbar from "@/components/landing/AnimatedNavbar";
+import NavLink, { NavCta } from "@/components/landing/NavLink";
+import MobileMenu from "@/components/landing/MobileMenu";
 import HeroBackground from "@/components/landing/HeroBackground";
 import HeroContent from "@/components/landing/HeroContent";
 import Reveal from "@/components/landing/Reveal";
@@ -19,6 +21,7 @@ import FinalCta from "@/components/landing/FinalCta";
 import StatsBar from "@/components/landing/StatsBar";
 import PricingSection from "@/components/landing/PricingSection";
 import FaqSection from "@/components/landing/FaqSection";
+import AiTeamTeaser from "@/components/landing/AiTeamTeaser";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +83,11 @@ const STR = {
       { q: "می‌توانم بسته را تغییر دهم؟", a: "بله، هر زمان می‌توانید بسته خود را ارتقا یا تغییر دهید." },
       { q: "آیا پشتیبانی فارسی دارید؟", a: "بله، تیم پشتیبانی به زبان فارسی در دسترس شماست." },
     ],
+    aiTeamEyebrow: "جدید — سیستم‌عامل هوشمند کسب‌وکار",
+    aiTeamTitle: "یک تیم کامل از عامل‌های هوش مصنوعی برای کسب‌وکارتان",
+    aiTeamDesc: "۸ عامل تخصصی که با هم مقاله می‌نویسند و منتشر می‌کنند، به‌علاوه یک مدیرعامل هوش مصنوعی که وضعیت کل کسب‌وکار را تحلیل و اولویت‌بندی می‌کند — با حافظهٔ مشترک و جستجوی زندهٔ وب.",
+    aiTeamAgents: ["ایده‌یاب", "استراتژیست", "پژوهشگر", "نویسنده", "ویراستار", "متخصص سئو", "ناشر", "منتقد"],
+    aiTeamCta: "مشاهدهٔ کامل سیستم",
   },
   en: {
     brand: "AiFekr",
@@ -138,6 +146,11 @@ const STR = {
       { q: "Can I change my plan?", a: "Yes, you can upgrade or change your plan at any time." },
       { q: "Do you offer support?", a: "Yes, our support team is available to help." },
     ],
+    aiTeamEyebrow: "New — Autonomous Business Operating System",
+    aiTeamTitle: "A full team of AI agents working for your business",
+    aiTeamDesc: "8 specialized agents that write and publish articles together, plus an AI CEO that analyzes and prioritizes your whole business — with shared memory and live web research.",
+    aiTeamAgents: ["Idea Finder", "Strategist", "Researcher", "Writer", "Editor", "SEO Expert", "Publisher", "Critic"],
+    aiTeamCta: "See the full system",
   },
 };
 
@@ -166,8 +179,16 @@ export default async function HomePage() {
     packages = await prisma.package.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, take: 3 });
   } catch {}
   const pricingPlans = packages.map((p) => {
+    // Package.features is stored as plain newline-separated text (see admin
+    // package editor), not JSON — parse accordingly, with a JSON fallback
+    // in case any row was ever entered as a JSON array.
     let features: string[] = [];
-    try { features = JSON.parse(p.features); } catch {}
+    const raw = p.features?.trim() || "";
+    if (raw.startsWith("[")) {
+      try { features = JSON.parse(raw); } catch {}
+    } else if (raw) {
+      features = raw.split("\n").map((f) => f.trim()).filter(Boolean);
+    }
     return {
       planCode: p.planCode,
       name: lang === "fa" ? p.name : p.nameEn,
@@ -184,19 +205,43 @@ export default async function HomePage() {
     <div className="min-h-screen" dir={dir} style={{ background: "#0a0a0f", color: "#f5f5f5" }}>
       {/* Navbar */}
       <AnimatedNavbar>
-        <div className="flex items-center gap-2">
-          <Image src="/logo.svg" alt="AiFekr" width={32} height={32} className="rounded-lg" />
-          <span className="font-bold text-lg text-white">AiFekr</span>
+        <Link href="/" className="flex items-center gap-2.5 group shrink-0">
+          <div className="relative">
+            <div
+              className="absolute inset-0 rounded-lg blur-md opacity-0 group-hover:opacity-60 transition-opacity duration-300"
+              style={{ background: "linear-gradient(135deg, #ea580c, #f97316)" }}
+            />
+            <Image src="/logo.svg" alt="AiFekr" width={32} height={32} className="relative rounded-lg transition-transform duration-300 group-hover:rotate-6 group-hover:scale-105" />
+          </div>
+          <span
+            className="font-extrabold text-lg tracking-tight bg-clip-text text-transparent"
+            style={{ backgroundImage: "linear-gradient(135deg, #ffffff, #d4d4d8)" }}
+          >
+            AiFekr
+          </span>
+        </Link>
+        <div className="hidden md:flex items-center gap-1">
+          <NavLink href="/industry">{s.navPacks}</NavLink>
+          <NavLink href="/about">درباره ما</NavLink>
+          <NavLink href="/contact">تماس با ما</NavLink>
+          <NavLink href="/login">{s.navLogin}</NavLink>
         </div>
-        <div className="flex items-center gap-2">
-          <Link href="/industry" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{s.navPacks}</Link>
-          <Link href="/about" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>درباره ما</Link>
-          <Link href="/contact" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>تماس با ما</Link>
-          <Link href="/login" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{s.navLogin}</Link>
-          <Link href="/register" className="text-sm px-4 py-2 rounded-xl font-medium text-white transition-all" style={{ background: "#ea580c" }}>{s.navRegister}</Link>
+        <div className="hidden md:flex items-center gap-2">
+          <div className="w-px h-5 mx-1" style={{ background: "rgba(255,255,255,0.1)" }} />
           <CurrencySelector />
           <LanguageSwitcher />
+          <NavCta href="/register">{s.navRegister}</NavCta>
         </div>
+        <MobileMenu
+          items={[
+            { href: "/industry", label: s.navPacks },
+            { href: "/about", label: "درباره ما" },
+            { href: "/contact", label: "تماس با ما" },
+            { href: "/login", label: s.navLogin },
+          ]}
+          ctaHref="/register"
+          ctaLabel={s.navRegister}
+        />
       </AnimatedNavbar>
 
       {/* Hero */}
@@ -260,6 +305,20 @@ export default async function HomePage() {
             <h2 className="text-3xl font-bold text-center mb-12">{s.featuresTitle}</h2>
           </Reveal>
           <FeatureGrid features={s.features} />
+        </div>
+      </section>
+
+      {/* AI Team / Business OS teaser */}
+      <section className="py-20 px-6">
+        <div className="max-w-4xl mx-auto">
+          <AiTeamTeaser
+            eyebrow={s.aiTeamEyebrow}
+            title={s.aiTeamTitle}
+            desc={s.aiTeamDesc}
+            agentNames={s.aiTeamAgents}
+            ctaLabel={s.aiTeamCta}
+            ctaHref="/ai-team"
+          />
         </div>
       </section>
 

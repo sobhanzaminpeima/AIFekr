@@ -3,6 +3,13 @@ export interface ChatMessage {
   content: string;
 }
 
+// Some providers (Google, Groq, Cohere, OpenRouter) block requests from this
+// server's IP at the network level (returns bare 403s even with no API key,
+// on unrelated endpoints — not an auth/quota issue). RELAY_BASE_URL points
+// at a small nginx reverse-proxy on a non-blocked VPS that forwards to the
+// real provider hosts. Falls back to the real host directly if unset.
+const RELAY_BASE_URL = process.env.AI_RELAY_BASE_URL || "";
+
 export interface Provider {
   id: string;
   name: string;
@@ -12,6 +19,15 @@ export interface Provider {
   apiKey: string;
   strengths: string[];
   maxTokens: number;
+  /**
+   * Hard ceiling this provider/model/account can actually accept for
+   * max_tokens — callers requesting long-form output (maxTokensOverride)
+   * get clamped to this rather than erroring outright. Defaults to
+   * `maxTokens` when unset. Free-tier models often reject (not just
+   * truncate) requests above their real cap — e.g. Cohere's Command R7B
+   * hard-errors above 4096, Groq enforces a tokens-per-minute budget.
+   */
+  maxOutputCeiling?: number;
   creditCost: number;
 }
 
@@ -26,6 +42,7 @@ export const PROVIDERS: Provider[] = [
     apiKey: process.env.ANTHROPIC_API_KEY || "",
     strengths: ["code", "reasoning", "creative", "general", "complex", "business"],
     maxTokens: 4096,
+    maxOutputCeiling: 8192,
     creditCost: 3,
   },
   {
@@ -37,6 +54,7 @@ export const PROVIDERS: Provider[] = [
     apiKey: process.env.GITHUB_TOKEN_GPT5 || "",
     strengths: ["code", "reasoning", "creative", "general", "complex"],
     maxTokens: 4096,
+    maxOutputCeiling: 8192,
     creditCost: 5,
   },
   {
@@ -48,6 +66,7 @@ export const PROVIDERS: Provider[] = [
     apiKey: process.env.GITHUB_TOKEN_DEEPSEEK || "",
     strengths: ["code", "math", "reasoning", "technical"],
     maxTokens: 4096,
+    maxOutputCeiling: 8192,
     creditCost: 2,
   },
   {
@@ -59,6 +78,7 @@ export const PROVIDERS: Provider[] = [
     apiKey: process.env.DEEPSEEK_API_KEY || "",
     strengths: ["code", "math", "general"],
     maxTokens: 4096,
+    maxOutputCeiling: 8192,
     creditCost: 2,
   },
   {
@@ -66,7 +86,7 @@ export const PROVIDERS: Provider[] = [
     name: "OpenRouter (Gemini 2.5 Pro)",
     provider: "openrouter",
     model: "google/gemini-2.5-pro-preview",
-    baseURL: "https://openrouter.ai/api/v1",
+    baseURL: RELAY_BASE_URL ? `${RELAY_BASE_URL}/openrouter/api/v1` : "https://openrouter.ai/api/v1",
     apiKey: process.env.OPENROUTER_API_KEY || "",
     strengths: ["creative", "general", "translation", "multimodal"],
     maxTokens: 3000,
@@ -77,10 +97,11 @@ export const PROVIDERS: Provider[] = [
     name: "Gemini 2.0 Flash",
     provider: "google",
     model: "gemini-2.0-flash",
-    baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+    baseURL: RELAY_BASE_URL ? `${RELAY_BASE_URL}/gemini/v1beta/openai` : "https://generativelanguage.googleapis.com/v1beta/openai",
     apiKey: process.env.GEMINI_API_KEY || "",
     strengths: ["creative", "translation", "factual", "fast"],
     maxTokens: 4096,
+    maxOutputCeiling: 8192,
     creditCost: 1,
   },
   {
@@ -92,10 +113,14 @@ export const PROVIDERS: Provider[] = [
     name: "Groq (Llama 3.3 70B, free tier)",
     provider: "groq",
     model: "llama-3.3-70b-versatile",
-    baseURL: "https://api.groq.com/openai/v1",
+    baseURL: RELAY_BASE_URL ? `${RELAY_BASE_URL}/groq/openai/v1` : "https://api.groq.com/openai/v1",
     apiKey: process.env.GROQ_API_KEY || "",
     strengths: ["general", "fast"],
     maxTokens: 4096,
+    // Groq enforces a 12,000 tokens-per-minute budget shared across prompt
+    // + completion (not a flat per-request cap) — 9000 leaves headroom for
+    // the prompt itself while still being enough to finish a full page.
+    maxOutputCeiling: 9000,
     creditCost: 1,
   },
   {
@@ -106,7 +131,7 @@ export const PROVIDERS: Provider[] = [
     name: "Cohere (Command R7B, free tier)",
     provider: "cohere",
     model: "command-r7b-12-2024",
-    baseURL: "https://api.cohere.ai/compatibility/v1",
+    baseURL: RELAY_BASE_URL ? `${RELAY_BASE_URL}/cohere/compatibility/v1` : "https://api.cohere.ai/compatibility/v1",
     apiKey: process.env.COHERE_API_KEY || "",
     strengths: ["general", "fast"],
     maxTokens: 4096,
@@ -127,7 +152,8 @@ export async function streamOpenAICompat(
   provider: Provider,
   messages: ChatMessage[],
   systemPrompt: string,
-  onChunk: (text: string) => void
+  onChunk: (text: string) => void,
+  maxTokensOverride?: number
 ): Promise<void> {
   const body = JSON.stringify({
     model: provider.model,
@@ -136,7 +162,7 @@ export async function streamOpenAICompat(
       ...messages,
     ],
     stream: true,
-    max_tokens: provider.maxTokens,
+    max_tokens: maxTokensOverride ? Math.min(maxTokensOverride, provider.maxOutputCeiling ?? provider.maxTokens) : provider.maxTokens,
     temperature: 0.7,
   });
 
@@ -198,7 +224,8 @@ async function streamAnthropic(
   provider: Provider,
   messages: ChatMessage[],
   systemPrompt: string,
-  onChunk: (text: string) => void
+  onChunk: (text: string) => void,
+  maxTokensOverride?: number
 ): Promise<void> {
   const res = await fetch(`${provider.baseURL}/messages`, {
     method: "POST",
@@ -209,7 +236,7 @@ async function streamAnthropic(
     },
     body: JSON.stringify({
       model: provider.model,
-      max_tokens: provider.maxTokens,
+      max_tokens: maxTokensOverride ? Math.min(maxTokensOverride, provider.maxOutputCeiling ?? provider.maxTokens) : provider.maxTokens,
       temperature: 0.7,
       system: systemPrompt,
       messages,
@@ -258,11 +285,12 @@ export async function streamProvider(
   provider: Provider,
   messages: ChatMessage[],
   systemPrompt: string,
-  onChunk: (text: string) => void
+  onChunk: (text: string) => void,
+  maxTokensOverride?: number
 ): Promise<void> {
   if (provider.provider === "anthropic") {
-    await streamAnthropic(provider, messages, systemPrompt, onChunk);
+    await streamAnthropic(provider, messages, systemPrompt, onChunk, maxTokensOverride);
     return;
   }
-  await streamOpenAICompat(provider, messages, systemPrompt, onChunk);
+  await streamOpenAICompat(provider, messages, systemPrompt, onChunk, maxTokensOverride);
 }

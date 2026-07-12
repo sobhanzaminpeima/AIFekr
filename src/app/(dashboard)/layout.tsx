@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { verifyToken } from "@/lib/auth/jwt";
 import { prisma } from "@/lib/db/prisma";
 import Sidebar from "@/components/layout/Sidebar";
+import MobileNavShell from "@/components/layout/MobileNavShell";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
@@ -13,6 +14,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!token) redirect("/login");
   const payload = verifyToken(token);
   if (!payload) redirect("/login");
+
+  const lang = (cookieStore.get("lang")?.value === "en") ? "en" : "fa";
 
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
@@ -39,13 +42,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "var(--surface-0)" }}>
-      <Sidebar
-        user={{ ...user, credits: displayCredits }}
-        conversations={conversations.map((c) => ({ ...c, updatedAt: c.updatedAt.toISOString() }))}
-      />
-      <main className="flex-1 overflow-y-auto">
+      <MobileNavShell
+        lang={lang}
+        sidebar={
+          <Sidebar
+            user={{ ...user, credits: displayCredits }}
+            conversations={conversations.map((c) => ({ ...c, updatedAt: c.updatedAt.toISOString() }))}
+          />
+        }
+      >
         {children}
-      </main>
+      </MobileNavShell>
     </div>
   );
 }

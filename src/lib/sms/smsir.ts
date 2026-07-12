@@ -12,7 +12,7 @@ export async function sendSMS(receptor: string, message: string): Promise<boolea
 
   const res = await fetch(`${BASE}/send/bulk`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-API-KEY": API_KEY },
+    headers: { "Content-Type": "application/json; charset=utf-8", "X-API-KEY": API_KEY, Accept: "application/json" },
     body: JSON.stringify({
       lineNumber: Number(LINE_NUMBER),
       messageText: message,

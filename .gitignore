@@ -47,3 +47,6 @@ prisma/prisma/
 
 # OS
 Thumbs.db
+
+# local docs / backups / investor materials (not for the repo)
+/docs/

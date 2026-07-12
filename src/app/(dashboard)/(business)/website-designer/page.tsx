@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { Globe, Copy, Check, Download } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Globe, Copy, Check, Download, Code2, Eye, History, ExternalLink } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+
+interface SavedSite { id: string; businessName: string; createdAt: string; sizeKB: number; }
 
 const SECTIONS = ["Hero", "About", "Services", "Pricing", "Testimonials", "FAQ", "Contact", "Blog"];
 const GOALS = [
@@ -33,6 +35,17 @@ export default function WebsiteDesignerPage() {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
+  const [view, setView] = useState<"preview" | "code">("preview");
+  const [error, setError] = useState("");
+  const [savedSites, setSavedSites] = useState<SavedSite[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/website-designer/list")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.sites) setSavedSites(d.sites); })
+      .catch(() => {});
+  }, []);
 
   function toggleSection(s: string) {
     setForm((prev) => ({
@@ -42,9 +55,18 @@ export default function WebsiteDesignerPage() {
   }
 
   function extractHtml(text: string) {
-    const match = text.match(/```html\n([\s\S]*?)```/);
-    return match ? match[1] : null;
+    // Prefer a fully-closed ```html ... ``` block, but a response that got
+    // cut off mid-stream (hit the model's token limit) never emits the
+    // closing fence — fall back to "everything after the opening fence" so
+    // the user still gets a preview/download instead of only raw text.
+    const closed = text.match(/```html\n([\s\S]*?)```/);
+    if (closed) return closed[1];
+    const openOnly = text.match(/```html\n([\s\S]*)/);
+    return openOnly ? openOnly[1] : null;
   }
+
+  const html = useMemo(() => extractHtml(result), [result]);
+  const isTruncated = !!html && !loading && !html.trim().toLowerCase().endsWith("</html>");
 
   function downloadHtml() {
     const html = extractHtml(result);
@@ -62,7 +84,9 @@ export default function WebsiteDesignerPage() {
     if (!form.businessName || !form.industry) return;
     setLoading(true);
     setResult("");
+    setError("");
     setStep(2);
+    setView("preview");
 
     try {
       const res = await fetch("/api/website-designer/generate", {
@@ -70,8 +94,13 @@ export default function WebsiteDesignerPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
+      if (!res.ok) {
+        setError("خطا در ارتباط با سرور. لطفاً دوباره تلاش کنید.");
+        return;
+      }
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
+      let gotAnyText = false;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -81,11 +110,22 @@ export default function WebsiteDesignerPage() {
           if (data === "[DONE]") break;
           try {
             const p = JSON.parse(data);
-            if (p.text) setResult((prev) => prev + p.text);
+            if (p.text) { setResult((prev) => prev + p.text); gotAnyText = true; }
+            if (p.error) setError("خطا در تولید وبسایت. سرویس‌های هوش مصنوعی موقتاً در دسترس نیستند — لطفاً چند دقیقه دیگر دوباره تلاش کنید.");
           } catch {}
         }
       }
-    } catch (err) { console.error(err); }
+      if (!gotAnyText) setError((prev) => prev || "پاسخی از سرور دریافت نشد. لطفاً دوباره تلاش کنید.");
+      else {
+        fetch("/api/website-designer/list")
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => { if (d?.sites) setSavedSites(d.sites); })
+          .catch(() => {});
+      }
+    } catch (err) {
+      console.error(err);
+      setError("خطا در ارتباط با سرور. لطفاً دوباره تلاش کنید.");
+    }
     finally { setLoading(false); }
   }
 
@@ -93,15 +133,68 @@ export default function WebsiteDesignerPage() {
     <div className="min-h-screen p-6" style={{ background: "var(--surface-0)" }}>
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "rgba(20,184,166,0.15)" }}>
-            <Globe className="w-6 h-6 text-teal-400" />
+        <div className="flex items-center justify-between gap-3 mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "rgba(20,184,166,0.15)" }}>
+              <Globe className="w-6 h-6 text-teal-400" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>عامل طراح وبسایت</h1>
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>طراحی وبسایت کامل و آماده انتشار با هوش مصنوعی</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>عامل طراح وبسایت</h1>
-            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>طراحی وبسایت کامل و آماده انتشار با هوش مصنوعی</p>
-          </div>
+          <button
+            onClick={() => setHistoryOpen((v) => !v)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium"
+            style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
+          >
+            <History className="w-3.5 h-3.5" />
+            وبسایت‌های ذخیره‌شده ({savedSites.length})
+          </button>
         </div>
+
+        {historyOpen && (
+          <div className="mb-8 rounded-2xl overflow-hidden" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+            {savedSites.length === 0 ? (
+              <p className="text-sm p-5 text-center" style={{ color: "var(--text-muted)" }}>هنوز وبسایتی ذخیره نکرده‌اید</p>
+            ) : (
+              <ul>
+                {savedSites.map((s, i) => (
+                  <li
+                    key={s.id}
+                    className="flex items-center justify-between px-4 py-3"
+                    style={{ borderTop: i > 0 ? "1px solid var(--border)" : undefined }}
+                  >
+                    <div>
+                      <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{s.businessName}</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                        {new Date(s.createdAt).toLocaleDateString("fa-IR")} · {s.sizeKB} KB
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={`/api/website-designer/${s.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs"
+                        style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" /> پیش‌نمایش
+                      </a>
+                      <a
+                        href={`/api/website-designer/${s.id}?download=1`}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs"
+                        style={{ background: "rgba(234,88,12,0.15)", color: "var(--primary)" }}
+                      >
+                        <Download className="w-3.5 h-3.5" /> دانلود
+                      </a>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
         {/* Step indicators */}
         <div className="flex items-center gap-3 mb-6">
@@ -209,9 +302,29 @@ export default function WebsiteDesignerPage() {
         )}
 
         {step === 2 && (
-          <div className="rounded-2xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             <div className="flex items-center justify-between p-4" style={{ borderBottom: "1px solid var(--border)" }}>
-              <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>وبسایت تولید شده</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>وبسایت تولید شده</h2>
+                {html && (
+                  <div className="flex items-center gap-1 rounded-lg p-1 mr-2" style={{ background: "var(--surface-2)" }}>
+                    <button
+                      onClick={() => setView("preview")}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all"
+                      style={{ background: view === "preview" ? "var(--primary)" : "transparent", color: view === "preview" ? "white" : "var(--text-secondary)" }}
+                    >
+                      <Eye className="w-3.5 h-3.5" /> پیش‌نمایش
+                    </button>
+                    <button
+                      onClick={() => setView("code")}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all"
+                      style={{ background: view === "code" ? "var(--primary)" : "transparent", color: view === "code" ? "white" : "var(--text-secondary)" }}
+                    >
+                      <Code2 className="w-3.5 h-3.5" /> کد
+                    </button>
+                  </div>
+                )}
+              </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => { navigator.clipboard.writeText(result); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
@@ -221,7 +334,7 @@ export default function WebsiteDesignerPage() {
                   {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
                   {copied ? "کپی شد" : "کپی کد"}
                 </button>
-                {extractHtml(result) && (
+                {html && (
                   <button
                     onClick={downloadHtml}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs"
@@ -233,17 +346,54 @@ export default function WebsiteDesignerPage() {
                 )}
               </div>
             </div>
-            <div className="p-6">
-              {loading && !result && (
-                <div className="flex items-center gap-3 py-8 justify-center">
-                  <span className="w-5 h-5 border-2 border-orange-500/30 border-t-orange-500 rounded-full animate-spin" />
-                  <span className="text-sm" style={{ color: "var(--text-secondary)" }}>در حال طراحی وبسایت شما...</span>
-                </div>
-              )}
-              <div className="prose prose-invert max-w-none text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
-                <ReactMarkdown>{result}</ReactMarkdown>
+
+            {loading && !result && !error && (
+              <div className="flex items-center gap-3 py-16 justify-center">
+                <span className="w-5 h-5 border-2 border-orange-500/30 border-t-orange-500 rounded-full animate-spin" />
+                <span className="text-sm" style={{ color: "var(--text-secondary)" }}>در حال طراحی وبسایت شما...</span>
               </div>
-            </div>
+            )}
+
+            {error && (
+              <div className="flex flex-col items-center gap-3 py-16 px-6 text-center">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "rgba(239,68,68,0.15)" }}>
+                  <span className="text-2xl">⚠️</span>
+                </div>
+                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{error}</p>
+                <button
+                  onClick={generate}
+                  className="mt-2 px-4 py-2 rounded-xl text-sm font-medium text-white"
+                  style={{ background: "var(--primary)" }}
+                >
+                  تلاش مجدد
+                </button>
+              </div>
+            )}
+
+            {isTruncated && (
+              <div className="flex items-center gap-2 px-4 py-2.5 text-xs" style={{ background: "rgba(234,179,8,0.1)", color: "#eab308", borderBottom: "1px solid var(--border)" }}>
+                <span>⚠️</span>
+                <span>پاسخ ناقص دریافت شد (ممکن است سرویس هوش مصنوعی وسط کار قطع شده باشد). می‌توانید همین نسخه را دانلود/کپی کنید یا دوباره تلاش کنید.</span>
+              </div>
+            )}
+
+            {html && view === "preview" ? (
+              <iframe
+                srcDoc={html}
+                title="پیش‌نمایش وبسایت"
+                sandbox="allow-scripts"
+                className="w-full"
+                style={{ height: "70vh", border: "none", background: "white" }}
+              />
+            ) : (
+              result && (
+                <div className="p-6">
+                  <div className="prose prose-invert max-w-none text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
+                    <ReactMarkdown>{result}</ReactMarkdown>
+                  </div>
+                </div>
+              )
+            )}
           </div>
         )}
       </div>

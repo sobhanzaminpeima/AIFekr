@@ -16,7 +16,8 @@ async function streamWithStallGuard(
   provider: Provider,
   messages: ChatMessage[],
   systemPrompt: string,
-  onChunk: (text: string) => void
+  onChunk: (text: string) => void,
+  maxTokensOverride?: number
 ): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     let settled = false;
@@ -49,7 +50,7 @@ async function streamWithStallGuard(
       receivedAny = true;
       onChunk(text);
       arm();
-    })
+    }, maxTokensOverride)
       .then(() => {
         if (settled) return;
         settled = true;
@@ -153,7 +154,9 @@ export async function routedStreamChat(
    * the message bubble) — otherwise the next provider's full response gets
    * silently concatenated onto the previous provider's half-finished one.
    */
-  onFallback?: (info: { from: Provider; partial: boolean }) => void
+  onFallback?: (info: { from: Provider; partial: boolean }) => void,
+  /** Override each provider's default max_tokens — use for long-form generation (e.g. full website HTML) that would otherwise get truncated. */
+  maxTokensOverride?: number
 ): Promise<Provider> {
   const message = messages[messages.length - 1]?.content ?? "";
   const primary = selectProvider(message, userPreferredModel);
@@ -161,7 +164,7 @@ export async function routedStreamChat(
 
   // Try primary
   try {
-    await streamWithStallGuard(primary, messages, systemPrompt, onChunk);
+    await streamWithStallGuard(primary, messages, systemPrompt, onChunk, maxTokensOverride);
     return primary;
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
@@ -176,7 +179,7 @@ export async function routedStreamChat(
     try {
       console.log(`[Router] Falling back to ${fallback.name}`);
       onProviderSelected(fallback);
-      await streamWithStallGuard(fallback, messages, systemPrompt, onChunk);
+      await streamWithStallGuard(fallback, messages, systemPrompt, onChunk, maxTokensOverride);
       return fallback;
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));

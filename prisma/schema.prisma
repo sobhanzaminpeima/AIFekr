@@ -27,6 +27,8 @@ model User {
   googleId       String?   @unique
   /// How this account authenticates: "password" | "google"
   authProvider   String    @default("password")
+  /// If true, the CEO orchestrator runs automatically once a day (via cron) and emails a digest — opt-in, off by default.
+  ceoAutoRunEnabled Boolean @default(false)
 
   conversations     Conversation[]
   projects          Project[]
@@ -47,6 +49,10 @@ model User {
   seoConnection     SeoConnection?
   instagramConn     InstagramConnection?
   scheduledPosts    ScheduledPost[]
+  pipelineRuns      ContentPipelineRun[]
+  agentLessons      ContentAgentLesson[]
+  contentPosts      ContentPost[]
+  businessMemories  BusinessMemory[]
 
   @@index([industryPackId])
 }
@@ -491,4 +497,107 @@ model ProviderFallbackLog {
 
   @@index([createdAt])
   @@index([fromProvider])
+}
+
+/// One end-to-end run of the 8-agent content pipeline (ideaFinder → strategist →
+/// researcher → writer → editor → seo → publisher → critic) for a single topic.
+model ContentPipelineRun {
+  id          String   @id @default(cuid())
+  userId      String
+  topic       String
+  brandVoice  String?
+  /// "running" | "done" | "failed"
+  status      String   @default("running")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user  User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  steps ContentPipelineStep[]
+  post  ContentPost?
+
+  @@index([userId])
+}
+
+/// Output of a single agent within one pipeline run. A writer/editor
+/// back-and-forth produces multiple rows with the same agentKey and
+/// increasing `attempt`.
+model ContentPipelineStep {
+  id        String   @id @default(cuid())
+  runId     String
+  /// "ideaFinder" | "strategist" | "researcher" | "writer" | "editor" | "seo" | "publisher" | "critic"
+  agentKey  String
+  attempt   Int      @default(1)
+  /// "running" | "done" | "failed"
+  status    String   @default("running")
+  input     String
+  output    String?
+  /// Editor's 0-100 quality score, only set for agentKey="editor"
+  score     Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  run ContentPipelineRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+}
+
+/// Persistent, accumulating feedback for one agent role — written by the
+/// critic agent after a run, or manually by a user. Injected into that
+/// agent's system prompt on every future run so the pipeline improves
+/// over time.
+model ContentAgentLesson {
+  id        String   @id @default(cuid())
+  userId    String
+  agentKey  String
+  text      String
+  /// "critic" | "user"
+  source    String   @default("critic")
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, agentKey])
+}
+
+/// Shared, cross-tool knowledge base for the CEO orchestrator — written by
+/// the CEO agent after each analysis, or manually by the user. This is what
+/// lets "the system remember" across CEO runs instead of starting from zero
+/// each time, same pattern as ContentAgentLesson but business-wide rather
+/// than scoped to one agent role.
+model BusinessMemory {
+  id        String   @id @default(cuid())
+  userId    String
+  /// "sales" | "content" | "seo" | "social" | "general"
+  category  String   @default("general")
+  text      String
+  /// "ceo" | "user"
+  source    String   @default("ceo")
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, category])
+}
+
+/// A published blog post produced by the pipeline.
+model ContentPost {
+  id           String   @id @default(cuid())
+  userId       String
+  runId        String   @unique
+  title        String
+  content      String
+  metaTitle    String
+  metaDescription String
+  slug         String
+  keywords     String
+  publishedAt  DateTime @default(now())
+  /// "not_published" | "published" | "failed" — result of publishing to the user's connected WordPress site
+  externalStatus String @default("not_published")
+  externalUrl    String?
+  externalError  String?
+
+  user User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  run  ContentPipelineRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

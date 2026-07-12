@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Crown, Send, TrendingUp, DollarSign, Swords, Users, Package, AlertTriangle } from "lucide-react";
+import { Crown, Send, TrendingUp, DollarSign, Swords, Users, Package, AlertTriangle, LayoutDashboard } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import Link from "next/link";
 
 const CATEGORIES = [
   { key: "growth", label: "رشد", icon: TrendingUp, color: "#10b981" },
@@ -138,14 +139,24 @@ export default function CEOPage() {
       {/* Main chat area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="p-4 flex items-center gap-3" style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-1)" }}>
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(234,88,12,0.15)" }}>
-            <Crown className="w-5 h-5" style={{ color: "var(--primary)" }} />
+        <div className="p-4 flex items-center justify-between gap-3" style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-1)" }}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(234,88,12,0.15)" }}>
+              <Crown className="w-5 h-5" style={{ color: "var(--primary)" }} />
+            </div>
+            <div>
+              <h1 className="font-bold" style={{ color: "var(--text-primary)" }}>مرکز فرماندهی مدیرعامل</h1>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>مشاور استراتژیک هوش مصنوعی — ۲۰+ سال تجربه</p>
+            </div>
           </div>
-          <div>
-            <h1 className="font-bold" style={{ color: "var(--text-primary)" }}>مرکز فرماندهی مدیرعامل</h1>
-            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>مشاور استراتژیک هوش مصنوعی — ۲۰+ سال تجربه</p>
-          </div>
+          <Link
+            href="/ceo/orchestrator"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium flex-shrink-0"
+            style={{ background: "rgba(234,88,12,0.15)", color: "var(--primary)" }}
+          >
+            <LayoutDashboard className="w-3.5 h-3.5" />
+            هماهنگ‌کنندهٔ کسب‌وکار (وضعیت کل ابزارها)
+          </Link>
         </div>
 
         {/* Messages */}

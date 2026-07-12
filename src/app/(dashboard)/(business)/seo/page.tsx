@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Search, Globe, FileText, Tag, Copy, Check, ExternalLink, Zap, Loader2, Link2 } from "lucide-react";
+import { Search, Globe, FileText, Tag, Copy, Check, ExternalLink, Zap, Loader2, Link2, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
+import Link from "next/link";
 import { useTranslation } from "@/lib/i18n";
 
 type Tab = "url" | "keyword" | "content" | "meta";
@@ -151,9 +152,19 @@ export default function SEOPage() {
 
   return (
     <div className="flex flex-col h-full p-4 gap-4 max-w-4xl mx-auto w-full">
-      <div>
-        <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{t.seo.title}</h1>
-        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{t.seo.description}</p>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{t.seo.title}</h1>
+          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{t.seo.description}</p>
+        </div>
+        <Link
+          href="/seo/agent-pipeline"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium flex-shrink-0"
+          style={{ background: "rgba(234,88,12,0.15)", color: "var(--primary)" }}
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          خط تولید محتوای هوشمند (۸ Agent)
+        </Link>
       </div>
 
       <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
