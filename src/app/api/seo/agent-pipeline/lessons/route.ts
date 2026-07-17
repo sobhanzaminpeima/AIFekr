@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
+import { embedForStorage } from "@/lib/rag/retrieve";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -22,8 +23,9 @@ export async function POST(req: NextRequest) {
   const { agentKey, text } = await req.json();
   if (!agentKey || !text?.trim()) return NextResponse.json({ error: "ورودی نامعتبر" }, { status: 400 });
 
+  const embedding = await embedForStorage(text.trim());
   const lesson = await prisma.contentAgentLesson.create({
-    data: { userId: user.id, agentKey, text: text.trim(), source: "user" },
+    data: { userId: user.id, agentKey, text: text.trim(), source: "user", embedding },
   });
   return NextResponse.json({ lesson });
 }

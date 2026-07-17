@@ -5,6 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { CREDIT_COSTS } from "@/lib/utils/credits";
 import { getAvailableCredits, deductCredits } from "@/lib/utils/teamCredits";
+import { getLimitsForPlan } from "@/lib/utils/planLimits";
 import { generateImages, generateImagesHQ } from "@/lib/ai/fal";
 import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
 
@@ -23,11 +24,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `اعتبار کافی ندارید. نیاز به ${creditCost} اعتبار دارید` }, { status: 402 });
     }
 
-    // Check monthly limit for FREE plan
-    if (user.plan === "FREE") {
+    // Check monthly limit for the user's plan (admin-editable, /admin/usage — -1 means unlimited)
+    const planLimit = await getLimitsForPlan(user.plan);
+    if (planLimit.monthlyImages !== -1) {
       const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
       const monthlyImages = await prisma.generatedImage.count({ where: { userId: user.id, createdAt: { gte: monthStart } } });
-      if (monthlyImages >= 5) return NextResponse.json({ error: "سقف ۵ تصویر ماهانه پلن رایگان تمام شد" }, { status: 402 });
+      if (monthlyImages >= planLimit.monthlyImages) {
+        return NextResponse.json({ error: `سقف ${planLimit.monthlyImages} تصویر ماهانهٔ پلن شما تمام شد` }, { status: 402 });
+      }
     }
 
     // Generate via fal.ai

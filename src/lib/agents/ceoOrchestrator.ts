@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { routedStreamChat } from "@/lib/ai/router";
 import { buildBusinessSnapshot, BusinessSnapshot } from "@/lib/agents/businessSnapshot";
 import { hasTavily, searchWeb, formatSearchResultsForPrompt } from "@/lib/search/tavily";
+import { embedForStorage } from "@/lib/rag/retrieve";
 
 const SYSTEM = `تو "مدیرعامل" (CEO) یک سیستم چندعامله (multi-agent) هستی که وضعیت واقعی کسب‌وکار کاربر را از چند ابزار مختلف (دکتر کسب‌وکار، تولید محتوا، شبکه‌های اجتماعی، CRM فروش، آمار مصرف و درآمد، پایداری سرویس پلتفرم، و در صورت وجود، جستجوی زندهٔ وب برای بازار و رقبا) دریافت می‌کنی.
 وظیفهٔ تو: بر اساس این داده‌های واقعی و حافظهٔ مشترک تجمیع‌شده از تحلیل‌های قبلی، مشخص کن الان چه چیزی بیشترین نیاز به توجه دارد و چه تصمیماتی باید گرفته شود.
@@ -79,7 +80,8 @@ export async function runCeoAnalysis(userId: string, onChunk: (text: string) => 
   for (const line of memLines) {
     const m = /^\[(\w+)\]\s*(.+)/.exec(line);
     if (m) {
-      await prisma.businessMemory.create({ data: { userId, category: m[1], text: m[2].trim(), source: "ceo" } });
+      const embedding = await embedForStorage(m[2].trim());
+      await prisma.businessMemory.create({ data: { userId, category: m[1], text: m[2].trim(), source: "ceo", embedding } });
     }
   }
 

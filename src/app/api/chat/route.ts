@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
 
     let assistantContent = "";
     let selectedProvider: Provider | null = null;
+    let tokensUsed: number | null = null;
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -84,6 +85,10 @@ export async function POST(req: NextRequest) {
                 assistantContent = "";
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({ reset: true })}\n\n`));
               }
+            },
+            undefined,
+            (usage) => {
+              tokensUsed = usage.totalTokens;
             }
           );
 
@@ -102,6 +107,7 @@ export async function POST(req: NextRequest) {
               userId: user.id,
               type: "chat",
               model: selectedProvider?.model ?? model ?? "auto",
+              tokens: tokensUsed,
               credits: CREDIT_COSTS.chat,
             },
           });

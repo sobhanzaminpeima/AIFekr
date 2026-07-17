@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { rankByRelevance } from "@/lib/rag/retrieve";
 
 /** Aggregates real, existing data across every AiFekr tool for one user — shared by the on-demand API route and the autonomous cron job. */
 export async function buildBusinessSnapshot(userId: string) {
@@ -20,7 +21,7 @@ export async function buildBusinessSnapshot(userId: string) {
     prisma.socialPost.count({ where: { userId } }),
     prisma.crmContact.findMany({ where: { userId, status: { in: ["lead", "contacted"] } }, orderBy: { updatedAt: "desc" }, take: 10, select: { id: true, name: true, phone: true, status: true, lastContact: true, company: true } }),
     prisma.crmContact.count({ where: { userId } }),
-    prisma.businessMemory.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 30 }),
+    prisma.businessMemory.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 60 }),
     prisma.payment.aggregate({ where: { userId, status: "SUCCESS", createdAt: { gte: thirtyDaysAgo } }, _sum: { amount: true } }).catch(() => ({ _sum: { amount: 0 } })),
     prisma.usageLog.count({ where: { userId, createdAt: { gte: thirtyDaysAgo } } }).catch(() => 0),
     prisma.providerFallbackLog.count({ where: { createdAt: { gte: thirtyDaysAgo } } }).catch(() => 0),
@@ -33,6 +34,18 @@ export async function buildBusinessSnapshot(userId: string) {
     }).catch(() => [] as { fromProvider: string; _count: { fromProvider: number } }[]),
   ]);
 
+  // Re-rank the memory candidates against what's actually happening in this
+  // snapshot (business identity, recent content, follow-up load) instead of
+  // always sending whichever 30 memories happen to be newest — keeps the
+  // CEO prompt focused on memories relevant to today, not just recent ones.
+  const relevanceQuery = [
+    latestAnalysis?.businessName,
+    latestAnalysis?.industry,
+    ...latestPosts.map((p) => p.title),
+    leadsNeedingFollowUp.length > 0 ? "پیگیری فروش لیدها" : "",
+  ].filter(Boolean).join(" — ");
+  const relevantMemories = relevanceQuery ? await rankByRelevance(memories, relevanceQuery, 15) : memories.slice(0, 15);
+
   return {
     businessDoctor: { totalAnalyses: analysisCount, latest: latestAnalysis ? { businessName: latestAnalysis.businessName, industry: latestAnalysis.industry, createdAt: latestAnalysis.createdAt } : null },
     content: { totalPosts: postCount, latest: latestPosts },
@@ -44,7 +57,7 @@ export async function buildBusinessSnapshot(userId: string) {
       platformProviderIssuesLast30d: fallbackIssues30d,
       providerFailureBreakdown: fallbackBreakdown30d.map((f) => ({ provider: f.fromProvider, failures: f._count.fromProvider })),
     },
-    memories,
+    memories: relevantMemories,
   };
 }
 

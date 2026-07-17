@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, CreditCard, DollarSign, Bot, Wrench,
   Activity, Settings, LogOut, Sparkles, Shield, MessageSquare,
   HelpCircle, Package, UserCog, Database, Cpu, Contact,
-  ChevronDown, Factory, Building2, Tag, Clock, Globe,
+  ChevronDown, Factory, Building2, Tag, Clock, Globe, Coins,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -37,6 +37,7 @@ const navGroups = [
     label: "هوش مصنوعی",
     items: [
       { icon: Cpu, label: "مدیریت LLM", href: "/admin/llm" },
+      { icon: Coins, label: "مصرف و هزینه", href: "/admin/usage" },
       { icon: Wrench, label: "ابزارها", href: "/admin/tools" },
     ],
   },

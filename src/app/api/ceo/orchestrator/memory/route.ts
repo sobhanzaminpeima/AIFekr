@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
+import { embedForStorage } from "@/lib/rag/retrieve";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -15,8 +16,9 @@ export async function POST(req: NextRequest) {
   if (!user) return unauthorizedResponse();
   const { category, text } = await req.json();
   if (!text?.trim()) return NextResponse.json({ error: "متن الزامی است" }, { status: 400 });
+  const embedding = await embedForStorage(text.trim());
   const memory = await prisma.businessMemory.create({
-    data: { userId: user.id, category: category || "general", text: text.trim(), source: "user" },
+    data: { userId: user.id, category: category || "general", text: text.trim(), source: "user", embedding },
   });
   return NextResponse.json({ memory });
 }

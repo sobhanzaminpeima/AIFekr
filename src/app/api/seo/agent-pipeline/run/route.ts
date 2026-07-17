@@ -10,6 +10,7 @@ import {
 } from "@/lib/agents/contentPipeline";
 import { markdownToHtml } from "@/lib/utils/markdownToHtml";
 import { hasTavily, searchWeb, formatSearchResultsForPrompt } from "@/lib/search/tavily";
+import { rankByRelevance, embedForStorage } from "@/lib/rag/retrieve";
 
 interface PublishResult { status: "not_published" | "published" | "failed"; url: string | null; error: string | null }
 
@@ -56,13 +57,18 @@ async function runAgent(
 ): Promise<string> {
   send({ type: "agentStart", agentKey: key, attempt });
 
-  const lessonRows = await prisma.contentAgentLesson.findMany({
+  // Pull a larger recency-capped window, then re-rank by semantic relevance
+  // to this specific input (e.g. "write about X") instead of always using
+  // whichever 5 lessons happen to be newest — a lesson about pricing pages
+  // shouldn't crowd out one about listicles when the topic today is neither.
+  const lessonCandidates = await prisma.contentAgentLesson.findMany({
     where: { userId, agentKey: key },
     orderBy: { createdAt: "desc" },
-    take: 5,
-    select: { text: true },
+    take: 30,
+    select: { text: true, embedding: true, createdAt: true },
   });
-  const lessons = lessonRows.map((r) => r.text);
+  const relevantLessons = await rankByRelevance(lessonCandidates, input, 5);
+  const lessons = relevantLessons.map((r) => r.text);
 
   const step = await prisma.contentPipelineStep.create({
     data: { runId, agentKey: key, attempt, input, status: "running" },
@@ -189,7 +195,8 @@ export async function POST(req: NextRequest) {
           const agentKey = FA_TO_AGENT_KEY[faLabel.trim()];
           const text = rest.join(":").trim();
           if (agentKey && text) {
-            await prisma.contentAgentLesson.create({ data: { userId: user.id, agentKey, text, source: "critic" } });
+            const embedding = await embedForStorage(text);
+            await prisma.contentAgentLesson.create({ data: { userId: user.id, agentKey, text, source: "critic", embedding } });
           }
         }
 

@@ -3,6 +3,12 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
 // Some providers (Google, Groq, Cohere, OpenRouter) block requests from this
 // server's IP at the network level (returns bare 403s even with no API key,
 // on unrelated endpoints — not an auth/quota issue). RELAY_BASE_URL points
@@ -154,7 +160,7 @@ export async function streamOpenAICompat(
   systemPrompt: string,
   onChunk: (text: string) => void,
   maxTokensOverride?: number
-): Promise<void> {
+): Promise<TokenUsage | null> {
   const body = JSON.stringify({
     model: provider.model,
     messages: [
@@ -162,6 +168,7 @@ export async function streamOpenAICompat(
       ...messages,
     ],
     stream: true,
+    stream_options: { include_usage: true },
     max_tokens: maxTokensOverride ? Math.min(maxTokensOverride, provider.maxOutputCeiling ?? provider.maxTokens) : provider.maxTokens,
     temperature: 0.7,
   });
@@ -193,6 +200,7 @@ export async function streamOpenAICompat(
 
   const decoder = new TextDecoder();
   let buffer = "";
+  let usage: TokenUsage | null = null;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -206,17 +214,25 @@ export async function streamOpenAICompat(
       const trimmed = line.trim();
       if (!trimmed.startsWith("data: ")) continue;
       const data = trimmed.slice(6);
-      if (data === "[DONE]") return;
+      if (data === "[DONE]") return usage;
 
       try {
         const parsed = JSON.parse(data);
         const delta = parsed.choices?.[0]?.delta?.content;
         if (delta) onChunk(delta);
+        if (parsed.usage) {
+          usage = {
+            promptTokens: parsed.usage.prompt_tokens ?? 0,
+            completionTokens: parsed.usage.completion_tokens ?? 0,
+            totalTokens: parsed.usage.total_tokens ?? 0,
+          };
+        }
       } catch {
         // skip malformed chunks
       }
     }
   }
+  return usage;
 }
 
 // ─── Anthropic (native Messages API — not OpenAI-compatible) ────────────────
@@ -226,7 +242,7 @@ async function streamAnthropic(
   systemPrompt: string,
   onChunk: (text: string) => void,
   maxTokensOverride?: number
-): Promise<void> {
+): Promise<TokenUsage | null> {
   const res = await fetch(`${provider.baseURL}/messages`, {
     method: "POST",
     headers: {
@@ -254,6 +270,8 @@ async function streamAnthropic(
 
   const decoder = new TextDecoder();
   let buffer = "";
+  let inputTokens = 0;
+  let outputTokens = 0;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -272,12 +290,19 @@ async function streamAnthropic(
         const parsed = JSON.parse(data);
         if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
           onChunk(parsed.delta.text);
+        } else if (parsed.type === "message_start" && parsed.message?.usage?.input_tokens) {
+          inputTokens = parsed.message.usage.input_tokens;
+        } else if (parsed.type === "message_delta" && parsed.usage?.output_tokens) {
+          outputTokens = parsed.usage.output_tokens;
         }
       } catch {
         // skip malformed chunks
       }
     }
   }
+
+  if (!inputTokens && !outputTokens) return null;
+  return { promptTokens: inputTokens, completionTokens: outputTokens, totalTokens: inputTokens + outputTokens };
 }
 
 // ─── Unified stream entry point ──────────────────────────────────────────────
@@ -287,10 +312,9 @@ export async function streamProvider(
   systemPrompt: string,
   onChunk: (text: string) => void,
   maxTokensOverride?: number
-): Promise<void> {
+): Promise<TokenUsage | null> {
   if (provider.provider === "anthropic") {
-    await streamAnthropic(provider, messages, systemPrompt, onChunk, maxTokensOverride);
-    return;
+    return streamAnthropic(provider, messages, systemPrompt, onChunk, maxTokensOverride);
   }
-  await streamOpenAICompat(provider, messages, systemPrompt, onChunk, maxTokensOverride);
+  return streamOpenAICompat(provider, messages, systemPrompt, onChunk, maxTokensOverride);
 }

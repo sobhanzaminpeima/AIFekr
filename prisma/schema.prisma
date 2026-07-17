@@ -552,6 +552,10 @@ model ContentAgentLesson {
   text      String
   /// "critic" | "user"
   source    String   @default("critic")
+  /// JSON-stringified embedding vector for semantic retrieval (RAG) — null
+  /// if embedding generation failed or hasn't run yet; retrieval falls back
+  /// to recency ordering for rows without one.
+  embedding String?
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -572,6 +576,10 @@ model BusinessMemory {
   text      String
   /// "ceo" | "user"
   source    String   @default("ceo")
+  /// JSON-stringified embedding vector for semantic retrieval (RAG) — null
+  /// if embedding generation failed or hasn't run yet; retrieval falls back
+  /// to recency ordering for rows without one.
+  embedding String?
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { generateVideo } from "@/lib/ai/replicate";
 import { CREDIT_COSTS } from "@/lib/utils/credits";
 import { getAvailableCredits, deductCredits } from "@/lib/utils/teamCredits";
+import { getLimitsForPlan } from "@/lib/utils/planLimits";
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
@@ -21,8 +22,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `اعتبار کافی ندارید. نیاز به ${creditCost} اعتبار دارید` }, { status: 402 });
     }
 
-    if (user.plan === "FREE") {
-      return NextResponse.json({ error: "تولید ویدیو برای پلن رایگان در دسترس نیست" }, { status: 402 });
+    const planLimit = await getLimitsForPlan(user.plan);
+    if (planLimit.monthlyVideos !== -1) {
+      if (planLimit.monthlyVideos === 0) {
+        return NextResponse.json({ error: "تولید ویدیو برای پلن شما در دسترس نیست" }, { status: 402 });
+      }
+      const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      const monthlyVideos = await prisma.generatedVideo.count({ where: { userId: user.id, createdAt: { gte: monthStart } } });
+      if (monthlyVideos >= planLimit.monthlyVideos) {
+        return NextResponse.json({ error: `سقف ${planLimit.monthlyVideos} ویدیو ماهانهٔ پلن شما تمام شد` }, { status: 402 });
+      }
     }
 
     const { predictionId, status } = await generateVideo({ prompt, duration: duration as any, ratio, style });

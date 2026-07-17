@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { PROVIDERS, getAvailableProviders, streamProvider, type ChatMessage, type Provider } from "./providers";
+import { PROVIDERS, getAvailableProviders, streamProvider, type ChatMessage, type Provider, type TokenUsage } from "./providers";
 
 const STALL_TIMEOUT_MS = 10_000; // 10s — applies to first token AND any gap between chunks
 
@@ -18,8 +18,8 @@ async function streamWithStallGuard(
   systemPrompt: string,
   onChunk: (text: string) => void,
   maxTokensOverride?: number
-): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
+): Promise<TokenUsage | null> {
+  return new Promise<TokenUsage | null>((resolve, reject) => {
     let settled = false;
     let receivedAny = false;
     let timer: ReturnType<typeof setTimeout>;
@@ -51,11 +51,11 @@ async function streamWithStallGuard(
       onChunk(text);
       arm();
     }, maxTokensOverride)
-      .then(() => {
+      .then((usage) => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        resolve();
+        resolve(usage);
       })
       .catch((err) => {
         if (settled) return;
@@ -156,7 +156,9 @@ export async function routedStreamChat(
    */
   onFallback?: (info: { from: Provider; partial: boolean }) => void,
   /** Override each provider's default max_tokens — use for long-form generation (e.g. full website HTML) that would otherwise get truncated. */
-  maxTokensOverride?: number
+  maxTokensOverride?: number,
+  /** Fired once with real prompt/completion token counts, when the provider that succeeded reports usage. Not every provider returns usage on every request (e.g. no output at all) — in that case this is never called and callers should treat tokens as unknown, not zero. */
+  onUsage?: (usage: TokenUsage) => void
 ): Promise<Provider> {
   const message = messages[messages.length - 1]?.content ?? "";
   const primary = selectProvider(message, userPreferredModel);
@@ -164,7 +166,8 @@ export async function routedStreamChat(
 
   // Try primary
   try {
-    await streamWithStallGuard(primary, messages, systemPrompt, onChunk, maxTokensOverride);
+    const usage = await streamWithStallGuard(primary, messages, systemPrompt, onChunk, maxTokensOverride);
+    if (usage) onUsage?.(usage);
     return primary;
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
@@ -179,7 +182,8 @@ export async function routedStreamChat(
     try {
       console.log(`[Router] Falling back to ${fallback.name}`);
       onProviderSelected(fallback);
-      await streamWithStallGuard(fallback, messages, systemPrompt, onChunk, maxTokensOverride);
+      const usage = await streamWithStallGuard(fallback, messages, systemPrompt, onChunk, maxTokensOverride);
+      if (usage) onUsage?.(usage);
       return fallback;
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
