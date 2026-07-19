@@ -2,7 +2,12 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Send, Square, Paperclip, RotateCcw, Copy, ThumbsUp, ThumbsDown, Bot, User, Sparkles, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
+import {
+  Send, Square, Paperclip, RotateCcw, Copy, ThumbsUp, ThumbsDown,
+  Bot, User, Sparkles, Mic, MicOff, Volume2, VolumeX,
+  ChevronDown, Briefcase, TrendingUp, DollarSign, ShoppingCart,
+  Rocket, Scale, Users,
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
 import { useTranslation } from "@/lib/i18n";
@@ -11,14 +16,26 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  displayContent: string;
+  suggestions: string[];
   timestamp: Date;
 }
+
+const EXPERT_MODES = [
+  { id: "default",   labelFa: "دستیار کسب‌وکار",  labelEn: "Business AI",     icon: Sparkles,     color: "#ea580c" },
+  { id: "business",  labelFa: "دکتر کسب‌وکار",     labelEn: "Business Doctor", icon: Briefcase,    color: "#3b82f6" },
+  { id: "marketing", labelFa: "بازاریابی",          labelEn: "Marketing",       icon: TrendingUp,   color: "#10b981" },
+  { id: "financial", labelFa: "مالی و سرمایه",      labelEn: "Financial",       icon: DollarSign,   color: "#f59e0b" },
+  { id: "sales",     labelFa: "فروش",               labelEn: "Sales",           icon: ShoppingCart, color: "#8b5cf6" },
+  { id: "startup",   labelFa: "استارتاپ",           labelEn: "Startup",         icon: Rocket,       color: "#ef4444" },
+  { id: "legal",     labelFa: "حقوقی",              labelEn: "Legal",           icon: Scale,        color: "#06b6d4" },
+  { id: "hr",        labelFa: "منابع انسانی",       labelEn: "HR & People",     icon: Users,        color: "#d97706" },
+];
 
 const MODEL_IDS = [
   { id: "auto", key: "auto" as const, plan: "FREE" },
 ];
 
-// Extend Window type for SpeechRecognition
 declare global {
   interface Window {
     SpeechRecognition: new () => SpeechRecognition;
@@ -26,7 +43,27 @@ declare global {
   }
 }
 
-export default function ChatInterface({ conversationId, systemPrompt, title }: { conversationId?: string; systemPrompt?: string; title?: string }) {
+function parseSuggestions(content: string): { displayContent: string; suggestions: string[] } {
+  const match = content.match(/<SUGGESTIONS>([\s\S]*?)<\/SUGGESTIONS>/);
+  if (!match) return { displayContent: content, suggestions: [] };
+  const displayContent = content.replace(/<SUGGESTIONS>[\s\S]*?<\/SUGGESTIONS>/g, "").trimEnd();
+  try {
+    const suggestions = JSON.parse(match[1]);
+    return { displayContent, suggestions: Array.isArray(suggestions) ? suggestions.slice(0, 5) : [] };
+  } catch {
+    return { displayContent, suggestions: [] };
+  }
+}
+
+export default function ChatInterface({
+  conversationId,
+  systemPrompt,
+  title,
+}: {
+  conversationId?: string;
+  systemPrompt?: string;
+  title?: string;
+}) {
   const { t, lang } = useTranslation();
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -35,9 +72,9 @@ export default function ChatInterface({ conversationId, systemPrompt, title }: {
   const [selectedModel, setSelectedModel] = useState(MODEL_IDS[0].id);
   const [currentConvId, setCurrentConvId] = useState(conversationId);
   const [activeProvider, setActiveProvider] = useState<string | null>(null);
-  // Voice input state
+  const [expertMode, setExpertMode] = useState("default");
+  const [showModeMenu, setShowModeMenu] = useState(false);
   const [listening, setListening] = useState(false);
-  // Voice output state — which message id is currently being spoken
   const [speakingId, setSpeakingId] = useState<string | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -46,6 +83,7 @@ export default function ChatInterface({ conversationId, systemPrompt, title }: {
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   const isRtl = lang === "fa";
+  const currentMode = EXPERT_MODES.find((m) => m.id === expertMode) || EXPERT_MODES[0];
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -58,12 +96,10 @@ export default function ChatInterface({ conversationId, systemPrompt, title }: {
     }
   }, [input]);
 
-  // Stop speech synthesis on unmount or lang change
   useEffect(() => {
     return () => { window.speechSynthesis?.cancel(); };
   }, []);
 
-  // Load previous messages when opening an existing conversation
   useEffect(() => {
     if (!conversationId) return;
     setCurrentConvId(conversationId);
@@ -73,12 +109,10 @@ export default function ChatInterface({ conversationId, systemPrompt, title }: {
       .then((data) => {
         if (data?.messages?.length) {
           setMessages(
-            data.messages.map((m: { id: string; role: "user" | "assistant"; content: string; timestamp: string }) => ({
-              id: m.id,
-              role: m.role,
-              content: m.content,
-              timestamp: new Date(m.timestamp),
-            }))
+            data.messages.map((m: { id: string; role: "user" | "assistant"; content: string; timestamp: string }) => {
+              const { displayContent, suggestions } = parseSuggestions(m.content);
+              return { id: m.id, role: m.role, content: m.content, displayContent, suggestions, timestamp: new Date(m.timestamp) };
+            })
           );
         }
       })
@@ -92,15 +126,21 @@ export default function ChatInterface({ conversationId, systemPrompt, title }: {
       id: crypto.randomUUID(),
       role: "user",
       content: text,
+      displayContent: text,
+      suggestions: [],
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setStreaming(true);
+    setShowModeMenu(false);
 
     const assistantId = crypto.randomUUID();
-    setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "", timestamp: new Date() }]);
+    setMessages((prev) => [
+      ...prev,
+      { id: assistantId, role: "assistant", content: "", displayContent: "", suggestions: [], timestamp: new Date() },
+    ]);
 
     abortRef.current = new AbortController();
 
@@ -113,6 +153,7 @@ export default function ChatInterface({ conversationId, systemPrompt, title }: {
           conversationId: currentConvId,
           model: selectedModel,
           systemPrompt,
+          expertMode,
           history: messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
         }),
         signal: abortRef.current.signal,
@@ -127,9 +168,6 @@ export default function ChatInterface({ conversationId, systemPrompt, title }: {
       const isNewConversation = !!convId && !currentConvId;
       if (isNewConversation) {
         setCurrentConvId(convId);
-        // Update the visible URL without a Next.js route transition — a
-        // real navigation would unmount this component mid-stream and
-        // abort the response we're still reading below.
         window.history.replaceState(null, "", `/chat/${convId}`);
       }
 
@@ -154,23 +192,22 @@ export default function ChatInterface({ conversationId, systemPrompt, title }: {
               const parsed = JSON.parse(data);
               if (parsed.provider) setActiveProvider(parsed.provider);
               if (parsed.reset) {
-                // Previous provider failed mid-response; server already
-                // discarded the partial text — clear it here too so the
-                // next provider's answer doesn't append onto a half one.
                 accumulated = "";
                 setMessages((prev) =>
-                  prev.map((m) => m.id === assistantId ? { ...m, content: "" } : m)
+                  prev.map((m) => m.id === assistantId ? { ...m, content: "", displayContent: "", suggestions: [] } : m)
                 );
               }
               if (parsed.error) throw new Error(parsed.error);
               if (parsed.text) {
                 accumulated += parsed.text;
+                const { displayContent, suggestions } = parseSuggestions(accumulated);
                 setMessages((prev) =>
-                  prev.map((m) => m.id === assistantId ? { ...m, content: accumulated } : m)
+                  prev.map((m) =>
+                    m.id === assistantId ? { ...m, content: accumulated, displayContent, suggestions } : m
+                  )
                 );
               }
             } catch (e) {
-              // Re-throw real errors (parsed.error), ignore JSON parse failures
               if (e instanceof SyntaxError) continue;
               throw e;
             }
@@ -179,7 +216,7 @@ export default function ChatInterface({ conversationId, systemPrompt, title }: {
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") {
-        // cancelled by user
+        // cancelled
       } else {
         const errMsg = err instanceof Error ? err.message : t.common.error;
         toast.error(errMsg);
@@ -188,10 +225,6 @@ export default function ChatInterface({ conversationId, systemPrompt, title }: {
     } finally {
       setStreaming(false);
       abortRef.current = null;
-      // Refresh server-rendered parts (the sidebar's conversation list) so
-      // a brand-new conversation shows up immediately, without the user
-      // having to reload the page. This preserves this component's local
-      // state — router.refresh() only re-fetches Server Components.
       router.refresh();
     }
   }
@@ -205,117 +238,164 @@ export default function ChatInterface({ conversationId, systemPrompt, title }: {
     toast.success(t.chat.copied);
   }
 
-  // ── Voice Input ──────────────────────────────────────────────────
   const toggleVoiceInput = useCallback(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
       toast.error(lang === "fa" ? "مرورگر شما از تشخیص صدا پشتیبانی نمی‌کند" : "Your browser doesn't support voice input");
       return;
     }
-
-    if (listening) {
-      recognitionRef.current?.stop();
-      setListening(false);
-      return;
-    }
-
+    if (listening) { recognitionRef.current?.stop(); setListening(false); return; }
     const recognition = new SR();
     recognition.lang = lang === "fa" ? "fa-IR" : "en-US";
     recognition.interimResults = true;
     recognition.continuous = false;
     recognitionRef.current = recognition;
-
     let finalTranscript = "";
-
     recognition.onstart = () => setListening(true);
-    recognition.onend = () => {
-      setListening(false);
-      recognitionRef.current = null;
-    };
-    recognition.onerror = () => {
-      setListening(false);
-      recognitionRef.current = null;
-    };
+    recognition.onend = () => { setListening(false); recognitionRef.current = null; };
+    recognition.onerror = () => { setListening(false); recognitionRef.current = null; };
     recognition.onresult = (e) => {
       let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) finalTranscript += t;
-        else interim += t;
+        const txt = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalTranscript += txt;
+        else interim += txt;
       }
       setInput(finalTranscript + interim);
     };
-
     recognition.start();
   }, [listening, lang]);
 
-  // ── Voice Output ─────────────────────────────────────────────────
   const toggleSpeak = useCallback((msgId: string, text: string) => {
-    if (speakingId === msgId) {
-      window.speechSynthesis.cancel();
-      setSpeakingId(null);
-      return;
-    }
-
+    if (speakingId === msgId) { window.speechSynthesis.cancel(); setSpeakingId(null); return; }
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = lang === "fa" ? "fa-IR" : "en-US";
     utterance.rate = 1;
-
-    // Prefer a voice that matches the language
     const voices = window.speechSynthesis.getVoices();
     const langCode = lang === "fa" ? "fa" : "en";
     const match = voices.find((v) => v.lang.startsWith(langCode));
     if (match) utterance.voice = match;
-
     utterance.onend = () => setSpeakingId(null);
     utterance.onerror = () => setSpeakingId(null);
-
     setSpeakingId(msgId);
     window.speechSynthesis.speak(utterance);
   }, [speakingId, lang]);
 
+  const STARTER_PROMPTS_FA = [
+    "چطور برای استارتاپم یک مدل کسب‌وکار بسازم؟",
+    "استراتژی بازاریابی دیجیتال برای کسب‌وکار من چیست؟",
+    "چطور از رقبا متمایز شوم؟",
+    "چطور سرمایه‌گذار پیدا کنم؟",
+  ];
+  const STARTER_PROMPTS_EN = [
+    "How do I build a business model for my startup?",
+    "What's a digital marketing strategy for my business?",
+    "How do I differentiate from competitors?",
+    "How do I find investors for my startup?",
+  ];
+  const starterPrompts = lang === "fa" ? STARTER_PROMPTS_FA : STARTER_PROMPTS_EN;
+
   return (
     <div className="flex flex-col h-screen" dir={isRtl ? "rtl" : "ltr"} style={{ background: "var(--surface-0)" }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
-        <div className="flex items-center gap-3">
-          <h1 className="font-semibold" style={{ color: "var(--text-primary)" }}>{title || t.chat.title}</h1>
+      <div className="flex items-center justify-between px-4 py-3 gap-3 flex-wrap" style={{ borderBottom: "1px solid var(--border)" }}>
+        <div className="flex items-center gap-2 min-w-0">
+          <h1 className="font-semibold truncate" style={{ color: "var(--text-primary)" }}>{title || t.chat.title}</h1>
           {activeProvider && (
-            <span className="text-xs px-2 py-0.5 rounded-full font-medium animate-pulse"
-              style={{ background: "rgba(234,88,12,0.15)", color: "var(--primary)", border: "1px solid rgba(234,88,12,0.3)" }}>
+            <span
+              className="text-xs px-2 py-0.5 rounded-full font-medium animate-pulse flex-shrink-0"
+              style={{ background: "rgba(234,88,12,0.15)", color: "var(--primary)", border: "1px solid rgba(234,88,12,0.3)" }}
+            >
               ✦ {activeProvider}
             </span>
           )}
         </div>
-        <select
-          value={selectedModel}
-          onChange={(e) => setSelectedModel(e.target.value)}
-          className="px-3 py-1.5 rounded-xl text-sm outline-none"
-          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
-        >
-          {MODEL_IDS.map((m) => (
-            <option key={m.id} value={m.id}>{t.chat.models[m.key]}</option>
-          ))}
-        </select>
+
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Expert Mode Selector */}
+          <div className="relative">
+            <button
+              onClick={() => setShowModeMenu(!showModeMenu)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+              style={{
+                background: "var(--surface-2)",
+                border: `1px solid ${showModeMenu ? currentMode.color : "var(--border)"}`,
+                color: currentMode.color,
+              }}
+            >
+              <currentMode.icon className="w-3.5 h-3.5" />
+              <span>{lang === "fa" ? currentMode.labelFa : currentMode.labelEn}</span>
+              <ChevronDown className="w-3 h-3 opacity-60" />
+            </button>
+
+            {showModeMenu && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowModeMenu(false)} />
+                <div
+                  className="absolute top-full mt-1 z-20 p-1.5 rounded-2xl shadow-2xl grid grid-cols-2 gap-1 w-64"
+                  style={{
+                    background: "var(--surface-1)",
+                    border: "1px solid var(--border)",
+                    [isRtl ? "right" : "left"]: 0,
+                  }}
+                >
+                  {EXPERT_MODES.map((mode) => (
+                    <button
+                      key={mode.id}
+                      onClick={() => { setExpertMode(mode.id); setShowModeMenu(false); }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs transition-all"
+                      style={{
+                        background: expertMode === mode.id ? `${mode.color}20` : "transparent",
+                        color: expertMode === mode.id ? mode.color : "var(--text-secondary)",
+                        border: expertMode === mode.id ? `1px solid ${mode.color}40` : "1px solid transparent",
+                        textAlign: isRtl ? "right" : "left",
+                      }}
+                    >
+                      <mode.icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: mode.color }} />
+                      <span>{lang === "fa" ? mode.labelFa : mode.labelEn}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          <select
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            className="px-3 py-1.5 rounded-xl text-xs outline-none"
+            style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+          >
+            {MODEL_IDS.map((m) => (
+              <option key={m.id} value={m.id}>{t.chat.models[m.key]}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ background: "rgba(234,88,12,0.15)" }}>
-              <Sparkles className="w-8 h-8" style={{ color: "var(--primary)" }} />
+          <div className="flex flex-col items-center justify-center h-full text-center px-4">
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+              style={{ background: `${currentMode.color}20`, border: `1px solid ${currentMode.color}30` }}
+            >
+              <currentMode.icon className="w-8 h-8" style={{ color: currentMode.color }} />
             </div>
-            <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{t.chat.greeting}</h2>
-            <p className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>{t.chat.greetingSubtitle}</p>
-            <div className="grid grid-cols-2 gap-3 max-w-lg">
-              {t.chat.suggestedPrompts.map((prompt) => (
+            <h2 className="text-xl font-semibold mb-1" style={{ color: "var(--text-primary)" }}>
+              {lang === "fa" ? currentMode.labelFa : currentMode.labelEn}
+            </h2>
+            <p className="text-sm mb-1" style={{ color: "var(--text-secondary)" }}>{t.chat.greeting}</p>
+            <p className="text-xs mb-8 max-w-sm" style={{ color: "var(--text-muted)" }}>{t.chat.greetingSubtitle}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-lg w-full">
+              {starterPrompts.map((prompt) => (
                 <button
                   key={prompt}
                   onClick={() => sendMessage(prompt)}
                   className={`px-4 py-3 rounded-xl text-sm transition-all hover:border-orange-500 ${isRtl ? "text-right" : "text-left"}`}
-                  style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
+                  style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-secondary)", lineHeight: "1.5" }}
                 >
                   {prompt}
                 </button>
@@ -330,15 +410,17 @@ export default function ChatInterface({ conversationId, systemPrompt, title }: {
             <div
               className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1"
               style={{
-                background: msg.role === "user" ? "var(--primary)" : "var(--surface-2)",
-                border: msg.role === "assistant" ? "1px solid var(--border)" : "none",
+                background: msg.role === "user" ? "var(--primary)" : `${currentMode.color}20`,
+                border: msg.role === "assistant" ? `1px solid ${currentMode.color}30` : "none",
               }}
             >
-              {msg.role === "user" ? <User className="w-4 h-4 text-white" /> : <Bot className="w-4 h-4" style={{ color: "var(--primary)" }} />}
+              {msg.role === "user"
+                ? <User className="w-4 h-4 text-white" />
+                : <currentMode.icon className="w-4 h-4" style={{ color: currentMode.color }} />}
             </div>
 
-            {/* Bubble */}
-            <div className={`max-w-[75%] ${msg.role === "user" ? "items-end" : "items-start"} flex flex-col gap-1`}>
+            {/* Bubble + suggestions */}
+            <div className={`max-w-[78%] ${msg.role === "user" ? "items-end" : "items-start"} flex flex-col gap-1`}>
               <div
                 className="px-4 py-3 rounded-2xl text-sm leading-relaxed"
                 style={{
@@ -349,8 +431,8 @@ export default function ChatInterface({ conversationId, systemPrompt, title }: {
               >
                 {msg.role === "assistant" ? (
                   <div className="prose prose-sm max-w-none" style={{ color: "var(--text-primary)" }}>
-                    {msg.content ? (
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    {msg.displayContent ? (
+                      <ReactMarkdown>{msg.displayContent}</ReactMarkdown>
                     ) : (
                       <span className="cursor-blink" />
                     )}
@@ -360,20 +442,42 @@ export default function ChatInterface({ conversationId, systemPrompt, title }: {
                 )}
               </div>
 
-              {/* Actions */}
-              {msg.role === "assistant" && msg.content && !streaming && (
+              {/* Action buttons */}
+              {msg.role === "assistant" && msg.displayContent && !streaming && (
                 <div className="flex items-center gap-1 px-2">
-                  <ActionBtn icon={Copy} onClick={() => copyMessage(msg.content)} title={t.chat.copy} />
+                  <ActionBtn icon={Copy} onClick={() => copyMessage(msg.displayContent)} title={t.chat.copy} />
                   <ActionBtn icon={RotateCcw} onClick={() => sendMessage(messages[messages.indexOf(msg) - 1]?.content || "")} title={t.chat.regenerate} />
                   <ActionBtn icon={ThumbsUp} onClick={() => toast.success(t.chat.thanks)} title={t.chat.good} />
                   <ActionBtn icon={ThumbsDown} onClick={() => toast.success(t.chat.thanks)} title={t.chat.improve} />
-                  {/* TTS button */}
                   <ActionBtn
                     icon={speakingId === msg.id ? VolumeX : Volume2}
-                    onClick={() => toggleSpeak(msg.id, msg.content)}
+                    onClick={() => toggleSpeak(msg.id, msg.displayContent)}
                     title={speakingId === msg.id ? t.chat.stopSpeaking : t.chat.readAloud}
                     active={speakingId === msg.id}
                   />
+                </div>
+              )}
+
+              {/* Suggested follow-up questions */}
+              {msg.role === "assistant" && msg.suggestions.length > 0 && !streaming && (
+                <div className={`flex flex-wrap gap-2 px-1 mt-1 ${isRtl ? "justify-end" : "justify-start"}`}>
+                  {msg.suggestions.map((q, i) => (
+                    <button
+                      key={i}
+                      onClick={() => sendMessage(q)}
+                      className="px-3 py-1.5 rounded-xl text-xs transition-all hover:border-orange-500"
+                      style={{
+                        background: "var(--surface-2)",
+                        border: "1px solid var(--border)",
+                        color: "var(--text-secondary)",
+                        textAlign: isRtl ? "right" : "left",
+                        maxWidth: "280px",
+                        lineHeight: "1.4",
+                      }}
+                    >
+                      {q}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
@@ -386,9 +490,12 @@ export default function ChatInterface({ conversationId, systemPrompt, title }: {
       <div className="px-4 py-4" style={{ borderTop: "1px solid var(--border)" }}>
         <div
           className="flex items-end gap-3 px-4 py-3 rounded-2xl"
-          style={{ background: "var(--surface-1)", border: `1px solid ${listening ? "rgba(234,88,12,0.6)" : "var(--border)"}`, transition: "border-color 0.2s" }}
+          style={{
+            background: "var(--surface-1)",
+            border: `1px solid ${listening ? "rgba(234,88,12,0.6)" : "var(--border)"}`,
+            transition: "border-color 0.2s",
+          }}
         >
-          {/* Attach */}
           <button className="flex-shrink-0 mb-1" style={{ color: "var(--text-muted)" }} title={t.chat.attach}>
             <Paperclip className="w-5 h-5" />
           </button>
@@ -398,10 +505,7 @@ export default function ChatInterface({ conversationId, systemPrompt, title }: {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage(input);
-              }
+              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
             }}
             placeholder={listening ? t.chat.listening : t.chat.placeholder}
             rows={1}
@@ -409,26 +513,19 @@ export default function ChatInterface({ conversationId, systemPrompt, title }: {
             style={{ color: "var(--text-primary)", minHeight: "24px", maxHeight: "200px", direction: isRtl ? "rtl" : "ltr" }}
           />
 
-          {/* Mic button */}
           <button
             onClick={toggleVoiceInput}
             className="flex-shrink-0 mb-1 w-8 h-8 rounded-xl flex items-center justify-center transition-all"
             title={listening ? t.chat.listening : t.chat.voiceInput}
-            style={{
-              background: listening ? "rgba(234,88,12,0.2)" : "transparent",
-              color: listening ? "var(--primary)" : "var(--text-muted)",
-            }}
+            style={{ background: listening ? "rgba(234,88,12,0.2)" : "transparent", color: listening ? "var(--primary)" : "var(--text-muted)" }}
           >
-            {listening
-              ? <MicOff className="w-4 h-4 animate-pulse" />
-              : <Mic className="w-4 h-4" />}
+            {listening ? <MicOff className="w-4 h-4 animate-pulse" /> : <Mic className="w-4 h-4" />}
           </button>
 
-          {/* Send / Stop */}
           {streaming ? (
             <button
               onClick={stopGeneration}
-              className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all"
+              className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"
               style={{ background: "var(--danger)" }}
             >
               <Square className="w-4 h-4 text-white" />
