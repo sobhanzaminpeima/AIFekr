@@ -54,6 +54,7 @@ model User {
   contentPosts      ContentPost[]
   businessMemories  BusinessMemory[]
   startupProjects   StartupProject[]
+  startupInquiries  StartupInquiry[]
 
   @@index([industryPackId])
 }
@@ -639,4 +640,22 @@ model StartupProject {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model StartupInquiry {
+  id          String   @id @default(cuid())
+  userId      String?
+  name        String
+  email       String
+  phone       String?
+  startupName String?
+  message     String
+  stage       String   @default("new") // new | read | replied | closed
+  adminNote   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([stage])
+  @@index([createdAt])
 }

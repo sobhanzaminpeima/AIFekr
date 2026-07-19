@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, CreditCard, DollarSign, Bot, Wrench,
   Activity, Settings, LogOut, Sparkles, Shield, MessageSquare,
   HelpCircle, Package, UserCog, Database, Cpu, Contact,
-  ChevronDown, Factory, Building2, Tag, Clock, Globe, Coins,
+  ChevronDown, Factory, Building2, Tag, Clock, Globe, Coins, Rocket,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -31,6 +31,7 @@ const navGroups = [
       { icon: MessageSquare, label: "مدیریت چت‌ها", href: "/admin/chats" },
       { icon: Globe, label: "وبسایت‌های تولیدشده", href: "/admin/generated-websites" },
       { icon: HelpCircle, label: "سوالات آماده", href: "/admin/prompts" },
+      { icon: Rocket, label: "استعلام استارتاپ", href: "/admin/startup-inquiries" },
     ],
   },
   {

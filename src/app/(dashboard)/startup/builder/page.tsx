@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Rocket, Lightbulb, DollarSign, FileText, Code2, ChevronRight, Loader2, Plus, Trash2, RefreshCw, Download, CheckCircle2, ArrowRight } from "lucide-react";
+import { Rocket, Lightbulb, DollarSign, FileText, Code2, ChevronRight, Loader2, Plus, Trash2, RefreshCw, Download, CheckCircle2, ArrowRight, Sparkles } from "lucide-react";
+import Link from "next/link";
 import toast from "react-hot-toast";
 
 type Stage = "idea" | "financial" | "proposal" | "implementation";
@@ -404,40 +405,86 @@ export default function StartupBuilderPage() {
 
               {/* AI Result */}
               {aiResult && (
-                <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-                  <div className="flex items-center justify-between px-5 py-3" style={{ background: "var(--surface-2)", borderBottom: "1px solid var(--border)" }}>
-                    <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                      {lang === "fa" ? "نتیجه هوش مصنوعی" : "AI Result"}
-                    </span>
-                    <div className="flex gap-2">
-                      {activeStage !== "implementation" && (
+                <div className="space-y-4">
+                  <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+                    <div className="flex items-center justify-between px-5 py-3 flex-wrap gap-2" style={{ background: "var(--surface-2)", borderBottom: "1px solid var(--border)" }}>
+                      <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                        {lang === "fa" ? "نتیجه هوش مصنوعی" : "AI Result"}
+                      </span>
+                      <div className="flex gap-2">
+                        {activeStage !== "implementation" && (
+                          <button
+                            onClick={() => {
+                              const nextIdx = STAGES.findIndex((s) => s.id === activeStage) + 1;
+                              if (nextIdx < STAGES.length) { setActiveStage(STAGES[nextIdx].id); setAiResult(""); setFormData({}); }
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+                            style={{ background: "var(--primary)" }}
+                          >
+                            {lang === "fa" ? "مرحله بعد" : "Next Stage"} <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <button
-                          onClick={() => {
-                            const nextIdx = STAGES.findIndex((s) => s.id === activeStage) + 1;
-                            if (nextIdx < STAGES.length) { setActiveStage(STAGES[nextIdx].id); setAiResult(""); setFormData({}); }
-                          }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
-                          style={{ background: "var(--primary)" }}
+                          onClick={downloadResult}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+                          style={{ background: "var(--surface-1)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
                         >
-                          {lang === "fa" ? "مرحله بعد" : "Next Stage"} <ChevronRight className="w-3.5 h-3.5" />
+                          <Download className="w-3.5 h-3.5" />
+                          {lang === "fa" ? "دانلود" : "Download"}
                         </button>
-                      )}
-                      <button
-                        onClick={downloadResult}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
-                        style={{ background: "var(--surface-1)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        {lang === "fa" ? "دانلود" : "Download"}
-                      </button>
+                      </div>
+                    </div>
+                    <div
+                      className="p-5 text-sm leading-loose whitespace-pre-wrap max-h-[600px] overflow-y-auto font-mono"
+                      style={{
+                        background: "var(--surface-1)",
+                        color: "var(--text-secondary)",
+                        direction: lang === "fa" ? "rtl" : "ltr",
+                        textAlign: lang === "fa" ? "right" : "left",
+                        unicodeBidi: "plaintext",
+                        fontFamily: "Vazirmatn, Tahoma, sans-serif",
+                      }}
+                    >
+                      {aiResult}
                     </div>
                   </div>
-                  <div
-                    className="p-5 text-sm leading-relaxed whitespace-pre-wrap max-h-[600px] overflow-y-auto"
-                    style={{ background: "var(--surface-1)", color: "var(--text-secondary)", direction: "ltr", textAlign: "left" }}
-                  >
-                    {aiResult}
-                  </div>
+
+                  {/* CTA after implementation stage */}
+                  {activeStage === "implementation" && (
+                    <div
+                      className="p-6 rounded-2xl text-center space-y-4"
+                      style={{
+                        background: "linear-gradient(135deg, rgba(234,88,12,0.1), rgba(139,92,246,0.1))",
+                        border: "1px solid rgba(234,88,12,0.3)",
+                      }}
+                    >
+                      <div className="flex justify-center">
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "linear-gradient(135deg,#ea580c,#f97316)" }}>
+                          <Sparkles className="w-6 h-6 text-white" />
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-base mb-2" style={{ color: "var(--text-primary)" }}>
+                          {lang === "fa"
+                            ? "در صورت نیاز برای پیاده‌سازی استارتاپ توسط تیم حرفه‌ای و کامل AIFekr کلیک کنید"
+                            : "Need professional implementation? Click to connect with the AIFekr team"}
+                        </h3>
+                        <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
+                          {lang === "fa"
+                            ? "تیم متخصص ما ایده شما را از صفر تا محصول کامل پیاده‌سازی می‌کند"
+                            : "Our expert team takes your idea from zero to a complete product"}
+                        </p>
+                        <Link
+                          href="/startup/contact"
+                          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white transition-all hover:scale-105"
+                          style={{ background: "linear-gradient(135deg,#ea580c,#f97316)", boxShadow: "0 0 30px rgba(234,88,12,0.4)" }}
+                        >
+                          <Rocket className="w-5 h-5" />
+                          {lang === "fa" ? "درخواست پیاده‌سازی حرفه‌ای ←" : "Request Professional Implementation →"}
+                        </Link>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </>

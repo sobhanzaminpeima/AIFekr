@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  MessageSquare, Image as ImageIcon, Video, Music, GalleryHorizontal,
+  MessageSquare, Image as ImageIcon, Video, Music, GalleryHorizontal, Mail,
   ChevronDown, ChevronLeft, Settings, LogOut, Wallet, Crown,
   Briefcase, TrendingUp, ShoppingCart, Calculator, Salad,
   GraduationCap, Stethoscope, Languages, ChefHat, Dumbbell, Plane, Code2,
