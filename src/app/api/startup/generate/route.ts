@@ -208,7 +208,8 @@ export async function POST(req: NextRequest) {
     await routedStreamChat(
       [{ role: "user" as const, content: systemPrompt }],
       "You are an expert startup advisor. Provide detailed, professional analysis.",
-      (chunk) => { fullText += chunk; }
+      (chunk) => { fullText += chunk; },
+      () => {}
     );
   } catch (err) {
     console.error("Startup AI error:", err);

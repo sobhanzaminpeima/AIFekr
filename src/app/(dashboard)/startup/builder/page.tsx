@@ -367,7 +367,7 @@ export default function StartupBuilderPage() {
               {/* Stage form */}
               <div className="p-5 rounded-2xl space-y-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
                 <div className="flex items-center gap-2 mb-2">
-                  {(() => { const s = STAGES.find((x) => x.id === activeStage)!; const Icon = s.icon; return <Icon className="w-5 h-5" style={{ color: s.color }} />; })()}
+                  {(() => { const s = STAGES.find((x) => x.id === activeStage)!; const Icon = s.icon; return <div className="w-5 h-5" style={{ color: s.color }}><Icon className="w-5 h-5" /></div>; })()}
                   <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>
                     {lang === "fa" ? STAGES.find((s) => s.id === activeStage)?.labelFa : STAGES.find((s) => s.id === activeStage)?.labelEn}
                   </h2>
