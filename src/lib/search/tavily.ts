@@ -1,3 +1,5 @@
+import { wrapUntrustedContent } from "@/lib/ai/promptSafety";
+
 interface TavilyResult {
   title: string;
   url: string;
@@ -51,5 +53,7 @@ export function formatSearchResultsForPrompt(response: TavilyResponse): string {
   response.results.forEach((r, i) => {
     parts.push(`[منبع ${i + 1}] ${r.title}\n${r.content.slice(0, 500)}\nآدرس: ${r.url}`);
   });
-  return parts.join("\n\n");
+  // Web search results are untrusted external content (potentially attacker-controlled
+  // pages) — wrap so the model treats it as data to read, not instructions to follow.
+  return wrapUntrustedContent("نتایج جستجوی وب", parts.join("\n\n"));
 }

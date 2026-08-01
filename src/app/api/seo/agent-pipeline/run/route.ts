@@ -11,8 +11,9 @@ import {
 import { markdownToHtml } from "@/lib/utils/markdownToHtml";
 import { hasTavily, searchWeb, formatSearchResultsForPrompt } from "@/lib/search/tavily";
 import { rankByRelevance, embedForStorage } from "@/lib/rag/retrieve";
+import { looksLikeInjectionAttempt } from "@/lib/ai/promptSafety";
 
-interface PublishResult { status: "not_published" | "published" | "failed"; url: string | null; error: string | null }
+interface PublishResult { status: "not_published" | "published" | "failed" | "held_for_review"; url: string | null; error: string | null }
 
 /** Publishes the finished post to the user's connected WordPress site (from the SEO tool's SeoConnection), if any. */
 async function publishToConnectedSite(userId: string, title: string, contentMd: string, slug: string, excerpt: string): Promise<PublishResult> {
@@ -182,7 +183,17 @@ export async function POST(req: NextRequest) {
           console.warn("Publisher narration step failed (non-fatal):", err);
         }
 
-        const publishResult = await publishToConnectedSite(user.id, titleLine, draft, slug, metaDescription);
+        // Auto-publish is the highest-consequence step in this pipeline — it writes
+        // to the user's real WordPress site with no human in the loop. The article
+        // text was built from user-supplied fields (topic, brandVoice) and live web
+        // search results, both untrusted inputs that could carry an injection attempt
+        // aimed at the writer/editor agents. A hit here doesn't discard the article —
+        // it just holds the publish step for the user to review and publish manually.
+        const suspicious = [topic, brandVoice, titleLine, draft, seoOutput]
+          .some((text) => text && looksLikeInjectionAttempt(text));
+        const publishResult: PublishResult = suspicious
+          ? { status: "held_for_review", url: null, error: "محتوا برای بازبینی نگه داشته شد — الگویی مشابه تلاش برای دستکاری خودکار در متن یا نتایج جستجو شناسایی شد. لطفاً پیش از انتشار، محتوا را بررسی کنید." }
+          : await publishToConnectedSite(user.id, titleLine, draft, slug, metaDescription);
 
         const post = await prisma.contentPost.create({
           data: {

@@ -22,7 +22,7 @@ interface StepState { output: string; status: "idle" | "running" | "done" | "fai
 interface Lesson { id: string; agentKey: string; text: string; source: string; createdAt: string; }
 interface Post {
   id: string; title: string; content: string; metaTitle: string; metaDescription: string; slug: string; keywords: string; publishedAt: string;
-  externalStatus?: "not_published" | "published" | "failed"; externalUrl?: string | null; externalError?: string | null;
+  externalStatus?: "not_published" | "published" | "failed" | "held_for_review"; externalUrl?: string | null; externalError?: string | null;
 }
 interface SeoConn { platform: string; siteUrl: string | null; wpUsername: string | null; hasAppPassword: boolean }
 
@@ -258,6 +258,7 @@ export default function AgentPipelinePage() {
                   )}
                   {publishInfo.status === "failed" && <>{s.publishFailed} {publishInfo.error}</>}
                   {publishInfo.status === "not_published" && <>{s.notPublished}</>}
+                  {publishInfo.status === "held_for_review" && <>⚠️ {publishInfo.error}</>}
                 </p>
               )}
               {!running && runId && (
@@ -420,6 +421,11 @@ export default function AgentPipelinePage() {
                       )}
                       {post.externalStatus === "failed" && (
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444" }}>{s.publishFailedBadge}</span>
+                      )}
+                      {post.externalStatus === "held_for_review" && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(234,179,8,0.15)", color: "#eab308" }} title={post.externalError || ""}>
+                          {isFa ? "نیازمند بازبینی" : "Needs review"}
+                        </span>
                       )}
                     </div>
                   </div>
