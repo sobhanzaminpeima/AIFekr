@@ -5,19 +5,19 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useRef } from "react";
 import { Music, Wand2, Loader2, CheckCircle, AlertCircle, Download, Play, Pause, Volume2 } from "lucide-react";
 import toast from "react-hot-toast";
-
-const GENRES = ["پاپ", "کلاسیک", "الکترونیک", "سنتی ایرانی", "آرامش‌بخش", "راک", "جاز", "هیپ‌هاپ"];
-const DURATIONS = [
-  { label: "۳۰ ثانیه", value: 30, credits: 10 },
-  { label: "۱ دقیقه", value: 60, credits: 18 },
-  { label: "۲ دقیقه", value: 120, credits: 30 },
-];
+import { useTranslation } from "@/lib/i18n";
 
 type GenStatus = "idle" | "generating" | "polling" | "succeeded" | "failed";
 
 export default function MusicGeneratePage() {
+  const { t, lang } = useTranslation();
+  const isFa = lang !== "en";
+  const s = t.musicGeneratePage;
+  const GENRES = s.genres;
+  const DURATIONS = s.durations;
+
   const [prompt, setPrompt] = useState("");
-  const [genre, setGenre] = useState("پاپ");
+  const [genre, setGenre] = useState(GENRES[0]);
   const [duration, setDuration] = useState(30);
   const [status, setStatus] = useState<GenStatus>("idle");
   const [progress, setProgress] = useState(0);
@@ -47,7 +47,7 @@ export default function MusicGeneratePage() {
         if (data.status === "succeeded") {
           setAudioUrl(data.output);
           setStatus("succeeded");
-          toast.success("موزیک آماده شد! 🎵");
+          toast.success(s.musicReady);
           clearInterval(pollRef.current);
         } else if (data.status === "failed") {
           setStatus("failed");
@@ -61,18 +61,16 @@ export default function MusicGeneratePage() {
   }, [predictionId, musicId, status]);
 
   async function generate() {
-    if (!prompt.trim()) return toast.error("توضیح موزیک را وارد کنید");
+    if (!prompt.trim()) return toast.error(s.errEnterPrompt);
     setStatus("generating"); setProgress(5); setAudioUrl(null); setPlaying(false);
     const res = await fetch("/api/music/generate", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt, genre, duration }),
     });
     const data = await res.json();
-    if (!res.ok) { setStatus("failed"); setProgress(0); return toast.error(data.error || "خطا در تولید موزیک"); }
+    if (!res.ok) { setStatus("failed"); setProgress(0); return toast.error(data.error || s.errGenerate); }
     setMusicId(data.musicId);
     if (data.status === "succeeded" && data.output) {
-      // Some providers (e.g. ElevenLabs) return the finished audio
-      // synchronously — no prediction to poll for.
       setAudioUrl(data.output);
       setStatus("succeeded");
       return;
@@ -97,31 +95,31 @@ export default function MusicGeneratePage() {
     } catch { window.open(audioUrl, "_blank"); }
   }
 
-  function formatTime(s: number) {
-    const m = Math.floor(s / 60);
-    return `${m}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  function formatTime(sec: number) {
+    const m = Math.floor(sec / 60);
+    return `${m}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
   }
 
   const isLoading = status === "generating" || status === "polling";
 
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-6">
+    <div dir={isFa ? "rtl" : "ltr"} className="p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>ساخت موزیک با AI</h1>
-        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>موزیک دلخواه خود را با هوش مصنوعی بسازید</p>
+        <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{s.title}</h1>
+        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{s.subtitle}</p>
       </div>
 
       <div className="p-5 rounded-2xl space-y-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
         <div>
-          <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>توضیح موزیک</label>
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>{s.promptLabel}</label>
           <textarea value={prompt} onChange={e => setPrompt(e.target.value)} rows={3} disabled={isLoading}
-            placeholder="مثال: موزیک آرام‌بخش با پیانو برای تمرکز..."
+            placeholder={s.promptPlaceholder}
             className="w-full px-3 py-2.5 rounded-xl text-sm resize-none outline-none disabled:opacity-60"
             style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>ژانر</label>
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>{s.genreLabel}</label>
           <div className="flex gap-2 flex-wrap">
             {GENRES.map(g => (
               <button key={g} onClick={() => setGenre(g)} disabled={isLoading}
@@ -134,13 +132,13 @@ export default function MusicGeneratePage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>مدت</label>
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>{s.durationLabel}</label>
           <div className="flex gap-2">
             {DURATIONS.map(d => (
               <button key={d.value} onClick={() => setDuration(d.value)} disabled={isLoading}
                 className="flex-1 py-2 rounded-xl text-xs font-medium disabled:opacity-60"
                 style={{ background: duration === d.value ? "var(--primary)" : "var(--surface-2)", color: duration === d.value ? "white" : "var(--text-secondary)" }}>
-                {d.label}<br /><span className="opacity-70">{d.credits} اعتبار</span>
+                {d.label}<br /><span className="opacity-70">{d.credits} {s.creditsSuffix}</span>
               </button>
             ))}
           </div>
@@ -150,7 +148,7 @@ export default function MusicGeneratePage() {
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-white disabled:opacity-50"
           style={{ background: "var(--primary)" }}>
           {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Wand2 className="w-5 h-5" />}
-          {isLoading ? "در حال ساخت موزیک..." : "ساخت موزیک"}
+          {isLoading ? s.generatingText : s.generateBtn}
         </button>
       </div>
 
@@ -158,13 +156,13 @@ export default function MusicGeneratePage() {
       {isLoading && (
         <div className="p-5 rounded-2xl space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <div className="flex items-center justify-between text-sm">
-            <span style={{ color: "var(--text-secondary)" }}>در حال ساخت موزیک...</span>
+            <span style={{ color: "var(--text-secondary)" }}>{s.generatingText}</span>
             <span style={{ color: "var(--primary)" }}>{Math.round(progress)}%</span>
           </div>
           <div className="w-full rounded-full overflow-hidden" style={{ height: "6px", background: "var(--surface-2)" }}>
             <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${progress}%`, background: "linear-gradient(90deg, var(--primary), #f97316)" }} />
           </div>
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>ممکن است ۱ تا ۳ دقیقه طول بکشد.</p>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>{s.processingHint}</p>
         </div>
       )}
 
@@ -174,7 +172,7 @@ export default function MusicGeneratePage() {
           <div className="p-5">
             <div className="flex items-center gap-2 mb-4">
               <CheckCircle className="w-4 h-4" style={{ color: "#10b981" }} />
-              <span className="text-sm font-medium" style={{ color: "#10b981" }}>موزیک آماده است</span>
+              <span className="text-sm font-medium" style={{ color: "#10b981" }}>{s.musicReadyLabel}</span>
             </div>
 
             {/* Waveform Visual */}
@@ -223,7 +221,7 @@ export default function MusicGeneratePage() {
 
           <div className="px-5 pb-4">
             <button onClick={downloadAudio} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-              <Download className="w-4 h-4" /> دانلود MP3
+              <Download className="w-4 h-4" /> {s.downloadMp3}
             </button>
           </div>
         </div>
@@ -232,8 +230,8 @@ export default function MusicGeneratePage() {
       {status === "failed" && (
         <div className="p-4 rounded-2xl flex items-center gap-3" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
           <AlertCircle className="w-5 h-5 flex-shrink-0" style={{ color: "#ef4444" }} />
-          <p className="text-sm flex-1" style={{ color: "#ef4444" }}>تولید موزیک ناموفق بود. دوباره تلاش کنید.</p>
-          <button onClick={() => setStatus("idle")} className="px-3 py-1 rounded-lg text-xs" style={{ background: "rgba(239,68,68,0.2)", color: "#ef4444" }}>تلاش مجدد</button>
+          <p className="text-sm flex-1" style={{ color: "#ef4444" }}>{s.genFailed}</p>
+          <button onClick={() => setStatus("idle")} className="px-3 py-1 rounded-lg text-xs" style={{ background: "rgba(239,68,68,0.2)", color: "#ef4444" }}>{s.retryBtn}</button>
         </div>
       )}
     </div>

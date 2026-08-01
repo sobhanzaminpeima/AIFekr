@@ -4,7 +4,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { routedStreamChat } from "@/lib/ai/router";
 
-const SYSTEM_PROMPT = `شما یک مشاور کسب‌وکار حرفه‌ای با ۲۰ سال تجربه هستید. پاسخ‌هایتان را به فارسی بدهید مگر کاربر انگلیسی بنویسد. تحلیل‌های دقیق، عملی و مبتنی بر داده ارائه دهید. از هدرهای markdown استفاده کنید.`;
+const SYSTEM_PROMPT = `شما یک مشاور کسب‌وکار حرفه‌ای با ۲۰ سال تجربه هستید. پاسخ‌هایتان را کاملاً و فقط به فارسی بدهید مگر کاربر انگلیسی بنویسد — هرگز از کلمات یا حروف چینی، ویتنامی یا هر زبان دیگری غیر از فارسی/انگلیسی استفاده نکنید. تحلیل‌های دقیق، عملی و مبتنی بر داده ارائه دهید. از هدرهای markdown استفاده کنید.`;
 
 async function getBusinessProfile(userId: string): Promise<Record<string, string>> {
   try {
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
             (_provider) => {},
           );
 
-          await prisma.businessAnalysis.create({
+          const saved = await prisma.businessAnalysis.create({
             data: {
               userId: user.id,
               businessName: profile.name || businessName || "نامشخص",
@@ -100,6 +100,8 @@ export async function POST(req: NextRequest) {
             },
           });
 
+          // Emit analysis ID so client can show share button
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ analysisId: saved.id })}\n\n`));
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();
         } catch (err) {

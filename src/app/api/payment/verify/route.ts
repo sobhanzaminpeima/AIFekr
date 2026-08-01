@@ -5,6 +5,9 @@ import { prisma } from "@/lib/db/prisma";
 import { verifyPayment } from "@/lib/payment/zarinpal";
 import { sendPaymentConfirmEmail } from "@/lib/email/resend";
 import { redirect } from "next/navigation";
+import { REFERRAL_BONUS_CREDITS } from "@/lib/utils/credits";
+import { findPaymentById, markPaymentFailed, activatePlanForPayment } from "@/lib/repositories/paymentRepository";
+import { grantReferralBonus } from "@/lib/repositories/userRepository";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -18,10 +21,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${appUrl}/plans?payment=failed`);
   }
 
-  const payment = await prisma.payment.findUnique({
-    where: { id: paymentId },
-    include: { user: true },
-  });
+  const payment = await findPaymentById(paymentId);
 
   if (!payment || payment.status !== "PENDING") {
     return NextResponse.redirect(`${appUrl}/plans?payment=failed`);
@@ -30,62 +30,22 @@ export async function GET(req: NextRequest) {
   const result = await verifyPayment({ authority, amount: payment.amount });
 
   if (!result.ok) {
-    await prisma.payment.update({ where: { id: paymentId }, data: { status: "FAILED" } });
+    await markPaymentFailed(paymentId);
     return NextResponse.redirect(`${appUrl}/plans?payment=failed`);
   }
 
-  // Success — activate plan
+  // Success — activate plan. TEAM credits are pooled on a Team row, not on
+  // User.credits directly — see src/lib/utils/teamCredits.ts.
   const pkg = await prisma.package.findUnique({ where: { planCode: payment.plan } });
   const planInfo = pkg ? { credits: pkg.credits, days: pkg.duration } : undefined;
-  const expiry = new Date();
-  expiry.setDate(expiry.getDate() + (planInfo?.days || 30));
+  await activatePlanForPayment(payment, result.refId || "", authority, planInfo);
 
-  if (payment.plan === "TEAM") {
-    // TEAM credits are pooled on a Team row, not on User.credits directly —
-    // see src/lib/utils/teamCredits.ts. Create the team (and seat the buyer
-    // as its owner/first member) on first purchase; top up credits/expiry
-    // on renewal.
-    const existingTeam = await prisma.team.findUnique({ where: { ownerId: payment.userId } });
-
-    await prisma.$transaction([
-      prisma.payment.update({
-        where: { id: paymentId },
-        data: { status: "SUCCESS", refId: result.refId, authority },
-      }),
-      prisma.user.update({
-        where: { id: payment.userId },
-        data: { plan: "TEAM", planExpiry: expiry },
-      }),
-      existingTeam
-        ? prisma.team.update({
-            where: { id: existingTeam.id },
-            data: { credits: { increment: planInfo?.credits || 0 }, planExpiry: expiry },
-          })
-        : prisma.team.create({
-            data: {
-              name: `تیم ${payment.user.name || "من"}`,
-              ownerId: payment.userId,
-              credits: planInfo?.credits || 0,
-              planExpiry: expiry,
-              members: { create: { userId: payment.userId, role: "OWNER" } },
-            },
-          }),
-    ]);
-  } else {
-    await Promise.all([
-      prisma.payment.update({
-        where: { id: paymentId },
-        data: { status: "SUCCESS", refId: result.refId, authority },
-      }),
-      prisma.user.update({
-        where: { id: payment.userId },
-        data: {
-          plan: payment.plan,
-          credits: { increment: planInfo?.credits || 0 },
-          planExpiry: expiry,
-        },
-      }),
-    ]);
+  // Referral bonus — first paid purchase by a referred user rewards both
+  // sides once. Guarded by referralRewarded so a plan renewal (a second
+  // successful payment) never grants it twice.
+  if (payment.user.referredBy && !payment.user.referralRewarded) {
+    await grantReferralBonus(payment.userId, payment.user.referredBy, REFERRAL_BONUS_CREDITS)
+      .catch((err) => console.error("Referral bonus grant failed:", err));
   }
 
   // Send confirmation email

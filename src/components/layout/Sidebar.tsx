@@ -10,7 +10,7 @@ import {
   Briefcase, TrendingUp, ShoppingCart, Calculator, Salad,
   GraduationCap, Stethoscope, Languages, ChefHat, Dumbbell, Plane, Code2,
   Plus, History, HeartPulse, Search, Share2, Globe, Factory, Users,
-  FolderOpen, Folder, FolderPlus, X, Check, MoreHorizontal, Trash2, ArrowLeft, Zap, Rocket,
+  FolderOpen, Folder, FolderPlus, X, Check, MoreHorizontal, Trash2, ArrowLeft, Zap, Rocket, Gift, Sparkles,
 } from "lucide-react";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
@@ -444,7 +444,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             <div className="flex items-center gap-2">
               <Wallet className="w-4 h-4" style={{ color: "var(--primary)" }} />
               <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-                {formatNumber(user.credits)} {lang === "en" ? "credits" : "اعتبار"}
+                {formatNumber(user.credits, lang)} {lang === "en" ? "credits" : "اعتبار"}
               </span>
             </div>
             <span className="text-xs px-2 py-0.5 rounded-full font-medium"
@@ -464,6 +464,14 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
               <Crown className="w-4 h-4" />{t.nav.upgrade}
             </Link>
           )}
+          <Link href="/referral" className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium"
+            style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", border: "1px solid rgba(16,185,129,0.25)" }}>
+            <Gift className="w-4 h-4" />{lang === "en" ? "Invite & Earn" : "دعوت کن، اعتبار بگیر"}
+          </Link>
+          <a href="/api/jarvis-sso" className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium"
+            style={{ background: "rgba(47,129,247,0.12)", color: "#58a6ff", border: "1px solid rgba(47,129,247,0.25)" }}>
+            <Sparkles className="w-4 h-4" />{lang === "en" ? "Open JARVIS" : "باز کردن JARVIS"}
+          </a>
           <div className="flex gap-2">
             <LanguageSwitcher className="flex-1 justify-center" />
             <ThemeSwitcher className="flex-1 justify-center" />

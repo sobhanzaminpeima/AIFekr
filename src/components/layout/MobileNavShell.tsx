@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, MessageSquare, Sparkles, Image as ImageIcon, User } from "lucide-react";
+import CommandPalette from "@/components/ui/CommandPalette";
 
 export default function MobileNavShell({
   sidebar, children, lang,
@@ -89,7 +90,10 @@ export default function MobileNavShell({
       <div className="hidden md:flex md:h-full">{sidebar}</div>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto pt-[calc(52px+env(safe-area-inset-top))] pb-[calc(56px+env(safe-area-inset-bottom))] md:pt-0 md:pb-0">
+      <main className="flex-1 overflow-y-auto pt-[calc(52px+env(safe-area-inset-top))] pb-[calc(56px+env(safe-area-inset-bottom))] md:pt-0 md:pb-0 relative">
+        <div className="hidden md:block fixed top-3 z-30" style={{ [dir === "rtl" ? "left" : "right"]: 16 }}>
+          <CommandPalette />
+        </div>
         {children}
       </main>
 

@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
+import { acceptTeamInvite } from "@/lib/repositories/userRepository";
 
 /** Currently logged-in user redeems an invite token and joins the team. */
 export async function POST(req: NextRequest) {
@@ -29,11 +30,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "شما از قبل عضو یک تیم هستید" }, { status: 400 });
   }
 
-  await prisma.$transaction([
-    prisma.teamMember.create({ data: { teamId: invite.teamId, userId: user.id, role: "MEMBER" } }),
-    prisma.teamInvite.update({ where: { id: invite.id }, data: { status: "ACCEPTED" } }),
-    prisma.user.update({ where: { id: user.id }, data: { plan: "TEAM" } }),
-  ]);
+  await acceptTeamInvite(invite.id, invite.teamId, user.id);
 
   return NextResponse.json({ success: true, teamId: invite.teamId });
 }

@@ -66,6 +66,15 @@ async function streamWithStallGuard(
   });
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** True for 429 rate-limit errors — worth a short wait-and-retry on the same provider, since token-per-minute budgets refill quickly, unlike auth/billing failures which never recover on retry. */
+function isRateLimitError(error: Error): boolean {
+  return /error 429/i.test(error.message) || /rate limit/i.test(error.message);
+}
+
 function getDisabledProviders(): Set<string> {
   try {
     const cfg = JSON.parse(fs.readFileSync(path.join(process.cwd(), "src/lib/ai/provider-config.json"), "utf-8"));
@@ -104,14 +113,14 @@ export function detectQueryType(message: string): QueryType {
 
 // ─── Routing table: query type → provider priority list ─────────────────────
 const ROUTING_TABLE: Record<QueryType, string[]> = {
-  code:        ["claude", "deepseek-v3", "gpt5", "deepseek-direct"],
-  math:        ["claude", "deepseek-v3", "deepseek-direct", "gpt5"],
-  creative:    ["claude", "gpt5", "openrouter", "gemini"],
-  translation: ["claude", "gemini", "openrouter", "gpt5", "deepseek-v3"],
-  business:    ["claude", "gpt5", "openrouter", "gemini"],
-  complex:     ["claude", "gpt5", "openrouter", "deepseek-v3"],
-  fast:        ["gemini", "claude", "deepseek-direct", "deepseek-v3"],
-  general:     ["claude", "gpt5", "gemini", "openrouter", "deepseek-v3", "deepseek-direct"],
+  code:        ["claude", "deepseek-v3", "gpt5", "deepseek-direct", "groq", "cohere"],
+  math:        ["claude", "deepseek-v3", "deepseek-direct", "gpt5", "groq", "cohere"],
+  creative:    ["claude", "gpt5", "openrouter", "gemini", "groq", "cohere"],
+  translation: ["claude", "gemini", "openrouter", "gpt5", "deepseek-v3", "groq", "cohere"],
+  business:    ["claude", "gpt5", "openrouter", "gemini", "groq", "cohere"],
+  complex:     ["claude", "gpt5", "openrouter", "deepseek-v3", "groq", "cohere"],
+  fast:        ["gemini", "claude", "deepseek-direct", "deepseek-v3", "groq", "cohere"],
+  general:     ["claude", "gpt5", "gemini", "openrouter", "deepseek-v3", "deepseek-direct", "groq", "cohere"],
 };
 
 // ─── Pick best available provider for a query ────────────────────────────────
@@ -174,6 +183,30 @@ export async function routedStreamChat(
     const partial = (error as Error & { partial?: boolean }).partial ?? false;
     console.warn(`[Router] ${primary.name} failed:`, error.message);
     onFallback?.({ from: primary, partial });
+
+    // A 429 is a token-budget refill, not a dead provider — worth a few
+    // wait-and-retry passes before moving on, especially with only 1-2
+    // providers enabled where there's no real fallback to fall back to.
+    // Escalating delay (20s/30s/40s) gives the rolling per-minute budget
+    // more room to actually clear between attempts.
+    if (isRateLimitError(error)) {
+      const retryDelaysMs = [20_000, 30_000, 40_000];
+      for (const delay of retryDelaysMs) {
+        await sleep(delay);
+        try {
+          console.log(`[Router] Retrying ${primary.name} after ${delay / 1000}s rate-limit wait`);
+          const usage = await streamWithStallGuard(primary, messages, systemPrompt, onChunk, maxTokensOverride);
+          if (usage) onUsage?.(usage);
+          return primary;
+        } catch (retryErr) {
+          const retryError = retryErr instanceof Error ? retryErr : new Error(String(retryErr));
+          const retryPartial = (retryError as Error & { partial?: boolean }).partial ?? false;
+          console.warn(`[Router] ${primary.name} retry also failed:`, retryError.message);
+          onFallback?.({ from: primary, partial: retryPartial });
+          if (!isRateLimitError(retryError)) break; // non-rate-limit failure — stop retrying, move to fallback chain
+        }
+      }
+    }
   }
 
   // Fallback chain — try all other enabled providers

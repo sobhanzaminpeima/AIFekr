@@ -19,10 +19,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { id: true, name: true, credits: true, plan: true, isBlocked: true, industryPackId: true },
+    select: { id: true, name: true, credits: true, plan: true, isBlocked: true, industryPackId: true, onboardingDone: true },
   });
 
   if (!user || user.isBlocked) redirect("/login");
+
+  // Redirect new users to onboarding wizard (welcome is outside this layout group)
+  if (!user.onboardingDone) redirect("/welcome");
 
   // If this user has joined a team (as owner or member), the sidebar should
   // show the shared team credit pool instead of user.credits — actual

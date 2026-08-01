@@ -29,6 +29,13 @@ model User {
   authProvider   String    @default("password")
   /// If true, the CEO orchestrator runs automatically once a day (via cron) and emails a digest — opt-in, off by default.
   ceoAutoRunEnabled Boolean @default(false)
+  /// Onboarding wizard completed
+  onboardingDone    Boolean @default(false)
+  /// Referral system
+  referralCode      String? @unique
+  referredBy        String?
+  /// True once the referral signup bonus has been granted to both this user and their referrer — prevents double-granting on plan renewals.
+  referralRewarded  Boolean @default(false)
 
   conversations     Conversation[]
   projects          Project[]
@@ -318,7 +325,12 @@ model Package {
   planCode    String   @unique
   name        String
   nameEn      String
+  /// Price in Rial (IRR). toman = price/10. Used for ZarinPal (Iran).
   price       Int
+  /// Price in USD cents (e.g. 1900 = $19.00). Null means Iran-only plan.
+  priceUsd    Int?
+  /// Market segment: "IR" (Iran only) | "INTL" (international only) | "BOTH"
+  market      String   @default("IR")
   duration    Int      @default(30)
   credits     Int
   features    String
@@ -350,6 +362,7 @@ model BusinessAnalysis {
   businessName String
   industry     String
   result       String
+  shareToken   String?  @unique
   createdAt    DateTime @default(now())
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -526,6 +539,7 @@ model ContentPipelineRun {
   brandVoice  String?
   /// "running" | "done" | "failed"
   status      String   @default("running")
+  shareToken  String?  @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

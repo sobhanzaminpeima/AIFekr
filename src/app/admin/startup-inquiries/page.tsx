@@ -183,6 +183,7 @@ export default function StartupInquiriesPage() {
                     )}
                     <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{inq.message}</p>
                     <div className="flex items-center gap-2 mt-2">
+                      {/* @ts-expect-error lucide icon accepts style */}
                       <StageIcon className="w-3.5 h-3.5" style={{ color: stageColor(inq.stage) }} />
                       <span className="text-xs" style={{ color: stageColor(inq.stage) }}>
                         {STAGES.find((s) => s.value === inq.stage)?.label}

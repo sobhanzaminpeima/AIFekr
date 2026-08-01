@@ -1,6 +1,13 @@
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret";
+// No insecure fallback — a missing JWT_SECRET must fail loudly at startup,
+// not silently sign every token with a hardcoded string anyone could forge.
+const JWT_SECRET: string = (() => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error("JWT_SECRET environment variable is required and must not be empty.");
+  }
+  return process.env.JWT_SECRET;
+})();
 
 export interface JwtPayload {
   userId: string;

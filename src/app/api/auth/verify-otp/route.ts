@@ -56,18 +56,18 @@ export async function POST(req: NextRequest) {
 
     const response = NextResponse.json({ success: true, user: { id: user.id, name: user.name, role: user.role, plan: user.plan } });
 
-    const isHttps = process.env.NEXT_PUBLIC_SITE_URL?.startsWith("https");
+    const secure = process.env.NODE_ENV === "production";
 
     response.cookies.set("token", token, {
       httpOnly: true,
-      secure: isHttps ?? false,
+      secure,
       sameSite: "lax",
       maxAge: 15 * 60,
     });
 
     response.cookies.set("refresh_token", refreshToken, {
       httpOnly: true,
-      secure: isHttps ?? false,
+      secure,
       sameSite: "lax",
       maxAge: 30 * 24 * 60 * 60,
     });

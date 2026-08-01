@@ -1,13 +1,9 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prisma";
 import { signToken, signRefreshToken } from "@/lib/auth/jwt";
-import { createHash } from "crypto";
-
-function hashPassword(password: string): string {
-  return createHash("sha256").update(password + process.env.JWT_SECRET).digest("hex");
-}
+import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { findUserByEmail, recordLogin } from "@/lib/repositories/userRepository";
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,13 +13,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "ایمیل و رمز عبور را وارد کنید" }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await findUserByEmail(email);
 
     if (!user || !user.passwordHash) {
       return NextResponse.json({ error: "ایمیل یا رمز اشتباه است" }, { status: 401 });
     }
 
-    if (user.passwordHash !== hashPassword(password)) {
+    const { valid, needsRehash } = await verifyPassword(password, user.passwordHash);
+    if (!valid) {
       return NextResponse.json({ error: "ایمیل یا رمز اشتباه است" }, { status: 401 });
     }
 
@@ -31,7 +28,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "حساب شما مسدود شده است" }, { status: 403 });
     }
 
-    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    // Transparently upgrade pre-bcrypt (SHA-256) hashes to bcrypt on a
+    // successful login — no forced password reset needed for the migration.
+    await recordLogin(user.id, needsRehash ? await hashPassword(password) : undefined);
 
     const payload = { userId: user.id, role: user.role, plan: user.plan };
     const token = signToken(payload);
@@ -42,18 +41,18 @@ export async function POST(req: NextRequest) {
       user: { id: user.id, name: user.name, role: user.role, plan: user.plan },
     });
 
-    const isHttps = process.env.NEXT_PUBLIC_SITE_URL?.startsWith("https");
+    const secure = process.env.NODE_ENV === "production";
 
     response.cookies.set("token", token, {
       httpOnly: true,
-      secure: isHttps ?? false,
+      secure,
       sameSite: "lax",
       maxAge: 15 * 60,
     });
 
     response.cookies.set("refresh_token", refreshToken, {
       httpOnly: true,
-      secure: isHttps ?? false,
+      secure,
       sameSite: "lax",
       maxAge: 30 * 24 * 60 * 60,
     });

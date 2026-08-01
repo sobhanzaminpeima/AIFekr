@@ -40,6 +40,6 @@ export function formatPrice(amount: number): string {
   return new Intl.NumberFormat("fa-IR").format(amount) + " تومان";
 }
 
-export function formatNumber(n: number): string {
-  return new Intl.NumberFormat("fa-IR").format(n);
+export function formatNumber(n: number, lang?: string): string {
+  return new Intl.NumberFormat(lang === "en" ? "en-US" : "fa-IR").format(n);
 }

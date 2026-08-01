@@ -6,6 +6,8 @@ export interface PlanLimitValues {
   monthlyImages: number;
   monthlyVideos: number;
   monthlyMusics: number;
+  weeklyVideos: number;
+  dailyImages: number;
   initialCredits: number;
 }
 

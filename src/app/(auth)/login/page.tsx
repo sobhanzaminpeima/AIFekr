@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Smartphone, Mail, Eye, EyeOff, Sparkles, ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
+import { useTranslation } from "@/lib/i18n";
 
 type Mode = "phone" | "email";
 type Step = "input" | "otp";
@@ -13,6 +14,7 @@ type Step = "input" | "otp";
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t, lang } = useTranslation();
   const [mode, setMode] = useState<Mode>("email");
   const [step, setStep] = useState<Step>("input");
   const [phone, setPhone] = useState("");
@@ -30,7 +32,7 @@ export default function LoginPage() {
 
   async function handleSendOtp() {
     if (!phone || phone.length < 10) {
-      toast.error("شماره موبایل معتبر وارد کنید");
+      toast.error(t.auth.login.errPhoneInvalid);
       return;
     }
     setLoading(true);
@@ -42,11 +44,11 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success("کد تأیید ارسال شد");
+      toast.success(t.auth.login.otpSent);
       if (data.dev_code) setDevCode(data.dev_code);
       setStep("otp");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "خطا در ارسال کد");
+      toast.error(err instanceof Error ? err.message : t.auth.login.errSendFailed);
     } finally {
       setLoading(false);
     }
@@ -54,7 +56,7 @@ export default function LoginPage() {
 
   async function handleVerifyOtp() {
     if (otp.length !== 4) {
-      toast.error("کد ۴ رقمی وارد کنید");
+      toast.error(t.auth.login.errOtpLength);
       return;
     }
     setLoading(true);
@@ -66,11 +68,11 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success("ورود موفق");
+      toast.success(t.auth.login.loginSuccess);
       const role = data.user?.role;
       window.location.href = (role === "ADMIN" || role === "SUPER_ADMIN") ? "/admin/dashboard" : "/chat";
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "کد اشتباه است");
+      toast.error(err instanceof Error ? err.message : t.auth.login.errOtpWrong);
     } finally {
       setLoading(false);
     }
@@ -78,7 +80,7 @@ export default function LoginPage() {
 
   async function handleEmailLogin() {
     if (!email || !password) {
-      toast.error("ایمیل و رمز عبور را وارد کنید");
+      toast.error(t.auth.login.errFillEmailPass);
       return;
     }
     setLoading(true);
@@ -90,17 +92,17 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success("ورود موفق");
+      toast.success(t.auth.login.loginSuccess);
       window.location.href = "/chat";
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "ایمیل یا رمز اشتباه است");
+      toast.error(err instanceof Error ? err.message : t.auth.login.errEmailPassWrong);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "var(--surface-0)" }}>
+    <div dir={lang === "fa" ? "rtl" : "ltr"} className="min-h-screen flex items-center justify-center p-4" style={{ background: "var(--surface-0)" }}>
       {/* Background decoration */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 right-1/4 w-96 h-96 rounded-full opacity-10" style={{ background: "radial-gradient(circle, var(--primary), transparent)" }} />
@@ -114,9 +116,9 @@ export default function LoginPage() {
             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "var(--primary)" }}>
               <Sparkles className="w-6 h-6 text-white" />
             </div>
-            <span className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>هوشمند AI</span>
+            <span className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>AiFekr</span>
           </div>
-          <p style={{ color: "var(--text-secondary)" }}>وارد حساب کاربری خود شوید</p>
+          <p style={{ color: "var(--text-secondary)" }}>{t.auth.login.subtitle}</p>
         </div>
 
         {/* Card */}
@@ -133,7 +135,7 @@ export default function LoginPage() {
                 }}
               >
                 <Smartphone className="w-4 h-4" />
-                موبایل
+                {t.auth.login.tabPhone}
               </button>
               <button
                 onClick={() => setMode("email")}
@@ -144,7 +146,7 @@ export default function LoginPage() {
                 }}
               >
                 <Mail className="w-4 h-4" />
-                ایمیل
+                {t.auth.login.tabEmail}
               </button>
             </div>
           )}
@@ -158,15 +160,15 @@ export default function LoginPage() {
                 style={{ color: "var(--text-secondary)" }}
               >
                 <ArrowLeft className="w-4 h-4" />
-                بازگشت
+                {t.auth.login.back}
               </button>
-              <h2 className="text-lg font-semibold mb-1" style={{ color: "var(--text-primary)" }}>کد تأیید</h2>
+              <h2 className="text-lg font-semibold mb-1" style={{ color: "var(--text-primary)" }}>{t.auth.login.otpTitle}</h2>
               <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                کد ۴ رقمی ارسال‌شده به <span className="font-mono">{phone}</span> را وارد کنید
+                {t.auth.login.otpSentPrefix} <span className="font-mono">{phone}</span> {t.auth.login.otpSentSuffix}
               </p>
               {devCode && (
                 <div className="mt-3 px-4 py-2 rounded-xl flex items-center gap-3" style={{ background: "rgba(234,88,12,0.1)", border: "1px dashed rgba(234,88,12,0.4)" }}>
-                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>کد تست:</span>
+                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>{t.auth.login.testCode}</span>
                   <span className="font-mono font-bold text-lg tracking-widest" style={{ color: "var(--primary)" }}>{devCode}</span>
                 </div>
               )}
@@ -179,7 +181,7 @@ export default function LoginPage() {
               {step === "input" && (
                 <>
                   <div>
-                    <label className="block text-sm mb-2" style={{ color: "var(--text-secondary)" }}>شماره موبایل</label>
+                    <label className="block text-sm mb-2" style={{ color: "var(--text-secondary)" }}>{t.auth.login.phoneLabel}</label>
                     <input
                       type="tel"
                       value={phone}
@@ -201,7 +203,7 @@ export default function LoginPage() {
                     className="w-full py-3 rounded-xl font-semibold text-white transition-all disabled:opacity-50"
                     style={{ background: "var(--primary)" }}
                   >
-                    {loading ? "در حال ارسال..." : "ارسال کد تأیید"}
+                    {loading ? t.auth.login.sending : t.auth.login.sendCode}
                   </button>
                 </>
               )}
@@ -229,14 +231,14 @@ export default function LoginPage() {
                     className="w-full py-3 rounded-xl font-semibold text-white transition-all disabled:opacity-50"
                     style={{ background: "var(--primary)" }}
                   >
-                    {loading ? "در حال بررسی..." : "تأیید و ورود"}
+                    {loading ? t.auth.login.verifying : t.auth.login.verifyAndLogin}
                   </button>
                   <button
                     onClick={handleSendOtp}
                     className="w-full py-2 text-sm"
                     style={{ color: "var(--text-secondary)" }}
                   >
-                    ارسال مجدد کد
+                    {t.auth.login.resendCode}
                   </button>
                 </>
               )}
@@ -247,7 +249,7 @@ export default function LoginPage() {
           {mode === "email" && (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm mb-2" style={{ color: "var(--text-secondary)" }}>ایمیل</label>
+                <label className="block text-sm mb-2" style={{ color: "var(--text-secondary)" }}>{t.auth.login.emailLabel}</label>
                 <input
                   type="email"
                   value={email}
@@ -263,7 +265,7 @@ export default function LoginPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm mb-2" style={{ color: "var(--text-secondary)" }}>رمز عبور</label>
+                <label className="block text-sm mb-2" style={{ color: "var(--text-secondary)" }}>{t.auth.login.passwordLabel}</label>
                 <div className="relative">
                   <input
                     type={showPass ? "text" : "password"}
@@ -295,7 +297,7 @@ export default function LoginPage() {
                 className="w-full py-3 rounded-xl font-semibold text-white transition-all disabled:opacity-50"
                 style={{ background: "var(--primary)" }}
               >
-                {loading ? "در حال ورود..." : "ورود"}
+                {loading ? t.auth.login.loggingIn : t.auth.login.submit}
               </button>
             </div>
           )}
@@ -303,7 +305,7 @@ export default function LoginPage() {
           {/* Google sign-in */}
           <div className="flex items-center gap-3 my-5">
             <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
-            <span className="text-xs" style={{ color: "var(--text-muted)" }}>یا</span>
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>{t.auth.login.or}</span>
             <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
           </div>
           <a
@@ -317,14 +319,14 @@ export default function LoginPage() {
               <path fill="#FBBC05" d="M3.95 10.7c-.18-.54-.28-1.11-.28-1.7s.1-1.16.28-1.7V4.97H.96A8.997 8.997 0 000 9c0 1.45.35 2.83.96 4.03l2.99-2.33z" />
               <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.97l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z" />
             </svg>
-            ورود با گوگل
+            {t.auth.login.googleLogin}
           </a>
 
           {/* Register link */}
           <p className="text-center text-sm mt-6" style={{ color: "var(--text-secondary)" }}>
-            حساب کاربری ندارید؟{" "}
+            {t.auth.login.noAccount}{" "}
             <a href="/register" style={{ color: "var(--primary)" }} className="font-medium">
-              ثبت‌نام کنید
+              {t.auth.login.registerLink}
             </a>
           </p>
         </div>

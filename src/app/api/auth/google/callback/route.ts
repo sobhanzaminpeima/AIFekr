@@ -84,11 +84,11 @@ export async function GET(req: NextRequest) {
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || `${req.nextUrl.protocol}//${req.nextUrl.host}`;
     const dest = (user.role === "ADMIN" || user.role === "SUPER_ADMIN") ? "/admin/dashboard" : "/chat";
-    const isHttps = appUrl.startsWith("https");
+    const secure = process.env.NODE_ENV === "production";
 
     const res = NextResponse.redirect(`${appUrl}${dest}`);
-    res.cookies.set("token", token, { httpOnly: true, secure: isHttps, sameSite: "lax", maxAge: 15 * 60 });
-    res.cookies.set("refresh_token", refreshToken, { httpOnly: true, secure: isHttps, sameSite: "lax", maxAge: 30 * 24 * 60 * 60 });
+    res.cookies.set("token", token, { httpOnly: true, secure, sameSite: "lax", maxAge: 15 * 60 });
+    res.cookies.set("refresh_token", refreshToken, { httpOnly: true, secure, sameSite: "lax", maxAge: 30 * 24 * 60 * 60 });
     res.cookies.set("google_oauth_state", "", { maxAge: 0, path: "/" });
     return res;
   } catch (err) {

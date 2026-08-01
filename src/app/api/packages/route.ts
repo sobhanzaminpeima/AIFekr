@@ -7,8 +7,9 @@ export async function GET() {
     where: { isActive: true },
     orderBy: { sortOrder: "asc" },
     select: {
-      planCode: true, name: true, nameEn: true, price: true, duration: true,
-      credits: true, isFeatured: true, color: true, features: true,
+      planCode: true, name: true, nameEn: true, price: true, priceUsd: true,
+      market: true, duration: true, credits: true, isFeatured: true,
+      color: true, features: true,
     },
   });
   return NextResponse.json({ packages });

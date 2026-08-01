@@ -29,12 +29,18 @@ const DEMO_EN: Message[] = [
 ];
 
 function parseMarkdown(text: string) {
-  return text
-    .split("\n")
-    .map((line, i) => {
-      const boldReplaced = line.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-      return <span key={i} dangerouslySetInnerHTML={{ __html: boldReplaced + (i < text.split("\n").length - 1 ? "<br/>" : "") }} />;
-    });
+  const lines = text.split("\n");
+  return lines.map((line, i) => {
+    const parts = line.split(/(\*\*.*?\*\*)/g).map((part, j) =>
+      part.startsWith("**") && part.endsWith("**") ? <strong key={j}>{part.slice(2, -2)}</strong> : part
+    );
+    return (
+      <span key={i}>
+        {parts}
+        {i < lines.length - 1 && <br />}
+      </span>
+    );
+  });
 }
 
 const TYPING_SPEED = 18;

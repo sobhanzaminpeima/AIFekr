@@ -128,6 +128,9 @@ export async function POST(req: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
       };
 
+      // Emit runId immediately so client can show share button on completion
+      send({ type: "runId", id: run.id });
+
       try {
         const ideas = await runAgent(user.id, run.id, "ideaFinder", `موضوع/صنعت کسب‌وکار: ${topic}`, brandVoice, 1, send);
         const strategy = await runAgent(user.id, run.id, "strategist", ideas, brandVoice, 1, send);
@@ -167,7 +170,17 @@ export async function POST(req: NextRequest) {
         const keywords = /کلمات کلیدی\s*:\s*(.+)/.exec(seoOutput)?.[1]?.trim() || "";
         const titleLine = /عنوان نهایی\s*:\s*(.+)/.exec(strategy)?.[1]?.trim() || topic;
 
-        await runAgent(user.id, run.id, "publisher", `${draft}\n\n${seoOutput}`, brandVoice, 1, send);
+        // From here on, the article itself (draft + seoOutput) is already
+        // complete — publisher narration, external publish, and critic
+        // lessons are best-effort extras. A failure in any of them must not
+        // discard the finished article, so each is wrapped independently
+        // instead of sharing the outer try/catch that marks the whole run
+        // "failed" (and skips creating the ContentPost).
+        try {
+          await runAgent(user.id, run.id, "publisher", `${draft}\n\n${seoOutput}`, brandVoice, 1, send);
+        } catch (err) {
+          console.warn("Publisher narration step failed (non-fatal):", err);
+        }
 
         const publishResult = await publishToConnectedSite(user.id, titleLine, draft, slug, metaDescription);
 
@@ -188,20 +201,28 @@ export async function POST(req: NextRequest) {
         });
         send({ type: "publishResult", ...publishResult });
 
-        const critique = await runAgent(user.id, run.id, "critic", draft, brandVoice, 1, send);
-        const lessonLines = critique.split("\n").filter((l) => l.includes(":"));
-        for (const line of lessonLines) {
-          const [faLabel, ...rest] = line.split(":");
-          const agentKey = FA_TO_AGENT_KEY[faLabel.trim()];
-          const text = rest.join(":").trim();
-          if (agentKey && text) {
-            const embedding = await embedForStorage(text);
-            await prisma.contentAgentLesson.create({ data: { userId: user.id, agentKey, text, source: "critic", embedding } });
-          }
-        }
-
+        // The article is saved and shareable at this point — mark the run
+        // done before attempting the critic/lessons step, so a failure
+        // there can't retroactively turn a successful article into a
+        // "failed" run.
         await prisma.contentPipelineRun.update({ where: { id: run.id }, data: { status: "done" } });
         send({ type: "runDone", runId: run.id, postId: post.id });
+
+        try {
+          const critique = await runAgent(user.id, run.id, "critic", draft, brandVoice, 1, send);
+          const lessonLines = critique.split("\n").filter((l) => l.includes(":"));
+          for (const line of lessonLines) {
+            const [faLabel, ...rest] = line.split(":");
+            const agentKey = FA_TO_AGENT_KEY[faLabel.trim()];
+            const text = rest.join(":").trim();
+            if (agentKey && text) {
+              const embedding = await embedForStorage(text);
+              await prisma.contentAgentLesson.create({ data: { userId: user.id, agentKey, text, source: "critic", embedding } });
+            }
+          }
+        } catch (err) {
+          console.warn("Critic/lessons step failed (non-fatal):", err);
+        }
       } catch (err) {
         console.error("Agent pipeline error:", err);
         await prisma.contentPipelineRun.update({ where: { id: run.id }, data: { status: "failed" } }).catch(() => {});

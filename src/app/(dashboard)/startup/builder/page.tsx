@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Rocket, Lightbulb, DollarSign, FileText, Code2, ChevronRight, Loader2, Plus, Trash2, RefreshCw, Download, CheckCircle2, ArrowRight, Sparkles } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import { useTranslation } from "@/lib/i18n";
 
 type Stage = "idea" | "financial" | "proposal" | "implementation";
 type Lang = "fa" | "en";
@@ -110,7 +111,7 @@ function getDataKey(stage: Stage): "ideaData" | "financialData" | "proposalData"
 }
 
 export default function StartupBuilderPage() {
-  const [lang, setLang] = useState<Lang>("fa");
+  const { lang } = useTranslation();
   const dir = lang === "fa" ? "rtl" : "ltr";
 
   const [projects, setProjects] = useState<Project[]>([]);
@@ -243,13 +244,6 @@ export default function StartupBuilderPage() {
             </p>
           </div>
         </div>
-        <button
-          onClick={() => setLang((l) => (l === "fa" ? "en" : "fa"))}
-          className="px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
-          style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
-        >
-          {lang === "fa" ? "English" : "فارسی"}
-        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">

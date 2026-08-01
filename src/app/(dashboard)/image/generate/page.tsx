@@ -3,15 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Image as ImageIcon, Wand2, Download, Loader2, Languages, Upload, X, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
-
-const STYLES = [
-  { id: "realistic", label: "واقعی" },
-  { id: "anime", label: "انیمه" },
-  { id: "painting", label: "نقاشی" },
-  { id: "minimal", label: "مینیمال" },
-  { id: "fantasy", label: "فانتزی" },
-  { id: "3d", label: "سه‌بعدی" },
-];
+import { useTranslation } from "@/lib/i18n";
 
 const RATIOS = ["1:1", "16:9", "9:16", "4:3"];
 
@@ -25,6 +17,11 @@ interface PromptTemplate {
 }
 
 export default function ImageGeneratePage() {
+  const { t, lang } = useTranslation();
+  const isFa = lang !== "en";
+  const s = t.imageGeneratePage;
+  const STYLES = s.styles;
+
   const [prompt, setPrompt] = useState("");
   const [style, setStyle] = useState("realistic");
   const [ratio, setRatio] = useState("1:1");
@@ -59,22 +56,22 @@ export default function ImageGeneratePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setSourceImageUrl(data.url);
-      toast.success("عکس آپلود شد / Photo uploaded");
+      toast.success(s.photoUploaded);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "خطا در آپلود");
+      toast.error(err instanceof Error ? err.message : s.errUpload);
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
-  function pickTemplate(t: PromptTemplate) {
-    setPrompt(t.content);
+  function pickTemplate(tpl: PromptTemplate) {
+    setPrompt(tpl.content);
     setShowTemplates(false);
     fetch("/api/prompts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: t.id }),
+      body: JSON.stringify({ id: tpl.id }),
     }).catch(() => {});
   }
 
@@ -89,16 +86,16 @@ export default function ImageGeneratePage() {
       });
       const data = await res.json();
       setPrompt(data.translated || prompt);
-      toast.success("ترجمه شد");
+      toast.success(s.translated);
     } catch {
-      toast.error("خطا در ترجمه");
+      toast.error(s.errTranslate);
     } finally {
       setTranslating(false);
     }
   }
 
   async function generate() {
-    if (!prompt.trim()) { toast.error("توضیحات تصویر را وارد کنید"); return; }
+    if (!prompt.trim()) { toast.error(s.errEnterPrompt); return; }
     setLoading(true);
     setResults([]);
     try {
@@ -111,17 +108,17 @@ export default function ImageGeneratePage() {
       if (!res.ok) throw new Error(data.error);
       setResults(data.urls || []);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "خطا در تولید تصویر");
+      toast.error(err instanceof Error ? err.message : s.errGenerate);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div dir={isFa ? "rtl" : "ltr"} className="p-6 max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>ساخت تصویر با AI</h1>
-        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>تصویر دلخواه خود را با هوش مصنوعی بسازید — از متن یا از روی عکس خودتان</p>
+        <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{s.title}</h1>
+        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{s.subtitle}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -130,7 +127,7 @@ export default function ImageGeneratePage() {
           {/* Reference photo upload */}
           <div className="p-5 rounded-2xl space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             <label className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-              آپلود عکس مرجع (اختیاری) <span className="text-xs" style={{ color: "var(--text-muted)" }} dir="ltr">— Upload reference photo</span>
+              {s.uploadRefLabel}
             </label>
             {sourceImageUrl ? (
               <div className="relative">
@@ -150,7 +147,7 @@ export default function ImageGeneratePage() {
                 style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
               >
                 {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
-                {uploading ? "در حال آپلود..." : "انتخاب عکس / Choose photo"}
+                {uploading ? s.uploading : s.choosePhoto}
               </button>
             )}
             <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleUpload} className="hidden" />
@@ -163,21 +160,21 @@ export default function ImageGeneratePage() {
               className="w-full flex items-center justify-between text-sm font-medium"
               style={{ color: "var(--text-primary)" }}
             >
-              <span className="flex items-center gap-2"><Sparkles className="w-4 h-4" style={{ color: "var(--primary)" }} /> پرامپت‌های آماده <span className="text-xs" style={{ color: "var(--text-muted)" }} dir="ltr">Ready-made prompts</span></span>
-              <span className="text-xs" style={{ color: "var(--text-muted)" }}>{showTemplates ? "بستن" : "مشاهده"}</span>
+              <span className="flex items-center gap-2"><Sparkles className="w-4 h-4" style={{ color: "var(--primary)" }} /> {s.readyPrompts}</span>
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>{showTemplates ? s.close : s.view}</span>
             </button>
             {showTemplates && (
               <div className="space-y-2 max-h-56 overflow-y-auto">
-                {templates.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>هنوز پرامپتی اضافه نشده</p>}
-                {templates.map((t) => (
+                {templates.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{s.noPromptsYet}</p>}
+                {templates.map((tpl) => (
                   <button
-                    key={t.id}
-                    onClick={() => pickTemplate(t)}
+                    key={tpl.id}
+                    onClick={() => pickTemplate(tpl)}
                     className="w-full text-right p-2.5 rounded-xl text-xs transition-all"
                     style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
                   >
-                    <div className="font-medium" style={{ color: "var(--text-primary)" }}>{t.title}</div>
-                    {t.titleEn && <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }} dir="ltr">{t.titleEn}</div>}
+                    <div className="font-medium" style={{ color: "var(--text-primary)" }}>{tpl.title}</div>
+                    {tpl.titleEn && <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }} dir="ltr">{tpl.titleEn}</div>}
                   </button>
                 ))}
               </div>
@@ -186,11 +183,11 @@ export default function ImageGeneratePage() {
 
           {/* Prompt */}
           <div className="p-5 rounded-2xl space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-            <label className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>توضیحات تصویر</label>
+            <label className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{s.promptLabel}</label>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="مثال: یک منظره زیبای کوهستانی در غروب آفتاب..."
+              placeholder={s.promptPlaceholder}
               rows={4}
               className="w-full text-sm rounded-xl px-3 py-2.5 resize-none outline-none"
               style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
@@ -202,25 +199,25 @@ export default function ImageGeneratePage() {
               style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
             >
               {translating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Languages className="w-3.5 h-3.5" />}
-              ترجمه به انگلیسی (بهبود کیفیت)
+              {s.translateBtn}
             </button>
           </div>
 
           {/* Style */}
           <div className="p-5 rounded-2xl space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-            <label className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>سبک تصویر</label>
+            <label className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{s.styleLabel}</label>
             <div className="grid grid-cols-3 gap-2">
-              {STYLES.map((s) => (
+              {STYLES.map((st) => (
                 <button
-                  key={s.id}
-                  onClick={() => setStyle(s.id)}
+                  key={st.id}
+                  onClick={() => setStyle(st.id)}
                   className="py-2 rounded-xl text-xs font-medium transition-all"
                   style={{
-                    background: style === s.id ? "var(--primary)" : "var(--surface-2)",
-                    color: style === s.id ? "white" : "var(--text-secondary)",
+                    background: style === st.id ? "var(--primary)" : "var(--surface-2)",
+                    color: style === st.id ? "white" : "var(--text-secondary)",
                   }}
                 >
-                  {s.label}
+                  {st.label}
                 </button>
               ))}
             </div>
@@ -229,7 +226,7 @@ export default function ImageGeneratePage() {
           {/* Ratio & Count */}
           <div className="p-5 rounded-2xl space-y-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             <div>
-              <label className="text-sm font-medium block mb-2" style={{ color: "var(--text-primary)" }}>نسبت ابعاد</label>
+              <label className="text-sm font-medium block mb-2" style={{ color: "var(--text-primary)" }}>{s.ratioLabel}</label>
               <div className="grid grid-cols-4 gap-1.5">
                 {RATIOS.map((r) => (
                   <button
@@ -247,7 +244,7 @@ export default function ImageGeneratePage() {
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium block mb-2" style={{ color: "var(--text-primary)" }}>کیفیت</label>
+              <label className="text-sm font-medium block mb-2" style={{ color: "var(--text-primary)" }}>{s.qualityLabel}</label>
               <div className="grid grid-cols-2 gap-1.5">
                 {["standard", "hd"].map((q) => (
                   <button
@@ -259,13 +256,13 @@ export default function ImageGeneratePage() {
                       color: quality === q ? "white" : "var(--text-secondary)",
                     }}
                   >
-                    {q === "standard" ? "استاندارد (۵ اعتبار)" : "HD (۱۰ اعتبار)"}
+                    {q === "standard" ? s.qualityStandard : s.qualityHd}
                   </button>
                 ))}
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium block mb-2" style={{ color: "var(--text-primary)" }}>تعداد: {count}</label>
+              <label className="text-sm font-medium block mb-2" style={{ color: "var(--text-primary)" }}>{s.countLabel} {count}</label>
               <input
                 type="range" min={1} max={4} value={count}
                 onChange={(e) => setCount(parseInt(e.target.value))}
@@ -281,7 +278,7 @@ export default function ImageGeneratePage() {
             style={{ background: "var(--primary)" }}
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Wand2 className="w-5 h-5" />}
-            {loading ? "در حال ساخت تصویر..." : sourceImageUrl ? "ساخت از روی عکس" : "ساخت تصویر"}
+            {loading ? s.generatingText : sourceImageUrl ? s.generateFromPhoto : s.generateBtn}
           </button>
         </div>
 
@@ -291,7 +288,7 @@ export default function ImageGeneratePage() {
             <div className="grid grid-cols-2 gap-4">
               {results.map((url, i) => (
                 <div key={i} className="relative group rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-                  <img src={url} alt={`تصویر ${i + 1}`} className="w-full h-auto" />
+                  <img src={url} alt={`${i + 1}`} className="w-full h-auto" />
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                     <a
                       href={url}
@@ -308,7 +305,7 @@ export default function ImageGeneratePage() {
           ) : (
             <div className="h-full min-h-64 flex flex-col items-center justify-center rounded-2xl" style={{ background: "var(--surface-1)", border: "1px dashed var(--border)" }}>
               <ImageIcon className="w-12 h-12 mb-3 opacity-20" style={{ color: "var(--text-muted)" }} />
-              <p className="text-sm" style={{ color: "var(--text-muted)" }}>تصاویر ساخته‌شده اینجا نمایش داده می‌شوند</p>
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>{s.resultsPlaceholder}</p>
             </div>
           )}
         </div>

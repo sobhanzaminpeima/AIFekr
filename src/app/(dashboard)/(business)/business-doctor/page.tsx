@@ -8,6 +8,9 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import Link from "next/link";
+import ShareButton from "@/components/ui/ShareButton";
+import { trackFeature } from "@/lib/analytics";
+import { useTranslation } from "@/lib/i18n";
 
 interface BusinessProfile {
   name: string;
@@ -27,20 +30,18 @@ interface BusinessProfile {
   foundedYear?: string;
 }
 
-const INDUSTRIES = [
-  "فناوری / نرم‌افزار", "خرده‌فروشی / تجارت الکترونیک", "رستوران / مواد غذایی",
-  "پزشکی / سلامت", "مسکن / ساختمان", "آموزش و پرورش", "مالی / بانکداری",
-  "تولید / صنعت", "مشاوره / خدمات", "هتل / گردشگری", "حقوقی", "بازاریابی / آژانس",
-  "لجستیک / حمل‌ونقل", "فروشگاه آنلاین", "دیگر",
-];
-
-const STEPS = [
-  { id: 1, title: "اطلاعات پایه", icon: Building2, desc: "نام، صنعت و مشخصات اصلی" },
-  { id: 2, title: "محصولات و بازار", icon: TrendingUp, desc: "خدمات، مشتریان و رقبا" },
-  { id: 3, title: "وضعیت و اهداف", icon: Target, desc: "چالش‌ها، قوت‌ها و اهداف" },
-];
-
 export default function BusinessDoctorPage() {
+  const { t, lang } = useTranslation();
+  const isFa = lang !== "en";
+  const s = t.businessDoctorPage;
+
+  const INDUSTRIES = s.industries;
+  const STEPS = [
+    { id: 1, title: s.stepBasicTitle, icon: Building2, desc: s.stepBasicDesc },
+    { id: 2, title: s.stepMarketTitle, icon: TrendingUp, desc: s.stepMarketDesc },
+    { id: 3, title: s.stepGoalsTitle, icon: Target, desc: s.stepGoalsDesc },
+  ];
+
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [editMode, setEditMode] = useState(false);
@@ -55,6 +56,7 @@ export default function BusinessDoctorPage() {
   // AI Analysis state
   const [question, setQuestion] = useState("");
   const [result, setResult] = useState("");
+  const [analysisId, setAnalysisId] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [showQuickAnalysis, setShowQuickAnalysis] = useState(false);
   const resultRef = useRef<HTMLDivElement>(null);
@@ -107,6 +109,8 @@ export default function BusinessDoctorPage() {
     if (!finalQ.trim()) return;
     setAnalyzing(true);
     setResult("");
+    setAnalysisId(null);
+    trackFeature("business_doctor");
 
     try {
       const res = await fetch("/api/business-doctor", {
@@ -126,6 +130,7 @@ export default function BusinessDoctorPage() {
           try {
             const p = JSON.parse(data);
             if (p.text) setResult((prev) => prev + p.text);
+            if (p.analysisId) setAnalysisId(p.analysisId);
             if (p.error) throw new Error(p.error);
           } catch (e) { if (e instanceof SyntaxError) continue; throw e; }
         }
@@ -134,14 +139,7 @@ export default function BusinessDoctorPage() {
     finally { setAnalyzing(false); }
   }
 
-  const QUICK_QUESTIONS = [
-    "تحلیل SWOT کامل کسب‌وکارم را انجام بده",
-    "بزرگترین فرصت‌های رشد من کجاست؟",
-    "برنامه عملیاتی ۹۰ روزه برای کسب‌وکارم بنویس",
-    "چطور می‌توانم از رقبا متمایز شوم؟",
-    "KPIهای مناسب برای کسب‌وکار من کدامند؟",
-    "استراتژی بازاریابی دیجیتال مناسب برای من چیست؟",
-  ];
+  const QUICK_QUESTIONS = s.quickQuestions;
 
   if (loadingProfile) {
     return (
@@ -152,7 +150,7 @@ export default function BusinessDoctorPage() {
   }
 
   return (
-    <div className="min-h-screen p-6" style={{ background: "var(--surface-0)" }} dir="rtl">
+    <div className="min-h-screen p-6" style={{ background: "var(--surface-0)" }} dir={isFa ? "rtl" : "ltr"}>
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -161,9 +159,9 @@ export default function BusinessDoctorPage() {
               <Stethoscope className="w-6 h-6" style={{ color: "var(--primary)" }} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>دکتر کسب‌وکار</h1>
+              <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{s.title}</h1>
               <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                {profile ? `پروفایل ${profile.name} — مشاور هوشمند کسب‌وکار شما` : "ابتدا پروفایل کسب‌وکارت را بساز"}
+                {profile ? `${s.profilePrefix} ${profile.name} — ${s.profileSuffix}` : s.subtitleNoProfile}
               </p>
             </div>
           </div>
@@ -173,13 +171,13 @@ export default function BusinessDoctorPage() {
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
                 style={{ background: "rgba(99,102,241,0.15)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.3)" }}>
                 <Users className="w-4 h-4" />
-                اتاق جلسه
+                {s.meetingRoom}
               </Link>
               <button onClick={() => setEditMode(true)}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
                 style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
                 <Edit2 className="w-4 h-4" />
-                ویرایش پروفایل
+                {s.editProfile}
               </button>
             </div>
           )}
@@ -190,12 +188,12 @@ export default function BusinessDoctorPage() {
           <div className="rounded-2xl overflow-hidden mb-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             {/* Step progress */}
             <div className="flex border-b" style={{ borderColor: "var(--border)" }}>
-              {STEPS.map((s) => {
-                const Icon = s.icon;
-                const active = step === s.id;
-                const done = step > s.id;
+              {STEPS.map((st) => {
+                const Icon = st.icon;
+                const active = step === st.id;
+                const done = step > st.id;
                 return (
-                  <button key={s.id} onClick={() => step > s.id && setStep(s.id)}
+                  <button key={st.id} onClick={() => step > st.id && setStep(st.id)}
                     className="flex-1 flex flex-col items-center gap-1 py-4 text-xs transition-all"
                     style={{
                       background: active ? "rgba(234,88,12,0.1)" : "transparent",
@@ -203,8 +201,8 @@ export default function BusinessDoctorPage() {
                       color: active ? "var(--primary)" : done ? "#10b981" : "var(--text-muted)",
                     }}>
                     {done ? <CheckCircle className="w-5 h-5 text-emerald-500" /> : <Icon className="w-5 h-5" />}
-                    <span className="font-medium">{s.title}</span>
-                    <span className="hidden md:block" style={{ color: "var(--text-muted)", fontSize: "11px" }}>{s.desc}</span>
+                    <span className="font-medium">{st.title}</span>
+                    <span className="hidden md:block" style={{ color: "var(--text-muted)", fontSize: "11px" }}>{st.desc}</span>
                   </button>
                 );
               })}
@@ -214,63 +212,63 @@ export default function BusinessDoctorPage() {
               {/* Step 1: Basic Info */}
               {step === 1 && (
                 <div className="space-y-4">
-                  <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--text-primary)" }}>اطلاعات پایه کسب‌وکار</h2>
+                  <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--text-primary)" }}>{s.basicInfoHeading}</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>نام کسب‌وکار *</label>
+                      <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{s.businessNameLabel}</label>
                       <input value={form.name} onChange={(e) => updateForm("name", e.target.value)}
-                        placeholder="مثال: فروشگاه دیجیتال پارس"
+                        placeholder={s.businessNamePlaceholder}
                         className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
                         style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>صنعت *</label>
+                      <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{s.industryLabel}</label>
                       <select value={form.industry} onChange={(e) => updateForm("industry", e.target.value)}
                         className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
                         style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                        <option value="">انتخاب صنعت...</option>
+                        <option value="">{s.selectIndustry}</option>
                         {INDUSTRIES.map((i) => <option key={i}>{i}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>سال تأسیس</label>
+                      <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{s.foundedYearLabel}</label>
                       <input value={form.foundedYear} onChange={(e) => updateForm("foundedYear", e.target.value)}
-                        placeholder="مثال: ۱۳۹۸"
+                        placeholder={s.foundedYearPlaceholder}
                         className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
                         style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>اندازه تیم</label>
+                      <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{s.teamSizeLabel}</label>
                       <select value={form.size} onChange={(e) => updateForm("size", e.target.value)}
                         className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
                         style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                        <option value="">انتخاب...</option>
-                        <option>۱ نفر (تنها)</option>
-                        <option>۲ تا ۵ نفر</option>
-                        <option>۶ تا ۱۵ نفر</option>
-                        <option>۱۶ تا ۵۰ نفر</option>
-                        <option>۵۰ تا ۲۰۰ نفر</option>
-                        <option>بیش از ۲۰۰ نفر</option>
+                        <option value="">{s.selectOption}</option>
+                        <option>{s.teamSize1}</option>
+                        <option>{s.teamSize2to5}</option>
+                        <option>{s.teamSize6to15}</option>
+                        <option>{s.teamSize16to50}</option>
+                        <option>{s.teamSize50to200}</option>
+                        <option>{s.teamSize200plus}</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>درآمد ماهانه (تقریبی)</label>
+                      <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{s.monthlyRevenueLabel}</label>
                       <input value={form.revenue} onChange={(e) => updateForm("revenue", e.target.value)}
-                        placeholder="مثال: ۵۰ میلیون تومان"
+                        placeholder={s.revenuePlaceholder}
                         className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
                         style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>وب‌سایت</label>
+                      <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{s.websiteLabel}</label>
                       <input value={form.website} onChange={(e) => updateForm("website", e.target.value)}
-                        placeholder="مثال: www.example.com"
+                        placeholder={s.websitePlaceholder}
                         className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
                         style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                     </div>
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>توضیح کلی کسب‌وکار</label>
+                      <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{s.descriptionLabel}</label>
                       <textarea value={form.description} onChange={(e) => updateForm("description", e.target.value)}
-                        placeholder="در ۳-۴ جمله توضیح دهید کسب‌وکار شما چه کار می‌کند..."
+                        placeholder={s.descriptionPlaceholder}
                         rows={3} className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
                         style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                     </div>
@@ -281,39 +279,39 @@ export default function BusinessDoctorPage() {
               {/* Step 2: Products & Market */}
               {step === 2 && (
                 <div className="space-y-4">
-                  <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--text-primary)" }}>محصولات، بازار و رقبا</h2>
+                  <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--text-primary)" }}>{s.marketHeading}</h2>
                   <div>
-                    <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>محصولات / خدمات اصلی</label>
+                    <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{s.productsLabel}</label>
                     <textarea value={form.products} onChange={(e) => updateForm("products", e.target.value)}
-                      placeholder="چه محصولات یا خدماتی ارائه می‌دهید؟ مثال: نرم‌افزار حسابداری، طراحی سایت، فروش لوازم الکترونیکی..."
+                      placeholder={s.productsPlaceholder}
                       rows={3} className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
                       style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>مشتریان هدف</label>
+                    <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{s.targetCustomersLabel}</label>
                     <textarea value={form.targetCustomers} onChange={(e) => updateForm("targetCustomers", e.target.value)}
-                      placeholder="مشتریان ایده‌آل شما چه کسانی هستند؟ سن، شغل، درآمد، موقعیت جغرافیایی..."
+                      placeholder={s.targetCustomersPlaceholder}
                       rows={3} className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
                       style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>رقبای اصلی</label>
+                    <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{s.competitorsLabel}</label>
                     <textarea value={form.competitors} onChange={(e) => updateForm("competitors", e.target.value)}
-                      placeholder="رقبای مستقیم و غیرمستقیم شما کدامند؟"
+                      placeholder={s.competitorsPlaceholder}
                       rows={2} className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
                       style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>مدل درآمدی</label>
+                    <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{s.businessModelLabel}</label>
                     <textarea value={form.businessModel} onChange={(e) => updateForm("businessModel", e.target.value)}
-                      placeholder="چطور درآمد کسب می‌کنید؟ فروش مستقیم، اشتراک، کمیسیون، تبلیغات..."
+                      placeholder={s.businessModelPlaceholder}
                       rows={2} className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
                       style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>مزیت رقابتی / ارزش منحصربه‌فرد</label>
+                    <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{s.uniqueValueLabel}</label>
                     <textarea value={form.uniqueValue} onChange={(e) => updateForm("uniqueValue", e.target.value)}
-                      placeholder="چه چیزی شما را از رقبا متمایز می‌کند؟"
+                      placeholder={s.uniqueValuePlaceholder}
                       rows={2} className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
                       style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                   </div>
@@ -323,25 +321,25 @@ export default function BusinessDoctorPage() {
               {/* Step 3: Situation & Goals */}
               {step === 3 && (
                 <div className="space-y-4">
-                  <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--text-primary)" }}>وضعیت فعلی و اهداف</h2>
+                  <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--text-primary)" }}>{s.goalsHeading}</h2>
                   <div>
-                    <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>چالش‌های اصلی فعلی</label>
+                    <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{s.challengesLabel}</label>
                     <textarea value={form.challenges} onChange={(e) => updateForm("challenges", e.target.value)}
-                      placeholder="بزرگترین مشکلات و موانعی که الان با آن‌ها روبرو هستید..."
+                      placeholder={s.challengesPlaceholder}
                       rows={3} className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
                       style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>نقاط قوت</label>
+                    <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{s.strengthsLabel}</label>
                     <textarea value={form.strengths} onChange={(e) => updateForm("strengths", e.target.value)}
-                      placeholder="قابلیت‌ها، منابع و مزایایی که دارید..."
+                      placeholder={s.strengthsPlaceholder}
                       rows={3} className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
                       style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>اهداف ۱۲ ماه آینده</label>
+                    <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{s.goals12MoLabel}</label>
                     <textarea value={form.goals} onChange={(e) => updateForm("goals", e.target.value)}
-                      placeholder="اهداف مشخص و قابل اندازه‌گیری برای یک سال آینده..."
+                      placeholder={s.goalsPlaceholder}
                       rows={3} className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
                       style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                   </div>
@@ -356,14 +354,14 @@ export default function BusinessDoctorPage() {
                       className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium"
                       style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
                       <ChevronRight className="w-4 h-4" />
-                      قبلی
+                      {s.prev}
                     </button>
                   )}
                   {profile && (
                     <button onClick={() => { setEditMode(false); setStep(1); }}
                       className="px-4 py-2.5 rounded-xl text-sm font-medium"
                       style={{ background: "var(--surface-2)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
-                      انصراف
+                      {s.cancel}
                     </button>
                   )}
                 </div>
@@ -371,14 +369,14 @@ export default function BusinessDoctorPage() {
                   <button onClick={() => setStep(step + 1)} disabled={step === 1 && (!form.name || !form.industry)}
                     className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-40"
                     style={{ background: "var(--primary)" }}>
-                    مرحله بعد
+                    {s.next}
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                 ) : (
                   <button onClick={saveProfile} disabled={saving}
                     className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
                     style={{ background: "var(--primary)" }}>
-                    {saving ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />در حال ذخیره...</> : <><CheckCircle className="w-4 h-4" />ذخیره و فعال‌سازی</>}
+                    {saving ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />{s.savingText}</> : <><CheckCircle className="w-4 h-4" />{s.saveActivate}</>}
                   </button>
                 )}
               </div>
@@ -392,10 +390,10 @@ export default function BusinessDoctorPage() {
             {/* Profile Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
               {[
-                { label: "صنعت", value: profile.industry, icon: Building2 },
-                { label: "اندازه تیم", value: profile.size || "—", icon: Users },
-                { label: "درآمد ماهانه", value: profile.revenue || "—", icon: TrendingUp },
-                { label: "وضعیت", value: "فعال", icon: Zap },
+                { label: s.industryStat, value: profile.industry, icon: Building2 },
+                { label: s.teamSizeStat, value: profile.size || "—", icon: Users },
+                { label: s.monthlyRevenueStat, value: profile.revenue || "—", icon: TrendingUp },
+                { label: s.statusStat, value: s.active, icon: Zap },
               ].map((item) => (
                 <div key={item.label} className="rounded-xl p-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
                   <div className="flex items-center gap-2 mb-1">
@@ -411,17 +409,17 @@ export default function BusinessDoctorPage() {
             <div className="rounded-2xl p-5 mb-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
               <div className="flex items-center gap-2 mb-4">
                 <Bot className="w-5 h-5" style={{ color: "var(--primary)" }} />
-                <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>Knowledge Base کسب‌وکار</h2>
-                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(16,185,129,0.15)", color: "#10b981" }}>فعال</span>
+                <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>{s.knowledgeBaseTitle}</h2>
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(16,185,129,0.15)", color: "#10b981" }}>{s.active}</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                 {[
-                  { label: "محصولات/خدمات", value: profile.products },
-                  { label: "مشتریان هدف", value: profile.targetCustomers },
-                  { label: "مزیت رقابتی", value: profile.uniqueValue },
-                  { label: "چالش اصلی", value: profile.challenges },
-                  { label: "اهداف", value: profile.goals },
-                  { label: "رقبا", value: profile.competitors },
+                  { label: s.kbProducts, value: profile.products },
+                  { label: s.kbTargetCustomers, value: profile.targetCustomers },
+                  { label: s.kbUniqueValue, value: profile.uniqueValue },
+                  { label: s.kbChallenges, value: profile.challenges },
+                  { label: s.kbGoals, value: profile.goals },
+                  { label: s.kbCompetitors, value: profile.competitors },
                 ].map((item) => item.value && (
                   <div key={item.label} className="flex gap-2">
                     <span className="flex-shrink-0 text-xs font-medium w-28" style={{ color: "var(--text-muted)" }}>{item.label}:</span>
@@ -430,7 +428,7 @@ export default function BusinessDoctorPage() {
                 ))}
               </div>
               <p className="mt-3 text-xs" style={{ color: "var(--text-muted)" }}>
-                این اطلاعات توسط تمام ایجنت‌ها (دکتر کسب‌وکار، اتاق جلسه، دستیاران) به عنوان زمینه استفاده می‌شود.
+                {s.kbNote}
               </p>
             </div>
 
@@ -438,7 +436,7 @@ export default function BusinessDoctorPage() {
             <div className="rounded-2xl p-5 mb-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
               <div className="flex items-center gap-2 mb-4">
                 <MessageSquare className="w-5 h-5" style={{ color: "var(--primary)" }} />
-                <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>سوال از دکتر کسب‌وکار</h2>
+                <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>{s.askTitle}</h2>
               </div>
 
               {/* Quick questions */}
@@ -459,7 +457,7 @@ export default function BusinessDoctorPage() {
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); setShowQuickAnalysis(true); askDoctor(); }}}
-                  placeholder="سوال خود را درباره کسب‌وکارتان بپرسید..."
+                  placeholder={s.questionPlaceholder}
                   rows={2}
                   className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
                   style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
@@ -477,25 +475,28 @@ export default function BusinessDoctorPage() {
               <div ref={resultRef} className="rounded-2xl p-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
                 <div className="flex items-center gap-2 mb-4">
                   <Stethoscope className="w-5 h-5" style={{ color: "var(--primary)" }} />
-                  <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>تحلیل دکتر کسب‌وکار</h2>
+                  <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>{s.analysisTitle}</h2>
                   {analyzing && <span className="w-4 h-4 border-2 border-orange-500/30 border-t-orange-500 rounded-full animate-spin" />}
                 </div>
                 <div className="prose prose-invert max-w-none text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
                   <ReactMarkdown>{result}</ReactMarkdown>
                 </div>
                 {!analyzing && (
-                  <div className="mt-4 pt-4 flex gap-2" style={{ borderTop: "1px solid var(--border)" }}>
-                    <button onClick={() => { setResult(""); setQuestion(""); setShowQuickAnalysis(false); }}
+                  <div className="mt-4 pt-4 flex flex-wrap gap-2 items-center" style={{ borderTop: "1px solid var(--border)" }}>
+                    <button onClick={() => { setResult(""); setQuestion(""); setShowQuickAnalysis(false); setAnalysisId(null); }}
                       className="text-xs px-3 py-1.5 rounded-lg"
                       style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
-                      سوال جدید
+                      {s.newQuestion}
                     </button>
                     <Link href="/meeting"
                       className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg"
                       style={{ background: "rgba(99,102,241,0.15)", color: "#818cf8" }}>
                       <Users className="w-3.5 h-3.5" />
-                      بحث در اتاق جلسه
+                      {s.discussInMeeting}
                     </Link>
+                    {analysisId && (
+                      <ShareButton type="business-analysis" id={analysisId} />
+                    )}
                   </div>
                 )}
               </div>

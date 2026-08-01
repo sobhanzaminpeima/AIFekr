@@ -38,8 +38,10 @@ const MODEL_IDS = [
 
 declare global {
   interface Window {
-    SpeechRecognition: new () => SpeechRecognition;
-    webkitSpeechRecognition: new () => SpeechRecognition;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    SpeechRecognition: new () => any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    webkitSpeechRecognition: new () => any;
   }
 }
 
@@ -80,7 +82,8 @@ export default function ChatInterface({
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
 
   const isRtl = lang === "fa";
   const currentMode = EXPERT_MODES.find((m) => m.id === expertMode) || EXPERT_MODES[0];
@@ -254,7 +257,8 @@ export default function ChatInterface({
     recognition.onstart = () => setListening(true);
     recognition.onend = () => { setListening(false); recognitionRef.current = null; };
     recognition.onerror = () => { setListening(false); recognitionRef.current = null; };
-    recognition.onresult = (e) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onresult = (e: any) => {
       let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const txt = e.results[i][0].transcript;

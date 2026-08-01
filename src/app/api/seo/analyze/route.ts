@@ -18,8 +18,8 @@ async function crawlUrl(url: string) {
     const ogTitle = getTag(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']*)["']/i);
     const ogDesc = getTag(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']*)["']/i);
     const robots = getTag(/<meta[^>]*name=["']robots["'][^>]*content=["']([^"']*)["']/i);
-    const h1s = [...html.matchAll(/<h1[^>]*>([^<]*)<\/h1>/gi)].map(m => m[1].trim()).filter(Boolean);
-    const h2s = [...html.matchAll(/<h2[^>]*>([^<]*)<\/h2>/gi)].map(m => m[1].trim()).filter(Boolean);
+    const h1s = Array.from(html.matchAll(/<h1[^>]*>([^<]*)<\/h1>/gi)).map(m => m[1].trim()).filter(Boolean);
+    const h2s = Array.from(html.matchAll(/<h2[^>]*>([^<]*)<\/h2>/gi)).map(m => m[1].trim()).filter(Boolean);
     const images = (html.match(/<img[^>]*>/gi) || []).length;
     const imagesWithAlt = (html.match(/<img[^>]*alt=["'][^"']+["'][^>]*>/gi) || []).length;
     const links = (html.match(/<a[^>]*href/gi) || []).length;

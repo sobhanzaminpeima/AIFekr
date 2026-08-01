@@ -9,6 +9,8 @@ import {
   Briefcase, Search, ShoppingCart, Building2, Cpu,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { useTranslation } from "@/lib/i18n";
+import { formatNumber } from "@/lib/utils/jalali";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -24,34 +26,6 @@ interface FollowUpDraft { contactId: string; name: string; phone: string | null;
 interface CeoTask { id: string; title: string; department: string; priority: string; status: string; requiresApproval: boolean; estimatedImpact: string | null; createdAt: string; }
 interface DeptReport { dept: string; deptLabel: string; status: "critical" | "warning" | "good"; score: number; headline: string; problems: string[]; opportunities: string[]; }
 interface BoardroomSession { id: string; status: string; healthScore: number | null; summary: string | null; departments: DeptReport[]; createdAt: string; }
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const DEPT_META: Record<string, { icon: React.ElementType; color: string; labelFa: string }> = {
-  marketing:  { icon: TrendingUp,  color: "#10b981", labelFa: "بازاریابی"      },
-  seo:        { icon: Search,      color: "#3b82f6", labelFa: "سئو"             },
-  sales:      { icon: ShoppingCart,color: "#8b5cf6", labelFa: "فروش"            },
-  finance:    { icon: DollarSign,  color: "#f59e0b", labelFa: "مالی"            },
-  operations: { icon: Cpu,         color: "#ef4444", labelFa: "عملیات"          },
-};
-
-const PRIORITY_META: Record<string, { color: string; bg: string; label: string }> = {
-  critical: { color: "#ef4444", bg: "rgba(239,68,68,0.12)",  label: "بحرانی"    },
-  high:     { color: "#f59e0b", bg: "rgba(245,158,11,0.12)", label: "زیاد"      },
-  medium:   { color: "#3b82f6", bg: "rgba(59,130,246,0.12)", label: "متوسط"     },
-  low:      { color: "#6b7280", bg: "rgba(107,114,128,0.1)", label: "کم"        },
-};
-
-const STATUS_META: Record<string, { color: string; icon: React.ElementType; label: string }> = {
-  pending:  { color: "#f59e0b", icon: Clock,        label: "در انتظار" },
-  approved: { color: "#10b981", icon: CheckCircle2, label: "تأیید شد" },
-  rejected: { color: "#ef4444", icon: XCircle,      label: "رد شد"    },
-  done:     { color: "#6b7280", icon: Check,         label: "انجام شد" },
-};
-
-const CATEGORY_LABELS: Record<string, string> = {
-  sales: "فروش", content: "محتوا", seo: "سئو", social: "شبکه اجتماعی", dev: "توسعه", general: "عمومی",
-};
 
 // ─── Health Score Ring ────────────────────────────────────────────────────────
 
@@ -83,6 +57,35 @@ function HealthRing({ score }: { score: number }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AiBosPage() {
+  const { t, lang } = useTranslation();
+  const isFa = lang !== "en";
+  const s = t.ceoOrchestratorPage;
+  const dateLocale = isFa ? "fa-IR" : "en-US";
+
+  const DEPT_META: Record<string, { icon: React.ElementType; color: string; labelFa: string }> = {
+    marketing:  { icon: TrendingUp,  color: "#10b981", labelFa: s.departments.marketing },
+    seo:        { icon: Search,      color: "#3b82f6", labelFa: s.departments.seo },
+    sales:      { icon: ShoppingCart,color: "#8b5cf6", labelFa: s.departments.sales },
+    finance:    { icon: DollarSign,  color: "#f59e0b", labelFa: s.departments.finance },
+    operations: { icon: Cpu,         color: "#ef4444", labelFa: s.departments.operations },
+  };
+
+  const PRIORITY_META: Record<string, { color: string; bg: string; label: string }> = {
+    critical: { color: "#ef4444", bg: "rgba(239,68,68,0.12)",  label: s.priorities.critical },
+    high:     { color: "#f59e0b", bg: "rgba(245,158,11,0.12)", label: s.priorities.high },
+    medium:   { color: "#3b82f6", bg: "rgba(59,130,246,0.12)", label: s.priorities.medium },
+    low:      { color: "#6b7280", bg: "rgba(107,114,128,0.1)", label: s.priorities.low },
+  };
+
+  const STATUS_META: Record<string, { color: string; icon: React.ElementType; label: string }> = {
+    pending:  { color: "#f59e0b", icon: Clock,        label: s.statuses.pending },
+    approved: { color: "#10b981", icon: CheckCircle2, label: s.statuses.approved },
+    rejected: { color: "#ef4444", icon: XCircle,      label: s.statuses.rejected },
+    done:     { color: "#6b7280", icon: Check,         label: s.statuses.done },
+  };
+
+  const CATEGORY_LABELS: Record<string, string> = s.categories;
+
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [memories, setMemories] = useState<Memory[]>([]);
   const [tasks, setTasks] = useState<CeoTask[]>([]);
@@ -163,7 +166,7 @@ export default function AiBosPage() {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, status }),
     });
-    setTasks((prev) => prev.map((t) => t.id === id ? { ...t, status } : t));
+    setTasks((prev) => prev.map((tk) => tk.id === id ? { ...tk, status } : tk));
   }
 
   async function deleteTask(id: string) {
@@ -171,7 +174,7 @@ export default function AiBosPage() {
       method: "DELETE", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
-    setTasks((prev) => prev.filter((t) => t.id !== id));
+    setTasks((prev) => prev.filter((tk) => tk.id !== id));
   }
 
   async function addMemory() {
@@ -250,18 +253,18 @@ export default function AiBosPage() {
           if (data === "[DONE]") continue;
           try {
             const evt = JSON.parse(data);
-            if (evt.type === "snapshot_ready") setBoardroomLog((p) => [...p, "📊 داده‌های کسب‌وکار آماده شد"]);
-            if (evt.type === "departments_start") setBoardroomLog((p) => [...p, "🏢 جلسه هیئت مدیره آغاز شد..."]);
-            if (evt.type === "dept_start") setBoardroomLog((p) => [...p, `⚙️ ${evt.deptLabel} در حال تحلیل...`]);
+            if (evt.type === "snapshot_ready") setBoardroomLog((p) => [...p, s.logSnapshotReady]);
+            if (evt.type === "departments_start") setBoardroomLog((p) => [...p, s.logDeptsStart]);
+            if (evt.type === "dept_start") setBoardroomLog((p) => [...p, `⚙️ ${evt.deptLabel} ${s.logDeptAnalyzing}`]);
             if (evt.type === "dept_done") {
               setBoardroomDepts((p) => [...p, evt.report]);
-              setBoardroomLog((pl) => [...pl, `✅ گزارش ${evt.report.deptLabel} آماده — امتیاز: ${evt.report.score}/100`]);
+              setBoardroomLog((pl) => [...pl, `✅ ${evt.report.deptLabel} ${s.logDeptDone} ${evt.report.score}/100`]);
             }
             if (evt.type === "health_score") setBoardroomHealth(evt.score);
-            if (evt.type === "synthesis_start") setBoardroomLog((p) => [...p, "🧠 مدیرعامل در حال تدوین استراتژی..."]);
+            if (evt.type === "synthesis_start") setBoardroomLog((p) => [...p, s.logSynthesisStart]);
             if (evt.type === "synthesis_chunk") setBoardroomSynthesis((p) => p + evt.text);
             if (evt.type === "done") {
-              setBoardroomLog((p) => [...p, `🎯 جلسه تمام شد — ${evt.taskCount} وظیفه ایجاد شد`]);
+              setBoardroomLog((p) => [...p, `${s.logSessionDone} ${evt.taskCount} ${s.logTasksCreated}`]);
               loadTasks();
               loadLastSession();
             }
@@ -296,11 +299,11 @@ export default function AiBosPage() {
   const healthScore = boardroomHealth ?? lastSession?.healthScore ?? null;
   const depts = boardroomDepts.length > 0 ? boardroomDepts : (lastSession?.departments ?? []);
   const synthesis = boardroomSynthesis || lastSession?.summary || "";
-  const filteredTasks = taskFilter === "all" ? tasks : tasks.filter((t) => t.status === taskFilter);
-  const pendingApproval = tasks.filter((t) => t.requiresApproval && t.status === "pending");
+  const filteredTasks = taskFilter === "all" ? tasks : tasks.filter((tk) => tk.status === taskFilter);
+  const pendingApproval = tasks.filter((tk) => tk.requiresApproval && tk.status === "pending");
 
   return (
-    <div className="min-h-screen" dir="rtl" style={{ background: "var(--surface-0)" }}>
+    <div className="min-h-screen" dir={isFa ? "rtl" : "ltr"} style={{ background: "var(--surface-0)" }}>
       {/* ─── Header ───────────────────────────────────────────────────────── */}
       <div className="px-6 py-5" style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap">
@@ -310,7 +313,7 @@ export default function AiBosPage() {
             </div>
             <div>
               <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>AI-BOS</h1>
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>سیستم عامل کسب‌وکار هوش مصنوعی</p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>{s.subtitle}</p>
             </div>
           </div>
 
@@ -319,7 +322,7 @@ export default function AiBosPage() {
               <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium"
                 style={{ background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)" }}>
                 <AlertTriangle className="w-3.5 h-3.5" />
-                {pendingApproval.length} درخواست تأیید
+                {formatNumber(pendingApproval.length, lang)} {s.pendingApprovals}
               </span>
             )}
             <button
@@ -344,20 +347,20 @@ export default function AiBosPage() {
               : (
                 <div className="w-36 h-36 rounded-full flex items-center justify-center flex-shrink-0"
                   style={{ border: "8px solid var(--surface-2)" }}>
-                  <span className="text-sm text-center px-2" style={{ color: "var(--text-muted)" }}>هیئت مدیره را اجرا کنید</span>
+                  <span className="text-sm text-center px-2" style={{ color: "var(--text-muted)" }}>{s.runBoardroomFirst}</span>
                 </div>
               )
             }
             <div>
-              <p className="text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>سلامت کسب‌وکار</p>
+              <p className="text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>{s.businessHealth}</p>
               <p className="text-2xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
                 {healthScore !== null
-                  ? healthScore >= 70 ? "سالم" : healthScore >= 40 ? "نیاز به توجه" : "بحرانی"
+                  ? healthScore >= 70 ? s.healthy : healthScore >= 40 ? s.needsAttention : s.critical
                   : "—"}
               </p>
               {lastSession && (
                 <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  آخرین جلسه: {new Date(lastSession.createdAt).toLocaleDateString("fa-IR")}
+                  {s.lastSession} {new Date(lastSession.createdAt).toLocaleDateString(dateLocale)}
                 </p>
               )}
               <button
@@ -367,17 +370,17 @@ export default function AiBosPage() {
                 style={{ background: "linear-gradient(135deg,var(--primary),#8b5cf6)" }}
               >
                 {boardroomRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-                {boardroomRunning ? "جلسه در حال برگزاری..." : "اجرای هیئت مدیره"}
+                {boardroomRunning ? s.boardroomRunning : s.runBoardroom}
               </button>
             </div>
           </div>
 
           {/* KPI tiles */}
           <div className="lg:col-span-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <KpiTile icon={DollarSign} color="#22c55e" label="درآمد ۳۰ روز" value={(snapshot?.data.revenueLast30d ?? 0).toLocaleString("fa-IR") + " ت"} />
-            <KpiTile icon={Users} color="#8b5cf6" label="پیگیری فروش" value={snapshot?.sales.needingFollowUp.length ?? "—"} />
-            <KpiTile icon={Target} color="#f59e0b" label="وظایف فعال" value={tasks.filter((t) => t.status === "pending").length} />
-            <KpiTile icon={Activity} color="#3b82f6" label="فعالیت ثبت‌شده" value={snapshot?.data.usageEventsLast30d ?? "—"} />
+            <KpiTile icon={DollarSign} color="#22c55e" label={s.kpiRevenue30d} value={(snapshot?.data.revenueLast30d ?? 0).toLocaleString(dateLocale) + (isFa ? " ت" : "")} />
+            <KpiTile icon={Users} color="#8b5cf6" label={s.kpiSalesFollowup} value={snapshot?.sales.needingFollowUp.length ?? "—"} />
+            <KpiTile icon={Target} color="#f59e0b" label={s.kpiActiveTasks} value={tasks.filter((tk) => tk.status === "pending").length} />
+            <KpiTile icon={Activity} color="#3b82f6" label={s.kpiActivity} value={snapshot?.data.usageEventsLast30d ?? "—"} />
           </div>
         </div>
 
@@ -387,7 +390,7 @@ export default function AiBosPage() {
             <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: "1px solid var(--border)" }}>
               <Building2 className="w-4 h-4" style={{ color: "var(--primary)" }} />
               <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
-                {boardroomRunning ? "جلسه هیئت مدیره در حال برگزاری..." : "آخرین جلسه هیئت مدیره"}
+                {boardroomRunning ? s.boardroomLiveTitle : s.boardroomLastTitle}
               </span>
               {boardroomRunning && <Loader2 className="w-4 h-4 animate-spin mr-auto" style={{ color: "var(--primary)" }} />}
             </div>
@@ -439,22 +442,22 @@ export default function AiBosPage() {
           <div className="px-5 py-4 flex items-center justify-between gap-3" style={{ borderBottom: "1px solid var(--border)" }}>
             <div className="flex items-center gap-2">
               <Target className="w-4 h-4" style={{ color: "var(--primary)" }} />
-              <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>وظایف هوش مصنوعی</span>
+              <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{s.aiTasksTitle}</span>
               {tasks.length > 0 && (
                 <span className="px-2 py-0.5 rounded-full text-xs" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
-                  {tasks.length}
+                  {formatNumber(tasks.length, lang)}
                 </span>
               )}
             </div>
             <div className="flex gap-1">
-              {["all", "pending", "approved", "done"].map((s) => (
-                <button key={s} onClick={() => setTaskFilter(s)}
+              {["all", "pending", "approved", "done"].map((fk) => (
+                <button key={fk} onClick={() => setTaskFilter(fk)}
                   className="px-2.5 py-1 rounded-lg text-xs transition-all"
                   style={{
-                    background: taskFilter === s ? "var(--primary)" : "var(--surface-2)",
-                    color: taskFilter === s ? "white" : "var(--text-muted)",
+                    background: taskFilter === fk ? "var(--primary)" : "var(--surface-2)",
+                    color: taskFilter === fk ? "white" : "var(--text-muted)",
                   }}>
-                  {{ all: "همه", pending: "در انتظار", approved: "تأیید", done: "انجام شد" }[s]}
+                  {{ all: s.filterAll, pending: s.filterPending, approved: s.filterApproved, done: s.filterDone }[fk]}
                 </button>
               ))}
             </div>
@@ -462,7 +465,7 @@ export default function AiBosPage() {
 
           {filteredTasks.length === 0 ? (
             <p className="text-sm text-center py-10" style={{ color: "var(--text-muted)" }}>
-              {tasks.length === 0 ? "پس از اجرای هیئت مدیره، وظایف اینجا ظاهر می‌شوند" : "وظیفه‌ای در این دسته‌بندی وجود ندارد"}
+              {tasks.length === 0 ? s.noTasksYet : s.noTasksInCategory}
             </p>
           ) : (
             <div className="divide-y" style={{ borderColor: "var(--border)" }}>
@@ -485,7 +488,7 @@ export default function AiBosPage() {
                         )}
                         {task.requiresApproval && task.status === "pending" && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.15)", color: "#f59e0b" }}>
-                            نیاز به تأیید
+                            {s.needsApproval}
                           </span>
                         )}
                       </div>
@@ -534,10 +537,10 @@ export default function AiBosPage() {
           <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border)" }}>
             <div className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" style={{ color: "var(--primary)" }} />
-              <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>تحلیل روزانه مدیرعامل</span>
+              <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{s.dailyAnalysisTitle}</span>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-xs" style={{ color: "var(--text-muted)" }}>تحلیل خودکار روزانه</span>
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>{s.autoDailyAnalysis}</span>
               <button onClick={toggleAutoRun}
                 className="relative w-10 h-5 rounded-full transition-colors"
                 style={{ background: autoRun ? "var(--primary)" : "var(--surface-2)" }}>
@@ -551,7 +554,7 @@ export default function AiBosPage() {
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
               style={{ background: "var(--primary)" }}>
               {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-              {running ? "در حال تحلیل..." : "اجرای تحلیل"}
+              {running ? s.runningAnalysis : s.runAnalysis}
             </button>
             {analysis && (
               <div className="prose prose-sm max-w-none mt-5 pt-5 text-sm" style={{ color: "var(--text-primary)", borderTop: "1px solid var(--border)" }}>
@@ -566,11 +569,11 @@ export default function AiBosPage() {
           <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border)" }}>
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4" style={{ color: "#8b5cf6" }} />
-              <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>پیگیری فروش</span>
+              <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{s.salesFollowupTitle}</span>
               {snapshot?.sales.needingFollowUp.length ? (
                 <span className="px-2 py-0.5 rounded-full text-xs font-bold"
                   style={{ background: "rgba(139,92,246,0.15)", color: "#8b5cf6" }}>
-                  {snapshot.sales.needingFollowUp.length} مخاطب
+                  {formatNumber(snapshot.sales.needingFollowUp.length, lang)} {s.contactsSuffix}
                 </span>
               ) : null}
             </div>
@@ -578,12 +581,12 @@ export default function AiBosPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
               style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
               {draftsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-              تولید پیام‌ها
+              {s.generateMessages}
             </button>
           </div>
           {drafts.length === 0 ? (
             <p className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>
-              روی «تولید پیام‌ها» بزنید تا هوش مصنوعی برای هر مخاطب پیام پیگیری بنویسد
+              {s.generateMessagesHint}
             </p>
           ) : (
             <ul className="divide-y" style={{ borderColor: "var(--border)" }}>
@@ -594,13 +597,13 @@ export default function AiBosPage() {
                     <div>
                       <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{d.name}</p>
                       <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{d.message}</p>
-                      {!d.phone && <p className="text-xs mt-1" style={{ color: "#ef4444" }}>شماره ثبت نشده</p>}
+                      {!d.phone && <p className="text-xs mt-1" style={{ color: "#ef4444" }}>{s.noPhoneRegistered}</p>}
                     </div>
                     <button onClick={() => sendDraft(d)} disabled={!d.phone || sent || sendingId === d.contactId}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium flex-shrink-0 disabled:opacity-50"
                       style={{ background: sent ? "rgba(34,197,94,0.12)" : "rgba(234,88,12,0.12)", color: sent ? "#22c55e" : "var(--primary)" }}>
                       {sendingId === d.contactId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : sent ? <Check className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
-                      {sent ? "ارسال شد" : "ارسال"}
+                      {sent ? s.sent : s.sendBtn}
                     </button>
                   </li>
                 );
@@ -613,10 +616,10 @@ export default function AiBosPage() {
         <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: "1px solid var(--border)" }}>
             <Brain className="w-4 h-4" style={{ color: "var(--primary)" }} />
-            <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>حافظه شرکت</span>
+            <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{s.companyMemoryTitle}</span>
             {memories.length > 0 && (
               <span className="px-2 py-0.5 rounded-full text-xs" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
-                {memories.length}
+                {formatNumber(memories.length, lang)}
               </span>
             )}
           </div>
@@ -628,18 +631,18 @@ export default function AiBosPage() {
             </select>
             <input value={newMemText} onChange={(e) => setNewMemText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addMemory()}
-              placeholder="نکته‌ای مهم دربارهٔ کسب‌وکار..."
+              placeholder={s.memoryPlaceholder}
               className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none"
               style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             <button onClick={addMemory}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white"
               style={{ background: "var(--primary)" }}>
-              <Plus className="w-4 h-4" /> افزودن
+              <Plus className="w-4 h-4" /> {s.addBtn}
             </button>
           </div>
           {memories.length === 0 ? (
             <p className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>
-              پس از اولین تحلیل، مدیرعامل این بخش را با نکات کلیدی کسب‌وکار پر می‌کند
+              {s.noMemoryYet}
             </p>
           ) : (
             <ul className="divide-y" style={{ borderColor: "var(--border)" }}>

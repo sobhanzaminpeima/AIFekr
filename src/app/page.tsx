@@ -175,7 +175,7 @@ export default async function HomePage() {
     packs = await prisma.industryPack.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, take: 8 });
   } catch {}
 
-  let packages: { planCode: string; name: string; nameEn: string; price: number; credits: number; features: string; isFeatured: boolean; color: string }[] = [];
+  let packages: { planCode: string; name: string; nameEn: string; price: number; priceUsd: number | null; credits: number; features: string; isFeatured: boolean; color: string }[] = [];
   try {
     packages = await prisma.package.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, take: 3 });
   } catch {}
@@ -193,7 +193,9 @@ export default async function HomePage() {
     return {
       planCode: p.planCode,
       name: lang === "fa" ? p.name : p.nameEn,
+      nameEn: p.nameEn,
       price: p.price,
+      priceUsd: p.priceUsd ?? null,
       credits: p.credits,
       features,
       isFeatured: p.isFeatured,
@@ -342,6 +344,7 @@ export default async function HomePage() {
               startButton={s.navRegister}
               viewAll={s.viewAllPricing}
               viewAllHref="/register"
+              lang={lang}
             />
           </div>
         </section>

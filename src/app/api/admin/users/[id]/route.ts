@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, unauthorizedResponse, forbiddenResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
+import { updateUserAsAdmin, deleteUserAsAdmin } from "@/lib/repositories/adminRepository";
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const admin = await requireAdmin(req);
@@ -32,13 +33,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 
   const body = await req.json();
-  const allowed = ["name", "email", "plan", "credits", "isBlocked", "planExpiry", "role"];
-  const data: Record<string, unknown> = {};
-  for (const key of allowed) {
-    if (key in body) data[key] = body[key];
-  }
-
-  const user = await prisma.user.update({ where: { id: params.id }, data });
+  const user = await updateUserAsAdmin(params.id, body);
   return NextResponse.json({ user });
 }
 
@@ -49,6 +44,6 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     return user ? forbiddenResponse() : unauthorizedResponse();
   }
 
-  await prisma.user.delete({ where: { id: params.id } });
+  await deleteUserAsAdmin(params.id);
   return NextResponse.json({ success: true });
 }

@@ -97,7 +97,7 @@ export const FA_TO_AGENT_KEY: Record<string, AgentKey> = Object.fromEntries(
 ) as Record<string, AgentKey>;
 
 export function buildSystemPrompt(key: AgentKey, brandVoice: string | undefined, lessons: string[]): string {
-  let prompt = BASE_SYSTEM[key];
+  let prompt = BASE_SYSTEM[key] + "\n\nمهم: خروجی را کاملاً و فقط به فارسی بنویس — هرگز کلمات یا حروف چینی، ویتنامی یا هر زبان دیگری غیر از فارسی را در متن قاطی نکن.";
   if (brandVoice) {
     prompt += `\n\nلحن برند: ${brandVoice}`;
   }

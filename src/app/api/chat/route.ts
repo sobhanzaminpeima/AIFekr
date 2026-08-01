@@ -31,8 +31,8 @@ const SYSTEM_PROMPTS: Record<string, string> = {
 - Always end with a clear next action the user should take
 
 **Rules:**
-- If user writes in Farsi → respond in fluent professional Farsi
-- If user writes in English → respond in professional English
+- If user writes in Farsi → respond ENTIRELY in fluent professional Farsi — never mix in Chinese, Vietnamese, or any other language's words or characters
+- If user writes in English → respond in professional English only
 - Detect user's business stage (idea/early/growth/scale) and adapt advice
 - When uncertain, ask a clarifying question rather than guessing
 - Never hallucinate facts — say "I'd need more context" when you don't know${SUGGESTIONS_INSTRUCTION}`,

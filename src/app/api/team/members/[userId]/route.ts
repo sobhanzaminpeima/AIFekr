@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
+import { removeTeamSeatAndResetPlan } from "@/lib/repositories/userRepository";
 
 /**
  * Removes a seat from a team. An owner can remove any member; a member can
@@ -26,10 +27,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { userId: s
     return NextResponse.json({ error: "مالک تیم قابل حذف نیست" }, { status: 400 });
   }
 
-  await prisma.$transaction([
-    prisma.teamMember.delete({ where: { userId: params.userId } }),
-    prisma.user.update({ where: { id: params.userId }, data: { plan: "FREE" } }),
-  ]);
+  await removeTeamSeatAndResetPlan(params.userId);
 
   return NextResponse.json({ success: true });
 }

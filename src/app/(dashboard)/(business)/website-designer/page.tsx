@@ -3,25 +3,20 @@
 import { useState, useMemo, useEffect } from "react";
 import { Globe, Copy, Check, Download, Code2, Eye, History, ExternalLink } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { useTranslation } from "@/lib/i18n";
 
 interface SavedSite { id: string; businessName: string; createdAt: string; sizeKB: number; }
 
 const SECTIONS = ["Hero", "About", "Services", "Pricing", "Testimonials", "FAQ", "Contact", "Blog"];
-const GOALS = [
-  { value: "landing page", label: "صفحه فرود" },
-  { value: "portfolio", label: "پورتفولیو" },
-  { value: "e-commerce", label: "فروشگاه آنلاین" },
-  { value: "blog", label: "وبلاگ" },
-  { value: "SaaS", label: "SaaS" },
-];
-const STYLES = [
-  { value: "modern", label: "مدرن" },
-  { value: "minimal", label: "مینیمال" },
-  { value: "bold", label: "جسورانه" },
-  { value: "elegant", label: "زیبا" },
-];
 
 export default function WebsiteDesignerPage() {
+  const { t, lang } = useTranslation();
+  const isFa = lang !== "en";
+  const s = t.websiteDesignerPage;
+  const dateLocale = isFa ? "fa-IR" : "en-US";
+  const GOALS = s.goals;
+  const STYLES = s.styles;
+
   const [form, setForm] = useState({
     businessName: "",
     industry: "",
@@ -47,18 +42,14 @@ export default function WebsiteDesignerPage() {
       .catch(() => {});
   }, []);
 
-  function toggleSection(s: string) {
+  function toggleSection(sec: string) {
     setForm((prev) => ({
       ...prev,
-      sections: prev.sections.includes(s) ? prev.sections.filter((x) => x !== s) : [...prev.sections, s],
+      sections: prev.sections.includes(sec) ? prev.sections.filter((x) => x !== sec) : [...prev.sections, sec],
     }));
   }
 
   function extractHtml(text: string) {
-    // Prefer a fully-closed ```html ... ``` block, but a response that got
-    // cut off mid-stream (hit the model's token limit) never emits the
-    // closing fence — fall back to "everything after the opening fence" so
-    // the user still gets a preview/download instead of only raw text.
     const closed = text.match(/```html\n([\s\S]*?)```/);
     if (closed) return closed[1];
     const openOnly = text.match(/```html\n([\s\S]*)/);
@@ -95,7 +86,7 @@ export default function WebsiteDesignerPage() {
         body: JSON.stringify(form),
       });
       if (!res.ok) {
-        setError("خطا در ارتباط با سرور. لطفاً دوباره تلاش کنید.");
+        setError(s.errServer);
         return;
       }
       const reader = res.body!.getReader();
@@ -111,11 +102,11 @@ export default function WebsiteDesignerPage() {
           try {
             const p = JSON.parse(data);
             if (p.text) { setResult((prev) => prev + p.text); gotAnyText = true; }
-            if (p.error) setError("خطا در تولید وبسایت. سرویس‌های هوش مصنوعی موقتاً در دسترس نیستند — لطفاً چند دقیقه دیگر دوباره تلاش کنید.");
+            if (p.error) setError(s.errGenerate);
           } catch {}
         }
       }
-      if (!gotAnyText) setError((prev) => prev || "پاسخی از سرور دریافت نشد. لطفاً دوباره تلاش کنید.");
+      if (!gotAnyText) setError((prev) => prev || s.errNoResponse);
       else {
         fetch("/api/website-designer/list")
           .then((r) => (r.ok ? r.json() : null))
@@ -124,13 +115,13 @@ export default function WebsiteDesignerPage() {
       }
     } catch (err) {
       console.error(err);
-      setError("خطا در ارتباط با سرور. لطفاً دوباره تلاش کنید.");
+      setError(s.errServer);
     }
     finally { setLoading(false); }
   }
 
   return (
-    <div className="min-h-screen p-6" style={{ background: "var(--surface-0)" }}>
+    <div dir={isFa ? "rtl" : "ltr"} className="min-h-screen p-6" style={{ background: "var(--surface-0)" }}>
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between gap-3 mb-8">
@@ -139,8 +130,8 @@ export default function WebsiteDesignerPage() {
               <Globe className="w-6 h-6 text-teal-400" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>عامل طراح وبسایت</h1>
-              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>طراحی وبسایت کامل و آماده انتشار با هوش مصنوعی</p>
+              <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{s.title}</h1>
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{s.subtitle}</p>
             </div>
           </div>
           <button
@@ -149,44 +140,44 @@ export default function WebsiteDesignerPage() {
             style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
           >
             <History className="w-3.5 h-3.5" />
-            وبسایت‌های ذخیره‌شده ({savedSites.length})
+            {s.savedSitesBtn} ({savedSites.length})
           </button>
         </div>
 
         {historyOpen && (
           <div className="mb-8 rounded-2xl overflow-hidden" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             {savedSites.length === 0 ? (
-              <p className="text-sm p-5 text-center" style={{ color: "var(--text-muted)" }}>هنوز وبسایتی ذخیره نکرده‌اید</p>
+              <p className="text-sm p-5 text-center" style={{ color: "var(--text-muted)" }}>{s.noSitesYet}</p>
             ) : (
               <ul>
-                {savedSites.map((s, i) => (
+                {savedSites.map((st, i) => (
                   <li
-                    key={s.id}
+                    key={st.id}
                     className="flex items-center justify-between px-4 py-3"
                     style={{ borderTop: i > 0 ? "1px solid var(--border)" : undefined }}
                   >
                     <div>
-                      <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{s.businessName}</p>
+                      <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{st.businessName}</p>
                       <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                        {new Date(s.createdAt).toLocaleDateString("fa-IR")} · {s.sizeKB} KB
+                        {new Date(st.createdAt).toLocaleDateString(dateLocale)} · {st.sizeKB} KB
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <a
-                        href={`/api/website-designer/${s.id}`}
+                        href={`/api/website-designer/${st.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs"
                         style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
                       >
-                        <ExternalLink className="w-3.5 h-3.5" /> پیش‌نمایش
+                        <ExternalLink className="w-3.5 h-3.5" /> {s.previewBtn}
                       </a>
                       <a
-                        href={`/api/website-designer/${s.id}?download=1`}
+                        href={`/api/website-designer/${st.id}?download=1`}
                         className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs"
                         style={{ background: "rgba(234,88,12,0.15)", color: "var(--primary)" }}
                       >
-                        <Download className="w-3.5 h-3.5" /> دانلود
+                        <Download className="w-3.5 h-3.5" /> {s.downloadBtn}
                       </a>
                     </div>
                   </li>
@@ -198,21 +189,21 @@ export default function WebsiteDesignerPage() {
 
         {/* Step indicators */}
         <div className="flex items-center gap-3 mb-6">
-          {[1, 2].map((s) => (
-            <button key={s} onClick={() => { if (s === 1) setStep(1); }} className="flex items-center gap-2">
+          {[1, 2].map((stp) => (
+            <button key={stp} onClick={() => { if (stp === 1) setStep(1); }} className="flex items-center gap-2">
               <div
                 className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
                 style={{
-                  background: step === s ? "var(--primary)" : "var(--surface-2)",
-                  color: step === s ? "white" : "var(--text-muted)",
+                  background: step === stp ? "var(--primary)" : "var(--surface-2)",
+                  color: step === stp ? "white" : "var(--text-muted)",
                 }}
               >
-                {s}
+                {stp}
               </div>
-              <span className="text-sm" style={{ color: step === s ? "var(--text-primary)" : "var(--text-muted)" }}>
-                {s === 1 ? "توضیحات کسب‌وکار" : "وبسایت تولید شده"}
+              <span className="text-sm" style={{ color: step === stp ? "var(--text-primary)" : "var(--text-muted)" }}>
+                {stp === 1 ? s.stepBusinessInfo : s.stepGeneratedSite}
               </span>
-              {s === 1 && <span style={{ color: "var(--border)" }}>›</span>}
+              {stp === 1 && <span style={{ color: "var(--border)" }}>›</span>}
             </button>
           ))}
         </div>
@@ -221,10 +212,10 @@ export default function WebsiteDesignerPage() {
           <div className="rounded-2xl p-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
-                { key: "businessName", label: "نام کسب‌وکار *", placeholder: "مثال: آژانس دیجیتال مارکتینگ نوین" },
-                { key: "industry", label: "صنعت *", placeholder: "مثال: طراحی وبسایت، رستوران، کلینیک..." },
-                { key: "audience", label: "مخاطبان هدف", placeholder: "مثال: کسب‌وکارهای کوچک، جوانان ۲۰-۳۵ ساله..." },
-                { key: "colorPref", label: "ترجیح رنگ", placeholder: "مثال: آبی و سفید، سبز طبیعی، تیره..." },
+                { key: "businessName", label: s.businessNameLabel, placeholder: s.businessNamePlaceholder },
+                { key: "industry", label: s.industryLabel, placeholder: s.industryPlaceholder },
+                { key: "audience", label: s.audienceLabel, placeholder: s.audiencePlaceholder },
+                { key: "colorPref", label: s.colorPrefLabel, placeholder: s.colorPrefPlaceholder },
               ].map(({ key, label, placeholder }) => (
                 <div key={key}>
                   <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{label}</label>
@@ -238,7 +229,7 @@ export default function WebsiteDesignerPage() {
                 </div>
               ))}
               <div>
-                <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>هدف وبسایت</label>
+                <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{s.websiteGoalLabel}</label>
                 <div className="flex flex-wrap gap-2">
                   {GOALS.map((g) => (
                     <button key={g.value} onClick={() => setForm({ ...form, goal: g.value })}
@@ -255,35 +246,35 @@ export default function WebsiteDesignerPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>سبک طراحی</label>
+                <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{s.designStyleLabel}</label>
                 <div className="flex gap-2">
-                  {STYLES.map((s) => (
-                    <button key={s.value} onClick={() => setForm({ ...form, style: s.value })}
+                  {STYLES.map((st) => (
+                    <button key={st.value} onClick={() => setForm({ ...form, style: st.value })}
                       className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                       style={{
-                        background: form.style === s.value ? "var(--primary)" : "var(--surface-2)",
-                        color: form.style === s.value ? "white" : "var(--text-secondary)",
-                        border: form.style === s.value ? "none" : "1px solid var(--border)",
+                        background: form.style === st.value ? "var(--primary)" : "var(--surface-2)",
+                        color: form.style === st.value ? "white" : "var(--text-secondary)",
+                        border: form.style === st.value ? "none" : "1px solid var(--border)",
                       }}
                     >
-                      {s.label}
+                      {st.label}
                     </button>
                   ))}
                 </div>
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>بخش‌های ضروری</label>
+                <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{s.requiredSectionsLabel}</label>
                 <div className="flex flex-wrap gap-2">
-                  {SECTIONS.map((s) => (
-                    <button key={s} onClick={() => toggleSection(s)}
+                  {SECTIONS.map((sec) => (
+                    <button key={sec} onClick={() => toggleSection(sec)}
                       className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                       style={{
-                        background: form.sections.includes(s) ? "rgba(234,88,12,0.2)" : "var(--surface-2)",
-                        color: form.sections.includes(s) ? "var(--primary)" : "var(--text-secondary)",
-                        border: form.sections.includes(s) ? "1px solid rgba(234,88,12,0.4)" : "1px solid var(--border)",
+                        background: form.sections.includes(sec) ? "rgba(234,88,12,0.2)" : "var(--surface-2)",
+                        color: form.sections.includes(sec) ? "var(--primary)" : "var(--text-secondary)",
+                        border: form.sections.includes(sec) ? "1px solid rgba(234,88,12,0.4)" : "1px solid var(--border)",
                       }}
                     >
-                      {s}
+                      {sec}
                     </button>
                   ))}
                 </div>
@@ -296,7 +287,7 @@ export default function WebsiteDesignerPage() {
               style={{ background: "var(--primary)" }}
             >
               {loading ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Globe className="w-4 h-4" />}
-              طراحی وبسایت
+              {s.designBtn}
             </button>
           </div>
         )}
@@ -305,7 +296,7 @@ export default function WebsiteDesignerPage() {
           <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             <div className="flex items-center justify-between p-4" style={{ borderBottom: "1px solid var(--border)" }}>
               <div className="flex items-center gap-2">
-                <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>وبسایت تولید شده</h2>
+                <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>{s.generatedWebsiteTitle}</h2>
                 {html && (
                   <div className="flex items-center gap-1 rounded-lg p-1 mr-2" style={{ background: "var(--surface-2)" }}>
                     <button
@@ -313,14 +304,14 @@ export default function WebsiteDesignerPage() {
                       className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all"
                       style={{ background: view === "preview" ? "var(--primary)" : "transparent", color: view === "preview" ? "white" : "var(--text-secondary)" }}
                     >
-                      <Eye className="w-3.5 h-3.5" /> پیش‌نمایش
+                      <Eye className="w-3.5 h-3.5" /> {s.previewBtn}
                     </button>
                     <button
                       onClick={() => setView("code")}
                       className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all"
                       style={{ background: view === "code" ? "var(--primary)" : "transparent", color: view === "code" ? "white" : "var(--text-secondary)" }}
                     >
-                      <Code2 className="w-3.5 h-3.5" /> کد
+                      <Code2 className="w-3.5 h-3.5" /> {s.codeBtn}
                     </button>
                   </div>
                 )}
@@ -332,7 +323,7 @@ export default function WebsiteDesignerPage() {
                   style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
                 >
                   {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copied ? "کپی شد" : "کپی کد"}
+                  {copied ? s.copied : s.copyCode}
                 </button>
                 {html && (
                   <button
@@ -341,7 +332,7 @@ export default function WebsiteDesignerPage() {
                     style={{ background: "rgba(234,88,12,0.15)", color: "var(--primary)" }}
                   >
                     <Download className="w-3.5 h-3.5" />
-                    دانلود HTML
+                    {s.downloadHtml}
                   </button>
                 )}
               </div>
@@ -350,7 +341,7 @@ export default function WebsiteDesignerPage() {
             {loading && !result && !error && (
               <div className="flex items-center gap-3 py-16 justify-center">
                 <span className="w-5 h-5 border-2 border-orange-500/30 border-t-orange-500 rounded-full animate-spin" />
-                <span className="text-sm" style={{ color: "var(--text-secondary)" }}>در حال طراحی وبسایت شما...</span>
+                <span className="text-sm" style={{ color: "var(--text-secondary)" }}>{s.designingText}</span>
               </div>
             )}
 
@@ -365,7 +356,7 @@ export default function WebsiteDesignerPage() {
                   className="mt-2 px-4 py-2 rounded-xl text-sm font-medium text-white"
                   style={{ background: "var(--primary)" }}
                 >
-                  تلاش مجدد
+                  {s.retryBtn}
                 </button>
               </div>
             )}
@@ -373,14 +364,14 @@ export default function WebsiteDesignerPage() {
             {isTruncated && (
               <div className="flex items-center gap-2 px-4 py-2.5 text-xs" style={{ background: "rgba(234,179,8,0.1)", color: "#eab308", borderBottom: "1px solid var(--border)" }}>
                 <span>⚠️</span>
-                <span>پاسخ ناقص دریافت شد (ممکن است سرویس هوش مصنوعی وسط کار قطع شده باشد). می‌توانید همین نسخه را دانلود/کپی کنید یا دوباره تلاش کنید.</span>
+                <span>{s.truncatedWarning}</span>
               </div>
             )}
 
             {html && view === "preview" ? (
               <iframe
                 srcDoc={html}
-                title="پیش‌نمایش وبسایت"
+                title={s.previewIframeTitle}
                 sandbox="allow-scripts"
                 className="w-full"
                 style={{ height: "70vh", border: "none", background: "white" }}

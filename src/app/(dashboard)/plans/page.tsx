@@ -2,309 +2,519 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect } from "react";
-import { Check, Zap, Loader2, CheckCircle, Tag, ChevronDown, Gift, Infinity as InfinityIcon } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import {
+  Check, X, Zap, Loader2, CheckCircle, ChevronDown, Building2,
+  MessageSquare, Image, Music, Video, Sparkles, Crown,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import { useSearchParams } from "next/navigation";
-import { type Currency, CURRENCY_SYMBOLS, convertPrice, getCurrency, DEFAULT_RATES } from "@/lib/currency";
+import { useTranslation } from "@/lib/i18n";
 
-const DISCOUNT_PERCENT = 20;
+// ── Types ────────────────────────────────────────────────────────────────────
+type Market = "IR" | "INTL";
+type Period = "monthly" | "annual";
 
-// Fetched from /api/packages (backed by the Package table, edited via
-// /admin/packages) instead of a hardcoded array, so admin edits actually
-// change what's shown/charged here and in /api/payment/create.
 type ApiPackage = {
-  planCode: string; name: string; nameEn: string; price: number; duration: number;
-  credits: number; isFeatured: boolean; color: string; features: string;
+  planCode: string; name: string; nameEn: string;
+  price: number; priceUsd: number | null; market: string;
+  duration: number; credits: number; isFeatured: boolean;
+  color: string; features: string;
 };
 
-const FREE_PLAN = {
-  id: "FREE", name: "رایگان", originalPrice: 0, price: 0, credits: 100, color: "#71717a",
-  features: ["۲۰ چت در روز", "۵ تصویر در ماه", "مدل پایه", "بدون ویدیو و موزیک"],
-};
+// ── Static data ───────────────────────────────────────────────────────────────
+const ANNUAL_DISCOUNT = 2 / 12;
 
-// Real per-operation credit costs — mirrors src/lib/utils/credits.ts CREDIT_COSTS.
-const OPERATION_COSTS: Record<string, { label: string; rows: { name: string; credits: number }[] }> = {
-  chat: { label: "چت", rows: [{ name: "هر پیام چت", credits: 1 }] },
-  image: {
-    label: "تصویر",
-    rows: [
-      { name: "تصویر استاندارد", credits: 5 },
-      { name: "تصویر HD", credits: 10 },
-    ],
-  },
-  video: {
-    label: "ویدیو",
-    rows: [
-      { name: "ویدیو ۵ ثانیه", credits: 20 },
-      { name: "ویدیو ۱۰ ثانیه", credits: 35 },
-      { name: "ویدیو ۳۰ ثانیه", credits: 80 },
-    ],
-  },
-  music: {
-    label: "موزیک",
-    rows: [
-      { name: "موزیک ۳۰ ثانیه", credits: 10 },
-      { name: "موزیک ۶۰ ثانیه", credits: 18 },
-      { name: "موزیک ۱۲۰ ثانیه", credits: 30 },
-    ],
-  },
-};
-
-const FAQ = [
-  { q: "تفاوت پلن پایه و حرفه‌ای چیست؟", a: "پلن حرفه‌ای محدودیت ماهانه‌ی تصویر و ویدیو ندارد، از مدل قوی‌تر استفاده می‌کند و پشتیبانی اولویت‌دار دارد." },
-  { q: "آیا اعتبار خریداری‌شده تاریخ انقضا دارد؟", a: "خیر، اعتبار خریداری‌شده در همان پلن باقی می‌ماند تا زمانی که مصرف شود و پس از آن نیازمند تمدید یا خرید مجدد اعتبار خواهید بود." },
-  { q: "هر تولید چند اعتبار مصرف می‌کند؟", a: "بسته به نوع عملیات (چت، تصویر، ویدیو یا موزیک) متفاوت است — جدول کامل را در بخش «اعتبار هر عملیات» در همین صفحه ببینید." },
-  { q: "می‌توانم پلن را ارتقا دهم؟", a: "بله، هر زمان می‌توانید یک پلن بالاتر بخرید؛ اعتبار پلن جدید به اعتبار فعلی حساب شما اضافه می‌شود." },
-  { q: "آیا اعتبار خرج‌نشده بعد از پایان اشتراک از بین می‌رود؟", a: "خیر، اعتبار باقی‌مانده از بین نمی‌رود و در دوره‌ی بعدی هم قابل استفاده است." },
-  { q: "پرداخت از چه طریقی انجام می‌شود؟", a: "پرداخت از طریق درگاه امن زرین‌پال انجام می‌شود." },
+const FEATURE_ROWS = [
+  { sectionFa: "چت", sectionEn: "Chat", icon: MessageSquare, rows: [
+    { labelFa: "پیام در روز / ۳ ساعت", labelEn: "Messages per day / 3h", ir: ["۲۰/روز", "۵۰/۳ساعت", "۱۰۰/۳ساعت", "۱۵۰/۳ساعت", "۷۵۰/۳ساعت"], en: ["20/day", "50/3h", "100/3h", "150/3h", "750/3h"] },
+    { labelFa: "مدل‌های پایه", labelEn: "Basic models", ir: [true, true, true, true, true], en: [true, true, true, true, true] },
+    { labelFa: "مدل‌های پیشرفته", labelEn: "Advanced models", subtitle: "Claude Sonnet, GPT-5, Gemini Pro", ir: [false, false, true, true, true], en: [false, false, true, true, true] },
+    { labelFa: "مدل‌های حرفه‌ای", labelEn: "Pro models", subtitle: "Claude Opus, GPT-5 Sol, o3", ir: [false, false, false, true, true], en: [false, false, false, true, true] },
+    { labelFa: "جستجو در اینترنت", labelEn: "Web search", ir: [true, true, true, true, true], en: [true, true, true, true, true] },
+    { labelFa: "آپلود فایل", labelEn: "File upload", ir: [false, true, true, true, true], en: [false, true, true, true, true] },
+    { labelFa: "کاوش عمیق (Deep Research)", labelEn: "Deep Research", ir: [false, false, true, true, true], en: [false, false, true, true, true] },
+  ]},
+  { sectionFa: "تصویر", sectionEn: "Image", icon: Image, rows: [
+    { labelFa: "تعداد تصویر", labelEn: "Images", ir: ["۳/روز", "۱۵/روز", "نامحدود", "نامحدود", "نامحدود"], en: ["3/day", "15/day", "Unlimited", "Unlimited", "Unlimited"] },
+    { labelFa: "مدل‌های پیشرفته", labelEn: "Advanced models", subtitle: "Flux Pro, SDXL, Gemini Image", ir: [false, false, true, true, true], en: [false, false, true, true, true] },
+    { labelFa: "Midjourney", labelEn: "Midjourney", ir: [false, false, false, true, true], en: [false, false, false, true, true] },
+  ]},
+  { sectionFa: "موزیک", sectionEn: "Music", icon: Music, rows: [
+    { labelFa: "ساخت موزیک (Suno)", labelEn: "Music generation (Suno)", ir: [false, false, true, true, true], en: [false, false, true, true, true] },
+  ]},
+  { sectionFa: "ویدیو", sectionEn: "Video", icon: Video, rows: [
+    { labelFa: "تعداد ویدیو در هفته", labelEn: "Videos per week", ir: ["—", "—", "—", "۲۰", "۱۰۰"], en: ["—", "—", "—", "20", "100"] },
+    { labelFa: "مدل ویدیو (Veo, Kling)", labelEn: "Video models (Veo, Kling)", ir: [false, false, false, true, true], en: [false, false, false, true, true] },
+  ]},
+  { sectionFa: "امکانات دیگر", sectionEn: "Other Features", icon: Sparkles, rows: [
+    { labelFa: "ساخت وبسایت هوشمند", labelEn: "AI website builder", ir: [false, false, false, true, true], en: [false, false, false, true, true] },
+    { labelFa: "بدون تبلیغات", labelEn: "Ad-free", ir: [false, true, true, true, true], en: [false, true, true, true, true] },
+    { labelFa: "سرعت پاسخ بالاتر", labelEn: "Faster responses", ir: [false, false, false, true, true], en: [false, false, false, true, true] },
+    { labelFa: "دسترسی زودهنگام", labelEn: "Early access", ir: [false, false, false, false, true], en: [false, false, false, false, true] },
+    { labelFa: "پشتیبانی VIP", labelEn: "VIP support", ir: [false, false, false, false, true], en: [false, false, false, false, true] },
+  ]},
 ];
 
-export default function PlansPage() {
-  const [loading, setLoading] = useState<string | null>(null);
-  const [tab, setTab] = useState<keyof typeof OPERATION_COSTS>("chat");
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [plans, setPlans] = useState<typeof FREE_PLAN[]>([]);
-  const [currency, setCurrencyState] = useState<Currency>("IRR");
-  const [rates, setRates] = useState<Record<string, number>>(DEFAULT_RATES);
-  const searchParams = useSearchParams();
-  const paymentStatus = searchParams.get("payment");
-  const refId = searchParams.get("ref");
+const IR_PLAN_CODES  = ["FREE", "ECHO", "PLUS", "PRO", "ALPHA"];
+const USD_PLAN_CODES = ["FREE", "STARTER_USD", "PLUS_USD", "PRO_USD", "ULTRA_USD"];
 
-  useEffect(() => {
-    setCurrencyState(getCurrency());
-    fetch("/api/currency-rates")
-      .then((r) => r.json())
-      .then((d) => { if (d.rates) setRates(d.rates); })
-      .catch(() => {});
-  }, []);
+const FREE_IR: ApiPackage  = { planCode: "FREE", name: "رایگان", nameEn: "Free", price: 0, priceUsd: 0, market: "IR",   duration: 30, credits: 100, isFeatured: false, color: "#71717a", features: "۲۰ چت در روز\n۳ تصویر در روز\nمدل‌های پایه" };
+const FREE_USD: ApiPackage = { planCode: "FREE", name: "Free",   nameEn: "Free", price: 0, priceUsd: 0, market: "INTL", duration: 30, credits: 100, isFeatured: false, color: "#71717a", features: "20 chats per day\n3 images per day\nBasic models" };
 
-  // tomanPrice -> formatted string in the selected currency. Package prices
-  // are stored in toman (rial/10); usd_to_irr is rial-per-USD, so
-  // toman*10/usd_to_irr gives the real USD value to convert from.
-  function fmt(tomanPrice: number): string {
-    if (currency === "IRR") return `${tomanPrice.toLocaleString("fa-IR")} ت`;
-    const usd = (tomanPrice * 10) / (rates.usd_to_irr || DEFAULT_RATES.usd_to_irr);
-    const converted = convertPrice(usd, currency, rates);
-    return `${CURRENCY_SYMBOLS[currency]}${converted.toLocaleString("en-US", { maximumFractionDigits: currency === "USD" ? 2 : 2 })}`;
+const BIZ_PLANS_IR = [
+  { name: "تیم کوچک", desc: "تا ۵ کاربر", price: 4990000, color: "#6366f1", features: ["همه امکانات پلاس", "داشبورد مدیریت تیم", "اعتبار مشترک", "API اختصاصی", "گزارش مصرف"] },
+  { name: "تیم متوسط", desc: "تا ۲۰ کاربر", price: 14990000, color: "#ea580c", features: ["همه امکانات پرو", "داشبورد پیشرفته تیم", "AI-BOS اختصاصی", "SSO / SAML", "مدیر اکانت اختصاصی"], popular: true },
+  { name: "سازمانی", desc: "بدون محدودیت", price: null, color: "#8b5cf6", features: ["همه امکانات الفا", "استقرار اختصاصی", "SLA اختصاصی", "یکپارچه‌سازی سفارشی", "پشتیبانی ۲۴/۷"] },
+];
+
+const BIZ_PLANS_USD = [
+  { name: "Startup", desc: "Up to 5 users", priceUsd: 29900, color: "#6366f1", features: ["All Plus features", "Team dashboard", "Shared credits", "Dedicated API", "Usage reports"] },
+  { name: "Growth", desc: "Up to 20 users", priceUsd: 59900, color: "#ea580c", features: ["All Pro features", "Advanced team dashboard", "AI-BOS included", "SSO / SAML", "Dedicated account manager"], popular: true },
+  { name: "Enterprise", desc: "Unlimited", priceUsd: null, color: "#8b5cf6", features: ["All Ultra features", "Custom deployment", "Custom SLA", "Custom integrations", "24/7 support"] },
+];
+
+const FAQ_IR = [
+  { q: "تفاوت پلن‌ها در چیست؟", a: "هر پلن محدودیت متفاوتی در تعداد پیام، تصویر، ویدیو و دسترسی به مدل‌های هوشمند دارد. پلن‌های بالاتر به مدل‌های قوی‌تر و ابزارهای بیشتری دسترسی دارند." },
+  { q: "آیا می‌توانم پلن را ارتقا دهم؟", a: "بله، هر زمان می‌توانید پلن بالاتری خریداری کنید." },
+  { q: "پرداخت از چه طریقی انجام می‌شود؟", a: "از طریق درگاه امن زرین‌پال با کارت بانکی." },
+  { q: "آیا تخفیف سالانه دارید؟", a: "بله، با خرید سالانه ۲ ماه رایگان دریافت می‌کنید (معادل ۱۷٪ تخفیف)." },
+  { q: "پشتیبانی چگونه است؟", a: "پلن‌های پلاس و بالاتر پشتیبانی ایمیلی، پرو پشتیبانی اولویت‌دار و الفا پشتیبانی VIP دارند." },
+];
+
+const FAQ_EN = [
+  { q: "What's the difference between plans?", a: "Each plan has different limits on messages, images, videos, and access to AI models. Higher plans unlock more powerful models and tools." },
+  { q: "Can I upgrade my plan?", a: "Yes, you can purchase a higher plan at any time." },
+  { q: "How do I pay?", a: "International plans are available via contact. Iranian plans via ZarinPal secure gateway." },
+  { q: "Is there an annual discount?", a: "Yes, with annual billing you get 2 months free (≈17% off)." },
+  { q: "What about support?", a: "Plus and above get email support, Pro gets priority support, Ultra gets VIP support." },
+];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmtToman(rial: number, annual: boolean): string {
+  const toman = Math.round(rial / 10);
+  const final = annual ? Math.round(toman * (1 - ANNUAL_DISCOUNT)) : toman;
+  return final.toLocaleString("fa-IR");
+}
+
+function fmtUsd(cents: number, annual: boolean): string {
+  const usd = cents / 100;
+  const final = annual ? Math.round(usd * (1 - ANNUAL_DISCOUNT) * 100) / 100 : usd;
+  return `$${final % 1 === 0 ? final.toFixed(0) : final.toFixed(2)}`;
+}
+
+function CellVal({ val }: { val: boolean | string }) {
+  if (typeof val === "boolean") {
+    return val
+      ? <Check className="w-4 h-4 mx-auto" style={{ color: "#10b981" }} />
+      : <X className="w-4 h-4 mx-auto" style={{ color: "var(--text-muted)", opacity: 0.4 }} />;
   }
+  return <span className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{val}</span>;
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+export default function PlansPage() {
+  const { lang }                        = useTranslation();
+  const isFa                            = lang === "fa";
+  const [loading, setLoading]           = useState<string | null>(null);
+  const [market, setMarket]             = useState<Market | null>(null); // null = not yet initialized
+  const [period, setPeriod]             = useState<Period>("monthly");
+  const [packages, setPackages]         = useState<ApiPackage[]>([]);
+  const [showTable, setShowTable]       = useState(false);
+  const [openFaq, setOpenFaq]           = useState<number | null>(null);
+  const searchParams                    = useSearchParams();
+  const langInitialized                 = useRef(false);
+
+  // Sync market with language on first load (fa→IR, en→INTL), allow manual override after
+  useEffect(() => {
+    if (lang && !langInitialized.current) {
+      setMarket(lang === "fa" ? "IR" : "INTL");
+      langInitialized.current = true;
+    }
+  }, [lang]);
 
   useEffect(() => {
-    if (paymentStatus === "success") toast.success(`پرداخت موفق! کد پیگیری: ${refId}`);
-    if (paymentStatus === "failed") toast.error("پرداخت ناموفق بود. دوباره تلاش کنید.");
-  }, [paymentStatus, refId]);
+    const payStatus = searchParams.get("payment");
+    const refId     = searchParams.get("ref");
+    if (payStatus === "success") toast.success(isFa ? `اشتراک فعال شد! کد پیگیری: ${refId}` : `Subscription activated! Ref: ${refId}`);
+    if (payStatus === "failed")  toast.error(isFa ? "پرداخت ناموفق بود. دوباره تلاش کنید." : "Payment failed. Please try again.");
+  }, [searchParams, isFa]);
 
   useEffect(() => {
     fetch("/api/packages")
-      .then((r) => r.json())
-      .then((d: { packages: ApiPackage[] }) => {
-        const mapped = (d.packages || []).map((p) => {
-          const originalToman = Math.round(p.price / 10);
-          return {
-            id: p.planCode, name: p.name, originalPrice: originalToman,
-            price: Math.round(originalToman * (1 - DISCOUNT_PERCENT / 100)),
-            credits: p.credits, color: p.color, popular: p.isFeatured,
-            features: p.features.split("\n").filter(Boolean),
-          };
-        });
-        setPlans(mapped);
-      })
-      .catch(() => toast.error("خطا در بارگذاری پلن‌ها"));
+      .then(r => r.json())
+      .then((d: { packages: ApiPackage[] }) => setPackages(d.packages || []))
+      .catch(() => toast.error(isFa ? "خطا در بارگذاری پلن‌ها" : "Failed to load plans"));
   }, []);
 
-  const PLANS = [FREE_PLAN, ...plans];
+  const effectiveMarket = market ?? (isFa ? "IR" : "INTL");
+  const isIr     = effectiveMarket === "IR";
+  const planCodes = isIr ? IR_PLAN_CODES : USD_PLAN_CODES;
+  const freePlan  = isIr ? FREE_IR : FREE_USD;
 
-  async function handleBuy(planId: string) {
-    if (planId === "FREE") return;
-    setLoading(planId);
-    const res = await fetch("/api/payment/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan: planId }),
-    });
-    const data = await res.json();
-    setLoading(null);
-    if (!res.ok) return toast.error(data.error || "خطا در ایجاد پرداخت");
-    window.location.href = data.paymentUrl;
+  function getPlans(): (ApiPackage & { parsedFeatures: string[] })[] {
+    const paid = packages
+      .filter(p => planCodes.includes(p.planCode) && p.planCode !== "FREE")
+      .sort((a, b) => planCodes.indexOf(a.planCode) - planCodes.indexOf(b.planCode));
+
+    return [freePlan, ...paid].map(p => ({
+      ...p,
+      parsedFeatures: (p.features || "").split("\n").filter(Boolean),
+    }));
+  }
+
+  const plans    = getPlans();
+  const bizPlans = isIr ? BIZ_PLANS_IR : BIZ_PLANS_USD;
+  const faqItems = isFa ? FAQ_IR : FAQ_EN;
+
+  // i18n strings
+  const s = {
+    title:        isFa ? "خرید و ارتقا بسته"                    : "Plans & Pricing",
+    subtitle:     isFa ? "هوش مصنوعی برای همه — چت، تصویر، موزیک و ویدیو" : "AI for everyone — chat, image, music & video",
+    iran:         "🇮🇷 " + (isFa ? "ایران (تومان)" : "Iran (Toman)"),
+    intl:         "🌍 " + (isFa ? "بین‌المللی (دلار)" : "International ($)"),
+    monthly:      isFa ? "ماهانه"     : "Monthly",
+    annual:       isFa ? "سالانه"     : "Annual",
+    freeMonths:   isFa ? "۲ ماه رایگان" : "2 months free",
+    popular:      isFa ? "پرطرفدار"   : "Popular",
+    recommended:  isFa ? "پیشنهادی"   : "Recommended",
+    free:         isFa ? "رایگان"     : "Free",
+    perMonth:     isFa ? "در ماه"     : "/ mo",
+    active:       isFa ? "فعال"       : "Active",
+    buy:          isFa ? "خرید"       : "Buy",
+    redirecting:  isFa ? "در حال انتقال..." : "Redirecting...",
+    contactIntl:  isFa ? "برای خرید پلن بین‌المللی با ما تماس بگیرید." : "Contact us for international plans.",
+    payError:     isFa ? "خطا در ایجاد پرداخت" : "Payment error",
+    connError:    isFa ? "خطا در اتصال به درگاه" : "Connection error",
+    successBanner:isFa ? "اشتراک شما با موفقیت فعال شد!" : "Your subscription was activated!",
+    compareBtn:   isFa ? "مقایسه کامل امکانات" : "Full Feature Comparison",
+    featuresCol:  isFa ? "امکانات"    : "Features",
+    customPrice:  isFa ? "سفارشی"    : "Custom",
+    contactUs:    isFa ? "تماس با ما" : "Contact Us",
+    getStarted:   isFa ? "شروع کنید" : "Get Started",
+    faqTitle:     isFa ? "سؤالات متداول" : "FAQ",
+    footerNote:   isFa
+      ? "پرداخت از طریق درگاه امن زرین‌پال — اطلاعات کارت شما نزد ما ذخیره نمی‌شود"
+      : "Payments processed securely — we never store your card details",
+  };
+
+  async function handleBuy(planCode: string) {
+    if (planCode === "FREE") return;
+    if (!isIr) { toast(s.contactIntl); return; }
+    setLoading(planCode);
+    try {
+      const res  = await fetch("/api/payment/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: planCode, period }),
+      });
+      const data = await res.json();
+      if (!res.ok) return toast.error(data.error || s.payError);
+      window.location.href = data.paymentUrl;
+    } catch {
+      toast.error(s.connError);
+    } finally {
+      setLoading(null);
+    }
   }
 
   return (
-    <div className="p-6 space-y-8 max-w-5xl mx-auto">
-      {paymentStatus === "success" && (
-        <div className="p-4 rounded-2xl flex items-center gap-3" style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)" }}>
-          <CheckCircle className="w-5 h-5" style={{ color: "#10b981" }} />
-          <div>
-            <p className="font-medium text-sm" style={{ color: "#10b981" }}>اشتراک شما با موفقیت فعال شد!</p>
-            {refId && <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>کد پیگیری: {refId}</p>}
-          </div>
+    <div className="p-4 md:p-6 space-y-10 max-w-6xl mx-auto" dir={isFa ? "rtl" : "ltr"}>
+
+      {/* ── Success banner ── */}
+      {searchParams.get("payment") === "success" && (
+        <div className="p-4 rounded-2xl flex items-center gap-3"
+          style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)" }}>
+          <CheckCircle className="w-5 h-5 flex-shrink-0" style={{ color: "#10b981" }} />
+          <p className="font-medium text-sm" style={{ color: "#10b981" }}>{s.successBanner}</p>
         </div>
       )}
 
-      {/* Header */}
-      <div className="text-center">
-        <h1 className="text-2xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>خرید اعتبار</h1>
-        <p className="max-w-xl mx-auto text-sm" style={{ color: "var(--text-secondary)" }}>
-          اعتبار، واحد مصرفی AiFekr برای استفاده از ابزارهای هوش مصنوعی است. هر مدل به اندازه‌ی مصرف واقعی خودش از حساب شما اعتبار کم می‌کند.
-        </p>
-        <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full text-xs font-bold text-white" style={{ background: "#16a34a" }}>
-          <Tag className="w-3.5 h-3.5" />
-          {DISCOUNT_PERCENT}٪ تخفیف ویژه روی همه‌ی پلن‌ها
+      {/* ── Header ── */}
+      <div className="text-center space-y-4">
+        <h1 className="text-2xl md:text-3xl font-bold" style={{ color: "var(--text-primary)" }}>{s.title}</h1>
+        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{s.subtitle}</p>
+
+        {/* Market toggle */}
+        <div className="inline-flex rounded-2xl p-1 gap-1" style={{ background: "var(--surface-2)" }}>
+          {(["IR", "INTL"] as Market[]).map(m => (
+            <button key={m} onClick={() => setMarket(m)}
+              className="px-5 py-2 rounded-xl text-sm font-semibold transition-all"
+              style={{
+                background: effectiveMarket === m ? "var(--primary)" : "transparent",
+                color: effectiveMarket === m ? "white" : "var(--text-secondary)",
+              }}>
+              {m === "IR" ? s.iran : s.intl}
+            </button>
+          ))}
+        </div>
+
+        {/* Period toggle */}
+        <div className="flex items-center justify-center gap-3">
+          <span className="text-sm" style={{ color: period === "monthly" ? "var(--text-primary)" : "var(--text-muted)" }}>{s.monthly}</span>
+          <button
+            onClick={() => setPeriod(p => p === "monthly" ? "annual" : "monthly")}
+            className="relative w-12 h-6 rounded-full transition-all"
+            style={{ background: period === "annual" ? "var(--primary)" : "var(--surface-2)" }}>
+            <span className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
+              style={{ [isFa ? "right" : "left"]: period === "annual" ? "0.25rem" : "calc(100% - 1.25rem)" }} />
+          </button>
+          <span className="text-sm" style={{ color: period === "annual" ? "var(--text-primary)" : "var(--text-muted)" }}>
+            {s.annual}
+            <span className={isFa ? "mr-1.5" : "ml-1.5"} style={{
+              display: "inline-block",
+              padding: "0 6px",
+              borderRadius: 6,
+              fontSize: 11,
+              fontWeight: 700,
+              color: "white",
+              background: "#16a34a",
+            }}>
+              {s.freeMonths}
+            </span>
+          </span>
         </div>
       </div>
 
-      {/* Free banner */}
-      <div className="p-5 rounded-2xl text-center max-w-md mx-auto" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-        <div className="font-bold mb-1" style={{ color: "var(--text-primary)" }}>رایگان — ۲۰ چت در هر روز</div>
-        <div className="text-xs" style={{ color: "var(--text-muted)" }}>با محدودیت مدل پایه — بدون نیاز به خرید</div>
-      </div>
+      {/* ── Plan cards ── */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4">
+        {plans.map((plan) => {
+          const isFree   = plan.planCode === "FREE";
+          const price    = isIr ? plan.price : (plan.priceUsd ?? 0);
+          const priceStr = isFree ? s.free
+            : isIr ? `${fmtToman(price, period === "annual")} تومان`
+            : fmtUsd(price, period === "annual");
 
-      {/* Plan cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
-        {PLANS.filter((p) => p.id !== "FREE").map((plan) => {
-          const perCredit = plan.credits > 0 ? plan.price / plan.credits : 0;
           return (
-            <div key={plan.id} className="p-5 rounded-2xl relative"
-              style={{ background: "var(--surface-1)", border: `2px solid ${(plan as any).popular ? plan.color : "var(--border)"}` }}>
-              {(plan as any).popular && (
-                <div className="absolute -top-3 right-1/2 translate-x-1/2 px-3 py-1 rounded-full text-xs font-bold text-white" style={{ background: plan.color }}>
-                  محبوب‌ترین
+            <div key={plan.planCode}
+              className="relative rounded-2xl p-4 flex flex-col"
+              style={{
+                background: plan.isFeatured ? `${plan.color}15` : "var(--surface-1)",
+                border: `2px solid ${plan.isFeatured ? plan.color : "var(--border)"}`,
+              }}>
+
+              {plan.isFeatured && (
+                <div className="absolute -top-3 right-1/2 translate-x-1/2 px-3 py-0.5 rounded-full text-xs font-bold text-white whitespace-nowrap"
+                  style={{ background: plan.color }}>
+                  {s.popular}
                 </div>
               )}
-              <div className="flex items-center justify-between mb-3">
-                <div className="font-bold text-lg" style={{ color: "var(--text-primary)" }}>{plan.name}</div>
-                <span className="text-xs font-bold px-1.5 py-0.5 rounded-md text-white" style={{ background: "#16a34a" }}>
-                  {DISCOUNT_PERCENT}٪ تخفیف
-                </span>
+
+              <div className="font-bold text-base mb-1" style={{ color: plan.color }}>
+                {isFa ? plan.name : plan.nameEn}
               </div>
 
-              <div className="flex items-center gap-1.5 mb-1">
-                <Gift className="w-4 h-4" style={{ color: plan.color }} />
-                <span className="text-2xl font-bold" style={{ color: plan.color }}>{plan.credits.toLocaleString("fa-IR")}</span>
-                <span className="text-xs" style={{ color: "var(--text-muted)" }}>اعتبار</span>
+              <div className="mb-3">
+                {isFree ? (
+                  <span className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{s.free}</span>
+                ) : (
+                  <>
+                    <div className="text-base font-bold leading-tight" style={{ color: "var(--text-primary)" }}>{priceStr}</div>
+                    {period === "annual" && (
+                      <div className="text-xs line-through mt-0.5" style={{ color: "var(--text-muted)" }}>
+                        {isIr ? `${fmtToman(price, false)} تومان` : fmtUsd(price, false)}
+                      </div>
+                    )}
+                    <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{s.perMonth}</div>
+                  </>
+                )}
               </div>
 
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-sm line-through" style={{ color: "var(--text-muted)" }}>
-                  {fmt(plan.originalPrice)}
-                </span>
-                <span className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-                  {fmt(plan.price)}
-                </span>
-              </div>
-              <div className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-                هر اعتبار {perCredit.toLocaleString("fa-IR", { maximumFractionDigits: 0 })} تومان
-              </div>
-
-              <ul className="space-y-2 mb-5">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-sm">
-                    <Check className="w-4 h-4 flex-shrink-0" style={{ color: plan.color }} />
-                    <span style={{ color: "var(--text-secondary)" }}>{f}</span>
+              <ul className="space-y-1.5 mb-4 flex-1">
+                {plan.parsedFeatures.slice(0, 4).map(f => (
+                  <li key={f} className="flex items-start gap-1.5">
+                    <Check className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: plan.color }} />
+                    <span className="text-xs leading-tight" style={{ color: "var(--text-secondary)" }}>{f}</span>
                   </li>
                 ))}
               </ul>
 
               <button
-                onClick={() => handleBuy(plan.id)}
-                disabled={loading === plan.id}
-                className="w-full py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                onClick={() => handleBuy(plan.planCode)}
+                disabled={!!loading || isFree}
+                className="w-full py-2 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
                 style={{
-                  background: (plan as any).popular ? plan.color : "var(--surface-2)",
-                  color: (plan as any).popular ? "white" : "var(--text-primary)",
+                  background: isFree ? "var(--surface-2)" : plan.isFeatured ? plan.color : `${plan.color}25`,
+                  color: isFree ? "var(--text-muted)" : plan.isFeatured ? "white" : plan.color,
+                  border: isFree ? "1px solid var(--border)" : "none",
                 }}>
-                {loading === plan.id
-                  ? <><Loader2 className="w-4 h-4 animate-spin" /> در حال انتقال...</>
-                  : <><Zap className="w-4 h-4" /> خرید اعتبار</>}
+                {loading === plan.planCode
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> {s.redirecting}</>
+                  : isFree ? s.active
+                  : <><Zap className="w-3.5 h-3.5" /> {s.buy}</>
+                }
               </button>
             </div>
           );
         })}
       </div>
 
-      {/* Non-expiring credits note */}
-      <div className="flex items-center gap-3 p-4 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-        <InfinityIcon className="w-6 h-6 flex-shrink-0" style={{ color: "var(--primary)" }} />
-        <div>
-          <div className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>اعتبار دائمی، بدون انقضا</div>
-          <div className="text-xs" style={{ color: "var(--text-secondary)" }}>اعتبار خریداری‌شده هرگز منقضی نمی‌شود و تا زمان مصرف کامل در حساب شما باقی می‌ماند.</div>
-        </div>
-      </div>
+      {/* ── Feature comparison table ── */}
+      <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+        <button
+          onClick={() => setShowTable(t => !t)}
+          className="w-full flex items-center justify-between px-5 py-4"
+          style={{ background: "var(--surface-1)" }}>
+          <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{s.compareBtn}</span>
+          <ChevronDown className="w-4 h-4 transition-transform" style={{ transform: showTable ? "rotate(180deg)" : "none", color: "var(--text-muted)" }} />
+        </button>
 
-      {/* Per-operation cost table */}
-      <div>
-        <h2 className="text-lg font-bold text-center mb-1" style={{ color: "var(--text-primary)" }}>اعتبار هر عملیات</h2>
-        <p className="text-center text-sm mb-4" style={{ color: "var(--text-muted)" }}>هر تولید چند اعتبار مصرف می‌کند</p>
-
-        <div className="flex justify-center gap-2 mb-4 flex-wrap">
-          {(Object.keys(OPERATION_COSTS) as (keyof typeof OPERATION_COSTS)[]).map((key) => (
-            <button key={key} onClick={() => setTab(key)}
-              className="px-4 py-1.5 rounded-xl text-sm font-medium transition-all"
-              style={{ background: tab === key ? "var(--primary)" : "var(--surface-2)", color: tab === key ? "white" : "var(--text-secondary)" }}>
-              {OPERATION_COSTS[key].label}
-            </button>
-          ))}
-        </div>
-
-        <div className="rounded-2xl overflow-hidden max-w-lg mx-auto" style={{ border: "1px solid var(--border)" }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ background: "var(--surface-2)" }}>
-                <th className="text-right px-4 py-2 font-medium" style={{ color: "var(--text-secondary)" }}>عملیات</th>
-                <th className="text-left px-4 py-2 font-medium" style={{ color: "var(--text-secondary)" }}>هزینه اعتبار</th>
-              </tr>
-            </thead>
-            <tbody>
-              {OPERATION_COSTS[tab].rows.map((r, i) => (
-                <tr key={r.name} style={{ background: i % 2 === 0 ? "var(--surface-1)" : "var(--surface-0)" }}>
-                  <td className="px-4 py-2.5" style={{ color: "var(--text-primary)" }}>{r.name}</td>
-                  <td className="px-4 py-2.5 text-left font-medium" style={{ color: "var(--primary)" }}>{r.credits} اعتبار</td>
+        {showTable && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs min-w-[600px]">
+              <thead>
+                <tr style={{ background: "var(--surface-2)" }}>
+                  <th className={`${isFa ? "text-right" : "text-left"} px-4 py-3 font-medium w-44`} style={{ color: "var(--text-secondary)" }}>
+                    {s.featuresCol}
+                  </th>
+                  {plans.map(p => (
+                    <th key={p.planCode} className="text-center px-3 py-3 font-bold" style={{ color: p.color }}>
+                      {isFa ? p.name : p.nameEn}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Plan comparison table */}
-      <div>
-        <h2 className="text-lg font-bold text-center mb-4" style={{ color: "var(--text-primary)" }}>مقایسه‌ی پلن‌ها</h2>
-        <div className="rounded-2xl overflow-x-auto" style={{ border: "1px solid var(--border)" }}>
-          <table className="w-full text-sm min-w-[500px]">
-            <thead>
-              <tr style={{ background: "var(--surface-2)" }}>
-                {["پلن", "قیمت اصلی", "تخفیف", "قیمت نهایی", "اعتبار"].map((h) => (
-                  <th key={h} className="text-right px-4 py-2 font-medium" style={{ color: "var(--text-secondary)" }}>{h}</th>
+              </thead>
+              <tbody>
+                {FEATURE_ROWS.map(section => (
+                  <>
+                    <tr key={section.sectionFa} style={{ background: "var(--surface-0)" }}>
+                      <td colSpan={plans.length + 1} className="px-4 py-2">
+                        <div className="flex items-center gap-2">
+                          <section.icon className="w-3.5 h-3.5" style={{ color: "var(--primary)" }} />
+                          <span className="font-semibold text-xs" style={{ color: "var(--text-primary)" }}>
+                            {isFa ? section.sectionFa : section.sectionEn}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                    {section.rows.map((row, ri) => (
+                      <tr key={row.labelFa} style={{ background: ri % 2 === 0 ? "var(--surface-1)" : "var(--surface-0)" }}>
+                        <td className={`px-4 py-2.5 ${isFa ? "text-right" : "text-left"}`}>
+                          <div style={{ color: "var(--text-primary)" }}>{isFa ? row.labelFa : row.labelEn}</div>
+                          {row.subtitle && <div className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>{row.subtitle}</div>}
+                        </td>
+                        {(isIr ? row.ir : row.en).map((val, ci) => (
+                          <td key={ci} className="text-center px-3 py-2.5">
+                            <CellVal val={val} />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {PLANS.filter((p) => p.id !== "FREE").map((p, i) => (
-                <tr key={p.id} style={{ background: i % 2 === 0 ? "var(--surface-1)" : "var(--surface-0)" }}>
-                  <td className="px-4 py-2.5 font-medium" style={{ color: p.color }}>{p.name}</td>
-                  <td className="px-4 py-2.5 line-through" style={{ color: "var(--text-muted)" }}>{fmt(p.originalPrice)}</td>
-                  <td className="px-4 py-2.5" style={{ color: "#16a34a" }}>{DISCOUNT_PERCENT}٪</td>
-                  <td className="px-4 py-2.5 font-semibold" style={{ color: "var(--text-primary)" }}>{fmt(p.price)}</td>
-                  <td className="px-4 py-2.5" style={{ color: "var(--text-primary)" }}>{p.credits.toLocaleString("fa-IR")}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── Business plans ── */}
+      <div>
+        <div className="flex items-center gap-3 mb-6">
+          <Building2 className="w-6 h-6" style={{ color: "var(--primary)" }} />
+          <div>
+            <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+              {isFa ? "پلن‌های کسب‌وکار" : "Business Plans"}
+            </h2>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              {isFa ? "برای تیم‌ها، آژانس‌ها و سازمان‌ها" : "For teams, agencies and enterprises"}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {bizPlans.map((biz) => {
+            const isCustom = isIr
+              ? !("price" in biz) || biz.price == null
+              : !("priceUsd" in biz) || (biz as any).priceUsd == null;
+
+            const priceDisplay = isCustom
+              ? s.customPrice
+              : isIr
+                ? `${Math.round(((biz as any).price / 10) * (period === "annual" ? (1 - ANNUAL_DISCOUNT) : 1)).toLocaleString("fa-IR")} تومان`
+                : fmtUsd((biz as any).priceUsd, period === "annual");
+
+            return (
+              <div key={biz.name}
+                className="relative p-5 rounded-2xl flex flex-col"
+                style={{
+                  background: (biz as any).popular ? `${biz.color}12` : "var(--surface-1)",
+                  border: `2px solid ${(biz as any).popular ? biz.color : "var(--border)"}`,
+                }}>
+
+                {(biz as any).popular && (
+                  <div className="absolute -top-3 right-1/2 translate-x-1/2 px-3 py-0.5 rounded-full text-xs font-bold text-white"
+                    style={{ background: biz.color }}>
+                    {s.recommended}
+                  </div>
+                )}
+
+                <div className="font-bold text-base mb-0.5" style={{ color: biz.color }}>{biz.name}</div>
+                <div className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>{biz.desc}</div>
+                <div className="text-xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>{priceDisplay}</div>
+                {period === "annual" && !isCustom && isIr && (
+                  <div className="text-xs line-through mb-3" style={{ color: "var(--text-muted)" }}>
+                    {`${Math.round((biz as any).price / 10).toLocaleString("fa-IR")} تومان`}
+                  </div>
+                )}
+                <div className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>{s.perMonth}</div>
+
+                <ul className="space-y-2 flex-1 mb-5">
+                  {biz.features.map(f => (
+                    <li key={f} className="flex items-center gap-2">
+                      <Crown className="w-3.5 h-3.5 flex-shrink-0" style={{ color: biz.color }} />
+                      <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <a
+                  href="mailto:support@aifekr.com"
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold text-center transition-all block"
+                  style={{
+                    background: (biz as any).popular ? biz.color : `${biz.color}20`,
+                    color: (biz as any).popular ? "white" : biz.color,
+                  }}>
+                  {isCustom ? s.contactUs : s.getStarted}
+                </a>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* FAQ */}
+      {/* ── Trust / guarantee ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {[
+          { icon: "🔒", title: isFa ? "پرداخت امن"       : "Secure Payment", desc: isFa ? "درگاه امن زرین‌پال"                   : "SSL-secured checkout" },
+          { icon: "♾️", title: isFa ? "بدون انقضا"       : "No Expiry",      desc: isFa ? "اعتبار شما هرگز منقضی نمی‌شود"       : "Credits never expire" },
+          { icon: "↩️", title: isFa ? "ضمانت بازگشت"    : "Money-back",     desc: isFa ? "در صورت مشکل وجه برمی‌گردد"          : "Refund if issues arise" },
+        ].map(t => (
+          <div key={t.title} className="flex items-center gap-3 p-4 rounded-2xl"
+            style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+            <span className="text-2xl">{t.icon}</span>
+            <div>
+              <div className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{t.title}</div>
+              <div className="text-xs" style={{ color: "var(--text-muted)" }}>{t.desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── FAQ ── */}
       <div>
-        <h2 className="text-lg font-bold text-center mb-4" style={{ color: "var(--text-primary)" }}>سؤالات متداول</h2>
+        <h2 className="text-lg font-bold text-center mb-4" style={{ color: "var(--text-primary)" }}>{s.faqTitle}</h2>
         <div className="max-w-2xl mx-auto space-y-2">
-          {FAQ.map((item, i) => (
-            <div key={i} className="rounded-xl overflow-hidden" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          {faqItems.map((item, i) => (
+            <div key={i} className="rounded-xl overflow-hidden"
+              style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
               <button
                 onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-right"
-                style={{ color: "var(--text-primary)" }}
-              >
+                className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium ${isFa ? "text-right" : "text-left"}`}
+                style={{ color: "var(--text-primary)" }}>
                 {item.q}
-                <ChevronDown className="w-4 h-4 flex-shrink-0 transition-transform" style={{ transform: openFaq === i ? "rotate(180deg)" : "none", color: "var(--text-muted)" }} />
+                <ChevronDown className="w-4 h-4 flex-shrink-0 transition-transform"
+                  style={{ transform: openFaq === i ? "rotate(180deg)" : "none", color: "var(--text-muted)" }} />
               </button>
               {openFaq === i && (
                 <div className="px-4 pb-3 text-sm" style={{ color: "var(--text-secondary)" }}>{item.a}</div>
@@ -314,9 +524,7 @@ export default function PlansPage() {
         </div>
       </div>
 
-      <p className="text-center text-xs" style={{ color: "var(--text-muted)" }}>
-        پرداخت از طریق درگاه امن زرین‌پال
-      </p>
+      <p className="text-center text-xs pb-6" style={{ color: "var(--text-muted)" }}>{s.footerNote}</p>
     </div>
   );
 }

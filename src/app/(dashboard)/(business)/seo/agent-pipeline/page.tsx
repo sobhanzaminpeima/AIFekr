@@ -5,20 +5,18 @@ import {
   Sparkles, Play, ChevronDown, Check, Loader2, X, Plus, Trash2,
   FileText, Lightbulb, Target, Search, PenLine, ClipboardCheck, Globe2, Send, Eye, ExternalLink, Link2,
 } from "lucide-react";
+import ShareButton from "@/components/ui/ShareButton";
+import { trackFeature } from "@/lib/analytics";
 import ReactMarkdown from "react-markdown";
+import { useTranslation } from "@/lib/i18n";
 
 type AgentKey = "ideaFinder" | "strategist" | "researcher" | "writer" | "editor" | "seo" | "publisher" | "critic";
 
-const AGENTS: { key: AgentKey; nameFa: string; roleFa: string; icon: any }[] = [
-  { key: "ideaFinder", nameFa: "ایده‌یاب", roleFa: "پیدا کردن ایده‌های مقاله", icon: Lightbulb },
-  { key: "strategist", nameFa: "استراتژیست محتوا", roleFa: "انتخاب بهترین ایده", icon: Target },
-  { key: "researcher", nameFa: "پژوهشگر", roleFa: "بررسی فکت‌ها و سوالات رایج", icon: Search },
-  { key: "writer", nameFa: "نویسنده", roleFa: "نگارش پیش‌نویس کامل", icon: PenLine },
-  { key: "editor", nameFa: "ویراستار", roleFa: "امتیازدهی و بازبینی متن", icon: ClipboardCheck },
-  { key: "seo", nameFa: "متخصص سئو", roleFa: "بهینه‌سازی برای موتور جستجو", icon: Globe2 },
-  { key: "publisher", nameFa: "ناشر", roleFa: "انتشار مقاله تایید‌شده", icon: Send },
-  { key: "critic", nameFa: "منتقد", roleFa: "نقد پست و ثبت درس‌ها", icon: Eye },
-];
+const AGENT_ICONS: Record<AgentKey, any> = {
+  ideaFinder: Lightbulb, strategist: Target, researcher: Search, writer: PenLine,
+  editor: ClipboardCheck, seo: Globe2, publisher: Send, critic: Eye,
+};
+const AGENT_ORDER: AgentKey[] = ["ideaFinder", "strategist", "researcher", "writer", "editor", "seo", "publisher", "critic"];
 
 interface StepState { output: string; status: "idle" | "running" | "done" | "failed"; score?: number; attempt: number; }
 interface Lesson { id: string; agentKey: string; text: string; source: string; createdAt: string; }
@@ -29,6 +27,13 @@ interface Post {
 interface SeoConn { platform: string; siteUrl: string | null; wpUsername: string | null; hasAppPassword: boolean }
 
 export default function AgentPipelinePage() {
+  const { t, lang } = useTranslation();
+  const isFa = lang !== "en";
+  const s = t.agentPipelinePage;
+  const dateLocale = isFa ? "fa-IR" : "en-US";
+
+  const AGENTS = AGENT_ORDER.map((key) => ({ key, nameFa: s.agents[key].name, roleFa: s.agents[key].role, icon: AGENT_ICONS[key] }));
+
   const [topic, setTopic] = useState("");
   const [brandVoice, setBrandVoice] = useState("");
   const [running, setRunning] = useState(false);
@@ -45,6 +50,7 @@ export default function AgentPipelinePage() {
   const [previewPost, setPreviewPost] = useState<Post | null>(null);
   const [seoConn, setSeoConn] = useState<SeoConn | null>(null);
   const [publishInfo, setPublishInfo] = useState<{ status: string; url: string | null; error: string | null } | null>(null);
+  const [runId, setRunId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { loadLessons(); loadPosts(); loadConnection(); }, []);
@@ -100,6 +106,8 @@ export default function AgentPipelinePage() {
     setSteps(Object.fromEntries(AGENTS.map((a) => [a.key, { output: "", status: "idle" as const, attempt: 1 }])) as Record<AgentKey, StepState>);
     setExpanded(null);
     setPublishInfo(null);
+    setRunId(null);
+    trackFeature("content_pipeline", { topic });
 
     try {
       const res = await fetch("/api/seo/agent-pipeline/run", {
@@ -107,7 +115,7 @@ export default function AgentPipelinePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic, brandVoice }),
       });
-      if (!res.ok) { setError("خطا در ارتباط با سرور."); setRunning(false); return; }
+      if (!res.ok) { setError(t.common.error); setRunning(false); return; }
 
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
@@ -128,7 +136,7 @@ export default function AgentPipelinePage() {
       }
     } catch (err) {
       console.error(err);
-      setError("خطا در ارتباط با سرور.");
+      setError(t.common.error);
     } finally {
       setRunning(false);
       loadLessons();
@@ -137,7 +145,9 @@ export default function AgentPipelinePage() {
   }
 
   function handleEvent(evt: any) {
-    if (evt.type === "agentStart") {
+    if (evt.type === "runId") {
+      setRunId(evt.id);
+    } else if (evt.type === "agentStart") {
       setExpanded(evt.agentKey);
       setSteps((prev) => ({ ...prev, [evt.agentKey]: { output: "", status: "running", attempt: evt.attempt } }));
     } else if (evt.type === "agentChunk") {
@@ -153,35 +163,35 @@ export default function AgentPipelinePage() {
   }
 
   return (
-    <div className="min-h-screen p-6" style={{ background: "var(--surface-0)" }}>
+    <div dir={isFa ? "rtl" : "ltr"} className="min-h-screen p-6" style={{ background: "var(--surface-0)" }}>
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-3 mb-8">
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "rgba(234,88,12,0.15)" }}>
             <Sparkles className="w-6 h-6" style={{ color: "var(--primary)" }} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>خط تولید محتوای هوشمند</h1>
-            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>۸ agent تخصصی که با هم یک مقاله کامل تولید و منتشر می‌کنند</p>
+            <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{s.title}</h1>
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{s.subtitle}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 mb-6">
           {[
-            { key: "run", label: "اجرا" },
-            { key: "lessons", label: `درس‌ها (${lessons.length})` },
-            { key: "posts", label: `پست‌ها (${posts.length})` },
-          ].map((t) => (
+            { key: "run", label: s.tabRun },
+            { key: "lessons", label: `${s.tabLessons} (${lessons.length})` },
+            { key: "posts", label: `${s.tabPosts} (${posts.length})` },
+          ].map((tb) => (
             <button
-              key={t.key}
-              onClick={() => setTab(t.key as typeof tab)}
+              key={tb.key}
+              onClick={() => setTab(tb.key as typeof tab)}
               className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
               style={{
-                background: tab === t.key ? "var(--primary)" : "var(--surface-1)",
-                color: tab === t.key ? "white" : "var(--text-secondary)",
+                background: tab === tb.key ? "var(--primary)" : "var(--surface-1)",
+                color: tab === tb.key ? "white" : "var(--text-secondary)",
                 border: "1px solid var(--border)",
               }}
             >
-              {t.label}
+              {tb.label}
             </button>
           ))}
         </div>
@@ -191,23 +201,23 @@ export default function AgentPipelinePage() {
             <div className="rounded-2xl p-6 mb-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
               <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>موضوع یا صنعت کسب‌وکار *</label>
+                  <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{s.topicLabel}</label>
                   <input
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}
                     disabled={running}
-                    placeholder="مثال: کلینیک دندانپزشکی، فروشگاه لوازم آشپزخانه، آژانس مسافرتی..."
+                    placeholder={s.topicPlaceholder}
                     className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
                     style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>لحن برند (اختیاری)</label>
+                  <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{s.brandVoiceLabel}</label>
                   <input
                     value={brandVoice}
                     onChange={(e) => setBrandVoice(e.target.value)}
                     disabled={running}
-                    placeholder="مثال: دوستانه و صمیمی، رسمی و تخصصی..."
+                    placeholder={s.brandVoicePlaceholder}
                     className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
                     style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
                   />
@@ -217,11 +227,11 @@ export default function AgentPipelinePage() {
               <div className="flex items-center gap-2 mt-4 px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
                 <Link2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: seoConn?.siteUrl ? "#22c55e" : "var(--text-muted)" }} />
                 {seoConn?.platform === "wordpress" && seoConn.siteUrl ? (
-                  <span style={{ color: "var(--text-secondary)" }}>مقاله پس از تایید، مستقیماً در <strong>{seoConn.siteUrl}</strong> منتشر می‌شود</span>
+                  <span style={{ color: "var(--text-secondary)" }}>{s.connectedPrefix} <strong>{seoConn.siteUrl}</strong> {s.connectedSuffix}</span>
                 ) : (
                   <span style={{ color: "var(--text-muted)" }}>
-                    هیچ سایتی متصل نیست — مقاله فقط داخل AiFekr ذخیره می‌شود.{" "}
-                    <a href="/seo" className="underline" style={{ color: "var(--primary)" }}>اتصال وردپرس را در صفحهٔ سئو تنظیم کنید</a>
+                    {s.notConnected}{" "}
+                    <a href="/seo" className="underline" style={{ color: "var(--primary)" }}>{s.connectWordpress}</a>
                   </span>
                 )}
               </div>
@@ -233,31 +243,36 @@ export default function AgentPipelinePage() {
                 style={{ background: "var(--primary)" }}
               >
                 {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                {running ? "در حال اجرا..." : "شروع"}
+                {running ? s.runningBtn : s.startBtn}
               </button>
               {error && <p className="mt-3 text-sm" style={{ color: "#ef4444" }}>{error}</p>}
               {publishInfo && (
                 <p className="mt-3 text-sm flex items-center gap-1.5" style={{ color: publishInfo.status === "published" ? "#22c55e" : publishInfo.status === "failed" ? "#ef4444" : "var(--text-muted)" }}>
                   {publishInfo.status === "published" && publishInfo.url && (
                     <>
-                      <Check className="w-4 h-4" /> با موفقیت منتشر شد —{" "}
+                      <Check className="w-4 h-4" /> {s.publishedSuccess}{" "}
                       <a href={publishInfo.url} target="_blank" rel="noopener noreferrer" className="underline inline-flex items-center gap-1">
-                        مشاهده در سایت <ExternalLink className="w-3 h-3" />
+                        {s.viewOnSite} <ExternalLink className="w-3 h-3" />
                       </a>
                     </>
                   )}
-                  {publishInfo.status === "failed" && <>انتشار در سایت ناموفق بود: {publishInfo.error}</>}
-                  {publishInfo.status === "not_published" && <>فقط داخل AiFekr ذخیره شد (سایتی متصل نیست)</>}
+                  {publishInfo.status === "failed" && <>{s.publishFailed} {publishInfo.error}</>}
+                  {publishInfo.status === "not_published" && <>{s.notPublished}</>}
                 </p>
               )}
+              {!running && runId && (
+                <div className="mt-3 flex items-center gap-2">
+                  <ShareButton type="content-pipeline" id={runId} />
+                </div>
+              )}
               <p className="mt-3 text-xs" style={{ color: "var(--text-muted)" }}>
-                توجه: agent پژوهشگر از جستجوی زندهٔ وب (Tavily) استفاده می‌کند و منابع را ذکر می‌کند — با این حال، فکت‌های حساس را پیش از انتشار راستی‌آزمایی کنید.
+                {s.researchNote}
               </p>
             </div>
 
             <div className="space-y-3">
               {AGENTS.map((a) => {
-                const s = steps[a.key];
+                const st = steps[a.key];
                 const isOpen = expanded === a.key;
                 const Icon = a.icon;
                 return (
@@ -270,14 +285,14 @@ export default function AgentPipelinePage() {
                         <div
                           className="w-9 h-9 rounded-xl flex items-center justify-center"
                           style={{
-                            background: s.status === "done" ? "rgba(34,197,94,0.15)" : s.status === "running" ? "rgba(234,88,12,0.15)" : s.status === "failed" ? "rgba(239,68,68,0.15)" : "var(--surface-2)",
+                            background: st.status === "done" ? "rgba(34,197,94,0.15)" : st.status === "running" ? "rgba(234,88,12,0.15)" : st.status === "failed" ? "rgba(239,68,68,0.15)" : "var(--surface-2)",
                           }}
                         >
-                          {s.status === "running" ? (
+                          {st.status === "running" ? (
                             <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--primary)" }} />
-                          ) : s.status === "done" ? (
+                          ) : st.status === "done" ? (
                             <Check className="w-4 h-4 text-green-500" />
-                          ) : s.status === "failed" ? (
+                          ) : st.status === "failed" ? (
                             <X className="w-4 h-4 text-red-500" />
                           ) : (
                             <Icon className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
@@ -285,18 +300,18 @@ export default function AgentPipelinePage() {
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                            {a.nameFa} {s.attempt > 1 && <span className="text-xs font-normal" style={{ color: "var(--text-muted)" }}>(تلاش {s.attempt})</span>}
+                            {a.nameFa} {st.attempt > 1 && <span className="text-xs font-normal" style={{ color: "var(--text-muted)" }}>({s.attempt} {st.attempt})</span>}
                           </p>
                           <p className="text-xs" style={{ color: "var(--text-muted)" }}>{a.roleFa}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {s.score != null && (
+                        {st.score != null && (
                           <span
                             className="px-2 py-0.5 rounded-full text-xs font-bold"
-                            style={{ background: s.score >= 75 ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)", color: s.score >= 75 ? "#22c55e" : "#ef4444" }}
+                            style={{ background: st.score >= 75 ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)", color: st.score >= 75 ? "#22c55e" : "#ef4444" }}
                           >
-                            {s.score}/100
+                            {st.score}/100
                           </span>
                         )}
                         <ChevronDown className="w-4 h-4 transition-transform" style={{ color: "var(--text-muted)", transform: isOpen ? "rotate(180deg)" : "none" }} />
@@ -304,13 +319,13 @@ export default function AgentPipelinePage() {
                     </button>
                     {isOpen && (
                       <div className="px-4 pb-4">
-                        {s.output ? (
+                        {st.output ? (
                           <div className="prose prose-sm prose-invert max-w-none rounded-xl p-4 text-xs leading-relaxed" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-                            <ReactMarkdown>{s.output}</ReactMarkdown>
-                            <div ref={s.status === "running" ? scrollRef : undefined} />
+                            <ReactMarkdown>{st.output}</ReactMarkdown>
+                            <div ref={st.status === "running" ? scrollRef : undefined} />
                           </div>
                         ) : (
-                          <p className="text-xs py-4 text-center" style={{ color: "var(--text-muted)" }}>هنوز اجرا نشده</p>
+                          <p className="text-xs py-4 text-center" style={{ color: "var(--text-muted)" }}>{s.notRunYet}</p>
                         )}
                       </div>
                     )}
@@ -324,7 +339,7 @@ export default function AgentPipelinePage() {
         {tab === "lessons" && (
           <div className="space-y-4">
             <div className="rounded-2xl p-5" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-              <p className="text-sm font-medium mb-3" style={{ color: "var(--text-primary)" }}>افزودن نکته دستی برای یک agent</p>
+              <p className="text-sm font-medium mb-3" style={{ color: "var(--text-primary)" }}>{s.addLessonManual}</p>
               <div className="flex flex-wrap gap-2 mb-3">
                 <select
                   value={newLessonAgent}
@@ -337,7 +352,7 @@ export default function AgentPipelinePage() {
                 <input
                   value={newLessonText}
                   onChange={(e) => setNewLessonText(e.target.value)}
-                  placeholder="مثلاً: جمله‌ها را کوتاه‌تر و فعل‌محور بنویس"
+                  placeholder={s.addLessonPlaceholder}
                   className="flex-1 min-w-[200px] px-3 py-2 rounded-xl text-sm outline-none"
                   style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
                 />
@@ -346,7 +361,7 @@ export default function AgentPipelinePage() {
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white"
                   style={{ background: "var(--primary)" }}
                 >
-                  <Plus className="w-4 h-4" /> افزودن
+                  <Plus className="w-4 h-4" /> {s.addBtn}
                 </button>
               </div>
             </div>
@@ -367,7 +382,7 @@ export default function AgentPipelinePage() {
                             className="px-1.5 py-0.5 rounded text-[10px] font-medium mt-0.5"
                             style={{ background: l.source === "critic" ? "rgba(139,92,246,0.15)" : "rgba(20,184,166,0.15)", color: l.source === "critic" ? "#8b5cf6" : "#14b8a6" }}
                           >
-                            {l.source === "critic" ? "منتقد" : "شما"}
+                            {l.source === "critic" ? s.criticSource : s.youSource}
                           </span>
                           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{l.text}</p>
                         </div>
@@ -381,7 +396,7 @@ export default function AgentPipelinePage() {
               );
             })}
             {lessons.length === 0 && (
-              <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>هنوز درسی ثبت نشده — بعد از اولین اجرا، agent منتقد این بخش را پر می‌کند</p>
+              <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{s.noLessonsYet}</p>
             )}
           </div>
         )}
@@ -389,7 +404,7 @@ export default function AgentPipelinePage() {
         {tab === "posts" && (
           <div className="space-y-3">
             {posts.length === 0 && (
-              <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>هنوز مقاله‌ای منتشر نشده</p>
+              <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{s.noPostsYet}</p>
             )}
             {posts.map((post) => (
               <div key={post.id} className="rounded-2xl p-5 flex items-start justify-between gap-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
@@ -399,12 +414,12 @@ export default function AgentPipelinePage() {
                     <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{post.title}</p>
                     <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{post.metaDescription}</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>{new Date(post.publishedAt).toLocaleDateString("fa-IR")}</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>{new Date(post.publishedAt).toLocaleDateString(dateLocale)}</p>
                       {post.externalStatus === "published" && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>منتشرشده در سایت</span>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>{s.publishedBadge}</span>
                       )}
                       {post.externalStatus === "failed" && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444" }}>انتشار خارجی ناموفق</span>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444" }}>{s.publishFailedBadge}</span>
                       )}
                     </div>
                   </div>
@@ -418,7 +433,7 @@ export default function AgentPipelinePage() {
                       className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
                       style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}
                     >
-                      <ExternalLink className="w-3.5 h-3.5" /> سایت
+                      <ExternalLink className="w-3.5 h-3.5" /> {s.siteBtn}
                     </a>
                   )}
                   <button
@@ -426,7 +441,7 @@ export default function AgentPipelinePage() {
                     className="px-3 py-1.5 rounded-lg text-xs font-medium"
                     style={{ background: "rgba(234,88,12,0.15)", color: "var(--primary)" }}
                   >
-                    مشاهده
+                    {s.viewBtn}
                   </button>
                 </div>
               </div>
