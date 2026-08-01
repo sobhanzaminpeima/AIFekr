@@ -18,7 +18,7 @@ function applyLang(lang: Lang) {
   window.location.reload();
 }
 
-export default function LanguageSwitcher({ className = "" }: { className?: string }) {
+export default function LanguageSwitcher({ className = "", iconOnly = false }: { className?: string; iconOnly?: boolean }) {
   const [lang, setLangState] = useState<Lang>("fa");
 
   useEffect(() => {
@@ -34,11 +34,11 @@ export default function LanguageSwitcher({ className = "" }: { className?: strin
     <button
       onClick={toggle}
       title={lang === "fa" ? "Switch to English" : "تغییر به فارسی"}
-      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${className}`}
+      className={`flex items-center justify-center transition-all ${iconOnly ? "w-8 h-8 rounded-lg" : "gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium"} ${className}`}
       style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
     >
       <Globe className="w-3.5 h-3.5" />
-      <span>{lang === "fa" ? "EN" : "FA"}</span>
+      {!iconOnly && <span>{lang === "fa" ? "EN" : "FA"}</span>}
     </button>
   );
 }

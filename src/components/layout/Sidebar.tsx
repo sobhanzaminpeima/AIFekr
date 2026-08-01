@@ -472,12 +472,10 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             style={{ background: "rgba(47,129,247,0.12)", color: "#58a6ff", border: "1px solid rgba(47,129,247,0.25)" }}>
             <Sparkles className="w-4 h-4" />{lang === "en" ? "Open JARVIS" : "باز کردن JARVIS"}
           </a>
-          <div className="flex gap-2">
-            <LanguageSwitcher className="flex-1 justify-center" />
-            <ThemeSwitcher className="flex-1 justify-center" />
-          </div>
-          <div className="flex gap-2">
-            <CurrencySelector className="flex-1 justify-center" />
+          <div className="flex items-center justify-center gap-1.5">
+            <LanguageSwitcher iconOnly />
+            <ThemeSwitcher iconOnly />
+            <CurrencySelector iconOnly />
           </div>
           <div className="flex gap-2">
             <Link href="/settings" className="flex-1 flex items-center justify-center gap-1 px-2 py-2 rounded-xl text-xs"

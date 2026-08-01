@@ -5,7 +5,7 @@ import { type Currency, CURRENCY_SYMBOLS, getCurrency, setCurrency } from "@/lib
 
 const CURRENCIES: Currency[] = ["USD", "EUR", "AED", "GBP", "IRR"];
 
-export default function CurrencySelector({ className = "" }: { className?: string }) {
+export default function CurrencySelector({ className = "", iconOnly = false }: { className?: string; iconOnly?: boolean }) {
   const [currency, setCurrencyState] = useState<Currency>("USD");
   const [open, setOpen] = useState(false);
 
@@ -24,12 +24,17 @@ export default function CurrencySelector({ className = "" }: { className?: strin
     <div className={`relative ${className}`}>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+        title={currency}
+        className={`flex items-center justify-center transition-all ${iconOnly ? "w-8 h-8 rounded-lg" : "gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium"}`}
         style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
       >
-        <span>{CURRENCY_SYMBOLS[currency]}</span>
-        <span>{currency}</span>
-        <span className="text-xs opacity-60">▾</span>
+        <span className={iconOnly ? "text-sm" : ""}>{CURRENCY_SYMBOLS[currency]}</span>
+        {!iconOnly && (
+          <>
+            <span>{currency}</span>
+            <span className="text-xs opacity-60">▾</span>
+          </>
+        )}
       </button>
 
       {open && (

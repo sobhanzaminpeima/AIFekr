@@ -16,7 +16,7 @@ function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
 }
 
-export default function ThemeSwitcher({ className = "" }: { className?: string }) {
+export default function ThemeSwitcher({ className = "", iconOnly = false }: { className?: string; iconOnly?: boolean }) {
   const [theme, setThemeState] = useState<Theme>("dark");
 
   useEffect(() => {
@@ -33,11 +33,11 @@ export default function ThemeSwitcher({ className = "" }: { className?: string }
     <button
       onClick={toggle}
       title={theme === "dark" ? "تغییر به تم روشن" : "تغییر به تم تیره"}
-      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${className}`}
+      className={`flex items-center justify-center transition-all ${iconOnly ? "w-8 h-8 rounded-lg" : "gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium"} ${className}`}
       style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
     >
       {theme === "dark" ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5" />}
-      <span>{theme === "dark" ? "تیره" : "روشن"}</span>
+      {!iconOnly && <span>{theme === "dark" ? "تیره" : "روشن"}</span>}
     </button>
   );
 }
