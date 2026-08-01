@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
   const projects = await prisma.startupProject.findMany({
     where: { userId: user.id },
     orderBy: { updatedAt: "desc" },
+    take: 100,
   });
   return NextResponse.json({ projects });
 }

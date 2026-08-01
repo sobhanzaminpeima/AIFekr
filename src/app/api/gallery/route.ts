@@ -13,20 +13,25 @@ export async function GET(req: NextRequest) {
 
   let items: unknown[] = [];
 
+  // Capped — a heavy user's gallery grows with every generation and would
+  // otherwise load unbounded rows on every page view.
   if (type === "image") {
     items = await prisma.generatedImage.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
+      take: 200,
     });
   } else if (type === "video") {
     items = await prisma.generatedVideo.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
+      take: 200,
     });
   } else if (type === "music") {
     items = await prisma.generatedMusic.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
+      take: 200,
     });
   }
 

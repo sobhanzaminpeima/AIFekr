@@ -21,11 +21,17 @@ export async function GET(req: NextRequest) {
 
     if (!conv) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const messages = await prisma.message.findMany({
+    // Capped to the most recent 300 messages — an unbounded findMany here would
+    // load an entire long-running conversation's history into memory on every
+    // page load; older messages beyond this are still in the DB, just not
+    // fetched by this endpoint.
+    const recentMessages = await prisma.message.findMany({
       where: { conversationId },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
+      take: 300,
       select: { id: true, role: true, content: true, createdAt: true },
     });
+    const messages = recentMessages.reverse();
 
     return NextResponse.json({
       messages: messages.map((m) => ({
