@@ -3,6 +3,7 @@ import { verifyToken } from "@/lib/auth/jwt";
 import { prisma } from "@/lib/db/prisma";
 import Link from "next/link";
 import { TrendingUp, Users, BarChart3, Globe, Zap, ArrowLeft } from "lucide-react";
+import ContinueWithoutPackButton from "./ContinueWithoutPackButton";
 
 export default async function BusinessGate({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
@@ -18,6 +19,11 @@ export default async function BusinessGate({ children }: { children: React.React
       if (user?.industryPackId) return <>{children}</>;
     }
   }
+
+  // Honors the "continue without a package" choice below — once set, the
+  // user gets straight through to the tool they came for on every visit,
+  // instead of hitting this pitch screen again on the very next page load.
+  if (cookieStore.get("skipBusinessGate")?.value === "1") return <>{children}</>;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "var(--surface-0)" }}>
@@ -66,11 +72,7 @@ export default async function BusinessGate({ children }: { children: React.React
             مشاهده بسته‌های صنعتی
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <Link href="/chat"
-            className="flex items-center justify-center gap-2 px-8 py-4 rounded-2xl font-medium text-lg transition-all"
-            style={{ background: "var(--surface-1)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
-            ادامه بدون بسته
-          </Link>
+          <ContinueWithoutPackButton />
         </div>
 
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>

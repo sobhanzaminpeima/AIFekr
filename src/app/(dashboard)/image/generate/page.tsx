@@ -106,7 +106,7 @@ export default function ImageGeneratePage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setResults(data.urls || []);
+      setResults((data.images || []).map((img: { url: string }) => img.url));
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : s.errGenerate);
     } finally {

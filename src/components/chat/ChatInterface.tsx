@@ -22,7 +22,7 @@ interface Message {
 }
 
 const EXPERT_MODES = [
-  { id: "default",   labelFa: "دستیار کسب‌وکار",  labelEn: "Business AI",     icon: Sparkles,     color: "#ea580c" },
+  { id: "default",   labelFa: "دستیار هوشمند",     labelEn: "Smart Assistant", icon: Sparkles,     color: "#ea580c" },
   { id: "business",  labelFa: "دکتر کسب‌وکار",     labelEn: "Business Doctor", icon: Briefcase,    color: "#3b82f6" },
   { id: "marketing", labelFa: "بازاریابی",          labelEn: "Marketing",       icon: TrendingUp,   color: "#10b981" },
   { id: "financial", labelFa: "مالی و سرمایه",      labelEn: "Financial",       icon: DollarSign,   color: "#f59e0b" },
@@ -287,16 +287,16 @@ export default function ChatInterface({
   }, [speakingId, lang]);
 
   const STARTER_PROMPTS_FA = [
+    "یک ایمیل رسمی برای من بنویس",
+    "این متن رو خلاصه کن",
+    "برای سفرم به یک شهر جدید برنامه بریز",
     "چطور برای استارتاپم یک مدل کسب‌وکار بسازم؟",
-    "استراتژی بازاریابی دیجیتال برای کسب‌وکار من چیست؟",
-    "چطور از رقبا متمایز شوم؟",
-    "چطور سرمایه‌گذار پیدا کنم؟",
   ];
   const STARTER_PROMPTS_EN = [
+    "Write a formal email for me",
+    "Summarize this text",
+    "Plan a trip to a new city",
     "How do I build a business model for my startup?",
-    "What's a digital marketing strategy for my business?",
-    "How do I differentiate from competitors?",
-    "How do I find investors for my startup?",
   ];
   const starterPrompts = lang === "fa" ? STARTER_PROMPTS_FA : STARTER_PROMPTS_EN;
 
