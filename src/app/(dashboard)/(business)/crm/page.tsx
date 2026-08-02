@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Briefcase, Plus, X, Phone, Mail, Building2, Loader2, ChevronDown,
-  Users, LayoutGrid, Clock, CheckCircle2, Circle, Zap, FileText, Trash2, Upload,
+  Users, LayoutGrid, Clock, CheckCircle2, Circle, Zap, FileText, Trash2, Upload, Sparkles,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 
@@ -46,7 +46,7 @@ export default function CrmPage() {
   const { lang } = useTranslation();
   const isFa = lang !== "en";
 
-  const [tab, setTab] = useState<"board" | "contacts" | "automation">("board");
+  const [tab, setTab] = useState<"board" | "contacts" | "automation" | "agent">("board");
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
@@ -161,6 +161,7 @@ export default function CrmPage() {
             { id: "board" as const, label: isFa ? "پایپلاین" : "Pipeline", icon: LayoutGrid },
             { id: "contacts" as const, label: isFa ? "مخاطبین" : "Contacts", icon: Users },
             { id: "automation" as const, label: isFa ? "اتوماسیون" : "Automation", icon: Zap },
+            { id: "agent" as const, label: isFa ? "تحلیل CRM" : "CRM Agent", icon: Sparkles },
           ].map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
@@ -282,8 +283,10 @@ export default function CrmPage() {
             </div>
           )}
         </div>
-      ) : (
+      ) : tab === "automation" ? (
         <AutomationPanel isFa={isFa} rules={rules} onChanged={loadRules} />
+      ) : (
+        <CrmAgentPanel isFa={isFa} />
       )}
 
       {/* New Deal modal */}
@@ -755,6 +758,96 @@ function AutomationPanel({ isFa, rules, onChanged }: { isFa: boolean; rules: Aut
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+interface CrmInsightRow { id: string; category: string; text: string; createdAt: string; }
+
+function CrmAgentPanel({ isFa }: { isFa: boolean }) {
+  const [running, setRunning] = useState(false);
+  const [analysis, setAnalysis] = useState("");
+  const [insights, setInsights] = useState<CrmInsightRow[]>([]);
+  const [loadingInsights, setLoadingInsights] = useState(true);
+
+  const loadInsights = useCallback(async () => {
+    const res = await fetch("/api/crm/agent/insights");
+    const data = await res.json();
+    setInsights(data.insights || []);
+    setLoadingInsights(false);
+  }, []);
+
+  useEffect(() => { loadInsights(); }, [loadInsights]);
+
+  async function runAgent() {
+    setRunning(true);
+    setAnalysis("");
+    try {
+      const res = await fetch("/api/crm/agent/run", { method: "POST" });
+      if (!res.ok) return;
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6);
+          if (data === "[DONE]") continue;
+          try {
+            const evt = JSON.parse(data);
+            if (evt.text) setAnalysis((p) => p + evt.text);
+          } catch { /* ignore malformed chunk */ }
+        }
+      }
+    } finally {
+      setRunning(false);
+      loadInsights();
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+          {isFa
+            ? "CRM Agent وضعیت Pipeline فروش شما را با داده‌های واقعی تحلیل می‌کند و اقدامات پیشنهادی می‌سازد."
+            : "The CRM Agent analyzes your sales pipeline using real data and generates suggested actions."}
+        </p>
+        <button onClick={runAgent} disabled={running}
+          className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+          {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+          {isFa ? "تحلیل CRM من" : "Analyze My CRM"}
+        </button>
+      </div>
+
+      {analysis && (
+        <div className="rounded-2xl p-5 whitespace-pre-wrap text-sm leading-7" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+          {analysis}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <h3 className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>{isFa ? "نکات ذخیره‌شده از تحلیل‌های قبلی" : "Saved notes from prior analyses"}</h3>
+        {loadingInsights ? (
+          <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--text-muted)" }} />
+        ) : insights.length === 0 ? (
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز تحلیلی اجرا نشده" : "No analysis run yet"}</p>
+        ) : (
+          <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+            {insights.map((n, i) => (
+              <div key={n.id} className="px-4 py-2.5 flex items-start gap-2" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{n.category}</span>
+                <p className="text-xs" style={{ color: "var(--text-primary)" }}>{n.text}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
