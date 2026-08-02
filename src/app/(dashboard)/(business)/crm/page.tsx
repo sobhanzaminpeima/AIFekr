@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Briefcase, Plus, X, Phone, Mail, Building2, Loader2, ChevronDown,
-  Users, LayoutGrid, Clock, CheckCircle2, Circle,
+  Users, LayoutGrid, Clock, CheckCircle2, Circle, Zap, FileText, Trash2, Upload,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 
@@ -23,6 +23,8 @@ interface Task { id: string; title: string; status: string; dueDate: string | nu
 interface ContactDetail extends Contact {
   deals: Deal[]; activities: Activity[]; tasks: Task[];
 }
+interface AutomationRule { id: string; name: string; trigger: string; condition: string | null; action: string; isActive: boolean; }
+interface CrmDocument { id: string; name: string; type: string; fileUrl: string; createdAt: string; }
 
 const INDUSTRY_OPTIONS: { slug: string; labelFa: string; labelEn: string }[] = [
   { slug: "real-estate", labelFa: "املاک", labelEn: "Real Estate" },
@@ -44,7 +46,8 @@ export default function CrmPage() {
   const { lang } = useTranslation();
   const isFa = lang !== "en";
 
-  const [tab, setTab] = useState<"board" | "contacts">("board");
+  const [tab, setTab] = useState<"board" | "contacts" | "automation">("board");
+  const [rules, setRules] = useState<AutomationRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
@@ -83,9 +86,16 @@ export default function CrmPage() {
     setContacts(data.contacts || []);
   }, []);
 
+  const loadRules = useCallback(async () => {
+    const res = await fetch("/api/crm/automation-rules");
+    const data = await res.json();
+    setRules(data.rules || []);
+  }, []);
+
   useEffect(() => { loadPipelines(); }, [loadPipelines]);
   useEffect(() => { if (selectedPipelineId) loadDeals(selectedPipelineId); }, [selectedPipelineId, loadDeals]);
   useEffect(() => { if (tab === "contacts") loadContacts(); }, [tab, loadContacts]);
+  useEffect(() => { if (tab === "automation") loadRules(); }, [tab, loadRules]);
 
   async function createPipeline() {
     setCreatingPipeline(true);
@@ -150,6 +160,7 @@ export default function CrmPage() {
           {[
             { id: "board" as const, label: isFa ? "پایپلاین" : "Pipeline", icon: LayoutGrid },
             { id: "contacts" as const, label: isFa ? "مخاطبین" : "Contacts", icon: Users },
+            { id: "automation" as const, label: isFa ? "اتوماسیون" : "Automation", icon: Zap },
           ].map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
@@ -162,7 +173,7 @@ export default function CrmPage() {
 
       {error && <p className="text-sm" style={{ color: "#ef4444" }}>{error}</p>}
 
-      {pipelines.length === 0 ? (
+      {pipelines.length === 0 && tab === "board" ? (
         <div className="rounded-2xl p-8 text-center space-y-4" style={{ background: "var(--surface-1)", border: "1px dashed var(--border)" }}>
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
             {isFa ? "هنوز هیچ پایپلاینی نساختی. صنعت خودت رو انتخاب کن تا یک پایپلاین آماده با مراحل مناسب برات بسازیم." : "You don't have a pipeline yet. Pick your industry to get a ready-made pipeline with the right stages."}
@@ -239,7 +250,7 @@ export default function CrmPage() {
             })}
           </div>
         </div>
-      ) : (
+      ) : tab === "contacts" ? (
         <div className="space-y-3">
           <div className="flex justify-end">
             <button onClick={() => setShowNewContact(true)}
@@ -271,6 +282,8 @@ export default function CrmPage() {
             </div>
           )}
         </div>
+      ) : (
+        <AutomationPanel isFa={isFa} rules={rules} onChanged={loadRules} />
       )}
 
       {/* New Deal modal */}
@@ -572,6 +585,176 @@ function ContactDetailModal({ isFa, contact, onClose, onChanged }: { isFa: boole
           <button onClick={addActivity} className="px-3 py-2 rounded-xl text-xs font-medium text-white" style={{ background: "var(--primary)" }}>+</button>
         </div>
       </div>
+
+      <DocumentsSection isFa={isFa} contactId={contact.id} />
     </Modal>
+  );
+}
+
+function DocumentsSection({ isFa, contactId }: { isFa: boolean; contactId: string }) {
+  const [documents, setDocuments] = useState<CrmDocument[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/crm/documents?contactId=${contactId}`);
+    const data = await res.json();
+    setDocuments(data.documents || []);
+  }, [contactId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("contactId", contactId);
+      form.append("name", file.name);
+      const res = await fetch("/api/crm/documents", { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "خطا");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  async function removeDoc(id: string) {
+    await fetch("/api/crm/documents", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    load();
+  }
+
+  return (
+    <div className="mt-4">
+      <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{isFa ? "اسناد (پیش‌فاکتور، قرارداد، فاکتور)" : "Documents"}</p>
+      <div className="space-y-1.5 mb-2">
+        {documents.map((d) => (
+          <div key={d.id} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
+            <a href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+              <FileText className="w-3.5 h-3.5" style={{ color: "var(--primary)" }} /> {d.name}
+            </a>
+            <button onClick={() => removeDoc(d.id)}><Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} /></button>
+          </div>
+        ))}
+        {documents.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? "سندی آپلود نشده" : "No documents yet"}</p>}
+      </div>
+      {error && <p className="text-xs mb-2" style={{ color: "#ef4444" }}>{error}</p>}
+      <label className="flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-medium cursor-pointer"
+        style={{ background: "var(--surface-2)", border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
+        {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+        {uploading ? (isFa ? "در حال آپلود..." : "Uploading...") : (isFa ? "آپلود سند" : "Upload Document")}
+        <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" onChange={handleUpload} disabled={uploading} className="hidden" />
+      </label>
+    </div>
+  );
+}
+
+function AutomationPanel({ isFa, rules, onChanged }: { isFa: boolean; rules: AutomationRule[]; onChanged: () => void }) {
+  const [showNew, setShowNew] = useState(false);
+  const [name, setName] = useState("");
+  const [days, setDays] = useState("3");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function createRule() {
+    if (!name.trim()) { setError(isFa ? "نام قانون الزامی است" : "Rule name is required"); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/crm/automation-rules", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), trigger: "stale_deal", condition: { days: Number(days) || 3 }, action: "create_task" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setShowNew(false);
+      setName("");
+      onChanged();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "خطا");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleRule(id: string, isActive: boolean) {
+    await fetch(`/api/crm/automation-rules/${id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive: !isActive }),
+    });
+    onChanged();
+  }
+
+  async function deleteRule(id: string) {
+    await fetch(`/api/crm/automation-rules/${id}`, { method: "DELETE" });
+    onChanged();
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+        {isFa
+          ? "قوانین اتوماسیون هر چند دقیقه یک‌بار بررسی می‌شوند و برای معاملات بازی که مدتی فعالیت نداشته‌اند، به‌طور خودکار یک تسک پیگیری می‌سازند."
+          : "Automation rules are checked every few minutes and auto-create a follow-up task for open deals that have had no activity for a while."}
+      </p>
+      <div className="flex justify-end">
+        <button onClick={() => setShowNew((v) => !v)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
+          <Plus className="w-4 h-4" /> {isFa ? "قانون جدید" : "New Rule"}
+        </button>
+      </div>
+
+      {showNew && (
+        <div className="rounded-2xl p-4 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={isFa ? "مثال: پیگیری معاملات راکد" : "e.g. Follow up stale deals"}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <div className="flex items-center gap-2">
+            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "اگر معامله‌ای بیش از" : "If a deal has had no activity for more than"}</span>
+            <input value={days} onChange={(e) => setDays(e.target.value)} type="number" min={1}
+              className="w-16 px-2 py-1.5 rounded-lg text-sm outline-none text-center" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "روز فعالیتی نداشت، یک تسک پیگیری بساز" : "days, create a follow-up task"}</span>
+          </div>
+          {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
+          <button onClick={createRule} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ساخت قانون" : "Create Rule")}
+          </button>
+        </div>
+      )}
+
+      {rules.length === 0 ? (
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز قانون اتوماسیونی نساختی" : "No automation rules yet"}</p>
+      ) : (
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+          {rules.map((r, i) => {
+            let days = 3;
+            try { days = JSON.parse(r.condition || "{}").days || 3; } catch { /* ignore */ }
+            return (
+              <div key={r.id} className="flex items-center justify-between px-4 py-3" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+                <div>
+                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{r.name}</p>
+                  <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                    {isFa ? `معاملات بدون فعالیت بیش از ${days} روز → ساخت تسک پیگیری` : `Deals with no activity for ${days}+ days → create follow-up task`}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => toggleRule(r.id, r.isActive)}
+                    className="px-2.5 py-1 rounded-full text-[10px] font-medium"
+                    style={{ background: r.isActive ? "rgba(34,197,94,0.15)" : "var(--surface-2)", color: r.isActive ? "#22c55e" : "var(--text-muted)" }}>
+                    {r.isActive ? (isFa ? "فعال" : "Active") : (isFa ? "غیرفعال" : "Inactive")}
+                  </button>
+                  <button onClick={() => deleteRule(r.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

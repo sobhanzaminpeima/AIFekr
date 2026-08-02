@@ -90,8 +90,8 @@ export default function MobileNavShell({
       <div className="hidden md:flex md:h-full">{sidebar}</div>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto pt-[calc(52px+env(safe-area-inset-top))] pb-[calc(56px+env(safe-area-inset-bottom))] md:pt-0 md:pb-0 relative">
-        <div className="hidden md:block fixed top-3 z-30" style={{ [dir === "rtl" ? "left" : "right"]: 16 }}>
+      <main className="flex-1 overflow-y-auto pt-[calc(52px+env(safe-area-inset-top))] pb-[calc(56px+env(safe-area-inset-bottom))] md:pt-14 md:pb-0 relative">
+        <div className="hidden md:block fixed top-3 z-40" style={{ [dir === "rtl" ? "left" : "right"]: 16 }}>
           <CommandPalette />
         </div>
         {children}

@@ -62,6 +62,6 @@ export async function deleteFromStorage(key: string): Promise<void> {
   );
 }
 
-export function getStorageKey(userId: string, type: "image" | "video" | "music" | "reference", filename: string) {
+export function getStorageKey(userId: string, type: "image" | "video" | "music" | "reference" | "document", filename: string) {
   return `${type}s/${userId}/${Date.now()}-${filename}`;
 }
