@@ -10,6 +10,7 @@ const fa: Translations = {
     tools: "ابزارها",
     assistants: "دستیارها",
     businessDoctor: "دکتر کسب‌وکار",
+    crm: "مدیریت مشتریان (CRM)",
     ceoAdvisor: "مشاور مدیرعامل",
     seoWorkspace: "فضای کار سئو",
     socialMedia: "شبکه‌های اجتماعی",

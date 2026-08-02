@@ -230,6 +230,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             {businessOpen && (
               <div className="space-y-0.5">
                 <NavItem icon={HeartPulse} label={t.nav.businessDoctor} href="/business-doctor" active={isActive("/business-doctor")} />
+                <NavItem icon={Briefcase} label={t.nav.crm} href="/crm" active={isActive("/crm")} />
                 <NavItem icon={Crown} label={t.nav.ceoAdvisor} href="/ceo" active={isActive("/ceo")} />
                 <NavItem icon={Search} label={t.nav.seoWorkspace} href="/seo" active={isActive("/seo")} />
                 <NavItem icon={Share2} label={t.nav.socialMedia} href="/social" active={isActive("/social")} />
