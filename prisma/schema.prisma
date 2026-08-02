@@ -8,62 +8,71 @@ datasource db {
 }
 
 model User {
-  id             String    @id @default(cuid())
-  email          String?   @unique
-  phone          String?   @unique
-  passwordHash   String?
-  name           String?
-  avatar         String?
-  role           String    @default("USER")
-  plan           String    @default("FREE")
-  credits        Int       @default(100)
-  planExpiry     DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  lastLoginAt    DateTime?
-  isBlocked      Boolean   @default(false)
-  industryPackId String?
+  id                String    @id @default(cuid())
+  email             String?   @unique
+  phone             String?   @unique
+  passwordHash      String?
+  name              String?
+  avatar            String?
+  role              String    @default("USER")
+  plan              String    @default("FREE")
+  credits           Int       @default(100)
+  planExpiry        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  lastLoginAt       DateTime?
+  isBlocked         Boolean   @default(false)
+  industryPackId    String?
   /// Google OAuth subject id — set when the user signs in with Google
-  googleId       String?   @unique
+  googleId          String?   @unique
   /// How this account authenticates: "password" | "google"
-  authProvider   String    @default("password")
+  authProvider      String    @default("password")
   /// If true, the CEO orchestrator runs automatically once a day (via cron) and emails a digest — opt-in, off by default.
-  ceoAutoRunEnabled Boolean @default(false)
+  ceoAutoRunEnabled Boolean   @default(false)
   /// Onboarding wizard completed
-  onboardingDone    Boolean @default(false)
+  onboardingDone    Boolean   @default(false)
   /// Referral system
-  referralCode      String? @unique
+  referralCode      String?   @unique
   referredBy        String?
   /// True once the referral signup bonus has been granted to both this user and their referrer — prevents double-granting on plan renewals.
-  referralRewarded  Boolean @default(false)
+  referralRewarded  Boolean   @default(false)
 
-  conversations     Conversation[]
-  projects          Project[]
-  images            GeneratedImage[]
-  videos            GeneratedVideo[]
-  musics            GeneratedMusic[]
-  payments          Payment[]
-  usageLogs         UsageLog[]
-  otpCodes          OtpCode[]
-  crmContacts       CrmContact[]
-  businessAnalyses  BusinessAnalysis[]
-  socialPosts       SocialPost[]
-  generatedWebsites GeneratedWebsite[]
-  industryPack      IndustryPack?      @relation(fields: [industryPackId], references: [id])
-  company           Company?
-  ownedTeam         Team?              @relation("TeamOwner")
-  teamMembership    TeamMember?
-  seoConnection     SeoConnection?
-  instagramConn     InstagramConnection?
-  scheduledPosts    ScheduledPost[]
-  pipelineRuns      ContentPipelineRun[]
-  agentLessons      ContentAgentLesson[]
-  contentPosts      ContentPost[]
-  businessMemories  BusinessMemory[]
-  startupProjects   StartupProject[]
-  startupInquiries  StartupInquiry[]
-  ceoTasks          CeoTask[]
-  boardroomSessions BoardroomSession[]
+  conversations       Conversation[]
+  projects            Project[]
+  images              GeneratedImage[]
+  videos              GeneratedVideo[]
+  musics              GeneratedMusic[]
+  payments            Payment[]
+  usageLogs           UsageLog[]
+  otpCodes            OtpCode[]
+  crmContacts         CrmContact[]
+  crmContactsAssigned CrmContact[]         @relation("CrmContactAssignee")
+  crmPipelines        CrmPipeline[]
+  crmDealsOwned       CrmDeal[]            @relation("CrmDealOwnerUser")
+  crmDealsAssigned    CrmDeal[]            @relation("CrmDealAssignee")
+  crmDocuments        CrmDocument[]
+  crmAutomationRules  CrmAutomationRule[]
+  crmActivities       CrmActivity[]
+  crmTasks            CrmTask[]
+  crmInsights         CrmInsight[]
+  businessAnalyses    BusinessAnalysis[]
+  socialPosts         SocialPost[]
+  generatedWebsites   GeneratedWebsite[]
+  industryPack        IndustryPack?        @relation(fields: [industryPackId], references: [id])
+  company             Company?
+  ownedTeam           Team?                @relation("TeamOwner")
+  teamMembership      TeamMember?
+  seoConnection       SeoConnection?
+  instagramConn       InstagramConnection?
+  scheduledPosts      ScheduledPost[]
+  pipelineRuns        ContentPipelineRun[]
+  agentLessons        ContentAgentLesson[]
+  contentPosts        ContentPost[]
+  businessMemories    BusinessMemory[]
+  startupProjects     StartupProject[]
+  startupInquiries    StartupInquiry[]
+  ceoTasks            CeoTask[]
+  boardroomSessions   BoardroomSession[]
 
   @@index([industryPackId])
 }
@@ -182,16 +191,16 @@ model Message {
 }
 
 model GeneratedImage {
-  id        String   @id @default(cuid())
-  userId    String
-  prompt    String
-  style     String   @default("realistic")
-  url       String
+  id             String   @id @default(cuid())
+  userId         String
+  prompt         String
+  style          String   @default("realistic")
+  url            String
   /// User-uploaded reference photo this image was generated from, if any (image-to-image).
   sourceImageUrl String?
-  isPublic  Boolean  @default(false)
-  credits   Int      @default(5)
-  createdAt DateTime @default(now())
+  isPublic       Boolean  @default(false)
+  credits        Int      @default(5)
+  createdAt      DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -199,16 +208,16 @@ model GeneratedImage {
 }
 
 model GeneratedVideo {
-  id        String   @id @default(cuid())
-  userId    String
-  prompt    String
-  duration  Int      @default(5)
-  url       String
+  id             String   @id @default(cuid())
+  userId         String
+  prompt         String
+  duration       Int      @default(5)
+  url            String
   /// User-uploaded reference photo this video was generated from, if any (image-to-video).
   sourceImageUrl String?
-  isPublic  Boolean  @default(false)
-  credits   Int      @default(20)
-  createdAt DateTime @default(now())
+  isPublic       Boolean  @default(false)
+  credits        Int      @default(20)
+  createdAt      DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -270,48 +279,225 @@ model SiteSetting {
 }
 
 model Prompt {
-  id        String   @id @default(cuid())
-  title     String
+  id           String   @id @default(cuid())
+  title        String
   /// English title — nullable so existing Persian-only rows stay valid; UI falls back to `title` when empty.
-  titleEn   String?
-  content   String
+  titleEn      String?
+  content      String
   /// English prompt text — same fallback rule as titleEn.
-  contentEn String?
-  category  String   @default("general")
+  contentEn    String?
+  category     String   @default("general")
   /// Which tool this ready-made prompt is for: "chat" | "image" | "video"
-  toolType  String   @default("chat")
+  toolType     String   @default("chat")
   /// Reference thumbnail shown in the picker UI — image/video prompts only.
   thumbnailUrl String?
-  isActive  Boolean  @default(true)
-  sortOrder Int      @default(0)
-  usedCount Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  usedCount    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@index([toolType, isActive])
 }
 
 model CrmContact {
-  id          String    @id @default(cuid())
-  userId      String?
-  name        String
-  phone       String?
-  email       String?
-  company     String?
-  status      String    @default("lead")
-  source      String    @default("organic")
-  plan        String?
-  totalSpent  Int       @default(0)
-  notes       String?
-  tags        String?
-  lastContact DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  userId       String?
+  /// Team member responsible for this contact — separate from userId (the
+  /// workspace owner) so a team's leads/deals can be split across members.
+  assignedToId String?
+  name         String
+  phone        String?
+  email        String?
+  company      String?
+  status       String    @default("lead")
+  source       String    @default("organic")
+  plan         String?
+  totalSpent   Int       @default(0)
+  notes        String?
+  tags         String?
+  /// Industry-specific fields (e.g. property type, budget) as a JSON string —
+  /// same pattern as Company.notes, avoids a table-per-industry design.
+  customFields String?
+  lastContact  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  user User? @relation(fields: [userId], references: [id])
+  user       User? @relation(fields: [userId], references: [id])
+  assignedTo User? @relation("CrmContactAssignee", fields: [assignedToId], references: [id])
+
+  deals      CrmDeal[]
+  activities CrmActivity[]
+  tasks      CrmTask[]
+  documents  CrmDocument[]
 
   @@index([userId])
   @@index([status])
+  @@index([assignedToId])
+}
+
+/// A sales process (e.g. "فروش املاک") — a user can have more than one
+/// (e.g. separate pipelines for sales vs. renewals). Seeded from
+/// src/lib/crm/industryTemplates.ts based on the user's IndustryPack, or
+/// created manually.
+model CrmPipeline {
+  id           String   @id @default(cuid())
+  userId       String
+  name         String
+  /// Optional link to the IndustryPack.slug this pipeline's template came from.
+  industrySlug String?
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user   User       @relation(fields: [userId], references: [id])
+  stages CrmStage[]
+  deals  CrmDeal[]
+
+  @@index([userId])
+}
+
+/// One column on a pipeline's Kanban board (e.g. "بازدید", "مذاکره").
+model CrmStage {
+  id         String  @id @default(cuid())
+  pipelineId String
+  name       String
+  order      Int
+  color      String?
+  isWon      Boolean @default(false)
+  isLost     Boolean @default(false)
+
+  pipeline CrmPipeline @relation(fields: [pipelineId], references: [id])
+  deals    CrmDeal[]
+
+  @@index([pipelineId])
+}
+
+model CrmDeal {
+  id                String    @id @default(cuid())
+  /// Workspace owner (whose plan/credits this deal counts against) —
+  /// distinct from ownerId, the team member actually working the deal.
+  userId            String
+  ownerId           String?
+  contactId         String
+  pipelineId        String
+  stageId           String
+  title             String
+  value             Float     @default(0)
+  probability       Int       @default(50)
+  expectedCloseDate DateTime?
+  /// Industry-specific fields (e.g. propertyType, area) as a JSON string.
+  customFields      String?
+  status            String    @default("open") // open | won | lost
+  wonAt             DateTime?
+  lostReason        String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user       User          @relation("CrmDealOwnerUser", fields: [userId], references: [id])
+  assignedTo User?         @relation("CrmDealAssignee", fields: [ownerId], references: [id])
+  contact    CrmContact    @relation(fields: [contactId], references: [id])
+  pipeline   CrmPipeline   @relation(fields: [pipelineId], references: [id])
+  stage      CrmStage      @relation(fields: [stageId], references: [id])
+  activities CrmActivity[]
+  documents  CrmDocument[]
+
+  @@index([userId])
+  @@index([contactId])
+  @@index([pipelineId])
+  @@index([stageId])
+  @@index([ownerId])
+}
+
+/// Quote/contract/invoice files attached to a contact or deal — reuses the
+/// project's existing S3 upload path, no new storage infra.
+model CrmDocument {
+  id        String   @id @default(cuid())
+  userId    String
+  contactId String?
+  dealId    String?
+  name      String
+  type      String // quote | contract | invoice | attachment
+  fileUrl   String
+  createdAt DateTime @default(now())
+
+  user    User        @relation(fields: [userId], references: [id])
+  contact CrmContact? @relation(fields: [contactId], references: [id])
+  deal    CrmDeal?    @relation(fields: [dealId], references: [id])
+
+  @@index([userId])
+  @@index([contactId])
+  @@index([dealId])
+}
+
+/// No-code automation rules (e.g. "remind me if a deal has no activity for
+/// 3 days") — evaluated by a periodic cron job, not implemented in Phase 1.
+model CrmAutomationRule {
+  id           String   @id @default(cuid())
+  userId       String
+  name         String
+  trigger      String // stale_deal | new_lead | stage_change | no_activity_days
+  condition    String? // JSON, e.g. { "days": 3 }
+  action       String // create_task | send_notification | notify_crm_agent
+  actionParams String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model CrmActivity {
+  id        String   @id @default(cuid())
+  userId    String
+  contactId String?
+  dealId    String?
+  type      String // call | email | meeting | note | whatsapp
+  content   String
+  createdAt DateTime @default(now())
+
+  user    User        @relation(fields: [userId], references: [id])
+  contact CrmContact? @relation(fields: [contactId], references: [id])
+  deal    CrmDeal?    @relation(fields: [dealId], references: [id])
+
+  @@index([userId])
+  @@index([contactId])
+  @@index([dealId])
+}
+
+model CrmTask {
+  id            String    @id @default(cuid())
+  userId        String
+  contactId     String?
+  title         String
+  dueDate       DateTime?
+  status        String    @default("pending") // pending | done | overdue
+  /// True for tasks the CRM Agent generated automatically (Phase 2+), vs. user-created.
+  autoGenerated Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  user    User        @relation(fields: [userId], references: [id])
+  contact CrmContact? @relation(fields: [contactId], references: [id])
+
+  @@index([userId])
+  @@index([contactId])
+}
+
+/// Notes the CRM Agent (Phase 2+) wants remembered across future runs —
+/// same pattern as BusinessMemory/ContentAgentLesson.
+model CrmInsight {
+  id          String   @id @default(cuid())
+  userId      String
+  category    String // pipeline_health | risk | opportunity | forecast
+  text        String
+  embedding   String?
+  sourceRunId String?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 /// This is the single source of truth for general-plan pricing — the
@@ -321,25 +507,25 @@ model CrmContact {
 /// stored on User.plan (currently BASIC | PRO | TEAM — FREE has no row
 /// here since it isn't purchasable).
 model Package {
-  id          String   @id @default(cuid())
-  planCode    String   @unique
-  name        String
-  nameEn      String
+  id         String   @id @default(cuid())
+  planCode   String   @unique
+  name       String
+  nameEn     String
   /// Price in Rial (IRR). toman = price/10. Used for ZarinPal (Iran).
-  price       Int
+  price      Int
   /// Price in USD cents (e.g. 1900 = $19.00). Null means Iran-only plan.
-  priceUsd    Int?
+  priceUsd   Int?
   /// Market segment: "IR" (Iran only) | "INTL" (international only) | "BOTH"
-  market      String   @default("IR")
-  duration    Int      @default(30)
-  credits     Int
-  features    String
-  isActive    Boolean  @default(true)
-  isFeatured  Boolean  @default(false)
-  color       String   @default("#ea580c")
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  market     String   @default("IR")
+  duration   Int      @default(30)
+  credits    Int
+  features   String
+  isActive   Boolean  @default(true)
+  isFeatured Boolean  @default(false)
+  color      String   @default("#ea580c")
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model LlmModel {
@@ -402,15 +588,15 @@ model GeneratedWebsite {
 /// (Instagram Graph API requires a Business/Creator account connected to a
 /// Facebook Page — there's no way around that, it's a Meta platform rule).
 model InstagramConnection {
-  id           String   @id @default(cuid())
-  userId       String   @unique
-  igUserId     String
-  igUsername   String?
-  pageId       String
-  accessToken  String
-  tokenExpiry  DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  igUserId    String
+  igUsername  String?
+  pageId      String
+  accessToken String
+  tokenExpiry DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -420,17 +606,17 @@ model InstagramConnection {
 /// see src/lib/utils/planGates.ts); mode="manual" just sits here so the
 /// user can copy the caption/hashtags and post it themselves.
 model ScheduledPost {
-  id            String    @id @default(cuid())
-  userId        String
-  caption       String
-  hashtags      String
-  imageUrl      String?
-  scheduledFor  DateTime
-  mode          String // "auto" | "manual"
-  status        String    @default("PENDING") // PENDING | PUBLISHED | FAILED
-  igMediaId     String?
-  errorMessage  String?
-  createdAt     DateTime  @default(now())
+  id           String   @id @default(cuid())
+  userId       String
+  caption      String
+  hashtags     String
+  imageUrl     String?
+  scheduledFor DateTime
+  mode         String // "auto" | "manual"
+  status       String   @default("PENDING") // PENDING | PUBLISHED | FAILED
+  igMediaId    String?
+  errorMessage String?
+  createdAt    DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -452,8 +638,8 @@ model SeoConnection {
 }
 
 model IndustryPack {
-  id               String   @id @default(cuid())
-  slug             String   @unique
+  id               String    @id @default(cuid())
+  slug             String    @unique
   name             String
   emoji            String
   tagline          String
@@ -463,13 +649,13 @@ model IndustryPack {
   agents           String
   outcomes         String
   kpis             String
-  tier             String   @default("professional")
-  price            Int      @default(299)
+  tier             String    @default("professional")
+  price            Int       @default(299)
   color            String
   gradientFrom     String
   gradientTo       String
-  isActive         Boolean  @default(true)
-  sortOrder        Int      @default(0)
+  isActive         Boolean   @default(true)
+  sortOrder        Int       @default(0)
   users            User[]
   companies        Company[]
 }
@@ -487,8 +673,8 @@ model BusinessCategory {
 }
 
 model Company {
-  id             String    @id @default(cuid())
-  userId         String    @unique
+  id             String   @id @default(cuid())
+  userId         String   @unique
   name           String
   industry       String
   website        String?
@@ -499,10 +685,10 @@ model Company {
   revenue        String?
   industryPackId String?
   categoryId     String?
-  isActive       Boolean   @default(true)
+  isActive       Boolean  @default(true)
   notes          String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   industryPack IndustryPack?     @relation(fields: [industryPackId], references: [id])
@@ -533,17 +719,17 @@ model ProviderFallbackLog {
 /// One end-to-end run of the 8-agent content pipeline (ideaFinder → strategist →
 /// researcher → writer → editor → seo → publisher → critic) for a single topic.
 model ContentPipelineRun {
-  id          String   @id @default(cuid())
-  userId      String
-  topic       String
-  brandVoice  String?
+  id         String   @id @default(cuid())
+  userId     String
+  topic      String
+  brandVoice String?
   /// "running" | "done" | "failed"
-  status      String   @default("running")
-  shareToken  String?  @unique
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  status     String   @default("running")
+  shareToken String?  @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  user  User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   steps ContentPipelineStep[]
   post  ContentPost?
 
@@ -621,20 +807,20 @@ model BusinessMemory {
 
 /// A published blog post produced by the pipeline.
 model ContentPost {
-  id           String   @id @default(cuid())
-  userId       String
-  runId        String   @unique
-  title        String
-  content      String
-  metaTitle    String
+  id              String   @id @default(cuid())
+  userId          String
+  runId           String   @unique
+  title           String
+  content         String
+  metaTitle       String
   metaDescription String
-  slug         String
-  keywords     String
-  publishedAt  DateTime @default(now())
+  slug            String
+  keywords        String
+  publishedAt     DateTime @default(now())
   /// "not_published" | "published" | "failed" — result of publishing to the user's connected WordPress site
-  externalStatus String @default("not_published")
-  externalUrl    String?
-  externalError  String?
+  externalStatus  String   @default("not_published")
+  externalUrl     String?
+  externalError   String?
 
   user User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   run  ContentPipelineRun @relation(fields: [runId], references: [id], onDelete: Cascade)
@@ -643,17 +829,17 @@ model ContentPost {
 }
 
 model StartupProject {
-  id          String   @id @default(cuid())
-  userId      String
-  name        String
-  stage       String   @default("idea") // idea | financial | proposal | implementation
-  ideaData    String?  // JSON
-  financialData String? // JSON
-  proposalData  String? // JSON
+  id                 String   @id @default(cuid())
+  userId             String
+  name               String
+  stage              String   @default("idea") // idea | financial | proposal | implementation
+  ideaData           String? // JSON
+  financialData      String? // JSON
+  proposalData       String? // JSON
   implementationData String? // JSON
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
