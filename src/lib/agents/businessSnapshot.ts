@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { rankByRelevance } from "@/lib/rag/retrieve";
+import { buildCrmSnapshot } from "@/lib/agents/crmSnapshot";
 
 /** Aggregates real, existing data across every AiFekr tool for one user — shared by the on-demand API route and the autonomous cron job. */
 export async function buildBusinessSnapshot(userId: string) {
@@ -12,6 +13,7 @@ export async function buildBusinessSnapshot(userId: string) {
     leadsNeedingFollowUp, totalLeads,
     memories,
     revenue30d, usageCount30d, fallbackIssues30d, fallbackBreakdown30d,
+    crm,
   ] = await Promise.all([
     prisma.businessAnalysis.findFirst({ where: { userId }, orderBy: { createdAt: "desc" } }),
     prisma.businessAnalysis.count({ where: { userId } }),
@@ -32,6 +34,7 @@ export async function buildBusinessSnapshot(userId: string) {
       orderBy: { _count: { fromProvider: "desc" } },
       take: 5,
     }).catch(() => [] as { fromProvider: string; _count: { fromProvider: number } }[]),
+    buildCrmSnapshot(userId),
   ]);
 
   // Re-rank the memory candidates against what's actually happening in this
@@ -50,7 +53,14 @@ export async function buildBusinessSnapshot(userId: string) {
     businessDoctor: { totalAnalyses: analysisCount, latest: latestAnalysis ? { businessName: latestAnalysis.businessName, industry: latestAnalysis.industry, createdAt: latestAnalysis.createdAt } : null },
     content: { totalPosts: postCount, latest: latestPosts },
     social: { totalPosts: socialCount, latest: latestSocial },
-    sales: { totalContacts: totalLeads, needingFollowUp: leadsNeedingFollowUp },
+    sales: {
+      totalContacts: totalLeads,
+      needingFollowUp: leadsNeedingFollowUp,
+      pipelineValueOpen: crm.pipelineValueOpen,
+      totalDealsOpen: crm.totalDealsOpen,
+      winRate: crm.winRate,
+      staleDeals: crm.staleDeals,
+    },
     data: {
       revenueLast30d: (revenue30d as { _sum: { amount: number | null } })._sum.amount || 0,
       usageEventsLast30d: usageCount30d,

@@ -164,6 +164,7 @@ export async function POST(req: NextRequest) {
 - Content posts: ${snapshot.content.totalPosts}, recent topics: ${snapshot.content.latest.map((p) => p.title).join(", ") || "none"}
 - Social posts: ${snapshot.social.totalPosts}, recent: ${snapshot.social.latest.map((s) => s.topic).join(", ") || "none"}
 - CRM contacts: ${snapshot.sales.totalContacts}, needing followup: ${snapshot.sales.needingFollowUp.length} (${snapshot.sales.needingFollowUp.map((l) => l.name).join(", ") || "none"})
+- Sales pipeline: ${snapshot.sales.pipelineValueOpen.toLocaleString("en-US")} open value across ${snapshot.sales.totalDealsOpen} deals, win rate ${snapshot.sales.winRate !== null ? `${snapshot.sales.winRate}%` : "n/a"}, stale deals: ${snapshot.sales.staleDeals.map((d) => d.title).join(", ") || "none"}
 - Revenue last 30d: ${snapshot.data.revenueLast30d.toLocaleString()} toman
 - AI platform issues last 30d: ${snapshot.data.platformProviderIssuesLast30d}
 - Shared memory: ${(snapshot.memories || []).map((m) => `[${m.category}] ${m.text}`).join("; ") || "none"}`;

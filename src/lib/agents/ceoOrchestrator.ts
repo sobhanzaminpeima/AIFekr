@@ -43,6 +43,7 @@ function buildCeoPrompt(snapshot: BusinessSnapshot, marketResearch: string | nul
 **شبکه‌های اجتماعی:** ${snapshot.social.totalPosts} پست تولیدشده. موضوعات اخیر: ${snapshot.social.latest.map((s) => s.topic).join("، ") || "هیچ‌کدام"}
 
 **فروش (CRM):** ${snapshot.sales.totalContacts} مخاطب ثبت‌شده، ${snapshot.sales.needingFollowUp.length} مورد نیاز به پیگیری: ${snapshot.sales.needingFollowUp.map((l) => `${l.name} (${l.status}${l.company ? `، ${l.company}` : ""})`).join("، ") || "هیچ‌کدام"}
+**Pipeline فروش:** ارزش معاملات باز: ${snapshot.sales.pipelineValueOpen.toLocaleString("fa-IR")} تومان (${snapshot.sales.totalDealsOpen} معامله)، نرخ برد ۹۰ روز اخیر: ${snapshot.sales.winRate !== null ? `${snapshot.sales.winRate}%` : "داده‌ای موجود نیست"}${snapshot.sales.staleDeals.length ? `، معاملات راکد: ${snapshot.sales.staleDeals.map((d) => `${d.title} (${d.daysSinceUpdate} روز)`).join("، ")}` : ""}
 
 **دیتا و عملکرد (۳۰ روز اخیر):** درآمد موفق: ${snapshot.data.revenueLast30d.toLocaleString("fa-IR")} تومان، تعداد فعالیت ثبت‌شده: ${snapshot.data.usageEventsLast30d}، تعداد قطعی/افت سرویس AI پلتفرم: ${snapshot.data.platformProviderIssuesLast30d}${snapshot.data.providerFailureBreakdown.length ? ` (تفکیک: ${snapshot.data.providerFailureBreakdown.map((p) => `${p.provider}: ${p.failures} بار`).join("، ")})` : ""}
 
