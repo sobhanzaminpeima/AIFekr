@@ -3,21 +3,23 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Briefcase, Plus, X, Phone, Mail, Building2, Loader2, ChevronDown,
-  Users, LayoutGrid, Clock, CheckCircle2, Circle, Zap, FileText, Trash2, Upload, Sparkles,
+  Users, LayoutGrid, Clock, CheckCircle2, Circle, Zap, FileText, Trash2, Upload, Sparkles, CalendarDays,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 interface Stage { id: string; name: string; order: number; isWon: boolean; isLost: boolean; }
 interface Pipeline { id: string; name: string; industrySlug: string | null; isDefault: boolean; stages: Stage[]; }
 interface DealContact { id: string; name: string; phone: string | null; company: string | null; }
 interface Deal {
   id: string; title: string; value: number; stageId: string; pipelineId: string;
-  status: string; contactId: string; contact: DealContact; expectedCloseDate: string | null;
+  status: string; contactId: string; contact: DealContact; expectedCloseDate: string | null; ownerId: string | null;
 }
 interface Contact {
   id: string; name: string; phone: string | null; email: string | null; company: string | null;
-  status: string; totalSpent: number; lastContact: string | null;
+  status: string; totalSpent: number; lastContact: string | null; assignedToId?: string | null;
 }
+interface TeamMember { id: string; name: string; email: string; }
 interface Activity { id: string; type: string; content: string; createdAt: string; }
 interface Task { id: string; title: string; status: string; dueDate: string | null; }
 interface ContactDetail extends Contact {
@@ -46,7 +48,7 @@ export default function CrmPage() {
   const { lang } = useTranslation();
   const isFa = lang !== "en";
 
-  const [tab, setTab] = useState<"board" | "contacts" | "automation" | "agent">("board");
+  const [tab, setTab] = useState<"board" | "contacts" | "automation" | "agent" | "calendar" | "analytics">("board");
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
@@ -63,6 +65,7 @@ export default function CrmPage() {
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [contactDetail, setContactDetail] = useState<ContactDetail | null>(null);
   const [error, setError] = useState("");
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
 
   const selectedPipeline = pipelines.find((p) => p.id === selectedPipelineId) || null;
 
@@ -96,6 +99,11 @@ export default function CrmPage() {
   useEffect(() => { if (selectedPipelineId) loadDeals(selectedPipelineId); }, [selectedPipelineId, loadDeals]);
   useEffect(() => { if (tab === "contacts") loadContacts(); }, [tab, loadContacts]);
   useEffect(() => { if (tab === "automation") loadRules(); }, [tab, loadRules]);
+  useEffect(() => {
+    fetch("/api/team").then((r) => r.json()).then((data) => {
+      setTeamMembers((data.team?.members || []).map((m: { id: string; name: string; email: string }) => ({ id: m.id, name: m.name, email: m.email })));
+    }).catch(() => {});
+  }, []);
 
   async function createPipeline() {
     setCreatingPipeline(true);
@@ -162,6 +170,8 @@ export default function CrmPage() {
             { id: "contacts" as const, label: isFa ? "مخاطبین" : "Contacts", icon: Users },
             { id: "automation" as const, label: isFa ? "اتوماسیون" : "Automation", icon: Zap },
             { id: "agent" as const, label: isFa ? "تحلیل CRM" : "CRM Agent", icon: Sparkles },
+            { id: "calendar" as const, label: isFa ? "تقویم" : "Calendar", icon: CalendarDays },
+            { id: "analytics" as const, label: isFa ? "آمار" : "Analytics", icon: LayoutGrid },
           ].map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
@@ -202,6 +212,11 @@ export default function CrmPage() {
             ) : (
               <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{selectedPipeline?.name}</h2>
             )}
+            <div className="flex-1" />
+            <a href="/api/crm/export?type=deals" download
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
+              {isFa ? "خروجی CSV" : "Export CSV"}
+            </a>
             <button onClick={() => setShowNewDeal(true)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
               <Plus className="w-4 h-4" /> {isFa ? "معامله جدید" : "New Deal"}
@@ -253,7 +268,11 @@ export default function CrmPage() {
         </div>
       ) : tab === "contacts" ? (
         <div className="space-y-3">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <a href="/api/crm/export?type=contacts" download
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
+              {isFa ? "خروجی CSV" : "Export CSV"}
+            </a>
             <button onClick={() => setShowNewContact(true)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
               <Plus className="w-4 h-4" /> {isFa ? "مخاطب جدید" : "New Contact"}
@@ -285,8 +304,12 @@ export default function CrmPage() {
         </div>
       ) : tab === "automation" ? (
         <AutomationPanel isFa={isFa} rules={rules} onChanged={loadRules} />
-      ) : (
+      ) : tab === "agent" ? (
         <CrmAgentPanel isFa={isFa} />
+      ) : tab === "calendar" ? (
+        <CalendarPanel isFa={isFa} />
+      ) : (
+        <AnalyticsPanel isFa={isFa} pipelines={pipelines} />
       )}
 
       {/* New Deal modal */}
@@ -309,6 +332,8 @@ export default function CrmPage() {
         <DealDetailModal
           isFa={isFa}
           dealId={selectedDealId}
+          deal={deals.find((d) => d.id === selectedDealId) || null}
+          teamMembers={teamMembers}
           onClose={() => setSelectedDealId(null)}
           onChanged={() => { if (selectedPipelineId) loadDeals(selectedPipelineId); }}
         />
@@ -319,6 +344,7 @@ export default function CrmPage() {
         <ContactDetailModal
           isFa={isFa}
           contact={contactDetail}
+          teamMembers={teamMembers}
           onClose={() => { setSelectedContactId(null); setContactDetail(null); }}
           onChanged={() => openContact(selectedContactId)}
         />
@@ -451,9 +477,10 @@ function NewContactModal({ isFa, onClose, onCreated }: { isFa: boolean; onClose:
   );
 }
 
-function DealDetailModal({ isFa, dealId, onClose, onChanged }: { isFa: boolean; dealId: string; onClose: () => void; onChanged: () => void }) {
+function DealDetailModal({ isFa, dealId, deal, teamMembers, onClose, onChanged }: { isFa: boolean; dealId: string; deal: Deal | null; teamMembers: TeamMember[]; onClose: () => void; onChanged: () => void }) {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [ownerId, setOwnerId] = useState(deal?.ownerId || "");
 
   async function addActivity() {
     if (!note.trim()) return;
@@ -467,6 +494,14 @@ function DealDetailModal({ isFa, dealId, onClose, onChanged }: { isFa: boolean; 
     setSaving(false);
   }
 
+  async function assignOwner(newOwnerId: string) {
+    setOwnerId(newOwnerId);
+    await fetch(`/api/crm/deals/${dealId}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ownerId: newOwnerId || null }),
+    });
+    onChanged();
+  }
+
   async function deleteDeal() {
     await fetch(`/api/crm/deals/${dealId}`, { method: "DELETE" });
     onChanged();
@@ -476,10 +511,20 @@ function DealDetailModal({ isFa, dealId, onClose, onChanged }: { isFa: boolean; 
   return (
     <Modal onClose={onClose}>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "جزئیات معامله" : "Deal Detail"}</h2>
+        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{deal?.title || (isFa ? "جزئیات معامله" : "Deal Detail")}</h2>
         <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
       </div>
       <div className="space-y-3">
+        {teamMembers.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>{isFa ? "تخصیص به عضو تیم" : "Assign to team member"}</p>
+            <select value={ownerId} onChange={(e) => assignOwner(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              <option value="">{isFa ? "تخصیص‌نیافته" : "Unassigned"}</option>
+              {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          </div>
+        )}
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder={isFa ? "یادداشت/فعالیت جدید..." : "New note/activity..."}
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         <div className="flex gap-2">
@@ -495,9 +540,18 @@ function DealDetailModal({ isFa, dealId, onClose, onChanged }: { isFa: boolean; 
   );
 }
 
-function ContactDetailModal({ isFa, contact, onClose, onChanged }: { isFa: boolean; contact: ContactDetail; onClose: () => void; onChanged: () => void }) {
+function ContactDetailModal({ isFa, contact, teamMembers, onClose, onChanged }: { isFa: boolean; contact: ContactDetail; teamMembers: TeamMember[]; onClose: () => void; onChanged: () => void }) {
   const [note, setNote] = useState("");
   const [taskTitle, setTaskTitle] = useState("");
+  const [assignedToId, setAssignedToId] = useState(contact.assignedToId || "");
+
+  async function assignTo(newAssigneeId: string) {
+    setAssignedToId(newAssigneeId);
+    await fetch(`/api/crm/contacts/${contact.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ assignedToId: newAssigneeId || null }),
+    });
+    onChanged();
+  }
 
   async function addActivity() {
     if (!note.trim()) return;
@@ -539,6 +593,17 @@ function ContactDetailModal({ isFa, contact, onClose, onChanged }: { isFa: boole
         {contact.email && <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5" />{contact.email}</span>}
         {contact.company && <span className="flex items-center gap-1"><Building2 className="w-3.5 h-3.5" />{contact.company}</span>}
       </div>
+
+      {teamMembers.length > 0 && (
+        <div className="mb-4">
+          <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>{isFa ? "تخصیص به عضو تیم" : "Assign to team member"}</p>
+          <select value={assignedToId} onChange={(e) => assignTo(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{isFa ? "تخصیص‌نیافته" : "Unassigned"}</option>
+            {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </select>
+        </div>
+      )}
 
       {contact.deals.length > 0 && (
         <div className="mb-4">
@@ -848,6 +913,130 @@ function CrmAgentPanel({ isFa }: { isFa: boolean }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+interface CalendarItem { id: string; date: string; label: string; type: "task" | "deal"; }
+
+function CalendarPanel({ isFa }: { isFa: boolean }) {
+  const [items, setItems] = useState<CalendarItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/crm/tasks?status=pending").then((r) => r.json()),
+      fetch("/api/crm/deals?status=open").then((r) => r.json()),
+    ]).then(([taskData, dealData]) => {
+      const taskItems: CalendarItem[] = (taskData.tasks || [])
+        .filter((t: Task) => t.dueDate)
+        .map((t: Task) => ({ id: `task-${t.id}`, date: t.dueDate as string, label: t.title, type: "task" as const }));
+      const dealItems: CalendarItem[] = (dealData.deals || [])
+        .filter((d: Deal) => d.expectedCloseDate)
+        .map((d: Deal) => ({ id: `deal-${d.id}`, date: d.expectedCloseDate as string, label: `${d.title} — ${d.contact?.name || ""}`, type: "deal" as const }));
+      setItems([...taskItems, ...dealItems].sort((a, b) => a.date.localeCompare(b.date)));
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  if (loading) return <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />;
+  if (items.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "هیچ تسک یا معامله‌ای با تاریخ سررسید ثبت نشده" : "No tasks or deals with a due/close date"}</p>;
+
+  const grouped = new Map<string, CalendarItem[]>();
+  for (const item of items) {
+    const day = item.date.slice(0, 10);
+    grouped.set(day, [...(grouped.get(day) || []), item]);
+  }
+
+  return (
+    <div className="space-y-4">
+      {Array.from(grouped.entries()).map(([day, dayItems]) => (
+        <div key={day} className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <p className="text-xs font-semibold mb-2" style={{ color: "var(--primary)" }}>{new Date(day).toLocaleDateString(isFa ? "fa-IR" : "en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
+          <div className="space-y-1.5">
+            {dayItems.map((item) => (
+              <div key={item.id} className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
+                {item.type === "task" ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} /> : <Briefcase className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--primary)" }} />}
+                <span style={{ color: "var(--text-primary)" }}>{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AnalyticsPanel({ isFa, pipelines }: { isFa: boolean; pipelines: Pipeline[] }) {
+  const [pipelineId, setPipelineId] = useState(pipelines[0]?.id || "");
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!pipelineId) { setLoading(false); return; }
+    setLoading(true);
+    fetch(`/api/crm/deals?pipelineId=${pipelineId}`).then((r) => r.json()).then((data) => {
+      setDeals(data.deals || []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [pipelineId]);
+
+  const pipeline = pipelines.find((p) => p.id === pipelineId) || null;
+
+  if (pipelines.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "ابتدا یک پایپلاین بساز" : "Create a pipeline first"}</p>;
+
+  const funnelData = pipeline
+    ? [...pipeline.stages].sort((a, b) => a.order - b.order).map((s) => ({
+        name: s.name,
+        count: deals.filter((d) => d.stageId === s.id).length,
+        value: deals.filter((d) => d.stageId === s.id).reduce((sum, d) => sum + d.value, 0),
+      }))
+    : [];
+
+  const totalDeals = deals.length;
+  const wonDeals = deals.filter((d) => d.status === "won").length;
+  const overallConversion = totalDeals > 0 ? Math.round((wonDeals / totalDeals) * 100) : 0;
+
+  return (
+    <div className="space-y-4">
+      {pipelines.length > 1 && (
+        <select value={pipelineId} onChange={(e) => setPipelineId(e.target.value)}
+          className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+          {pipelines.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+      )}
+
+      {loading ? (
+        <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+              <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "کل معاملات" : "Total Deals"}</p>
+              <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{totalDeals}</p>
+            </div>
+            <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+              <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "نرخ تبدیل کلی" : "Overall Conversion"}</p>
+              <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{overallConversion}%</p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+            <p className="text-xs font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{isFa ? "قیف تبدیل بر اساس مرحله" : "Conversion Funnel by Stage"}</p>
+            <div style={{ width: "100%", height: 280 }}>
+              <ResponsiveContainer>
+                <BarChart data={funnelData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="name" tick={{ fill: "var(--text-secondary)", fontSize: 11 }} />
+                  <YAxis tick={{ fill: "var(--text-secondary)", fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip contentStyle={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
+                  <Bar dataKey="count" fill="var(--primary)" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
