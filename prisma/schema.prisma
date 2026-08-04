@@ -55,6 +55,11 @@ model User {
   crmActivities       CrmActivity[]
   crmTasks            CrmTask[]
   crmInsights         CrmInsight[]
+  crmProducts         CrmProduct[]
+  crmInvoices         CrmInvoice[]
+  crmContracts        CrmContract[]
+  crmContractTemplates CrmContractTemplate[]
+  crmNotes            CrmNote[]
   businessAnalyses    BusinessAnalysis[]
   socialPosts         SocialPost[]
   generatedWebsites   GeneratedWebsite[]
@@ -330,6 +335,9 @@ model CrmContact {
   activities CrmActivity[]
   tasks      CrmTask[]
   documents  CrmDocument[]
+  invoices   CrmInvoice[]
+  contracts  CrmContract[]
+  notesList  CrmNote[]
 
   @@index([userId])
   @@index([status])
@@ -401,6 +409,9 @@ model CrmDeal {
   stage      CrmStage      @relation(fields: [stageId], references: [id])
   activities CrmActivity[]
   documents  CrmDocument[]
+  invoices   CrmInvoice[]
+  contracts  CrmContract[]
+  dealProducts CrmDealProduct[]
 
   @@index([userId])
   @@index([contactId])
@@ -498,6 +509,147 @@ model CrmInsight {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
+}
+
+/// A company's product/service catalog — attached to deals (CrmDealProduct)
+/// and invoice line items (CrmInvoiceItem).
+model CrmProduct {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  sku         String?
+  description String?
+  price       Float
+  unit        String?
+  taxRate     Float    @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user         User             @relation(fields: [userId], references: [id])
+  invoiceItems CrmInvoiceItem[]
+  dealProducts CrmDealProduct[]
+
+  @@index([userId])
+}
+
+/// Links a product to a deal (what's being sold), snapshotting the price at
+/// the time it was added so later CrmProduct price changes don't rewrite history.
+model CrmDealProduct {
+  id          String @id @default(cuid())
+  dealId      String
+  productId   String
+  quantity    Float  @default(1)
+  priceAtSale Float
+
+  deal    CrmDeal    @relation(fields: [dealId], references: [id])
+  product CrmProduct @relation(fields: [productId], references: [id])
+
+  @@index([dealId])
+  @@index([productId])
+}
+
+model CrmInvoice {
+  id            String    @id @default(cuid())
+  userId        String
+  contactId     String
+  dealId        String?
+  /// Per-user sequential number (e.g. INV-2026-0001), minted atomically —
+  /// see mintInvoiceNumber() in src/lib/repositories/crmInvoiceRepository.ts.
+  invoiceNumber String    @unique
+  status        String    @default("draft") // draft | sent | paid | overdue | cancelled
+  issueDate     DateTime  @default(now())
+  dueDate       DateTime?
+  paidAt        DateTime?
+  subtotal      Float     @default(0)
+  taxTotal      Float     @default(0)
+  discount      Float     @default(0)
+  total         Float     @default(0)
+  currency      String    @default("IRT")
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user    User             @relation(fields: [userId], references: [id])
+  contact CrmContact       @relation(fields: [contactId], references: [id])
+  deal    CrmDeal?         @relation(fields: [dealId], references: [id])
+  items   CrmInvoiceItem[]
+
+  @@index([userId])
+  @@index([contactId])
+  @@index([dealId])
+}
+
+model CrmInvoiceItem {
+  id          String @id @default(cuid())
+  invoiceId   String
+  productId   String?
+  description String
+  quantity    Float  @default(1)
+  unitPrice   Float
+  taxRate     Float  @default(0)
+  lineTotal   Float
+
+  invoice CrmInvoice  @relation(fields: [invoiceId], references: [id])
+  product CrmProduct? @relation(fields: [productId], references: [id])
+
+  @@index([invoiceId])
+}
+
+model CrmContractTemplate {
+  id           String   @id @default(cuid())
+  userId       String
+  name         String
+  industrySlug String?
+  /// Template text with {{contactName}}/{{dealValue}}/... placeholders,
+  /// interpolated by interpolateTemplate() in src/lib/crm/contractTemplate.ts.
+  content      String
+  createdAt    DateTime @default(now())
+
+  user      User          @relation(fields: [userId], references: [id])
+  contracts CrmContract[]
+
+  @@index([userId])
+}
+
+model CrmContract {
+  id         String    @id @default(cuid())
+  userId     String
+  contactId  String
+  dealId     String?
+  templateId String?
+  title      String
+  /// Final text after variable interpolation — editable afterward.
+  content    String
+  status     String    @default("draft") // draft | sent | signed | cancelled
+  signedAt   DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user     User                  @relation(fields: [userId], references: [id])
+  contact  CrmContact            @relation(fields: [contactId], references: [id])
+  deal     CrmDeal?              @relation(fields: [dealId], references: [id])
+  template CrmContractTemplate?  @relation(fields: [templateId], references: [id])
+
+  @@index([userId])
+  @@index([contactId])
+  @@index([dealId])
+}
+
+model CrmNote {
+  id        String   @id @default(cuid())
+  userId    String
+  contactId String
+  content   String
+  isPinned  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User       @relation(fields: [userId], references: [id])
+  contact CrmContact @relation(fields: [contactId], references: [id])
+
+  @@index([userId])
+  @@index([contactId])
 }
 
 /// This is the single source of truth for general-plan pricing — the
