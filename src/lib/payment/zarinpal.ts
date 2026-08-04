@@ -28,9 +28,13 @@ export interface PaymentResult {
 
 export async function createPayment(req: PaymentRequest): Promise<PaymentResult> {
   if (!MERCHANT || MERCHANT === "your-merchant-id") {
-    // Dev mode — simulate payment
+    // Dev mode — simulate payment by redirecting straight to the real
+    // callback URL (the same one Zarinpal itself would hit), instead of a
+    // separate /api/payment/dev-callback route that was never implemented
+    // and dropped the paymentId query param — every purchase 404'd.
     const fakeAuthority = `DEV_${Date.now()}`;
-    return { ok: true, authority: fakeAuthority, paymentUrl: `/api/payment/dev-callback?Authority=${fakeAuthority}&Status=OK` };
+    const separator = req.callbackUrl.includes("?") ? "&" : "?";
+    return { ok: true, authority: fakeAuthority, paymentUrl: `${req.callbackUrl}${separator}Authority=${fakeAuthority}&Status=OK` };
   }
 
   const res = await fetch(`${BASE}/request.json`, {
