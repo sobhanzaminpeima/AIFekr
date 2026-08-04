@@ -3,12 +3,15 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
+import { resolveCrmWorkspace } from "@/lib/crm/workspace";
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
+  const ws = await resolveCrmWorkspace(user.id);
+  if (ws.isAgentRestricted) return NextResponse.json({ error: "فقط مدیر یا مالک می‌تواند پایپلاین را ویرایش کند" }, { status: 403 });
 
-  const existing = await prisma.crmPipeline.findFirst({ where: { id: params.id, userId: user.id } });
+  const existing = await prisma.crmPipeline.findFirst({ where: { id: params.id, userId: ws.workspaceUserId } });
   if (!existing) return NextResponse.json({ error: "پیدا نشد" }, { status: 404 });
 
   const { name } = await req.json();
@@ -19,8 +22,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
+  const ws = await resolveCrmWorkspace(user.id);
+  if (ws.isAgentRestricted) return NextResponse.json({ error: "فقط مدیر یا مالک می‌تواند پایپلاین را حذف کند" }, { status: 403 });
 
-  const existing = await prisma.crmPipeline.findFirst({ where: { id: params.id, userId: user.id } });
+  const existing = await prisma.crmPipeline.findFirst({ where: { id: params.id, userId: ws.workspaceUserId } });
   if (!existing) return NextResponse.json({ error: "پیدا نشد" }, { status: 404 });
 
   const dealCount = await prisma.crmDeal.count({ where: { pipelineId: params.id } });

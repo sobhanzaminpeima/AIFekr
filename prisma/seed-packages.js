@@ -17,6 +17,19 @@ const PACKAGES = [
     color: "#8b5cf6", isFeatured: false, sortOrder: 3,
     features: ["تا ۵ نفر", "همه امکانات حرفه‌ای", "داشبورد مشترک", "مدیریت اعضا", "فاکتور رسمی"].join("\n"),
   },
+  // CRM add-on plans — purchased and billed separately from the AI-usage
+  // plans above (see User.crmPlan / activatePlanForPayment's "CRM_" branch).
+  // credits: 0 since these don't grant AI credits, only unlock CRM features.
+  {
+    planCode: "CRM_SOLO", name: "CRM انفرادی", nameEn: "CRM Solo", price: 6900000, priceUsd: 2900, market: "BOTH", duration: 30, credits: 0,
+    color: "#0ea5e9", isFeatured: false, sortOrder: 10,
+    features: ["پایپلاین و مخاطبین نامحدود", "فاکتور و قرارداد رسمی", "کاتالوگ محصولات", "اتوماسیون CRM", "تحلیل CRM Agent", "۱ کاربر"].join("\n"),
+  },
+  {
+    planCode: "CRM_TEAM", name: "CRM تیمی", nameEn: "CRM Team", price: 19900000, priceUsd: 7900, market: "BOTH", duration: 30, credits: 0, crmSeatLimit: 5,
+    color: "#0ea5e9", isFeatured: true, sortOrder: 11,
+    features: ["همه امکانات CRM انفرادی", "تا ۵ کاربر (agent/manager/owner)", "گزارش عملکرد تیم", "تخصیص و انتقال مخاطبین بین اعضا", "برای seat بیشتر با پشتیبانی تماس بگیرید"].join("\n"),
+  },
 ];
 
 async function main() {

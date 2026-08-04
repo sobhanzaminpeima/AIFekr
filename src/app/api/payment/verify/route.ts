@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   // Success — activate plan. TEAM credits are pooled on a Team row, not on
   // User.credits directly — see src/lib/utils/teamCredits.ts.
   const pkg = await prisma.package.findUnique({ where: { planCode: payment.plan } });
-  const planInfo = pkg ? { credits: pkg.credits, days: pkg.duration } : undefined;
+  const planInfo = pkg ? { credits: pkg.credits, days: pkg.duration, crmSeatLimit: pkg.crmSeatLimit } : undefined;
   await activatePlanForPayment(payment, result.refId || "", authority, planInfo);
 
   // Referral bonus — first paid purchase by a referred user rewards both

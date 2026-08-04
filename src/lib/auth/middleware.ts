@@ -21,6 +21,8 @@ export async function requireAuth(req: NextRequest) {
       credits: true,
       planExpiry: true,
       isBlocked: true,
+      crmPlan: true,
+      crmPlanExpiry: true,
     },
   });
 

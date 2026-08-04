@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
+import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 
 const VALID_TRIGGERS = ["stale_deal", "no_activity_days"] as const;
 const VALID_ACTIONS = ["create_task"] as const;
@@ -14,9 +15,11 @@ const VALID_ACTIONS = ["create_task"] as const;
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
+  const ws = await resolveCrmWorkspace(user.id);
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
 
   const rules = await prisma.crmAutomationRule.findMany({
-    where: { userId: user.id },
+    where: { userId: ws.workspaceUserId },
     orderBy: { createdAt: "desc" },
   });
   return NextResponse.json({ rules });
@@ -25,6 +28,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
+  const ws = await resolveCrmWorkspace(user.id);
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
+  if (ws.isAgentRestricted) return NextResponse.json({ error: "فقط مدیر یا مالک می‌تواند قانون اتوماسیون بسازد" }, { status: 403 });
 
   const { name, trigger, condition, action } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "نام قانون الزامی است" }, { status: 400 });
@@ -41,7 +47,7 @@ export async function POST(req: NextRequest) {
 
   const rule = await prisma.crmAutomationRule.create({
     data: {
-      userId: user.id,
+      userId: ws.workspaceUserId,
       name: name.trim(),
       trigger,
       condition: JSON.stringify({ days }),

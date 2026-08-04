@@ -8,7 +8,7 @@ import { prisma } from "@/lib/db/prisma";
  * inline in each admin route.
  */
 
-const ADMIN_EDITABLE_USER_FIELDS = ["name", "email", "plan", "credits", "isBlocked", "planExpiry", "role"] as const;
+const ADMIN_EDITABLE_USER_FIELDS = ["name", "email", "plan", "credits", "isBlocked", "planExpiry", "role", "crmPlan", "crmPlanExpiry"] as const;
 
 export function updateUserAsAdmin(userId: string, body: Record<string, unknown>) {
   const data: Record<string, unknown> = {};

@@ -36,6 +36,8 @@ interface UserDetail {
   isBlocked: boolean;
   createdAt: string;
   lastLoginAt?: string;
+  crmPlan?: string;
+  crmPlanExpiry?: string;
   _count: { conversations: number; images: number; videos: number; payments: number };
   payments: Payment[];
   usageLogs: UsageLog[];
@@ -46,6 +48,12 @@ const PLAN_BADGE: Record<string, { label: string; color: string }> = {
   BASIC: { label: "پایه", color: "#3b82f6" },
   PRO: { label: "حرفه‌ای", color: "#ea580c" },
   TEAM: { label: "تیمی", color: "#8b5cf6" },
+};
+
+const CRM_PLAN_LABEL: Record<string, { label: string; color: string }> = {
+  NONE: { label: "بدون CRM", color: "#71717a" },
+  SOLO: { label: "CRM انفرادی", color: "#0ea5e9" },
+  TEAM: { label: "CRM تیمی", color: "#0ea5e9" },
 };
 
 const PAYMENT_STATUS: Record<string, { label: string; color: string }> = {
@@ -83,6 +91,16 @@ export default function AdminUserDetailPage() {
       body: JSON.stringify({ isBlocked: !user.isBlocked }),
     });
     toast.success(user.isBlocked ? "کاربر آزاد شد" : "کاربر مسدود شد");
+    load();
+  }
+
+  async function setCrmPlan(crmPlan: string) {
+    await fetch(`/api/admin/users/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ crmPlan, crmPlanExpiry: crmPlan === "NONE" ? null : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() }),
+    });
+    toast.success("پلن CRM بروزرسانی شد");
     load();
   }
 
@@ -140,6 +158,25 @@ export default function AdminUserDetailPage() {
           {user.isBlocked ? <UserCheck className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
           {user.isBlocked ? "آزادسازی کاربر" : "مسدودسازی کاربر"}
         </button>
+      </div>
+
+      {/* CRM add-on */}
+      <div className="rounded-2xl p-5 flex items-center justify-between flex-wrap gap-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>افزونه CRM</span>
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: (CRM_PLAN_LABEL[user.crmPlan || "NONE"].color) + "22", color: CRM_PLAN_LABEL[user.crmPlan || "NONE"].color }}>
+              {CRM_PLAN_LABEL[user.crmPlan || "NONE"].label}
+            </span>
+          </div>
+          {user.crmPlanExpiry && <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>انقضا: {toJalali(user.crmPlanExpiry)}</div>}
+        </div>
+        <select value={user.crmPlan || "NONE"} onChange={(e) => setCrmPlan(e.target.value)}
+          className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+          <option value="NONE">بدون CRM</option>
+          <option value="SOLO">CRM انفرادی</option>
+          <option value="TEAM">CRM تیمی</option>
+        </select>
       </div>
 
       {/* Stats */}

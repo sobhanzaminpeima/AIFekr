@@ -1,6 +1,40 @@
 import { prisma } from "@/lib/db/prisma";
 import { Prisma } from "@prisma/client";
 
+export interface InvoiceItemInput {
+  productId?: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  taxRate?: number;
+}
+
+/** Validates and totals invoice line items — shared by create and edit so the math (and its validation) can never drift between the two paths. */
+export function computeInvoiceTotals(items: InvoiceItemInput[]) {
+  let subtotal = 0;
+  let taxTotal = 0;
+  const itemsData = items.map((it) => {
+    if (!it.description?.trim() || typeof it.unitPrice !== "number" || it.unitPrice < 0) {
+      throw new Error("آیتم فاکتور نامعتبر است");
+    }
+    const qty = typeof it.quantity === "number" && it.quantity > 0 ? it.quantity : 1;
+    const taxRate = typeof it.taxRate === "number" ? it.taxRate : 0;
+    const lineSubtotal = qty * it.unitPrice;
+    const lineTax = lineSubtotal * (taxRate / 100);
+    subtotal += lineSubtotal;
+    taxTotal += lineTax;
+    return {
+      description: it.description.trim(),
+      quantity: qty,
+      unitPrice: it.unitPrice,
+      taxRate,
+      lineTotal: lineSubtotal + lineTax,
+      productId: it.productId || undefined,
+    };
+  });
+  return { itemsData, subtotal, taxTotal };
+}
+
 /**
  * Mints a per-user sequential invoice number like INV-2026-0001. There's no
  * separate counter table — we count this user's invoices issued this year

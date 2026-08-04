@@ -30,8 +30,15 @@ export function createPipelineFromTemplate(userId: string, industrySlug: string 
   });
 }
 
-/** Verifies the deal, and the target stage, both belong to this user before moving. */
-export async function moveDealToStage(userId: string, dealId: string, stageId: string) {
+/**
+ * Verifies the deal, and the target stage, both belong to this user before
+ * moving. Landing on an isWon stage auto-advances the linked contact's
+ * lifecycle to "customer" (only moving it forward, never backward — a
+ * contact that's already a customer stays one even if a later deal is lost).
+ * Landing on an isLost stage accepts an optional reason, since a deal falling
+ * through needs to be recorded, not just silently vanish from the board.
+ */
+export async function moveDealToStage(userId: string, dealId: string, stageId: string, lostReason?: string) {
   const deal = await prisma.crmDeal.findFirst({ where: { id: dealId, userId } });
   if (!deal) return null;
 
@@ -40,14 +47,24 @@ export async function moveDealToStage(userId: string, dealId: string, stageId: s
   });
   if (!stage) return null;
 
-  return prisma.crmDeal.update({
+  const updated = await prisma.crmDeal.update({
     where: { id: dealId },
     data: {
       stageId,
       status: stage.isWon ? "won" : stage.isLost ? "lost" : "open",
       wonAt: stage.isWon ? new Date() : null,
+      lostReason: stage.isLost ? (lostReason || undefined) : undefined,
     },
   });
+
+  if (stage.isWon) {
+    await prisma.crmContact.updateMany({
+      where: { id: deal.contactId, status: { in: ["lead", "qualified"] } },
+      data: { status: "customer" },
+    });
+  }
+
+  return updated;
 }
 
 export async function countUserContacts(userId: string): Promise<number> {

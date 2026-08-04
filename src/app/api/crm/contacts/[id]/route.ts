@@ -3,13 +3,15 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
+import { resolveCrmWorkspace, agentFilter } from "@/lib/crm/workspace";
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
+  const ws = await resolveCrmWorkspace(user.id);
 
   const contact = await prisma.crmContact.findFirst({
-    where: { id: params.id, userId: user.id },
+    where: { id: params.id, userId: ws.workspaceUserId, ...agentFilter(ws) },
     include: {
       deals: { orderBy: { createdAt: "desc" } },
       activities: { orderBy: { createdAt: "desc" }, take: 50 },
@@ -25,16 +27,20 @@ const EDITABLE_FIELDS = ["name", "phone", "email", "company", "status", "source"
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
+  const ws = await resolveCrmWorkspace(user.id);
 
-  const existing = await prisma.crmContact.findFirst({ where: { id: params.id, userId: user.id } });
+  const existing = await prisma.crmContact.findFirst({ where: { id: params.id, userId: ws.workspaceUserId, ...agentFilter(ws) } });
   if (!existing) return NextResponse.json({ error: "پیدا نشد" }, { status: 404 });
 
   const body = await req.json();
   const data: Record<string, unknown> = {};
   for (const key of EDITABLE_FIELDS) {
+    // An AGENT can't reassign a contact away from (or to) themselves — only MANAGER/OWNER may.
+    if (key === "assignedToId" && ws.isAgentRestricted) continue;
     if (key in body) data[key] = body[key];
   }
   if ("customFields" in body) data.customFields = body.customFields ? JSON.stringify(body.customFields) : null;
+  if ("sourceDetails" in body) data.sourceDetails = body.sourceDetails ? JSON.stringify(body.sourceDetails) : null;
 
   const contact = await prisma.crmContact.update({ where: { id: params.id }, data });
   return NextResponse.json({ contact });
@@ -43,8 +49,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
+  const ws = await resolveCrmWorkspace(user.id);
 
-  const existing = await prisma.crmContact.findFirst({ where: { id: params.id, userId: user.id } });
+  const existing = await prisma.crmContact.findFirst({ where: { id: params.id, userId: ws.workspaceUserId, ...agentFilter(ws) } });
   if (!existing) return NextResponse.json({ error: "پیدا نشد" }, { status: 404 });
 
   await prisma.crmActivity.deleteMany({ where: { contactId: params.id } });

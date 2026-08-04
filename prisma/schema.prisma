@@ -18,6 +18,10 @@ model User {
   plan              String    @default("FREE")
   credits           Int       @default(100)
   planExpiry        DateTime?
+  /// CRM add-on tier, purchased and billed separately from `plan` (the AI-usage
+  /// tier) — buying CRM must never overwrite a user's AI plan. "NONE" | "SOLO" | "TEAM".
+  crmPlan           String    @default("NONE")
+  crmPlanExpiry     DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   lastLoginAt       DateTime?
@@ -60,6 +64,7 @@ model User {
   crmContracts        CrmContract[]
   crmContractTemplates CrmContractTemplate[]
   crmNotes            CrmNote[]
+  crmProjects         CrmProject[]
   businessAnalyses    BusinessAnalysis[]
   socialPosts         SocialPost[]
   generatedWebsites   GeneratedWebsite[]
@@ -107,6 +112,10 @@ model TeamMember {
   teamId   String
   userId   String   @unique
   role     String   @default("MEMBER") // OWNER | MEMBER
+  /// CRM-specific role, independent of the AI-credit `role` above — only
+  /// meaningful when the team owner's crmPlan is "TEAM". Null means this
+  /// member has no CRM access. "OWNER" | "MANAGER" | "AGENT".
+  crmRole  String?
   joinedAt DateTime @default(now())
 
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
@@ -317,6 +326,12 @@ model CrmContact {
   company      String?
   status       String    @default("lead")
   source       String    @default("organic")
+  /// Source-specific detail as a JSON string (e.g. the Instagram conversation
+  /// link, or the referring Contact's id) — shape varies by source, so this
+  /// stays a free-form JSON blob rather than a rigid column set. Set once at
+  /// capture time; createdAt already serves as "first captured at" since this
+  /// row is never copied/recreated when a lead becomes a customer (§2.1 model).
+  sourceDetails String?
   plan         String?
   totalSpent   Int       @default(0)
   notes        String?
@@ -338,6 +353,7 @@ model CrmContact {
   invoices   CrmInvoice[]
   contracts  CrmContract[]
   notesList  CrmNote[]
+  projects   CrmProject[]
 
   @@index([userId])
   @@index([status])
@@ -412,6 +428,7 @@ model CrmDeal {
   invoices   CrmInvoice[]
   contracts  CrmContract[]
   dealProducts CrmDealProduct[]
+  projects   CrmProject[]
 
   @@index([userId])
   @@index([contactId])
@@ -523,6 +540,7 @@ model CrmProduct {
   unit        String?
   taxRate     Float    @default(0)
   isActive    Boolean  @default(true)
+  imageUrl    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -570,10 +588,11 @@ model CrmInvoice {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  user    User             @relation(fields: [userId], references: [id])
-  contact CrmContact       @relation(fields: [contactId], references: [id])
-  deal    CrmDeal?         @relation(fields: [dealId], references: [id])
-  items   CrmInvoiceItem[]
+  user      User                 @relation(fields: [userId], references: [id])
+  contact   CrmContact           @relation(fields: [contactId], references: [id])
+  deal      CrmDeal?             @relation(fields: [dealId], references: [id])
+  items     CrmInvoiceItem[]
+  revisions CrmInvoiceRevision[]
 
   @@index([userId])
   @@index([contactId])
@@ -626,10 +645,11 @@ model CrmContract {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  user     User                  @relation(fields: [userId], references: [id])
-  contact  CrmContact            @relation(fields: [contactId], references: [id])
-  deal     CrmDeal?              @relation(fields: [dealId], references: [id])
-  template CrmContractTemplate?  @relation(fields: [templateId], references: [id])
+  user      User                  @relation(fields: [userId], references: [id])
+  contact   CrmContact            @relation(fields: [contactId], references: [id])
+  deal      CrmDeal?              @relation(fields: [dealId], references: [id])
+  template  CrmContractTemplate?  @relation(fields: [templateId], references: [id])
+  revisions CrmContractRevision[]
 
   @@index([userId])
   @@index([contactId])
@@ -650,6 +670,57 @@ model CrmNote {
 
   @@index([userId])
   @@index([contactId])
+}
+
+/// Snapshot of a CrmInvoice+items taken right before an edit to an already
+/// finalized (sent/paid) invoice — so a customer who already received a copy
+/// can't have it silently rewritten with no trace.
+model CrmInvoiceRevision {
+  id           String   @id @default(cuid())
+  invoiceId    String
+  snapshotJson String
+  createdAt    DateTime @default(now())
+
+  invoice CrmInvoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([invoiceId])
+}
+
+/// Same versioning guarantee as CrmInvoiceRevision, for contracts.
+model CrmContractRevision {
+  id         String   @id @default(cuid())
+  contractId String
+  content    String
+  createdAt  DateTime @default(now())
+
+  contract CrmContract @relation(fields: [contractId], references: [id])
+
+  @@index([contractId])
+}
+
+/// Post-sale or ongoing work tracking, generic across verticals (a
+/// construction job, a real-estate closing's paperwork, a service
+/// engagement) — optionally linked to the Contact/Deal it came from.
+model CrmProject {
+  id          String    @id @default(cuid())
+  userId      String
+  contactId   String?
+  dealId      String?
+  name        String
+  status      String    @default("active") // active | on_hold | completed | cancelled
+  startDate   DateTime?
+  endDate     DateTime?
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user    User        @relation(fields: [userId], references: [id])
+  contact CrmContact? @relation(fields: [contactId], references: [id])
+  deal    CrmDeal?    @relation(fields: [dealId], references: [id])
+
+  @@index([userId])
+  @@index([contactId])
+  @@index([dealId])
 }
 
 /// This is the single source of truth for general-plan pricing — the
@@ -676,6 +747,9 @@ model Package {
   isFeatured Boolean  @default(false)
   color      String   @default("#ea580c")
   sortOrder  Int      @default(0)
+  /// Seat count included for CRM_TEAM-type packages (null for non-CRM or
+  /// solo packages). Enforced against Team.maxSeats when this package is purchased.
+  crmSeatLimit Int?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }

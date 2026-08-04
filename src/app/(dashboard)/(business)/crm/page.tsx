@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Briefcase, Plus, X, Phone, Mail, Building2, Loader2, ChevronDown,
   Users, LayoutGrid, Clock, CheckCircle2, Circle, Zap, FileText, Trash2, Upload, Sparkles, CalendarDays,
-  Package, Receipt, FileSignature, Pin, Printer,
+  Package, Receipt, FileSignature, Pin, Printer, FolderKanban,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -49,7 +49,7 @@ export default function CrmPage() {
   const { lang } = useTranslation();
   const isFa = lang !== "en";
 
-  const [tab, setTab] = useState<"board" | "contacts" | "automation" | "agent" | "calendar" | "analytics" | "products" | "invoices" | "contracts">("board");
+  const [tab, setTab] = useState<"board" | "contacts" | "automation" | "agent" | "calendar" | "analytics" | "products" | "invoices" | "contracts" | "projects">("board");
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
@@ -67,6 +67,27 @@ export default function CrmPage() {
   const [contactDetail, setContactDetail] = useState<ContactDetail | null>(null);
   const [error, setError] = useState("");
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [crmPlan, setCrmPlan] = useState<string | null>(null);
+  const [upgrading, setUpgrading] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/me").then((r) => r.json()).then((d) => setCrmPlan(d.user?.crmPlan || "NONE")).catch(() => setCrmPlan("NONE"));
+  }, []);
+
+  async function purchaseCrmPlan(planCode: "CRM_SOLO" | "CRM_TEAM") {
+    setUpgrading(true);
+    try {
+      const res = await fetch("/api/payment/create", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: planCode }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.paymentUrl) throw new Error(data.error || "خطا در شروع پرداخت");
+      window.location.href = data.paymentUrl;
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "خطا در پرداخت");
+      setUpgrading(false);
+    }
+  }
 
   const selectedPipeline = pipelines.find((p) => p.id === selectedPipelineId) || null;
 
@@ -98,7 +119,7 @@ export default function CrmPage() {
 
   useEffect(() => { loadPipelines(); }, [loadPipelines]);
   useEffect(() => { if (selectedPipelineId) loadDeals(selectedPipelineId); }, [selectedPipelineId, loadDeals]);
-  useEffect(() => { if (tab === "contacts" || tab === "invoices" || tab === "contracts") loadContacts(); }, [tab, loadContacts]);
+  useEffect(() => { if (tab === "contacts" || tab === "invoices" || tab === "contracts" || tab === "projects") loadContacts(); }, [tab, loadContacts]);
   useEffect(() => { if (tab === "automation") loadRules(); }, [tab, loadRules]);
   useEffect(() => {
     fetch("/api/team").then((r) => r.json()).then((data) => {
@@ -176,6 +197,7 @@ export default function CrmPage() {
             { id: "products" as const, label: isFa ? "محصولات" : "Products", icon: Package },
             { id: "invoices" as const, label: isFa ? "فاکتورها" : "Invoices", icon: Receipt },
             { id: "contracts" as const, label: isFa ? "قراردادها" : "Contracts", icon: FileSignature },
+            { id: "projects" as const, label: isFa ? "پروژه‌ها" : "Projects", icon: FolderKanban },
           ].map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
@@ -185,6 +207,25 @@ export default function CrmPage() {
           ))}
         </div>
       </div>
+
+      {crmPlan === "NONE" && (
+        <div className="rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3" style={{ background: "rgba(234,88,12,0.08)", border: "1px solid rgba(234,88,12,0.3)" }}>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{isFa ? "فاکتور، قرارداد، کاتالوگ محصولات و اتوماسیون بخشی از افزونه‌ی CRM حرفه‌ای است" : "Invoicing, contracts, product catalog, and automation are part of the CRM Pro add-on"}</p>
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "پایپلاین و مخاطبین همچنان رایگان (تا ۲۰ مخاطب) در دسترس‌اند." : "Pipeline and contacts remain free (up to 20 contacts)."}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => purchaseCrmPlan("CRM_SOLO")} disabled={upgrading}
+              className="px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-50" style={{ background: "var(--surface-1)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
+              {isFa ? "CRM انفرادی" : "CRM Solo"}
+            </button>
+            <button onClick={() => purchaseCrmPlan("CRM_TEAM")} disabled={upgrading}
+              className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+              {upgrading ? <Loader2 className="w-4 h-4 animate-spin" /> : (isFa ? "CRM تیمی" : "CRM Team")}
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && <p className="text-sm" style={{ color: "#ef4444" }}>{error}</p>}
 
@@ -318,8 +359,10 @@ export default function CrmPage() {
         <ProductsPanel isFa={isFa} />
       ) : tab === "invoices" ? (
         <InvoicesPanel isFa={isFa} contacts={contacts} />
-      ) : (
+      ) : tab === "contracts" ? (
         <ContractsPanel isFa={isFa} contacts={contacts} />
+      ) : (
+        <ProjectsPanel isFa={isFa} contacts={contacts} />
       )}
 
       {/* New Deal modal */}
@@ -435,11 +478,21 @@ function NewDealModal({ isFa, pipeline, onClose, onCreated }: { isFa: boolean; p
   );
 }
 
+const LEAD_SOURCE_OPTIONS: { value: string; fa: string; en: string }[] = [
+  { value: "manual", fa: "ثبت دستی", en: "Manual entry" },
+  { value: "instagram_dm", fa: "دایرکت اینستاگرام", en: "Instagram DM" },
+  { value: "referral", fa: "معرفی", en: "Referral" },
+  { value: "walk_in", fa: "مراجعه حضوری", en: "Walk-in" },
+  { value: "website_form", fa: "فرم وبسایت", en: "Website form" },
+  { value: "other", fa: "سایر", en: "Other" },
+];
+
 function NewContactModal({ isFa, onClose, onCreated }: { isFa: boolean; onClose: () => void; onCreated: () => void }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
+  const [source, setSource] = useState("manual");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -451,7 +504,7 @@ function NewContactModal({ isFa, onClose, onCreated }: { isFa: boolean; onClose:
       const res = await fetch("/api/crm/contacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), phone: phone || undefined, email: email || undefined, company: company || undefined }),
+        body: JSON.stringify({ name: name.trim(), phone: phone || undefined, email: email || undefined, company: company || undefined, source }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -478,6 +531,13 @@ function NewContactModal({ isFa, onClose, onCreated }: { isFa: boolean; onClose:
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder={isFa ? "شرکت (اختیاری)" : "Company (optional)"}
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        <div>
+          <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>{isFa ? "این لید از کجا آمده؟" : "Where did this lead come from?"}</p>
+          <select value={source} onChange={(e) => setSource(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            {LEAD_SOURCE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{isFa ? o.fa : o.en}</option>)}
+          </select>
+        </div>
         {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
         <button onClick={submit} disabled={saving} className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
           {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ساخت مخاطب" : "Create Contact")}
@@ -1040,6 +1100,7 @@ function AnalyticsPanel({ isFa, pipelines }: { isFa: boolean; pipelines: Pipelin
   const [pipelineId, setPipelineId] = useState(pipelines[0]?.id || "");
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sourceContacts, setSourceContacts] = useState<{ source: string; status: string }[]>([]);
 
   useEffect(() => {
     if (!pipelineId) { setLoading(false); return; }
@@ -1049,6 +1110,18 @@ function AnalyticsPanel({ isFa, pipelines }: { isFa: boolean; pipelines: Pipelin
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [pipelineId]);
+
+  useEffect(() => {
+    fetch("/api/crm/contacts").then((r) => r.json()).then((data) => {
+      setSourceContacts((data.contacts || []).map((c: { source: string; status: string }) => ({ source: c.source, status: c.status })));
+    });
+  }, []);
+
+  const sourceStats = LEAD_SOURCE_OPTIONS.map((opt) => {
+    const rows = sourceContacts.filter((c) => c.source === opt.value);
+    const converted = rows.filter((c) => c.status === "customer").length;
+    return { source: opt, total: rows.length, converted, rate: rows.length > 0 ? Math.round((converted / rows.length) * 100) : 0 };
+  }).filter((s) => s.total > 0);
 
   const pipeline = pipelines.find((p) => p.id === pipelineId) || null;
 
@@ -1104,6 +1177,22 @@ function AnalyticsPanel({ isFa, pipelines }: { isFa: boolean; pipelines: Pipelin
               </ResponsiveContainer>
             </div>
           </div>
+
+          {sourceStats.length > 0 && (
+            <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+              <p className="text-xs font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{isFa ? "عملکرد منابع لید" : "Lead Source Performance"}</p>
+              <div className="space-y-2">
+                {sourceStats.map((s) => (
+                  <div key={s.source.value} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
+                    <span style={{ color: "var(--text-primary)" }}>{isFa ? s.source.fa : s.source.en}</span>
+                    <span style={{ color: "var(--text-secondary)" }}>
+                      {s.total} {isFa ? "لید" : "leads"} · {s.converted} {isFa ? "مشتری" : "customers"} · <b style={{ color: "var(--primary)" }}>{s.rate}%</b>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -1112,19 +1201,23 @@ function AnalyticsPanel({ isFa, pipelines }: { isFa: boolean; pipelines: Pipelin
 
 interface CrmProduct {
   id: string; name: string; sku: string | null; description: string | null;
-  price: number; unit: string | null; taxRate: number; isActive: boolean;
+  price: number; unit: string | null; taxRate: number; isActive: boolean; imageUrl: string | null;
 }
+
+interface ProductFormState {
+  id?: string; name: string; sku: string; description: string; price: string; unit: string; taxRate: string; imageUrl: string;
+}
+
+const EMPTY_PRODUCT_FORM: ProductFormState = { name: "", sku: "", description: "", price: "", unit: "", taxRate: "0", imageUrl: "" };
 
 function ProductsPanel({ isFa }: { isFa: boolean }) {
   const [products, setProducts] = useState<CrmProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showNew, setShowNew] = useState(false);
-  const [name, setName] = useState("");
-  const [price, setPrice] = useState("");
-  const [unit, setUnit] = useState("");
-  const [taxRate, setTaxRate] = useState("0");
+  const [form, setForm] = useState<ProductFormState | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [detailProduct, setDetailProduct] = useState<CrmProduct | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/crm/products");
@@ -1135,21 +1228,40 @@ function ProductsPanel({ isFa }: { isFa: boolean }) {
 
   useEffect(() => { load(); }, [load]);
 
-  async function createProduct() {
-    if (!name.trim()) { setError(isFa ? "نام محصول الزامی است" : "Product name is required"); return; }
-    const priceNum = Number(price);
+  async function uploadImage(file: File) {
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setForm((f) => (f ? { ...f, imageUrl: data.url } : f));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "خطا در آپلود تصویر");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function saveProduct() {
+    if (!form) return;
+    if (!form.name.trim()) { setError(isFa ? "نام محصول الزامی است" : "Product name is required"); return; }
+    const priceNum = Number(form.price);
     if (!Number.isFinite(priceNum) || priceNum < 0) { setError(isFa ? "قیمت معتبر الزامی است" : "Valid price is required"); return; }
     setSaving(true);
     setError("");
     try {
-      const res = await fetch("/api/crm/products", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), price: priceNum, unit: unit.trim() || undefined, taxRate: Number(taxRate) || 0 }),
+      const payload = {
+        name: form.name.trim(), sku: form.sku.trim() || undefined, description: form.description.trim() || undefined,
+        price: priceNum, unit: form.unit.trim() || undefined, taxRate: Number(form.taxRate) || 0, imageUrl: form.imageUrl || undefined,
+      };
+      const res = await fetch(form.id ? `/api/crm/products/${form.id}` : "/api/crm/products", {
+        method: form.id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setShowNew(false);
-      setName(""); setPrice(""); setUnit(""); setTaxRate("0");
+      setForm(null);
       load();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "خطا");
@@ -1175,26 +1287,45 @@ function ProductsPanel({ isFa }: { isFa: boolean }) {
   return (
     <div className="space-y-3">
       <div className="flex justify-end">
-        <button onClick={() => setShowNew((v) => !v)}
+        <button onClick={() => { setForm(EMPTY_PRODUCT_FORM); setError(""); }}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
           <Plus className="w-4 h-4" /> {isFa ? "محصول جدید" : "New Product"}
         </button>
       </div>
 
-      {showNew && (
+      {form && (
         <div className="rounded-2xl p-4 space-y-2 grid grid-cols-2 gap-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={isFa ? "نام محصول/خدمت" : "Product/service name"}
+          <div className="col-span-2 flex items-center gap-3">
+            <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+              {form.imageUrl ? <img src={form.imageUrl} alt="" className="w-full h-full object-cover" /> : <Package className="w-6 h-6" style={{ color: "var(--text-muted)" }} />}
+            </div>
+            <label className="text-xs px-3 py-1.5 rounded-lg cursor-pointer" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+              {uploading ? (isFa ? "در حال آپلود..." : "Uploading...") : (isFa ? "آپلود عکس" : "Upload photo")}
+              <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={uploading}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(f); }} />
+            </label>
+          </div>
+          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={isFa ? "نام محصول/خدمت" : "Product/service name"}
             className="col-span-2 px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-          <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" placeholder={isFa ? "قیمت" : "Price"}
-            className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-          <input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder={isFa ? "واحد (اختیاری)" : "Unit (optional)"}
-            className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-          <input value={taxRate} onChange={(e) => setTaxRate(e.target.value)} type="number" placeholder={isFa ? "درصد مالیات" : "Tax %"}
+          <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={isFa ? "توضیحات (اختیاری)" : "Description (optional)"}
             className="col-span-2 px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder={isFa ? "کد محصول (اختیاری)" : "SKU (optional)"}
+            className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} type="number" placeholder={isFa ? "قیمت" : "Price"}
+            className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder={isFa ? "واحد (اختیاری)" : "Unit (optional)"}
+            className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <input value={form.taxRate} onChange={(e) => setForm({ ...form, taxRate: e.target.value })} type="number" placeholder={isFa ? "درصد مالیات" : "Tax %"}
+            className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           {error && <p className="col-span-2 text-xs" style={{ color: "#ef4444" }}>{error}</p>}
-          <button onClick={createProduct} disabled={saving} className="col-span-2 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ذخیره" : "Save")}
-          </button>
+          <div className="col-span-2 flex gap-2">
+            <button onClick={() => setForm(null)} className="flex-1 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+              {isFa ? "انصراف" : "Cancel"}
+            </button>
+            <button onClick={saveProduct} disabled={saving} className="flex-1 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ذخیره" : "Save")}
+            </button>
+          </div>
         </div>
       )}
 
@@ -1204,11 +1335,20 @@ function ProductsPanel({ isFa }: { isFa: boolean }) {
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           {products.map((p, i) => (
             <div key={p.id} className="flex items-center justify-between px-4 py-3" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined, opacity: p.isActive ? 1 : 0.5 }}>
-              <div>
-                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{p.name}</p>
-                <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{fmtMoney(p.price)} {p.unit ? `/ ${p.unit}` : ""} {p.taxRate > 0 ? `· ${p.taxRate}% ${isFa ? "مالیات" : "tax"}` : ""}</p>
-              </div>
+              <button onClick={() => setDetailProduct(p)} className="flex items-center gap-3 flex-1 text-right">
+                <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ background: "var(--surface-2)" }}>
+                  {p.imageUrl ? <img src={p.imageUrl} alt="" className="w-full h-full object-cover" /> : <Package className="w-4 h-4" style={{ color: "var(--text-muted)" }} />}
+                </div>
+                <div>
+                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{p.name}</p>
+                  <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{fmtMoney(p.price)} {p.unit ? `/ ${p.unit}` : ""} {p.taxRate > 0 ? `· ${p.taxRate}% ${isFa ? "مالیات" : "tax"}` : ""}</p>
+                </div>
+              </button>
               <div className="flex items-center gap-2">
+                <button onClick={() => setForm({ id: p.id, name: p.name, sku: p.sku || "", description: p.description || "", price: String(p.price), unit: p.unit || "", taxRate: String(p.taxRate), imageUrl: p.imageUrl || "" })}
+                  className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                  {isFa ? "ویرایش" : "Edit"}
+                </button>
                 <button onClick={() => toggleActive(p)}
                   className="px-2.5 py-1 rounded-full text-[10px] font-medium"
                   style={{ background: p.isActive ? "rgba(34,197,94,0.15)" : "var(--surface-2)", color: p.isActive ? "#22c55e" : "var(--text-muted)" }}>
@@ -1220,7 +1360,44 @@ function ProductsPanel({ isFa }: { isFa: boolean }) {
           ))}
         </div>
       )}
+
+      {detailProduct && <ProductDetailModal isFa={isFa} product={detailProduct} onClose={() => setDetailProduct(null)} />}
     </div>
+  );
+}
+
+function ProductDetailModal({ isFa, product, onClose }: { isFa: boolean; product: CrmProduct; onClose: () => void }) {
+  const [contacts, setContacts] = useState<{ id: string; name: string }[] | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/crm/products/${product.id}`).then((r) => r.json()).then((d) => setContacts(d.contacts || []));
+  }, [product.id]);
+
+  return (
+    <Modal onClose={onClose}>
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ background: "var(--surface-2)" }}>
+          {product.imageUrl ? <img src={product.imageUrl} alt="" className="w-full h-full object-cover" /> : <Package className="w-6 h-6" style={{ color: "var(--text-muted)" }} />}
+        </div>
+        <div>
+          <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{product.name}</h2>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{fmtMoney(product.price)} {product.unit ? `/ ${product.unit}` : ""}</p>
+        </div>
+      </div>
+      {product.description && <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>{product.description}</p>}
+      <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{isFa ? "مشتریانی که این محصول را خریده‌اند" : "Customers who bought this"}</p>
+      {contacts === null ? (
+        <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--text-muted)" }} />
+      ) : contacts.length === 0 ? (
+        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز در فاکتوری استفاده نشده" : "Not used in any invoice yet"}</p>
+      ) : (
+        <div className="space-y-1.5">
+          {contacts.map((c) => (
+            <div key={c.id} className="px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>{c.name}</div>
+          ))}
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -1459,13 +1636,50 @@ function ContractsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[]
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
   const [printContract, setPrintContract] = useState<CrmContractRow | null>(null);
+  const [editingContract, setEditingContract] = useState<CrmContractRow | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [restoringDefaults, setRestoringDefaults] = useState(false);
 
   const [contactId, setContactId] = useState("");
   const [templateId, setTemplateId] = useState("");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<CrmContractTemplateRow | null>(null);
+
+  async function saveTemplateEdit(newName: string, newContent: string) {
+    if (!editingTemplate) return;
+    await fetch(`/api/crm/contract-templates/${editingTemplate.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newName, content: newContent }),
+    });
+    setEditingTemplate(null);
+    load();
+  }
+
+  async function deleteTemplate(id: string) {
+    await fetch(`/api/crm/contract-templates/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  async function restoreDefaultTemplates() {
+    setRestoringDefaults(true);
+    try {
+      await fetch("/api/crm/contract-templates/seed-defaults", { method: "POST" });
+      load();
+    } finally {
+      setRestoringDefaults(false);
+    }
+  }
+
+  async function saveEditedContract(newContent: string) {
+    if (!editingContract) return;
+    await fetch(`/api/crm/contracts/${editingContract.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: newContent }),
+    });
+    setEditingContract(null);
+    load();
+  }
 
   const load = useCallback(async () => {
     const [cRes, tRes] = await Promise.all([fetch("/api/crm/contracts"), fetch("/api/crm/contract-templates")]);
@@ -1513,7 +1727,16 @@ function ContractsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[]
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <button onClick={restoreDefaultTemplates} disabled={restoringDefaults}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-50" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
+          {restoringDefaults ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+          {isFa ? "بازیابی قالب‌های پیش‌فرض" : "Restore default templates"}
+        </button>
+        <button onClick={() => setShowTemplates((v) => !v)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
+          <FileSignature className="w-4 h-4" /> {isFa ? "مدیریت قالب‌ها" : "Manage Templates"}
+        </button>
         <button onClick={() => setShowNew((v) => !v)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
           <Plus className="w-4 h-4" /> {isFa ? "قرارداد جدید" : "New Contract"}
@@ -1522,6 +1745,11 @@ function ContractsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[]
 
       {showNew && (
         <div className="rounded-2xl p-4 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <p className="text-[11px] p-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
+            {isFa
+              ? "این قالب صرفاً یک نقطه شروع است و توصیه یا مشاوره حقوقی محسوب نمی‌شود. لطفاً پیش از استفاده، نسخه‌ی نهایی را با یک وکیل یا مشاور حقوقی متخصص بازبینی کنید."
+              : "This template is a starting point only and does not constitute legal advice. Please have your customized version reviewed by a qualified lawyer before use."}
+          </p>
           <select value={contactId} onChange={(e) => setContactId(e.target.value)}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
             <option value="">{isFa ? "انتخاب مشتری..." : "Select contact..."}</option>
@@ -1545,6 +1773,24 @@ function ContractsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[]
         </div>
       )}
 
+      {showTemplates && (
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+          {templates.length === 0 ? (
+            <p className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز قالبی ثبت نشده" : "No templates yet"}</p>
+          ) : (
+            templates.map((t, i) => (
+              <div key={t.id} className="flex items-center justify-between px-4 py-3" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+                <p className="text-sm" style={{ color: "var(--text-primary)" }}>{t.name}</p>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setEditingTemplate(t)} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{isFa ? "ویرایش" : "Edit"}</button>
+                  <button onClick={() => deleteTemplate(t.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
       {contracts.length === 0 ? (
         <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز قراردادی ثبت نشده" : "No contracts yet"}</p>
       ) : (
@@ -1560,6 +1806,7 @@ function ContractsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[]
                   <span className="px-2.5 py-1 rounded-full text-[10px] font-medium" style={{ background: "var(--surface-2)", color: st.color }}>{isFa ? st.fa : st.en}</span>
                   {c.status === "draft" && <button onClick={() => setStatus(c.id, "sent")} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{isFa ? "ارسال" : "Send"}</button>}
                   {c.status !== "signed" && c.status !== "cancelled" && <button onClick={() => setStatus(c.id, "signed")} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>{isFa ? "امضا شد" : "Mark Signed"}</button>}
+                  <button onClick={() => setEditingContract(c)} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{isFa ? "ویرایش" : "Edit"}</button>
                   <button onClick={() => setPrintContract(c)}><Printer className="w-4 h-4" style={{ color: "var(--text-secondary)" }} /></button>
                   <button onClick={() => deleteContract(c.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
                 </div>
@@ -1570,6 +1817,12 @@ function ContractsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[]
       )}
 
       {printContract && <ContractPrintModal isFa={isFa} contract={printContract} onClose={() => setPrintContract(null)} />}
+      {editingContract && (
+        <ContractEditModal isFa={isFa} contract={editingContract} onClose={() => setEditingContract(null)} onSave={saveEditedContract} />
+      )}
+      {editingTemplate && (
+        <TemplateEditModal isFa={isFa} template={editingTemplate} onClose={() => setEditingTemplate(null)} onSave={saveTemplateEdit} />
+      )}
     </div>
   );
 }
@@ -1587,6 +1840,193 @@ function ContractPrintModal({ isFa, contract, onClose }: { isFa: boolean; contra
         <p className="text-xs">{isFa ? "مشتری:" : "Contact:"} {contract.contact.name}</p>
         <div className="text-sm leading-7">{contract.content}</div>
       </div>
+    </div>
+  );
+}
+
+function ContractEditModal({ isFa, contract, onClose, onSave }: { isFa: boolean; contract: CrmContractRow; onClose: () => void; onSave: (content: string) => void }) {
+  const [content, setContent] = useState(contract.content);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    await onSave(content);
+    setSaving(false);
+  }
+
+  return (
+    <Modal onClose={onClose}>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "ویرایش قرارداد" : "Edit Contract"}</h2>
+        <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
+      </div>
+      {contract.status !== "draft" && (
+        <p className="text-[11px] p-2 rounded-lg mb-2" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
+          {isFa
+            ? "این قرارداد نهایی‌شده — نسخه‌ی فعلی پیش از ذخیره تغییرات، آرشیو می‌شود."
+            : "This contract is finalized — the current version will be archived before your changes are saved."}
+        </p>
+      )}
+      <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={12}
+        className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+      <button onClick={handleSave} disabled={saving} className="w-full mt-3 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+        {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ذخیره تغییرات" : "Save Changes")}
+      </button>
+    </Modal>
+  );
+}
+
+function TemplateEditModal({ isFa, template, onClose, onSave }: { isFa: boolean; template: CrmContractTemplateRow; onClose: () => void; onSave: (name: string, content: string) => void }) {
+  const [name, setName] = useState(template.name);
+  const [content, setContent] = useState(template.content);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    await onSave(name, content);
+    setSaving(false);
+  }
+
+  return (
+    <Modal onClose={onClose}>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "ویرایش قالب قرارداد" : "Edit Contract Template"}</h2>
+        <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
+      </div>
+      <p className="text-[11px] p-2 rounded-lg mb-2" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
+        {isFa
+          ? "این قالب صرفاً یک نقطه شروع است و توصیه یا مشاوره حقوقی محسوب نمی‌شود. متن را با توجه به سیاست‌های کسب‌وکار خود ویرایش کنید."
+          : "This template is a starting point only and does not constitute legal advice. Edit the text to match your own business policy."}
+      </p>
+      <input value={name} onChange={(e) => setName(e.target.value)} placeholder={isFa ? "نام قالب" : "Template name"}
+        className="w-full px-3 py-2 rounded-xl text-sm outline-none mb-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+      <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={12}
+        className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+      <button onClick={handleSave} disabled={saving} className="w-full mt-3 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+        {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ذخیره تغییرات" : "Save Changes")}
+      </button>
+    </Modal>
+  );
+}
+
+interface CrmProjectRow {
+  id: string; name: string; status: string; description: string | null;
+  startDate: string | null; endDate: string | null;
+  contact: { id: string; name: string } | null; deal: { id: string; title: string } | null;
+}
+
+const PROJECT_STATUS_LABEL: Record<string, { fa: string; en: string; color: string }> = {
+  active: { fa: "در حال انجام", en: "Active", color: "#3b82f6" },
+  on_hold: { fa: "متوقف‌شده", en: "On Hold", color: "#f59e0b" },
+  completed: { fa: "تکمیل‌شده", en: "Completed", color: "#22c55e" },
+  cancelled: { fa: "لغوشده", en: "Cancelled", color: "var(--text-muted)" },
+};
+
+/** Generic post-sale/ongoing-work tracking — usable by any vertical (a construction job, a real-estate closing's paperwork, a service engagement), not tied to one industry's schema. */
+function ProjectsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] }) {
+  const [projects, setProjects] = useState<CrmProjectRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showNew, setShowNew] = useState(false);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const [name, setName] = useState("");
+  const [contactId, setContactId] = useState("");
+  const [description, setDescription] = useState("");
+
+  const load = useCallback(async () => {
+    const res = await fetch("/api/crm/projects");
+    const data = await res.json();
+    setProjects(data.projects || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function createProject() {
+    if (!name.trim()) { setError(isFa ? "نام پروژه الزامی است" : "Project name is required"); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/crm/projects", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), contactId: contactId || undefined, description: description.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setShowNew(false);
+      setName(""); setContactId(""); setDescription("");
+      load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "خطا");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function setStatus(id: string, status: string) {
+    await fetch(`/api/crm/projects/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    load();
+  }
+
+  async function deleteProject(id: string) {
+    await fetch(`/api/crm/projects/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  if (loading) return <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <button onClick={() => setShowNew((v) => !v)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
+          <Plus className="w-4 h-4" /> {isFa ? "پروژه جدید" : "New Project"}
+        </button>
+      </div>
+
+      {showNew && (
+        <div className="rounded-2xl p-4 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={isFa ? "نام پروژه" : "Project name"}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <select value={contactId} onChange={(e) => setContactId(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{isFa ? "بدون مخاطب (اختیاری)" : "No contact (optional)"}</option>
+            {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder={isFa ? "توضیحات (اختیاری)" : "Description (optional)"}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
+          <button onClick={createProject} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ساخت پروژه" : "Create Project")}
+          </button>
+        </div>
+      )}
+
+      {projects.length === 0 ? (
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز پروژه‌ای ثبت نشده" : "No projects yet"}</p>
+      ) : (
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+          {projects.map((p, i) => {
+            const st = PROJECT_STATUS_LABEL[p.status] || PROJECT_STATUS_LABEL.active;
+            return (
+              <div key={p.id} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+                <div>
+                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{p.name} {p.contact ? `— ${p.contact.name}` : ""}</p>
+                  {p.description && <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{p.description}</p>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <select value={p.status} onChange={(e) => setStatus(p.id, e.target.value)}
+                    className="text-[10px] px-2 py-1 rounded-full font-medium outline-none" style={{ background: "var(--surface-2)", color: st.color, border: "none" }}>
+                    {Object.entries(PROJECT_STATUS_LABEL).map(([val, l]) => <option key={val} value={val}>{isFa ? l.fa : l.en}</option>)}
+                  </select>
+                  <button onClick={() => deleteProject(p.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

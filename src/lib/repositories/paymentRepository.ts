@@ -33,10 +33,54 @@ export async function activatePlanForPayment(
   payment: Payment & { user: User },
   refId: string,
   authority: string,
-  planInfo: { credits: number; days: number } | undefined
+  planInfo: { credits: number; days: number; crmSeatLimit?: number | null } | undefined
 ): Promise<Date> {
   const expiry = new Date();
   expiry.setDate(expiry.getDate() + (planInfo?.days || 30));
+
+  // CRM add-on plans are billed and activated separately from the AI-usage
+  // `plan` field — buying CRM_SOLO/CRM_TEAM must never touch/overwrite a
+  // user's existing AI plan (FREE/ECHO/PLUS/PRO/ALPHA/TEAM).
+  if (payment.plan.startsWith("CRM_")) {
+    const crmPlan = payment.plan === "CRM_TEAM" ? "TEAM" : "SOLO";
+
+    if (crmPlan === "TEAM") {
+      const seatLimit = planInfo?.crmSeatLimit || 5;
+      const existingTeam = await prisma.team.findUnique({ where: { ownerId: payment.userId } });
+      if (existingTeam) {
+        await prisma.$transaction([
+          prisma.payment.update({ where: { id: payment.id }, data: { status: "SUCCESS", refId, authority } }),
+          prisma.user.update({ where: { id: payment.userId }, data: { crmPlan, crmPlanExpiry: expiry } }),
+          prisma.team.update({ where: { id: existingTeam.id }, data: { maxSeats: Math.max(existingTeam.maxSeats, seatLimit) } }),
+          prisma.teamMember.upsert({
+            where: { userId: payment.userId },
+            update: { crmRole: "OWNER" },
+            create: { teamId: existingTeam.id, userId: payment.userId, role: "OWNER", crmRole: "OWNER" },
+          }),
+        ]);
+      } else {
+        await prisma.$transaction([
+          prisma.payment.update({ where: { id: payment.id }, data: { status: "SUCCESS", refId, authority } }),
+          prisma.user.update({ where: { id: payment.userId }, data: { crmPlan, crmPlanExpiry: expiry } }),
+          prisma.team.create({
+            data: {
+              name: `تیم ${payment.user.name || "من"}`,
+              ownerId: payment.userId,
+              maxSeats: seatLimit,
+              members: { create: { userId: payment.userId, role: "OWNER", crmRole: "OWNER" } },
+            },
+          }),
+        ]);
+      }
+    } else {
+      await prisma.$transaction([
+        prisma.payment.update({ where: { id: payment.id }, data: { status: "SUCCESS", refId, authority } }),
+        prisma.user.update({ where: { id: payment.userId }, data: { crmPlan, crmPlanExpiry: expiry } }),
+      ]);
+    }
+
+    return expiry;
+  }
 
   if (payment.plan === "TEAM") {
     const existingTeam = await prisma.team.findUnique({ where: { ownerId: payment.userId } });
