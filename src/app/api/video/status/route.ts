@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { getPredictionStatus } from "@/lib/ai/replicate";
+import { getQwenTaskStatus } from "@/lib/ai/qwen";
 import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
 
 export async function GET(req: NextRequest) {
@@ -15,7 +16,12 @@ export async function GET(req: NextRequest) {
 
   if (!predictionId) return NextResponse.json({ error: "predictionId required" }, { status: 400 });
 
-  const { status, output, error } = await getPredictionStatus(predictionId);
+  // Qwen (DashScope) task ids are prefixed "qwen:" at creation time (see
+  // generateVideo in qwen.ts) so they can be told apart from a Replicate
+  // prediction id — both are otherwise opaque strings.
+  const { status, output, error } = predictionId.startsWith("qwen:")
+    ? await getQwenTaskStatus(predictionId.slice("qwen:".length))
+    : await getPredictionStatus(predictionId);
 
   if (status === "succeeded" && output && videoId) {
     // Upload to R2 if it's a real URL

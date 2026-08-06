@@ -10,7 +10,7 @@ import {
   Briefcase, TrendingUp, ShoppingCart, Calculator, Salad,
   GraduationCap, Stethoscope, Languages, ChefHat, Dumbbell, Plane, Code2,
   Plus, History, HeartPulse, Search, Share2, Globe, Factory, Users,
-  FolderOpen, Folder, FolderPlus, X, Check, MoreHorizontal, Trash2, ArrowLeft, Zap, Rocket, Gift, Sparkles,
+  FolderOpen, Folder, FolderPlus, X, Check, MoreHorizontal, Trash2, ArrowLeft, Zap, Rocket, Gift, Sparkles, FlaskConical,
 } from "lucide-react";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
@@ -127,6 +127,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         { icon: ShoppingCart, label: "Dropshipping", href: "/tools/drop-shipping" },
         { icon: Calculator, label: "Math Solver", href: "/tools/math" },
         { icon: Salad, label: "Diet Plan", href: "/tools/healthy-diet" },
+        { icon: FlaskConical, label: "Try Free AI (Experimental)", href: "/tools/try-free-ai" },
       ]
     : [
         { icon: Briefcase, label: "ایده کسب‌وکار", href: "/tools/business-ideas" },
@@ -134,6 +135,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         { icon: ShoppingCart, label: "دراپشیپینگ", href: "/tools/drop-shipping" },
         { icon: Calculator, label: "حل ریاضیات", href: "/tools/math" },
         { icon: Salad, label: "برنامه غذایی", href: "/tools/healthy-diet" },
+        { icon: FlaskConical, label: "امتحان AI رایگان (آزمایشی)", href: "/tools/try-free-ai" },
       ];
 
   const assistants = lang === "en"

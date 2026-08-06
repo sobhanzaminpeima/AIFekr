@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { CREDIT_COSTS } from "@/lib/utils/credits";
 import { getAvailableCredits, deductCredits } from "@/lib/utils/teamCredits";
 import { getLimitsForPlan } from "@/lib/utils/planLimits";
-import { generateImages, generateImagesHQ, generateImageFromReference } from "@/lib/ai/fal";
+import { generateImages, generateImagesHQ, generateImageFromReference } from "@/lib/ai/qwen";
 import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
 
 export async function POST(req: NextRequest) {
