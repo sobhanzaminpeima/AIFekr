@@ -60,9 +60,9 @@ const PROVIDERS = [
   },
   {
     id: "gemini",
-    name: "Gemini 2.0 Flash",
+    name: "Gemini 3.5 Flash",
     provider: "Google AI",
-    model: "gemini-2.0-flash",
+    model: "gemini-3.5-flash",
     envKey: "GEMINI_API_KEY",
     description: "سریع‌ترین مدل Google. بهترین برای ترجمه و محتوای خلاق.",
     strengths: ["creative", "translation", "fast", "factual"],

@@ -100,9 +100,9 @@ export const PROVIDERS: Provider[] = [
   },
   {
     id: "gemini",
-    name: "Gemini 2.0 Flash",
+    name: "Gemini 3.5 Flash",
     provider: "google",
-    model: "gemini-2.0-flash",
+    model: "gemini-3.5-flash",
     baseURL: RELAY_BASE_URL ? `${RELAY_BASE_URL}/gemini/v1beta/openai` : "https://generativelanguage.googleapis.com/v1beta/openai",
     apiKey: process.env.GEMINI_API_KEY || "",
     strengths: ["creative", "translation", "factual", "fast"],
