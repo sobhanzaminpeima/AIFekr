@@ -92,6 +92,17 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
     } catch {}
   }
 
+  async function deleteConversation(convId: string) {
+    setConvMenuOpen(null);
+    if (!confirm(lang === "en" ? "Delete this chat permanently? This can't be undone." : "این گفتگو برای همیشه حذف بشه؟ این عمل قابل بازگشت نیست.")) return;
+    try {
+      await fetch(`/api/chat/history/${convId}`, { method: "DELETE" });
+      loadProjects();
+      if (pathname === `/chat/${convId}`) router.push("/chat");
+      router.refresh();
+    } catch {}
+  }
+
   async function loadProjects() {
     try {
       const res = await fetch("/api/projects");
@@ -366,9 +377,15 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
                           style={{ background: "var(--surface-2)", border: "1px solid var(--border)", minWidth: "140px" }}>
                           <button onClick={() => removeConvFromProject(c.id, project.id)}
                             className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-white/5"
-                            style={{ color: "#ef4444" }}>
+                            style={{ color: "var(--text-secondary)" }}>
                             <X className="w-3 h-3" />
                             {lang === "en" ? "Remove from project" : "خارج از پروژه"}
+                          </button>
+                          <button onClick={() => deleteConversation(c.id)}
+                            className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-white/5"
+                            style={{ color: "#ef4444", borderTop: "1px solid var(--border)" }}>
+                            <Trash2 className="w-3 h-3" />
+                            {lang === "en" ? "Delete chat" : "حذف گفتگو"}
                           </button>
                         </div>
                       )}
@@ -426,6 +443,12 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
                         {p.name}
                       </button>
                     ))}
+                    <button onClick={() => deleteConversation(c.id)}
+                      className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-white/5"
+                      style={{ color: "#ef4444", borderTop: "1px solid var(--border)" }}>
+                      <Trash2 className="w-3 h-3" />
+                      {lang === "en" ? "Delete chat" : "حذف گفتگو"}
+                    </button>
                     <button onClick={() => setConvMenuOpen(null)}
                       className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-white/5"
                       style={{ color: "var(--text-muted)", borderTop: "1px solid var(--border)" }}>

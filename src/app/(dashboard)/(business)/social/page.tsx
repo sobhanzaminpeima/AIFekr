@@ -93,15 +93,77 @@ export default function SocialPage() {
 
   // ── Instagram creation wizard ──────────────────────────────────────────
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3 | 4>(1);
-  const [creationMode, setCreationMode] = useState<"ai" | "recreate" | "manual" | null>(null);
+  const [creationMode, setCreationMode] = useState<"ai" | "recreate" | "manual" | "calendar" | null>(null);
   const [manualHashtagsInput, setManualHashtagsInput] = useState("");
   const [scheduleChoice, setScheduleChoice] = useState<"now" | "scheduled">("scheduled");
+
+  // ── 7-day content calendar ──────────────────────────────────────────────
+  const [calendarGenerating, setCalendarGenerating] = useState(false);
+  const [calendarDays, setCalendarDays] = useState<{ dayOffset: number; date: Date; caption: string; hashtags: string[]; scheduling: boolean; scheduled: boolean }[] | null>(null);
+
+  async function generateCalendar() {
+    if (!form.brandName || !form.topic) return toast.error(t.common.error);
+    setCalendarGenerating(true);
+    setCalendarDays(null);
+    try {
+      const r = await fetch("/api/social/instagram/generate-calendar", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessName: form.brandName, businessType: form.platform, topic: form.topic, language: lang }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      const today = new Date();
+      const days = (d.posts || []).map((p: { dayOffset: number; caption: string; hashtags: string[] }) => {
+        const date = new Date(today);
+        date.setDate(date.getDate() + 1 + p.dayOffset);
+        date.setHours(19, 0, 0, 0);
+        return { dayOffset: p.dayOffset, date, caption: p.caption, hashtags: p.hashtags, scheduling: false, scheduled: false };
+      });
+      setCalendarDays(days);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t.common.error);
+    } finally {
+      setCalendarGenerating(false);
+    }
+  }
+
+  function updateCalendarDay(dayOffset: number, patch: Partial<{ caption: string; date: Date }>) {
+    setCalendarDays((prev) => prev && prev.map((d) => (d.dayOffset === dayOffset ? { ...d, ...patch } : d)));
+  }
+
+  async function scheduleCalendarDay(dayOffset: number) {
+    const day = calendarDays?.find((d) => d.dayOffset === dayOffset);
+    if (!day) return;
+    setCalendarDays((prev) => prev && prev.map((d) => (d.dayOffset === dayOffset ? { ...d, scheduling: true } : d)));
+    try {
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const scheduledFor = `${day.date.getFullYear()}-${pad(day.date.getMonth() + 1)}-${pad(day.date.getDate())}T${pad(day.date.getHours())}:${pad(day.date.getMinutes())}`;
+      const r = await fetch("/api/social/instagram/schedule", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caption: day.caption, hashtags: day.hashtags, imageUrl: null, scheduledFor, mode: "manual" }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      setCalendarDays((prev) => prev && prev.map((dd) => (dd.dayOffset === dayOffset ? { ...dd, scheduling: false, scheduled: true } : dd)));
+      loadIgStatus();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t.common.error);
+      setCalendarDays((prev) => prev && prev.map((d) => (d.dayOffset === dayOffset ? { ...d, scheduling: false } : d)));
+    }
+  }
+
+  async function scheduleAllCalendarDays() {
+    if (!calendarDays) return;
+    for (const day of calendarDays) {
+      if (!day.scheduled) await scheduleCalendarDay(day.dayOffset);
+    }
+  }
 
   function resetWizard() {
     setWizardStep(1);
     setCreationMode(null);
     setIgCaption(""); setIgHashtags([]); setIgImageUrl(""); setIgScheduledFor(""); setIgBestTime("");
-    setRefImageUrl(""); setStyleDescription(""); setManualHashtagsInput("");
+    setRefImageUrl(""); setStyleDescription(""); setManualHashtagsInput(""); setCalendarDays(null);
   }
 
   function goToImageStep() {
@@ -536,7 +598,7 @@ export default function SocialPage() {
               {wizardStep === 1 && (
                 <div className="space-y-4">
                   {!creationMode && (
-                    <div className="grid sm:grid-cols-3 gap-3">
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
                       <button onClick={() => setCreationMode("ai")}
                         className="p-4 rounded-xl text-right flex flex-col items-start gap-2 transition-all hover:opacity-90"
                         style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
@@ -557,6 +619,13 @@ export default function SocialPage() {
                         <PenLine className="w-5 h-5" style={{ color: "var(--primary)" }} />
                         <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{isFa ? "نوشتن دستی" : "Write manually"}</span>
                         <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "کپشن و هشتگ خودت رو بنویس" : "Write your own caption and hashtags"}</span>
+                      </button>
+                      <button onClick={() => setCreationMode("calendar")}
+                        className="p-4 rounded-xl text-right flex flex-col items-start gap-2 transition-all hover:opacity-90"
+                        style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                        <Calendar className="w-5 h-5" style={{ color: "var(--primary)" }} />
+                        <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{isFa ? "تقویم محتوایی ۷ روزه" : "7-day content calendar"}</span>
+                        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "یک هفته پست، هر روز یک ایده" : "A week of posts, a different idea each day"}</span>
                       </button>
                     </div>
                   )}
@@ -661,6 +730,85 @@ export default function SocialPage() {
                           {isFa ? "بعدی" : "Next"} <ChevronLeft className="w-4 h-4" />
                         </button>
                       </div>
+                    </div>
+                  )}
+
+                  {creationMode === "calendar" && (
+                    <div className="space-y-4">
+                      {!calendarDays && (
+                        <>
+                          <div className="grid sm:grid-cols-2 gap-3">
+                            <input value={form.brandName} onChange={(e) => setForm({ ...form, brandName: e.target.value })} placeholder={t.social.brandNamePlaceholder}
+                              className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                            <input value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value })} placeholder={t.social.topicPlaceholder}
+                              className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={() => setCreationMode(null)} className="px-4 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                              {isFa ? "بازگشت" : "Back"}
+                            </button>
+                            <button onClick={generateCalendar} disabled={calendarGenerating || !form.brandName || !form.topic}
+                              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+                              {calendarGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calendar className="w-4 h-4" />}
+                              {calendarGenerating ? (isFa ? "در حال ساخت تقویم..." : "Building calendar...") : (isFa ? "تولید تقویم ۷ روزه" : "Generate 7-day calendar")}
+                            </button>
+                          </div>
+                        </>
+                      )}
+
+                      {calendarDays && (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                              {isFa ? "هر روز رو می‌تونی ویرایش کنی، بعد جدا یا همه با هم اضافه‌شون کن به زمان‌بندی (ساعت ۱۹:۰۰ هر روز، قابل تغییر از لیست پایین)." : "Edit each day, then add them individually or all at once (default 7:00 PM each day — adjust later from the list below)."}
+                            </p>
+                            <button onClick={scheduleAllCalendarDays}
+                              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white" style={{ background: "#e1306c" }}>
+                              <Check className="w-3.5 h-3.5" /> {isFa ? "افزودن همه" : "Add all"}
+                            </button>
+                          </div>
+                          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                            {calendarDays.map((day) => (
+                              <div key={day.dayOffset} className="rounded-xl overflow-hidden flex flex-col" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                                <div className="px-3 py-2 flex items-center justify-between" style={{ background: "var(--surface-1)", borderBottom: "1px solid var(--border)" }}>
+                                  <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
+                                    {isFa ? toJalali(day.date) : day.date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                                  </span>
+                                  <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                                    {day.date.toLocaleTimeString(isFa ? "fa-IR" : "en-US", { hour: "2-digit", minute: "2-digit" })}
+                                  </span>
+                                </div>
+                                <textarea
+                                  value={day.caption}
+                                  onChange={(e) => updateCalendarDay(day.dayOffset, { caption: e.target.value })}
+                                  rows={5}
+                                  className="w-full px-3 py-2 text-xs outline-none resize-none flex-1"
+                                  style={{ background: "transparent", color: "var(--text-primary)" }}
+                                />
+                                <div className="flex flex-wrap gap-1 px-3 pb-2">
+                                  {day.hashtags.slice(0, 3).map((h, i) => (
+                                    <span key={i} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{h}</span>
+                                  ))}
+                                  {day.hashtags.length > 3 && <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>+{day.hashtags.length - 3}</span>}
+                                </div>
+                                <button
+                                  onClick={() => scheduleCalendarDay(day.dayOffset)}
+                                  disabled={day.scheduling || day.scheduled}
+                                  className="w-full px-3 py-2 text-xs font-medium disabled:opacity-70"
+                                  style={{ background: day.scheduled ? "rgba(34,197,94,0.15)" : "var(--surface-1)", color: day.scheduled ? "#22c55e" : "var(--primary)", borderTop: "1px solid var(--border)" }}
+                                >
+                                  {day.scheduling ? <Loader2 className="w-3.5 h-3.5 animate-spin inline" /> : day.scheduled ? (isFa ? "✓ اضافه شد" : "✓ Added") : (isFa ? "افزودن به زمان‌بندی" : "Add to schedule")}
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={() => { setCreationMode(null); setCalendarDays(null); }} className="px-4 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                              {isFa ? "بازگشت" : "Back"}
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

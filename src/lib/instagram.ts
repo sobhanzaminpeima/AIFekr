@@ -54,6 +54,38 @@ Always include exactly 5 relevant, high-search hashtags.`
   return { caption: parsed.caption, hashtags: (parsed.hashtags || []).slice(0, 5), bestTime: parsed.bestTime || "" };
 }
 
+export interface WeeklyCalendarPost {
+  dayOffset: number; // 0 = tomorrow, 6 = a week from tomorrow
+  caption: string;
+  hashtags: string[];
+}
+
+/** Structured 7-day content calendar — one caption+hashtags per day, distinct from each other, not just the single-post generator repeated. */
+export async function generateWeeklyCalendar(businessName: string, businessType: string, topic: string, lang: "fa" | "en"): Promise<WeeklyCalendarPost[]> {
+  const systemPrompt = lang === "en"
+    ? "You are a professional social media content strategist. Return ONLY a raw, valid JSON array — no explanation or markdown."
+    : "تو استراتژیست محتوای شبکه‌های اجتماعی حرفه‌ای هستی. فقط و فقط یک آرایه JSON خام و معتبر برگردان، بدون توضیح یا markdown اضافه.";
+  const userMessage = lang === "en"
+    ? `Create a 7-day Instagram content calendar for the business "${businessName}" (type: ${businessType})${topic ? `, focused on "${topic}"` : ""}. Each day must be a genuinely distinct angle/post idea — not repeats of the same caption. Output must match exactly this JSON array format (7 items, dayOffset 0..6):
+[{"dayOffset": 0, "caption": "full caption with fitting emojis", "hashtags": ["#tag1", "#tag2", "#tag3", "#tag4", "#tag5"]}, ...]`
+    : `یک تقویم محتوایی ۷ روزه برای اینستاگرام کسب‌وکار «${businessName}» (نوع: ${businessType})${topic ? ` با محوریت «${topic}»` : ""} بساز. هر روز باید یک ایده/زاویه واقعاً متفاوت داشته باشد — نه تکرار همان کپشن. خروجی دقیقاً باید این فرمت آرایه JSON باشد (۷ آیتم، dayOffset از ۰ تا ۶):
+[{"dayOffset": 0, "caption": "کپشن کامل با ایموجی مناسب", "hashtags": ["#تگ1", "#تگ2", "#تگ3", "#تگ4", "#تگ5"]}, ...]`;
+
+  let raw = "";
+  await routedStreamChat([{ role: "user", content: userMessage }], systemPrompt, (chunk) => { raw += chunk; }, () => {}, undefined, undefined, 4096);
+
+  const match = raw.match(/\[[\s\S]*\]/);
+  if (!match) throw new Error("پاسخ AI قابل تفسیر نبود");
+
+  const parsed = JSON.parse(match[0]);
+  if (!Array.isArray(parsed)) throw new Error("پاسخ AI قابل تفسیر نبود");
+  return parsed.slice(0, 7).map((p: Record<string, unknown>, i: number) => ({
+    dayOffset: typeof p.dayOffset === "number" ? p.dayOffset : i,
+    caption: String(p.caption || ""),
+    hashtags: Array.isArray(p.hashtags) ? (p.hashtags as string[]).slice(0, 5) : [],
+  }));
+}
+
 export function getInstagramAppId(): string {
   return process.env.INSTAGRAM_APP_ID || "";
 }

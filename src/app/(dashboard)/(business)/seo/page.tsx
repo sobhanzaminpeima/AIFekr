@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Search, Globe, FileText, Tag, Copy, Check, ExternalLink, Zap, Loader2, Link2, Sparkles } from "lucide-react";
+import { Search, Globe, FileText, Tag, Copy, Check, ExternalLink, Zap, Loader2, Link2, Sparkles, BarChart3, MousePointerClick, Eye, TrendingUp, ChevronDown, AlertTriangle, XCircle, CheckCircle2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import { useTranslation } from "@/lib/i18n";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 type Tab = "url" | "keyword" | "content" | "meta";
 type Platform = "wordpress" | "aifekr" | "other";
@@ -52,6 +53,114 @@ export default function SEOPage() {
   }, []);
 
   useEffect(() => { loadConnection(); }, [loadConnection]);
+
+  // ── Google Search Console ────────────────────────────────────────────────
+  const isFa = lang !== "en";
+  const [gscConnected, setGscConnected] = useState(false);
+  const [gscSiteUrl, setGscSiteUrl] = useState<string | null>(null);
+  const [gscSites, setGscSites] = useState<{ siteUrl: string; permissionLevel: string }[]>([]);
+  const [gscSitesLoading, setGscSitesLoading] = useState(false);
+  const [gscData, setGscData] = useState<{
+    totals: { clicks: number; impressions: number; avgCtr: number; avgPosition: number };
+    trend: { date: string; clicks: number; impressions: number }[];
+    topQueries: { query: string; clicks: number; impressions: number; ctr: number; position: number }[];
+    topPages: { page: string; clicks: number; impressions: number; ctr: number; position: number }[];
+  } | null>(null);
+  const [gscDataLoading, setGscDataLoading] = useState(false);
+
+  const loadGscStatus = useCallback(async () => {
+    try {
+      const r = await fetch("/api/seo/gsc/status", { credentials: "include" });
+      const d = await r.json();
+      setGscConnected(!!d.connected);
+      setGscSiteUrl(d.siteUrl || null);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    loadGscStatus();
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("gsc");
+    if (status === "connected") toast.success(isFa ? "به Search Console متصل شدی" : "Connected to Search Console");
+    if (status === "failed") toast.error(t.common.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadGscStatus]);
+
+  useEffect(() => {
+    if (gscConnected && !gscSiteUrl) loadGscSites();
+    if (gscConnected && gscSiteUrl) loadGscData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gscConnected, gscSiteUrl]);
+
+  async function loadGscSites() {
+    setGscSitesLoading(true);
+    try {
+      const r = await fetch("/api/seo/gsc/sites", { credentials: "include" });
+      const d = await r.json();
+      if (r.ok) setGscSites(d.sites || []);
+      else toast.error(d.error || t.common.error);
+    } catch {}
+    finally { setGscSitesLoading(false); }
+  }
+
+  async function pickGscSite(siteUrl: string) {
+    try {
+      const r = await fetch("/api/seo/gsc/sites", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ siteUrl }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      setGscSiteUrl(d.siteUrl);
+    } catch (e) { toast.error(e instanceof Error ? e.message : t.common.error); }
+  }
+
+  async function loadGscData() {
+    setGscDataLoading(true);
+    try {
+      const r = await fetch("/api/seo/gsc/data", { credentials: "include" });
+      const d = await r.json();
+      if (r.ok) setGscData(d);
+      else toast.error(d.error || t.common.error);
+    } catch {}
+    finally { setGscDataLoading(false); }
+  }
+
+  // ── URL audit checklist ─────────────────────────────────────────────────
+  interface UrlCheck { id: string; label: string; status: "pass" | "warning" | "fail"; detail: string; }
+  interface UrlCheckGroup { id: string; titleFa: string; titleEn: string; checks: UrlCheck[]; }
+  const [urlAudit, setUrlAudit] = useState<{ score: number; groups: UrlCheckGroup[] } | null>(null);
+  const [urlAuditLoading, setUrlAuditLoading] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  async function analyzeUrl() {
+    if (!url.startsWith("http")) return;
+    setUrlAuditLoading(true);
+    setUrlAudit(null);
+    setResult("");
+    try {
+      const r = await fetch("/api/seo/analyze-url", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, language: lang }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      setUrlAudit(d);
+      setCollapsedGroups(new Set());
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t.common.error);
+    } finally {
+      setUrlAuditLoading(false);
+    }
+  }
+
+  function toggleGroup(id: string) {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   async function choosePlatform(p: Platform) {
     setPlatform(p);
@@ -214,6 +323,127 @@ export default function SEOPage() {
         )}
       </div>
 
+      <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4" style={{ color: "var(--primary)" }} />
+            <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Google Search Console</span>
+          </div>
+          {!gscConnected ? (
+            <a href="/api/seo/gsc/connect" className="text-xs px-3 py-1.5 rounded-lg font-medium text-white" style={{ background: "var(--primary)" }}>
+              {isFa ? "اتصال به Search Console" : "Connect Search Console"}
+            </a>
+          ) : (
+            <button onClick={() => { setGscSiteUrl(null); setGscData(null); loadGscSites(); }} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+              {isFa ? "تغییر سایت" : "Change site"}
+            </button>
+          )}
+        </div>
+
+        {!gscConnected && (
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            {isFa
+              ? "با اتصال به Google Search Console، آمار واقعی کلیک، بازدید (impression) و رتبه کلمات کلیدی سایتت رو مستقیم اینجا ببین."
+              : "Connect Google Search Console to see your site's real click, impression, and keyword ranking data right here."}
+          </p>
+        )}
+
+        {gscConnected && !gscSiteUrl && (
+          <div>
+            {gscSitesLoading ? (
+              <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                <Loader2 className="w-4 h-4 animate-spin" /> {isFa ? "در حال دریافت لیست سایت‌ها..." : "Loading your sites..."}
+              </div>
+            ) : gscSites.length === 0 ? (
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                {isFa ? "هیچ سایت تایید‌شده‌ای در حساب Search Console شما پیدا نشد." : "No verified sites found in your Search Console account."}
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "کدوم سایت رو می‌خوای ببینی؟" : "Which site do you want to view?"}</p>
+                {gscSites.map((s) => (
+                  <button key={s.siteUrl} onClick={() => pickGscSite(s.siteUrl)} dir="ltr"
+                    className="w-full text-left px-3 py-2 rounded-lg text-xs" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>
+                    {s.siteUrl}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {gscConnected && gscSiteUrl && (
+          <div>
+            <p className="text-xs mb-3" dir="ltr" style={{ color: "var(--text-muted)" }}>{gscSiteUrl}</p>
+            {gscDataLoading && !gscData ? (
+              <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--text-muted)" }} /></div>
+            ) : gscData ? (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                  <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
+                    <div className="flex items-center gap-1.5 mb-1"><MousePointerClick className="w-3.5 h-3.5" style={{ color: "#3b82f6" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "کلیک" : "Clicks"}</span></div>
+                    <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.clicks.toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
+                    <div className="flex items-center gap-1.5 mb-1"><Eye className="w-3.5 h-3.5" style={{ color: "#8b5cf6" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "بازدید" : "Impressions"}</span></div>
+                    <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.impressions.toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
+                    <div className="flex items-center gap-1.5 mb-1"><TrendingUp className="w-3.5 h-3.5" style={{ color: "#22c55e" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>CTR</span></div>
+                    <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.avgCtr.toFixed(1)}%</p>
+                  </div>
+                  <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
+                    <div className="flex items-center gap-1.5 mb-1"><Search className="w-3.5 h-3.5" style={{ color: "#eab308" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "رتبه میانگین" : "Avg. position"}</span></div>
+                    <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.avgPosition.toFixed(1)}</p>
+                  </div>
+                </div>
+
+                {gscData.trend.length >= 2 && (
+                  <div className="rounded-xl p-3 mb-4" style={{ background: "var(--surface-2)" }}>
+                    <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{isFa ? "روند ۲۸ روز اخیر" : "Last 28 days"}</p>
+                    <ResponsiveContainer width="100%" height={180}>
+                      <LineChart data={gscData.trend}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                        <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--text-muted)" }} />
+                        <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+                        <Tooltip contentStyle={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
+                        <Line type="monotone" dataKey="clicks" stroke="#3b82f6" strokeWidth={2} dot={false} name={isFa ? "کلیک" : "Clicks"} />
+                        <Line type="monotone" dataKey="impressions" stroke="#8b5cf6" strokeWidth={2} dot={false} name={isFa ? "بازدید" : "Impressions"} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{isFa ? "پرکلیک‌ترین کلمات کلیدی" : "Top queries"}</p>
+                    <div className="space-y-1">
+                      {gscData.topQueries.slice(0, 10).map((q, i) => (
+                        <div key={i} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg" style={{ background: i % 2 === 0 ? "var(--surface-2)" : "transparent" }}>
+                          <span className="truncate flex-1" style={{ color: "var(--text-primary)" }}>{q.query}</span>
+                          <span className="flex-shrink-0 mr-2" style={{ color: "var(--text-muted)" }}>{q.clicks} / {q.impressions}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{isFa ? "پرکلیک‌ترین صفحات" : "Top pages"}</p>
+                    <div className="space-y-1">
+                      {gscData.topPages.slice(0, 10).map((p, i) => (
+                        <div key={i} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg" style={{ background: i % 2 === 0 ? "var(--surface-2)" : "transparent" }}>
+                          <span className="truncate flex-1" dir="ltr" style={{ color: "var(--text-primary)" }}>{p.page.replace(/^https?:\/\//, "")}</span>
+                          <span className="flex-shrink-0 mr-2" style={{ color: "var(--text-muted)" }}>{p.clicks} / {p.impressions}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : null}
+          </div>
+        )}
+      </div>
+
       <div className="flex gap-2 flex-wrap">
         {tabs.map(tb => (
           <button key={tb.id} onClick={() => { setActiveTab(tb.id); setResult(""); }}
@@ -244,11 +474,11 @@ export default function SEOPage() {
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
-            <button disabled={loading || !url.startsWith("http")} onClick={() => analyze("url", { url, targetKeyword })}
+            <button disabled={urlAuditLoading || !url.startsWith("http")} onClick={analyzeUrl}
               className="w-full py-3 rounded-xl font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2" style={{ background: "var(--primary)" }}>
-              <Globe className="w-4 h-4" />{loading ? t.seo.analyzing : t.seo.analyzeButton}
+              <Globe className="w-4 h-4" />{urlAuditLoading ? t.seo.analyzing : t.seo.analyzeButton}
             </button>
-            {platform && platform !== "other" && result && !loading && (
+            {platform && platform !== "other" && urlAudit && !urlAuditLoading && (
               <button disabled={applying} onClick={applyChanges}
                 className="w-full py-3 rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
                 style={{ background: "var(--surface-2)", color: "var(--primary)", border: "1px solid var(--primary)" }}>
@@ -317,7 +547,64 @@ export default function SEOPage() {
         )}
       </div>
 
-      {(result || loading) && (
+      {activeTab === "url" && (urlAuditLoading || urlAudit) && (
+        <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          {urlAuditLoading && !urlAudit ? (
+            <div className="p-8 flex flex-col items-center justify-center gap-3">
+              <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />
+              <span className="text-sm" style={{ color: "var(--text-muted)" }}>{t.seo.analyzing}</span>
+            </div>
+          ) : urlAudit ? (
+            <>
+              <div className="p-5 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border)" }}>
+                <p className="text-xs" dir="ltr" style={{ color: "var(--text-muted)" }}>{url}</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-bold" style={{ color: urlAudit.score >= 80 ? "#22c55e" : urlAudit.score >= 60 ? "#eab308" : "#ef4444" }}>{urlAudit.score}</span>
+                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>/ 100</span>
+                </div>
+              </div>
+              {urlAudit.groups.map((group) => {
+                const isOpen = !collapsedGroups.has(group.id);
+                const failCount = group.checks.filter((c) => c.status === "fail").length;
+                const warnCount = group.checks.filter((c) => c.status === "warning").length;
+                return (
+                  <div key={group.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                    <button onClick={() => toggleGroup(group.id)} className="w-full flex items-center justify-between px-5 py-3" style={{ background: "var(--surface-2)" }}>
+                      <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{isFa ? group.titleFa : group.titleEn}</span>
+                      <div className="flex items-center gap-2">
+                        {failCount > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444" }}>{failCount}</span>}
+                        {warnCount > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(234,179,8,0.15)", color: "#eab308" }}>{warnCount}</span>}
+                        <ChevronDown className="w-4 h-4 transition-transform" style={{ color: "var(--text-muted)", transform: isOpen ? "rotate(180deg)" : "none" }} />
+                      </div>
+                    </button>
+                    {isOpen && (
+                      <div>
+                        {group.checks.map((c) => (
+                          <div key={c.id} className="flex items-start gap-3 px-5 py-3" style={{ borderTop: "1px solid var(--border)" }}>
+                            {c.status === "pass" ? (
+                              <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "#22c55e" }} />
+                            ) : c.status === "warning" ? (
+                              <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "#eab308" }} />
+                            ) : (
+                              <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "#ef4444" }} />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{c.label}</p>
+                              <p className="text-xs mt-0.5 break-words" style={{ color: "var(--text-muted)" }}>{c.detail}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </>
+          ) : null}
+        </div>
+      )}
+
+      {activeTab !== "url" && (result || loading) && (
         <div className="rounded-2xl p-5" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>{t.seo.resultTitle}</span>

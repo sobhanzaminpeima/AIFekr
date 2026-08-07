@@ -176,37 +176,35 @@ export default function CrmPage() {
 
   return (
     <div dir={isFa ? "rtl" : "ltr"} className="p-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: "rgba(234,88,12,0.15)" }}>
-            <Briefcase className="w-5 h-5" style={{ color: "var(--primary)" }} />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "مدیریت مشتریان (CRM)" : "CRM"}</h1>
-            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "پایپلاین فروش و مخاطبین کسب‌وکار شما" : "Your sales pipeline and business contacts"}</p>
-          </div>
+      <div className="flex items-center gap-3">
+        <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(234,88,12,0.15)" }}>
+          <Briefcase className="w-5 h-5" style={{ color: "var(--primary)" }} />
         </div>
+        <div>
+          <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "مدیریت مشتریان (CRM)" : "CRM"}</h1>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "پایپلاین فروش و مخاطبین کسب‌وکار شما" : "Your sales pipeline and business contacts"}</p>
+        </div>
+      </div>
 
-        <div className="flex items-center gap-2">
-          {[
-            { id: "board" as const, label: isFa ? "پایپلاین" : "Pipeline", icon: LayoutGrid },
-            { id: "contacts" as const, label: isFa ? "مخاطبین" : "Contacts", icon: Users },
-            { id: "automation" as const, label: isFa ? "اتوماسیون" : "Automation", icon: Zap },
-            { id: "agent" as const, label: isFa ? "تحلیل CRM" : "CRM Agent", icon: Sparkles },
-            { id: "calendar" as const, label: isFa ? "تقویم" : "Calendar", icon: CalendarDays },
-            { id: "analytics" as const, label: isFa ? "آمار" : "Analytics", icon: LayoutGrid },
-            { id: "products" as const, label: isFa ? "محصولات" : "Products", icon: Package },
-            { id: "invoices" as const, label: isFa ? "فاکتورها" : "Invoices", icon: Receipt },
-            { id: "contracts" as const, label: isFa ? "قراردادها" : "Contracts", icon: FileSignature },
-            { id: "projects" as const, label: isFa ? "پروژه‌ها" : "Projects", icon: FolderKanban },
-          ].map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
-              style={{ background: tab === t.id ? "var(--primary)" : "var(--surface-1)", color: tab === t.id ? "white" : "var(--text-secondary)", border: "1px solid var(--border)" }}>
-              <t.icon className="w-4 h-4" /> {t.label}
-            </button>
-          ))}
-        </div>
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-6 px-6 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "thin" }}>
+        {[
+          { id: "board" as const, label: isFa ? "پایپلاین" : "Pipeline", icon: LayoutGrid },
+          { id: "contacts" as const, label: isFa ? "مخاطبین" : "Contacts", icon: Users },
+          { id: "automation" as const, label: isFa ? "اتوماسیون" : "Automation", icon: Zap },
+          { id: "agent" as const, label: isFa ? "تحلیل CRM" : "CRM Agent", icon: Sparkles },
+          { id: "calendar" as const, label: isFa ? "تقویم" : "Calendar", icon: CalendarDays },
+          { id: "analytics" as const, label: isFa ? "آمار" : "Analytics", icon: LayoutGrid },
+          { id: "products" as const, label: isFa ? "محصولات" : "Products", icon: Package },
+          { id: "invoices" as const, label: isFa ? "فاکتورها" : "Invoices", icon: Receipt },
+          { id: "contracts" as const, label: isFa ? "قراردادها" : "Contracts", icon: FileSignature },
+          { id: "projects" as const, label: isFa ? "پروژه‌ها" : "Projects", icon: FolderKanban },
+        ].map((t) => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all flex-shrink-0"
+            style={{ background: tab === t.id ? "var(--primary)" : "var(--surface-1)", color: tab === t.id ? "white" : "var(--text-secondary)", border: "1px solid var(--border)" }}>
+            <t.icon className="w-4 h-4" /> {t.label}
+          </button>
+        ))}
       </div>
 
       {crmPlan === "NONE" && (

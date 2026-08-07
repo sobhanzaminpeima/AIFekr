@@ -77,6 +77,7 @@ export default function AgentPipelinePage() {
   const [galleryLoading, setGalleryLoading] = useState(false);
   const [audits, setAudits] = useState<Record<string, AuditResult>>({});
   const [auditingId, setAuditingId] = useState<string | null>(null);
+  const [fixingId, setFixingId] = useState<string | null>(null);
 
   async function generatePostImage(post: Post) {
     if (!window.puter) return;
@@ -138,6 +139,28 @@ export default function AgentPipelinePage() {
       }
     } catch {}
     finally { setAuditingId(null); }
+  }
+
+  async function fixIssuesAndReaudit(postId: string) {
+    setFixingId(postId);
+    try {
+      const res = await fetch("/api/seo/agent-pipeline/audit/fix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setAudits((prev) => ({ ...prev, [postId]: { score: d.score, issues: d.issues } }));
+      if (d.post) {
+        setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, content: d.post.content, metaTitle: d.post.metaTitle, metaDescription: d.post.metaDescription } : p)));
+        setPreviewPost((prev) => (prev && prev.id === postId ? { ...prev, content: d.post.content, metaTitle: d.post.metaTitle, metaDescription: d.post.metaDescription } : prev));
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t.common.error);
+    } finally {
+      setFixingId(null);
+    }
   }
 
   useEffect(() => { loadLessons(); loadPosts(); loadConnection(); }, []);
@@ -590,20 +613,33 @@ export default function AgentPipelinePage() {
                 </div>
 
                 {audits[post.id] && audits[post.id].issues.length > 0 && (
-                  <ul className="mt-3 space-y-1.5">
-                    {audits[post.id].issues.map((issue) => (
-                      <li key={issue.id} className="flex items-start gap-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-                        {issue.severity === "error" ? (
-                          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "#ef4444" }} />
-                        ) : issue.severity === "warning" ? (
-                          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "#eab308" }} />
-                        ) : (
-                          <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
-                        )}
-                        <span>{isFa ? issue.messageFa : issue.messageEn}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    <ul className="mt-3 space-y-1.5">
+                      {audits[post.id].issues.map((issue) => (
+                        <li key={issue.id} className="flex items-start gap-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+                          {issue.severity === "error" ? (
+                            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "#ef4444" }} />
+                          ) : issue.severity === "warning" ? (
+                            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "#eab308" }} />
+                          ) : (
+                            <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
+                          )}
+                          <span>{isFa ? issue.messageFa : issue.messageEn}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      onClick={() => fixIssuesAndReaudit(post.id)}
+                      disabled={fixingId === post.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50 mt-3"
+                      style={{ background: "rgba(34,197,94,0.1)", color: "#22c55e" }}
+                    >
+                      {fixingId === post.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+                      {fixingId === post.id
+                        ? (isFa ? "در حال رفع مشکلات..." : "Fixing issues...")
+                        : (isFa ? "رفع خودکار مشکلات و بررسی مجدد" : "Auto-fix issues & re-audit")}
+                    </button>
+                  </>
                 )}
                 {audits[post.id] && audits[post.id].issues.length === 0 && (
                   <p className="flex items-center gap-1.5 mt-3 text-xs" style={{ color: "#22c55e" }}>
