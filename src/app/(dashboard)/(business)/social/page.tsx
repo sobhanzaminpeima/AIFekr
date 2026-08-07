@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Script from "next/script";
-import { Share2, Copy, Check, Calendar, Camera, Zap, Loader2, Image as ImageIcon, Upload, Wand2, X, TrendingUp, Users, Heart, MessageCircle, Sparkles, ExternalLink } from "lucide-react";
+import { Share2, Copy, Check, Calendar, Camera, Zap, Loader2, Image as ImageIcon, Upload, Wand2, X, TrendingUp, Users, Heart, MessageCircle, Sparkles, ExternalLink, PenLine, ChevronLeft, Clock, Link2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
 import { useTranslation } from "@/lib/i18n";
@@ -21,7 +21,7 @@ declare global {
   }
 }
 
-const PLATFORMS = ["Instagram", "LinkedIn", "Twitter/X", "Facebook", "TikTok"];
+const PLATFORMS = ["LinkedIn", "Twitter/X", "Facebook", "TikTok"];
 
 export default function SocialPage() {
   const { t, lang } = useTranslation();
@@ -37,7 +37,7 @@ export default function SocialPage() {
   const [form, setForm] = useState({
     brandName: "",
     topic: "",
-    platform: "Instagram",
+    platform: "LinkedIn",
     tone: "Professional",
     hashtags: true,
     emojis: true,
@@ -91,14 +91,21 @@ export default function SocialPage() {
   const refFileInputRef = useRef<HTMLInputElement>(null);
   const igSectionRef = useRef<HTMLDivElement>(null);
 
-  function useResultForInstagram() {
-    const hashtagRegex = /#[\wآ-ی_۰-۹]+/g;
-    const foundHashtags = Array.from(new Set(result.match(hashtagRegex) || []));
-    const captionOnly = result.replace(hashtagRegex, "").replace(/\n{3,}/g, "\n\n").trim();
-    setIgCaption(captionOnly);
-    setIgHashtags(foundHashtags);
-    igSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    toast.success(lang === "fa" ? "پست در بخش اتوماسیون اینستاگرام آماده شد" : "Post is ready in the Instagram Automation section");
+  // ── Instagram creation wizard ──────────────────────────────────────────
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3 | 4>(1);
+  const [creationMode, setCreationMode] = useState<"ai" | "recreate" | "manual" | null>(null);
+  const [manualHashtagsInput, setManualHashtagsInput] = useState("");
+  const [scheduleChoice, setScheduleChoice] = useState<"now" | "scheduled">("scheduled");
+
+  function resetWizard() {
+    setWizardStep(1);
+    setCreationMode(null);
+    setIgCaption(""); setIgHashtags([]); setIgImageUrl(""); setIgScheduledFor(""); setIgBestTime("");
+    setRefImageUrl(""); setStyleDescription(""); setManualHashtagsInput("");
+  }
+
+  function goToImageStep() {
+    setWizardStep(2);
   }
 
   // ── Page analytics & growth ──────────────────────────────────────────────
@@ -217,6 +224,7 @@ export default function SocialPage() {
       setIgCaption(analysis.caption || "");
       setIgHashtags(analysis.hashtags || []);
       toast.success(lang === "fa" ? "تصویر و کپشن جدید آماده شد" : "New image and caption are ready");
+      setWizardStep(3); // image already produced by the recreate step — skip straight to scheduling
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t.common.error);
     } finally {
@@ -262,22 +270,32 @@ export default function SocialPage() {
       setIgCaption(d.caption || "");
       setIgHashtags(d.hashtags || []);
       setIgBestTime(d.bestTime || "");
+      setWizardStep(2);
     } catch (e) { toast.error(e instanceof Error ? e.message : t.common.error); }
     finally { setIgGenerating(false); }
   }
 
-  async function schedulePost() {
-    if (!igCaption || !igScheduledFor) return toast.error(t.common.error);
+  function confirmManualContent() {
+    if (!igCaption.trim()) return toast.error(t.common.error);
+    const tags = manualHashtagsInput.split(/[\s,]+/).map((h) => h.trim()).filter(Boolean).map((h) => (h.startsWith("#") ? h : `#${h}`));
+    setIgHashtags(tags);
+    setWizardStep(2);
+  }
+
+  async function schedulePost(overrides?: { scheduledFor?: string; mode?: "auto" | "manual" }) {
+    const scheduledFor = overrides?.scheduledFor ?? igScheduledFor;
+    const mode = overrides?.mode ?? igMode;
+    if (!igCaption || !scheduledFor) return toast.error(t.common.error);
     setScheduling(true);
     try {
       const r = await fetch("/api/social/instagram/schedule", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caption: igCaption, hashtags: igHashtags, imageUrl: igImageUrl || null, scheduledFor: igScheduledFor, mode: igMode }),
+        body: JSON.stringify({ caption: igCaption, hashtags: igHashtags, imageUrl: igImageUrl || null, scheduledFor, mode }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
       toast.success(t.common.save);
-      setIgCaption(""); setIgHashtags([]); setIgImageUrl(""); setIgScheduledFor("");
+      resetWizard();
       loadIgStatus();
     } catch (e) { toast.error(e instanceof Error ? e.message : t.common.error); }
     finally { setScheduling(false); }
@@ -460,196 +478,361 @@ export default function SocialPage() {
             <div className="prose prose-invert max-w-none text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
               <ReactMarkdown>{result}</ReactMarkdown>
             </div>
-            {form.platform === "Instagram" && (
-              <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
-                <button onClick={useResultForInstagram}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white"
-                  style={{ background: "#e1306c" }}>
-                  <Camera className="w-4 h-4" />
-                  {lang === "fa" ? "استفاده از این پست برای انتشار در اینستاگرام" : "Use this post for Instagram publishing"}
-                </button>
-                <p className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>
-                  {lang === "fa"
-                    ? "توجه: چیزی که در بالا تولید شد فقط یک پیش‌نویس است. برای اینکه واقعاً در اینستاگرام منتشر یا زمان‌بندی شود، باید با این دکمه به بخش «اتوماسیون اینستاگرام» زیر منتقل شود — انتشار همیشه از همان بخش انجام می‌شود."
-                    : "Note: what was generated above is just a draft. To actually publish or schedule it on Instagram, send it to the \"Instagram Automation\" section below with this button — publishing always happens from that section."}
-                </p>
-              </div>
-            )}
           </div>
         )}
 
-        {/* Recreate from a sample post */}
-        <div className="rounded-2xl p-6 mt-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-          <div className="flex items-center gap-2 mb-1">
-            <Wand2 className="w-5 h-5" style={{ color: "var(--primary)" }} />
-            <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>
-              {lang === "fa" ? "بازآفرینی از پست قبلی" : "Recreate from a Sample Post"}
-            </h2>
-          </div>
-          <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>
-            {lang === "fa"
-              ? "یک عکس از پستی که قبلاً خودتان طراحی کرده‌اید آپلود کنید — سیستم سبک بصری‌اش را تحلیل می‌کند، تصویر جدید مشابه می‌سازد، و کپشن و هشتگ متناسب می‌نویسد."
-              : "Upload a photo of a post you designed before — the system analyzes its visual style, generates a similar new image, and writes a matching caption and hashtags."}
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="w-full sm:w-40 flex-shrink-0">
-              {refImageUrl ? (
-                <div className="relative">
-                  <img src={refImageUrl} alt="reference" className="w-full h-40 object-cover rounded-xl" />
-                  <button
-                    onClick={() => { setRefImageUrl(""); setStyleDescription(""); }}
-                    className="absolute top-1.5 left-1.5 p-1 rounded-lg bg-black/60 text-white"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => refFileInputRef.current?.click()}
-                  disabled={refUploading}
-                  className="w-full h-40 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed text-xs font-medium transition-all disabled:opacity-50"
-                  style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
-                >
-                  {refUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
-                  {refUploading ? t.imageGeneratePage.uploading : t.imageGeneratePage.choosePhoto}
-                </button>
-              )}
-              <input ref={refFileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleRefUpload} className="hidden" />
-            </div>
-
-            <div className="flex-1 flex flex-col gap-3">
-              <button
-                onClick={recreateFromReference}
-                disabled={!refImageUrl || recreating || !puterReady}
-                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
-                style={{ background: "var(--primary)" }}
-              >
-                {recreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                {recreating ? (recreateStep || (lang === "fa" ? "در حال پردازش..." : "Processing...")) : (lang === "fa" ? "تحلیل و بازسازی" : "Analyze & Recreate")}
-              </button>
-              {styleDescription && (
-                <p className="text-xs leading-6 p-3 rounded-xl" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-                  {styleDescription}
-                </p>
-              )}
-              <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                {lang === "fa"
-                  ? "تصویر و کپشن جدید در بخش «اتوماسیون اینستاگرام» زیر پر می‌شود — از آنجا می‌توانید ویرایش، زمان‌بندی یا منتشر کنید."
-                  : "The new image and caption fill into the Instagram Automation section below — edit, schedule, or publish it from there."}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Instagram automation */}
+        {/* Instagram automation — step wizard */}
         <div ref={igSectionRef} className="rounded-2xl p-6 mt-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Camera className="w-5 h-5" style={{ color: "#e1306c" }} />
               <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>{t.social.igTitle}</h2>
             </div>
-            {igConnected ? (
+            {igConnected && (
               <span className="text-xs px-2.5 py-1 rounded-full" style={{ background: "rgba(34,197,94,0.1)", color: "var(--success)" }}>
                 {t.social.igConnected}: @{igUsername}
               </span>
-            ) : (
-              <a href="/api/social/instagram/connect" className="text-xs px-3 py-1.5 rounded-lg font-medium text-white" style={{ background: "#e1306c" }}>
-                {t.social.igConnectButton}
-              </a>
             )}
           </div>
 
-          {!canAuto && (
-            <p className="text-xs mb-4 px-3 py-2 rounded-lg" style={{ background: "rgba(234,88,12,0.1)", color: "var(--primary)" }}>
-              {t.social.igNoAutoNote}
-            </p>
-          )}
-
-          <button onClick={generateIgPost} disabled={igGenerating || !form.brandName || !form.topic}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50 mb-4" style={{ background: "var(--primary)" }}>
-            {igGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-            {t.social.igGenerateButton}
-          </button>
-
-          {igCaption && (
-            <div className="space-y-3 p-4 rounded-xl mb-4" style={{ background: "var(--surface-2)" }}>
-              <textarea value={igCaption} onChange={e => setIgCaption(e.target.value)} rows={4}
-                className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-              <div className="flex flex-wrap gap-1.5">
-                {igHashtags.map((h, i) => (
-                  <span key={i} className="text-xs px-2 py-1 rounded-md" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{h}</span>
+          {!igConnected ? (
+            /* Step 0: connect gate */
+            <div className="text-center py-10">
+              <Link2 className="w-10 h-10 mx-auto mb-3 opacity-40" style={{ color: "var(--text-muted)" }} />
+              <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
+                {isFa ? "برای ساخت و انتشار پست، اول اینستاگرامت رو وصل کن." : "Connect your Instagram account first to create and publish posts."}
+              </p>
+              <a href="/api/social/instagram/connect" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white" style={{ background: "#e1306c" }}>
+                {t.social.igConnectButton}
+              </a>
+            </div>
+          ) : (
+            <>
+              {/* Step indicator */}
+              <div className="flex items-center gap-2 mb-6">
+                {[1, 2, 3, 4].map((n) => (
+                  <div key={n} className="flex items-center gap-2 flex-1">
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                      style={{
+                        background: wizardStep >= n ? "#e1306c" : "var(--surface-2)",
+                        color: wizardStep >= n ? "white" : "var(--text-muted)",
+                      }}
+                    >
+                      {wizardStep > n ? <Check className="w-3.5 h-3.5" /> : n}
+                    </div>
+                    {n < 4 && <div className="h-0.5 flex-1" style={{ background: wizardStep > n ? "#e1306c" : "var(--border)" }} />}
+                  </div>
                 ))}
               </div>
-              {igBestTime && <p className="text-xs" style={{ color: "var(--text-muted)" }}>⏰ {t.social.bestTime}: {igBestTime}</p>}
+              <p className="text-xs font-medium mb-4" style={{ color: "var(--text-muted)" }}>
+                {wizardStep === 1 && (isFa ? "۱. روش ساخت پست" : "1. Choose how to create the post")}
+                {wizardStep === 2 && (isFa ? "۲. تصویر پست" : "2. Post image")}
+                {wizardStep === 3 && (isFa ? "۳. زمان‌بندی انتشار" : "3. Publish timing")}
+                {wizardStep === 4 && (isFa ? "۴. تایید نهایی" : "4. Final review")}
+              </p>
 
-              <div className="space-y-2">
-                {igImageUrl ? (
-                  <div className="relative flex items-center gap-2 p-1.5 rounded-lg" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-                    <img src={igImageUrl} alt="" className="w-9 h-9 rounded-md object-cover flex-shrink-0" />
-                    <span className="flex-1 text-xs truncate" style={{ color: "var(--text-secondary)" }}>{lang === "fa" ? "عکس انتخاب شد" : "Image selected"}</span>
-                    <button onClick={openGalleryPicker} className="text-xs px-2 py-1 rounded-md flex-shrink-0" style={{ background: "var(--surface-2)", color: "var(--primary)" }}>
-                      {lang === "fa" ? "تغییر" : "Change"}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid sm:grid-cols-2 gap-2">
-                    <button onClick={generateImageFromTopic} disabled={aiImageGenerating || !form.brandName || !form.topic || !puterReady}
-                      className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm disabled:opacity-50"
-                      style={{ background: "var(--surface-1)", border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
-                      {aiImageGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                      {aiImageGenerating ? (lang === "fa" ? "در حال ساخت عکس..." : "Generating image...") : (lang === "fa" ? "طراحی عکس با AI" : "Design image with AI")}
-                    </button>
-                    <button onClick={openGalleryPicker}
-                      className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm"
-                      style={{ background: "var(--surface-1)", border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
-                      <ImageIcon className="w-4 h-4" />
-                      {lang === "fa" ? "انتخاب عکس از گالری" : "Choose image from gallery"}
-                    </button>
-                  </div>
-                )}
-                <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                  {lang === "fa" ? "بدون انتخاب عکس هم می‌توانی پست را فقط با متن و کپشن زمان‌بندی کنی." : "You can also schedule a text-only post without picking an image."}
-                </p>
-                {isFa ? (
-                  <JalaliDateTimePicker value={igScheduledFor} onChange={setIgScheduledFor}
-                    className="w-full px-3 py-2 rounded-lg text-sm outline-none text-right" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-                ) : (
-                  <input value={igScheduledFor} onChange={e => setIgScheduledFor(e.target.value)} type="datetime-local"
-                    className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-                )}
-              </div>
+              {/* Step 1: creation mode */}
+              {wizardStep === 1 && (
+                <div className="space-y-4">
+                  {!creationMode && (
+                    <div className="grid sm:grid-cols-3 gap-3">
+                      <button onClick={() => setCreationMode("ai")}
+                        className="p-4 rounded-xl text-right flex flex-col items-start gap-2 transition-all hover:opacity-90"
+                        style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                        <Zap className="w-5 h-5" style={{ color: "var(--primary)" }} />
+                        <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{isFa ? "تولید با AI" : "Generate with AI"}</span>
+                        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "کپشن و هشتگ از روی برند و موضوع" : "Caption + hashtags from your brand & topic"}</span>
+                      </button>
+                      <button onClick={() => setCreationMode("recreate")}
+                        className="p-4 rounded-xl text-right flex flex-col items-start gap-2 transition-all hover:opacity-90"
+                        style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                        <Wand2 className="w-5 h-5" style={{ color: "var(--primary)" }} />
+                        <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{isFa ? "بازآفرینی از نمونه" : "Recreate from a sample"}</span>
+                        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "آپلود یک پست قبلی، ساخت مشابه آن" : "Upload a past post, build something similar"}</span>
+                      </button>
+                      <button onClick={() => setCreationMode("manual")}
+                        className="p-4 rounded-xl text-right flex flex-col items-start gap-2 transition-all hover:opacity-90"
+                        style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                        <PenLine className="w-5 h-5" style={{ color: "var(--primary)" }} />
+                        <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{isFa ? "نوشتن دستی" : "Write manually"}</span>
+                        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "کپشن و هشتگ خودت رو بنویس" : "Write your own caption and hashtags"}</span>
+                      </button>
+                    </div>
+                  )}
 
-              <div className="flex items-center gap-3">
-                <div className="flex gap-1.5">
-                  <button onClick={() => setIgMode("manual")}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium"
-                    style={{ background: igMode === "manual" ? "var(--primary)" : "var(--surface-1)", color: igMode === "manual" ? "white" : "var(--text-secondary)" }}>
-                    {t.social.igManualMode}
-                  </button>
-                  <button onClick={() => canAuto && setIgMode("auto")} disabled={!canAuto}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40"
-                    style={{ background: igMode === "auto" ? "var(--primary)" : "var(--surface-1)", color: igMode === "auto" ? "white" : "var(--text-secondary)" }}>
-                    {t.social.igAutoMode}
-                  </button>
+                  {creationMode === "ai" && (
+                    <div className="space-y-3">
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <input value={form.brandName} onChange={(e) => setForm({ ...form, brandName: e.target.value })} placeholder={t.social.brandNamePlaceholder}
+                          className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                        <input value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value })} placeholder={t.social.topicPlaceholder}
+                          className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                      </div>
+                      <select value={form.tone} onChange={(e) => setForm({ ...form, tone: e.target.value })}
+                        className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                        {TONES.map((tone) => <option key={tone.value} value={tone.value}>{tone.label}</option>)}
+                      </select>
+                      {igCaption ? (
+                        <div className="space-y-3 p-4 rounded-xl" style={{ background: "var(--surface-2)" }}>
+                          <textarea value={igCaption} onChange={(e) => setIgCaption(e.target.value)} rows={4}
+                            className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                          <div className="flex flex-wrap gap-1.5">
+                            {igHashtags.map((h, i) => <span key={i} className="text-xs px-2 py-1 rounded-md" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{h}</span>)}
+                          </div>
+                          {igBestTime && <p className="text-xs" style={{ color: "var(--text-muted)" }}>⏰ {t.social.bestTime}: {igBestTime}</p>}
+                        </div>
+                      ) : null}
+                      <div className="flex gap-2">
+                        <button onClick={() => { setCreationMode(null); setIgCaption(""); }} className="px-4 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                          {isFa ? "بازگشت" : "Back"}
+                        </button>
+                        <button onClick={generateIgPost} disabled={igGenerating || !form.brandName || !form.topic}
+                          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+                          {igGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                          {igCaption ? (isFa ? "تولید دوباره" : "Regenerate") : t.social.igGenerateButton}
+                        </button>
+                        {igCaption && (
+                          <button onClick={goToImageStep} className="mr-auto flex items-center gap-1 px-5 py-2.5 rounded-xl text-sm font-medium text-white" style={{ background: "#e1306c" }}>
+                            {isFa ? "بعدی" : "Next"} <ChevronLeft className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {creationMode === "recreate" && (
+                    <div className="space-y-3">
+                      <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                        {isFa
+                          ? "یک عکس از پستی که قبلاً خودتان طراحی کرده‌اید آپلود کنید — سیستم سبک بصری‌اش را تحلیل می‌کند، تصویر جدید مشابه می‌سازد، و کپشن و هشتگ متناسب می‌نویسد."
+                          : "Upload a photo of a post you designed before — the system analyzes its visual style, generates a similar new image, and writes a matching caption and hashtags."}
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="w-full sm:w-40 flex-shrink-0">
+                          {refImageUrl ? (
+                            <div className="relative">
+                              <img src={refImageUrl} alt="reference" className="w-full h-40 object-cover rounded-xl" />
+                              <button onClick={() => { setRefImageUrl(""); setStyleDescription(""); }} className="absolute top-1.5 left-1.5 p-1 rounded-lg bg-black/60 text-white">
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button onClick={() => refFileInputRef.current?.click()} disabled={refUploading}
+                              className="w-full h-40 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed text-xs font-medium transition-all disabled:opacity-50"
+                              style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
+                              {refUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
+                              {refUploading ? t.imageGeneratePage.uploading : t.imageGeneratePage.choosePhoto}
+                            </button>
+                          )}
+                          <input ref={refFileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleRefUpload} className="hidden" />
+                        </div>
+                        <div className="flex-1 flex flex-col gap-3">
+                          <button onClick={recreateFromReference} disabled={!refImageUrl || recreating || !puterReady}
+                            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+                            {recreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                            {recreating ? (recreateStep || (isFa ? "در حال پردازش..." : "Processing...")) : (isFa ? "تحلیل و بازسازی" : "Analyze & Recreate")}
+                          </button>
+                          {styleDescription && (
+                            <p className="text-xs leading-6 p-3 rounded-xl" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{styleDescription}</p>
+                          )}
+                        </div>
+                      </div>
+                      <button onClick={() => { setCreationMode(null); setRefImageUrl(""); setStyleDescription(""); }} className="px-4 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                        {isFa ? "بازگشت" : "Back"}
+                      </button>
+                    </div>
+                  )}
+
+                  {creationMode === "manual" && (
+                    <div className="space-y-3">
+                      <textarea value={igCaption} onChange={(e) => setIgCaption(e.target.value)} rows={4}
+                        placeholder={isFa ? "کپشن پست..." : "Post caption..."}
+                        className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                      <input value={manualHashtagsInput} onChange={(e) => setManualHashtagsInput(e.target.value)}
+                        placeholder={isFa ? "هشتگ‌ها (با فاصله یا کاما جدا کن)" : "Hashtags (space or comma separated)"}
+                        className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                      <div className="flex gap-2">
+                        <button onClick={() => { setCreationMode(null); setIgCaption(""); setManualHashtagsInput(""); }} className="px-4 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                          {isFa ? "بازگشت" : "Back"}
+                        </button>
+                        <button onClick={confirmManualContent} disabled={!igCaption.trim()}
+                          className="mr-auto flex items-center gap-1 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "#e1306c" }}>
+                          {isFa ? "بعدی" : "Next"} <ChevronLeft className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <button onClick={schedulePost} disabled={scheduling}
-                  className="mr-auto px-5 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "#e1306c" }}>
-                  {scheduling ? t.social.igScheduling : t.social.igScheduleButton}
-                </button>
-              </div>
-              {igMode === "auto" && (
-                <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                  {lang === "fa"
-                    ? "با «حالت خودکار»، این پست وارد صف انتشار می‌شود و دقیقاً در همان تاریخ/ساعتی که انتخاب کردی، بدون هیچ کلیک دیگری، خودکار در اینستاگرام منتشر می‌شود."
-                    : "With Auto mode, this post enters the publish queue and gets published to Instagram automatically at the exact date/time you picked — no further clicks needed."}
-                </p>
               )}
-            </div>
+
+              {/* Step 2: image */}
+              {wizardStep === 2 && (
+                <div className="space-y-3">
+                  {igImageUrl ? (
+                    <div className="relative flex items-center gap-2 p-2 rounded-lg" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                      <img src={igImageUrl} alt="" className="w-14 h-14 rounded-md object-cover flex-shrink-0" />
+                      <span className="flex-1 text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "عکس انتخاب شد" : "Image selected"}</span>
+                      <button onClick={openGalleryPicker} className="text-xs px-2 py-1 rounded-md flex-shrink-0" style={{ background: "var(--surface-1)", color: "var(--primary)" }}>
+                        {isFa ? "تغییر" : "Change"}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid sm:grid-cols-2 gap-2">
+                      <button onClick={generateImageFromTopic} disabled={aiImageGenerating || !form.brandName || !form.topic || !puterReady}
+                        className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm disabled:opacity-50"
+                        style={{ background: "var(--surface-2)", border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
+                        {aiImageGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                        {aiImageGenerating ? (isFa ? "در حال ساخت عکس..." : "Generating image...") : (isFa ? "طراحی عکس با AI" : "Design image with AI")}
+                      </button>
+                      <button onClick={openGalleryPicker}
+                        className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm"
+                        style={{ background: "var(--surface-2)", border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
+                        <ImageIcon className="w-4 h-4" />
+                        {isFa ? "انتخاب از گالری" : "Choose from gallery"}
+                      </button>
+                    </div>
+                  )}
+                  <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                    {isFa ? "بدون انتخاب عکس هم می‌توانی ادامه بدی — پست فقط با متن و کپشن ثبت می‌شود." : "You can also continue without an image — the post will be text-only."}
+                  </p>
+                  <div className="flex gap-2">
+                    <button onClick={() => setWizardStep(1)} className="px-4 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                      {isFa ? "بازگشت" : "Back"}
+                    </button>
+                    <button onClick={() => setWizardStep(3)} className="mr-auto flex items-center gap-1 px-5 py-2.5 rounded-xl text-sm font-medium text-white" style={{ background: "#e1306c" }}>
+                      {isFa ? "بعدی" : "Next"} <ChevronLeft className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: schedule */}
+              {wizardStep === 3 && (
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <button onClick={() => setScheduleChoice("now")}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium"
+                      style={{ background: scheduleChoice === "now" ? "var(--primary)" : "var(--surface-2)", color: scheduleChoice === "now" ? "white" : "var(--text-secondary)" }}>
+                      <Zap className="w-4 h-4" /> {isFa ? "همین الان" : "Right now"}
+                    </button>
+                    <button onClick={() => setScheduleChoice("scheduled")}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium"
+                      style={{ background: scheduleChoice === "scheduled" ? "var(--primary)" : "var(--surface-2)", color: scheduleChoice === "scheduled" ? "white" : "var(--text-secondary)" }}>
+                      <Clock className="w-4 h-4" /> {isFa ? "زمان مشخص" : "Specific time"}
+                    </button>
+                  </div>
+
+                  {scheduleChoice === "scheduled" && (
+                    <>
+                      {isFa ? (
+                        <JalaliDateTimePicker value={igScheduledFor} onChange={setIgScheduledFor}
+                          className="w-full px-3 py-2 rounded-lg text-sm outline-none text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                      ) : (
+                        <input value={igScheduledFor} onChange={(e) => setIgScheduledFor(e.target.value)} type="datetime-local"
+                          className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                      )}
+                      <div className="flex gap-1.5">
+                        <button onClick={() => setIgMode("manual")}
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                          style={{ background: igMode === "manual" ? "var(--primary)" : "var(--surface-2)", color: igMode === "manual" ? "white" : "var(--text-secondary)" }}>
+                          {t.social.igManualMode}
+                        </button>
+                        <button onClick={() => canAuto && setIgMode("auto")} disabled={!canAuto}
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40"
+                          style={{ background: igMode === "auto" ? "var(--primary)" : "var(--surface-2)", color: igMode === "auto" ? "white" : "var(--text-secondary)" }}>
+                          {t.social.igAutoMode}
+                        </button>
+                      </div>
+                      {!canAuto && (
+                        <p className="text-[11px] px-3 py-2 rounded-lg" style={{ background: "rgba(234,88,12,0.1)", color: "var(--primary)" }}>{t.social.igNoAutoNote}</p>
+                      )}
+                      {igMode === "auto" && (
+                        <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                          {isFa
+                            ? "با «حالت خودکار»، این پست دقیقاً در همان تاریخ/ساعتی که انتخاب کردی، بدون هیچ کلیک دیگری، خودکار در اینستاگرام منتشر می‌شود."
+                            : "With Auto mode, this post gets published to Instagram automatically at the exact time you picked — no further clicks needed."}
+                        </p>
+                      )}
+                    </>
+                  )}
+                  {scheduleChoice === "now" && (
+                    <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                      {isFa
+                        ? canAuto
+                          ? "پست همین الان وارد صف انتشار می‌شود و ظرف چند دقیقه در اینستاگرام منتشر می‌شود."
+                          : "پست همین الان در لیست ثبت می‌شود — برای انتشار فوری، دکمه «انتشار الان» را از لیست پایین بزن."
+                        : canAuto
+                          ? "The post enters the publish queue right now and goes live on Instagram within a few minutes."
+                          : "The post is added to the list right now — click \"Publish now\" from the list below to publish it immediately."}
+                    </p>
+                  )}
+
+                  <div className="flex gap-2">
+                    <button onClick={() => setWizardStep(2)} className="px-4 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                      {isFa ? "بازگشت" : "Back"}
+                    </button>
+                    <button
+                      onClick={() => setWizardStep(4)}
+                      disabled={scheduleChoice === "scheduled" && !igScheduledFor}
+                      className="mr-auto flex items-center gap-1 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "#e1306c" }}>
+                      {isFa ? "بعدی" : "Next"} <ChevronLeft className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 4: confirm */}
+              {wizardStep === 4 && (
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3 p-4 rounded-xl" style={{ background: "var(--surface-2)" }}>
+                    {igImageUrl ? (
+                      <img src={igImageUrl} alt="" className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-16 h-16 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "var(--surface-1)" }}>
+                        <ImageIcon className="w-5 h-5" style={{ color: "var(--text-muted)" }} />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--text-primary)" }}>{igCaption}</p>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {igHashtags.map((h, i) => <span key={i} className="text-xs px-2 py-0.5 rounded-md" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{h}</span>)}
+                      </div>
+                      <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
+                        {scheduleChoice === "now"
+                          ? (isFa ? "زمان‌بندی: همین الان" : "Timing: right now")
+                          : `${isFa ? "زمان‌بندی" : "Timing"}: ${igScheduledFor ? (isFa ? toJalali(igScheduledFor) : new Date(igScheduledFor).toLocaleString("en-US")) : "—"} (${igMode === "auto" ? t.social.igAutoLabel : t.social.igManualLabel})`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setWizardStep(3)} className="px-4 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                      {isFa ? "بازگشت" : "Back"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (scheduleChoice === "now") {
+                          const now = new Date();
+                          const pad = (n: number) => String(n).padStart(2, "0");
+                          const localNow = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+                          schedulePost({ scheduledFor: localNow, mode: canAuto ? "auto" : "manual" });
+                        } else {
+                          schedulePost();
+                        }
+                      }}
+                      disabled={scheduling}
+                      className="mr-auto flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "#e1306c" }}>
+                      {scheduling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                      {scheduling ? t.social.igScheduling : (isFa ? "تایید و ثبت" : "Confirm & Save")}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {posts.length > 0 && (
-            <div>
+            <div className="mt-6 pt-6" style={{ borderTop: "1px solid var(--border)" }}>
               <h3 className="text-xs font-medium mb-2" style={{ color: "var(--text-muted)" }}>{t.social.igScheduledListTitle}</h3>
               <div className="rounded-xl overflow-x-auto" style={{ border: "1px solid var(--border)" }}>
                 <table className="w-full text-xs" style={{ borderCollapse: "collapse" }}>

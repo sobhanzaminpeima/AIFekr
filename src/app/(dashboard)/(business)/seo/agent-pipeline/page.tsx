@@ -1,11 +1,24 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Script from "next/script";
 import {
   Sparkles, Play, ChevronDown, Check, Loader2, X, Plus, Trash2,
   FileText, Lightbulb, Target, Search, PenLine, ClipboardCheck, Globe2, Send, Eye, ExternalLink, Link2,
+  Wand2, Image as ImageIcon, ShieldCheck, AlertTriangle, Info,
 } from "lucide-react";
 import ShareButton from "@/components/ui/ShareButton";
+
+declare global {
+  interface Window {
+    puter?: {
+      ai: {
+        chat: (prompt: string, opts?: { model?: string }) => Promise<string>;
+        txt2img: (prompt: string, opts?: { model?: string }) => Promise<HTMLImageElement>;
+      };
+    };
+  }
+}
 import { trackFeature } from "@/lib/analytics";
 import ReactMarkdown from "react-markdown";
 import { toJalali } from "@/lib/utils/jalali";
@@ -24,7 +37,10 @@ interface Lesson { id: string; agentKey: string; text: string; source: string; c
 interface Post {
   id: string; title: string; content: string; metaTitle: string; metaDescription: string; slug: string; keywords: string; publishedAt: string;
   externalStatus?: "not_published" | "published" | "failed" | "held_for_review"; externalUrl?: string | null; externalError?: string | null;
+  heroImageUrl?: string | null;
 }
+interface SeoIssue { id: string; severity: "error" | "warning" | "info"; messageFa: string; messageEn: string; }
+interface AuditResult { score: number; issues: SeoIssue[]; }
 interface SeoConn { platform: string; siteUrl: string | null; wpUsername: string | null; hasAppPassword: boolean }
 
 export default function AgentPipelinePage() {
@@ -52,6 +68,77 @@ export default function AgentPipelinePage() {
   const [publishInfo, setPublishInfo] = useState<{ status: string; url: string | null; error: string | null } | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // ── Blog images + AI SEO audit ────────────────────────────────────────
+  const [puterReady, setPuterReady] = useState(false);
+  const [imageGeneratingId, setImageGeneratingId] = useState<string | null>(null);
+  const [galleryPickerFor, setGalleryPickerFor] = useState<string | null>(null);
+  const [galleryImages, setGalleryImages] = useState<{ id: string; url: string; prompt: string }[]>([]);
+  const [galleryLoading, setGalleryLoading] = useState(false);
+  const [audits, setAudits] = useState<Record<string, AuditResult>>({});
+  const [auditingId, setAuditingId] = useState<string | null>(null);
+
+  async function generatePostImage(post: Post) {
+    if (!window.puter) return;
+    setImageGeneratingId(post.id);
+    try {
+      const prompt = isFa
+        ? `یک تصویر شاخص (hero image) حرفه‌ای برای مقاله وبلاگ با عنوان «${post.title}»، سبک بصری تمیز و مدرن، مناسب برای انتشار در سایت، بدون هیچ متنی روی تصویر.`
+        : `A professional hero/featured image for a blog article titled "${post.title}", clean modern visual style, suitable for a website, no text on the image.`;
+      const imgEl = await window.puter.ai.txt2img(prompt, { model: "gpt-image-1-mini" });
+      const blob = await (await fetch(imgEl.src)).blob();
+      const uploadForm = new FormData();
+      uploadForm.append("file", new File([blob], "hero.png", { type: blob.type || "image/png" }));
+      const uploadRes = await fetch("/api/upload", { method: "POST", body: uploadForm });
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok) throw new Error(uploadData.error);
+      await saveHeroImage(post.id, uploadData.url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t.common.error);
+    } finally {
+      setImageGeneratingId(null);
+    }
+  }
+
+  async function saveHeroImage(postId: string, heroImageUrl: string) {
+    try {
+      const res = await fetch("/api/seo/agent-pipeline/posts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId, heroImageUrl }),
+      });
+      if (res.ok) {
+        setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, heroImageUrl } : p)));
+      }
+    } catch {}
+  }
+
+  async function openGalleryForPost(postId: string) {
+    setGalleryPickerFor(postId);
+    setGalleryLoading(true);
+    try {
+      const r = await fetch("/api/gallery?type=image", { credentials: "include" });
+      const d = await r.json();
+      setGalleryImages(d.items || []);
+    } catch {}
+    finally { setGalleryLoading(false); }
+  }
+
+  async function runAudit(postId: string) {
+    setAuditingId(postId);
+    try {
+      const res = await fetch("/api/seo/agent-pipeline/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        setAudits((prev) => ({ ...prev, [postId]: d }));
+      }
+    } catch {}
+    finally { setAuditingId(null); }
+  }
 
   useEffect(() => { loadLessons(); loadPosts(); loadConnection(); }, []);
 
@@ -164,6 +251,7 @@ export default function AgentPipelinePage() {
 
   return (
     <div dir={isFa ? "rtl" : "ltr"} className="min-h-screen p-6" style={{ background: "var(--surface-0)" }}>
+      <Script src="https://js.puter.com/v2/" strategy="afterInteractive" onReady={() => setPuterReady(true)} />
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-3 mb-8">
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "rgba(234,88,12,0.15)" }}>
@@ -408,50 +496,157 @@ export default function AgentPipelinePage() {
               <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{s.noPostsYet}</p>
             )}
             {posts.map((post) => (
-              <div key={post.id} className="rounded-2xl p-5 flex items-start justify-between gap-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-                <div className="flex items-start gap-3">
-                  <FileText className="w-5 h-5 mt-0.5 flex-shrink-0" style={{ color: "var(--primary)" }} />
-                  <div>
-                    <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{post.title}</p>
-                    <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{post.metaDescription}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? toJalali(post.publishedAt) : new Date(post.publishedAt).toLocaleDateString("en-US")}</p>
-                      {post.externalStatus === "published" && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>{s.publishedBadge}</span>
-                      )}
-                      {post.externalStatus === "failed" && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444" }}>{s.publishFailedBadge}</span>
-                      )}
-                      {post.externalStatus === "held_for_review" && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(234,179,8,0.15)", color: "#eab308" }} title={post.externalError || ""}>
-                          {isFa ? "نیازمند بازبینی" : "Needs review"}
-                        </span>
-                      )}
+              <div key={post.id} className="rounded-2xl p-5" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    {post.heroImageUrl ? (
+                      <img src={post.heroImageUrl} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
+                    ) : (
+                      <FileText className="w-5 h-5 mt-0.5 flex-shrink-0" style={{ color: "var(--primary)" }} />
+                    )}
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{post.title}</p>
+                      <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{post.metaDescription}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? toJalali(post.publishedAt) : new Date(post.publishedAt).toLocaleDateString("en-US")}</p>
+                        {post.externalStatus === "published" && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>{s.publishedBadge}</span>
+                        )}
+                        {post.externalStatus === "failed" && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444" }}>{s.publishFailedBadge}</span>
+                        )}
+                        {post.externalStatus === "held_for_review" && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(234,179,8,0.15)", color: "#eab308" }} title={post.externalError || ""}>
+                            {isFa ? "نیازمند بازبینی" : "Needs review"}
+                          </span>
+                        )}
+                        {audits[post.id] && (
+                          <span
+                            className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                            style={{
+                              background: audits[post.id].score >= 80 ? "rgba(34,197,94,0.15)" : audits[post.id].score >= 60 ? "rgba(234,179,8,0.15)" : "rgba(239,68,68,0.15)",
+                              color: audits[post.id].score >= 80 ? "#22c55e" : audits[post.id].score >= 60 ? "#eab308" : "#ef4444",
+                            }}
+                          >
+                            {isFa ? "امتیاز سئو" : "SEO score"}: {audits[post.id].score}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {post.externalUrl && (
-                    <a
-                      href={post.externalUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
-                      style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {post.externalUrl && (
+                      <a
+                        href={post.externalUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
+                        style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" /> {s.siteBtn}
+                      </a>
+                    )}
+                    <button
+                      onClick={() => setPreviewPost(post)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                      style={{ background: "rgba(234,88,12,0.15)", color: "var(--primary)" }}
                     >
-                      <ExternalLink className="w-3.5 h-3.5" /> {s.siteBtn}
-                    </a>
+                      {s.viewBtn}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 mt-3 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
+                  {!post.heroImageUrl && (
+                    <>
+                      <button
+                        onClick={() => generatePostImage(post)}
+                        disabled={imageGeneratingId === post.id || !puterReady}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50"
+                        style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px dashed var(--border)" }}
+                      >
+                        {imageGeneratingId === post.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+                        {isFa ? "طراحی تصویر شاخص با AI" : "Design hero image with AI"}
+                      </button>
+                      <button
+                        onClick={() => openGalleryForPost(post.id)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+                        style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px dashed var(--border)" }}
+                      >
+                        <ImageIcon className="w-3.5 h-3.5" />
+                        {isFa ? "انتخاب از گالری" : "Choose from gallery"}
+                      </button>
+                    </>
                   )}
                   <button
-                    onClick={() => setPreviewPost(post)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium"
-                    style={{ background: "rgba(234,88,12,0.15)", color: "var(--primary)" }}
+                    onClick={() => runAudit(post.id)}
+                    disabled={auditingId === post.id}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50"
+                    style={{ background: "rgba(59,130,246,0.1)", color: "#3b82f6" }}
                   >
-                    {s.viewBtn}
+                    {auditingId === post.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                    {isFa ? "بررسی سئو" : "Run SEO audit"}
                   </button>
                 </div>
+
+                {audits[post.id] && audits[post.id].issues.length > 0 && (
+                  <ul className="mt-3 space-y-1.5">
+                    {audits[post.id].issues.map((issue) => (
+                      <li key={issue.id} className="flex items-start gap-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+                        {issue.severity === "error" ? (
+                          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "#ef4444" }} />
+                        ) : issue.severity === "warning" ? (
+                          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "#eab308" }} />
+                        ) : (
+                          <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
+                        )}
+                        <span>{isFa ? issue.messageFa : issue.messageEn}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {audits[post.id] && audits[post.id].issues.length === 0 && (
+                  <p className="flex items-center gap-1.5 mt-3 text-xs" style={{ color: "#22c55e" }}>
+                    <Check className="w-3.5 h-3.5" /> {isFa ? "هیچ مشکل سئویی پیدا نشد." : "No SEO issues found."}
+                  </p>
+                )}
               </div>
             ))}
+          </div>
+        )}
+
+        {galleryPickerFor && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }} onClick={() => setGalleryPickerFor(null)}>
+            <div
+              className="max-w-2xl w-full max-h-[80vh] overflow-y-auto rounded-2xl p-6"
+              style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "انتخاب تصویر شاخص" : "Choose Hero Image"}</h2>
+                <button onClick={() => setGalleryPickerFor(null)} style={{ color: "var(--text-muted)" }}><X className="w-5 h-5" /></button>
+              </div>
+              {galleryLoading ? (
+                <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} /></div>
+              ) : galleryImages.length === 0 ? (
+                <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "گالری خالی است." : "Gallery is empty."}</p>
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {galleryImages.map((img) => (
+                    <button
+                      key={img.id}
+                      onClick={async () => {
+                        await saveHeroImage(galleryPickerFor, img.url);
+                        setGalleryPickerFor(null);
+                      }}
+                      className="aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-orange-500 transition-all"
+                    >
+                      <img src={img.url} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

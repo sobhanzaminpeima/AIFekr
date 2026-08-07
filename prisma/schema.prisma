@@ -1061,6 +1061,7 @@ model ContentPost {
   metaDescription String
   slug            String
   keywords        String
+  heroImageUrl    String?
   publishedAt     DateTime @default(now())
   /// "not_published" | "published" | "failed" — result of publishing to the user's connected WordPress site
   externalStatus  String   @default("not_published")
