@@ -1,10 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
+import { getServerLang } from "@/lib/i18n/server";
 
 export const dynamic = "force-static";
 
-const SECTIONS = [
+const SECTIONS_FA = [
   {
     title: "۱. اطلاعاتی که جمع‌آوری می‌کنیم",
     body: "هنگام ثبت‌نام: نام، ایمیل یا شماره موبایل، و رمز عبور (به‌صورت هش‌شده و غیرقابل بازیابی ذخیره می‌شود). هنگام استفاده از خدمات: پیام‌های چت، محتوای تولیدشده، و لاگ مصرف اعتبار. هنگام پرداخت: اطلاعات تراکنش از طریق درگاه زرین‌پال (اطلاعات کارت بانکی شما هرگز روی سرورهای AiFekr ذخیره نمی‌شود). در صورت اتصال اختیاری حساب‌های شخص ثالث (وردپرس، اینستاگرام): توکن دسترسی محدود (Application Password یا Access Token) که فقط برای انجام عملیات درخواستی شما استفاده می‌شود.",
@@ -43,9 +44,52 @@ const SECTIONS = [
   },
 ];
 
-export default function PrivacyPage() {
+const SECTIONS_EN = [
+  {
+    title: "1. Information We Collect",
+    body: "At registration: name, email or mobile number, and password (stored hashed and non-recoverable). While using the services: chat messages, generated content, and credit-usage logs. During payment: transaction information via the Zarinpal payment gateway (your bank card details are never stored on AiFekr's servers). If you optionally connect third-party accounts (WordPress, Instagram): a limited access token (Application Password or Access Token) used only to perform the operations you request.",
+  },
+  {
+    title: "2. How We Use Information",
+    body: "Your information is used solely to provide and improve our services, process payments, send essential notifications (account confirmation, payment receipts), and provide technical support. Your chat messages may be sent to AI providers (such as Anthropic, DeepSeek, OpenAI) for processing in order to generate a response; this transmission is only for real-time response generation.",
+  },
+  {
+    title: "3. Information Sharing",
+    body: "AiFekr does not sell or rent your personal information to any third party for advertising purposes. Information is shared with third parties only in the following cases: (a) AI providers, to process your requests; (b) the Zarinpal payment gateway, to complete transactions; (c) when required by law by competent authorities.",
+  },
+  {
+    title: "4. Data Security",
+    body: "Your password is stored using a one-way hashing algorithm, and even AiFekr's technical team cannot access it. Communication between your browser and AiFekr's servers is encrypted via HTTPS. Tokens for connected third-party accounts (WordPress/Instagram) are stored in an internal database and are never fully displayed in any API response.",
+  },
+  {
+    title: "5. Data Retention",
+    body: "Your account information is retained for as long as your account remains active. If you request account deletion, your personal information will be deleted within a reasonable period, except where retention is legally required (such as financial transaction records).",
+  },
+  {
+    title: "6. Your Rights",
+    body: "You can access and edit your information at any time through the \"Account Settings\" section, or submit a request for complete account deletion through support. You can also disconnect third-party accounts (WordPress/Instagram) at any time from the dashboard.",
+  },
+  {
+    title: "7. Cookies",
+    body: "AiFekr uses cookies to manage login sessions and store preferences (language, theme, currency). These cookies are necessary for the site to function correctly and do not include third-party advertising cookies.",
+  },
+  {
+    title: "8. Changes to This Policy",
+    body: "This privacy policy may be updated from time to time. Significant changes will be communicated to you via email or an in-site notification.",
+  },
+  {
+    title: "9. Contact Us",
+    body: "For any questions about privacy or to request data deletion, please contact us through the \"Contact Us\" page.",
+  },
+];
+
+export default async function PrivacyPage() {
+  const lang = await getServerLang();
+  const isFa = lang !== "en";
+  const SECTIONS = isFa ? SECTIONS_FA : SECTIONS_EN;
+
   return (
-    <div className="min-h-screen" dir="rtl" style={{ background: "#0a0a0f", color: "#f5f5f5" }}>
+    <div className="min-h-screen" dir={isFa ? "rtl" : "ltr"} style={{ background: "#0a0a0f", color: "#f5f5f5" }}>
       <nav
         className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4"
         style={{ background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
@@ -55,15 +99,15 @@ export default function PrivacyPage() {
           <span className="font-bold text-lg text-white">AiFekr</span>
         </Link>
         <div className="flex items-center gap-2">
-          <Link href="/terms" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>قوانین و مقررات</Link>
-          <Link href="/privacy" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "#ea580c" }}>حریم خصوصی</Link>
-          <Link href="/login" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>ورود</Link>
+          <Link href="/terms" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{isFa ? "قوانین و مقررات" : "Terms of Service"}</Link>
+          <Link href="/privacy" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "#ea580c" }}>{isFa ? "حریم خصوصی" : "Privacy Policy"}</Link>
+          <Link href="/login" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{isFa ? "ورود" : "Log in"}</Link>
         </div>
       </nav>
 
       <section className="pt-40 pb-16 px-6 max-w-3xl mx-auto">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2">حریم خصوصی</h1>
-        <p className="text-sm mb-10" style={{ color: "rgba(255,255,255,0.5)" }}>آخرین به‌روزرسانی: تیر ۱۴۰۵</p>
+        <h1 className="text-3xl md:text-4xl font-bold mb-2">{isFa ? "حریم خصوصی" : "Privacy Policy"}</h1>
+        <p className="text-sm mb-10" style={{ color: "rgba(255,255,255,0.5)" }}>{isFa ? "آخرین به‌روزرسانی: تیر ۱۴۰۵" : "Last updated: July 2026"}</p>
 
         <div className="space-y-8">
           {SECTIONS.map((s) => (

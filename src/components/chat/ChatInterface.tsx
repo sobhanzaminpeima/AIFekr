@@ -5,12 +5,22 @@ import { useRouter } from "next/navigation";
 import {
   Send, Square, Paperclip, RotateCcw, Copy, ThumbsUp, ThumbsDown,
   Bot, User, Sparkles, Mic, MicOff, Volume2, VolumeX,
-  ChevronDown, Briefcase, TrendingUp, DollarSign, ShoppingCart,
-  Rocket, Scale, Users,
+  ChevronDown, ChevronUp, Briefcase, TrendingUp, DollarSign, ShoppingCart,
+  Rocket, Scale, Users, Search, Check, FileText, FileDown, Hash,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
 import { useTranslation } from "@/lib/i18n";
+import { OPEN_COMMAND_PALETTE_EVENT } from "@/components/ui/CommandPalette";
+
+interface PromptBoxData {
+  name: string;
+  type: string;
+  targetAI: string;
+  language: string;
+  category: string;
+  content: string;
+}
 
 interface Message {
   id: string;
@@ -18,6 +28,7 @@ interface Message {
   content: string;
   displayContent: string;
   suggestions: string[];
+  promptBox: PromptBoxData | null;
   timestamp: Date;
 }
 
@@ -45,16 +56,125 @@ declare global {
   }
 }
 
-function parseSuggestions(content: string): { displayContent: string; suggestions: string[] } {
-  const match = content.match(/<SUGGESTIONS>([\s\S]*?)<\/SUGGESTIONS>/);
-  if (!match) return { displayContent: content, suggestions: [] };
-  const displayContent = content.replace(/<SUGGESTIONS>[\s\S]*?<\/SUGGESTIONS>/g, "").trimEnd();
-  try {
-    const suggestions = JSON.parse(match[1]);
-    return { displayContent, suggestions: Array.isArray(suggestions) ? suggestions.slice(0, 5) : [] };
-  } catch {
-    return { displayContent, suggestions: [] };
+function parseSuggestions(rawContent: string): { displayContent: string; suggestions: string[]; promptBox: PromptBoxData | null } {
+  let content = rawContent;
+  let suggestions: string[] = [];
+  let promptBox: PromptBoxData | null = null;
+
+  const sMatch = content.match(/<SUGGESTIONS>([\s\S]*?)<\/SUGGESTIONS>/);
+  if (sMatch) {
+    content = content.replace(/<SUGGESTIONS>[\s\S]*?<\/SUGGESTIONS>/g, "").trimEnd();
+    try {
+      const parsed = JSON.parse(sMatch[1]);
+      suggestions = Array.isArray(parsed) ? parsed.slice(0, 5) : [];
+    } catch {}
   }
+
+  const pMatch = content.match(/<PROMPTBOX>([\s\S]*?)<\/PROMPTBOX>/);
+  if (pMatch) {
+    content = content.replace(/<PROMPTBOX>[\s\S]*?<\/PROMPTBOX>/g, "").trim();
+    try {
+      const parsed = JSON.parse(pMatch[1]);
+      if (parsed && typeof parsed.content === "string") {
+        promptBox = {
+          name: parsed.name || "",
+          type: parsed.type || "",
+          targetAI: parsed.targetAI || "",
+          language: parsed.language || "",
+          category: parsed.category || "",
+          content: parsed.content,
+        };
+      }
+    } catch {}
+  }
+
+  return { displayContent: content, suggestions, promptBox };
+}
+
+function PromptBoxCard({ data, isFa }: { data: PromptBoxData; isFa: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const [expanded, setExpanded] = useState(true);
+
+  const wordCount = data.content.trim().split(/\s+/).filter(Boolean).length;
+  const tokenEstimate = Math.round(wordCount * 1.3);
+
+  function download(ext: "txt" | "md", mime: string) {
+    const filename = `${(data.name || "prompt").replace(/[^a-zA-Z0-9؀-ۿ_-]+/g, "_")}.${ext}`;
+    const body = ext === "md" ? `# ${data.name}\n\n${data.content}` : data.content;
+    const blob = new Blob([body], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function copy() {
+    await navigator.clipboard.writeText(data.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  const meta = [data.type, data.targetAI, data.language, data.category].filter(Boolean);
+
+  return (
+    <div className="mt-2 rounded-2xl overflow-hidden" style={{ background: "#0d0d12", border: "1px solid var(--border)" }} dir="ltr">
+      {/* Header */}
+      <div className="px-4 pt-3 pb-2.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <div className="flex items-center gap-2">
+          <FileText className="w-4 h-4 flex-shrink-0" style={{ color: "var(--primary)" }} />
+          <span className="text-sm font-semibold text-white truncate">{data.name || (isFa ? "پرامپت" : "Prompt")}</span>
+        </div>
+        {meta.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {meta.map((m, i) => (
+              <span key={i} className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(234,88,12,0.15)", color: "#fb923c" }}>
+                {m}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Body */}
+      {expanded && (
+        <pre
+          className="px-4 py-3 text-xs leading-6 whitespace-pre-wrap break-words overflow-x-auto"
+          style={{ color: "#e4e4e7", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", maxHeight: "420px", overflowY: "auto" }}
+        >
+          {data.content}
+        </pre>
+      )}
+
+      {/* Footer toolbar */}
+      <div className="flex items-center justify-between px-3 py-2 flex-wrap gap-2" style={{ borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+        <div className="flex items-center gap-1.5 text-[11px]" style={{ color: "#a1a1aa" }}>
+          <Hash className="w-3 h-3" />
+          <span>{wordCount} {isFa ? "کلمه" : "words"} · ~{tokenEstimate} tokens</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setExpanded((v) => !v)} className="p-1.5 rounded-lg transition-colors" style={{ color: "#a1a1aa" }} title={expanded ? (isFa ? "بستن" : "Collapse") : (isFa ? "باز کردن" : "Expand")}>
+            {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+          <button onClick={() => download("txt", "text/plain")} className="p-1.5 rounded-lg transition-colors" style={{ color: "#a1a1aa" }} title="TXT">
+            <FileDown className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={() => download("md", "text/markdown")} className="p-1.5 rounded-lg transition-colors" style={{ color: "#a1a1aa" }} title="Markdown">
+            <FileText className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={copy}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+            style={{ background: copied ? "rgba(34,197,94,0.15)" : "var(--primary)", color: copied ? "#22c55e" : "white" }}
+          >
+            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? (isFa ? "کپی شد" : "Copied") : (isFa ? "کپی" : "Copy")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ChatInterface({
@@ -89,6 +209,11 @@ export default function ChatInterface({
   const currentMode = EXPERT_MODES.find((m) => m.id === expertMode) || EXPERT_MODES[0];
 
   useEffect(() => {
+    // Skip on the initial empty-conversation mount — scrolling here eats the
+    // scroll container's own padding-top (nothing below the sentinel to
+    // reveal yet), which shoves the header flush against the viewport top
+    // and collides with the floating command-palette search box.
+    if (messages.length === 0) return;
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
@@ -113,8 +238,8 @@ export default function ChatInterface({
         if (data?.messages?.length) {
           setMessages(
             data.messages.map((m: { id: string; role: "user" | "assistant"; content: string; timestamp: string }) => {
-              const { displayContent, suggestions } = parseSuggestions(m.content);
-              return { id: m.id, role: m.role, content: m.content, displayContent, suggestions, timestamp: new Date(m.timestamp) };
+              const { displayContent, suggestions, promptBox } = parseSuggestions(m.content);
+              return { id: m.id, role: m.role, content: m.content, displayContent, suggestions, promptBox, timestamp: new Date(m.timestamp) };
             })
           );
         }
@@ -131,6 +256,7 @@ export default function ChatInterface({
       content: text,
       displayContent: text,
       suggestions: [],
+      promptBox: null,
       timestamp: new Date(),
     };
 
@@ -142,7 +268,7 @@ export default function ChatInterface({
     const assistantId = crypto.randomUUID();
     setMessages((prev) => [
       ...prev,
-      { id: assistantId, role: "assistant", content: "", displayContent: "", suggestions: [], timestamp: new Date() },
+      { id: assistantId, role: "assistant", content: "", displayContent: "", suggestions: [], promptBox: null, timestamp: new Date() },
     ]);
 
     abortRef.current = new AbortController();
@@ -197,16 +323,16 @@ export default function ChatInterface({
               if (parsed.reset) {
                 accumulated = "";
                 setMessages((prev) =>
-                  prev.map((m) => m.id === assistantId ? { ...m, content: "", displayContent: "", suggestions: [] } : m)
+                  prev.map((m) => m.id === assistantId ? { ...m, content: "", displayContent: "", suggestions: [], promptBox: null } : m)
                 );
               }
               if (parsed.error) throw new Error(parsed.error);
               if (parsed.text) {
                 accumulated += parsed.text;
-                const { displayContent, suggestions } = parseSuggestions(accumulated);
+                const { displayContent, suggestions, promptBox } = parseSuggestions(accumulated);
                 setMessages((prev) =>
                   prev.map((m) =>
-                    m.id === assistantId ? { ...m, content: accumulated, displayContent, suggestions } : m
+                    m.id === assistantId ? { ...m, content: accumulated, displayContent, suggestions, promptBox } : m
                   )
                 );
               }
@@ -317,6 +443,17 @@ export default function ChatInterface({
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Global search — opens the shared command palette (Cmd/Ctrl+K) */}
+          <button
+            onClick={() => window.dispatchEvent(new Event(OPEN_COMMAND_PALETTE_EVENT))}
+            aria-label={isRtl ? "جستجو" : "Search"}
+            title={isRtl ? "جستجو (⌘K)" : "Search (⌘K)"}
+            className="hidden md:flex items-center justify-center w-8 h-8 rounded-xl transition-all"
+            style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
+          >
+            <Search className="w-3.5 h-3.5" />
+          </button>
+
           {/* Expert Mode Selector */}
           <div className="relative">
             <button
@@ -437,9 +574,10 @@ export default function ChatInterface({
                   <div className="prose prose-sm max-w-none" style={{ color: "var(--text-primary)" }}>
                     {msg.displayContent ? (
                       <ReactMarkdown>{msg.displayContent}</ReactMarkdown>
-                    ) : (
+                    ) : !msg.promptBox ? (
                       <span className="cursor-blink" />
-                    )}
+                    ) : null}
+                    {msg.promptBox && <PromptBoxCard data={msg.promptBox} isFa={lang === "fa"} />}
                   </div>
                 ) : (
                   <p className="whitespace-pre-wrap">{msg.content}</p>

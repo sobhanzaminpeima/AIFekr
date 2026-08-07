@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
-import { exchangeCodeForToken, getLongLivedToken, findInstagramBusinessAccount } from "@/lib/instagram";
+import { exchangeCodeForToken, getLongLivedToken, getInstagramUsername } from "@/lib/instagram";
 
 export async function GET(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
@@ -16,29 +16,25 @@ export async function GET(req: NextRequest) {
 
   try {
     const redirectUri = `${appUrl}/api/social/instagram/callback`;
-    const shortToken = await exchangeCodeForToken(code, redirectUri);
+    const { token: shortToken, igUserId } = await exchangeCodeForToken(code, redirectUri);
     const { token: longToken, expiresIn } = await getLongLivedToken(shortToken);
-
-    const igAccount = await findInstagramBusinessAccount(longToken);
-    if (!igAccount) {
-      return NextResponse.redirect(`${appUrl}/social?instagram=no-ig-account`);
-    }
+    const igUsername = await getInstagramUsername(igUserId, longToken);
 
     await prisma.instagramConnection.upsert({
       where: { userId },
       update: {
-        igUserId: igAccount.igUserId,
-        igUsername: igAccount.igUsername,
-        pageId: igAccount.pageId,
-        accessToken: igAccount.pageAccessToken,
+        igUserId,
+        igUsername,
+        pageId: igUserId, // no Facebook Page in this flow — kept only to satisfy the existing non-null column
+        accessToken: longToken,
         tokenExpiry: new Date(Date.now() + expiresIn * 1000),
       },
       create: {
         userId,
-        igUserId: igAccount.igUserId,
-        igUsername: igAccount.igUsername,
-        pageId: igAccount.pageId,
-        accessToken: igAccount.pageAccessToken,
+        igUserId,
+        igUsername,
+        pageId: igUserId,
+        accessToken: longToken,
         tokenExpiry: new Date(Date.now() + expiresIn * 1000),
       },
     });

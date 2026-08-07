@@ -643,6 +643,13 @@ const en = {
       { id: "fantasy", label: "Fantasy" },
       { id: "3d", label: "3D" },
     ],
+    modeCredits: "AiFekr Credits",
+    modeCreditsDesc: "Uses your AiFekr credit balance",
+    modePuter: "Free (Puter)",
+    modePuterDesc: "Unlimited, uses your own free puter.com account",
+    puterNotice: "This option uses the third-party Puter.js service, not AiFekr's paid pipeline. The first time, Puter will ask you to sign in to your own puter.com account — usage is not billed to AiFekr credits.",
+    puterLoginError: "Could not connect to Puter — make sure pop-ups are allowed for this site and try again.",
+    puterGenerating: "Generating with Puter...",
   },
   // Video Generate page
   videoGeneratePage: {

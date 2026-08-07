@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/db/prisma";
 import { MessageSquare, User, Clock, Trash2 } from "lucide-react";
+import { toJalali } from "@/lib/utils/jalali";
 
 export default async function ChatsPage({
   searchParams,
@@ -90,7 +91,7 @@ export default async function ChatsPage({
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1 text-xs" style={{ color: "var(--text-muted)" }}>
                     <Clock className="w-3 h-3" />
-                    {new Date(c.updatedAt).toLocaleDateString("fa-IR")}
+                    {toJalali(c.updatedAt)}
                   </div>
                 </td>
               </tr>

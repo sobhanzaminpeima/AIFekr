@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/db/prisma";
 import { Globe, User, Clock } from "lucide-react";
+import { toJalali } from "@/lib/utils/jalali";
 
 export default async function GeneratedWebsitesPage({
   searchParams,
@@ -96,7 +97,7 @@ export default async function GeneratedWebsitesPage({
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1 text-xs" style={{ color: "var(--text-muted)" }}>
                       <Clock className="w-3 h-3" />
-                      {new Date(w.createdAt).toLocaleDateString("fa-IR")}
+                      {toJalali(w.createdAt)}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-left">

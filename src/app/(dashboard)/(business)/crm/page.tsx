@@ -7,6 +7,7 @@ import {
   Package, Receipt, FileSignature, Pin, Printer, FolderKanban,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
+import { toJalali } from "@/lib/utils/jalali";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 interface Stage { id: string; name: string; order: number; isWon: boolean; isLost: boolean; }
@@ -1081,7 +1082,7 @@ function CalendarPanel({ isFa }: { isFa: boolean }) {
     <div className="space-y-4">
       {Array.from(grouped.entries()).map(([day, dayItems]) => (
         <div key={day} className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-          <p className="text-xs font-semibold mb-2" style={{ color: "var(--primary)" }}>{new Date(day).toLocaleDateString(isFa ? "fa-IR" : "en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
+          <p className="text-xs font-semibold mb-2" style={{ color: "var(--primary)" }}>{isFa ? toJalali(day) : new Date(day).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
           <div className="space-y-1.5">
             {dayItems.map((item) => (
               <div key={item.id} className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
@@ -1583,7 +1584,7 @@ function InvoicePrintModal({ isFa, invoice, onClose }: { isFa: boolean; invoice:
         style={{ background: "#fff", color: "#111" }}>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">{isFa ? "فاکتور" : "Invoice"} {invoice.invoiceNumber}</h2>
-          <span className="text-xs">{new Date(invoice.issueDate).toLocaleDateString(isFa ? "fa-IR" : "en-US")}</span>
+          <span className="text-xs">{isFa ? toJalali(invoice.issueDate) : new Date(invoice.issueDate).toLocaleDateString("en-US")}</span>
         </div>
         <p className="text-sm">{isFa ? "مشتری:" : "Bill to:"} {invoice.contact.name}</p>
         <table className="w-full text-sm border-collapse">

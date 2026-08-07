@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useTranslation } from "@/lib/i18n";
-import { formatNumber } from "@/lib/utils/jalali";
+import { formatNumber, toJalali } from "@/lib/utils/jalali";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -360,7 +360,7 @@ export default function AiBosPage() {
               </p>
               {lastSession && (
                 <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  {s.lastSession} {new Date(lastSession.createdAt).toLocaleDateString(dateLocale)}
+                  {s.lastSession} {isFa ? toJalali(lastSession.createdAt) : new Date(lastSession.createdAt).toLocaleDateString("en-US")}
                 </p>
               )}
               <button

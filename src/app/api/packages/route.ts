@@ -9,7 +9,7 @@ export async function GET() {
     select: {
       planCode: true, name: true, nameEn: true, price: true, priceUsd: true,
       market: true, duration: true, credits: true, isFeatured: true,
-      color: true, features: true,
+      color: true, features: true, featuresEn: true,
     },
   });
   return NextResponse.json({ packages });

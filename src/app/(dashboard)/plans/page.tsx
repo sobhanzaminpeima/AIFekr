@@ -19,7 +19,7 @@ type ApiPackage = {
   planCode: string; name: string; nameEn: string;
   price: number; priceUsd: number | null; market: string;
   duration: number; credits: number; isFeatured: boolean;
-  color: string; features: string;
+  color: string; features: string; featuresEn?: string;
 };
 
 // ── Static data ───────────────────────────────────────────────────────────────
@@ -159,7 +159,7 @@ export default function PlansPage() {
 
     return [freePlan, ...paid].map(p => ({
       ...p,
-      parsedFeatures: (p.features || "").split("\n").filter(Boolean),
+      parsedFeatures: ((!isFa && p.featuresEn) || p.features || "").split("\n").filter(Boolean),
     }));
   }
 

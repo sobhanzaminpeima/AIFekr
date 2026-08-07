@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Shield, Plus, Trash2, UserCog, Clock, ChevronDown } from "lucide-react";
 import toast from "react-hot-toast";
+import { toJalali } from "@/lib/utils/jalali";
 
 const ROLES = [
   { value: "SUPER_ADMIN", label: "سوپر ادمین", color: "#ef4444", desc: "دسترسی کامل به همه بخش‌ها" },
@@ -100,7 +101,7 @@ export default function AdminManageClient({ admins: initial, allUsers }: { admin
               <div className="flex items-center gap-3 text-xs" style={{ color: "var(--text-muted)" }}>
                 <div className="flex items-center gap-1">
                   <Clock className="w-3 h-3" />
-                  {a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleDateString("fa-IR") : "ورود نداشته"}
+                  {a.lastLoginAt ? toJalali(a.lastLoginAt) : "ورود نداشته"}
                 </div>
               </div>
               <button onClick={() => handleRemove(a.id)} className="p-1.5 rounded-lg" style={{ color: "#ef4444" }}>

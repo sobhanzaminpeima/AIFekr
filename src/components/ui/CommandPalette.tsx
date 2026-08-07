@@ -47,7 +47,12 @@ const ITEMS_EN = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-export default function CommandPalette() {
+// Custom event name pages can dispatch to open the palette from their own
+// header (e.g. a compact icon button next to page-specific controls)
+// without duplicating the modal or its keyboard-shortcut listener.
+export const OPEN_COMMAND_PALETTE_EVENT = "aifekr:open-command-palette";
+
+export default function CommandPalette({ hideTrigger = false }: { hideTrigger?: boolean }) {
   const router = useRouter();
   const { lang } = useTranslation();
   const isFa = lang !== "en";
@@ -63,8 +68,15 @@ export default function CommandPalette() {
       }
       if (e.key === "Escape") setOpen(false);
     }
+    function onExternalOpen() {
+      setOpen(true);
+    }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener(OPEN_COMMAND_PALETTE_EVENT, onExternalOpen);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener(OPEN_COMMAND_PALETTE_EVENT, onExternalOpen);
+    };
   }, []);
 
   const filtered = ITEMS.filter((i) => i.label.toLowerCase().includes(query.toLowerCase()));
@@ -77,15 +89,17 @@ export default function CommandPalette() {
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm transition-colors min-w-[160px]"
-        style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
-      >
-        <Search className="w-3.5 h-3.5 flex-shrink-0" />
-        <span className="flex-1 text-right truncate">{isFa ? "جستجو..." : "Search..."}</span>
-        <kbd className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: "var(--surface-2)" }}>⌘K</kbd>
-      </button>
+      {!hideTrigger && (
+        <button
+          onClick={() => setOpen(true)}
+          className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm transition-colors min-w-[160px]"
+          style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
+        >
+          <Search className="w-3.5 h-3.5 flex-shrink-0" />
+          <span className="flex-1 text-right truncate">{isFa ? "جستجو..." : "Search..."}</span>
+          <kbd className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: "var(--surface-2)" }}>⌘K</kbd>
+        </button>
+      )}
 
       {open && (
         <div

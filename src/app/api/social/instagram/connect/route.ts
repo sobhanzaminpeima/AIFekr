@@ -1,14 +1,14 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
-import { getOAuthUrl, getMetaAppId } from "@/lib/instagram";
+import { getOAuthUrl, getInstagramAppId } from "@/lib/instagram";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
-  if (!getMetaAppId()) {
-    return NextResponse.json({ error: "META_APP_ID تنظیم نشده — ابتدا یک اپ در developers.facebook.com بسازید" }, { status: 500 });
+  if (!getInstagramAppId()) {
+    return NextResponse.json({ error: "INSTAGRAM_APP_ID تنظیم نشده — از داشبورد Meta، بخش Instagram API → API setup with Instagram login" }, { status: 500 });
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";

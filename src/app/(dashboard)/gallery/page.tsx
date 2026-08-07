@@ -4,10 +4,13 @@ import { useEffect, useState } from "react";
 import { Image as ImageIcon, Video, Music, Download, Trash2, Globe, Lock, Loader2 } from "lucide-react";
 import { toJalali } from "@/lib/utils/jalali";
 import toast from "react-hot-toast";
+import { useTranslation } from "@/lib/i18n";
 
 type Tab = "image" | "video" | "music";
 
 export default function GalleryPage() {
+  const { lang } = useTranslation();
+  const isFa = lang !== "en";
   const [tab, setTab] = useState<Tab>("image");
   const [items, setItems] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,21 +23,21 @@ export default function GalleryPage() {
   }, [tab]);
 
   async function deleteItem(id: string) {
-    if (!confirm("آیا مطمئن هستید؟")) return;
+    if (!confirm(isFa ? "آیا مطمئن هستید؟" : "Are you sure?")) return;
     await fetch(`/api/gallery/${id}`, { method: "DELETE" });
     setItems((prev) => prev.filter((i) => (i as { id: string }).id !== id));
-    toast.success("حذف شد");
+    toast.success(isFa ? "حذف شد" : "Deleted");
   }
 
   const TABS = [
-    { id: "image", label: "تصاویر", icon: ImageIcon },
-    { id: "video", label: "ویدیوها", icon: Video },
-    { id: "music", label: "موزیک‌ها", icon: Music },
+    { id: "image", label: isFa ? "تصاویر" : "Images", icon: ImageIcon },
+    { id: "video", label: isFa ? "ویدیوها" : "Videos", icon: Video },
+    { id: "music", label: isFa ? "موزیک‌ها" : "Music", icon: Music },
   ];
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>گالری من</h1>
+      <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "گالری من" : "My Gallery"}</h1>
 
       <div className="flex gap-2">
         {TABS.map(({ id, label, icon: Icon }) => (
@@ -61,7 +64,7 @@ export default function GalleryPage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px dashed var(--border)" }}>
           <ImageIcon className="w-12 h-12 mb-3 opacity-20" style={{ color: "var(--text-muted)" }} />
-          <p style={{ color: "var(--text-muted)" }}>هنوز موردی ساخته نشده</p>
+          <p style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز موردی ساخته نشده" : "Nothing created yet"}</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -87,7 +90,7 @@ export default function GalleryPage() {
                 </div>
                 <div className="p-3" style={{ background: "var(--surface-1)" }}>
                   <p className="text-xs truncate mb-1" style={{ color: "var(--text-secondary)" }}>{i.prompt}</p>
-                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>{toJalali(i.createdAt)}</p>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? toJalali(i.createdAt) : new Date(i.createdAt).toLocaleDateString("en-US")}</p>
                 </div>
               </div>
             );

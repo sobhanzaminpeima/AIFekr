@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/db/prisma";
 import { DollarSign, TrendingUp, CreditCard, AlertCircle, Clock } from "lucide-react";
+import { toJalali } from "@/lib/utils/jalali";
 
 function formatPrice(n: number) { return (n / 10).toLocaleString("fa-IR") + " ت"; }
 
@@ -105,7 +106,7 @@ export default async function FinancialPage({
                     {statusLabel[p.status] || p.status}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-xs" style={{ color: "var(--text-muted)" }}>{new Date(p.createdAt).toLocaleDateString("fa-IR")}</td>
+                <td className="px-4 py-3 text-xs" style={{ color: "var(--text-muted)" }}>{toJalali(p.createdAt)}</td>
               </tr>
             ))}
           </tbody>

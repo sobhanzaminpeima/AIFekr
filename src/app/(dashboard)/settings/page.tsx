@@ -8,7 +8,7 @@ import toast from "react-hot-toast";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
 import { useTranslation } from "@/lib/i18n";
-import { formatNumber } from "@/lib/utils/jalali";
+import { formatNumber, toJalali } from "@/lib/utils/jalali";
 
 const AVATAR_EMOJIS = ["🙂", "😎", "🚀", "🧠", "🦊", "🐼", "🌟", "🔥", "🎯", "💼", "🧑‍💻", "👩‍💻"];
 
@@ -310,7 +310,7 @@ export default function SettingsPage() {
               <div key={p.id} className="flex items-center justify-between text-sm p-2 rounded-xl" style={{ background: "var(--surface-2)" }}>
                 <div>
                   <div style={{ color: "var(--text-primary)" }}>{p.plan}</div>
-                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>{new Date(p.createdAt).toLocaleDateString(dateLocale)}</div>
+                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? toJalali(p.createdAt) : new Date(p.createdAt).toLocaleDateString("en-US")}</div>
                 </div>
                 <div className="text-left">
                   <div style={{ color: "var(--text-primary)" }}>{(p.amount / 10).toLocaleString(dateLocale)} {isFa ? "ت" : "T"}</div>

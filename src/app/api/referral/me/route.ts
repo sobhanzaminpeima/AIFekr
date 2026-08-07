@@ -12,13 +12,23 @@ export async function GET(req: NextRequest) {
     select: { referralCode: true },
   });
 
-  const invited = await prisma.user.count({ where: { referredBy: auth.id } });
-  const rewarded = await prisma.user.count({ where: { referredBy: auth.id, referralRewarded: true } });
+  const invitedUsers = await prisma.user.findMany({
+    where: { referredBy: auth.id },
+    select: { id: true, name: true, email: true, referralRewarded: true, createdAt: true },
+    orderBy: { createdAt: "desc" },
+  });
+  const rewarded = invitedUsers.filter((u) => u.referralRewarded).length;
 
   return NextResponse.json({
     referralCode: user?.referralCode ?? null,
-    invitedCount: invited,
+    invitedCount: invitedUsers.length,
     creditsEarned: rewarded * REFERRAL_BONUS_CREDITS,
     bonusPerReferral: REFERRAL_BONUS_CREDITS,
+    invitedUsers: invitedUsers.map((u) => ({
+      name: u.name,
+      email: u.email,
+      rewarded: u.referralRewarded,
+      createdAt: u.createdAt,
+    })),
   });
 }

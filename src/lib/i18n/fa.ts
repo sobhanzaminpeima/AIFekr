@@ -620,6 +620,13 @@ const fa: Translations = {
     errEnterPrompt: "توضیحات تصویر را وارد کنید",
     errGenerate: "خطا در تولید تصویر",
     resultsPlaceholder: "تصاویر ساخته‌شده اینجا نمایش داده می‌شوند",
+    modeCredits: "اعتبار AiFekr",
+    modeCreditsDesc: "از اعتبار حساب AiFekr شما استفاده می‌شود",
+    modePuter: "رایگان (Puter)",
+    modePuterDesc: "نامحدود، با حساب رایگان شخصی خودتان در puter.com",
+    puterNotice: "این گزینه از سرویس شخص ثالث Puter.js استفاده می‌کند، نه سیستم پرداختی AiFekr. اولین بار Puter از شما می‌خواهد وارد حساب puter.com خودتان شوید — مصرف از اعتبار AiFekr کم نمی‌شود.",
+    puterLoginError: "اتصال به Puter برقرار نشد — مطمئن شوید پاپ‌آپ برای این سایت مسدود نیست و دوباره تلاش کنید.",
+    puterGenerating: "در حال تولید با Puter...",
     styles: [
       { id: "realistic", label: "واقعی" },
       { id: "anime", label: "انیمه" },

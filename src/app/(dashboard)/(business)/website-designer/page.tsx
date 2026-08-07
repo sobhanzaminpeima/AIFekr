@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Globe, Copy, Check, Download, Code2, Eye, History, ExternalLink } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useTranslation } from "@/lib/i18n";
+import { toJalali } from "@/lib/utils/jalali";
 
 interface SavedSite { id: string; businessName: string; createdAt: string; sizeKB: number; }
 
@@ -13,7 +14,6 @@ export default function WebsiteDesignerPage() {
   const { t, lang } = useTranslation();
   const isFa = lang !== "en";
   const s = t.websiteDesignerPage;
-  const dateLocale = isFa ? "fa-IR" : "en-US";
   const GOALS = s.goals;
   const STYLES = s.styles;
 
@@ -159,7 +159,7 @@ export default function WebsiteDesignerPage() {
                     <div>
                       <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{st.businessName}</p>
                       <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                        {new Date(st.createdAt).toLocaleDateString(dateLocale)} · {st.sizeKB} KB
+                        {isFa ? toJalali(st.createdAt) : new Date(st.createdAt).toLocaleDateString("en-US")} · {st.sizeKB} KB
                       </p>
                     </div>
                     <div className="flex items-center gap-2">

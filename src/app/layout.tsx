@@ -3,23 +3,27 @@ import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import { cookies } from "next/headers";
 
-export const metadata: Metadata = {
-  title: "هوشمند AI — پلتفرم هوش مصنوعی",
-  description: "AI Platform — Chat, Image, Video, Music & Smart Business Tools",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "AiFekr",
-  },
-  icons: {
-    icon: [
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
-    ],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const cookieStore = await cookies();
+  const lang = (cookieStore.get("lang")?.value === "en") ? "en" : "fa";
+  return {
+    title: lang === "en" ? "AiFekr — AI Platform" : "هوشمند AI — پلتفرم هوش مصنوعی",
+    description: "AI Platform — Chat, Image, Video, Music & Smart Business Tools",
+    manifest: "/manifest.json",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "black-translucent",
+      title: "AiFekr",
+    },
+    icons: {
+      icon: [
+        { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+        { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      ],
+      apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    },
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",

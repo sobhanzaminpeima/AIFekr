@@ -5,6 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { interpolateTemplate } from "@/lib/crm/contractTemplate";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { toJalali } from "@/lib/utils/jalali";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
       contactEmail: contact.email || "",
       dealTitle: deal?.title || "",
       dealValue: deal ? String(deal.value) : "",
-      date: new Date().toLocaleDateString("fa-IR"),
+      date: toJalali(new Date()),
       ...customFields,
     });
   }

@@ -5,10 +5,13 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useCallback } from "react";
 import { Images, Trash2, Share2, Download, Lock, Globe, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
+import { useTranslation } from "@/lib/i18n";
 
 type Image = { id: string; url: string; prompt: string; style: string; isPublic: boolean; createdAt: string; credits: number };
 
 export default function ImageGalleryPage() {
+  const { lang } = useTranslation();
+  const isFa = lang !== "en";
   const [images, setImages] = useState<Image[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -27,16 +30,16 @@ export default function ImageGalleryPage() {
   useEffect(() => { fetchImages(page); }, [page, fetchImages]);
 
   async function handleDelete(id: string) {
-    if (!confirm("این تصویر حذف شود؟")) return;
+    if (!confirm(isFa ? "این تصویر حذف شود؟" : "Delete this image?")) return;
     const res = await fetch("/api/image/gallery", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
-    if (res.ok) { setImages(imgs => imgs.filter(i => i.id !== id)); toast.success("تصویر حذف شد"); }
+    if (res.ok) { setImages(imgs => imgs.filter(i => i.id !== id)); toast.success(isFa ? "تصویر حذف شد" : "Image deleted"); }
   }
 
   async function handleTogglePublic(img: Image) {
     const res = await fetch("/api/image/gallery", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: img.id, isPublic: !img.isPublic }) });
     if (res.ok) {
       setImages(imgs => imgs.map(i => i.id === img.id ? { ...i, isPublic: !i.isPublic } : i));
-      toast.success(img.isPublic ? "تصویر خصوصی شد" : "تصویر عمومی شد");
+      toast.success(img.isPublic ? (isFa ? "تصویر خصوصی شد" : "Image is now private") : (isFa ? "تصویر عمومی شد" : "Image is now public"));
     }
   }
 
@@ -55,10 +58,10 @@ export default function ImageGalleryPage() {
 
   function handleShare(img: Image) {
     if (navigator.share) {
-      navigator.share({ title: "تصویر AI", text: img.prompt, url: img.url }).catch(() => {});
+      navigator.share({ title: isFa ? "تصویر AI" : "AI Image", text: img.prompt, url: img.url }).catch(() => {});
     } else {
       navigator.clipboard.writeText(img.url);
-      toast.success("لینک کپی شد");
+      toast.success(isFa ? "لینک کپی شد" : "Link copied");
     }
   }
 
@@ -66,11 +69,11 @@ export default function ImageGalleryPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>گالری تصاویر</h1>
-          <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>تصاویر تولیدشده با هوش مصنوعی</p>
+          <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "گالری تصاویر" : "Image Gallery"}</h1>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>{isFa ? "تصاویر تولیدشده با هوش مصنوعی" : "AI-generated images"}</p>
         </div>
         <a href="/image/generate" className="px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-          + تصویر جدید
+          {isFa ? "+ تصویر جدید" : "+ New Image"}
         </a>
       </div>
 
@@ -79,8 +82,8 @@ export default function ImageGalleryPage() {
       ) : images.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px dashed var(--border)" }}>
           <Images className="w-12 h-12 mb-3 opacity-20" style={{ color: "var(--text-muted)" }} />
-          <p className="mb-4" style={{ color: "var(--text-muted)" }}>هنوز تصویری ندارید</p>
-          <a href="/image/generate" className="px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>اولین تصویر را بسازید</a>
+          <p className="mb-4" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز تصویری ندارید" : "You don't have any images yet"}</p>
+          <a href="/image/generate" className="px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>{isFa ? "اولین تصویر را بسازید" : "Create your first image"}</a>
         </div>
       ) : (
         <>
@@ -111,7 +114,7 @@ export default function ImageGalleryPage() {
 
                 {img.isPublic && (
                   <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-full text-xs" style={{ background: "rgba(16,185,129,0.8)", color: "white" }}>
-                    عمومی
+                    {isFa ? "عمومی" : "Public"}
                   </div>
                 )}
               </div>
@@ -125,7 +128,7 @@ export default function ImageGalleryPage() {
                 className="p-2 rounded-xl disabled:opacity-30" style={{ background: "var(--surface-1)" }}>
                 <ChevronRight className="w-4 h-4" style={{ color: "var(--text-secondary)" }} />
               </button>
-              <span className="text-sm" style={{ color: "var(--text-muted)" }}>صفحه {page} از {totalPages}</span>
+              <span className="text-sm" style={{ color: "var(--text-muted)" }}>{isFa ? `صفحه ${page} از ${totalPages}` : `Page ${page} of ${totalPages}`}</span>
               <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
                 className="p-2 rounded-xl disabled:opacity-30" style={{ background: "var(--surface-1)" }}>
                 <ChevronLeft className="w-4 h-4" style={{ color: "var(--text-secondary)" }} />
@@ -145,11 +148,11 @@ export default function ImageGalleryPage() {
               <div className="flex gap-2">
                 <button onClick={() => handleDownload(lightbox.url, lightbox.id)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-                  <Download className="w-4 h-4" /> دانلود
+                  <Download className="w-4 h-4" /> {isFa ? "دانلود" : "Download"}
                 </button>
                 <button onClick={() => handleShare(lightbox)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-                  <Share2 className="w-4 h-4" /> اشتراک‌گذاری
+                  <Share2 className="w-4 h-4" /> {isFa ? "اشتراک‌گذاری" : "Share"}
                 </button>
               </div>
             </div>

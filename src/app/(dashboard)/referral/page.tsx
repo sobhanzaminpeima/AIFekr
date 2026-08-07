@@ -1,15 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Gift, Copy, Check, Users, Coins } from "lucide-react";
+import { Gift, Copy, Check, Users, Coins, Clock } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
-import { formatNumber } from "@/lib/utils/jalali";
+import { formatNumber, toJalali } from "@/lib/utils/jalali";
+
+interface InvitedUser {
+  name: string | null;
+  email: string | null;
+  rewarded: boolean;
+  createdAt: string;
+}
 
 interface ReferralData {
   referralCode: string | null;
   invitedCount: number;
   creditsEarned: number;
   bonusPerReferral: number;
+  invitedUsers: InvitedUser[];
 }
 
 export default function ReferralPage() {
@@ -105,6 +113,38 @@ export default function ReferralPage() {
             </button>
           </div>
         </div>
+
+        {/* Invited friends list */}
+        {(data?.invitedUsers?.length ?? 0) > 0 && (
+          <div className="rounded-2xl p-5 mt-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+            <h2 className="text-sm font-semibold mb-3" style={{ color: "var(--text-primary)" }}>
+              {isFa ? "دوستان دعوت‌شده" : "Invited Friends"}
+            </h2>
+            <div className="space-y-2">
+              {data!.invitedUsers.map((u, i) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-xl" style={{ background: "var(--surface-2)" }}>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{u.name || u.email || (isFa ? "کاربر" : "User")}</p>
+                    <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                      {isFa ? toJalali(u.createdAt) : new Date(u.createdAt).toLocaleDateString("en-US")}
+                    </p>
+                  </div>
+                  {u.rewarded ? (
+                    <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full flex-shrink-0" style={{ background: "rgba(16,185,129,0.1)", color: "#10b981" }}>
+                      <Coins className="w-3 h-3" />
+                      {isFa ? `${formatNumber(data!.bonusPerReferral, lang)} اعتبار گرفتی` : `+${data!.bonusPerReferral} credits`}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full flex-shrink-0" style={{ background: "var(--surface-1)", color: "var(--text-muted)" }}>
+                      <Clock className="w-3 h-3" />
+                      {isFa ? "منتظر اولین خرید" : "Awaiting first purchase"}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

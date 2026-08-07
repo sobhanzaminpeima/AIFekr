@@ -743,6 +743,7 @@ model Package {
   duration   Int      @default(30)
   credits    Int
   features   String
+  featuresEn String?
   isActive   Boolean  @default(true)
   isFeatured Boolean  @default(false)
   color      String   @default("#ea580c")
@@ -827,6 +828,22 @@ model InstagramConnection {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+/// One row per connected account per day — built by a daily cron since
+/// Instagram's API only exposes the CURRENT follower/media count, not
+/// history. Accumulating these snapshots is what makes a growth trend chart
+/// possible at all.
+model InstagramFollowerSnapshot {
+  id             String   @id @default(cuid())
+  userId         String
+  date           DateTime // truncated to the day this snapshot was taken
+  followersCount Int
+  mediaCount     Int
+  createdAt      DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([userId])
+}
+
 /// A generated Instagram post queued to go out. mode="auto" actually calls
 /// the Instagram Graph API at scheduledFor (gated to PRO/TEAM plans —
 /// see src/lib/utils/planGates.ts); mode="manual" just sits here so the
@@ -867,8 +884,10 @@ model IndustryPack {
   id               String    @id @default(cuid())
   slug             String    @unique
   name             String
+  nameEn           String?
   emoji            String
   tagline          String
+  taglineEn        String?
   valueProposition String
   targetCustomers  String
   painPoints       String

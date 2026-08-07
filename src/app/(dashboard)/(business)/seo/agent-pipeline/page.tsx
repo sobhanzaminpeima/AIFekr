@@ -8,6 +8,7 @@ import {
 import ShareButton from "@/components/ui/ShareButton";
 import { trackFeature } from "@/lib/analytics";
 import ReactMarkdown from "react-markdown";
+import { toJalali } from "@/lib/utils/jalali";
 import { useTranslation } from "@/lib/i18n";
 
 type AgentKey = "ideaFinder" | "strategist" | "researcher" | "writer" | "editor" | "seo" | "publisher" | "critic";
@@ -30,7 +31,6 @@ export default function AgentPipelinePage() {
   const { t, lang } = useTranslation();
   const isFa = lang !== "en";
   const s = t.agentPipelinePage;
-  const dateLocale = isFa ? "fa-IR" : "en-US";
 
   const AGENTS = AGENT_ORDER.map((key) => ({ key, nameFa: s.agents[key].name, roleFa: s.agents[key].role, icon: AGENT_ICONS[key] }));
 
@@ -415,7 +415,7 @@ export default function AgentPipelinePage() {
                     <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{post.title}</p>
                     <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{post.metaDescription}</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>{new Date(post.publishedAt).toLocaleDateString(dateLocale)}</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? toJalali(post.publishedAt) : new Date(post.publishedAt).toLocaleDateString("en-US")}</p>
                       {post.externalStatus === "published" && (
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>{s.publishedBadge}</span>
                       )}

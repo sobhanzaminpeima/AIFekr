@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useCallback } from "react";
 import { Rocket, RefreshCw, Trash2, MessageSquare, Mail, Phone, CheckCircle2, Clock, XCircle, Eye } from "lucide-react";
 import toast from "react-hot-toast";
+import { toJalali } from "@/lib/utils/jalali";
 
 interface Inquiry {
   id: string;
@@ -189,7 +190,7 @@ export default function StartupInquiriesPage() {
                         {STAGES.find((s) => s.value === inq.stage)?.label}
                       </span>
                       <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                        {new Date(inq.createdAt).toLocaleDateString("fa-IR")}
+                        {toJalali(inq.createdAt)}
                       </span>
                     </div>
                   </div>
@@ -226,7 +227,7 @@ export default function StartupInquiriesPage() {
                   {selected.phone && <span className="flex items-center gap-1" dir="ltr"><Phone className="w-3.5 h-3.5" />{selected.phone}</span>}
                 </div>
                 <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  ثبت: {new Date(selected.createdAt).toLocaleString("fa-IR")}
+                  ثبت: {toJalali(selected.createdAt)}
                 </div>
               </div>
 

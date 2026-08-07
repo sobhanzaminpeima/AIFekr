@@ -48,5 +48,16 @@ prisma/prisma/
 # OS
 Thumbs.db
 
+# graphify knowledge-graph output (regenerable)
+/graphify-out/
+
+# debug/build log dumps
+build-out.txt
+tsc-out.txt
+tsc-errors.txt
+
+# office lock files
+~$*.docx
+
 # local docs / backups / investor materials (not for the repo)
 /docs/

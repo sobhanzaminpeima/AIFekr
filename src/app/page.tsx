@@ -30,6 +30,8 @@ const STR = {
   fa: {
     brand: "هوشمند AI",
     navPacks: "بسته‌های صنعتی",
+    navAbout: "درباره ما",
+    navContact: "تماس با ما",
     navLogin: "ورود",
     navRegister: "شروع رایگان",
     badge: "پلتفرم هوش مصنوعی کسب‌وکار",
@@ -93,6 +95,8 @@ const STR = {
   en: {
     brand: "AiFekr",
     navPacks: "Industry Packs",
+    navAbout: "About Us",
+    navContact: "Contact Us",
     navLogin: "Login",
     navRegister: "Get Started Free",
     badge: "AI Platform for Business",
@@ -170,12 +174,17 @@ export default async function HomePage() {
   const s = STR[lang];
   const dir = lang === "fa" ? "rtl" : "ltr";
 
-  let packs: { id: string; slug: string; name: string; emoji: string; tagline: string; agents: string; tier: string; price: number; color: string; gradientFrom: string; gradientTo: string }[] = [];
+  let packs: { id: string; slug: string; name: string; nameEn: string | null; emoji: string; tagline: string; taglineEn: string | null; agents: string; tier: string; price: number; color: string; gradientFrom: string; gradientTo: string }[] = [];
   try {
     packs = await prisma.industryPack.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, take: 8 });
   } catch {}
+  const localizedPacks = packs.map((p) => ({
+    ...p,
+    name: lang === "en" && p.nameEn ? p.nameEn : p.name,
+    tagline: lang === "en" && p.taglineEn ? p.taglineEn : p.tagline,
+  }));
 
-  let packages: { planCode: string; name: string; nameEn: string; price: number; priceUsd: number | null; credits: number; features: string; isFeatured: boolean; color: string }[] = [];
+  let packages: { planCode: string; name: string; nameEn: string; price: number; priceUsd: number | null; credits: number; features: string; featuresEn: string | null; isFeatured: boolean; color: string }[] = [];
   try {
     packages = await prisma.package.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, take: 3 });
   } catch {}
@@ -184,7 +193,7 @@ export default async function HomePage() {
     // package editor), not JSON — parse accordingly, with a JSON fallback
     // in case any row was ever entered as a JSON array.
     let features: string[] = [];
-    const raw = p.features?.trim() || "";
+    const raw = (lang === "en" && p.featuresEn ? p.featuresEn : p.features)?.trim() || "";
     if (raw.startsWith("[")) {
       try { features = JSON.parse(raw); } catch {}
     } else if (raw) {
@@ -225,8 +234,8 @@ export default async function HomePage() {
         </Link>
         <div className="hidden md:flex items-center gap-1">
           <NavLink href="/industry">{s.navPacks}</NavLink>
-          <NavLink href="/about">درباره ما</NavLink>
-          <NavLink href="/contact">تماس با ما</NavLink>
+          <NavLink href="/about">{s.navAbout}</NavLink>
+          <NavLink href="/contact">{s.navContact}</NavLink>
           <NavLink href="/login">{s.navLogin}</NavLink>
         </div>
         <div className="hidden md:flex items-center gap-2">
@@ -238,8 +247,8 @@ export default async function HomePage() {
         <MobileMenu
           items={[
             { href: "/industry", label: s.navPacks },
-            { href: "/about", label: "درباره ما" },
-            { href: "/contact", label: "تماس با ما" },
+            { href: "/about", label: s.navAbout },
+            { href: "/contact", label: s.navContact },
             { href: "/login", label: s.navLogin },
           ]}
           ctaHref="/register"
@@ -290,7 +299,7 @@ export default async function HomePage() {
             <h2 className="text-3xl font-bold text-center mb-4">{s.packsTitle}</h2>
             <p className="text-center mb-12" style={{ color: "rgba(255,255,255,0.5)" }}>{s.packsSubtitle}</p>
           </Reveal>
-          <PackGrid packs={packs} agentsLabel={s.agentsLabel} viewPack={s.viewPack} />
+          <PackGrid packs={localizedPacks} agentsLabel={s.agentsLabel} viewPack={s.viewPack} />
           <Reveal delay={0.1}>
             <div className="text-center mt-10">
               <Link href="/industry" className="px-8 py-3 rounded-2xl font-medium transition-all" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", color: "white" }}>

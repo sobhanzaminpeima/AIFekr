@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import ReactMarkdown from "react-markdown";
+import { toJalali } from "@/lib/utils/jalali";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +59,7 @@ function SharedLayout({
   badge: string; title: string; subtitle: string; author: string | null;
   date: Date; content: string;
 }) {
-  const dateStr = new Date(date).toLocaleDateString("fa-IR", { year: "numeric", month: "long", day: "numeric" });
+  const dateStr = toJalali(date);
 
   return (
     <div style={{ minHeight: "100vh", background: "#0a0a0f", color: "#fff", fontFamily: "system-ui, sans-serif" }}>
