@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
-import { exchangeCodeForToken, getLongLivedToken, getInstagramUsername } from "@/lib/instagram";
+import { exchangeCodeForToken, getLongLivedToken, getInstagramUsername, subscribeToCommentWebhooks } from "@/lib/instagram";
 
 export async function GET(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
@@ -37,6 +37,13 @@ export async function GET(req: NextRequest) {
         accessToken: longToken,
         tokenExpiry: new Date(Date.now() + expiresIn * 1000),
       },
+    });
+
+    // Best-effort — a failure here shouldn't block the connection itself,
+    // it would just mean comment auto-reply campaigns silently don't fire
+    // until the user reconnects or an admin re-runs this subscription.
+    await subscribeToCommentWebhooks(igUserId, longToken).catch((e) => {
+      console.error("Instagram comment webhook subscription failed:", e);
     });
 
     return NextResponse.redirect(`${appUrl}/social?instagram=connected`);

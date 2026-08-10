@@ -9,6 +9,7 @@ import {
 import { useTranslation } from "@/lib/i18n";
 import { toJalali } from "@/lib/utils/jalali";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import ReactMarkdown from "react-markdown";
 
 interface Stage { id: string; name: string; order: number; isWon: boolean; isLost: boolean; }
 interface Pipeline { id: string; name: string; industrySlug: string | null; isDefault: boolean; stages: Stage[]; }
@@ -1019,8 +1020,13 @@ function CrmAgentPanel({ isFa }: { isFa: boolean }) {
       </div>
 
       {analysis && (
-        <div className="rounded-2xl p-5 whitespace-pre-wrap text-sm leading-7" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-          {analysis}
+        <div className="rounded-2xl p-5 prose prose-invert prose-sm max-w-none leading-7" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+          {/* "## نکاتی برای حافظهٔ آینده" is an internal note-taking section the agent
+              writes for its own future runs (parsed server-side into CrmInsight rows in
+              src/lib/agents/crmAgent.ts) — it's raw "[category] text" lines never meant
+              for a human reader, so strip it before display rather than showing the
+              user internal bracket labels like [risk]/[general]. */}
+          <ReactMarkdown>{analysis.split(/## نکاتی برای حافظهٔ آینده/)[0].trim()}</ReactMarkdown>
         </div>
       )}
 

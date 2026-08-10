@@ -1,13 +1,26 @@
-const isSandbox = process.env.ZARINPAL_SANDBOX === "true";
-const MERCHANT = process.env.ZARINPAL_MERCHANT_ID || "";
+import { prisma } from "@/lib/db/prisma";
 
-const BASE = isSandbox
-  ? "https://sandbox.zarinpal.com/pg/v4/payment"
-  : "https://api.zarinpal.com/pg/v4/payment";
+// Merchant ID / sandbox flag are editable from the admin settings panel
+// (SiteSetting table) so a merchant swap doesn't need a redeploy — env vars
+// remain the fallback for whatever isn't set in the DB yet.
+async function getConfig() {
+  const rows = await prisma.siteSetting.findMany({
+    where: { key: { in: ["zarinpal_merchant", "zarinpal_sandbox"] } },
+  });
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
 
-const GATE = isSandbox
-  ? "https://sandbox.zarinpal.com/pg/StartPay"
-  : "https://www.zarinpal.com/pg/StartPay";
+  const merchant = map.zarinpal_merchant || process.env.ZARINPAL_MERCHANT_ID || "";
+  const isSandbox = map.zarinpal_sandbox != null
+    ? map.zarinpal_sandbox === "true"
+    : process.env.ZARINPAL_SANDBOX === "true";
+
+  return {
+    merchant,
+    isSandbox,
+    base: isSandbox ? "https://sandbox.zarinpal.com/pg/v4/payment" : "https://api.zarinpal.com/pg/v4/payment",
+    gate: isSandbox ? "https://sandbox.zarinpal.com/pg/StartPay" : "https://www.zarinpal.com/pg/StartPay",
+  };
+}
 
 export interface PaymentRequest {
   amount: number; // Toman
@@ -27,7 +40,9 @@ export interface PaymentResult {
 }
 
 export async function createPayment(req: PaymentRequest): Promise<PaymentResult> {
-  if (!MERCHANT || MERCHANT === "your-merchant-id") {
+  const { merchant, base, gate } = await getConfig();
+
+  if (!merchant || merchant === "your-merchant-id") {
     // Dev mode — simulate payment by redirecting straight to the real
     // callback URL (the same one Zarinpal itself would hit), instead of a
     // separate /api/payment/dev-callback route that was never implemented
@@ -37,11 +52,11 @@ export async function createPayment(req: PaymentRequest): Promise<PaymentResult>
     return { ok: true, authority: fakeAuthority, paymentUrl: `${req.callbackUrl}${separator}Authority=${fakeAuthority}&Status=OK` };
   }
 
-  const res = await fetch(`${BASE}/request.json`, {
+  const res = await fetch(`${base}/request.json`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      merchant_id: MERCHANT,
+      merchant_id: merchant,
       amount: req.amount * 10, // Rial
       description: req.description,
       callback_url: req.callbackUrl,
@@ -59,7 +74,7 @@ export async function createPayment(req: PaymentRequest): Promise<PaymentResult>
     return {
       ok: true,
       authority: data.data.authority,
-      paymentUrl: `${GATE}/${data.data.authority}`,
+      paymentUrl: `${gate}/${data.data.authority}`,
     };
   }
 
@@ -80,15 +95,17 @@ export interface VerifyResult {
 }
 
 export async function verifyPayment(req: VerifyRequest): Promise<VerifyResult> {
-  if (!MERCHANT || MERCHANT === "your-merchant-id" || req.authority.startsWith("DEV_")) {
+  const { merchant, base } = await getConfig();
+
+  if (!merchant || merchant === "your-merchant-id" || req.authority.startsWith("DEV_")) {
     return { ok: true, refId: `DEV_REF_${Date.now()}` };
   }
 
-  const res = await fetch(`${BASE}/verify.json`, {
+  const res = await fetch(`${base}/verify.json`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      merchant_id: MERCHANT,
+      merchant_id: merchant,
       amount: req.amount * 10,
       authority: req.authority,
     }),

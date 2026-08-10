@@ -6,8 +6,9 @@ import {
   Send, Square, Paperclip, RotateCcw, Copy, ThumbsUp, ThumbsDown,
   Bot, User, Sparkles, Mic, MicOff, Volume2, VolumeX,
   ChevronDown, ChevronUp, Briefcase, TrendingUp, DollarSign, ShoppingCart,
-  Rocket, Scale, Users, Search, Check, FileText, FileDown, Hash,
+  Rocket, Scale, Users, Search, Check, FileText, FileDown, Hash, Zap,
 } from "lucide-react";
+import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
 import { useTranslation } from "@/lib/i18n";
@@ -443,6 +444,16 @@ export default function ChatInterface({
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Increase credits — always visible entry point to the plans/payment page */}
+          <Link
+            href="/plans"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap"
+            style={{ background: "var(--primary)", color: "white" }}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            {isRtl ? "افزایش اعتبار" : "Add Credits"}
+          </Link>
+
           {/* Global search — opens the shared command palette (Cmd/Ctrl+K) */}
           <button
             onClick={() => window.dispatchEvent(new Event(OPEN_COMMAND_PALETTE_EVENT))}

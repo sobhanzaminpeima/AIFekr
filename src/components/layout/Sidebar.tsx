@@ -494,10 +494,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", border: "1px solid rgba(16,185,129,0.25)" }}>
             <Gift className="w-4 h-4" />{lang === "en" ? "Invite & Earn" : "دعوت کن، اعتبار بگیر"}
           </Link>
-          <a href="/api/jarvis-sso" className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium"
-            style={{ background: "rgba(47,129,247,0.12)", color: "#58a6ff", border: "1px solid rgba(47,129,247,0.25)" }}>
-            <Sparkles className="w-4 h-4" />{lang === "en" ? "Open JARVIS" : "باز کردن JARVIS"}
-          </a>
+          {/* JARVIS link temporarily disabled on the site per request — SSO route itself untouched. */}
           <div className="flex items-center justify-center gap-1.5">
             <LanguageSwitcher iconOnly />
             <ThemeSwitcher iconOnly />

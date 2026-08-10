@@ -83,7 +83,7 @@ export function auditContentPost(post: AuditablePost): SeoAuditResult {
     });
   }
 
-  const primaryKeyword = (post.keywords || "").split(",")[0]?.trim().toLowerCase();
+  const primaryKeyword = (post.keywords || "").split(/[,،]/)[0]?.trim().toLowerCase();
   if (primaryKeyword) {
     const inTitle = (post.title || "").toLowerCase().includes(primaryKeyword);
     if (!inTitle) {

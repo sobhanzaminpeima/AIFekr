@@ -48,7 +48,8 @@ export async function GET(req: NextRequest) {
       topPages: topPages.rows.map((r) => ({ page: r.keys[0], clicks: r.clicks, impressions: r.impressions, ctr: r.ctr * 100, position: r.position })),
     });
   } catch (e) {
+    console.error("GSC data fetch failed:", e);
     const msg = e instanceof Error ? e.message : "خطا";
-    return NextResponse.json({ error: msg }, { status: 502 });
+    return NextResponse.json({ error: msg }, { status: 400 });
   }
 }

@@ -14,6 +14,7 @@ function RegisterForm() {
   const isFa = lang !== "en";
   const packSlug = params.get("pack") || "";
   const refCode = params.get("ref") || "";
+  const planCode = params.get("plan") || "";
 
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", confirmPassword: "" });
   const [showPass, setShowPass] = useState(false);
@@ -48,7 +49,7 @@ function RegisterForm() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       toast.success(t.auth.register.success);
-      window.location.href = "/chat";
+      window.location.href = planCode ? `/plans?plan=${planCode}&autobuy=1` : "/chat";
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t.auth.register.errGeneric);
     } finally {

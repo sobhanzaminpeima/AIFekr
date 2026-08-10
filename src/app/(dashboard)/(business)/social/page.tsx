@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Script from "next/script";
-import { Share2, Copy, Check, Calendar, Camera, Zap, Loader2, Image as ImageIcon, Upload, Wand2, X, TrendingUp, Users, Heart, MessageCircle, Sparkles, ExternalLink, PenLine, ChevronLeft, Clock, Link2 } from "lucide-react";
+import { Share2, Copy, Check, Calendar, Camera, Zap, Loader2, Image as ImageIcon, Upload, Wand2, X, TrendingUp, Users, Heart, MessageCircle, Sparkles, ExternalLink, PenLine, ChevronLeft, Clock, Link2, Printer, Megaphone, Target, CheckCircle2, BarChart3, Activity } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
 import { useTranslation } from "@/lib/i18n";
@@ -22,6 +22,48 @@ declare global {
 }
 
 const PLATFORMS = ["LinkedIn", "Twitter/X", "Facebook", "TikTok"];
+
+// Maps the exact "## " section titles the report-generation prompt is instructed
+// to use (both languages) to an icon — falls back to Activity for anything else
+// so a prompt-wording drift never leaves a section iconless.
+const REPORT_SECTION_ICONS: Record<string, typeof TrendingUp> = {
+  "روند رشد فالوور": TrendingUp,
+  "Follower Growth Trend": TrendingUp,
+  "عملکرد محتوا": BarChart3,
+  "Content Performance": BarChart3,
+  "بررسی کلی سلامت پیج": Activity,
+  "Page Health Review": Activity,
+  "پیشنهاد استراتژی محتوا": PenLine,
+  "Content Strategy Recommendations": PenLine,
+  "پیشنهاد تبلیغات هوشمند": Megaphone,
+  "Smart Advertising Ideas": Megaphone,
+  "برنامه عملی ۳۰ روزه": Target,
+  "30-Day Action Plan": Target,
+};
+
+function splitReportSections(markdown: string): { title: string; body: string }[] {
+  const lines = markdown.split("\n");
+  const sections: { title: string; body: string }[] = [];
+  let current: { title: string; body: string[] } | null = null;
+
+  for (const line of lines) {
+    const heading = line.match(/^##\s+(.+)$/);
+    if (heading) {
+      if (current) sections.push({ title: current.title, body: current.body.join("\n").trim() });
+      current = { title: heading[1].trim(), body: [] };
+    } else if (current) {
+      current.body.push(line);
+    } else {
+      // Content before the first "## " heading — keep it as an untitled lead-in section.
+      if (line.trim()) {
+        if (sections.length === 0 || sections[sections.length - 1].title !== "") sections.push({ title: "", body: "" });
+        sections[sections.length - 1].body += (sections[sections.length - 1].body ? "\n" : "") + line;
+      }
+    }
+  }
+  if (current) sections.push({ title: current.title, body: current.body.join("\n").trim() });
+  return sections.filter((s) => s.body.trim().length > 0);
+}
 
 export default function SocialPage() {
   const { t, lang } = useTranslation();
@@ -180,6 +222,7 @@ export default function SocialPage() {
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [aiReport, setAiReport] = useState("");
   const [aiReportLoading, setAiReportLoading] = useState(false);
+  const [aiReportDate, setAiReportDate] = useState<Date | null>(null);
 
   const loadAnalytics = useCallback(async () => {
     setAnalyticsLoading(true);
@@ -202,11 +245,98 @@ export default function SocialPage() {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
       setAiReport(d.report || "");
+      setAiReportDate(new Date());
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t.common.error);
     } finally {
       setAiReportLoading(false);
     }
+  }
+
+  // ── Comment → DM auto-reply campaigns ────────────────────────────────────
+  type CampaignLink = { id: string; label: string; url: string; clicks: number };
+  type CampaignLog = { id: string; commenterUsername: string | null; status: string; error: string | null; createdAt: string };
+  const [campaigns, setCampaigns] = useState<{ id: string; keyword: string; dmMessage: string; publicReplyMessage: string | null; links: string | null; postId: string | null; isActive: boolean; triggerCount: number }[]>([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(false);
+  const [newKeyword, setNewKeyword] = useState("");
+  const [newDmMessage, setNewDmMessage] = useState("");
+  const [newPublicReply, setNewPublicReply] = useState("");
+  const [newPostId, setNewPostId] = useState(""); // "" = applies to every post
+  const [newLink1Label, setNewLink1Label] = useState("");
+  const [newLink1Url, setNewLink1Url] = useState("");
+  const [newLink2Label, setNewLink2Label] = useState("");
+  const [newLink2Url, setNewLink2Url] = useState("");
+  const [savingCampaign, setSavingCampaign] = useState(false);
+  const [openLogsFor, setOpenLogsFor] = useState<string | null>(null);
+  const [campaignLogs, setCampaignLogs] = useState<CampaignLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+
+  function parseCampaignLinks(links: string | null): CampaignLink[] {
+    if (!links) return [];
+    try { return JSON.parse(links); } catch { return []; }
+  }
+
+  async function toggleLogs(campaignId: string) {
+    if (openLogsFor === campaignId) { setOpenLogsFor(null); return; }
+    setOpenLogsFor(campaignId);
+    setLogsLoading(true);
+    try {
+      const r = await fetch(`/api/social/instagram/campaigns/${campaignId}/logs`, { credentials: "include" });
+      const d = await r.json();
+      if (r.ok) setCampaignLogs(d.logs || []);
+    } catch {} finally { setLogsLoading(false); }
+  }
+
+  const loadCampaigns = useCallback(async () => {
+    setCampaignsLoading(true);
+    try {
+      const r = await fetch("/api/social/instagram/campaigns", { credentials: "include" });
+      const d = await r.json();
+      if (r.ok) setCampaigns(d.campaigns || []);
+    } catch {}
+    finally { setCampaignsLoading(false); }
+  }, []);
+
+  async function createCampaign() {
+    if (!newKeyword.trim() || !newDmMessage.trim()) return toast.error(isFa ? "کلمه کلیدی و پیام دایرکت الزامی است" : "Keyword and DM message are required");
+    setSavingCampaign(true);
+    try {
+      const links = [
+        { label: newLink1Label, url: newLink1Url },
+        { label: newLink2Label, url: newLink2Url },
+      ].filter((l) => l.label.trim() && l.url.trim());
+      const r = await fetch("/api/social/instagram/campaigns", {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ keyword: newKeyword, dmMessage: newDmMessage, publicReplyMessage: newPublicReply || undefined, links: links.length > 0 ? links : undefined, postId: newPostId || undefined }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      toast.success(isFa ? "کمپین ساخته شد" : "Campaign created");
+      setNewKeyword(""); setNewDmMessage(""); setNewPublicReply(""); setNewPostId("");
+      setNewLink1Label(""); setNewLink1Url(""); setNewLink2Label(""); setNewLink2Url("");
+      loadCampaigns();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t.common.error);
+    } finally {
+      setSavingCampaign(false);
+    }
+  }
+
+  async function toggleCampaign(id: string, isActive: boolean) {
+    setCampaigns((cs) => cs.map((c) => (c.id === id ? { ...c, isActive } : c)));
+    try {
+      await fetch(`/api/social/instagram/campaigns/${id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ isActive }),
+      });
+    } catch { loadCampaigns(); }
+  }
+
+  async function deleteCampaign(id: string) {
+    try {
+      await fetch(`/api/social/instagram/campaigns/${id}`, { method: "DELETE", credentials: "include" });
+      setCampaigns((cs) => cs.filter((c) => c.id !== id));
+    } catch { toast.error(t.common.error); }
   }
 
   const loadIgStatus = useCallback(async () => {
@@ -231,7 +361,7 @@ export default function SocialPage() {
   }, [loadIgStatus]);
 
   useEffect(() => {
-    if (igConnected) loadAnalytics();
+    if (igConnected) { loadAnalytics(); loadCampaigns(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [igConnected]);
 
@@ -327,8 +457,15 @@ export default function SocialPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ businessName: form.brandName, businessType: form.platform, topic: form.topic, language: lang }),
       });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error);
+      let d: { caption?: string; hashtags?: string[]; bestTime?: string; error?: string };
+      try {
+        d = await r.json();
+      } catch {
+        // A gateway/proxy timeout returns an HTML error page instead of JSON — surface
+        // a plain-language message instead of a raw "Unexpected token '<'" parse error.
+        throw new Error(isFa ? "پاسخ سرور خیلی طول کشید. دوباره امتحان کن." : "The server took too long to respond. Please try again.");
+      }
+      if (!r.ok) throw new Error(d.error || t.common.error);
       setIgCaption(d.caption || "");
       setIgHashtags(d.hashtags || []);
       setIgBestTime(d.bestTime || "");
@@ -1126,8 +1263,84 @@ export default function SocialPage() {
               </button>
 
               {aiReport && (
-                <div className="mt-4 rounded-xl p-5 prose prose-sm max-w-none" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>
-                  <ReactMarkdown>{aiReport}</ReactMarkdown>
+                <div id="ig-ai-report" className="mt-4 rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+                  <style>{`
+                    @media print {
+                      body * { visibility: hidden; }
+                      #ig-ai-report, #ig-ai-report * { visibility: visible; }
+                      #ig-ai-report { position: absolute; left: 0; top: 0; width: 100%; }
+                    }
+                  `}</style>
+                  {/* Branded report header */}
+                  <div className="px-6 py-5 flex items-center justify-between flex-wrap gap-3" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)" }}>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Sparkles className="w-4 h-4 text-white" />
+                        <span className="text-white/80 text-[11px] font-medium tracking-wide">AiFekr — {isFa ? "گزارش هوشمند رشد اینستاگرام" : "AI Instagram Growth Report"}</span>
+                      </div>
+                      <h3 className="text-white font-bold text-lg">
+                        @{analytics?.igUsername || igUsername || ""}
+                      </h3>
+                      {aiReportDate && (
+                        <p className="text-white/70 text-xs mt-0.5">
+                          {isFa ? "تاریخ تولید گزارش: " : "Generated: "}
+                          {isFa ? toJalali(aiReportDate.toISOString()) : aiReportDate.toLocaleDateString("en-US")}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => window.print()}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white flex-shrink-0"
+                      style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.3)" }}
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      {isFa ? "چاپ / PDF" : "Print / PDF"}
+                    </button>
+                  </div>
+
+                  {/* KPI strip pulled from real account data */}
+                  <div className="grid grid-cols-3 divide-x divide-x-reverse" style={{ background: "var(--surface-1)", borderBottom: "1px solid var(--border)" }}>
+                    <div className="px-4 py-3 text-center">
+                      <p className="text-[11px] mb-0.5" style={{ color: "var(--text-muted)" }}>{isFa ? "فالوور" : "Followers"}</p>
+                      <p className="text-base font-bold" style={{ color: "var(--text-primary)" }}>{analytics?.current?.followersCount ?? "—"}</p>
+                    </div>
+                    <div className="px-4 py-3 text-center">
+                      <p className="text-[11px] mb-0.5" style={{ color: "var(--text-muted)" }}>{isFa ? "تعداد پست" : "Posts"}</p>
+                      <p className="text-base font-bold" style={{ color: "var(--text-primary)" }}>{analytics?.current?.mediaCount ?? "—"}</p>
+                    </div>
+                    <div className="px-4 py-3 text-center">
+                      <p className="text-[11px] mb-0.5" style={{ color: "var(--text-muted)" }}>{isFa ? "روند فالوور" : "Trend"}</p>
+                      <p className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
+                        {(analytics?.trend?.length ?? 0) >= 2
+                          ? (() => { const d = analytics!.trend[analytics!.trend.length - 1].followersCount - analytics!.trend[0].followersCount; return `${d >= 0 ? "+" : ""}${d}`; })()
+                          : "—"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Sectioned body */}
+                  <div className="p-5 space-y-4" style={{ background: "var(--surface-1)" }}>
+                    {splitReportSections(aiReport).map((section, i) => {
+                      const Icon = REPORT_SECTION_ICONS[section.title] || CheckCircle2;
+                      return (
+                        <div key={i} className="rounded-xl p-4" style={{ background: "var(--surface-2)" }}>
+                          {section.title && (
+                            <div className="flex items-center gap-2 mb-2.5 pb-2.5" style={{ borderBottom: "1px solid var(--border)" }}>
+                              <Icon className="w-4 h-4 flex-shrink-0" style={{ color: "var(--primary)" }} />
+                              <h4 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{section.title}</h4>
+                            </div>
+                          )}
+                          <div className="prose prose-sm max-w-none" style={{ color: "var(--text-secondary)" }}>
+                            <ReactMarkdown>{section.body}</ReactMarkdown>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="px-5 py-3 text-center text-[11px]" style={{ background: "var(--surface-2)", color: "var(--text-muted)", borderTop: "1px solid var(--border)" }}>
+                    {isFa ? "این گزارش توسط هوش مصنوعی AiFekr تولید شده است." : "This report was generated by AiFekr AI."}
+                  </div>
                 </div>
               )}
             </>
@@ -1135,6 +1348,188 @@ export default function SocialPage() {
         </div>
 
       </div>
+
+      {/* Comment → DM auto-reply campaigns */}
+      {igConnected && (
+        <div className="rounded-2xl p-6 mt-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center gap-2 mb-1">
+            <MessageCircle className="w-5 h-5" style={{ color: "#22c55e" }} />
+            <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>
+              {isFa ? "پاسخ خودکار کامنت به دایرکت" : "Comment → DM Auto-Reply"}
+            </h2>
+          </div>
+          <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+            {isFa
+              ? "وقتی کسی زیر پستت یک کلمه کلیدی رو کامنت کنه، سیستم خودکار براش یک دایرکت خصوصی می‌فرسته — مثل ابزارهایی مثل ManyChat."
+              : "When someone comments a keyword under your post, the system automatically sends them a private DM — like ManyChat-style tools."}
+          </p>
+
+          {!canAuto ? (
+            <p className="text-xs px-3 py-2 rounded-lg" style={{ background: "rgba(234,88,12,0.1)", color: "var(--primary)" }}>
+              {isFa ? "این قابلیت فقط برای پلن‌های پرو و تیم فعال است." : "This feature is only available on Pro and Team plans."}
+            </p>
+          ) : (
+            <>
+              {/* New campaign form */}
+              <div className="rounded-xl p-4 mb-4 space-y-3" style={{ background: "var(--surface-2)" }}>
+                <input
+                  value={newKeyword} onChange={(e) => setNewKeyword(e.target.value)}
+                  placeholder={isFa ? "کلمه‌های کلیدی، با کاما جدا کن (مثلاً: قیمت, هزینه)" : "Keywords, comma-separated (e.g. price, cost)"}
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                  style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+                />
+                <div>
+                  <label className="text-[11px] block mb-1" style={{ color: "var(--text-muted)" }}>
+                    {isFa ? "این کمپین فقط روی کدوم پست فعال باشه؟" : "Which post should this campaign apply to?"}
+                  </label>
+                  <select
+                    value={newPostId} onChange={(e) => setNewPostId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                    style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+                  >
+                    <option value="">{isFa ? "همه پست‌ها" : "All posts"}</option>
+                    {(analytics?.recentMedia || []).map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {(m.caption || "").slice(0, 60) || m.id} — {new Date(m.timestamp).toLocaleDateString(isFa ? "fa-IR" : "en-US")}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <textarea
+                    value={newDmMessage} onChange={(e) => setNewDmMessage(e.target.value)}
+                    placeholder={isFa ? "متن پیام خصوصی... مثلاً: سلام {username}، ممنون از کامنتت!" : "The private DM message... e.g. Hey {username}, thanks for commenting!"}
+                    rows={2}
+                    className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none"
+                    style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+                  />
+                  <p className="text-[11px] mt-1" style={{ color: "var(--text-muted)" }}>
+                    {isFa ? "می‌تونی از {username} برای نوشتن نام کاربر در پیام استفاده کنی." : "Use {username} to insert the commenter's handle in the message."}
+                  </p>
+                </div>
+                <input
+                  value={newPublicReply} onChange={(e) => setNewPublicReply(e.target.value)}
+                  placeholder={isFa ? "پاسخ عمومی زیر کامنت (اختیاری، مثلاً: چک کن دایرکتت رو 📩)" : "Public reply under the comment (optional, e.g. Check your DMs 📩)"}
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                  style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+                />
+                <div>
+                  <p className="text-[11px] mb-1.5" style={{ color: "var(--text-muted)" }}>
+                    {isFa ? "تا ۲ لینک قابل کلیک، به همراه آمار کلیک، به انتهای پیام اضافه می‌شه (اختیاری)" : "Up to 2 trackable links appended to the message (optional)"}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    <input value={newLink1Label} onChange={(e) => setNewLink1Label(e.target.value)} placeholder={isFa ? "برچسب لینک ۱" : "Link 1 label"} className="px-3 py-2 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                    <input value={newLink1Url} onChange={(e) => setNewLink1Url(e.target.value)} placeholder="https://..." dir="ltr" className="px-3 py-2 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input value={newLink2Label} onChange={(e) => setNewLink2Label(e.target.value)} placeholder={isFa ? "برچسب لینک ۲" : "Link 2 label"} className="px-3 py-2 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                    <input value={newLink2Url} onChange={(e) => setNewLink2Url(e.target.value)} placeholder="https://..." dir="ltr" className="px-3 py-2 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                  </div>
+                </div>
+                <button
+                  onClick={createCampaign} disabled={savingCampaign}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
+                  style={{ background: "#22c55e" }}
+                >
+                  {savingCampaign ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                  {isFa ? "ساخت کمپین" : "Create Campaign"}
+                </button>
+              </div>
+
+              {/* Existing campaigns */}
+              {campaignsLoading ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--text-muted)" }} />
+                </div>
+              ) : campaigns.length === 0 ? (
+                <p className="text-xs px-3 py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
+                  {isFa ? "هنوز کمپینی نساختی." : "No campaigns yet."}
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {campaigns.map((c) => {
+                    const links = parseCampaignLinks(c.links);
+                    return (
+                      <div key={c.id} className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              {c.keyword.split(/[,،]/).map((k) => k.trim()).filter(Boolean).map((k) => (
+                                <span key={k} className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>
+                                  {k}
+                                </span>
+                              ))}
+                              <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                                {isFa ? `${c.triggerCount} بار ارسال شده` : `triggered ${c.triggerCount}x`}
+                              </span>
+                              {c.postId && (
+                                <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: "rgba(59,130,246,0.15)", color: "#3b82f6" }}>
+                                  🎯 {isFa ? "پست خاص" : "specific post"}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs truncate" style={{ color: "var(--text-secondary)" }}>{c.dmMessage}</p>
+                            {links.length > 0 && (
+                              <div className="flex items-center gap-3 mt-1">
+                                {links.map((l) => (
+                                  <span key={l.id} className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                                    🔗 {l.label}: {l.clicks} {isFa ? "کلیک" : "clicks"}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <button onClick={() => toggleLogs(c.id)} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-1)", color: "var(--text-secondary)" }}>
+                              {isFa ? "لاگ‌ها" : "Logs"}
+                            </button>
+                            <button
+                              onClick={() => toggleCampaign(c.id, !c.isActive)}
+                              className="relative w-10 h-5 rounded-full transition-all"
+                              style={{ background: c.isActive ? "#22c55e" : "var(--surface-1)" }}
+                            >
+                              <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ right: c.isActive ? "0.125rem" : "calc(100% - 1.125rem)" }} />
+                            </button>
+                            <button onClick={() => deleteCampaign(c.id)} className="p-1.5 rounded-lg" style={{ color: "var(--text-muted)" }}>
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {openLogsFor === c.id && (
+                          <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
+                            {logsLoading ? (
+                              <div className="flex items-center justify-center py-3">
+                                <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--text-muted)" }} />
+                              </div>
+                            ) : campaignLogs.length === 0 ? (
+                              <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز رویدادی ثبت نشده." : "No events logged yet."}</p>
+                            ) : (
+                              <div className="space-y-1 max-h-40 overflow-y-auto">
+                                {campaignLogs.map((log) => (
+                                  <div key={log.id} className="flex items-center justify-between text-[11px]">
+                                    <span style={{ color: "var(--text-secondary)" }}>@{log.commenterUsername || "?"}</span>
+                                    <span style={{
+                                      color: log.status === "sent" ? "#22c55e" : log.status === "skipped" ? "#eab308" : "#ef4444",
+                                    }}>
+                                      {log.status === "sent" ? (isFa ? "ارسال شد" : "sent") : log.status === "skipped" ? (isFa ? "رد شد (محدودیت نرخ)" : "skipped (rate limit)") : (isFa ? "خطا" : "failed")}
+                                    </span>
+                                    <span style={{ color: "var(--text-muted)" }}>{new Date(log.createdAt).toLocaleString(isFa ? "fa-IR" : "en-US")}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* Gallery picker modal */}
       {showGalleryPicker && (

@@ -16,8 +16,11 @@ export async function GET(req: NextRequest) {
     const sites = await listGscSites(accessToken);
     return NextResponse.json({ sites });
   } catch (e) {
+    // 502/504 get intercepted by nginx's own error_page and replaced with a static
+    // HTML page, hiding this message from the client — use a status nginx doesn't rewrite.
+    console.error("GSC sites fetch failed:", e);
     const msg = e instanceof Error ? e.message : "خطا";
-    return NextResponse.json({ error: msg }, { status: 502 });
+    return NextResponse.json({ error: msg }, { status: 400 });
   }
 }
 

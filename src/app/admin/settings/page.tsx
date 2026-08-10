@@ -47,6 +47,7 @@ const SECTIONS = [
       { key: "usd_to_gbp", label: "نرخ تبدیل: ۱ دلار = چند پوند", type: "number", default: "0.79" },
       { key: "payment_gateway", label: "درگاه پرداخت", type: "select", default: "zarinpal", options: ["zarinpal", "stripe", "paypal"] },
       { key: "zarinpal_merchant", label: "کد Zarinpal Merchant", type: "text", default: "" },
+      { key: "zarinpal_sandbox", label: "حالت آزمایشی زرین‌پال (Sandbox)", type: "toggle", default: "false" },
       { key: "stripe_key", label: "Stripe Public Key", type: "text", default: "" },
     ],
   },

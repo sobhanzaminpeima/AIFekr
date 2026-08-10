@@ -4,6 +4,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { auditContentPost } from "@/lib/agents/seoAudit";
 import { routedStreamChat } from "@/lib/ai/router";
+import { looksLikeInjectionAttempt } from "@/lib/ai/promptSafety";
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
@@ -51,6 +52,18 @@ ${post.content}`;
     return NextResponse.json({ error: "پاسخ AI قابل تفسیر نبود" }, { status: 502 });
   }
   if (!parsed.content) return NextResponse.json({ error: "پاسخ AI قابل تفسیر نبود" }, { status: 502 });
+
+  // Unlike the 8-agent pipeline (seo/agent-pipeline/run), this endpoint writes
+  // the LLM's rewritten content straight back to the existing post with no
+  // review step at all. Screen the rewritten content/meta for injection
+  // markers before persisting so a manipulated source article (e.g. one that
+  // went through earlier web-search-fed generation) can't silently rewrite
+  // itself into something malicious on every auto-fix pass.
+  const suspicious = [parsed.content, parsed.metaTitle, parsed.metaDescription]
+    .some((t) => t && looksLikeInjectionAttempt(t));
+  if (suspicious) {
+    return NextResponse.json({ error: "خروجی AI برای بازبینی نگه داشته شد — الگویی مشابه تلاش برای دستکاری خودکار شناسایی شد. لطفاً به‌صورت دستی بررسی کنید." }, { status: 409 });
+  }
 
   const updated = await prisma.contentPost.update({
     where: { id: postId },

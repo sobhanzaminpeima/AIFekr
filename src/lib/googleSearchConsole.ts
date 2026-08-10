@@ -40,6 +40,15 @@ export async function exchangeGscCode(code: string, redirectUri: string): Promis
   return { accessToken: data.access_token, refreshToken: data.refresh_token || null };
 }
 
+async function parseJsonOrThrow(res: Response, label: string): Promise<any> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`${label} ${res.status}: non-JSON response (${text.slice(0, 200)})`);
+  }
+}
+
 export async function getGscAccessToken(refreshToken: string): Promise<string> {
   const form = new URLSearchParams({
     refresh_token: refreshToken,
@@ -48,7 +57,7 @@ export async function getGscAccessToken(refreshToken: string): Promise<string> {
     grant_type: "refresh_token",
   });
   const res = await fetch(TOKEN_URL, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form });
-  const data = await res.json();
+  const data = await parseJsonOrThrow(res, "token refresh");
   if (!res.ok) throw new Error(data.error_description || data.error || "خطا در تازه‌سازی توکن گوگل");
   return data.access_token;
 }
@@ -60,7 +69,7 @@ export interface GscSite {
 
 export async function listGscSites(accessToken: string): Promise<GscSite[]> {
   const res = await fetch(`${SC_BASE}/sites`, { headers: { Authorization: `Bearer ${accessToken}` } });
-  const data = await res.json();
+  const data = await parseJsonOrThrow(res, "list sites");
   if (!res.ok) throw new Error(data.error?.message || "خطا در دریافت لیست سایت‌ها");
   return (data.siteEntry || []).map((s: { siteUrl: string; permissionLevel: string }) => ({ siteUrl: s.siteUrl, permissionLevel: s.permissionLevel }));
 }
@@ -90,7 +99,7 @@ export async function querySearchAnalytics(
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({ startDate, endDate, dimensions, rowLimit }),
   });
-  const data = await res.json();
+  const data = await parseJsonOrThrow(res, "search analytics query");
   if (!res.ok) throw new Error(data.error?.message || "خطا در دریافت داده‌های Search Console");
   return { rows: data.rows || [] };
 }

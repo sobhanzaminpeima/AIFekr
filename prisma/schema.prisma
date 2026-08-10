@@ -845,6 +845,52 @@ model InstagramFollowerSnapshot {
   @@index([userId])
 }
 
+/// A keyword→DM auto-reply rule. When someone comments `keyword` on `postId`
+/// (or any post, if null), the webhook handler sends them a private reply
+/// with `dmMessage` via the Instagram Send API — the "comment to DM" growth
+/// tactic (ManyChat-style), built natively instead of standing up the
+/// separate OpenReply-fa app (own Postgres/Redis) since OAuth + tokens for
+/// this account are already handled by InstagramConnection above.
+model InstagramCommentCampaign {
+  id                  String   @id @default(cuid())
+  userId              String
+  /// Comma/Persian-comma separated — any one matching the comment text triggers the campaign.
+  keyword             String
+  postId              String?
+  /// Supports the {username} token, replaced with the commenter's handle at send time.
+  dmMessage           String
+  publicReplyMessage  String?
+  /// JSON array of up to 2 {id,label,url,clicks} — sent as tracked short links appended to dmMessage.
+  links               String?
+  isActive            Boolean  @default(true)
+  triggerCount        Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([userId])
+}
+
+/// One row per comment the webhook actually processed — the unique
+/// `commentId` is what makes handling idempotent against Meta's webhook
+/// retries (a comment can only ever trigger one DM, no matter how many
+/// times the same event is redelivered).
+model InstagramCommentReplyLog {
+  id                String   @id @default(cuid())
+  campaignId        String
+  /// Denormalized from the campaign's owner — lets the per-hour rate-limit
+  /// count be a single indexed query instead of a join through the campaign.
+  userId            String?
+  commentId         String   @unique
+  commenterId        String
+  commenterUsername String?
+  status             String
+  error              String?
+  createdAt          DateTime @default(now())
+
+  @@index([campaignId])
+  @@index([userId, createdAt])
+}
+
 /// A generated Instagram post queued to go out. mode="auto" actually calls
 /// the Instagram Graph API at scheduledFor (gated to PRO/TEAM plans —
 /// see src/lib/utils/planGates.ts); mode="manual" just sits here so the

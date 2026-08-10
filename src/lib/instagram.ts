@@ -147,6 +147,22 @@ export async function getInstagramUsername(igUserId: string, accessToken: string
   return data.username;
 }
 
+/**
+ * Setting up the app-level webhook in the Meta dashboard is NOT enough for
+ * "Instagram API with Instagram Login" — each individual connected account
+ * must also be subscribed via this per-user Graph API call, or Meta simply
+ * never sends it any webhook events (comments, messages, etc.), even though
+ * the OAuth connection itself succeeds. Call this right after every
+ * successful connect.
+ */
+export async function subscribeToCommentWebhooks(igUserId: string, accessToken: string): Promise<void> {
+  const res = await fetch(`${IG_GRAPH_BASE}/${igUserId}/subscribed_apps?subscribed_fields=comments&access_token=${accessToken}`, {
+    method: "POST",
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || "خطا در فعال‌سازی وبهوک کامنت");
+}
+
 /** Two-step publish: create a media container, then publish it. Images must be publicly reachable URLs. */
 export async function publishToInstagram(igUserId: string, accessToken: string, imageUrl: string, caption: string): Promise<string> {
   const containerRes = await fetch(`${IG_GRAPH_BASE}/${igUserId}/media`, {
@@ -191,6 +207,28 @@ export interface IgMediaItem {
   timestamp: string;
   likeCount: number;
   commentsCount: number;
+}
+
+/** Sends a private DM in reply to a specific comment (Instagram's "private_replies" endpoint) — the mechanism behind comment→DM growth campaigns. Only works within a short window after the comment is posted, per Meta's own restriction. */
+export async function sendPrivateReply(commentId: string, accessToken: string, message: string): Promise<void> {
+  const res = await fetch(`${IG_GRAPH_BASE}/${commentId}/private_replies`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, access_token: accessToken }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || "خطا در ارسال پیام خصوصی");
+}
+
+/** Optional public reply left under the comment itself (e.g. "Check your DMs!") — separate call from the private reply. */
+export async function replyToComment(commentId: string, accessToken: string, message: string): Promise<void> {
+  const res = await fetch(`${IG_GRAPH_BASE}/${commentId}/replies`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, access_token: accessToken }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || "خطا در پاسخ به کامنت");
 }
 
 /** Recent posts with engagement — used for the "content trend" view. */

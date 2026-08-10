@@ -104,12 +104,34 @@ FORCE_PROVIDER_FAILURE=claude npx ts-node scripts/test-router-fallback.ts
 | Tool | Description |
 |------|-------------|
 | 🩺 Business Doctor | SWOT analysis, KPI recommendations, action plans |
-| 👔 CEO Advisor | Strategic decision-making with AI |
-| 🔍 SEO Workspace | Keyword research, content optimization, meta tag generator |
-| 📱 Social Media Agent | Platform-optimized post generation |
+| 👔 CEO Advisor / Orchestrator | Strategic decision-making, multi-agent task orchestration |
+| 🔍 SEO Workspace | Rule-based URL audit, agent pipeline with AI auto-fix, Google Search Console integration (OAuth, real analytics dashboard, structured data audit) |
+| 📱 Social Media Agent | Platform-optimized post generation, Instagram automation suite (see below) |
+| 📊 CRM | Full pipeline CRM — contacts, deals, products, invoices, contracts, projects, team roles, lead-source reporting, calendar & analytics views |
 | 🌐 Website Designer | Generate a complete website with downloadable HTML |
 | 🏭 Industry Packs | Specialized AI agent teams for 8 industry verticals |
 | 🎯 AI Meeting Room | Simulate a strategic meeting with multiple AI agents |
+
+### 📸 Instagram Automation Suite
+
+A full growth toolkit built on Meta's **Instagram API with Instagram Login** (`src/lib/instagram.ts`, `src/app/api/social/instagram/*`, `src/app/api/webhooks/instagram/route.ts`):
+
+- **4-step post wizard** — AI-generated, recreated from a sample post, manually written, or a 7-day content calendar, with a Jalali (Persian) date/time picker for scheduling
+- **Page analytics & AI growth report** — follower/media trend charts (daily snapshot cron), recent-post engagement, and a branded AI-generated report (follower trend, content performance, page health, content strategy, ad ideas, 30-day action plan) with print/PDF export
+- **Comment → DM auto-reply campaigns** (ManyChat-style, built natively — no separate Postgres/Redis stack):
+  - Multi-keyword matching per campaign (comma-separated)
+  - Optional **per-post targeting** — scope a campaign to one specific post/reel, or leave it open to all posts
+  - `{username}` personalization token in the DM and public reply
+  - Up to 2 **tracked short links** per campaign with click-count (CTR) analytics
+  - Self-comment filtering (never replies to the account's own comments)
+  - Per-account rate limiting (Meta's documented 750 private-replies/hour cap)
+  - Idempotent webhook handling (dedupes Meta's retry deliveries) with a full sent/skipped/failed log per campaign
+  - Auto-subscribes each newly connected account to comment webhooks via the Graph API (`subscribed_apps`) — the step most DIY integrations miss
+
+### 💳 Payments
+
+- **Zarinpal** (Iranian payment gateway) integration — merchant ID and sandbox mode are editable live from the admin panel (DB-backed, env-var fallback), with a dev-mode simulator when no merchant ID is configured
+- Checkout is wired in from three entry points: the landing page pricing section, an always-visible "Add Credits" button in the chat header, and the plans page — new users are routed straight into checkout right after registration
 
 ### 🌐 Bilingual (FA / EN)
 - Full **Persian (RTL)** and **English (LTR)** support
@@ -233,6 +255,20 @@ SMTP_HOST="smtp.gmail.com"
 SMTP_PORT="587"
 SMTP_USER="your@email.com"
 SMTP_PASS="your-app-password"
+
+# ── Instagram Automation — Optional ────────────────────────────────────────
+# From the Meta app dashboard → "Instagram API" → "API setup with Instagram
+# login". App Review is only required to open comment→DM campaigns to users
+# who aren't added as Instagram Testers on the app.
+INSTAGRAM_APP_ID="..."
+INSTAGRAM_APP_SECRET="..."
+INSTAGRAM_WEBHOOK_VERIFY_TOKEN="..."  # set in the same Meta webhook config screen
+
+# ── Zarinpal Payments — Optional ───────────────────────────────────────────
+# Editable live from /admin/settings once the app is running — these are
+# just the initial/fallback values.
+ZARINPAL_MERCHANT_ID="..."
+ZARINPAL_SANDBOX="false"
 ```
 
 ---

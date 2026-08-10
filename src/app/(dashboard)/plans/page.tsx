@@ -147,6 +147,19 @@ export default function PlansPage() {
       .catch(() => toast.error(isFa ? "خطا در بارگذاری پلن‌ها" : "Failed to load plans"));
   }, []);
 
+  // Coming from registration with a pre-selected plan (landing page → register → here) —
+  // trigger checkout automatically once packages are loaded, once only.
+  const autoBuyTriggered = useRef(false);
+  useEffect(() => {
+    const autobuy = searchParams.get("autobuy");
+    const planParam = searchParams.get("plan");
+    if (autobuy === "1" && planParam && packages.length > 0 && !autoBuyTriggered.current) {
+      autoBuyTriggered.current = true;
+      handleBuy(planParam);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packages, searchParams]);
+
   const effectiveMarket = market ?? (isFa ? "IR" : "INTL");
   const isIr     = effectiveMarket === "IR";
   const planCodes = isIr ? IR_PLAN_CODES : USD_PLAN_CODES;

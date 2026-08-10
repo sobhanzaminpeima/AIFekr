@@ -20,6 +20,18 @@ export async function GET(req: NextRequest) {
 
   const results = [];
   for (const post of due) {
+    // Atomically claim this post before doing any work. Overlapping cron
+    // invocations (e.g. a run that takes longer than the cron interval)
+    // would otherwise both see the same PENDING row and both call
+    // publishToInstagram, double-posting to the user's account. The
+    // conditional updateMany only succeeds for whichever invocation gets
+    // there first; a claimed count of 0 means another run already took it.
+    const claim = await prisma.scheduledPost.updateMany({
+      where: { id: post.id, status: "PENDING" },
+      data: { status: "PROCESSING" },
+    });
+    if (claim.count === 0) continue;
+
     const conn = post.user.instagramConn;
     if (!conn || !post.imageUrl) {
       await prisma.scheduledPost.update({ where: { id: post.id }, data: { status: "FAILED", errorMessage: "اتصال اینستاگرام یا تصویر موجود نیست" } });

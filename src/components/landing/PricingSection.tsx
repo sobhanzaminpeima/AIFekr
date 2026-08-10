@@ -100,7 +100,7 @@ export default function PricingSection({
               ))}
             </ul>
             <Link
-              href="/register"
+              href={p.planCode === "FREE" ? "/register" : `/register?plan=${p.planCode}`}
               className="block text-center py-3 rounded-xl font-semibold transition-all"
               style={
                 p.isFeatured

@@ -3,6 +3,7 @@ import { routedStreamChat } from "@/lib/ai/router";
 import { buildBusinessSnapshot, BusinessSnapshot } from "@/lib/agents/businessSnapshot";
 import { hasTavily, searchWeb, formatSearchResultsForPrompt } from "@/lib/search/tavily";
 import { embedForStorage } from "@/lib/rag/retrieve";
+import { sanitizeFreeText } from "@/lib/agents/crmAgent";
 
 const SYSTEM = `تو "مدیرعامل" (CEO) یک سیستم چندعامله (multi-agent) هستی که وضعیت واقعی کسب‌وکار کاربر را از چند ابزار مختلف (دکتر کسب‌وکار، تولید محتوا، شبکه‌های اجتماعی، CRM فروش، آمار مصرف و درآمد، پایداری سرویس پلتفرم، و در صورت وجود، جستجوی زندهٔ وب برای بازار و رقبا) دریافت می‌کنی.
 وظیفهٔ تو: بر اساس این داده‌های واقعی و حافظهٔ مشترک تجمیع‌شده از تحلیل‌های قبلی، مشخص کن الان چه چیزی بیشترین نیاز به توجه دارد و چه تصمیماتی باید گرفته شود.
@@ -43,7 +44,7 @@ function buildCeoPrompt(snapshot: BusinessSnapshot, marketResearch: string | nul
 **شبکه‌های اجتماعی:** ${snapshot.social.totalPosts} پست تولیدشده. موضوعات اخیر: ${snapshot.social.latest.map((s) => s.topic).join("، ") || "هیچ‌کدام"}
 
 **فروش (CRM):** ${snapshot.sales.totalContacts} مخاطب ثبت‌شده، ${snapshot.sales.needingFollowUp.length} مورد نیاز به پیگیری: ${snapshot.sales.needingFollowUp.map((l) => `${l.name} (${l.status}${l.company ? `، ${l.company}` : ""})`).join("، ") || "هیچ‌کدام"}
-**Pipeline فروش:** ارزش معاملات باز: ${snapshot.sales.pipelineValueOpen.toLocaleString("fa-IR")} تومان (${snapshot.sales.totalDealsOpen} معامله)، نرخ برد ۹۰ روز اخیر: ${snapshot.sales.winRate !== null ? `${snapshot.sales.winRate}%` : "داده‌ای موجود نیست"}${snapshot.sales.staleDeals.length ? `، معاملات راکد: ${snapshot.sales.staleDeals.map((d) => `${d.title} (${d.daysSinceUpdate} روز)`).join("، ")}` : ""}
+**Pipeline فروش:** ارزش معاملات باز: ${snapshot.sales.pipelineValueOpen.toLocaleString("fa-IR")} تومان (${snapshot.sales.totalDealsOpen} معامله)، نرخ برد ۹۰ روز اخیر: ${snapshot.sales.winRate !== null ? `${snapshot.sales.winRate}%` : "داده‌ای موجود نیست"}${snapshot.sales.staleDeals.length ? `، معاملات راکد: ${snapshot.sales.staleDeals.map((d) => `${sanitizeFreeText(d.title)} (${d.daysSinceUpdate} روز)`).join("، ")}` : ""}
 
 **دیتا و عملکرد (۳۰ روز اخیر):** درآمد موفق: ${snapshot.data.revenueLast30d.toLocaleString("fa-IR")} تومان، تعداد فعالیت ثبت‌شده: ${snapshot.data.usageEventsLast30d}، تعداد قطعی/افت سرویس AI پلتفرم: ${snapshot.data.platformProviderIssuesLast30d}${snapshot.data.providerFailureBreakdown.length ? ` (تفکیک: ${snapshot.data.providerFailureBreakdown.map((p) => `${p.provider}: ${p.failures} بار`).join("، ")})` : ""}
 
