@@ -25,6 +25,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (typeof body.dmMessage === "string" && body.dmMessage.trim()) data.dmMessage = body.dmMessage.trim();
   if (typeof body.publicReplyMessage === "string") data.publicReplyMessage = body.publicReplyMessage.trim() || null;
   if (body.links !== undefined) data.links = normalizeLinks(body.links);
+  if (typeof body.followGateEnabled === "boolean") data.followGateEnabled = body.followGateEnabled;
+  if (typeof body.followGatePrompt === "string") data.followGatePrompt = body.followGatePrompt.trim() || null;
 
   const campaign = await prisma.instagramCommentCampaign.update({ where: { id }, data });
   return NextResponse.json({ campaign });

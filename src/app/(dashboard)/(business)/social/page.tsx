@@ -256,12 +256,14 @@ export default function SocialPage() {
   // ── Comment → DM auto-reply campaigns ────────────────────────────────────
   type CampaignLink = { id: string; label: string; url: string; clicks: number };
   type CampaignLog = { id: string; commenterUsername: string | null; status: string; error: string | null; createdAt: string };
-  const [campaigns, setCampaigns] = useState<{ id: string; keyword: string; dmMessage: string; publicReplyMessage: string | null; links: string | null; postId: string | null; isActive: boolean; triggerCount: number }[]>([]);
+  const [campaigns, setCampaigns] = useState<{ id: string; keyword: string; dmMessage: string; publicReplyMessage: string | null; links: string | null; postId: string | null; followGateEnabled: boolean; followGatePrompt: string | null; isActive: boolean; triggerCount: number }[]>([]);
   const [campaignsLoading, setCampaignsLoading] = useState(false);
   const [newKeyword, setNewKeyword] = useState("");
   const [newDmMessage, setNewDmMessage] = useState("");
   const [newPublicReply, setNewPublicReply] = useState("");
   const [newPostId, setNewPostId] = useState(""); // "" = applies to every post
+  const [newFollowGate, setNewFollowGate] = useState(false);
+  const [newFollowGatePrompt, setNewFollowGatePrompt] = useState("");
   const [newLink1Label, setNewLink1Label] = useState("");
   const [newLink1Url, setNewLink1Url] = useState("");
   const [newLink2Label, setNewLink2Label] = useState("");
@@ -307,13 +309,18 @@ export default function SocialPage() {
       ].filter((l) => l.label.trim() && l.url.trim());
       const r = await fetch("/api/social/instagram/campaigns", {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ keyword: newKeyword, dmMessage: newDmMessage, publicReplyMessage: newPublicReply || undefined, links: links.length > 0 ? links : undefined, postId: newPostId || undefined }),
+        body: JSON.stringify({
+          keyword: newKeyword, dmMessage: newDmMessage, publicReplyMessage: newPublicReply || undefined,
+          links: links.length > 0 ? links : undefined, postId: newPostId || undefined,
+          followGateEnabled: newFollowGate, followGatePrompt: newFollowGate ? (newFollowGatePrompt || undefined) : undefined,
+        }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
       toast.success(isFa ? "کمپین ساخته شد" : "Campaign created");
       setNewKeyword(""); setNewDmMessage(""); setNewPublicReply(""); setNewPostId("");
       setNewLink1Label(""); setNewLink1Url(""); setNewLink2Label(""); setNewLink2Url("");
+      setNewFollowGate(false); setNewFollowGatePrompt("");
       loadCampaigns();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t.common.error);
@@ -1426,6 +1433,25 @@ export default function SocialPage() {
                     <input value={newLink2Url} onChange={(e) => setNewLink2Url(e.target.value)} placeholder="https://..." dir="ltr" className="px-3 py-2 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                   </div>
                 </div>
+                <div className="rounded-lg p-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={newFollowGate} onChange={(e) => setNewFollowGate(e.target.checked)} className="w-4 h-4 accent-green-500" />
+                    <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+                      {isFa ? "Follow Gate — اول فالو کن، بعد اطلاعات بگیر" : "Follow Gate — follow first, then get the info"}
+                    </span>
+                  </label>
+                  <p className="text-[11px] mt-1" style={{ color: "var(--text-muted)" }}>
+                    {isFa ? "قبل از پیام اصلی، یه دکمه «فالو کردم» توی دایرکت می‌فرستیم. متا API نداره که خودکار چک کنیم فالو کرده یا نه، برای همین با کلیک خود کاربر تایید می‌شه." : "Sends an \"I followed\" button before the real message. Meta has no API to auto-check follow status, so this is self-confirmed via the button tap."}
+                  </p>
+                  {newFollowGate && (
+                    <input
+                      value={newFollowGatePrompt} onChange={(e) => setNewFollowGatePrompt(e.target.value)}
+                      placeholder={isFa ? "متن دعوت به فالو (اختیاری، پیش‌فرض دارد)" : "Follow-prompt text (optional, has a default)"}
+                      className="w-full mt-2 px-3 py-2 rounded-lg text-xs outline-none"
+                      style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+                    />
+                  )}
+                </div>
                 <button
                   onClick={createCampaign} disabled={savingCampaign}
                   className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
@@ -1465,6 +1491,11 @@ export default function SocialPage() {
                               {c.postId && (
                                 <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: "rgba(59,130,246,0.15)", color: "#3b82f6" }}>
                                   🎯 {isFa ? "پست خاص" : "specific post"}
+                                </span>
+                              )}
+                              {c.followGateEnabled && (
+                                <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>
+                                  🔒 Follow Gate
                                 </span>
                               )}
                             </div>
@@ -1510,9 +1541,12 @@ export default function SocialPage() {
                                   <div key={log.id} className="flex items-center justify-between text-[11px]">
                                     <span style={{ color: "var(--text-secondary)" }}>@{log.commenterUsername || "?"}</span>
                                     <span style={{
-                                      color: log.status === "sent" ? "#22c55e" : log.status === "skipped" ? "#eab308" : "#ef4444",
+                                      color: log.status === "sent" ? "#22c55e" : log.status === "awaiting_follow" ? "#3b82f6" : log.status === "skipped" ? "#eab308" : "#ef4444",
                                     }}>
-                                      {log.status === "sent" ? (isFa ? "ارسال شد" : "sent") : log.status === "skipped" ? (isFa ? "رد شد (محدودیت نرخ)" : "skipped (rate limit)") : (isFa ? "خطا" : "failed")}
+                                      {log.status === "sent" ? (isFa ? "ارسال شد" : "sent")
+                                        : log.status === "awaiting_follow" ? (isFa ? "منتظر تایید فالو" : "awaiting follow")
+                                        : log.status === "skipped" ? (isFa ? "رد شد (محدودیت نرخ)" : "skipped (rate limit)")
+                                        : (isFa ? "خطا" : "failed")}
                                     </span>
                                     <span style={{ color: "var(--text-muted)" }}>{new Date(log.createdAt).toLocaleString(isFa ? "fa-IR" : "en-US")}</span>
                                   </div>

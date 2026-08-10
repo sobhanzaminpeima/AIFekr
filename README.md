@@ -123,6 +123,7 @@ A full growth toolkit built on Meta's **Instagram API with Instagram Login** (`s
   - Optional **per-post targeting** — scope a campaign to one specific post/reel, or leave it open to all posts
   - `{username}` personalization token in the DM and public reply
   - Up to 2 **tracked short links** per campaign with click-count (CTR) analytics
+  - Optional **Follow Gate** — withholds the DM behind a self-reported "I followed ✅" button (Meta exposes no API to check an arbitrary commenter's follow status, so this uses an interactive postback button instead)
   - Self-comment filtering (never replies to the account's own comments)
   - Per-account rate limiting (Meta's documented 750 private-replies/hour cap)
   - Idempotent webhook handling (dedupes Meta's retry deliveries) with a full sent/skipped/failed log per campaign

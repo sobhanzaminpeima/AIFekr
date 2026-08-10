@@ -156,11 +156,43 @@ export async function getInstagramUsername(igUserId: string, accessToken: string
  * successful connect.
  */
 export async function subscribeToCommentWebhooks(igUserId: string, accessToken: string): Promise<void> {
-  const res = await fetch(`${IG_GRAPH_BASE}/${igUserId}/subscribed_apps?subscribed_fields=comments&access_token=${accessToken}`, {
+  // messaging_postbacks is needed for the Follow Gate's "I followed" button click to reach us.
+  const res = await fetch(`${IG_GRAPH_BASE}/${igUserId}/subscribed_apps?subscribed_fields=comments,messaging_postbacks&access_token=${accessToken}`, {
     method: "POST",
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error?.message || "خطا در فعال‌سازی وبهوک کامنت");
+}
+
+/** Plain text DM to an existing conversation (not a private-reply-to-comment — uses the account's own messages endpoint). */
+export async function sendTextMessage(igUserId: string, recipientId: string, accessToken: string, text: string): Promise<void> {
+  const res = await fetch(`${IG_GRAPH_BASE}/${igUserId}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ recipient: { id: recipientId }, message: { text }, access_token: accessToken }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || "خطا در ارسال پیام");
+}
+
+/** DM with a single postback button — the mechanism behind the Follow Gate's "I followed" confirmation. */
+export async function sendButtonMessage(igUserId: string, recipientId: string, accessToken: string, text: string, buttonTitle: string, payload: string): Promise<void> {
+  const res = await fetch(`${IG_GRAPH_BASE}/${igUserId}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      recipient: { id: recipientId },
+      message: {
+        attachment: {
+          type: "template",
+          payload: { template_type: "button", text, buttons: [{ type: "postback", title: buttonTitle, payload }] },
+        },
+      },
+      access_token: accessToken,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || "خطا در ارسال پیام دکمه‌دار");
 }
 
 /** Two-step publish: create a media container, then publish it. Images must be publicly reachable URLs. */

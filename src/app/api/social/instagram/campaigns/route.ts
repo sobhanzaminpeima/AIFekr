@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   const conn = await prisma.instagramConnection.findUnique({ where: { userId: user.id } });
   if (!conn) return NextResponse.json({ error: "اینستاگرام متصل نیست" }, { status: 400 });
 
-  const { keyword, dmMessage, publicReplyMessage, postId, links } = await req.json().catch(() => ({}));
+  const { keyword, dmMessage, publicReplyMessage, postId, links, followGateEnabled, followGatePrompt } = await req.json().catch(() => ({}));
   if (!keyword?.trim() || !dmMessage?.trim()) {
     return NextResponse.json({ error: "کلمه کلیدی و پیام دایرکت الزامی است" }, { status: 400 });
   }
@@ -40,6 +40,8 @@ export async function POST(req: NextRequest) {
       publicReplyMessage: publicReplyMessage?.trim() || null,
       postId: postId?.trim() || null,
       links: normalizeLinks(links),
+      followGateEnabled: !!followGateEnabled,
+      followGatePrompt: followGatePrompt?.trim() || null,
     },
   });
   return NextResponse.json({ campaign });

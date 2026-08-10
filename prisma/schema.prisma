@@ -862,6 +862,11 @@ model InstagramCommentCampaign {
   publicReplyMessage  String?
   /// JSON array of up to 2 {id,label,url,clicks} — sent as tracked short links appended to dmMessage.
   links               String?
+  /// When on, the real dmMessage is withheld behind a "did you follow?" button
+  /// in the DM — Meta gives no API to check an arbitrary commenter's follow
+  /// status, so this is a self-reported confirm via a postback button instead.
+  followGateEnabled   Boolean  @default(false)
+  followGatePrompt    String?
   isActive            Boolean  @default(true)
   triggerCount        Int      @default(0)
   createdAt           DateTime @default(now())
@@ -883,6 +888,7 @@ model InstagramCommentReplyLog {
   commentId         String   @unique
   commenterId        String
   commenterUsername String?
+  /// "sent" | "skipped" | "failed" | "awaiting_follow" (follow-gated campaign, waiting on the postback button click)
   status             String
   error              String?
   createdAt          DateTime @default(now())
