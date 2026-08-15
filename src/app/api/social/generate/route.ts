@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { routedStreamChat } from "@/lib/ai/router";
+import { isCustomProviderModel, streamCustomProvider } from "@/lib/ai/customProviders";
 
 const SYSTEM = `شما یک استراتژیست شبکه‌های اجتماعی حرفه‌ای هستید. پست‌های جذاب، پرتعامل و بهینه برای هر پلتفرم می‌نویسید. پاسخ‌ها را به زبانی که کاربر مشخص می‌کند بنویسید.`;
 
@@ -102,10 +103,15 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         const encoder = new TextEncoder();
         try {
-          await routedStreamChat([{ role: "user", content: prompt }], SYSTEM, (text) => {
+          const onChunk = (text: string) => {
             fullContent += text;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
-          }, (_p) => {}, model);
+          };
+          if (isCustomProviderModel(model)) {
+            await streamCustomProvider(model, [{ role: "user", content: prompt }], SYSTEM, onChunk);
+          } else {
+            await routedStreamChat([{ role: "user", content: prompt }], SYSTEM, onChunk, (_p) => {}, model);
+          }
 
           if (type === "posts" && body.platform && body.topic) {
             await prisma.socialPost.create({ data: { userId: user.id, platform: body.platform, topic: body.topic, content: fullContent } });

@@ -379,6 +379,9 @@ export default function LlmPage() {
         </div>
       </div>
 
+      {/* Admin-added custom chat providers */}
+      <CustomProvidersSection />
+
       {/* Media (image/video/audio) providers */}
       <MediaProvidersSection />
 
@@ -414,6 +417,113 @@ const CAPABILITY_LABEL: Record<MediaProvider["capability"], string> = {
   video: "ویدیو",
   audio: "صدا",
 };
+
+type CustomProvider = { id: string; name: string; baseUrl: string; model: string; enabled: boolean };
+
+function CustomProvidersSection() {
+  const [providers, setProviders] = useState<CustomProvider[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ name: "", baseUrl: "", apiKey: "", model: "" });
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(() => {
+    fetch("/api/admin/custom-providers", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => setProviders(data.providers ?? []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function addProvider() {
+    if (!form.name.trim() || !form.baseUrl.trim() || !form.apiKey.trim() || !form.model.trim()) {
+      toast.error("همه‌ی فیلدها الزامی است");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/custom-providers", {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success(`${form.name} اضافه شد`);
+      setForm({ name: "", baseUrl: "", apiKey: "", model: "" });
+      setShowForm(false);
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "خطا در ذخیره");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleProvider(id: string, enabled: boolean) {
+    await fetch("/api/admin/custom-providers", {
+      method: "PATCH", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, enabled: !enabled }),
+    });
+    load();
+  }
+
+  async function deleteProvider(id: string) {
+    if (!confirm("این مدل سفارشی حذف بشه؟")) return;
+    await fetch(`/api/admin/custom-providers?id=${id}`, { method: "DELETE", credentials: "include" });
+    load();
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="font-semibold text-sm" style={{ color: "var(--text-secondary)" }}>افزودن API سفارشی</h2>
+        <button onClick={() => setShowForm((v) => !v)} className="text-xs px-3 py-1.5 rounded-lg font-medium" style={{ background: "var(--primary)", color: "#fff" }}>
+          {showForm ? "بستن" : "+ افزودن مدل جدید"}
+        </button>
+      </div>
+      <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+        هر endpoint سازگار با OpenAI (chat/completions) — مثلاً هر مدل چت جدیدی که بعداً کلیدش را گرفتید — از اینجا اضافه کنید تا بدون نیاز به تغییر کد یا دیپلوی، بلافاصله در انتخابگر مدل بخش کسب‌وکار و کپشن اینستاگرام قابل انتخاب باشد.
+      </p>
+
+      {showForm && (
+        <div className="p-4 rounded-2xl mb-3 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <input placeholder="نام (مثلاً Mistral Large)" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+            className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <input placeholder="Base URL (مثلاً https://api.mistral.ai/v1)" value={form.baseUrl} onChange={(e) => setForm({ ...form, baseUrl: e.target.value })} dir="ltr"
+            className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <input placeholder="Model id (مثلاً mistral-large-latest)" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} dir="ltr"
+            className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <input placeholder="API Key" type="password" value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} dir="ltr"
+            className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <button onClick={addProvider} disabled={saving} className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+            {saving ? "در حال ذخیره..." : "ذخیره"}
+          </button>
+        </div>
+      )}
+
+      {providers.length > 0 && (
+        <div className="grid grid-cols-1 gap-2">
+          {providers.map((p) => (
+            <div key={p.id} className="p-3 rounded-xl flex items-center gap-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", opacity: p.enabled ? 1 : 0.55 }}>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{p.name}</div>
+                <div className="text-xs font-mono" style={{ color: "var(--text-muted)" }} dir="ltr">{p.model} · {p.baseUrl}</div>
+              </div>
+              <button onClick={() => toggleProvider(p.id, p.enabled)} className="text-xs px-2.5 py-1 rounded-lg font-medium" style={{ background: p.enabled ? "#22c55e18" : "#ef444418", color: p.enabled ? "#22c55e" : "#ef4444" }}>
+                {p.enabled ? "فعال" : "غیرفعال"}
+              </button>
+              <button onClick={() => deleteProvider(p.id)} className="text-xs px-2.5 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
+                حذف
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function MediaProvidersSection() {
   const [providers, setProviders] = useState<MediaProvider[]>([]);

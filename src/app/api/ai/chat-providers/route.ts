@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { getAvailableProviders } from "@/lib/ai/providers";
+import { prisma } from "@/lib/db/prisma";
 import fs from "fs";
 import path from "path";
 
@@ -29,5 +30,11 @@ export async function GET(req: NextRequest) {
     .filter((p) => !disabled.has(p.id))
     .map((p) => ({ id: p.id, name: p.name, model: p.model }));
 
-  return NextResponse.json({ providers });
+  // Admin-added custom providers (see /admin/llm → "افزودن API سفارشی").
+  // `model` is prefixed "custom:<id>" so callers can tell them apart from
+  // the static PROVIDERS list without a name/model string collision.
+  const custom = await prisma.customAiProvider.findMany({ where: { enabled: true } });
+  const customEntries = custom.map((p) => ({ id: `custom:${p.id}`, name: p.name, model: `custom:${p.id}` }));
+
+  return NextResponse.json({ providers: [...providers, ...customEntries] });
 }

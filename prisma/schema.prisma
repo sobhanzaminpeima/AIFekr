@@ -271,6 +271,20 @@ model Payment {
   @@index([userId])
 }
 
+/// Admin-added AI providers — lets an admin plug in a new chat model (any
+/// OpenAI-compatible /chat/completions endpoint) from the UI, without a code
+/// change or redeploy, so it immediately becomes selectable in the business
+/// post / Instagram caption model pickers.
+model CustomAiProvider {
+  id        String   @id @default(cuid())
+  name      String
+  baseUrl   String
+  apiKey    String
+  model     String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
 model UsageLog {
   id        String   @id @default(cuid())
   userId    String

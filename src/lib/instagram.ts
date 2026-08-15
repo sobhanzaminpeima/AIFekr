@@ -7,6 +7,7 @@
 // required for instagram_business_content_publish to work for anyone other
 // than accounts added as testers on the app.
 import { routedStreamChat } from "@/lib/ai/router";
+import { isCustomProviderModel, streamCustomProvider } from "@/lib/ai/customProviders";
 
 // This VPS's IP is blocked at the network level by api.instagram.com /
 // graph.instagram.com (same issue documented in src/lib/ai/providers.ts for
@@ -45,7 +46,11 @@ Always include exactly 5 relevant, high-search hashtags.`
 حتماً دقیقاً ۵ هشتگ مرتبط و پرجستجو در ایران بده.`;
 
   let raw = "";
-  await routedStreamChat([{ role: "user", content: userMessage }], systemPrompt, (chunk) => { raw += chunk; }, () => {}, model);
+  if (isCustomProviderModel(model)) {
+    await streamCustomProvider(model, [{ role: "user", content: userMessage }], systemPrompt, (chunk) => { raw += chunk; });
+  } else {
+    await routedStreamChat([{ role: "user", content: userMessage }], systemPrompt, (chunk) => { raw += chunk; }, () => {}, model);
+  }
 
   const match = raw.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("پاسخ AI قابل تفسیر نبود");
