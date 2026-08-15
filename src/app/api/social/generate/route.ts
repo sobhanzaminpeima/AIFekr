@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { type = "posts" } = body;
+    const { type = "posts", model } = body;
     const prompt = type === "calendar" ? buildCalendarPrompt(body) : buildPrompt(body);
     let fullContent = "";
 
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
           await routedStreamChat([{ role: "user", content: prompt }], SYSTEM, (text) => {
             fullContent += text;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
-          }, (_p) => {});
+          }, (_p) => {}, model);
 
           if (type === "posts" && body.platform && body.topic) {
             await prisma.socialPost.create({ data: { userId: user.id, platform: body.platform, topic: body.topic, content: fullContent } });

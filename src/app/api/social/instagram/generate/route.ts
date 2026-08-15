@@ -11,14 +11,14 @@ export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
-  const { businessName, businessType, topic, language } = await req.json();
+  const { businessName, businessType, topic, language, model } = await req.json();
   if (!businessName || !businessType) {
     return NextResponse.json({ error: "نام و نوع کسب‌وکار الزامی است" }, { status: 400 });
   }
   const lang = language === "en" ? "en" : "fa";
 
   try {
-    const result = await generateIgContent(businessName, businessType, topic || "", lang);
+    const result = await generateIgContent(businessName, businessType, topic || "", lang, model);
     return NextResponse.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "خطا";

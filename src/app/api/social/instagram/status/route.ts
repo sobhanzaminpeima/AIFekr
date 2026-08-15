@@ -18,3 +18,11 @@ export async function GET(req: NextRequest) {
     posts,
   });
 }
+
+export async function DELETE(req: NextRequest) {
+  const user = await requireAuth(req);
+  if (!user) return unauthorizedResponse();
+
+  await prisma.instagramConnection.deleteMany({ where: { userId: user.id } });
+  return NextResponse.json({ success: true });
+}

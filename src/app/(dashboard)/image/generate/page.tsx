@@ -68,6 +68,19 @@ export default function ImageGeneratePage() {
 
   const [mode, setMode] = useState<"credits" | "puter">("credits");
   const [puterReady, setPuterReady] = useState(false);
+  const [imageProviders, setImageProviders] = useState<{ id: string; name: string }[]>([]);
+  const [imageProvider, setImageProvider] = useState<string>("");
+
+  useEffect(() => {
+    fetch("/api/ai/image-providers", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        const list = data.providers ?? [];
+        setImageProviders(list);
+        if (list.length) setImageProvider(list[0].id);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch("/api/prompts?toolType=image")
@@ -169,7 +182,7 @@ export default function ImageGeneratePage() {
       const res = await fetch("/api/image/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, style, ratio, quality, count, sourceImageUrl }),
+        body: JSON.stringify({ prompt, style, ratio, quality, count, sourceImageUrl, provider: imageProvider }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -231,6 +244,25 @@ export default function ImageGeneratePage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Settings */}
         <div className="lg:col-span-1 space-y-4">
+          {/* Model picker — credits mode only (Puter mode is always gpt-image-1-mini) */}
+          {mode === "credits" && imageProviders.length > 0 && (
+            <div className="p-5 rounded-2xl space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+              <label className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                {isFa ? "مدل تصویر" : "Image Model"}
+              </label>
+              <select
+                value={imageProvider}
+                onChange={(e) => setImageProvider(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl text-sm"
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+              >
+                {imageProviders.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Reference photo upload — credits mode only (Puter's txt2img has no reference-image input) */}
           {mode === "credits" && (
           <div className="p-5 rounded-2xl space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>

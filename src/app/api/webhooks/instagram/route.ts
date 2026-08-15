@@ -56,6 +56,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
+  // TEMP DEBUG — remove once real comment events are confirmed reaching this
+  // handler correctly; helps see exactly what Meta is sending vs. what we expect.
+  console.log("IG_WEBHOOK_RAW:", rawBody);
+
   let payload: {
     object?: string;
     entry?: Array<{

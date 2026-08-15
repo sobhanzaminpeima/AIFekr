@@ -3,7 +3,8 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { generateVideo, generateVideoFromReference } from "@/lib/ai/qwen";
+import { generateVideo as generateVideoQwen, generateVideoFromReference } from "@/lib/ai/qwen";
+import { generateVideo as generateVideoReplicate } from "@/lib/ai/replicate";
 import { CREDIT_COSTS } from "@/lib/utils/credits";
 import { getAvailableCredits, deductCredits } from "@/lib/utils/teamCredits";
 import { getLimitsForPlan } from "@/lib/utils/planLimits";
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
   if (!user) return unauthorizedResponse();
 
   try {
-    const { prompt, duration = 5, ratio = "16:9", style = "واقعی", sourceImageUrl } = await req.json();
+    const { prompt, duration = 5, ratio = "16:9", style = "واقعی", sourceImageUrl, provider = "qwen" } = await req.json();
     if (!prompt?.trim()) return NextResponse.json({ error: "توضیحات ویدیو الزامی است" }, { status: 400 });
 
     const creditCost = duration <= 5 ? 20 : duration <= 10 ? 35 : 80;
@@ -34,9 +35,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Image-to-video always goes through Replicate — Qwen's I2V endpoint isn't
+    // wired up yet (see qwen.ts). Text-to-video respects the user's provider choice.
     const { predictionId, status } = sourceImageUrl
       ? await generateVideoFromReference({ prompt, duration: duration as any, ratio, style, imageUrl: sourceImageUrl })
-      : await generateVideo({ prompt, duration: duration as any, ratio, style });
+      : provider === "replicate"
+      ? await generateVideoReplicate({ prompt, duration: duration as any, ratio, style })
+      : await generateVideoQwen({ prompt, duration: duration as any, ratio, style });
 
     // Deduct credits immediately
     await deductCredits(user.id, creditCost);

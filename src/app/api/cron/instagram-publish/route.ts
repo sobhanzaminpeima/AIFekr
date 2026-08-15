@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
-import { publishToInstagram } from "@/lib/instagram";
+import { publishToInstagram, publishReelToInstagram } from "@/lib/instagram";
 
 // Hit by a system crontab entry every few minutes (see deployment notes) —
 // this is what makes mode="auto" posts actually go out without a human
@@ -33,13 +33,15 @@ export async function GET(req: NextRequest) {
     if (claim.count === 0) continue;
 
     const conn = post.user.instagramConn;
-    if (!conn || !post.imageUrl) {
-      await prisma.scheduledPost.update({ where: { id: post.id }, data: { status: "FAILED", errorMessage: "اتصال اینستاگرام یا تصویر موجود نیست" } });
+    if (!conn || (!post.imageUrl && !post.videoUrl)) {
+      await prisma.scheduledPost.update({ where: { id: post.id }, data: { status: "FAILED", errorMessage: "اتصال اینستاگرام یا تصویر/ویدیو موجود نیست" } });
       results.push({ id: post.id, ok: false });
       continue;
     }
     try {
-      const igMediaId = await publishToInstagram(conn.igUserId, conn.accessToken, post.imageUrl, `${post.caption}\n\n${post.hashtags}`);
+      const igMediaId = post.videoUrl
+        ? await publishReelToInstagram(conn.igUserId, conn.accessToken, post.videoUrl, `${post.caption}\n\n${post.hashtags}`)
+        : await publishToInstagram(conn.igUserId, conn.accessToken, post.imageUrl!, `${post.caption}\n\n${post.hashtags}`);
       await prisma.scheduledPost.update({ where: { id: post.id }, data: { status: "PUBLISHED", igMediaId } });
       results.push({ id: post.id, ok: true });
     } catch (e) {

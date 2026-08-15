@@ -44,11 +44,21 @@ export default function VideoGeneratePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [templates, setTemplates] = useState<PromptTemplate[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [videoProviders, setVideoProviders] = useState<{ id: string; name: string }[]>([]);
+  const [videoProvider, setVideoProvider] = useState<string>("qwen");
 
   useEffect(() => {
     fetch("/api/prompts?toolType=video")
       .then((r) => r.json())
       .then((d) => setTemplates(d.prompts || []))
+      .catch(() => {});
+    fetch("/api/ai/video-providers", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        const list = data.providers ?? [];
+        setVideoProviders(list);
+        if (list.length) setVideoProvider(list[0].id);
+      })
       .catch(() => {});
   }, []);
 
@@ -119,7 +129,7 @@ export default function VideoGeneratePage() {
     setStatus("generating"); setProgress(5); setVideoUrl(null);
     const res = await fetch("/api/video/generate", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, style, duration, ratio, sourceImageUrl }),
+      body: JSON.stringify({ prompt, style, duration, ratio, sourceImageUrl, provider: videoProvider }),
     });
     const data = await res.json();
     if (!res.ok) { setStatus("failed"); setProgress(0); return toast.error(data.error || s.errGenerate); }
@@ -206,6 +216,25 @@ export default function VideoGeneratePage() {
             className="w-full px-3 py-2.5 rounded-xl text-sm resize-none outline-none disabled:opacity-60"
             style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         </div>
+
+        {!sourceImageUrl && videoProviders.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
+              {isFa ? "مدل ویدیو" : "Video Model"}
+            </label>
+            <select
+              value={videoProvider}
+              onChange={(e) => setVideoProvider(e.target.value)}
+              disabled={isLoading}
+              className="w-full px-3 py-2 rounded-xl text-sm disabled:opacity-60"
+              style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+            >
+              {videoProviders.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>{s.styleLabel}</label>

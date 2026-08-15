@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Script from "next/script";
-import { Share2, Copy, Check, Calendar, Camera, Zap, Loader2, Image as ImageIcon, Upload, Wand2, X, TrendingUp, Users, Heart, MessageCircle, Sparkles, ExternalLink, PenLine, ChevronLeft, Clock, Link2, Printer, Megaphone, Target, CheckCircle2, BarChart3, Activity } from "lucide-react";
+import { Share2, Copy, Check, Calendar, Camera, Zap, Loader2, Image as ImageIcon, Upload, Wand2, X, TrendingUp, Users, Heart, MessageCircle, Sparkles, ExternalLink, PenLine, ChevronLeft, Clock, Link2, Printer, Megaphone, Target, CheckCircle2, BarChart3, Activity, Video } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
 import { useTranslation } from "@/lib/i18n";
@@ -21,7 +21,7 @@ declare global {
   }
 }
 
-const PLATFORMS = ["LinkedIn", "Twitter/X", "Facebook", "TikTok"];
+const PLATFORMS = ["Instagram", "LinkedIn", "Twitter/X", "Facebook", "TikTok"];
 
 // Maps the exact "## " section titles the report-generation prompt is instructed
 // to use (both languages) to an icon — falls back to Activity for anything else
@@ -99,6 +99,9 @@ export default function SocialPage() {
   const [igHashtags, setIgHashtags] = useState<string[]>([]);
   const [igBestTime, setIgBestTime] = useState("");
   const [igImageUrl, setIgImageUrl] = useState("");
+  const [igVideoUrl, setIgVideoUrl] = useState("");
+  const [videoGenerating, setVideoGenerating] = useState(false);
+  const [videoGenStatus, setVideoGenStatus] = useState("");
   const [igScheduledFor, setIgScheduledFor] = useState("");
   const [igMode, setIgMode] = useState<"auto" | "manual">("manual");
   const [scheduling, setScheduling] = useState(false);
@@ -132,6 +135,44 @@ export default function SocialPage() {
   const [styleDescription, setStyleDescription] = useState("");
   const refFileInputRef = useRef<HTMLInputElement>(null);
   const igSectionRef = useRef<HTMLDivElement>(null);
+
+  // ── AI image model choice — "puter" (free, client-side) or a server
+  // provider (openai/qwen) charged in credits, from /api/ai/image-providers.
+  const [imageProviders, setImageProviders] = useState<{ id: string; name: string }[]>([]);
+  const [imageModel, setImageModel] = useState<string>("puter");
+
+  useEffect(() => {
+    fetch("/api/ai/image-providers", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => setImageProviders(data.providers ?? []))
+      .catch(() => {});
+  }, []);
+
+  const [videoProviders, setVideoProviders] = useState<{ id: string; name: string }[]>([]);
+  const [videoModel, setVideoModel] = useState<string>("qwen");
+
+  useEffect(() => {
+    fetch("/api/ai/video-providers", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        const list = data.providers ?? [];
+        setVideoProviders(list);
+        if (list.length) setVideoModel(list[0].id);
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── Text/caption model choice — "auto" (smart routing, default) or a
+  // specific provider's model string, from /api/ai/chat-providers.
+  const [chatProviders, setChatProviders] = useState<{ id: string; name: string; model: string }[]>([]);
+  const [textModel, setTextModel] = useState<string>("auto");
+
+  useEffect(() => {
+    fetch("/api/ai/chat-providers", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => setChatProviders(data.providers ?? []))
+      .catch(() => {});
+  }, []);
 
   // ── Instagram creation wizard ──────────────────────────────────────────
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3 | 4>(1);
@@ -204,7 +245,7 @@ export default function SocialPage() {
   function resetWizard() {
     setWizardStep(1);
     setCreationMode(null);
-    setIgCaption(""); setIgHashtags([]); setIgImageUrl(""); setIgScheduledFor(""); setIgBestTime("");
+    setIgCaption(""); setIgHashtags([]); setIgImageUrl(""); setIgVideoUrl(""); setIgScheduledFor(""); setIgBestTime("");
     setRefImageUrl(""); setStyleDescription(""); setManualHashtagsInput(""); setCalendarDays(null);
   }
 
@@ -357,6 +398,23 @@ export default function SocialPage() {
     } catch {}
   }, []);
 
+  const [disconnectingIg, setDisconnectingIg] = useState(false);
+  async function disconnectInstagram() {
+    if (!confirm(isFa ? "اتصال اینستاگرام قطع بشه؟ کمپین‌ها و تنظیمات باقی می‌مونن." : "Disconnect Instagram? Your campaigns and settings will stay.")) return;
+    setDisconnectingIg(true);
+    try {
+      const r = await fetch("/api/social/instagram/status", { method: "DELETE", credentials: "include" });
+      if (!r.ok) throw new Error();
+      setIgConnected(false);
+      setIgUsername(null);
+      toast.success(isFa ? "اتصال اینستاگرام قطع شد" : "Instagram disconnected");
+    } catch {
+      toast.error(t.common.error);
+    } finally {
+      setDisconnectingIg(false);
+    }
+  }
+
   useEffect(() => {
     loadIgStatus();
     const params = new URLSearchParams(window.location.search);
@@ -420,6 +478,7 @@ export default function SocialPage() {
       if (!uploadRes.ok) throw new Error(uploadData.error);
 
       setIgImageUrl(uploadData.url);
+      setIgVideoUrl("");
       setIgCaption(analysis.caption || "");
       setIgHashtags(analysis.hashtags || []);
       toast.success(lang === "fa" ? "تصویر و کپشن جدید آماده شد" : "New image and caption are ready");
@@ -434,12 +493,29 @@ export default function SocialPage() {
 
   async function generateImageFromTopic() {
     if (!form.brandName || !form.topic) return toast.error(t.common.error);
-    if (!window.puter) return toast.error(lang === "fa" ? "اتصال به Puter برقرار نشد — کمی صبر کن و دوباره امتحان کن" : "Puter isn't ready yet — wait a moment and retry");
+
+    const prompt = lang === "fa"
+      ? `یک عکس حرفه‌ای و جذاب برای پست اینستاگرام کسب‌وکار «${form.brandName}» با موضوع «${form.topic}»، سبک بصری ${form.tone}، مناسب شبکه‌های اجتماعی، بدون هیچ متنی روی تصویر.`
+      : `A professional, eye-catching Instagram post image for the business "${form.brandName}" about "${form.topic}", ${form.tone} visual style, social-media ready, no text on the image.`;
+
     setAiImageGenerating(true);
     try {
-      const prompt = lang === "fa"
-        ? `یک عکس حرفه‌ای و جذاب برای پست اینستاگرام کسب‌وکار «${form.brandName}» با موضوع «${form.topic}»، سبک بصری ${form.tone}، مناسب شبکه‌های اجتماعی، بدون هیچ متنی روی تصویر.`
-        : `A professional, eye-catching Instagram post image for the business "${form.brandName}" about "${form.topic}", ${form.tone} visual style, social-media ready, no text on the image.`;
+      if (imageModel !== "puter") {
+        // Server-side, credit-charged provider (openai/qwen) — already uploads to storage.
+        const res = await fetch("/api/image/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt, provider: imageModel, style: "realistic", ratio: "1:1", quality: "standard", count: 1 }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || t.common.error);
+        setIgImageUrl(data.images?.[0]?.url || "");
+        setIgVideoUrl("");
+        toast.success(lang === "fa" ? "عکس ساخته شد" : "Image generated");
+        return;
+      }
+
+      if (!window.puter) return toast.error(lang === "fa" ? "اتصال به Puter برقرار نشد — کمی صبر کن و دوباره امتحان کن" : "Puter isn't ready yet — wait a moment and retry");
       const imgEl = await window.puter.ai.txt2img(prompt, { model: "gpt-image-1-mini" });
       const blob = await (await fetch(imgEl.src)).blob();
       const uploadForm = new FormData();
@@ -448,11 +524,54 @@ export default function SocialPage() {
       const uploadData = await uploadRes.json();
       if (!uploadRes.ok) throw new Error(uploadData.error);
       setIgImageUrl(uploadData.url);
+      setIgVideoUrl("");
       toast.success(lang === "fa" ? "عکس ساخته شد" : "Image generated");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t.common.error);
     } finally {
       setAiImageGenerating(false);
+    }
+  }
+
+  async function generateVideoFromTopic() {
+    if (!form.brandName || !form.topic) return toast.error(t.common.error);
+
+    const prompt = lang === "fa"
+      ? `یک ویدیوی کوتاه حرفه‌ای و جذاب برای ریل اینستاگرام کسب‌وکار «${form.brandName}» با موضوع «${form.topic}»، سبک بصری ${form.tone}، مناسب شبکه‌های اجتماعی.`
+      : `A short, professional, eye-catching Instagram Reel video for the business "${form.brandName}" about "${form.topic}", ${form.tone} visual style, social-media ready.`;
+
+    setVideoGenerating(true);
+    setVideoGenStatus(isFa ? "در حال ارسال درخواست..." : "Sending request...");
+    try {
+      const res = await fetch("/api/video/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, duration: 5, ratio: "9:16", style: form.tone, provider: videoModel }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || t.common.error);
+
+      setVideoGenStatus(isFa ? "در حال پردازش ویدیو..." : "Processing video...");
+      const { predictionId, videoId } = data;
+      const maxAttempts = 40; // 40 * 6s = 4 minutes
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 6000));
+        const statusRes = await fetch(`/api/video/status?predictionId=${predictionId}&videoId=${videoId}`);
+        const statusData = await statusRes.json();
+        if (statusData.status === "succeeded") {
+          setIgVideoUrl(statusData.output);
+          setIgImageUrl("");
+          toast.success(isFa ? "ویدیو ساخته شد" : "Video generated");
+          return;
+        }
+        if (statusData.status === "failed") throw new Error(isFa ? "ساخت ویدیو ناموفق بود" : "Video generation failed");
+      }
+      throw new Error(isFa ? "ساخت ویدیو بیش از حد طول کشید" : "Video generation took too long");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t.common.error);
+    } finally {
+      setVideoGenerating(false);
+      setVideoGenStatus("");
     }
   }
 
@@ -462,7 +581,7 @@ export default function SocialPage() {
     try {
       const r = await fetch("/api/social/instagram/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessName: form.brandName, businessType: form.platform, topic: form.topic, language: lang }),
+        body: JSON.stringify({ businessName: form.brandName, businessType: form.platform, topic: form.topic, language: lang, model: textModel }),
       });
       let d: { caption?: string; hashtags?: string[]; bestTime?: string; error?: string };
       try {
@@ -496,7 +615,7 @@ export default function SocialPage() {
     try {
       const r = await fetch("/api/social/instagram/schedule", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caption: igCaption, hashtags: igHashtags, imageUrl: igImageUrl || null, scheduledFor, mode }),
+        body: JSON.stringify({ caption: igCaption, hashtags: igHashtags, imageUrl: igImageUrl || null, videoUrl: igVideoUrl || null, scheduledFor, mode }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
@@ -520,6 +639,17 @@ export default function SocialPage() {
     } catch (e) { toast.error(e instanceof Error ? e.message : t.common.error); }
   }
 
+  async function cancelScheduledPost(postId: string) {
+    if (!confirm(isFa ? "این پست از صف انتشار حذف بشه؟" : "Remove this post from the publish queue?")) return;
+    try {
+      const r = await fetch(`/api/social/instagram/schedule/${postId}`, { method: "DELETE", credentials: "include" });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      toast.success(isFa ? "پست لغو شد" : "Post cancelled");
+      setPosts((ps) => ps.filter((p) => p.id !== postId));
+    } catch (e) { toast.error(e instanceof Error ? e.message : t.common.error); }
+  }
+
   async function generate(type: "posts" | "calendar") {
     const setter = type === "calendar" ? setCalendarLoading : setLoading;
     setter(true);
@@ -529,7 +659,7 @@ export default function SocialPage() {
       const res = await fetch("/api/social/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, type, language: lang }),
+        body: JSON.stringify({ ...form, type, language: lang, model: textModel }),
       });
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
@@ -643,6 +773,13 @@ export default function SocialPage() {
                 />
                 <span className="text-sm" style={{ color: "var(--text-secondary)" }}>{t.social.emojis}</span>
               </label>
+              {chatProviders.length > 0 && (
+                <select value={textModel} onChange={(e) => setTextModel(e.target.value)}
+                  className="px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                  <option value="auto">{isFa ? "مدل هوشمند (خودکار)" : "Smart model (auto)"}</option>
+                  {chatProviders.map((p) => <option key={p.id} value={p.model}>{p.name}</option>)}
+                </select>
+              )}
             </div>
           </div>
           <div className="flex gap-3 mt-5">
@@ -695,9 +832,18 @@ export default function SocialPage() {
               <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>{t.social.igTitle}</h2>
             </div>
             {igConnected && (
-              <span className="text-xs px-2.5 py-1 rounded-full" style={{ background: "rgba(34,197,94,0.1)", color: "var(--success)" }}>
-                {t.social.igConnected}: @{igUsername}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs px-2.5 py-1 rounded-full" style={{ background: "rgba(34,197,94,0.1)", color: "var(--success)" }}>
+                  {t.social.igConnected}: @{igUsername}
+                </span>
+                <button
+                  onClick={disconnectInstagram} disabled={disconnectingIg}
+                  className="text-xs px-2.5 py-1 rounded-full disabled:opacity-50"
+                  style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}
+                >
+                  {disconnectingIg ? <Loader2 className="w-3 h-3 animate-spin" /> : (isFa ? "قطع اتصال" : "Disconnect")}
+                </button>
+              </div>
             )}
           </div>
 
@@ -786,6 +932,13 @@ export default function SocialPage() {
                         className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
                         {TONES.map((tone) => <option key={tone.value} value={tone.value}>{tone.label}</option>)}
                       </select>
+                      {chatProviders.length > 0 && (
+                        <select value={textModel} onChange={(e) => setTextModel(e.target.value)}
+                          className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                          <option value="auto">{isFa ? "مدل هوشمند (خودکار)" : "Smart model (auto)"}</option>
+                          {chatProviders.map((p) => <option key={p.id} value={p.model}>{p.name}</option>)}
+                        </select>
+                      )}
                       {igCaption ? (
                         <div className="space-y-3 p-4 rounded-xl" style={{ background: "var(--surface-2)" }}>
                           <textarea value={igCaption} onChange={(e) => setIgCaption(e.target.value)} rows={4}
@@ -969,24 +1122,67 @@ export default function SocialPage() {
                         {isFa ? "تغییر" : "Change"}
                       </button>
                     </div>
+                  ) : igVideoUrl ? (
+                    <div className="relative flex items-center gap-2 p-2 rounded-lg" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                      <video src={igVideoUrl} className="w-14 h-14 rounded-md object-cover flex-shrink-0" muted />
+                      <span className="flex-1 text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "ویدیو (ریل) انتخاب شد" : "Video (Reel) selected"}</span>
+                      <button onClick={() => setIgVideoUrl("")} className="text-xs px-2 py-1 rounded-md flex-shrink-0" style={{ background: "var(--surface-1)", color: "var(--primary)" }}>
+                        {isFa ? "تغییر" : "Change"}
+                      </button>
+                    </div>
                   ) : (
                     <div className="grid sm:grid-cols-2 gap-2">
-                      <button onClick={generateImageFromTopic} disabled={aiImageGenerating || !form.brandName || !form.topic || !puterReady}
-                        className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm disabled:opacity-50"
-                        style={{ background: "var(--surface-2)", border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
-                        {aiImageGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                        {aiImageGenerating ? (isFa ? "در حال ساخت عکس..." : "Generating image...") : (isFa ? "طراحی عکس با AI" : "Design image with AI")}
-                      </button>
+                      <div className="flex flex-col gap-1.5">
+                        {imageProviders.length > 0 && (
+                          <select
+                            value={imageModel}
+                            onChange={(e) => setImageModel(e.target.value)}
+                            className="w-full px-2 py-1.5 rounded-lg text-xs"
+                            style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
+                          >
+                            <option value="puter">{isFa ? "رایگان (Puter)" : "Free (Puter)"}</option>
+                            {imageProviders.map((p) => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                          </select>
+                        )}
+                        <button onClick={generateImageFromTopic} disabled={aiImageGenerating || !form.brandName || !form.topic || (imageModel === "puter" && !puterReady)}
+                          className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm disabled:opacity-50"
+                          style={{ background: "var(--surface-2)", border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
+                          {aiImageGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                          {aiImageGenerating ? (isFa ? "در حال ساخت عکس..." : "Generating image...") : (isFa ? "طراحی عکس با AI" : "Design image with AI")}
+                        </button>
+                      </div>
                       <button onClick={openGalleryPicker}
                         className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm"
                         style={{ background: "var(--surface-2)", border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
                         <ImageIcon className="w-4 h-4" />
                         {isFa ? "انتخاب از گالری" : "Choose from gallery"}
                       </button>
+                      {videoProviders.length > 0 && (
+                        <div className="flex flex-col gap-1.5 sm:col-span-2">
+                          <select
+                            value={videoModel}
+                            onChange={(e) => setVideoModel(e.target.value)}
+                            className="w-full px-2 py-1.5 rounded-lg text-xs"
+                            style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
+                          >
+                            {videoProviders.map((p) => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                          </select>
+                          <button onClick={generateVideoFromTopic} disabled={videoGenerating || !form.brandName || !form.topic}
+                            className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm disabled:opacity-50"
+                            style={{ background: "var(--surface-2)", border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
+                            {videoGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Video className="w-4 h-4" />}
+                            {videoGenerating ? (videoGenStatus || (isFa ? "در حال ساخت ویدیو..." : "Generating video...")) : (isFa ? "ساخت ریل با AI" : "Create Reel with AI")}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                   <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                    {isFa ? "بدون انتخاب عکس هم می‌توانی ادامه بدی — پست فقط با متن و کپشن ثبت می‌شود." : "You can also continue without an image — the post will be text-only."}
+                    {isFa ? "بدون انتخاب عکس/ویدیو هم می‌توانی ادامه بدی — پست فقط با متن و کپشن ثبت می‌شود." : "You can also continue without media — the post will be text-only."}
                   </p>
                   <div className="flex gap-2">
                     <button onClick={() => setWizardStep(1)} className="px-4 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
@@ -1080,6 +1276,8 @@ export default function SocialPage() {
                   <div className="flex items-start gap-3 p-4 rounded-xl" style={{ background: "var(--surface-2)" }}>
                     {igImageUrl ? (
                       <img src={igImageUrl} alt="" className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+                    ) : igVideoUrl ? (
+                      <video src={igVideoUrl} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" muted />
                     ) : (
                       <div className="w-16 h-16 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "var(--surface-1)" }}>
                         <ImageIcon className="w-5 h-5" style={{ color: "var(--text-muted)" }} />
@@ -1162,9 +1360,14 @@ export default function SocialPage() {
                             {p.status === "PUBLISHED" ? t.social.igPublishedStatus : p.status === "FAILED" ? t.social.igFailedStatus : t.social.igPendingStatus}
                           </span>
                         </td>
-                        <td className="px-3 py-2.5 whitespace-nowrap">
+                        <td className="px-3 py-2.5 whitespace-nowrap flex items-center gap-2">
                           {p.status === "PENDING" && igConnected && p.imageUrl && (
                             <button onClick={() => publishNow(p.id)} className="px-2 py-1 rounded-md" style={{ background: "var(--surface-2)", color: "var(--primary)" }}>{t.social.igPublishNow}</button>
+                          )}
+                          {p.status === "PENDING" && (
+                            <button onClick={() => cancelScheduledPost(p.id)} className="px-2 py-1 rounded-md" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+                              {isFa ? "لغو" : "Cancel"}
+                            </button>
                           )}
                         </td>
                       </tr>
@@ -1602,7 +1805,7 @@ export default function SocialPage() {
                   {galleryImages.map((img) => (
                     <button
                       key={img.id}
-                      onClick={() => { setIgImageUrl(img.url); setShowGalleryPicker(false); }}
+                      onClick={() => { setIgImageUrl(img.url); setIgVideoUrl(""); setShowGalleryPicker(false); }}
                       className="aspect-square rounded-xl overflow-hidden transition-all hover:opacity-80"
                       style={{ border: img.url === igImageUrl ? "2px solid var(--primary)" : "1px solid var(--border)" }}
                     >

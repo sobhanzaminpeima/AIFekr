@@ -8,6 +8,7 @@ import CurrencySelector from "@/components/ui/CurrencySelector";
 import DemoChat from "@/components/landing/DemoChat";
 import Image from "next/image";
 import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
+import EnamadBadge from "@/components/layout/EnamadBadge";
 import AnimatedNavbar from "@/components/landing/AnimatedNavbar";
 import NavLink, { NavCta } from "@/components/landing/NavLink";
 import MobileMenu from "@/components/landing/MobileMenu";
@@ -376,6 +377,7 @@ export default async function HomePage() {
       {/* Footer */}
       <footer className="py-8 px-6 text-center text-sm" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.3)" }}>
         <SocialFooterLinks />
+        <EnamadBadge />
         <p>{s.footer}</p>
       </footer>
     </div>

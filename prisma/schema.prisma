@@ -907,6 +907,8 @@ model ScheduledPost {
   caption      String
   hashtags     String
   imageUrl     String?
+  /// Reel video — mutually exclusive with imageUrl in practice (the wizard only lets the user pick one), but not DB-enforced since either alone is valid.
+  videoUrl     String?
   scheduledFor DateTime
   mode         String // "auto" | "manual"
   status       String   @default("PENDING") // PENDING | PUBLISHED | FAILED

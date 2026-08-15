@@ -64,6 +64,18 @@ export const PROVIDERS: Provider[] = [
     creditCost: 5,
   },
   {
+    id: "openai-direct",
+    name: "OpenAI GPT (Direct)",
+    provider: "openai",
+    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    baseURL: "https://api.openai.com/v1",
+    apiKey: process.env.OPENAI_API_KEY || "",
+    strengths: ["business", "creative", "general", "multimodal"],
+    maxTokens: 4096,
+    maxOutputCeiling: 8192,
+    creditCost: 4,
+  },
+  {
     id: "deepseek-v3",
     name: "DeepSeek V3",
     provider: "deepseek",

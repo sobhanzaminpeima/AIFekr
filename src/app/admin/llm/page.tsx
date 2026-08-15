@@ -20,6 +20,19 @@ const PROVIDERS = [
     logoText: "GP",
   },
   {
+    id: "openai-direct",
+    name: "OpenAI GPT (Direct)",
+    provider: "OpenAI API",
+    model: "gpt-4o-mini",
+    envKey: "OPENAI_API_KEY",
+    description: "اتصال مستقیم به API رسمی OpenAI. برای چت کسب‌وکار و محتوای خلاق.",
+    strengths: ["business", "creative", "general", "multimodal"],
+    maxTokens: 4096,
+    creditCost: 4,
+    color: "#10a37f",
+    logoText: "AI",
+  },
+  {
     id: "deepseek-v3",
     name: "DeepSeek V3",
     provider: "DeepSeek (via GitHub)",
@@ -213,7 +226,7 @@ export default function LlmPage() {
           { label: "کل Provider ها", value: PROVIDERS.length, color: "#3b82f6" },
           { label: "فعال", value: activeCount, color: "#22c55e" },
           { label: "غیرفعال", value: PROVIDERS.length - activeCount, color: "#ef4444" },
-          { label: "OpenAI / DeepSeek / Google", value: "1 + 2 + 2", color: "#10b981" },
+          { label: "OpenAI / DeepSeek / Google", value: "2 + 2 + 2", color: "#10b981" },
         ].map((s) => (
           <div key={s.label} className="p-4 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             <div className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</div>
@@ -366,6 +379,9 @@ export default function LlmPage() {
         </div>
       </div>
 
+      {/* Media (image/video/audio) providers */}
+      <MediaProvidersSection />
+
       {/* Info box */}
       <div className="p-4 rounded-2xl flex gap-3" style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)" }}>
         <Info className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "#3b82f6" }} />
@@ -379,6 +395,71 @@ export default function LlmPage() {
             <li>• نام AI انتخاب‌شده بالای چت‌باکس نمایش داده می‌شود</li>
           </ul>
         </div>
+      </div>
+    </div>
+  );
+}
+
+type MediaProvider = {
+  id: string;
+  name: string;
+  capability: "image" | "video" | "audio";
+  envKey: string;
+  usedFor: string;
+  configured: boolean;
+};
+
+const CAPABILITY_LABEL: Record<MediaProvider["capability"], string> = {
+  image: "تصویر",
+  video: "ویدیو",
+  audio: "صدا",
+};
+
+function MediaProvidersSection() {
+  const [providers, setProviders] = useState<MediaProvider[]>([]);
+
+  useEffect(() => {
+    fetch("/api/admin/media-providers", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => setProviders(data.providers ?? []))
+      .catch(() => {});
+  }, []);
+
+  return (
+    <div>
+      <h2 className="font-semibold text-sm mb-1" style={{ color: "var(--text-secondary)" }}>مدل‌های تصویر و ویدیو</h2>
+      <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+        این‌ها API هایی هستند که کاربر هنگام ساخت پست اینستاگرام یا محتوای کسب‌وکار می‌تواند از بین آن‌ها انتخاب کند.
+        برای افزودن یک API جدید (مدل تصویر یا ویدیوی دیگر)، کلید آن را در env سرور اضافه کنید — این لیست خودکار به‌روز می‌شود.
+      </p>
+      <div className="grid grid-cols-1 gap-3">
+        {providers.map((p) => (
+          <div key={p.id} className="p-4 rounded-2xl flex items-center gap-4"
+            style={{ background: "var(--surface-1)", border: "1px solid var(--border)", opacity: p.configured ? 1 : 0.6 }}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-bold text-xs"
+              style={{ background: "rgba(234,88,12,0.12)", color: "var(--primary)" }}>
+              {CAPABILITY_LABEL[p.capability]}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{p.name}</span>
+                {p.configured ? (
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1" style={{ background: "#22c55e18", color: "#22c55e" }}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" /> تنظیم شده
+                  </span>
+                ) : (
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1" style={{ background: "#ef444418", color: "#ef4444" }}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" /> تنظیم‌نشده
+                  </span>
+                )}
+              </div>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{p.usedFor}</p>
+            </div>
+            <span className="text-xs font-mono px-2 py-1 rounded-lg shrink-0" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
+              {p.envKey}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );

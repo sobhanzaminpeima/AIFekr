@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
         _count: { _all: true },
         _sum: { tokens: true },
       }),
-      prisma.$queryRaw<{ day: string; calls: bigint; tokens: number | null }[]>`
+      prisma.$queryRaw<{ day: string; calls: bigint; tokens: bigint | number | null }[]>`
         SELECT date(createdAt / 1000, 'unixepoch') as day, COUNT(*) as calls, SUM(tokens) as tokens
         FROM UsageLog
         WHERE createdAt >= ${since.getTime()}
@@ -69,7 +69,12 @@ export async function GET(req: NextRequest) {
       dailySeries: dailySeries.map((r) => ({
         day: r.day,
         calls: typeof r.calls === "bigint" ? Number(r.calls) : r.calls,
-        tokens: r.tokens ?? 0,
+        // SQLite's raw-query driver returns SUM()/COUNT() over INTEGER
+        // columns as BigInt when the underlying values are non-null — same
+        // reason `calls` needs the cast above. JSON.stringify throws on a
+        // raw BigInt (NextResponse.json would 500), so this must be
+        // converted before it ever reaches the response.
+        tokens: typeof r.tokens === "bigint" ? Number(r.tokens) : (r.tokens ?? 0),
       })),
       planLimits,
     });

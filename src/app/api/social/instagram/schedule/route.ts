@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
-  const { caption, hashtags, imageUrl, scheduledFor, mode } = await req.json();
+  const { caption, hashtags, imageUrl, videoUrl, scheduledFor, mode } = await req.json();
   if (!caption || !scheduledFor) {
     return NextResponse.json({ error: "کپشن و زمان انتشار الزامی است" }, { status: 400 });
   }
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   if (requestedMode === "auto") {
     const conn = await prisma.instagramConnection.findUnique({ where: { userId: user.id } });
     if (!conn) return NextResponse.json({ error: "ابتدا حساب اینستاگرام خود را متصل کنید" }, { status: 400 });
-    if (!imageUrl) return NextResponse.json({ error: "برای انتشار خودکار، تصویر پست الزامی است" }, { status: 400 });
+    if (!imageUrl && !videoUrl) return NextResponse.json({ error: "برای انتشار خودکار، تصویر یا ویدیوی پست الزامی است" }, { status: 400 });
   }
 
   const post = await prisma.scheduledPost.create({
@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
       caption,
       hashtags: Array.isArray(hashtags) ? hashtags.join(" ") : (hashtags || ""),
       imageUrl: imageUrl || null,
+      videoUrl: videoUrl || null,
       scheduledFor: new Date(scheduledFor),
       mode: requestedMode,
     },

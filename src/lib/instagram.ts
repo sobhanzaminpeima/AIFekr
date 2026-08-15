@@ -30,7 +30,7 @@ export interface GeneratedIgContent {
  * the unattended workflow cron (/api/cron/instagram-workflow) can call it
  * without a user session or HTTP round-trip.
  */
-export async function generateIgContent(businessName: string, businessType: string, topic: string, lang: "fa" | "en"): Promise<GeneratedIgContent> {
+export async function generateIgContent(businessName: string, businessType: string, topic: string, lang: "fa" | "en", model?: string): Promise<GeneratedIgContent> {
   const systemPrompt = lang === "en"
     ? "You are a professional social media strategist. Return ONLY a raw, valid JSON object — no explanation or markdown."
     : "تو استراتژیست شبکه‌های اجتماعی حرفه‌ای هستی. فقط و فقط یک JSON خام و معتبر برگردان، بدون توضیح یا markdown اضافه.";
@@ -45,7 +45,7 @@ Always include exactly 5 relevant, high-search hashtags.`
 حتماً دقیقاً ۵ هشتگ مرتبط و پرجستجو در ایران بده.`;
 
   let raw = "";
-  await routedStreamChat([{ role: "user", content: userMessage }], systemPrompt, (chunk) => { raw += chunk; }, () => {});
+  await routedStreamChat([{ role: "user", content: userMessage }], systemPrompt, (chunk) => { raw += chunk; }, () => {}, model);
 
   const match = raw.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("پاسخ AI قابل تفسیر نبود");
@@ -212,6 +212,48 @@ export async function publishToInstagram(igUserId: string, accessToken: string, 
   });
   const publishData = await publishRes.json();
   if (!publishRes.ok) throw new Error(publishData.error?.message || "خطا در انتشار پست");
+
+  return publishData.id as string;
+}
+
+/**
+ * Reel (video) publish — same two-step container/publish flow as
+ * publishToInstagram, but the container needs an extra step: Instagram
+ * processes the uploaded video asynchronously, so media_publish must wait
+ * until the container's status_code flips to FINISHED (ERROR fails fast).
+ * Polls every 5s for up to 2 minutes — videos from /api/video/generate are
+ * short (5-30s) so this is generous, not a hard technical ceiling.
+ */
+export async function publishReelToInstagram(igUserId: string, accessToken: string, videoUrl: string, caption: string): Promise<string> {
+  const containerRes = await fetch(`${IG_GRAPH_BASE}/${igUserId}/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ media_type: "REELS", video_url: videoUrl, caption, access_token: accessToken }),
+  });
+  const containerData = await containerRes.json();
+  if (!containerRes.ok) throw new Error(containerData.error?.message || "خطا در ساخت ریل");
+  const containerId = containerData.id as string;
+
+  const maxAttempts = 24; // 24 * 5s = 2 minutes
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const statusRes = await fetch(`${IG_GRAPH_BASE}/${containerId}?fields=status_code&access_token=${accessToken}`);
+    const statusData = await statusRes.json();
+    if (!statusRes.ok) throw new Error(statusData.error?.message || "خطا در بررسی وضعیت پردازش ریل");
+
+    if (statusData.status_code === "FINISHED") break;
+    if (statusData.status_code === "ERROR") throw new Error("پردازش ویدیو توسط اینستاگرام با خطا مواجه شد");
+    if (attempt === maxAttempts - 1) throw new Error("پردازش ویدیو توسط اینستاگرام بیش از حد طول کشید");
+
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+  }
+
+  const publishRes = await fetch(`${IG_GRAPH_BASE}/${igUserId}/media_publish`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ creation_id: containerId, access_token: accessToken }),
+  });
+  const publishData = await publishRes.json();
+  if (!publishRes.ok) throw new Error(publishData.error?.message || "خطا در انتشار ریل");
 
   return publishData.id as string;
 }
