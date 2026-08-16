@@ -354,6 +354,8 @@ model CrmContact {
   name         String
   phone        String?
   email        String?
+  whatsapp     String?
+  telegram     String?
   company      String?
   status       String    @default("lead")
   source       String    @default("organic")
@@ -513,7 +515,7 @@ model CrmActivity {
   userId    String
   contactId String?
   dealId    String?
-  type      String // call | email | meeting | note | whatsapp
+  type      String // call | email | meeting | note | whatsapp | telegram
   content   String
   createdAt DateTime @default(now())
 

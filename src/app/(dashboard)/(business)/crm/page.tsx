@@ -5,6 +5,7 @@ import {
   Briefcase, Plus, X, Phone, Mail, Building2, Loader2, ChevronDown,
   Users, LayoutGrid, Clock, CheckCircle2, Circle, Zap, FileText, Trash2, Upload, Sparkles, CalendarDays,
   Package, Receipt, FileSignature, Pin, Printer, FolderKanban, PhoneCall,
+  MessageCircle, Send,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import type { Translations } from "@/lib/i18n/en";
@@ -20,7 +21,8 @@ interface Deal {
   status: string; contactId: string; contact: DealContact; expectedCloseDate: string | null; ownerId: string | null;
 }
 interface Contact {
-  id: string; name: string; phone: string | null; email: string | null; company: string | null;
+  id: string; name: string; phone: string | null; email: string | null;
+  whatsapp: string | null; telegram: string | null; company: string | null;
   status: string; totalSpent: number; lastContact: string | null; assignedToId?: string | null;
 }
 interface TeamMember { id: string; name: string; email: string; }
@@ -496,6 +498,8 @@ function NewContactModal({ isFa, t, onClose, onCreated }: { isFa: boolean; t: Tr
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [telegram, setTelegram] = useState("");
   const [company, setCompany] = useState("");
   const [source, setSource] = useState("manual");
   const [saving, setSaving] = useState(false);
@@ -509,7 +513,7 @@ function NewContactModal({ isFa, t, onClose, onCreated }: { isFa: boolean; t: Tr
       const res = await fetch("/api/crm/contacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), phone: phone || undefined, email: email || undefined, company: company || undefined, source }),
+        body: JSON.stringify({ name: name.trim(), phone: phone || undefined, email: email || undefined, whatsapp: whatsapp || undefined, telegram: telegram || undefined, company: company || undefined, source }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -533,6 +537,10 @@ function NewContactModal({ isFa, t, onClose, onCreated }: { isFa: boolean; t: Tr
         <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t.newContactModal.phonePlaceholder}
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t.newContactModal.emailPlaceholder}
+          className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder={t.newContactModal.whatsappPlaceholder}
+          className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        <input value={telegram} onChange={(e) => setTelegram(e.target.value)} placeholder={t.newContactModal.telegramPlaceholder}
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder={t.newContactModal.companyPlaceholder}
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
@@ -620,6 +628,33 @@ function ContactDetailModal({ isFa, t, contact, teamMembers, onClose, onChanged 
   const [taskTitle, setTaskTitle] = useState("");
   const [assignedToId, setAssignedToId] = useState(contact.assignedToId || "");
   const [callingViaVoice, setCallingViaVoice] = useState(false);
+  const [whatsappMessage, setWhatsappMessage] = useState("");
+  const [showWhatsappInput, setShowWhatsappInput] = useState(false);
+
+  async function logActivity(type: string, content: string) {
+    await fetch("/api/crm/activities", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactId: contact.id, type, content }),
+    });
+    onChanged();
+  }
+
+  function sendWhatsapp() {
+    if (!contact.whatsapp) return;
+    const digits = contact.whatsapp.replace(/[^\d+]/g, "").replace(/^\+/, "");
+    const url = `https://wa.me/${digits}${whatsappMessage.trim() ? `?text=${encodeURIComponent(whatsappMessage.trim())}` : ""}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+    logActivity("whatsapp", t.contactDetail.whatsappActivityLog + (whatsappMessage.trim() ? `: ${whatsappMessage.trim()}` : ""));
+    setWhatsappMessage("");
+    setShowWhatsappInput(false);
+  }
+
+  function openTelegram() {
+    if (!contact.telegram) return;
+    const username = contact.telegram.replace(/^@/, "");
+    window.open(`https://t.me/${username}`, "_blank", "noopener,noreferrer");
+    logActivity("telegram", t.contactDetail.telegramActivityLog);
+  }
 
   async function callViaVoiceAgent() {
     setCallingViaVoice(true);
@@ -683,16 +718,44 @@ function ContactDetailModal({ isFa, t, contact, teamMembers, onClose, onChanged 
       <div className="flex flex-wrap items-center gap-3 mb-4 text-xs" style={{ color: "var(--text-secondary)" }}>
         {contact.phone && <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5" />{contact.phone}</span>}
         {contact.email && <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5" />{contact.email}</span>}
+        {contact.whatsapp && <span className="flex items-center gap-1"><MessageCircle className="w-3.5 h-3.5" />{contact.whatsapp}</span>}
+        {contact.telegram && <span className="flex items-center gap-1"><Send className="w-3.5 h-3.5" />{contact.telegram}</span>}
         {contact.company && <span className="flex items-center gap-1"><Building2 className="w-3.5 h-3.5" />{contact.company}</span>}
         {contact.phone && (
           <button onClick={callViaVoiceAgent} disabled={callingViaVoice}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium disabled:opacity-50"
             style={{ background: "rgba(22,163,74,0.12)", color: "#16a34a" }}>
             {callingViaVoice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PhoneCall className="w-3.5 h-3.5" />}
-            {isFa ? "تماس با ایجنت صوتی" : "Call via Voice Agent"}
+            {t.contactDetail.callViaVoiceAgent}
+          </button>
+        )}
+        {contact.whatsapp && (
+          <button onClick={() => setShowWhatsappInput((v) => !v)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+            style={{ background: "rgba(37,211,102,0.12)", color: "#25d366" }}>
+            <MessageCircle className="w-3.5 h-3.5" />
+            {t.contactDetail.sendWhatsapp}
+          </button>
+        )}
+        {contact.telegram && (
+          <button onClick={openTelegram}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+            style={{ background: "rgba(34,158,217,0.12)", color: "#229ed9" }}>
+            <Send className="w-3.5 h-3.5" />
+            {t.contactDetail.openTelegram}
           </button>
         )}
       </div>
+
+      {showWhatsappInput && contact.whatsapp && (
+        <div className="flex gap-2 mb-4">
+          <input value={whatsappMessage} onChange={(e) => setWhatsappMessage(e.target.value)} placeholder={t.contactDetail.whatsappMessagePlaceholder}
+            className="flex-1 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <button onClick={sendWhatsapp} className="px-3 py-2 rounded-xl text-xs font-medium text-white" style={{ background: "#25d366" }}>
+            {t.contactDetail.sendWhatsapp}
+          </button>
+        </div>
+      )}
 
       {teamMembers.length > 0 && (
         <div className="mb-4">

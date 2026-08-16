@@ -924,6 +924,8 @@ const de: Translations = {
       "namePlaceholder": "Name",
       "phonePlaceholder": "Telefon",
       "emailPlaceholder": "E-Mail",
+      "whatsappPlaceholder": "WhatsApp-Nummer (optional)",
+      "telegramPlaceholder": "Telegram-Benutzername (optional)",
       "companyPlaceholder": "Unternehmen (optional)",
       "sourceLabel": "Woher kommt dieser Lead?",
       "submit": "Kontakt erstellen",
@@ -969,7 +971,13 @@ const de: Translations = {
       "newTaskPlaceholder": "Neue Aufgabe...",
       "activity": "Aktivität",
       "noActivity": "Noch keine Aktivität",
-      "newNotePlaceholder": "Neue Notiz..."
+      "newNotePlaceholder": "Neue Notiz...",
+      "callViaVoiceAgent": "Über Voice Agent anrufen",
+      "sendWhatsapp": "WhatsApp-Nachricht senden",
+      "openTelegram": "Telegram-Chat öffnen",
+      "whatsappMessagePlaceholder": "Nachricht...",
+      "whatsappActivityLog": "WhatsApp-Nachricht über wa.me gesendet",
+      "telegramActivityLog": "Telegram-Chat geöffnet"
     },
     "notes": {
       "title": "Angeheftete Notizen",

@@ -22,7 +22,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   return NextResponse.json({ contact });
 }
 
-const EDITABLE_FIELDS = ["name", "phone", "email", "company", "status", "source", "tags", "assignedToId"] as const;
+const EDITABLE_FIELDS = ["name", "phone", "email", "whatsapp", "telegram", "company", "status", "source", "tags", "assignedToId"] as const;
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);

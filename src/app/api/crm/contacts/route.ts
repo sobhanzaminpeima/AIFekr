@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { name, phone, email, company, source, status, assignedToId, customFields, sourceDetails } = body;
+  const { name, phone, email, whatsapp, telegram, company, source, status, assignedToId, customFields, sourceDetails } = body;
   if (!name?.trim()) return NextResponse.json({ error: "نام مخاطب الزامی است" }, { status: 400 });
 
   const contact = await prisma.crmContact.create({
@@ -49,6 +49,8 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       phone: phone || undefined,
       email: email || undefined,
+      whatsapp: whatsapp || undefined,
+      telegram: telegram || undefined,
       company: company || undefined,
       source: source || "manual",
       sourceDetails: sourceDetails ? JSON.stringify(sourceDetails) : undefined,
