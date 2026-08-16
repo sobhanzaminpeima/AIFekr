@@ -27,3 +27,13 @@ export async function deductCredits(userId: string, amount: number): Promise<voi
   }
   await prisma.user.update({ where: { id: userId }, data: { credits: { decrement: amount } } });
 }
+
+/** Reverses a deductCredits() call — used when a job charged up-front (e.g. async video generation) ends up failing. */
+export async function refundCredits(userId: string, amount: number): Promise<void> {
+  const membership = await prisma.teamMember.findUnique({ where: { userId } });
+  if (membership) {
+    await prisma.team.update({ where: { id: membership.teamId }, data: { credits: { increment: amount } } });
+    return;
+  }
+  await prisma.user.update({ where: { id: userId }, data: { credits: { increment: amount } } });
+}

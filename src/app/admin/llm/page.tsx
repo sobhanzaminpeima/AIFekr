@@ -418,12 +418,14 @@ const CAPABILITY_LABEL: Record<MediaProvider["capability"], string> = {
   audio: "صدا",
 };
 
-type CustomProvider = { id: string; name: string; baseUrl: string; model: string; enabled: boolean };
+type CustomProvider = { id: string; name: string; type: "chat" | "image" | "video"; baseUrl: string; model: string; enabled: boolean };
+
+const TYPE_LABEL: Record<CustomProvider["type"], string> = { chat: "چت", image: "تصویر", video: "ویدیو" };
 
 function CustomProvidersSection() {
   const [providers, setProviders] = useState<CustomProvider[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", baseUrl: "", apiKey: "", model: "" });
+  const [form, setForm] = useState<{ name: string; type: CustomProvider["type"]; baseUrl: string; apiKey: string; model: string }>({ name: "", type: "chat", baseUrl: "", apiKey: "", model: "" });
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {
@@ -450,7 +452,7 @@ function CustomProvidersSection() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       toast.success(`${form.name} اضافه شد`);
-      setForm({ name: "", baseUrl: "", apiKey: "", model: "" });
+      setForm({ name: "", type: "chat", baseUrl: "", apiKey: "", model: "" });
       setShowForm(false);
       load();
     } catch (e) {
@@ -484,13 +486,19 @@ function CustomProvidersSection() {
         </button>
       </div>
       <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-        هر endpoint سازگار با OpenAI (chat/completions) — مثلاً هر مدل چت جدیدی که بعداً کلیدش را گرفتید — از اینجا اضافه کنید تا بدون نیاز به تغییر کد یا دیپلوی، بلافاصله در انتخابگر مدل بخش کسب‌وکار و کپشن اینستاگرام قابل انتخاب باشد.
+        نوع مدل رو انتخاب کن (چت/تصویر/ویدیو) — بلافاصله بدون نیاز به تغییر کد یا دیپلوی، در انتخابگر مدل همون بخش (چت، تولید تصویر، تولید ویدیو، کپشن اینستاگرام) قابل انتخاب میشه. مدل‌های چت باید endpoint سازگار با OpenAI (chat/completions) باشن.
       </p>
 
       {showForm && (
         <div className="p-4 rounded-2xl mb-3 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <input placeholder="نام (مثلاً Mistral Large)" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
             className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as CustomProvider["type"] })}
+            className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="chat">چت</option>
+            <option value="image">تصویر</option>
+            <option value="video">ویدیو</option>
+          </select>
           <input placeholder="Base URL (مثلاً https://api.mistral.ai/v1)" value={form.baseUrl} onChange={(e) => setForm({ ...form, baseUrl: e.target.value })} dir="ltr"
             className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <input placeholder="Model id (مثلاً mistral-large-latest)" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} dir="ltr"
@@ -508,7 +516,10 @@ function CustomProvidersSection() {
           {providers.map((p) => (
             <div key={p.id} className="p-3 rounded-xl flex items-center gap-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", opacity: p.enabled ? 1 : 0.55 }}>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{p.name}</div>
+                <div className="text-sm font-semibold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                  {p.name}
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-normal" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>{TYPE_LABEL[p.type] ?? p.type}</span>
+                </div>
                 <div className="text-xs font-mono" style={{ color: "var(--text-muted)" }} dir="ltr">{p.model} · {p.baseUrl}</div>
               </div>
               <button onClick={() => toggleProvider(p.id, p.enabled)} className="text-xs px-2.5 py-1 rounded-lg font-medium" style={{ background: p.enabled ? "#22c55e18" : "#ef444418", color: p.enabled ? "#22c55e" : "#ef4444" }}>

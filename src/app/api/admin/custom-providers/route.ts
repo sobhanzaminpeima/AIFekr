@@ -12,23 +12,28 @@ export async function GET(req: NextRequest) {
   // API keys never leave the server once saved — the admin list only needs
   // to confirm one is set, not display/re-edit the actual value.
   return NextResponse.json({
-    providers: providers.map((p) => ({ id: p.id, name: p.name, baseUrl: p.baseUrl, model: p.model, enabled: p.enabled, hasApiKey: !!p.apiKey })),
+    providers: providers.map((p) => ({ id: p.id, name: p.name, type: p.type, baseUrl: p.baseUrl, model: p.model, enabled: p.enabled, hasApiKey: !!p.apiKey })),
   });
 }
+
+const VALID_TYPES = new Set(["chat", "image", "video"]);
 
 export async function POST(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin) return unauthorizedResponse();
 
-  const { name, baseUrl, apiKey, model } = await req.json();
+  const { name, type = "chat", baseUrl, apiKey, model } = await req.json();
   if (!name?.trim() || !baseUrl?.trim() || !apiKey?.trim() || !model?.trim()) {
     return NextResponse.json({ error: "همه‌ی فیلدها الزامی است" }, { status: 400 });
   }
+  if (!VALID_TYPES.has(type)) {
+    return NextResponse.json({ error: "نوع مدل نامعتبر است" }, { status: 400 });
+  }
 
   const provider = await prisma.customAiProvider.create({
-    data: { name: name.trim(), baseUrl: baseUrl.trim().replace(/\/$/, ""), apiKey: apiKey.trim(), model: model.trim() },
+    data: { name: name.trim(), type, baseUrl: baseUrl.trim().replace(/\/$/, ""), apiKey: apiKey.trim(), model: model.trim() },
   });
-  return NextResponse.json({ provider: { id: provider.id, name: provider.name, baseUrl: provider.baseUrl, model: provider.model, enabled: provider.enabled } });
+  return NextResponse.json({ provider: { id: provider.id, name: provider.name, type: provider.type, baseUrl: provider.baseUrl, model: provider.model, enabled: provider.enabled } });
 }
 
 export async function PATCH(req: NextRequest) {

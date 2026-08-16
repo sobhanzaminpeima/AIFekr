@@ -241,6 +241,10 @@ model GeneratedVideo {
   sourceImageUrl String?
   isPublic       Boolean  @default(false)
   credits        Int      @default(20)
+  /// Set once the async provider job (Replicate/Qwen) reports a terminal
+  /// failure and the credits spent up-front in generate/route.ts have been
+  /// refunded, so status/route.ts's polling never double-refunds the same row.
+  refunded       Boolean  @default(false)
   createdAt      DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -287,6 +291,9 @@ model Payment {
 model CustomAiProvider {
   id        String   @id @default(cuid())
   name      String
+  /// "chat" | "image" | "video" — which picker (src/app/api/ai/{chat,image,video}-providers)
+  /// this entry shows up in. Defaults to "chat" for rows created before this field existed.
+  type      String   @default("chat")
   baseUrl   String
   apiKey    String
   model     String

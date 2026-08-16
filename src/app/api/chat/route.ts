@@ -131,9 +131,6 @@ export async function POST(req: NextRequest) {
       data: { conversationId: convId, role: "user", content: message },
     });
 
-    // Deduct credit (from the shared team pool if the user is on a team)
-    await deductCredits(user.id, CREDIT_COSTS.chat);
-
     // Build message history for the API
     const apiMessages = [
       ...history.slice(-10),
@@ -186,6 +183,12 @@ export async function POST(req: NextRequest) {
             },
           });
 
+          // Deduct credit only now that generation actually succeeded (from
+          // the shared team pool if the user is on a team), scaled to the
+          // model that was actually used rather than a flat per-message cost.
+          const creditsUsed = selectedProvider?.creditCost ?? CREDIT_COSTS.chat;
+          await deductCredits(user.id, creditsUsed);
+
           // Log usage
           await prisma.usageLog.create({
             data: {
@@ -193,7 +196,7 @@ export async function POST(req: NextRequest) {
               type: "chat",
               model: selectedProvider?.model ?? model ?? "auto",
               tokens: tokensUsed,
-              credits: CREDIT_COSTS.chat,
+              credits: creditsUsed,
             },
           });
 

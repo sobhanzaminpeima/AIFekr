@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import * as qwen from "@/lib/ai/qwen";
+import { prisma } from "@/lib/db/prisma";
 
 // User-facing list of usable text-to-video models, for the model picker on
 // the video generation tool. Image-to-video always goes through Replicate
@@ -17,5 +18,9 @@ export async function GET(req: NextRequest) {
     { id: "replicate", name: "Replicate (Wan 2.1)", configured: !!(process.env.REPLICATE_API_TOKEN && process.env.REPLICATE_API_TOKEN !== "r8_your-token-here") },
   ].filter((p) => p.configured);
 
-  return NextResponse.json({ providers });
+  // Admin-added custom providers of type "video" (see /admin/llm).
+  const custom = await prisma.customAiProvider.findMany({ where: { enabled: true, type: "video" } });
+  const customEntries = custom.map((p) => ({ id: `custom:${p.id}`, name: p.name, configured: true }));
+
+  return NextResponse.json({ providers: [...providers, ...customEntries] });
 }

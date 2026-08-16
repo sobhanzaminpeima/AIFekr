@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
   // Admin-added custom providers (see /admin/llm → "افزودن API سفارشی").
   // `model` is prefixed "custom:<id>" so callers can tell them apart from
   // the static PROVIDERS list without a name/model string collision.
-  const custom = await prisma.customAiProvider.findMany({ where: { enabled: true } });
+  const custom = await prisma.customAiProvider.findMany({ where: { enabled: true, type: "chat" } });
   const customEntries = custom.map((p) => ({ id: `custom:${p.id}`, name: p.name, model: `custom:${p.id}` }));
 
   return NextResponse.json({ providers: [...providers, ...customEntries] });

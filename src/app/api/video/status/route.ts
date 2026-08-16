@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getPredictionStatus } from "@/lib/ai/replicate";
 import { getQwenTaskStatus } from "@/lib/ai/qwen";
 import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
+import { refundCredits } from "@/lib/utils/teamCredits";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -40,6 +41,19 @@ export async function GET(req: NextRequest) {
       where: { id: videoId, userId: user.id },
       data: { url: finalUrl },
     });
+  } else if ((status === "failed" || status === "canceled") && videoId) {
+    // Credits were deducted up-front in generate/route.ts before the async
+    // job's outcome was known — refund now that it's terminally failed.
+    // `updateMany` with `refunded: false` in the where clause makes this
+    // atomic-enough to avoid double-refunding on repeated status polls.
+    const { count } = await prisma.generatedVideo.updateMany({
+      where: { id: videoId, userId: user.id, refunded: false },
+      data: { refunded: true },
+    });
+    if (count > 0) {
+      const video = await prisma.generatedVideo.findUnique({ where: { id: videoId }, select: { credits: true } });
+      if (video) await refundCredits(user.id, video.credits);
+    }
   }
 
   return NextResponse.json({ status, output, error });
