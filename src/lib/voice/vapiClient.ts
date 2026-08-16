@@ -4,30 +4,41 @@
  * text-to-speech — and calls back into our webhook for tool/function calls and
  * the end-of-call report. We never touch raw audio.
  *
- * VAPI_API_KEY is optional at boot: every exported function throws a clear,
- * catchable error if it's unset, so the rest of the module (agent CRUD,
- * property/appointment management, dashboard) works fully before a real Vapi
- * account is connected — only "provision a phone number" and "make a live
- * call" are blocked until then.
+ * The private API key is read from the admin-managed SiteSetting row
+ * ("vapi_private_key", set from /admin/voice-agent) first, falling back to
+ * the VAPI_API_KEY env var so existing env-based deployments keep working
+ * without any admin action. Optional either way: every exported function
+ * throws a clear, catchable error if neither is set, so the rest of the
+ * module (agent CRUD, property/appointment management, dashboard) works
+ * fully before a real Vapi account is connected — only "provision a phone
+ * number" and "make a live call" are blocked until then.
  */
+
+import { prisma } from "@/lib/db/prisma";
 
 const VAPI_BASE_URL = "https://api.vapi.ai";
 
 export class VapiNotConfiguredError extends Error {
   constructor() {
-    super("VAPI_API_KEY تنظیم نشده است — برای فعال‌سازی تماس واقعی، کلید Vapi را در تنظیمات محیطی وارد کنید.");
+    super("کلید Vapi تنظیم نشده است — برای فعال‌سازی تماس واقعی، کلید را در پنل ادمین (ایجنت صوتی) یا متغیر محیطی VAPI_API_KEY وارد کنید.");
     this.name = "VapiNotConfiguredError";
   }
 }
 
-function requireApiKey(): string {
+async function requireApiKey(): Promise<string> {
+  try {
+    const row = await prisma.siteSetting.findUnique({ where: { key: "vapi_private_key" } });
+    if (row?.value) return row.value;
+  } catch {
+    // DB unreachable or table not migrated yet — fall through to env var.
+  }
   const key = process.env.VAPI_API_KEY;
   if (!key) throw new VapiNotConfiguredError();
   return key;
 }
 
 async function vapiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const key = requireApiKey();
+  const key = await requireApiKey();
   const res = await fetch(`${VAPI_BASE_URL}${path}`, {
     ...init,
     headers: {
@@ -49,6 +60,8 @@ export interface VapiAssistantConfig {
   voiceId?: string | null;
   /** Public webhook URL Vapi calls for tool invocations and the end-of-call report. */
   serverUrl: string;
+  /** "real_estate" | "general" — which tool set to register. Defaults to "real_estate" for back-compat. */
+  vertical?: string | null;
 }
 
 export interface VapiAssistant {
@@ -56,11 +69,12 @@ export interface VapiAssistant {
   name: string;
 }
 
-// Vapi tool declarations for the two things the agent can do mid-call beyond
-// talking — look up matching listings and book a viewing. Vapi calls our
-// webhook (serverUrl) synchronously with type "function-call" and expects a
-// JSON `result` back; see src/app/api/webhooks/vapi/route.ts.
-const VOICE_AGENT_TOOLS = [
+// Vapi tool declarations for the two things a real-estate agent can do
+// mid-call beyond talking — look up matching listings and book a viewing.
+// Vapi calls our webhook (serverUrl) synchronously with type "function-call"
+// and expects a JSON `result` back; see src/app/api/webhooks/vapi/route.ts.
+// Kept exactly as-is so existing real-estate users aren't broken.
+const REAL_ESTATE_TOOLS = [
   {
     type: "function",
     function: {
@@ -111,6 +125,46 @@ const VOICE_AGENT_TOOLS = [
   },
 ];
 
+// Generic tool set for any business ("general" vertical) — no propertyId,
+// just knowledge-base lookup and a bare-bones appointment/callback booking.
+const GENERAL_TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "search_knowledge_base",
+      description: "جستجو در دانش‌نامه کسب‌وکار برای پاسخ به سوالات تماس‌گیرنده — ساعات کاری، خدمات، قیمت‌ها، سیاست‌ها و مشابه آن.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "موضوع یا سوال تماس‌گیرنده" },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "book_appointment",
+      description: "رزرو وقت یا یادداشت درخواست تماس‌گیرنده برای پیگیری توسط کسب‌وکار.",
+      parameters: {
+        type: "object",
+        properties: {
+          leadName: { type: "string" },
+          leadPhone: { type: "string" },
+          scheduledAtIso: { type: "string", description: "تاریخ و ساعت پیشنهادی به فرمت ISO 8601" },
+          note: { type: "string", description: "توضیح کوتاه درخواست یا دلیل تماس" },
+        },
+        required: ["leadName", "leadPhone", "scheduledAtIso"],
+      },
+    },
+  },
+];
+
+export function buildVoiceAgentTools(vertical?: string | null) {
+  return vertical === "general" ? GENERAL_TOOLS : REAL_ESTATE_TOOLS;
+}
+
 /**
  * Creates (or updates, if assistantId is given) a Vapi assistant backing one
  * VoiceAgent. Uses Vapi's native Anthropic model provider — Claude's API key
@@ -126,7 +180,7 @@ export async function upsertVapiAssistant(config: VapiAssistantConfig, assistant
       provider: "anthropic",
       model: "claude-sonnet-5",
       messages: [{ role: "system", content: config.systemPrompt }],
-      tools: VOICE_AGENT_TOOLS,
+      tools: buildVoiceAgentTools(config.vertical),
     },
     voice: config.voiceId ? { provider: "playht", voiceId: config.voiceId } : undefined,
     serverUrl: config.serverUrl,

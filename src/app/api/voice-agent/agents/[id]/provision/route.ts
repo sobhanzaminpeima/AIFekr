@@ -30,6 +30,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         name: agent.name,
         systemPrompt: agent.systemPrompt,
         voiceId: agent.voiceId,
+        vertical: agent.vertical,
         serverUrl: `${appUrl}/api/webhooks/vapi`,
       },
       agent.vapiAssistantId

@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useCallback } from "react";
-import { Phone, Search, PhoneCall, CalendarDays, Users, Hash } from "lucide-react";
+import { Phone, Search, PhoneCall, CalendarDays, Users, Hash, KeyRound, Save, CheckCircle2, XCircle, Info } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface Row {
@@ -61,6 +61,8 @@ export default function AdminVoiceAgentPage() {
         <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>ایجنت صوتی — مدیریت</h1>
         <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>کاربران، ایجنت‌ها و تماس‌های ماژول Voice Agent</p>
       </div>
+
+      <VapiKeysSection />
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {statCards.map((s, i) => (
@@ -140,6 +142,112 @@ export default function AdminVoiceAgentPage() {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Admin-managed Vapi API keys — stored in SiteSetting ("vapi_private_key",
+ * "vapi_public_key"), same reuse-not-reinvent pattern as the Zarinpal
+ * merchant id in /admin/settings. src/lib/voice/vapiClient.ts reads
+ * vapi_private_key from here first, falling back to the VAPI_API_KEY env var.
+ */
+function VapiKeysSection() {
+  const [privateKey, setPrivateKey] = useState("");
+  const [publicKey, setPublicKey] = useState("");
+  const [configured, setConfigured] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/settings", { credentials: "include" });
+      const data = await res.json();
+      const settings = data.settings || {};
+      setPrivateKey(settings.vapi_private_key || "");
+      setPublicKey(settings.vapi_public_key || "");
+      setConfigured(Boolean(settings.vapi_private_key));
+    } catch {
+      // ignore — fields just stay empty, admin can still type and save
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function save() {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ settings: { vapi_private_key: privateKey.trim(), vapi_public_key: publicKey.trim() } }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("کلیدهای Vapi ذخیره شد");
+      setConfigured(Boolean(privateKey.trim()));
+    } catch {
+      toast.error("خطا در ذخیره کلیدها");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl p-5 space-y-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <KeyRound className="w-4 h-4" style={{ color: "#16a34a" }} />
+          <h2 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>کلیدهای Vapi (ایجنت صوتی)</h2>
+        </div>
+        <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full"
+          style={{ background: configured ? "rgba(22,163,74,0.12)" : "rgba(239,68,68,0.12)", color: configured ? "#16a34a" : "#ef4444" }}>
+          {configured ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+          {configured ? "پیکربندی شده" : "پیکربندی نشده"}
+        </span>
+      </div>
+
+      {loading ? (
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>در حال بارگذاری...</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Vapi Private Key</label>
+              <input type="password" value={privateKey} onChange={(e) => setPrivateKey(e.target.value)} dir="ltr" placeholder="sk_live_..."
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Vapi Public Key</label>
+              <input type="password" value={publicKey} onChange={(e) => setPublicKey(e.target.value)} dir="ltr" placeholder="pk_live_..."
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+          </div>
+          <button onClick={save} disabled={saving}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "#16a34a" }}>
+            <Save className="w-4 h-4" />{saving ? "در حال ذخیره..." : "ذخیره کلیدها"}
+          </button>
+        </>
+      )}
+
+      <div className="rounded-xl p-4 space-y-2 text-xs leading-6" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+        <p className="flex items-center gap-1.5 font-semibold" style={{ color: "var(--text-primary)" }}>
+          <Info className="w-3.5 h-3.5" /> راهنمای فعال‌سازی
+        </p>
+        <p>
+          ۱) به داشبورد Vapi بروید: <span dir="ltr" className="font-mono">vapi.ai</span> ← <span dir="ltr" className="font-mono">API Keys</span>؛
+          کلید Private را برای فراخوانی سرور و کلید Public را (در صورت نیاز به ویجت وب) کپی کرده و در بالا وارد کنید.
+        </p>
+        <p>
+          ۲) نیازی به وارد کردن دستی شماره تلفن نیست — به محض فعال‌سازی هر ایجنت صوتی توسط کاربر (دکمه «اتصال شماره تلفن» در صفحه
+          {" "}<span dir="ltr" className="font-mono">/voice-agent</span>)، یک شماره به‌صورت خودکار از طریق Vapi تخصیص داده می‌شود.
+        </p>
+        <p>
+          ۳) پس از ذخیره کلیدها در این صفحه، هر صاحب کسب‌وکار می‌تواند از صفحه‌ی
+          {" "}<span dir="ltr" className="font-mono">/voice-agent</span> افزونه‌ی Voice Agent را برای حساب خودش فعال کند (یا با پلن رایگان یک ایجنت آزمایشی بسازد) و سپس با دکمه‌ی «اتصال شماره تلفن» ایجنت خود را به یک شماره واقعی وصل کند — بدون نیاز به تغییر کد یا دیپلوی مجدد.
+        </p>
+      </div>
     </div>
   );
 }

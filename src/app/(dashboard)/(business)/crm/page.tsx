@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Briefcase, Plus, X, Phone, Mail, Building2, Loader2, ChevronDown,
   Users, LayoutGrid, Clock, CheckCircle2, Circle, Zap, FileText, Trash2, Upload, Sparkles, CalendarDays,
-  Package, Receipt, FileSignature, Pin, Printer, FolderKanban,
+  Package, Receipt, FileSignature, Pin, Printer, FolderKanban, PhoneCall,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import type { Translations } from "@/lib/i18n/en";
@@ -619,6 +619,23 @@ function ContactDetailModal({ isFa, t, contact, teamMembers, onClose, onChanged 
   const [note, setNote] = useState("");
   const [taskTitle, setTaskTitle] = useState("");
   const [assignedToId, setAssignedToId] = useState(contact.assignedToId || "");
+  const [callingViaVoice, setCallingViaVoice] = useState(false);
+
+  async function callViaVoiceAgent() {
+    setCallingViaVoice(true);
+    try {
+      const res = await fetch("/api/crm/voice-call", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contactId: contact.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || (isFa ? "خطا در برقراری تماس" : "Failed to start call"));
+      onChanged();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : (isFa ? "خطا" : "Error"));
+    } finally {
+      setCallingViaVoice(false);
+    }
+  }
 
   async function assignTo(newAssigneeId: string) {
     setAssignedToId(newAssigneeId);
@@ -663,10 +680,18 @@ function ContactDetailModal({ isFa, t, contact, teamMembers, onClose, onChanged 
         <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
       </div>
 
-      <div className="flex flex-wrap gap-3 mb-4 text-xs" style={{ color: "var(--text-secondary)" }}>
+      <div className="flex flex-wrap items-center gap-3 mb-4 text-xs" style={{ color: "var(--text-secondary)" }}>
         {contact.phone && <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5" />{contact.phone}</span>}
         {contact.email && <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5" />{contact.email}</span>}
         {contact.company && <span className="flex items-center gap-1"><Building2 className="w-3.5 h-3.5" />{contact.company}</span>}
+        {contact.phone && (
+          <button onClick={callViaVoiceAgent} disabled={callingViaVoice}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium disabled:opacity-50"
+            style={{ background: "rgba(22,163,74,0.12)", color: "#16a34a" }}>
+            {callingViaVoice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PhoneCall className="w-3.5 h-3.5" />}
+            {isFa ? "تماس با ایجنت صوتی" : "Call via Voice Agent"}
+          </button>
+        )}
       </div>
 
       {teamMembers.length > 0 && (

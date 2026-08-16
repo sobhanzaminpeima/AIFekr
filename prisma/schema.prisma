@@ -385,6 +385,7 @@ model CrmContact {
   contracts  CrmContract[]
   notesList  CrmNote[]
   projects   CrmProject[]
+  voiceCallLogs VoiceCallLog[]
 
   @@index([userId])
   @@index([status])
@@ -1256,6 +1257,13 @@ model VoiceAgent {
   name              String
   /// "buy" | "sell" | "rent" | "general" — shapes the default system prompt.
   focus             String   @default("general")
+  /// "real_estate" | "general" — which Vapi tool set gets registered for this
+  /// agent (see buildVoiceAgentTools() in src/lib/voice/vapiClient.ts).
+  /// "real_estate" keeps the existing search_properties/book_appointment
+  /// tools; "general" swaps in a business-agnostic tool set so the Voice
+  /// Agent add-on works for any business, not just real estate. Extensible
+  /// to future verticals without a schema change (plain string, not an enum).
+  vertical          String   @default("real_estate")
   systemPrompt      String
   /// Vapi voice id (e.g. "jennifer") — cosmetic, defaults server-side if unset.
   voiceId           String?
@@ -1334,6 +1342,10 @@ model VoiceCallLog {
   id           String    @id @default(cuid())
   userId       String
   agentId      String
+  /// Best-effort match to a CRM contact by phone number (see matchCrmContactByPhone()
+  /// in src/lib/voice/crmLink.ts) — null when no match was found. Never
+  /// auto-creates a new CrmContact; that stays a manual/user decision.
+  contactId    String?
   vapiCallId   String?   @unique
   callerPhone  String?
   direction    String    @default("inbound") // inbound | outbound
@@ -1351,10 +1363,12 @@ model VoiceCallLog {
 
   user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   agent       VoiceAgent        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  contact     CrmContact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
   appointment VoiceAppointment?
 
   @@index([userId])
   @@index([agentId])
+  @@index([contactId])
 }
 
 /// A property viewing booked by the agent during (or after) a call.

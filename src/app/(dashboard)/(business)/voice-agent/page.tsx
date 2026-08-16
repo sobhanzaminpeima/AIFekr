@@ -8,7 +8,7 @@ import {
 import { useTranslation } from "@/lib/i18n";
 
 interface VoiceAgent {
-  id: string; name: string; focus: string; systemPrompt: string; voiceId: string | null;
+  id: string; name: string; focus: string; vertical: string; systemPrompt: string; voiceId: string | null;
   phoneNumber: string | null; vapiAssistantId: string | null; isActive: boolean;
   _count?: { calls: number; appointments: number };
 }
@@ -35,6 +35,11 @@ const FOCUS_OPTIONS = [
   { value: "buy", fa: "خرید", en: "Buy" },
   { value: "sell", fa: "فروش", en: "Sell" },
   { value: "rent", fa: "اجاره", en: "Rent" },
+];
+
+const VERTICAL_OPTIONS = [
+  { value: "real_estate", fa: "املاک", en: "Real Estate" },
+  { value: "general", fa: "سایر کسب‌وکارها", en: "Any Business (General)" },
 ];
 
 const APPOINTMENT_STATUSES = ["pending", "confirmed", "completed", "cancelled", "no_show"];
@@ -125,7 +130,7 @@ export default function VoiceAgentPage() {
     }
   }
 
-  async function createAgent(form: { name: string; focus: string }) {
+  async function createAgent(form: { name: string; focus: string; vertical: string }) {
     setError("");
     const res = await fetch("/api/voice-agent/agents", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
@@ -212,6 +217,11 @@ export default function VoiceAgentPage() {
     );
   }
 
+  // Properties are a real-estate-only concept — hide that tab when the user
+  // has no real-estate-vertical agent (defaults to shown before any agent
+  // exists, since we can't yet know which vertical they'll pick).
+  const showPropertiesTab = agents.length === 0 || agents.some((a) => a.vertical !== "general");
+
   return (
     <div dir={isFa ? "rtl" : "ltr"} className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
@@ -227,7 +237,7 @@ export default function VoiceAgentPage() {
       <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-6 px-6 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "thin" }}>
         {[
           { id: "agents" as const, label: isFa ? "ایجنت‌ها" : "Agents", icon: Settings2 },
-          { id: "properties" as const, label: isFa ? "ملک‌ها" : "Properties", icon: Home },
+          ...(showPropertiesTab ? [{ id: "properties" as const, label: isFa ? "ملک‌ها" : "Properties", icon: Home }] : []),
           { id: "knowledge" as const, label: isFa ? "دانش‌نامه" : "Knowledge Base", icon: BookOpen },
           { id: "calls" as const, label: isFa ? "تماس‌ها" : "Calls", icon: PhoneCall },
           { id: "appointments" as const, label: isFa ? "رزروها" : "Appointments", icon: CalendarDays },
@@ -289,11 +299,12 @@ function AgentsTab({
   isFa, agents, showNewAgent, setShowNewAgent, onCreate, onDelete, onToggleActive, onProvision, provisioningId,
 }: {
   isFa: boolean; agents: VoiceAgent[]; showNewAgent: boolean; setShowNewAgent: (v: boolean) => void;
-  onCreate: (f: { name: string; focus: string }) => void; onDelete: (id: string) => void;
+  onCreate: (f: { name: string; focus: string; vertical: string }) => void; onDelete: (id: string) => void;
   onToggleActive: (a: VoiceAgent) => void; onProvision: (id: string) => void; provisioningId: string | null;
 }) {
   const [name, setName] = useState("");
   const [focus, setFocus] = useState("general");
+  const [vertical, setVertical] = useState("real_estate");
 
   return (
     <div className="space-y-4">
@@ -317,8 +328,14 @@ function AgentsTab({
             <div className="flex items-start justify-between">
               <div>
                 <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{a.name}</p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                  {FOCUS_OPTIONS.find((f) => f.value === a.focus)?.[isFa ? "fa" : "en"]}
+                <p className="text-xs mt-0.5 flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
+                  <span>{VERTICAL_OPTIONS.find((v) => v.value === a.vertical)?.[isFa ? "fa" : "en"] || a.vertical}</span>
+                  {a.vertical !== "general" && (
+                    <>
+                      <span>·</span>
+                      <span>{FOCUS_OPTIONS.find((f) => f.value === a.focus)?.[isFa ? "fa" : "en"]}</span>
+                    </>
+                  )}
                 </p>
               </div>
               <button onClick={() => onToggleActive(a)}
@@ -371,13 +388,27 @@ function AgentsTab({
                 className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{isFa ? "تمرکز" : "Focus"}</label>
-              <select value={focus} onChange={(e) => setFocus(e.target.value)}
+              <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{isFa ? "نوع کسب‌وکار" : "Business Type"}</label>
+              <select value={vertical} onChange={(e) => setVertical(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                {FOCUS_OPTIONS.map((f) => <option key={f.value} value={f.value}>{isFa ? f.fa : f.en}</option>)}
+                {VERTICAL_OPTIONS.map((v) => <option key={v.value} value={v.value}>{isFa ? v.fa : v.en}</option>)}
               </select>
+              <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                {vertical === "general"
+                  ? (isFa ? "برای هر کسب‌وکاری مناسب است — از دانش‌نامه و رزرو وقت عمومی استفاده می‌کند." : "Works for any business — uses the knowledge base and generic appointment booking.")
+                  : (isFa ? "برای آژانس‌های املاک — شامل جستجوی ملک و رزرو بازدید." : "For real-estate agencies — includes property search and viewing bookings.")}
+              </p>
             </div>
-            <button onClick={() => onCreate({ name, focus })} disabled={!name.trim()}
+            {vertical !== "general" && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{isFa ? "تمرکز" : "Focus"}</label>
+                <select value={focus} onChange={(e) => setFocus(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                  {FOCUS_OPTIONS.map((f) => <option key={f.value} value={f.value}>{isFa ? f.fa : f.en}</option>)}
+                </select>
+              </div>
+            )}
+            <button onClick={() => onCreate({ name, focus, vertical })} disabled={!name.trim()}
               className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "#16a34a" }}>
               {isFa ? "ساخت ایجنت" : "Create Agent"}
             </button>

@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import { matchCrmContactByPhone } from "@/lib/voice/crmLink";
 
 /**
  * Vapi's single server-side webhook — handles both mid-call tool invocations
@@ -128,12 +129,14 @@ async function handleToolCall(tc: VapiToolCall, message: VapiMessage) {
 
   if (tc.function.name === "book_appointment") {
     if (!agent) return { toolCallId: tc.id, result: "ایجنت یافت نشد" };
-    const { propertyId, leadName, leadPhone, scheduledAtIso } = args as {
-      propertyId?: string; leadName?: string; leadPhone?: string; scheduledAtIso?: string;
+    // propertyId only applies to real_estate-vertical agents; `note` is the
+    // general-vertical equivalent (reason for the callback/appointment).
+    const { propertyId, leadName, leadPhone, scheduledAtIso, note } = args as {
+      propertyId?: string; leadName?: string; leadPhone?: string; scheduledAtIso?: string; note?: string;
     };
     const scheduledAt = scheduledAtIso ? new Date(scheduledAtIso) : null;
     if (!leadName || !leadPhone || !scheduledAt || isNaN(scheduledAt.getTime())) {
-      return { toolCallId: tc.id, result: "برای رزرو، نام، شماره تماس و زمان بازدید معتبر لازم است." };
+      return { toolCallId: tc.id, result: "برای رزرو، نام، شماره تماس و زمان معتبر لازم است." };
     }
     const property = propertyId ? await prisma.voiceProperty.findUnique({ where: { id: propertyId } }) : null;
 
@@ -146,9 +149,10 @@ async function handleToolCall(tc: VapiToolCall, message: VapiMessage) {
         leadPhone: String(leadPhone),
         scheduledAt,
         status: "pending",
+        notes: note ? String(note) : undefined,
       },
     });
-    return { toolCallId: tc.id, result: `وقت بازدید برای ${appointment.scheduledAt.toLocaleString("fa-IR")} ثبت شد و منتظر تأیید کارشناس است.` };
+    return { toolCallId: tc.id, result: `وقت برای ${appointment.scheduledAt.toLocaleString("fa-IR")} ثبت شد و منتظر تأیید کارشناس است.` };
   }
 
   return { toolCallId: tc.id, result: "ابزار نامعتبر" };
@@ -159,14 +163,21 @@ async function handleEndOfCall(message: VapiMessage) {
   if (!agent || !message.call?.id) return;
 
   const outcome = message.summary?.includes("appointment") ? "appointment_booked" : undefined;
+  const callerPhone = message.call.customer?.number || undefined;
 
-  await prisma.voiceCallLog.upsert({
+  // Best-effort CRM link — never creates a new contact, just attaches to an
+  // existing one if the phone number matches. Failures here must never block
+  // the call log itself from being written.
+  const contactId = await matchCrmContactByPhone(agent.userId, callerPhone).catch(() => null);
+
+  const callLog = await prisma.voiceCallLog.upsert({
     where: { vapiCallId: message.call.id },
     create: {
       userId: agent.userId,
       agentId: agent.id,
+      contactId: contactId || undefined,
       vapiCallId: message.call.id,
-      callerPhone: message.call.customer?.number || undefined,
+      callerPhone,
       status: "completed",
       outcome,
       transcript: message.transcript || undefined,
@@ -177,6 +188,7 @@ async function handleEndOfCall(message: VapiMessage) {
       endedAt: new Date(),
     },
     update: {
+      contactId: contactId || undefined,
       status: "completed",
       outcome,
       transcript: message.transcript || undefined,
@@ -187,4 +199,16 @@ async function handleEndOfCall(message: VapiMessage) {
       endedAt: new Date(),
     },
   });
+
+  // Surface the call in the matched contact's CRM activity timeline.
+  if (contactId) {
+    await prisma.crmActivity.create({
+      data: {
+        userId: agent.userId,
+        contactId,
+        type: "call",
+        content: message.summary || `تماس صوتی ${agent.name} — ${callLog.durationSec ? `${callLog.durationSec} ثانیه` : "بدون جزئیات مدت زمان"}${outcome ? ` — نتیجه: ${outcome}` : ""}`,
+      },
+    }).catch(() => {});
+  }
 }
