@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db/prisma";
 import { getServerLang } from "@/lib/i18n/server";
+import { formatPackPrice } from "@/lib/utils/currency";
 
 export const dynamic = "force-dynamic";
 
@@ -94,7 +95,7 @@ export default async function IndustryPage() {
 
                   <div className="flex items-center justify-between mt-4">
                     <span className="font-bold" style={{ color: pack.color }}>
-                      ${pack.price}<span className="text-xs font-normal" style={{ color: "var(--text-muted)" }}>/{s.month}</span>
+                      {formatPackPrice(pack.price, lang)}<span className="text-xs font-normal" style={{ color: "var(--text-muted)" }}>/{s.month}</span>
                     </span>
                     <Link href={`/industry/${pack.slug}`}
                       className="px-4 py-1.5 rounded-lg text-xs font-medium text-white transition-all"

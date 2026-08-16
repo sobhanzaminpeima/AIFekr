@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { verifyToken } from "@/lib/auth/jwt";
 import { getServerLang } from "@/lib/i18n/server";
 import ActivateButton from "@/components/industry/ActivateButton";
+import { formatPackPrice } from "@/lib/utils/currency";
 
 export const dynamic = "force-dynamic";
 
@@ -147,7 +148,7 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
               }}>
               {pack.tier === "gold" ? s.gold : s.pro}
             </span>
-            <div className="text-4xl font-bold mb-1" style={{ color: pack.color }}>${pack.price}</div>
+            <div className="text-4xl font-bold mb-1" style={{ color: pack.color }}>{formatPackPrice(pack.price, lang)}</div>
             <div className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>{s.month}</div>
 
             {isCurrentPack ? (
