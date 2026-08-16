@@ -48,6 +48,12 @@ const MODEL_IDS = [
   { id: "auto", key: "auto" as const, plan: "FREE" },
 ];
 
+interface ChatProvider {
+  id: string;
+  name: string;
+  model: string;
+}
+
 declare global {
   interface Window {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -193,6 +199,14 @@ export default function ChatInterface({
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [selectedModel, setSelectedModel] = useState(MODEL_IDS[0].id);
+  const [chatProviders, setChatProviders] = useState<ChatProvider[]>([]);
+
+  useEffect(() => {
+    fetch("/api/ai/chat-providers", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => setChatProviders(data.providers ?? []))
+      .catch(() => {});
+  }, []);
   const [currentConvId, setCurrentConvId] = useState(conversationId);
   const [activeProvider, setActiveProvider] = useState<string | null>(null);
   const [expertMode, setExpertMode] = useState("default");
@@ -521,6 +535,9 @@ export default function ChatInterface({
           >
             {MODEL_IDS.map((m) => (
               <option key={m.id} value={m.id}>{t.chat.models[m.key]}</option>
+            ))}
+            {chatProviders.map((p) => (
+              <option key={p.id} value={p.model}>{p.name}</option>
             ))}
           </select>
         </div>

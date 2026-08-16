@@ -978,11 +978,17 @@ model IndustryPack {
   tagline          String
   taglineEn        String?
   valueProposition String
+  valuePropositionEn String?
   targetCustomers  String
+  targetCustomersEn String?
   painPoints       String
+  painPointsEn     String?
   agents           String
+  agentsEn         String?
   outcomes         String
+  outcomesEn       String?
   kpis             String
+  kpisEn           String?
   tier             String    @default("professional")
   price            Int       @default(299)
   color            String

@@ -7,6 +7,7 @@ import {
   Package, Receipt, FileSignature, Pin, Printer, FolderKanban,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
+import type { Translations } from "@/lib/i18n/en";
 import { toJalali } from "@/lib/utils/jalali";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import ReactMarkdown from "react-markdown";
@@ -48,8 +49,9 @@ function fmtMoney(n: number) {
 }
 
 export default function CrmPage() {
-  const { lang } = useTranslation();
+  const { t, lang } = useTranslation();
   const isFa = lang !== "en";
+  const c = t.crm;
 
   const [tab, setTab] = useState<"board" | "contacts" | "automation" | "agent" | "calendar" | "analytics" | "products" | "invoices" | "contracts" | "projects">("board");
   const [rules, setRules] = useState<AutomationRule[]>([]);
@@ -83,10 +85,10 @@ export default function CrmPage() {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: planCode }),
       });
       const data = await res.json();
-      if (!res.ok || !data.paymentUrl) throw new Error(data.error || "خطا در شروع پرداخت");
+      if (!res.ok || !data.paymentUrl) throw new Error(data.error || c.errors.paymentStartFailed);
       window.location.href = data.paymentUrl;
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "خطا در پرداخت");
+      setError(err instanceof Error ? err.message : c.errors.paymentGeneric);
       setUpgrading(false);
     }
   }
@@ -136,7 +138,7 @@ export default function CrmPage() {
       const res = await fetch("/api/crm/pipelines", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(industryChoice ? { industrySlug: industryChoice } : { name: isFa ? "فروش عمومی" : "General Sales" }),
+        body: JSON.stringify(industryChoice ? { industrySlug: industryChoice } : { name: c.empty.defaultPipelineName }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -182,28 +184,28 @@ export default function CrmPage() {
           <Briefcase className="w-5 h-5" style={{ color: "var(--primary)" }} />
         </div>
         <div>
-          <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "مدیریت مشتریان (CRM)" : "CRM"}</h1>
-          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "پایپلاین فروش و مخاطبین کسب‌وکار شما" : "Your sales pipeline and business contacts"}</p>
+          <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{c.header.title}</h1>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{c.header.subtitle}</p>
         </div>
       </div>
 
       <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-6 px-6 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "thin" }}>
         {[
-          { id: "board" as const, label: isFa ? "پایپلاین" : "Pipeline", icon: LayoutGrid },
-          { id: "contacts" as const, label: isFa ? "مخاطبین" : "Contacts", icon: Users },
-          { id: "automation" as const, label: isFa ? "اتوماسیون" : "Automation", icon: Zap },
-          { id: "agent" as const, label: isFa ? "تحلیل CRM" : "CRM Agent", icon: Sparkles },
-          { id: "calendar" as const, label: isFa ? "تقویم" : "Calendar", icon: CalendarDays },
-          { id: "analytics" as const, label: isFa ? "آمار" : "Analytics", icon: LayoutGrid },
-          { id: "products" as const, label: isFa ? "محصولات" : "Products", icon: Package },
-          { id: "invoices" as const, label: isFa ? "فاکتورها" : "Invoices", icon: Receipt },
-          { id: "contracts" as const, label: isFa ? "قراردادها" : "Contracts", icon: FileSignature },
-          { id: "projects" as const, label: isFa ? "پروژه‌ها" : "Projects", icon: FolderKanban },
-        ].map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)}
+          { id: "board" as const, label: c.tabs.board, icon: LayoutGrid },
+          { id: "contacts" as const, label: c.tabs.contacts, icon: Users },
+          { id: "automation" as const, label: c.tabs.automation, icon: Zap },
+          { id: "agent" as const, label: c.tabs.agent, icon: Sparkles },
+          { id: "calendar" as const, label: c.tabs.calendar, icon: CalendarDays },
+          { id: "analytics" as const, label: c.tabs.analytics, icon: LayoutGrid },
+          { id: "products" as const, label: c.tabs.products, icon: Package },
+          { id: "invoices" as const, label: c.tabs.invoices, icon: Receipt },
+          { id: "contracts" as const, label: c.tabs.contracts, icon: FileSignature },
+          { id: "projects" as const, label: c.tabs.projects, icon: FolderKanban },
+        ].map((tabItem) => (
+          <button key={tabItem.id} onClick={() => setTab(tabItem.id)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all flex-shrink-0"
-            style={{ background: tab === t.id ? "var(--primary)" : "var(--surface-1)", color: tab === t.id ? "white" : "var(--text-secondary)", border: "1px solid var(--border)" }}>
-            <t.icon className="w-4 h-4" /> {t.label}
+            style={{ background: tab === tabItem.id ? "var(--primary)" : "var(--surface-1)", color: tab === tabItem.id ? "white" : "var(--text-secondary)", border: "1px solid var(--border)" }}>
+            <tabItem.icon className="w-4 h-4" /> {tabItem.label}
           </button>
         ))}
       </div>
@@ -211,17 +213,17 @@ export default function CrmPage() {
       {crmPlan === "NONE" && (
         <div className="rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3" style={{ background: "rgba(234,88,12,0.08)", border: "1px solid rgba(234,88,12,0.3)" }}>
           <div>
-            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{isFa ? "فاکتور، قرارداد، کاتالوگ محصولات و اتوماسیون بخشی از افزونه‌ی CRM حرفه‌ای است" : "Invoicing, contracts, product catalog, and automation are part of the CRM Pro add-on"}</p>
-            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "پایپلاین و مخاطبین همچنان رایگان (تا ۲۰ مخاطب) در دسترس‌اند." : "Pipeline and contacts remain free (up to 20 contacts)."}</p>
+            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{c.upgrade.banner}</p>
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{c.upgrade.bannerSub}</p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => purchaseCrmPlan("CRM_SOLO")} disabled={upgrading}
               className="px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-50" style={{ background: "var(--surface-1)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
-              {isFa ? "CRM انفرادی" : "CRM Solo"}
+              {c.upgrade.solo}
             </button>
             <button onClick={() => purchaseCrmPlan("CRM_TEAM")} disabled={upgrading}
               className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-              {upgrading ? <Loader2 className="w-4 h-4 animate-spin" /> : (isFa ? "CRM تیمی" : "CRM Team")}
+              {upgrading ? <Loader2 className="w-4 h-4 animate-spin" /> : c.upgrade.team}
             </button>
           </div>
         </div>
@@ -232,17 +234,17 @@ export default function CrmPage() {
       {pipelines.length === 0 && tab === "board" ? (
         <div className="rounded-2xl p-8 text-center space-y-4" style={{ background: "var(--surface-1)", border: "1px dashed var(--border)" }}>
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            {isFa ? "هنوز هیچ پایپلاینی نساختی. صنعت خودت رو انتخاب کن تا یک پایپلاین آماده با مراحل مناسب برات بسازیم." : "You don't have a pipeline yet. Pick your industry to get a ready-made pipeline with the right stages."}
+            {c.empty.noPipeline}
           </p>
           <div className="flex items-center justify-center gap-2 flex-wrap">
             <select value={industryChoice} onChange={(e) => setIndustryChoice(e.target.value)}
               className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-              {INDUSTRY_OPTIONS.map((o) => <option key={o.slug} value={o.slug}>{isFa ? o.labelFa : o.labelEn}</option>)}
+              {INDUSTRY_OPTIONS.map((o) => <option key={o.slug} value={o.slug}>{c.industries[(o.slug || "generic") as keyof typeof c.industries]}</option>)}
             </select>
             <button onClick={createPipeline} disabled={creatingPipeline}
               className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
               {creatingPipeline ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              {isFa ? "ساخت پایپلاین" : "Create Pipeline"}
+              {c.empty.createPipeline}
             </button>
           </div>
         </div>
@@ -260,11 +262,11 @@ export default function CrmPage() {
             <div className="flex-1" />
             <a href="/api/crm/export?type=deals" download
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
-              {isFa ? "خروجی CSV" : "Export CSV"}
+              {c.board.exportCsv}
             </a>
             <button onClick={() => setShowNewDeal(true)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-              <Plus className="w-4 h-4" /> {isFa ? "معامله جدید" : "New Deal"}
+              <Plus className="w-4 h-4" /> {c.board.newDeal}
             </button>
           </div>
 
@@ -290,7 +292,7 @@ export default function CrmPage() {
                     <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>{stageDeals.length}</span>
                   </div>
                   {stageTotal > 0 && (
-                    <p className="text-[10px] px-1" style={{ color: "var(--text-muted)" }}>{fmtMoney(stageTotal)} {isFa ? "تومان" : ""}</p>
+                    <p className="text-[10px] px-1" style={{ color: "var(--text-muted)" }}>{fmtMoney(stageTotal)} {c.board.currency}</p>
                   )}
                   <div className="space-y-2 min-h-[40px]">
                     {stageDeals.map((deal) => (
@@ -316,15 +318,15 @@ export default function CrmPage() {
           <div className="flex justify-end gap-2">
             <a href="/api/crm/export?type=contacts" download
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
-              {isFa ? "خروجی CSV" : "Export CSV"}
+              {c.contacts.exportCsv}
             </a>
             <button onClick={() => setShowNewContact(true)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-              <Plus className="w-4 h-4" /> {isFa ? "مخاطب جدید" : "New Contact"}
+              <Plus className="w-4 h-4" /> {c.contacts.newContact}
             </button>
           </div>
           {contacts.length === 0 ? (
-            <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز مخاطبی ثبت نشده" : "No contacts yet"}</p>
+            <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{c.empty.noContacts}</p>
           ) : (
             <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
               {contacts.map((c, i) => (
@@ -348,27 +350,28 @@ export default function CrmPage() {
           )}
         </div>
       ) : tab === "automation" ? (
-        <AutomationPanel isFa={isFa} rules={rules} onChanged={loadRules} />
+        <AutomationPanel isFa={isFa} t={c} rules={rules} onChanged={loadRules} />
       ) : tab === "agent" ? (
-        <CrmAgentPanel isFa={isFa} />
+        <CrmAgentPanel isFa={isFa} t={c} />
       ) : tab === "calendar" ? (
-        <CalendarPanel isFa={isFa} />
+        <CalendarPanel isFa={isFa} t={c} />
       ) : tab === "analytics" ? (
-        <AnalyticsPanel isFa={isFa} pipelines={pipelines} />
+        <AnalyticsPanel isFa={isFa} t={c} pipelines={pipelines} />
       ) : tab === "products" ? (
-        <ProductsPanel isFa={isFa} />
+        <ProductsPanel isFa={isFa} t={c} />
       ) : tab === "invoices" ? (
-        <InvoicesPanel isFa={isFa} contacts={contacts} />
+        <InvoicesPanel isFa={isFa} t={c} contacts={contacts} />
       ) : tab === "contracts" ? (
-        <ContractsPanel isFa={isFa} contacts={contacts} />
+        <ContractsPanel isFa={isFa} t={c} contacts={contacts} />
       ) : (
-        <ProjectsPanel isFa={isFa} contacts={contacts} />
+        <ProjectsPanel isFa={isFa} t={c} contacts={contacts} />
       )}
 
       {/* New Deal modal */}
       {showNewDeal && selectedPipeline && (
         <NewDealModal
           isFa={isFa}
+          t={c}
           pipeline={selectedPipeline}
           onClose={() => setShowNewDeal(false)}
           onCreated={() => { setShowNewDeal(false); if (selectedPipelineId) loadDeals(selectedPipelineId); }}
@@ -377,13 +380,14 @@ export default function CrmPage() {
 
       {/* New Contact modal */}
       {showNewContact && (
-        <NewContactModal isFa={isFa} onClose={() => setShowNewContact(false)} onCreated={() => { setShowNewContact(false); loadContacts(); }} />
+        <NewContactModal isFa={isFa} t={c} onClose={() => setShowNewContact(false)} onCreated={() => { setShowNewContact(false); loadContacts(); }} />
       )}
 
       {/* Deal detail panel */}
       {selectedDealId && (
         <DealDetailModal
           isFa={isFa}
+          t={c}
           dealId={selectedDealId}
           deal={deals.find((d) => d.id === selectedDealId) || null}
           teamMembers={teamMembers}
@@ -396,6 +400,7 @@ export default function CrmPage() {
       {selectedContactId && contactDetail && (
         <ContactDetailModal
           isFa={isFa}
+          t={c}
           contact={contactDetail}
           teamMembers={teamMembers}
           onClose={() => { setSelectedContactId(null); setContactDetail(null); }}
@@ -416,7 +421,7 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose: () =
   );
 }
 
-function NewDealModal({ isFa, pipeline, onClose, onCreated }: { isFa: boolean; pipeline: Pipeline; onClose: () => void; onCreated: () => void }) {
+function NewDealModal({ isFa, t, pipeline, onClose, onCreated }: { isFa: boolean; t: Translations["crm"]; pipeline: Pipeline; onClose: () => void; onCreated: () => void }) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactId, setContactId] = useState("");
   const [title, setTitle] = useState("");
@@ -430,7 +435,7 @@ function NewDealModal({ isFa, pipeline, onClose, onCreated }: { isFa: boolean; p
   }, []);
 
   async function submit() {
-    if (!contactId || !title.trim()) { setError(isFa ? "مخاطب و عنوان الزامی است" : "Contact and title are required"); return; }
+    if (!contactId || !title.trim()) { setError(t.newDealModal.errorRequired); return; }
     setSaving(true);
     setError("");
     try {
@@ -443,7 +448,7 @@ function NewDealModal({ isFa, pipeline, onClose, onCreated }: { isFa: boolean; p
       if (!res.ok) throw new Error(data.error);
       onCreated();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "خطا");
+      setError(e instanceof Error ? e.message : t.newDealModal.errorGeneric);
     } finally {
       setSaving(false);
     }
@@ -452,18 +457,18 @@ function NewDealModal({ isFa, pipeline, onClose, onCreated }: { isFa: boolean; p
   return (
     <Modal onClose={onClose}>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "معامله جدید" : "New Deal"}</h2>
+        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{t.newDealModal.title}</h2>
         <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
       </div>
       <div className="space-y-3">
         <select value={contactId} onChange={(e) => setContactId(e.target.value)}
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-          <option value="">{isFa ? "انتخاب مخاطب..." : "Select contact..."}</option>
+          <option value="">{t.newDealModal.selectContact}</option>
           {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={isFa ? "عنوان معامله" : "Deal title"}
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t.newDealModal.titlePlaceholder}
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-        <input value={value} onChange={(e) => setValue(e.target.value)} type="number" placeholder={isFa ? "ارزش معامله (تومان)" : "Deal value"}
+        <input value={value} onChange={(e) => setValue(e.target.value)} type="number" placeholder={t.newDealModal.valuePlaceholder}
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         <select value={stageId} onChange={(e) => setStageId(e.target.value)}
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
@@ -471,7 +476,7 @@ function NewDealModal({ isFa, pipeline, onClose, onCreated }: { isFa: boolean; p
         </select>
         {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
         <button onClick={submit} disabled={saving} className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-          {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ساخت معامله" : "Create Deal")}
+          {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t.newDealModal.submit}
         </button>
       </div>
     </Modal>
@@ -487,7 +492,7 @@ const LEAD_SOURCE_OPTIONS: { value: string; fa: string; en: string }[] = [
   { value: "other", fa: "سایر", en: "Other" },
 ];
 
-function NewContactModal({ isFa, onClose, onCreated }: { isFa: boolean; onClose: () => void; onCreated: () => void }) {
+function NewContactModal({ isFa, t, onClose, onCreated }: { isFa: boolean; t: Translations["crm"]; onClose: () => void; onCreated: () => void }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -497,7 +502,7 @@ function NewContactModal({ isFa, onClose, onCreated }: { isFa: boolean; onClose:
   const [error, setError] = useState("");
 
   async function submit() {
-    if (!name.trim()) { setError(isFa ? "نام الزامی است" : "Name is required"); return; }
+    if (!name.trim()) { setError(t.newContactModal.errorNameRequired); return; }
     setSaving(true);
     setError("");
     try {
@@ -510,7 +515,7 @@ function NewContactModal({ isFa, onClose, onCreated }: { isFa: boolean; onClose:
       if (!res.ok) throw new Error(data.error);
       onCreated();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "خطا");
+      setError(e instanceof Error ? e.message : t.newContactModal.errorGeneric);
     } finally {
       setSaving(false);
     }
@@ -519,35 +524,35 @@ function NewContactModal({ isFa, onClose, onCreated }: { isFa: boolean; onClose:
   return (
     <Modal onClose={onClose}>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "مخاطب جدید" : "New Contact"}</h2>
+        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{t.newContactModal.title}</h2>
         <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
       </div>
       <div className="space-y-3">
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={isFa ? "نام" : "Name"}
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.newContactModal.namePlaceholder}
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-        <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={isFa ? "موبایل" : "Phone"}
+        <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t.newContactModal.phonePlaceholder}
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-        <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={isFa ? "ایمیل" : "Email"}
+        <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t.newContactModal.emailPlaceholder}
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-        <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder={isFa ? "شرکت (اختیاری)" : "Company (optional)"}
+        <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder={t.newContactModal.companyPlaceholder}
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         <div>
-          <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>{isFa ? "این لید از کجا آمده؟" : "Where did this lead come from?"}</p>
+          <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>{t.newContactModal.sourceLabel}</p>
           <select value={source} onChange={(e) => setSource(e.target.value)}
             className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            {LEAD_SOURCE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{isFa ? o.fa : o.en}</option>)}
+            {Object.entries(t.leadSources).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </div>
         {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
         <button onClick={submit} disabled={saving} className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-          {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ساخت مخاطب" : "Create Contact")}
+          {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t.newContactModal.submit}
         </button>
       </div>
     </Modal>
   );
 }
 
-function DealDetailModal({ isFa, dealId, deal, teamMembers, onClose, onChanged }: { isFa: boolean; dealId: string; deal: Deal | null; teamMembers: TeamMember[]; onClose: () => void; onChanged: () => void }) {
+function DealDetailModal({ isFa, t, dealId, deal, teamMembers, onClose, onChanged }: { isFa: boolean; t: Translations["crm"]; dealId: string; deal: Deal | null; teamMembers: TeamMember[]; onClose: () => void; onChanged: () => void }) {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [ownerId, setOwnerId] = useState(deal?.ownerId || "");
@@ -581,28 +586,28 @@ function DealDetailModal({ isFa, dealId, deal, teamMembers, onClose, onChanged }
   return (
     <Modal onClose={onClose}>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{deal?.title || (isFa ? "جزئیات معامله" : "Deal Detail")}</h2>
+        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{deal?.title || t.dealDetail.fallbackTitle}</h2>
         <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
       </div>
       <div className="space-y-3">
         {teamMembers.length > 0 && (
           <div>
-            <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>{isFa ? "تخصیص به عضو تیم" : "Assign to team member"}</p>
+            <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>{t.common.assignToTeam}</p>
             <select value={ownerId} onChange={(e) => assignOwner(e.target.value)}
               className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-              <option value="">{isFa ? "تخصیص‌نیافته" : "Unassigned"}</option>
+              <option value="">{t.common.unassigned}</option>
               {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
           </div>
         )}
-        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder={isFa ? "یادداشت/فعالیت جدید..." : "New note/activity..."}
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder={t.dealDetail.notePlaceholder}
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         <div className="flex gap-2">
           <button onClick={addActivity} disabled={saving} className="flex-1 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-            {isFa ? "ثبت فعالیت" : "Log Activity"}
+            {t.dealDetail.logActivity}
           </button>
           <button onClick={deleteDeal} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
-            {isFa ? "حذف" : "Delete"}
+            {t.common.delete}
           </button>
         </div>
       </div>
@@ -610,7 +615,7 @@ function DealDetailModal({ isFa, dealId, deal, teamMembers, onClose, onChanged }
   );
 }
 
-function ContactDetailModal({ isFa, contact, teamMembers, onClose, onChanged }: { isFa: boolean; contact: ContactDetail; teamMembers: TeamMember[]; onClose: () => void; onChanged: () => void }) {
+function ContactDetailModal({ isFa, t, contact, teamMembers, onClose, onChanged }: { isFa: boolean; t: Translations["crm"]; contact: ContactDetail; teamMembers: TeamMember[]; onClose: () => void; onChanged: () => void }) {
   const [note, setNote] = useState("");
   const [taskTitle, setTaskTitle] = useState("");
   const [assignedToId, setAssignedToId] = useState(contact.assignedToId || "");
@@ -666,10 +671,10 @@ function ContactDetailModal({ isFa, contact, teamMembers, onClose, onChanged }: 
 
       {teamMembers.length > 0 && (
         <div className="mb-4">
-          <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>{isFa ? "تخصیص به عضو تیم" : "Assign to team member"}</p>
+          <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>{t.common.assignToTeam}</p>
           <select value={assignedToId} onChange={(e) => assignTo(e.target.value)}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{isFa ? "تخصیص‌نیافته" : "Unassigned"}</option>
+            <option value="">{t.common.unassigned}</option>
             {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </div>
@@ -677,7 +682,7 @@ function ContactDetailModal({ isFa, contact, teamMembers, onClose, onChanged }: 
 
       {contact.deals.length > 0 && (
         <div className="mb-4">
-          <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{isFa ? "معاملات" : "Deals"}</p>
+          <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{t.contactDetail.deals}</p>
           <div className="space-y-1.5">
             {contact.deals.map((d) => (
               <div key={d.id} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
@@ -690,24 +695,24 @@ function ContactDetailModal({ isFa, contact, teamMembers, onClose, onChanged }: 
       )}
 
       <div className="mb-4">
-        <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{isFa ? "تسک‌ها" : "Tasks"}</p>
+        <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{t.contactDetail.tasks}</p>
         <div className="space-y-1.5 mb-2">
-          {contact.tasks.map((t) => (
-            <button key={t.id} onClick={() => toggleTask(t.id, t.status)} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-right" style={{ background: "var(--surface-2)" }}>
-              {t.status === "done" ? <CheckCircle2 className="w-3.5 h-3.5" style={{ color: "#22c55e" }} /> : <Circle className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} />}
-              <span style={{ color: t.status === "done" ? "var(--text-muted)" : "var(--text-primary)", textDecoration: t.status === "done" ? "line-through" : "none" }}>{t.title}</span>
+          {contact.tasks.map((tk) => (
+            <button key={tk.id} onClick={() => toggleTask(tk.id, tk.status)} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-right" style={{ background: "var(--surface-2)" }}>
+              {tk.status === "done" ? <CheckCircle2 className="w-3.5 h-3.5" style={{ color: "#22c55e" }} /> : <Circle className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} />}
+              <span style={{ color: tk.status === "done" ? "var(--text-muted)" : "var(--text-primary)", textDecoration: tk.status === "done" ? "line-through" : "none" }}>{tk.title}</span>
             </button>
           ))}
         </div>
         <div className="flex gap-2">
-          <input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder={isFa ? "تسک جدید..." : "New task..."}
+          <input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder={t.contactDetail.newTaskPlaceholder}
             className="flex-1 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <button onClick={addTask} className="px-3 py-2 rounded-xl text-xs font-medium text-white" style={{ background: "var(--primary)" }}>+</button>
         </div>
       </div>
 
       <div>
-        <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{isFa ? "فعالیت‌ها" : "Activity"}</p>
+        <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{t.contactDetail.activity}</p>
         <div className="space-y-1.5 mb-2 max-h-32 overflow-y-auto">
           {contact.activities.map((a) => (
             <div key={a.id} className="flex items-start gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
@@ -715,24 +720,24 @@ function ContactDetailModal({ isFa, contact, teamMembers, onClose, onChanged }: 
               <span style={{ color: "var(--text-secondary)" }}>{a.content}</span>
             </div>
           ))}
-          {contact.activities.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? "فعالیتی ثبت نشده" : "No activity yet"}</p>}
+          {contact.activities.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t.contactDetail.noActivity}</p>}
         </div>
         <div className="flex gap-2">
-          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={isFa ? "یادداشت جدید..." : "New note..."}
+          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t.contactDetail.newNotePlaceholder}
             className="flex-1 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <button onClick={addActivity} className="px-3 py-2 rounded-xl text-xs font-medium text-white" style={{ background: "var(--primary)" }}>+</button>
         </div>
       </div>
 
-      <PinnedNotesSection isFa={isFa} contactId={contact.id} />
-      <DocumentsSection isFa={isFa} contactId={contact.id} />
+      <PinnedNotesSection isFa={isFa} t={t} contactId={contact.id} />
+      <DocumentsSection isFa={isFa} t={t} contactId={contact.id} />
     </Modal>
   );
 }
 
 interface CrmNoteRow { id: string; content: string; isPinned: boolean; createdAt: string; }
 
-function PinnedNotesSection({ isFa, contactId }: { isFa: boolean; contactId: string }) {
+function PinnedNotesSection({ isFa, t, contactId }: { isFa: boolean; t: Translations["crm"]; contactId: string }) {
   const [notes, setNotes] = useState<CrmNoteRow[]>([]);
   const [newNote, setNewNote] = useState("");
 
@@ -766,7 +771,7 @@ function PinnedNotesSection({ isFa, contactId }: { isFa: boolean; contactId: str
 
   return (
     <div className="mt-4">
-      <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{isFa ? "یادداشت‌های سنجاق‌شده" : "Pinned Notes"}</p>
+      <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{t.notes.title}</p>
       <div className="space-y-1.5 mb-2">
         {notes.map((n) => (
           <div key={n.id} className="flex items-start gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
@@ -777,10 +782,10 @@ function PinnedNotesSection({ isFa, contactId }: { isFa: boolean; contactId: str
             <button onClick={() => deleteNote(n.id)}><Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} /></button>
           </div>
         ))}
-        {notes.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? "یادداشتی ثبت نشده" : "No notes yet"}</p>}
+        {notes.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t.notes.empty}</p>}
       </div>
       <div className="flex gap-2">
-        <input value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder={isFa ? "یادداشت جدید..." : "New note..."}
+        <input value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder={t.notes.placeholder}
           className="flex-1 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         <button onClick={addNote} className="px-3 py-2 rounded-xl text-xs font-medium text-white" style={{ background: "var(--primary)" }}>+</button>
       </div>
@@ -788,7 +793,7 @@ function PinnedNotesSection({ isFa, contactId }: { isFa: boolean; contactId: str
   );
 }
 
-function DocumentsSection({ isFa, contactId }: { isFa: boolean; contactId: string }) {
+function DocumentsSection({ isFa, t, contactId }: { isFa: boolean; t: Translations["crm"]; contactId: string }) {
   const [documents, setDocuments] = useState<CrmDocument[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -816,7 +821,7 @@ function DocumentsSection({ isFa, contactId }: { isFa: boolean; contactId: strin
       if (!res.ok) throw new Error(data.error);
       load();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "خطا");
+      setError(err instanceof Error ? err.message : t.documents.errorGeneric);
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -830,7 +835,7 @@ function DocumentsSection({ isFa, contactId }: { isFa: boolean; contactId: strin
 
   return (
     <div className="mt-4">
-      <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{isFa ? "اسناد (پیش‌فاکتور، قرارداد، فاکتور)" : "Documents"}</p>
+      <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{t.documents.title}</p>
       <div className="space-y-1.5 mb-2">
         {documents.map((d) => (
           <div key={d.id} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
@@ -840,20 +845,20 @@ function DocumentsSection({ isFa, contactId }: { isFa: boolean; contactId: strin
             <button onClick={() => removeDoc(d.id)}><Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} /></button>
           </div>
         ))}
-        {documents.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? "سندی آپلود نشده" : "No documents yet"}</p>}
+        {documents.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t.documents.empty}</p>}
       </div>
       {error && <p className="text-xs mb-2" style={{ color: "#ef4444" }}>{error}</p>}
       <label className="flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-medium cursor-pointer"
         style={{ background: "var(--surface-2)", border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
         {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-        {uploading ? (isFa ? "در حال آپلود..." : "Uploading...") : (isFa ? "آپلود سند" : "Upload Document")}
+        {uploading ? t.documents.uploading : t.documents.upload}
         <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" onChange={handleUpload} disabled={uploading} className="hidden" />
       </label>
     </div>
   );
 }
 
-function AutomationPanel({ isFa, rules, onChanged }: { isFa: boolean; rules: AutomationRule[]; onChanged: () => void }) {
+function AutomationPanel({ isFa, t, rules, onChanged }: { isFa: boolean; t: Translations["crm"]; rules: AutomationRule[]; onChanged: () => void }) {
   const [showNew, setShowNew] = useState(false);
   const [name, setName] = useState("");
   const [days, setDays] = useState("3");
@@ -861,7 +866,7 @@ function AutomationPanel({ isFa, rules, onChanged }: { isFa: boolean; rules: Aut
   const [error, setError] = useState("");
 
   async function createRule() {
-    if (!name.trim()) { setError(isFa ? "نام قانون الزامی است" : "Rule name is required"); return; }
+    if (!name.trim()) { setError(t.automation.errorNameRequired); return; }
     setSaving(true);
     setError("");
     try {
@@ -875,7 +880,7 @@ function AutomationPanel({ isFa, rules, onChanged }: { isFa: boolean; rules: Aut
       setName("");
       onChanged();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "خطا");
+      setError(err instanceof Error ? err.message : t.automation.errorGeneric);
     } finally {
       setSaving(false);
     }
@@ -896,36 +901,34 @@ function AutomationPanel({ isFa, rules, onChanged }: { isFa: boolean; rules: Aut
   return (
     <div className="space-y-3">
       <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-        {isFa
-          ? "قوانین اتوماسیون هر چند دقیقه یک‌بار بررسی می‌شوند و برای معاملات بازی که مدتی فعالیت نداشته‌اند، به‌طور خودکار یک تسک پیگیری می‌سازند."
-          : "Automation rules are checked every few minutes and auto-create a follow-up task for open deals that have had no activity for a while."}
+        {t.automation.description}
       </p>
       <div className="flex justify-end">
         <button onClick={() => setShowNew((v) => !v)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-          <Plus className="w-4 h-4" /> {isFa ? "قانون جدید" : "New Rule"}
+          <Plus className="w-4 h-4" /> {t.automation.newRule}
         </button>
       </div>
 
       {showNew && (
         <div className="rounded-2xl p-4 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={isFa ? "مثال: پیگیری معاملات راکد" : "e.g. Follow up stale deals"}
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.automation.namePlaceholder}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <div className="flex items-center gap-2">
-            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "اگر معامله‌ای بیش از" : "If a deal has had no activity for more than"}</span>
+            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{t.automation.conditionPrefix}</span>
             <input value={days} onChange={(e) => setDays(e.target.value)} type="number" min={1}
               className="w-16 px-2 py-1.5 rounded-lg text-sm outline-none text-center" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "روز فعالیتی نداشت، یک تسک پیگیری بساز" : "days, create a follow-up task"}</span>
+            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{t.automation.conditionSuffix}</span>
           </div>
           {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
           <button onClick={createRule} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ساخت قانون" : "Create Rule")}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t.automation.createRule}
           </button>
         </div>
       )}
 
       {rules.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز قانون اتوماسیونی نساختی" : "No automation rules yet"}</p>
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.automation.empty}</p>
       ) : (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           {rules.map((r, i) => {
@@ -936,14 +939,14 @@ function AutomationPanel({ isFa, rules, onChanged }: { isFa: boolean; rules: Aut
                 <div>
                   <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{r.name}</p>
                   <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                    {isFa ? `معاملات بدون فعالیت بیش از ${days} روز → ساخت تسک پیگیری` : `Deals with no activity for ${days}+ days → create follow-up task`}
+                    {t.automation.ruleSummaryPrefix} {days} {t.automation.ruleSummarySuffix}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button onClick={() => toggleRule(r.id, r.isActive)}
                     className="px-2.5 py-1 rounded-full text-[10px] font-medium"
                     style={{ background: r.isActive ? "rgba(34,197,94,0.15)" : "var(--surface-2)", color: r.isActive ? "#22c55e" : "var(--text-muted)" }}>
-                    {r.isActive ? (isFa ? "فعال" : "Active") : (isFa ? "غیرفعال" : "Inactive")}
+                    {r.isActive ? t.automation.active : t.automation.inactive}
                   </button>
                   <button onClick={() => deleteRule(r.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
                 </div>
@@ -958,7 +961,7 @@ function AutomationPanel({ isFa, rules, onChanged }: { isFa: boolean; rules: Aut
 
 interface CrmInsightRow { id: string; category: string; text: string; createdAt: string; }
 
-function CrmAgentPanel({ isFa }: { isFa: boolean }) {
+function CrmAgentPanel({ isFa, t }: { isFa: boolean; t: Translations["crm"] }) {
   const [running, setRunning] = useState(false);
   const [analysis, setAnalysis] = useState("");
   const [insights, setInsights] = useState<CrmInsightRow[]>([]);
@@ -1008,14 +1011,12 @@ function CrmAgentPanel({ isFa }: { isFa: boolean }) {
     <div className="space-y-4">
       <div className="rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
         <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-          {isFa
-            ? "CRM Agent وضعیت Pipeline فروش شما را با داده‌های واقعی تحلیل می‌کند و اقدامات پیشنهادی می‌سازد."
-            : "The CRM Agent analyzes your sales pipeline using real data and generates suggested actions."}
+          {t.agent.description}
         </p>
         <button onClick={runAgent} disabled={running}
           className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
           {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          {isFa ? "تحلیل CRM من" : "Analyze My CRM"}
+          {t.agent.analyzeButton}
         </button>
       </div>
 
@@ -1031,11 +1032,11 @@ function CrmAgentPanel({ isFa }: { isFa: boolean }) {
       )}
 
       <div className="space-y-2">
-        <h3 className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>{isFa ? "نکات ذخیره‌شده از تحلیل‌های قبلی" : "Saved notes from prior analyses"}</h3>
+        <h3 className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>{t.agent.savedNotesTitle}</h3>
         {loadingInsights ? (
           <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--text-muted)" }} />
         ) : insights.length === 0 ? (
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز تحلیلی اجرا نشده" : "No analysis run yet"}</p>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t.agent.noAnalysis}</p>
         ) : (
           <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
             {insights.map((n, i) => (
@@ -1053,7 +1054,7 @@ function CrmAgentPanel({ isFa }: { isFa: boolean }) {
 
 interface CalendarItem { id: string; date: string; label: string; type: "task" | "deal"; }
 
-function CalendarPanel({ isFa }: { isFa: boolean }) {
+function CalendarPanel({ isFa, t }: { isFa: boolean; t: Translations["crm"] }) {
   const [items, setItems] = useState<CalendarItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -1074,7 +1075,7 @@ function CalendarPanel({ isFa }: { isFa: boolean }) {
   }, []);
 
   if (loading) return <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />;
-  if (items.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "هیچ تسک یا معامله‌ای با تاریخ سررسید ثبت نشده" : "No tasks or deals with a due/close date"}</p>;
+  if (items.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.calendar.empty}</p>;
 
   const grouped = new Map<string, CalendarItem[]>();
   for (const item of items) {
@@ -1101,7 +1102,7 @@ function CalendarPanel({ isFa }: { isFa: boolean }) {
   );
 }
 
-function AnalyticsPanel({ isFa, pipelines }: { isFa: boolean; pipelines: Pipeline[] }) {
+function AnalyticsPanel({ isFa, t, pipelines }: { isFa: boolean; t: Translations["crm"]; pipelines: Pipeline[] }) {
   const [pipelineId, setPipelineId] = useState(pipelines[0]?.id || "");
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1130,7 +1131,7 @@ function AnalyticsPanel({ isFa, pipelines }: { isFa: boolean; pipelines: Pipelin
 
   const pipeline = pipelines.find((p) => p.id === pipelineId) || null;
 
-  if (pipelines.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "ابتدا یک پایپلاین بساز" : "Create a pipeline first"}</p>;
+  if (pipelines.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.analytics.noPipeline}</p>;
 
   const funnelData = pipeline
     ? [...pipeline.stages].sort((a, b) => a.order - b.order).map((s) => ({
@@ -1159,17 +1160,17 @@ function AnalyticsPanel({ isFa, pipelines }: { isFa: boolean; pipelines: Pipelin
         <>
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-              <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "کل معاملات" : "Total Deals"}</p>
+              <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{t.analytics.totalDeals}</p>
               <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{totalDeals}</p>
             </div>
             <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-              <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "نرخ تبدیل کلی" : "Overall Conversion"}</p>
+              <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{t.analytics.overallConversion}</p>
               <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{overallConversion}%</p>
             </div>
           </div>
 
           <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-            <p className="text-xs font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{isFa ? "قیف تبدیل بر اساس مرحله" : "Conversion Funnel by Stage"}</p>
+            <p className="text-xs font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{t.analytics.funnelTitle}</p>
             <div style={{ width: "100%", height: 280 }}>
               <ResponsiveContainer>
                 <BarChart data={funnelData}>
@@ -1185,13 +1186,13 @@ function AnalyticsPanel({ isFa, pipelines }: { isFa: boolean; pipelines: Pipelin
 
           {sourceStats.length > 0 && (
             <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-              <p className="text-xs font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{isFa ? "عملکرد منابع لید" : "Lead Source Performance"}</p>
+              <p className="text-xs font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{t.analytics.sourcePerfTitle}</p>
               <div className="space-y-2">
                 {sourceStats.map((s) => (
                   <div key={s.source.value} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
-                    <span style={{ color: "var(--text-primary)" }}>{isFa ? s.source.fa : s.source.en}</span>
+                    <span style={{ color: "var(--text-primary)" }}>{t.leadSources[s.source.value as keyof typeof t.leadSources]}</span>
                     <span style={{ color: "var(--text-secondary)" }}>
-                      {s.total} {isFa ? "لید" : "leads"} · {s.converted} {isFa ? "مشتری" : "customers"} · <b style={{ color: "var(--primary)" }}>{s.rate}%</b>
+                      {s.total} {t.analytics.leads} · {s.converted} {t.analytics.customers} · <b style={{ color: "var(--primary)" }}>{s.rate}%</b>
                     </span>
                   </div>
                 ))}
@@ -1215,7 +1216,7 @@ interface ProductFormState {
 
 const EMPTY_PRODUCT_FORM: ProductFormState = { name: "", sku: "", description: "", price: "", unit: "", taxRate: "0", imageUrl: "" };
 
-function ProductsPanel({ isFa }: { isFa: boolean }) {
+function ProductsPanel({ isFa, t }: { isFa: boolean; t: Translations["crm"] }) {
   const [products, setProducts] = useState<CrmProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState<ProductFormState | null>(null);
@@ -1243,7 +1244,7 @@ function ProductsPanel({ isFa }: { isFa: boolean }) {
       if (!res.ok) throw new Error(data.error);
       setForm((f) => (f ? { ...f, imageUrl: data.url } : f));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "خطا در آپلود تصویر");
+      setError(err instanceof Error ? err.message : t.products.errorImageUpload);
     } finally {
       setUploading(false);
     }
@@ -1251,9 +1252,9 @@ function ProductsPanel({ isFa }: { isFa: boolean }) {
 
   async function saveProduct() {
     if (!form) return;
-    if (!form.name.trim()) { setError(isFa ? "نام محصول الزامی است" : "Product name is required"); return; }
+    if (!form.name.trim()) { setError(t.products.errorNameRequired); return; }
     const priceNum = Number(form.price);
-    if (!Number.isFinite(priceNum) || priceNum < 0) { setError(isFa ? "قیمت معتبر الزامی است" : "Valid price is required"); return; }
+    if (!Number.isFinite(priceNum) || priceNum < 0) { setError(t.products.errorPriceRequired); return; }
     setSaving(true);
     setError("");
     try {
@@ -1269,7 +1270,7 @@ function ProductsPanel({ isFa }: { isFa: boolean }) {
       setForm(null);
       load();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "خطا");
+      setError(err instanceof Error ? err.message : t.products.errorGeneric);
     } finally {
       setSaving(false);
     }
@@ -1294,7 +1295,7 @@ function ProductsPanel({ isFa }: { isFa: boolean }) {
       <div className="flex justify-end">
         <button onClick={() => { setForm(EMPTY_PRODUCT_FORM); setError(""); }}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-          <Plus className="w-4 h-4" /> {isFa ? "محصول جدید" : "New Product"}
+          <Plus className="w-4 h-4" /> {t.products.new}
         </button>
       </div>
 
@@ -1305,37 +1306,37 @@ function ProductsPanel({ isFa }: { isFa: boolean }) {
               {form.imageUrl ? <img src={form.imageUrl} alt="" className="w-full h-full object-cover" /> : <Package className="w-6 h-6" style={{ color: "var(--text-muted)" }} />}
             </div>
             <label className="text-xs px-3 py-1.5 rounded-lg cursor-pointer" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-              {uploading ? (isFa ? "در حال آپلود..." : "Uploading...") : (isFa ? "آپلود عکس" : "Upload photo")}
+              {uploading ? t.products.uploadingPhoto : t.products.uploadPhoto}
               <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={uploading}
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(f); }} />
             </label>
           </div>
-          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={isFa ? "نام محصول/خدمت" : "Product/service name"}
+          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t.products.namePlaceholder}
             className="col-span-2 px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-          <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={isFa ? "توضیحات (اختیاری)" : "Description (optional)"}
+          <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={t.products.descriptionPlaceholder}
             className="col-span-2 px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-          <input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder={isFa ? "کد محصول (اختیاری)" : "SKU (optional)"}
+          <input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder={t.products.skuPlaceholder}
             className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-          <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} type="number" placeholder={isFa ? "قیمت" : "Price"}
+          <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} type="number" placeholder={t.products.pricePlaceholder}
             className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-          <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder={isFa ? "واحد (اختیاری)" : "Unit (optional)"}
+          <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder={t.products.unitPlaceholder}
             className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-          <input value={form.taxRate} onChange={(e) => setForm({ ...form, taxRate: e.target.value })} type="number" placeholder={isFa ? "درصد مالیات" : "Tax %"}
+          <input value={form.taxRate} onChange={(e) => setForm({ ...form, taxRate: e.target.value })} type="number" placeholder={t.products.taxPlaceholder}
             className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           {error && <p className="col-span-2 text-xs" style={{ color: "#ef4444" }}>{error}</p>}
           <div className="col-span-2 flex gap-2">
             <button onClick={() => setForm(null)} className="flex-1 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-              {isFa ? "انصراف" : "Cancel"}
+              {t.products.cancel}
             </button>
             <button onClick={saveProduct} disabled={saving} className="flex-1 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-              {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ذخیره" : "Save")}
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t.products.save}
             </button>
           </div>
         </div>
       )}
 
       {products.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز محصولی ثبت نشده" : "No products yet"}</p>
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.products.empty}</p>
       ) : (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           {products.map((p, i) => (
@@ -1346,18 +1347,18 @@ function ProductsPanel({ isFa }: { isFa: boolean }) {
                 </div>
                 <div>
                   <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{p.name}</p>
-                  <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{fmtMoney(p.price)} {p.unit ? `/ ${p.unit}` : ""} {p.taxRate > 0 ? `· ${p.taxRate}% ${isFa ? "مالیات" : "tax"}` : ""}</p>
+                  <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{fmtMoney(p.price)} {p.unit ? `/ ${p.unit}` : ""} {p.taxRate > 0 ? `· ${p.taxRate}% ${t.products.tax}` : ""}</p>
                 </div>
               </button>
               <div className="flex items-center gap-2">
                 <button onClick={() => setForm({ id: p.id, name: p.name, sku: p.sku || "", description: p.description || "", price: String(p.price), unit: p.unit || "", taxRate: String(p.taxRate), imageUrl: p.imageUrl || "" })}
                   className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-                  {isFa ? "ویرایش" : "Edit"}
+                  {t.products.edit}
                 </button>
                 <button onClick={() => toggleActive(p)}
                   className="px-2.5 py-1 rounded-full text-[10px] font-medium"
                   style={{ background: p.isActive ? "rgba(34,197,94,0.15)" : "var(--surface-2)", color: p.isActive ? "#22c55e" : "var(--text-muted)" }}>
-                  {p.isActive ? (isFa ? "فعال" : "Active") : (isFa ? "غیرفعال" : "Inactive")}
+                  {p.isActive ? t.products.active : t.products.inactive}
                 </button>
                 <button onClick={() => deleteProduct(p.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
               </div>
@@ -1366,12 +1367,12 @@ function ProductsPanel({ isFa }: { isFa: boolean }) {
         </div>
       )}
 
-      {detailProduct && <ProductDetailModal isFa={isFa} product={detailProduct} onClose={() => setDetailProduct(null)} />}
+      {detailProduct && <ProductDetailModal isFa={isFa} t={t} product={detailProduct} onClose={() => setDetailProduct(null)} />}
     </div>
   );
 }
 
-function ProductDetailModal({ isFa, product, onClose }: { isFa: boolean; product: CrmProduct; onClose: () => void }) {
+function ProductDetailModal({ isFa, t, product, onClose }: { isFa: boolean; t: Translations["crm"]; product: CrmProduct; onClose: () => void }) {
   const [contacts, setContacts] = useState<{ id: string; name: string }[] | null>(null);
 
   useEffect(() => {
@@ -1390,11 +1391,11 @@ function ProductDetailModal({ isFa, product, onClose }: { isFa: boolean; product
         </div>
       </div>
       {product.description && <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>{product.description}</p>}
-      <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{isFa ? "مشتریانی که این محصول را خریده‌اند" : "Customers who bought this"}</p>
+      <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{t.products.detail.customersWhoBought}</p>
       {contacts === null ? (
         <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--text-muted)" }} />
       ) : contacts.length === 0 ? (
-        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز در فاکتوری استفاده نشده" : "Not used in any invoice yet"}</p>
+        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t.products.detail.notUsedYet}</p>
       ) : (
         <div className="space-y-1.5">
           {contacts.map((c) => (
@@ -1421,7 +1422,7 @@ const INVOICE_STATUS_LABEL: Record<string, { fa: string; en: string; color: stri
   cancelled: { fa: "لغوشده", en: "Cancelled", color: "var(--text-muted)" },
 };
 
-function InvoicesPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] }) {
+function InvoicesPanel({ isFa, t, contacts }: { isFa: boolean; t: Translations["crm"]; contacts: Contact[] }) {
   const [invoices, setInvoices] = useState<CrmInvoiceRow[]>([]);
   const [products, setProducts] = useState<CrmProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1460,8 +1461,8 @@ function InvoicesPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
   const total = Math.max(0, subtotal + taxTotal - (Number(discount) || 0));
 
   async function createInvoice() {
-    if (!contactId) { setError(isFa ? "انتخاب مشتری الزامی است" : "Selecting a contact is required"); return; }
-    if (items.some((it) => !it.description.trim())) { setError(isFa ? "توضیح همه آیتم‌ها الزامی است" : "All items need a description"); return; }
+    if (!contactId) { setError(t.invoices.errorContactRequired); return; }
+    if (items.some((it) => !it.description.trim())) { setError(t.invoices.errorItemDescriptionRequired); return; }
     setSaving(true);
     setError("");
     try {
@@ -1475,7 +1476,7 @@ function InvoicesPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
       setContactId(""); setItems([{ description: "", quantity: 1, unitPrice: 0, taxRate: 0, lineTotal: 0 }]); setDiscount("0");
       load();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "خطا");
+      setError(err instanceof Error ? err.message : t.invoices.errorGeneric);
     } finally {
       setSaving(false);
     }
@@ -1498,7 +1499,7 @@ function InvoicesPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
       <div className="flex justify-end">
         <button onClick={() => setShowNew((v) => !v)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-          <Plus className="w-4 h-4" /> {isFa ? "فاکتور جدید" : "New Invoice"}
+          <Plus className="w-4 h-4" /> {t.invoices.new}
         </button>
       </div>
 
@@ -1506,7 +1507,7 @@ function InvoicesPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
         <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <select value={contactId} onChange={(e) => setContactId(e.target.value)}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{isFa ? "انتخاب مشتری..." : "Select contact..."}</option>
+            <option value="">{t.invoices.selectContact}</option>
             {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
 
@@ -1515,40 +1516,40 @@ function InvoicesPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
               <div key={idx} className="grid grid-cols-12 gap-1.5 items-center">
                 <select onChange={(e) => e.target.value && pickProduct(idx, e.target.value)} defaultValue=""
                   className="col-span-3 px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                  <option value="">{isFa ? "از کاتالوگ" : "From catalog"}</option>
+                  <option value="">{t.invoices.fromCatalog}</option>
                   {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
-                <input value={it.description} onChange={(e) => updateItem(idx, { description: e.target.value })} placeholder={isFa ? "شرح آیتم" : "Item description"}
+                <input value={it.description} onChange={(e) => updateItem(idx, { description: e.target.value })} placeholder={t.invoices.itemDescription}
                   className="col-span-4 px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-                <input value={it.quantity} onChange={(e) => updateItem(idx, { quantity: Number(e.target.value) || 1 })} type="number" placeholder={isFa ? "تعداد" : "Qty"}
+                <input value={it.quantity} onChange={(e) => updateItem(idx, { quantity: Number(e.target.value) || 1 })} type="number" placeholder={t.invoices.qty}
                   className="col-span-2 px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-                <input value={it.unitPrice} onChange={(e) => updateItem(idx, { unitPrice: Number(e.target.value) || 0 })} type="number" placeholder={isFa ? "قیمت واحد" : "Unit price"}
+                <input value={it.unitPrice} onChange={(e) => updateItem(idx, { unitPrice: Number(e.target.value) || 0 })} type="number" placeholder={t.invoices.unitPrice}
                   className="col-span-2 px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                 <button onClick={() => setItems((prev) => prev.filter((_, i) => i !== idx))} className="col-span-1"><Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} /></button>
               </div>
             ))}
             <button onClick={() => setItems((prev) => [...prev, { description: "", quantity: 1, unitPrice: 0, taxRate: 0, lineTotal: 0 }])}
-              className="text-xs" style={{ color: "var(--primary)" }}>+ {isFa ? "افزودن آیتم" : "Add item"}</button>
+              className="text-xs" style={{ color: "var(--primary)" }}>+ {t.invoices.addItem}</button>
           </div>
 
           <div className="flex items-center justify-between text-xs" style={{ color: "var(--text-secondary)" }}>
             <div className="flex items-center gap-1.5">
-              <span>{isFa ? "تخفیف:" : "Discount:"}</span>
+              <span>{t.invoices.discount}</span>
               <input value={discount} onChange={(e) => setDiscount(e.target.value)} type="number"
                 className="w-24 px-2 py-1 rounded-lg text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
-            <span>{isFa ? "جمع کل:" : "Total:"} <b style={{ color: "var(--text-primary)" }}>{fmtMoney(total)}</b></span>
+            <span>{t.invoices.total} <b style={{ color: "var(--text-primary)" }}>{fmtMoney(total)}</b></span>
           </div>
 
           {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
           <button onClick={createInvoice} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ساخت فاکتور" : "Create Invoice")}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t.invoices.createInvoice}
           </button>
         </div>
       )}
 
       {invoices.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز فاکتوری ثبت نشده" : "No invoices yet"}</p>
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.invoices.empty}</p>
       ) : (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           {invoices.map((inv, i) => {
@@ -1557,12 +1558,12 @@ function InvoicesPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
               <div key={inv.id} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
                 <div>
                   <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{inv.invoiceNumber} — {inv.contact.name}</p>
-                  <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{fmtMoney(inv.total)} {isFa ? "تومان" : ""}</p>
+                  <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{fmtMoney(inv.total)} {t.invoices.currency}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-medium" style={{ background: "var(--surface-2)", color: st.color }}>{isFa ? st.fa : st.en}</span>
-                  {inv.status === "draft" && <button onClick={() => setStatus(inv.id, "sent")} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{isFa ? "ارسال" : "Send"}</button>}
-                  {inv.status !== "paid" && inv.status !== "cancelled" && <button onClick={() => setStatus(inv.id, "paid")} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>{isFa ? "پرداخت شد" : "Mark Paid"}</button>}
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-medium" style={{ background: "var(--surface-2)", color: st.color }}>{t.invoiceStatus[inv.status as keyof typeof t.invoiceStatus] || t.invoiceStatus.draft}</span>
+                  {inv.status === "draft" && <button onClick={() => setStatus(inv.id, "sent")} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{t.invoices.send}</button>}
+                  {inv.status !== "paid" && inv.status !== "cancelled" && <button onClick={() => setStatus(inv.id, "paid")} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>{t.invoices.markPaid}</button>}
                   <button onClick={() => setPrintInvoice(inv)}><Printer className="w-4 h-4" style={{ color: "var(--text-secondary)" }} /></button>
                   <button onClick={() => deleteInvoice(inv.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
                 </div>
@@ -1572,32 +1573,32 @@ function InvoicesPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
         </div>
       )}
 
-      {printInvoice && <InvoicePrintModal isFa={isFa} invoice={printInvoice} onClose={() => setPrintInvoice(null)} />}
+      {printInvoice && <InvoicePrintModal isFa={isFa} t={t} invoice={printInvoice} onClose={() => setPrintInvoice(null)} />}
     </div>
   );
 }
 
-function InvoicePrintModal({ isFa, invoice, onClose }: { isFa: boolean; invoice: CrmInvoiceRow; onClose: () => void }) {
+function InvoicePrintModal({ isFa, t, invoice, onClose }: { isFa: boolean; t: Translations["crm"]; invoice: CrmInvoiceRow; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:p-0 print:static" style={{ background: "rgba(0,0,0,0.6)" }}>
       <div className="print:hidden absolute top-4 left-4 flex gap-2">
-        <button onClick={() => window.print()} className="px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>{isFa ? "چاپ / PDF" : "Print / PDF"}</button>
-        <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>{isFa ? "بستن" : "Close"}</button>
+        <button onClick={() => window.print()} className="px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>{t.invoices.print.printPdf}</button>
+        <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>{t.invoices.print.close}</button>
       </div>
       <div dir={isFa ? "rtl" : "ltr"} className="w-full max-w-xl rounded-2xl p-8 space-y-4 max-h-[85vh] overflow-y-auto print:max-h-none print:overflow-visible print:shadow-none print:rounded-none"
         style={{ background: "#fff", color: "#111" }}>
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">{isFa ? "فاکتور" : "Invoice"} {invoice.invoiceNumber}</h2>
+          <h2 className="text-lg font-bold">{t.invoices.print.invoiceTitle} {invoice.invoiceNumber}</h2>
           <span className="text-xs">{isFa ? toJalali(invoice.issueDate) : new Date(invoice.issueDate).toLocaleDateString("en-US")}</span>
         </div>
-        <p className="text-sm">{isFa ? "مشتری:" : "Bill to:"} {invoice.contact.name}</p>
+        <p className="text-sm">{t.invoices.print.billTo} {invoice.contact.name}</p>
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr style={{ borderBottom: "1px solid #ddd" }}>
-              <th className="text-right py-1">{isFa ? "شرح" : "Description"}</th>
-              <th className="text-right py-1">{isFa ? "تعداد" : "Qty"}</th>
-              <th className="text-right py-1">{isFa ? "قیمت واحد" : "Unit"}</th>
-              <th className="text-right py-1">{isFa ? "جمع" : "Total"}</th>
+              <th className="text-right py-1">{t.invoices.print.description}</th>
+              <th className="text-right py-1">{t.invoices.print.qty}</th>
+              <th className="text-right py-1">{t.invoices.print.unit}</th>
+              <th className="text-right py-1">{t.invoices.print.total}</th>
             </tr>
           </thead>
           <tbody>
@@ -1612,10 +1613,10 @@ function InvoicePrintModal({ isFa, invoice, onClose }: { isFa: boolean; invoice:
           </tbody>
         </table>
         <div className="text-sm space-y-1 text-left">
-          <p>{isFa ? "جمع جزء:" : "Subtotal:"} {fmtMoney(invoice.subtotal)}</p>
-          <p>{isFa ? "مالیات:" : "Tax:"} {fmtMoney(invoice.taxTotal)}</p>
-          {invoice.discount > 0 && <p>{isFa ? "تخفیف:" : "Discount:"} -{fmtMoney(invoice.discount)}</p>}
-          <p className="font-bold text-base">{isFa ? "جمع کل:" : "Total:"} {fmtMoney(invoice.total)} {invoice.currency}</p>
+          <p>{t.invoices.print.subtotal} {fmtMoney(invoice.subtotal)}</p>
+          <p>{t.invoices.print.tax} {fmtMoney(invoice.taxTotal)}</p>
+          {invoice.discount > 0 && <p>{t.invoices.print.discount} -{fmtMoney(invoice.discount)}</p>}
+          <p className="font-bold text-base">{t.invoices.print.grandTotal} {fmtMoney(invoice.total)} {invoice.currency}</p>
         </div>
       </div>
     </div>
@@ -1635,7 +1636,7 @@ const CONTRACT_STATUS_LABEL: Record<string, { fa: string; en: string; color: str
   cancelled: { fa: "لغوشده", en: "Cancelled", color: "var(--text-muted)" },
 };
 
-function ContractsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] }) {
+function ContractsPanel({ isFa, t, contacts }: { isFa: boolean; t: Translations["crm"]; contacts: Contact[] }) {
   const [contracts, setContracts] = useState<CrmContractRow[]>([]);
   const [templates, setTemplates] = useState<CrmContractTemplateRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1698,7 +1699,7 @@ function ContractsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[]
   useEffect(() => { load(); }, [load]);
 
   async function createContract() {
-    if (!contactId || !title.trim()) { setError(isFa ? "مشتری و عنوان الزامی است" : "Contact and title are required"); return; }
+    if (!contactId || !title.trim()) { setError(t.contracts.errorRequired); return; }
     setSaving(true);
     setError("");
     try {
@@ -1712,7 +1713,7 @@ function ContractsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[]
       setContactId(""); setTemplateId(""); setTitle(""); setContent("");
       load();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "خطا");
+      setError(err instanceof Error ? err.message : t.contracts.errorGeneric);
     } finally {
       setSaving(false);
     }
@@ -1736,44 +1737,42 @@ function ContractsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[]
         <button onClick={restoreDefaultTemplates} disabled={restoringDefaults}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-50" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
           {restoringDefaults ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-          {isFa ? "بازیابی قالب‌های پیش‌فرض" : "Restore default templates"}
+          {t.contracts.restoreDefaults}
         </button>
         <button onClick={() => setShowTemplates((v) => !v)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
-          <FileSignature className="w-4 h-4" /> {isFa ? "مدیریت قالب‌ها" : "Manage Templates"}
+          <FileSignature className="w-4 h-4" /> {t.contracts.manageTemplates}
         </button>
         <button onClick={() => setShowNew((v) => !v)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-          <Plus className="w-4 h-4" /> {isFa ? "قرارداد جدید" : "New Contract"}
+          <Plus className="w-4 h-4" /> {t.contracts.newContract}
         </button>
       </div>
 
       {showNew && (
         <div className="rounded-2xl p-4 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <p className="text-[11px] p-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
-            {isFa
-              ? "این قالب صرفاً یک نقطه شروع است و توصیه یا مشاوره حقوقی محسوب نمی‌شود. لطفاً پیش از استفاده، نسخه‌ی نهایی را با یک وکیل یا مشاور حقوقی متخصص بازبینی کنید."
-              : "This template is a starting point only and does not constitute legal advice. Please have your customized version reviewed by a qualified lawyer before use."}
+            {t.contracts.legalDisclaimer}
           </p>
           <select value={contactId} onChange={(e) => setContactId(e.target.value)}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{isFa ? "انتخاب مشتری..." : "Select contact..."}</option>
+            <option value="">{t.contracts.selectContact}</option>
             {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={isFa ? "عنوان قرارداد" : "Contract title"}
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t.contracts.titlePlaceholder}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <select value={templateId} onChange={(e) => setTemplateId(e.target.value)}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{isFa ? "بدون قالب (متن آزاد)" : "No template (free text)"}</option>
-            {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            <option value="">{t.contracts.noTemplate}</option>
+            {templates.map((tpl) => <option key={tpl.id} value={tpl.id}>{tpl.name}</option>)}
           </select>
           {!templateId && (
-            <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={5} placeholder={isFa ? "متن قرارداد..." : "Contract text..."}
+            <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={5} placeholder={t.contracts.contentPlaceholder}
               className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           )}
           {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
           <button onClick={createContract} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ساخت قرارداد" : "Create Contract")}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t.contracts.createContract}
           </button>
         </div>
       )}
@@ -1781,14 +1780,14 @@ function ContractsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[]
       {showTemplates && (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           {templates.length === 0 ? (
-            <p className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز قالبی ثبت نشده" : "No templates yet"}</p>
+            <p className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>{t.contracts.noTemplatesYet}</p>
           ) : (
-            templates.map((t, i) => (
-              <div key={t.id} className="flex items-center justify-between px-4 py-3" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
-                <p className="text-sm" style={{ color: "var(--text-primary)" }}>{t.name}</p>
+            templates.map((tpl, i) => (
+              <div key={tpl.id} className="flex items-center justify-between px-4 py-3" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+                <p className="text-sm" style={{ color: "var(--text-primary)" }}>{tpl.name}</p>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setEditingTemplate(t)} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{isFa ? "ویرایش" : "Edit"}</button>
-                  <button onClick={() => deleteTemplate(t.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
+                  <button onClick={() => setEditingTemplate(tpl)} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{t.contracts.edit}</button>
+                  <button onClick={() => deleteTemplate(tpl.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
                 </div>
               </div>
             ))
@@ -1797,23 +1796,23 @@ function ContractsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[]
       )}
 
       {contracts.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز قراردادی ثبت نشده" : "No contracts yet"}</p>
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.contracts.empty}</p>
       ) : (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-          {contracts.map((c, i) => {
-            const st = CONTRACT_STATUS_LABEL[c.status] || CONTRACT_STATUS_LABEL.draft;
+          {contracts.map((ct, i) => {
+            const st = CONTRACT_STATUS_LABEL[ct.status] || CONTRACT_STATUS_LABEL.draft;
             return (
-              <div key={c.id} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+              <div key={ct.id} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
                 <div>
-                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{c.title} — {c.contact.name}</p>
+                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{ct.title} — {ct.contact.name}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-medium" style={{ background: "var(--surface-2)", color: st.color }}>{isFa ? st.fa : st.en}</span>
-                  {c.status === "draft" && <button onClick={() => setStatus(c.id, "sent")} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{isFa ? "ارسال" : "Send"}</button>}
-                  {c.status !== "signed" && c.status !== "cancelled" && <button onClick={() => setStatus(c.id, "signed")} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>{isFa ? "امضا شد" : "Mark Signed"}</button>}
-                  <button onClick={() => setEditingContract(c)} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{isFa ? "ویرایش" : "Edit"}</button>
-                  <button onClick={() => setPrintContract(c)}><Printer className="w-4 h-4" style={{ color: "var(--text-secondary)" }} /></button>
-                  <button onClick={() => deleteContract(c.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-medium" style={{ background: "var(--surface-2)", color: st.color }}>{t.contractStatus[ct.status as keyof typeof t.contractStatus] || t.contractStatus.draft}</span>
+                  {ct.status === "draft" && <button onClick={() => setStatus(ct.id, "sent")} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{t.contracts.send}</button>}
+                  {ct.status !== "signed" && ct.status !== "cancelled" && <button onClick={() => setStatus(ct.id, "signed")} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>{t.contracts.markSigned}</button>}
+                  <button onClick={() => setEditingContract(ct)} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{t.contracts.edit}</button>
+                  <button onClick={() => setPrintContract(ct)}><Printer className="w-4 h-4" style={{ color: "var(--text-secondary)" }} /></button>
+                  <button onClick={() => deleteContract(ct.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
                 </div>
               </div>
             );
@@ -1821,35 +1820,35 @@ function ContractsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[]
         </div>
       )}
 
-      {printContract && <ContractPrintModal isFa={isFa} contract={printContract} onClose={() => setPrintContract(null)} />}
+      {printContract && <ContractPrintModal isFa={isFa} t={t} contract={printContract} onClose={() => setPrintContract(null)} />}
       {editingContract && (
-        <ContractEditModal isFa={isFa} contract={editingContract} onClose={() => setEditingContract(null)} onSave={saveEditedContract} />
+        <ContractEditModal isFa={isFa} t={t} contract={editingContract} onClose={() => setEditingContract(null)} onSave={saveEditedContract} />
       )}
       {editingTemplate && (
-        <TemplateEditModal isFa={isFa} template={editingTemplate} onClose={() => setEditingTemplate(null)} onSave={saveTemplateEdit} />
+        <TemplateEditModal isFa={isFa} t={t} template={editingTemplate} onClose={() => setEditingTemplate(null)} onSave={saveTemplateEdit} />
       )}
     </div>
   );
 }
 
-function ContractPrintModal({ isFa, contract, onClose }: { isFa: boolean; contract: CrmContractRow; onClose: () => void }) {
+function ContractPrintModal({ isFa, t, contract, onClose }: { isFa: boolean; t: Translations["crm"]; contract: CrmContractRow; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:p-0 print:static" style={{ background: "rgba(0,0,0,0.6)" }}>
       <div className="print:hidden absolute top-4 left-4 flex gap-2">
-        <button onClick={() => window.print()} className="px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>{isFa ? "چاپ / PDF" : "Print / PDF"}</button>
-        <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>{isFa ? "بستن" : "Close"}</button>
+        <button onClick={() => window.print()} className="px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>{t.contracts.print.printPdf}</button>
+        <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>{t.contracts.print.close}</button>
       </div>
       <div dir={isFa ? "rtl" : "ltr"} className="w-full max-w-xl rounded-2xl p-8 space-y-4 max-h-[85vh] overflow-y-auto print:max-h-none print:overflow-visible print:shadow-none print:rounded-none whitespace-pre-wrap"
         style={{ background: "#fff", color: "#111" }}>
         <h2 className="text-lg font-bold">{contract.title}</h2>
-        <p className="text-xs">{isFa ? "مشتری:" : "Contact:"} {contract.contact.name}</p>
+        <p className="text-xs">{t.contracts.print.contact} {contract.contact.name}</p>
         <div className="text-sm leading-7">{contract.content}</div>
       </div>
     </div>
   );
 }
 
-function ContractEditModal({ isFa, contract, onClose, onSave }: { isFa: boolean; contract: CrmContractRow; onClose: () => void; onSave: (content: string) => void }) {
+function ContractEditModal({ isFa, t, contract, onClose, onSave }: { isFa: boolean; t: Translations["crm"]; contract: CrmContractRow; onClose: () => void; onSave: (content: string) => void }) {
   const [content, setContent] = useState(contract.content);
   const [saving, setSaving] = useState(false);
 
@@ -1862,26 +1861,24 @@ function ContractEditModal({ isFa, contract, onClose, onSave }: { isFa: boolean;
   return (
     <Modal onClose={onClose}>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "ویرایش قرارداد" : "Edit Contract"}</h2>
+        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{t.contracts.editModal.title}</h2>
         <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
       </div>
       {contract.status !== "draft" && (
         <p className="text-[11px] p-2 rounded-lg mb-2" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
-          {isFa
-            ? "این قرارداد نهایی‌شده — نسخه‌ی فعلی پیش از ذخیره تغییرات، آرشیو می‌شود."
-            : "This contract is finalized — the current version will be archived before your changes are saved."}
+          {t.contracts.editModal.finalizedNotice}
         </p>
       )}
       <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={12}
         className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
       <button onClick={handleSave} disabled={saving} className="w-full mt-3 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-        {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ذخیره تغییرات" : "Save Changes")}
+        {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t.contracts.editModal.save}
       </button>
     </Modal>
   );
 }
 
-function TemplateEditModal({ isFa, template, onClose, onSave }: { isFa: boolean; template: CrmContractTemplateRow; onClose: () => void; onSave: (name: string, content: string) => void }) {
+function TemplateEditModal({ isFa, t, template, onClose, onSave }: { isFa: boolean; t: Translations["crm"]; template: CrmContractTemplateRow; onClose: () => void; onSave: (name: string, content: string) => void }) {
   const [name, setName] = useState(template.name);
   const [content, setContent] = useState(template.content);
   const [saving, setSaving] = useState(false);
@@ -1895,20 +1892,18 @@ function TemplateEditModal({ isFa, template, onClose, onSave }: { isFa: boolean;
   return (
     <Modal onClose={onClose}>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "ویرایش قالب قرارداد" : "Edit Contract Template"}</h2>
+        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{t.contracts.templateEditModal.title}</h2>
         <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
       </div>
       <p className="text-[11px] p-2 rounded-lg mb-2" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
-        {isFa
-          ? "این قالب صرفاً یک نقطه شروع است و توصیه یا مشاوره حقوقی محسوب نمی‌شود. متن را با توجه به سیاست‌های کسب‌وکار خود ویرایش کنید."
-          : "This template is a starting point only and does not constitute legal advice. Edit the text to match your own business policy."}
+        {t.contracts.templateEditModal.legalDisclaimer}
       </p>
-      <input value={name} onChange={(e) => setName(e.target.value)} placeholder={isFa ? "نام قالب" : "Template name"}
+      <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.contracts.templateEditModal.namePlaceholder}
         className="w-full px-3 py-2 rounded-xl text-sm outline-none mb-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
       <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={12}
         className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
       <button onClick={handleSave} disabled={saving} className="w-full mt-3 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-        {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ذخیره تغییرات" : "Save Changes")}
+        {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t.contracts.templateEditModal.save}
       </button>
     </Modal>
   );
@@ -1928,7 +1923,7 @@ const PROJECT_STATUS_LABEL: Record<string, { fa: string; en: string; color: stri
 };
 
 /** Generic post-sale/ongoing-work tracking — usable by any vertical (a construction job, a real-estate closing's paperwork, a service engagement), not tied to one industry's schema. */
-function ProjectsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] }) {
+function ProjectsPanel({ isFa, t, contacts }: { isFa: boolean; t: Translations["crm"]; contacts: Contact[] }) {
   const [projects, setProjects] = useState<CrmProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -1949,7 +1944,7 @@ function ProjectsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
   useEffect(() => { load(); }, [load]);
 
   async function createProject() {
-    if (!name.trim()) { setError(isFa ? "نام پروژه الزامی است" : "Project name is required"); return; }
+    if (!name.trim()) { setError(t.projects.errorNameRequired); return; }
     setSaving(true);
     setError("");
     try {
@@ -1963,7 +1958,7 @@ function ProjectsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
       setName(""); setContactId(""); setDescription("");
       load();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "خطا");
+      setError(err instanceof Error ? err.message : t.projects.errorGeneric);
     } finally {
       setSaving(false);
     }
@@ -1986,30 +1981,30 @@ function ProjectsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
       <div className="flex justify-end">
         <button onClick={() => setShowNew((v) => !v)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-          <Plus className="w-4 h-4" /> {isFa ? "پروژه جدید" : "New Project"}
+          <Plus className="w-4 h-4" /> {t.projects.new}
         </button>
       </div>
 
       {showNew && (
         <div className="rounded-2xl p-4 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={isFa ? "نام پروژه" : "Project name"}
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.projects.namePlaceholder}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <select value={contactId} onChange={(e) => setContactId(e.target.value)}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{isFa ? "بدون مخاطب (اختیاری)" : "No contact (optional)"}</option>
+            <option value="">{t.projects.noContact}</option>
             {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder={isFa ? "توضیحات (اختیاری)" : "Description (optional)"}
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder={t.projects.descriptionPlaceholder}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
           <button onClick={createProject} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ساخت پروژه" : "Create Project")}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t.projects.createProject}
           </button>
         </div>
       )}
 
       {projects.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز پروژه‌ای ثبت نشده" : "No projects yet"}</p>
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.projects.empty}</p>
       ) : (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           {projects.map((p, i) => {
@@ -2023,7 +2018,7 @@ function ProjectsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
                 <div className="flex items-center gap-2">
                   <select value={p.status} onChange={(e) => setStatus(p.id, e.target.value)}
                     className="text-[10px] px-2 py-1 rounded-full font-medium outline-none" style={{ background: "var(--surface-2)", color: st.color, border: "none" }}>
-                    {Object.entries(PROJECT_STATUS_LABEL).map(([val, l]) => <option key={val} value={val}>{isFa ? l.fa : l.en}</option>)}
+                    {Object.entries(t.projectStatus).map(([val, label]) => <option key={val} value={val}>{label}</option>)}
                   </select>
                   <button onClick={() => deleteProject(p.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
                 </div>

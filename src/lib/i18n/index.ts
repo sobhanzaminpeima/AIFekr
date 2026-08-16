@@ -3,14 +3,15 @@
 import { useState, useEffect } from "react";
 import en from "./en";
 import fa from "./fa";
+import de from "./de";
 
-export type Lang = "fa" | "en";
+export type Lang = "fa" | "en" | "de";
 
 function parseCookieLang(): Lang {
   if (typeof document === "undefined") return "fa";
   const match = document.cookie.match(/(?:^|;\s*)lang=([^;]*)/);
   const val = match ? match[1] : null;
-  return (val === "en" || val === "fa") ? val : "fa";
+  return (val === "en" || val === "fa" || val === "de") ? val : "fa";
 }
 
 export function getLang(): Lang {
@@ -25,6 +26,8 @@ export function setLang(lang: Lang) {
   window.location.reload();
 }
 
+const TRANSLATIONS: Record<Lang, typeof en> = { en, fa, de: de as typeof en };
+
 export function useTranslation() {
   const [lang, setLangState] = useState<Lang>("fa");
 
@@ -32,8 +35,8 @@ export function useTranslation() {
     setLangState(getLang());
   }, []);
 
-  const t = lang === "en" ? en : fa;
+  const t = TRANSLATIONS[lang];
   return { t, lang, setLang: (l: Lang) => { setLangState(l); setLang(l); } };
 }
 
-export { en, fa };
+export { en, fa, de };

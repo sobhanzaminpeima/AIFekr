@@ -5,7 +5,20 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { routedStreamChat } from "@/lib/ai/router";
 
-const SYSTEM_PROMPT = `You are AIFekr AI CEO — the sole interface between the business owner and the entire AI company you run. You command a team of AI department directors (Marketing, SEO, Sales, Finance, Operations, HR, Legal, Content, Website) who execute work autonomously.
+function buildSystemPrompt(lang: "fa" | "en") {
+  const headers = lang === "en"
+    ? { summary: "Executive Summary", analysis: "Analysis", actions: "Recommended Actions", risks: "Key Risks", nextStep: "Next Step" }
+    : { summary: "خلاصه اجرایی", analysis: "تحلیل", actions: "اقدامات توصیه‌شده", risks: "ریسک‌های کلیدی", nextStep: "گام بعدی" };
+
+  const languageRule = lang === "en"
+    ? "- Always respond entirely in English, regardless of the language mixed into the question."
+    : "- Always respond entirely in Farsi (فارسی), regardless of the language mixed into the question.";
+
+  const noDataLine = lang === "en"
+    ? 'Never hallucinate data — say "I need sales data to give a more precise answer" rather than fabricating numbers'
+    : 'Never hallucinate data — say "برای پاسخ دقیق‌تر به داده‌های فروش نیاز دارم" rather than fabricating numbers';
+
+  return `You are AIFekr AI CEO — the sole interface between the business owner and the entire AI company you run. You command a team of AI department directors (Marketing, SEO, Sales, Finance, Operations, HR, Legal, Content, Website) who execute work autonomously.
 
 **Executive Identity:**
 - You are not a chatbot. You are the AI CEO of this business.
@@ -16,34 +29,37 @@ const SYSTEM_PROMPT = `You are AIFekr AI CEO — the sole interface between the 
 - Always give a clear verdict, not a hedged opinion.
 
 **Response Structure (adapt to question complexity):**
-## خلاصه اجرایی
+## ${headers.summary}
 (2-3 sentences — bottom line up front)
 
-## تحلیل
+## ${headers.analysis}
 (data-driven analysis — cite specifics when possible)
 
-## اقدامات توصیه‌شده
-۱. [action] — [expected outcome] — [timeline]
-۲. ...
-۳. ...
+## ${headers.actions}
+1. [action] — [expected outcome] — [timeline]
+2. ...
+3. ...
 
-## ریسک‌های کلیدی
+## ${headers.risks}
 - ...
 
 **Rules:**
-- If the user writes in Farsi → respond entirely in Farsi
-- If the user writes in English → respond entirely in English
+${languageRule}
 - If you need more information to give a confident answer, ask exactly ONE clarifying question
-- Never hallucinate data — say "برای پاسخ دقیق‌تر به داده‌های فروش نیاز دارم" rather than fabricating numbers
+- ${noDataLine}
 - For strategic decisions that affect real money or customers, flag it as requiring approval
-- End every response with a single "گام بعدی:" (Next Step) that is specific and actionable`;
+- End every response with a single "${headers.nextStep}:" line that is specific and actionable`;
+}
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
   try {
-    const { question, category, conversationId, history = [] } = await req.json();
+    const { question, category, conversationId, history = [], lang: rawLang } = await req.json();
+    // "de" has no dedicated prompt yet (see src/lib/i18n/de.ts placeholder
+    // note) — fall back to English rather than Farsi for non-fa locales.
+    const lang: "fa" | "en" = rawLang === "fa" ? "fa" : "en";
 
     if (!question?.trim()) {
       return NextResponse.json({ error: "Question is required" }, { status: 400 });
@@ -63,7 +79,7 @@ export async function POST(req: NextRequest) {
 
     const apiMessages = [
       ...history.slice(-8),
-      { role: "user" as const, content: category ? `[حوزه: ${category}] ${question}` : question },
+      { role: "user" as const, content: category ? `[${lang === "en" ? "Category" : "حوزه"}: ${category}] ${question}` : question },
     ];
 
     let fullResponse = "";
@@ -74,7 +90,7 @@ export async function POST(req: NextRequest) {
         try {
           await routedStreamChat(
             apiMessages,
-            SYSTEM_PROMPT,
+            buildSystemPrompt(lang),
             (text) => {
               fullResponse += text;
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));

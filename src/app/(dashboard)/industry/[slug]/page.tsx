@@ -32,7 +32,8 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
   if (!pack) notFound();
 
   const lang = await getServerLang();
-  const s = strings[lang];
+  // German UI strings for this page aren't translated yet — fall back to English.
+  const s = strings[lang === "fa" ? "fa" : "en"];
 
   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;
@@ -50,17 +51,21 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
 
   const isCurrentPack = userPackId === pack.id;
 
-  let agents: { name: string; role: string; description: string; icon: string }[] = [];
-  let outcomes: { metric: string; description: string }[] = [];
-  let painPoints: string[] = [];
-  let kpis: string[] = [];
-  let targetCustomers: string[] = [];
+  function pick(fa: string, en: string | null): string {
+    return lang !== "fa" && en ? en : fa;
+  }
+  function parseJson<T>(fa: string, en: string | null, fallback: T): T {
+    try { return JSON.parse(pick(fa, en)); } catch { return fallback; }
+  }
 
-  try { agents = JSON.parse(pack.agents); } catch {}
-  try { outcomes = JSON.parse(pack.outcomes); } catch {}
-  try { painPoints = JSON.parse(pack.painPoints); } catch {}
-  try { kpis = JSON.parse(pack.kpis); } catch {}
-  try { targetCustomers = JSON.parse(pack.targetCustomers); } catch {}
+  const agents = parseJson<{ name: string; role: string; description: string; icon: string }[]>(pack.agents, pack.agentsEn, []);
+  const outcomes = parseJson<{ metric: string; description: string }[]>(pack.outcomes, pack.outcomesEn, []);
+  const painPoints = parseJson<string[]>(pack.painPoints, pack.painPointsEn, []);
+  const kpis = parseJson<string[]>(pack.kpis, pack.kpisEn, []);
+  const targetCustomers = parseJson<string[]>(pack.targetCustomers, pack.targetCustomersEn, []);
+  const name = pick(pack.name, pack.nameEn);
+  const tagline = pick(pack.tagline, pack.taglineEn);
+  const valueProposition = pick(pack.valueProposition, pack.valuePropositionEn);
 
   return (
     <div className="min-h-screen" style={{ background: "var(--surface-0)" }}>
@@ -70,11 +75,11 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
           <div className="flex items-center gap-4 mb-6">
             <span className="text-5xl">{pack.emoji}</span>
             <div>
-              <h1 className="text-3xl font-bold text-white">{pack.name}</h1>
-              <p className="text-white/80 mt-1">{pack.tagline}</p>
+              <h1 className="text-3xl font-bold text-white">{name}</h1>
+              <p className="text-white/80 mt-1">{tagline}</p>
             </div>
           </div>
-          <p className="text-white/90 text-lg max-w-2xl">{pack.valueProposition}</p>
+          <p className="text-white/90 text-lg max-w-2xl">{valueProposition}</p>
           <div className="flex flex-wrap gap-2 mt-6">
             {targetCustomers.map((c) => (
               <span key={c} className="px-3 py-1 rounded-full text-sm bg-white/20 text-white">{c}</span>

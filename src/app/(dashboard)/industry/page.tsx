@@ -30,14 +30,16 @@ const strings = {
 };
 
 interface Pack {
-  id: string; slug: string; name: string; emoji: string; tagline: string;
+  id: string; slug: string; name: string; nameEn: string | null; emoji: string;
+  tagline: string; taglineEn: string | null;
   agents: string; tier: string; price: number; color: string;
   gradientFrom: string; gradientTo: string;
 }
 
 export default async function IndustryPage() {
   const lang = await getServerLang();
-  const s = strings[lang];
+  // German UI strings for this page aren't translated yet — fall back to English.
+  const s = strings[lang === "fa" ? "fa" : "en"];
 
   let packs: Pack[] = [];
   try {
@@ -71,8 +73,8 @@ export default async function IndustryPage() {
                   style={{ background: `linear-gradient(135deg, ${pack.gradientFrom}, ${pack.gradientTo})` }}>
                   <span className="text-3xl">{pack.emoji}</span>
                   <div>
-                    <h3 className="font-bold text-white">{pack.name}</h3>
-                    <p className="text-xs text-white/70">{pack.tagline}</p>
+                    <h3 className="font-bold text-white">{lang !== "fa" && pack.nameEn ? pack.nameEn : pack.name}</h3>
+                    <p className="text-xs text-white/70">{lang !== "fa" && pack.taglineEn ? pack.taglineEn : pack.tagline}</p>
                   </div>
                 </div>
 

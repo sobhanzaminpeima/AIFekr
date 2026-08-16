@@ -1,0 +1,1152 @@
+// GERMAN LOCALE — placeholder pass.
+// Every string in this file is copied verbatim from en.ts (English) as a
+// structural placeholder so the 'de' locale is immediately selectable
+// without breaking rendering anywhere in the app. None of it has been
+// translated to German yet — search for PLACEHOLDER_UNTRANSLATED below.
+// Replace values with real German copy (or run an AI translation pass,
+// see scripts/backfill-industry-pack-en.ts for the pattern) before
+// launching German to real users.
+export const PLACEHOLDER_UNTRANSLATED = true;
+
+const de = {
+  "nav": {
+    "chat": "KI-Chat",
+    "image": "Bildgenerator",
+    "video": "Videogenerator",
+    "music": "Musikgenerator",
+    "gallery": "Meine Galerie",
+    "tools": "Werkzeuge",
+    "assistants": "Assistenten",
+    "businessDoctor": "Business Doctor",
+    "crm": "CRM",
+    "salesAgent": "Sales Agent",
+    "voiceAgent": "Sprachassistent",
+    "ceoAdvisor": "CEO-Berater",
+    "seoWorkspace": "SEO-Arbeitsbereich",
+    "socialMedia": "Social Media",
+    "websiteDesigner": "Website-Designer",
+    "industryPacks": "Branchenpakete",
+    "meetingRoom": "KI-Besprechungsraum",
+    "startupBuilder": "Startup Builder",
+    "settings": "Einstellungen",
+    "logout": "Abmelden",
+    "upgrade": "Plan upgraden",
+    "newChat": "Neuer Chat",
+    "history": "Verlauf",
+    "credits": "Guthaben"
+  },
+  "businessDoctor": {
+    "title": "Business Doctor",
+    "description": "Get a comprehensive AI diagnosis of your business",
+    "businessName": "Business Name",
+    "industry": "Industry",
+    "revenue": "Monthly Revenue ($)",
+    "teamSize": "Team Size",
+    "challenge": "Top Challenge",
+    "challengePlaceholder": "Describe your main business challenge...",
+    "goals": "Business Goals",
+    "goalsPlaceholder": "What are your key goals for the next 12 months?",
+    "analyze": "Analyze My Business",
+    "analyzing": "Analyzing...",
+    "lastAnalysis": "Last Analysis",
+    "swot": "SWOT Analysis",
+    "challenges": "Key Challenges",
+    "actionPlan": "Action Plan",
+    "kpis": "KPI Recommendations",
+    "quickWins": "Quick Wins"
+  },
+  "ceo": {
+    "title": "CEO Command Center",
+    "description": "Strategic AI advisor for executive decisions",
+    "placeholder": "Ask a strategic question...",
+    "send": "Send",
+    "categories": {
+      "growth": "Growth",
+      "finance": "Finance",
+      "competition": "Competition",
+      "team": "Team",
+      "product": "Product",
+      "risk": "Risk"
+    },
+    "execSummary": "Executive Summary",
+    "insights": "Key Insights",
+    "actions": "Recommended Actions",
+    "risks": "Risk Considerations",
+    "categoryLabel": "Category",
+    "allTopics": "All Topics",
+    "sampleQuestionsLabel": "Sample questions:",
+    "sampleQuestions": [
+      "How do I grow 30%?",
+      "Strategy for entering a new market",
+      "How can I manage my team better?",
+      "What are the main risks to my business?"
+    ],
+    "subtitle": "Strategic AI advisor — 20+ years of experience",
+    "orchestratorLink": "Business Orchestrator (status of all tools)",
+    "readyTitle": "CEO Advisor is ready",
+    "readySubtitle": "Ask your strategic questions. The 20+ year veteran advisor gives you actionable, executive-level answers."
+  },
+  "seo": {
+    "title": "Professional SEO Workspace",
+    "description": "URL analysis, keyword research, content optimization",
+    "tabUrl": "URL Analysis",
+    "tabKeyword": "Keywords",
+    "tabContent": "Content Optimizer",
+    "tabMeta": "Meta Tags",
+    "urlLabel": "Website URL",
+    "targetKeywordLabel": "Target Keyword (optional)",
+    "targetKeywordPlaceholder": "e.g. web design",
+    "analyzeButton": "Analyze Website",
+    "analyzing": "Analyzing...",
+    "applyButton": "Apply Automatically to Site",
+    "applying": "Applying...",
+    "keywordLabel": "Keyword or Topic",
+    "keywordPlaceholder": "e.g. web design agency",
+    "researchButton": "Research Keywords",
+    "contentKeywordLabel": "Target Keyword",
+    "contentLabel": "Your Content",
+    "contentPlaceholder": "Paste your article or page content here...",
+    "optimizeButton": "Optimize Content",
+    "optimizing": "Optimizing...",
+    "metaPageTopicLabel": "Page Topic",
+    "metaPageTopicPlaceholder": "Short description of the page",
+    "metaKeywordLabel": "Primary Keyword",
+    "metaKeywordPlaceholder": "Target keyword",
+    "metaGenerateButton": "Generate Meta Tags",
+    "generating": "Generating...",
+    "resultTitle": "Analysis Result",
+    "copy": "Copy",
+    "copied": "Copied",
+    "platformCardTitle": "Your Website Platform",
+    "platformCardDescription": "Once connected, the \"Apply Automatically\" button becomes active so I can write the suggested Title and Meta Description directly to your site.",
+    "platformWordpress": "WordPress",
+    "platformAifekr": "Website built with AiFekr",
+    "platformOther": "Other / Custom platform",
+    "wpSiteUrlPlaceholder": "https://yoursite.com",
+    "wpUsernamePlaceholder": "WordPress username",
+    "wpAppPasswordPlaceholder": "Application Password",
+    "wpSave": "Save",
+    "wpNote": "Generate an Application Password from your own WordPress: Users → Profile → Application Passwords (never enter your real account password).",
+    "aifekrWebsiteIdLabel": "Generated site ID (from the Website Designer)"
+  },
+  "social": {
+    "title": "Social Media Agent",
+    "description": "Generate platform-optimized social content",
+    "brandName": "Brand / Business Name",
+    "brandNamePlaceholder": "e.g. Pars Café",
+    "topic": "Post Topic or Product",
+    "topicPlaceholder": "e.g. new product launch, 20% off...",
+    "platform": "Platform",
+    "tone": "Tone",
+    "hashtags": "Include Hashtags",
+    "emojis": "Include Emojis",
+    "generate": "Generate Posts",
+    "generating": "Generating...",
+    "calendar": "7-Day Content Calendar",
+    "copyPost": "Copy All",
+    "copied": "Copied",
+    "bestTime": "Best Time to Post",
+    "resultTitle": "Generated Content",
+    "igTitle": "Instagram Automation",
+    "igConnected": "Connected",
+    "igConnectButton": "Connect Instagram Account",
+    "igNoAutoNote": "Auto-publish is only available on the Pro and Team plans. On your current plan you can still generate content, but you'll need to publish it yourself.",
+    "igGenerateButton": "Generate Post + 5 Trending Hashtags (from form above)",
+    "igImagePlaceholder": "Post image URL (from My Gallery)",
+    "igManualMode": "Manual Publish",
+    "igAutoMode": "Auto-Publish",
+    "igScheduleButton": "Add to Publishing Calendar",
+    "igScheduling": "Saving...",
+    "igScheduledListTitle": "Scheduled Posts",
+    "igPublishedStatus": "Published",
+    "igFailedStatus": "Failed",
+    "igPendingStatus": "Pending",
+    "igAutoLabel": "Auto",
+    "igManualLabel": "Manual",
+    "igPublishNow": "Publish Now",
+    "tones": {
+      "professional": "Professional",
+      "casual": "Casual",
+      "funny": "Funny",
+      "inspirational": "Inspirational",
+      "educational": "Educational"
+    }
+  },
+  "websiteDesigner": {
+    "title": "Website Designer Agent",
+    "description": "Generate a complete website with AI",
+    "step1": "Business Brief",
+    "step2": "Generated Website",
+    "businessName": "Business Name",
+    "industry": "Industry",
+    "audience": "Target Audience",
+    "goal": "Website Goal",
+    "colorPref": "Color Preference",
+    "style": "Style",
+    "sections": "Must-have Sections",
+    "generate": "Generate Website",
+    "downloadHtml": "Download HTML",
+    "copyCode": "Copy Code",
+    "goals": {
+      "landing": "Landing Page",
+      "portfolio": "Portfolio",
+      "ecommerce": "E-Commerce",
+      "blog": "Blog",
+      "saas": "SaaS"
+    },
+    "styles": {
+      "modern": "Modern",
+      "minimal": "Minimal",
+      "bold": "Bold",
+      "elegant": "Elegant"
+    }
+  },
+  "industry": {
+    "title": "Industry Packs Marketplace",
+    "description": "Purpose-built AI agent teams for your industry",
+    "viewPack": "View Pack",
+    "activatePack": "Activate Pack",
+    "packActivated": "Pack Activated",
+    "agents": "agents",
+    "tier": {
+      "professional": "Professional",
+      "gold": "Gold"
+    },
+    "perMonth": "/mo"
+  },
+  "meeting": {
+    "title": "AI Agents Meeting Room",
+    "description": "Simulate a strategic meeting with multiple AI agents",
+    "topic": "Meeting Topic / Agenda",
+    "topicPlaceholder": "e.g. Should we expand to a new market in Q3?",
+    "selectAgents": "Select AI Agents (3-5)",
+    "startMeeting": "Start Meeting",
+    "phase1": "Opening Statements",
+    "phase2": "Discussion",
+    "phase3": "Decisions & Action Items",
+    "exportPdf": "Export PDF",
+    "copyTranscript": "Copy Transcript",
+    "selectedCount": "selected",
+    "copied": "Copied",
+    "newMeeting": "New Meeting",
+    "inProgress": "Meeting in progress...",
+    "continuing": "Meeting continuing...",
+    "meetingLabel": "Meeting"
+  },
+  "chat": {
+    "title": "AI Chat",
+    "greeting": "Hello! How can I help you?",
+    "greetingSubtitle": "Ask a question or choose from the suggestions below",
+    "placeholder": "Type your message... (Enter to send, Shift+Enter for new line)",
+    "attach": "Attach file",
+    "copy": "Copy",
+    "regenerate": "Regenerate",
+    "good": "Good response",
+    "improve": "Needs improvement",
+    "copied": "Copied",
+    "thanks": "Thanks for your feedback!",
+    "disclaimer": "AiFekr AI may make mistakes. Verify important information.",
+    "stopGeneration": "Stop",
+    "voiceInput": "Voice input",
+    "listening": "Listening...",
+    "readAloud": "Read aloud",
+    "stopSpeaking": "Stop speaking",
+    "models": {
+      "auto": "✦ Auto (Smart Router)"
+    },
+    "suggestedPrompts": [
+      "Find me a business idea",
+      "Write a short poem",
+      "Best methods for learning a language?",
+      "Give me a weekly workout plan"
+    ]
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "auth": {
+    "login": {
+      "subtitle": "Sign in to your account",
+      "tabPhone": "Phone",
+      "tabEmail": "Email",
+      "back": "Back",
+      "otpTitle": "Verification Code",
+      "otpSentPrefix": "Enter the 4-digit code sent to",
+      "otpSentSuffix": "",
+      "testCode": "Test code:",
+      "phoneLabel": "Phone number",
+      "sendCode": "Send verification code",
+      "sending": "Sending...",
+      "verifying": "Verifying...",
+      "verifyAndLogin": "Verify & Sign in",
+      "resendCode": "Resend code",
+      "emailLabel": "Email",
+      "passwordLabel": "Password",
+      "loggingIn": "Signing in...",
+      "submit": "Sign in",
+      "or": "Or",
+      "googleLogin": "Sign in with Google",
+      "noAccount": "Don't have an account?",
+      "registerLink": "Sign up",
+      "errPhoneInvalid": "Enter a valid phone number",
+      "otpSent": "Verification code sent",
+      "errSendFailed": "Failed to send code",
+      "errOtpLength": "Enter the 4-digit code",
+      "loginSuccess": "Signed in successfully",
+      "errOtpWrong": "Incorrect code",
+      "errFillEmailPass": "Enter your email and password",
+      "errEmailPassWrong": "Incorrect email or password"
+    },
+    "register": {
+      "subtitle": "Create a new account",
+      "selectedPack": "Selected pack:",
+      "nameLabel": "Full name *",
+      "namePlaceholder": "e.g. John Smith",
+      "emailLabel": "Email",
+      "phoneLabel": "Phone",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "At least 6 characters",
+      "confirmPasswordLabel": "Confirm password",
+      "agreePrefix": "I agree to AiFekr's",
+      "termsLink": "Terms & Conditions",
+      "and": "and",
+      "privacyLink": "Privacy Policy",
+      "agreeSuffix": "",
+      "creatingAccount": "Creating account...",
+      "submit": "Sign up",
+      "googleRegister": "Sign up with Google",
+      "haveAccount": "Already have an account?",
+      "loginLink": "Sign in",
+      "errName": "Enter your name",
+      "errEmailOrPhone": "Enter your email or phone number",
+      "errPasswordRequired": "Enter a password",
+      "errPasswordMismatch": "Passwords don't match",
+      "errPasswordShort": "Password must be at least 6 characters",
+      "errMustAgree": "You must agree to the Terms & Conditions to continue",
+      "success": "Registration successful! Welcome",
+      "errGeneric": "Registration failed"
+    }
+  },
+  "settingsPage": {
+    "title": "Account Settings",
+    "personalInfo": "Personal Information",
+    "avatar": "Avatar",
+    "displayName": "Display Name",
+    "namePlaceholder": "Enter your name",
+    "emailOrPhone": "Email / Phone",
+    "currentPlan": "Current Plan",
+    "saving": "Saving...",
+    "saveProfile": "Save Profile",
+    "appearanceLanguage": "Appearance & Language",
+    "theme": "Theme",
+    "language": "Language",
+    "changePassword": "Change Password",
+    "currentPasswordPlaceholder": "Current password",
+    "newPasswordPlaceholder": "New password (min 6 characters)",
+    "changePasswordBtn": "Change Password",
+    "usageTitle": "Credit Usage (last 30 days)",
+    "noUsage": "No usage recorded yet",
+    "creditsUnit": "credits",
+    "timesUnit": "times",
+    "total": "Total",
+    "paymentHistory": "Payment History",
+    "noPayments": "No payments recorded yet",
+    "peopleUnit": "members",
+    "sharedCredits": "shared credits",
+    "pendingInvites": "Pending Invites",
+    "removeFromTeam": "Remove from team",
+    "cancelInvite": "Cancel invite",
+    "newMemberEmailPlaceholder": "New member's email",
+    "invite": "Invite",
+    "leaveTeam": "Leave Team",
+    "dangerZone": "Delete Account",
+    "dangerDescription": "Deleting your account will permanently erase all your chats, images, videos, and music. This action cannot be undone.",
+    "deleting": "Deleting...",
+    "confirmDelete": "Click again to confirm",
+    "deleteAccountBtn": "Delete Account",
+    "statusPending": "Pending",
+    "statusPaid": "Paid",
+    "statusFailed": "Failed",
+    "typeChat": "Chat",
+    "typeImage": "Image",
+    "typeVideo": "Video",
+    "typeMusic": "Music",
+    "typeTool": "Tool",
+    "inviteSent": "Invitation sent",
+    "errInviteSend": "Failed to send invitation",
+    "profileSaved": "Profile saved",
+    "errSaveProfile": "Failed to save",
+    "passwordChanged": "Password changed",
+    "errChangePassword": "Failed to change password",
+    "errDeleteAccount": "Failed to delete account"
+  },
+  "businessDoctorPage": {
+    "title": "Business Doctor",
+    "subtitleNoProfile": "First, build your business profile",
+    "profilePrefix": "Profile:",
+    "profileSuffix": "— your AI business advisor",
+    "meetingRoom": "Meeting Room",
+    "editProfile": "Edit Profile",
+    "industries": [
+      "Technology / Software",
+      "Retail / E-commerce",
+      "Restaurant / Food",
+      "Medical / Health",
+      "Real Estate / Construction",
+      "Education",
+      "Finance / Banking",
+      "Manufacturing / Industry",
+      "Consulting / Services",
+      "Hotel / Tourism",
+      "Legal",
+      "Marketing / Agency",
+      "Logistics / Transport",
+      "Online Store",
+      "Other"
+    ],
+    "stepBasicTitle": "Basic Info",
+    "stepBasicDesc": "Name, industry, and key details",
+    "stepMarketTitle": "Products & Market",
+    "stepMarketDesc": "Services, customers, and competitors",
+    "stepGoalsTitle": "Status & Goals",
+    "stepGoalsDesc": "Challenges, strengths, and goals",
+    "basicInfoHeading": "Basic Business Information",
+    "businessNameLabel": "Business Name *",
+    "businessNamePlaceholder": "e.g. Pars Digital Store",
+    "industryLabel": "Industry *",
+    "selectIndustry": "Select an industry...",
+    "foundedYearLabel": "Founded Year",
+    "foundedYearPlaceholder": "e.g. 2019",
+    "teamSizeLabel": "Team Size",
+    "selectOption": "Select...",
+    "teamSize1": "Just me",
+    "teamSize2to5": "2–5 people",
+    "teamSize6to15": "6–15 people",
+    "teamSize16to50": "16–50 people",
+    "teamSize50to200": "50–200 people",
+    "teamSize200plus": "200+ people",
+    "monthlyRevenueLabel": "Monthly Revenue (approx.)",
+    "revenuePlaceholder": "e.g. $50,000",
+    "websiteLabel": "Website",
+    "websitePlaceholder": "e.g. www.example.com",
+    "descriptionLabel": "Business Description",
+    "descriptionPlaceholder": "Describe what your business does in 3-4 sentences...",
+    "marketHeading": "Products, Market & Competitors",
+    "productsLabel": "Main Products / Services",
+    "productsPlaceholder": "What products or services do you offer? e.g. accounting software, web design, electronics retail...",
+    "targetCustomersLabel": "Target Customers",
+    "targetCustomersPlaceholder": "Who are your ideal customers? Age, occupation, income, location...",
+    "competitorsLabel": "Main Competitors",
+    "competitorsPlaceholder": "Who are your direct and indirect competitors?",
+    "businessModelLabel": "Business Model",
+    "businessModelPlaceholder": "How do you make money? Direct sales, subscriptions, commissions, ads...",
+    "uniqueValueLabel": "Competitive Advantage / Unique Value",
+    "uniqueValuePlaceholder": "What sets you apart from competitors?",
+    "goalsHeading": "Current Situation & Goals",
+    "challengesLabel": "Current Main Challenges",
+    "challengesPlaceholder": "The biggest problems and obstacles you're currently facing...",
+    "strengthsLabel": "Strengths",
+    "strengthsPlaceholder": "Capabilities, resources, and advantages you have...",
+    "goals12MoLabel": "Goals for the Next 12 Months",
+    "goalsPlaceholder": "Specific, measurable goals for the coming year...",
+    "prev": "Previous",
+    "cancel": "Cancel",
+    "next": "Next Step",
+    "savingText": "Saving...",
+    "saveActivate": "Save & Activate",
+    "industryStat": "Industry",
+    "teamSizeStat": "Team Size",
+    "monthlyRevenueStat": "Monthly Revenue",
+    "statusStat": "Status",
+    "active": "Active",
+    "knowledgeBaseTitle": "Business Knowledge Base",
+    "kbProducts": "Products/Services",
+    "kbTargetCustomers": "Target Customers",
+    "kbUniqueValue": "Competitive Advantage",
+    "kbChallenges": "Main Challenge",
+    "kbGoals": "Goals",
+    "kbCompetitors": "Competitors",
+    "kbNote": "This information is used as context by all agents (Business Doctor, Meeting Room, Assistants).",
+    "askTitle": "Ask the Business Doctor",
+    "questionPlaceholder": "Ask a question about your business...",
+    "analysisTitle": "Business Doctor Analysis",
+    "newQuestion": "New Question",
+    "discussInMeeting": "Discuss in Meeting Room",
+    "quickQuestions": [
+      "Do a complete SWOT analysis of my business",
+      "Where are my biggest growth opportunities?",
+      "Write a 90-day action plan for my business",
+      "How can I differentiate from competitors?",
+      "What KPIs are right for my business?",
+      "What digital marketing strategy fits me best?"
+    ]
+  },
+  "agentPipelinePage": {
+    "title": "Smart Content Pipeline",
+    "subtitle": "8 specialized agents work together to produce and publish a complete article",
+    "tabRun": "Run",
+    "tabLessons": "Lessons",
+    "tabPosts": "Posts",
+    "topicLabel": "Topic or Industry *",
+    "topicPlaceholder": "e.g. dental clinic, kitchenware store, travel agency...",
+    "brandVoiceLabel": "Brand Voice (optional)",
+    "brandVoicePlaceholder": "e.g. friendly and warm, formal and professional...",
+    "connectedPrefix": "The article will be published directly on",
+    "connectedSuffix": "once approved",
+    "notConnected": "No site connected — the article will only be saved inside AiFekr.",
+    "connectWordpress": "Set up your WordPress connection on the SEO page",
+    "startBtn": "Start",
+    "runningBtn": "Running...",
+    "publishedSuccess": "Published successfully —",
+    "viewOnSite": "View on site",
+    "publishFailed": "External publishing failed:",
+    "notPublished": "Saved only inside AiFekr (no site connected)",
+    "researchNote": "Note: the Researcher agent uses live web search (Tavily) and cites sources — still, verify sensitive facts before publishing.",
+    "notRunYet": "Not run yet",
+    "attempt": "attempt",
+    "addLessonManual": "Add a manual note for an agent",
+    "addLessonPlaceholder": "e.g. write shorter, action-driven sentences",
+    "addBtn": "Add",
+    "criticSource": "Critic",
+    "youSource": "You",
+    "noLessonsYet": "No lessons yet — after the first run, the Critic agent will fill this in",
+    "noPostsYet": "No article published yet",
+    "publishedBadge": "Published on site",
+    "publishFailedBadge": "External publish failed",
+    "siteBtn": "Site",
+    "viewBtn": "View",
+    "agents": {
+      "ideaFinder": {
+        "name": "Idea Finder",
+        "role": "Finding article ideas"
+      },
+      "strategist": {
+        "name": "Content Strategist",
+        "role": "Choosing the best idea"
+      },
+      "researcher": {
+        "name": "Researcher",
+        "role": "Checking facts and common questions"
+      },
+      "writer": {
+        "name": "Writer",
+        "role": "Writing the full draft"
+      },
+      "editor": {
+        "name": "Editor",
+        "role": "Scoring and reviewing the text"
+      },
+      "seo": {
+        "name": "SEO Specialist",
+        "role": "Optimizing for search engines"
+      },
+      "publisher": {
+        "name": "Publisher",
+        "role": "Publishing the approved article"
+      },
+      "critic": {
+        "name": "Critic",
+        "role": "Critiquing the post and logging lessons"
+      }
+    }
+  },
+  "ceoOrchestratorPage": {
+    "subtitle": "AI Business Operating System",
+    "pendingApprovals": "pending approvals",
+    "runBoardroomFirst": "Run the boardroom",
+    "businessHealth": "Business Health",
+    "healthy": "Healthy",
+    "needsAttention": "Needs Attention",
+    "critical": "Critical",
+    "lastSession": "Last session:",
+    "boardroomRunning": "Session running...",
+    "runBoardroom": "Run Boardroom",
+    "kpiRevenue30d": "30-day Revenue",
+    "kpiSalesFollowup": "Sales Follow-up",
+    "kpiActiveTasks": "Active Tasks",
+    "kpiActivity": "Recorded Activity",
+    "boardroomLiveTitle": "Boardroom session in progress...",
+    "boardroomLastTitle": "Last boardroom session",
+    "logSnapshotReady": "📊 Business data ready",
+    "logDeptsStart": "🏢 Boardroom session started...",
+    "logDeptAnalyzing": "analyzing...",
+    "logDeptDone": "report ready — score:",
+    "logSynthesisStart": "🧠 CEO drafting strategy...",
+    "logSessionDone": "🎯 Session complete —",
+    "logTasksCreated": "tasks created",
+    "aiTasksTitle": "AI Tasks",
+    "filterAll": "All",
+    "filterPending": "Pending",
+    "filterApproved": "Approved",
+    "filterDone": "Done",
+    "noTasksYet": "Tasks will appear here after the boardroom runs",
+    "noTasksInCategory": "No tasks in this category",
+    "needsApproval": "Needs approval",
+    "dailyAnalysisTitle": "Daily CEO Analysis",
+    "autoDailyAnalysis": "Automatic daily analysis",
+    "runningAnalysis": "Analyzing...",
+    "runAnalysis": "Run Analysis",
+    "salesFollowupTitle": "Sales Follow-up",
+    "contactsSuffix": "contacts",
+    "generateMessages": "Generate Messages",
+    "generateMessagesHint": "Click \"Generate Messages\" to have AI write a follow-up message for each contact",
+    "noPhoneRegistered": "No phone number on file",
+    "sent": "Sent",
+    "sendBtn": "Send",
+    "companyMemoryTitle": "Company Memory",
+    "memoryPlaceholder": "An important note about the business...",
+    "addBtn": "Add",
+    "noMemoryYet": "After the first analysis, the CEO will fill this section with key business notes",
+    "priorities": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "statuses": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "done": "Done"
+    },
+    "departments": {
+      "marketing": "Marketing",
+      "seo": "SEO",
+      "sales": "Sales",
+      "finance": "Finance",
+      "operations": "Operations"
+    },
+    "categories": {
+      "sales": "Sales",
+      "content": "Content",
+      "seo": "SEO",
+      "social": "Social Media",
+      "dev": "Development",
+      "general": "General"
+    }
+  },
+  "websiteDesignerPage": {
+    "title": "Website Designer Agent",
+    "subtitle": "Design a complete, publish-ready website with AI",
+    "savedSitesBtn": "Saved Websites",
+    "noSitesYet": "You haven't saved any websites yet",
+    "previewBtn": "Preview",
+    "downloadBtn": "Download",
+    "stepBusinessInfo": "Business Details",
+    "stepGeneratedSite": "Generated Website",
+    "businessNameLabel": "Business Name *",
+    "businessNamePlaceholder": "e.g. Novin Digital Marketing Agency",
+    "industryLabel": "Industry *",
+    "industryPlaceholder": "e.g. web design, restaurant, clinic...",
+    "audienceLabel": "Target Audience",
+    "audiencePlaceholder": "e.g. small businesses, ages 20-35...",
+    "colorPrefLabel": "Color Preference",
+    "colorPrefPlaceholder": "e.g. blue and white, natural green, dark...",
+    "websiteGoalLabel": "Website Goal",
+    "designStyleLabel": "Design Style",
+    "requiredSectionsLabel": "Required Sections",
+    "designBtn": "Design Website",
+    "generatedWebsiteTitle": "Generated Website",
+    "codeBtn": "Code",
+    "copyCode": "Copy Code",
+    "copied": "Copied",
+    "downloadHtml": "Download HTML",
+    "designingText": "Designing your website...",
+    "retryBtn": "Retry",
+    "truncatedWarning": "Incomplete response received (the AI service may have been interrupted mid-generation). You can download/copy this version or try again.",
+    "previewIframeTitle": "Website preview",
+    "errServer": "Server connection error. Please try again.",
+    "errGenerate": "Website generation failed. AI services are temporarily unavailable — please try again in a few minutes.",
+    "errNoResponse": "No response received from server. Please try again.",
+    "goals": [
+      {
+        "value": "landing page",
+        "label": "Landing Page"
+      },
+      {
+        "value": "portfolio",
+        "label": "Portfolio"
+      },
+      {
+        "value": "e-commerce",
+        "label": "Online Store"
+      },
+      {
+        "value": "blog",
+        "label": "Blog"
+      },
+      {
+        "value": "SaaS",
+        "label": "SaaS"
+      }
+    ],
+    "styles": [
+      {
+        "value": "modern",
+        "label": "Modern"
+      },
+      {
+        "value": "minimal",
+        "label": "Minimal"
+      },
+      {
+        "value": "bold",
+        "label": "Bold"
+      },
+      {
+        "value": "elegant",
+        "label": "Elegant"
+      }
+    ]
+  },
+  "imageGeneratePage": {
+    "title": "AI Image Generator",
+    "subtitle": "Create the image you want with AI — from text or from your own photo",
+    "uploadRefLabel": "Upload reference photo (optional)",
+    "uploading": "Uploading...",
+    "choosePhoto": "Choose photo",
+    "photoUploaded": "Photo uploaded",
+    "errUpload": "Upload failed",
+    "readyPrompts": "Ready-made prompts",
+    "close": "Close",
+    "view": "View",
+    "noPromptsYet": "No prompts added yet",
+    "promptLabel": "Image Description",
+    "promptPlaceholder": "e.g. a beautiful mountain landscape at sunset...",
+    "translateBtn": "Translate to English (improves quality)",
+    "translated": "Translated",
+    "errTranslate": "Translation failed",
+    "styleLabel": "Image Style",
+    "ratioLabel": "Aspect Ratio",
+    "qualityLabel": "Quality",
+    "qualityStandard": "Standard (5 credits)",
+    "qualityHd": "HD (10 credits)",
+    "countLabel": "Count:",
+    "generatingText": "Generating image...",
+    "generateFromPhoto": "Generate from Photo",
+    "generateBtn": "Generate Image",
+    "errEnterPrompt": "Enter an image description",
+    "errGenerate": "Image generation failed",
+    "resultsPlaceholder": "Generated images will appear here",
+    "styles": [
+      {
+        "id": "realistic",
+        "label": "Realistic"
+      },
+      {
+        "id": "anime",
+        "label": "Anime"
+      },
+      {
+        "id": "painting",
+        "label": "Painting"
+      },
+      {
+        "id": "minimal",
+        "label": "Minimal"
+      },
+      {
+        "id": "fantasy",
+        "label": "Fantasy"
+      },
+      {
+        "id": "3d",
+        "label": "3D"
+      }
+    ],
+    "modeCredits": "AiFekr Credits",
+    "modeCreditsDesc": "Uses your AiFekr credit balance",
+    "modePuter": "Free (Puter)",
+    "modePuterDesc": "Unlimited, uses your own free puter.com account",
+    "puterNotice": "This option uses the third-party Puter.js service, not AiFekr's paid pipeline. The first time, Puter will ask you to sign in to your own puter.com account — usage is not billed to AiFekr credits.",
+    "puterLoginError": "Could not connect to Puter — make sure pop-ups are allowed for this site and try again.",
+    "puterGenerating": "Generating with Puter..."
+  },
+  "videoGeneratePage": {
+    "title": "AI Video Generator",
+    "subtitle": "Create the video you want with AI",
+    "uploadRefLabel": "Upload reference photo (optional)",
+    "uploading": "Uploading...",
+    "choosePhoto": "Choose photo",
+    "photoUploaded": "Photo uploaded",
+    "errUpload": "Upload failed",
+    "readyPrompts": "Ready-made prompts",
+    "close": "Close",
+    "view": "View",
+    "noPromptsYet": "No prompts added yet",
+    "promptLabel": "Video Description",
+    "promptPlaceholder": "e.g. a calm seaside scene at sunset...",
+    "errEnterPrompt": "Enter a video description",
+    "errGenerate": "Video generation failed",
+    "styleLabel": "Style",
+    "durationLabel": "Duration",
+    "creditsSuffix": "credits",
+    "ratioLabel": "Aspect Ratio",
+    "generatingText": "Generating video...",
+    "generateBtn": "Generate Video",
+    "sendingRequest": "Sending request...",
+    "processingVideo": "Processing video...",
+    "processingHint": "Video generation takes 2 to 5 minutes. Don't close this page.",
+    "videoReady": "Video ready! 🎬",
+    "videoReadyLabel": "Video is ready",
+    "downloadBtn": "Download",
+    "genFailed": "Video generation failed. Please try again.",
+    "retryBtn": "Retry",
+    "styles": [
+      {
+        "label": "Realistic",
+        "value": "realistic"
+      },
+      {
+        "label": "Animation",
+        "value": "animation"
+      },
+      {
+        "label": "Cinematic",
+        "value": "cinematic"
+      },
+      {
+        "label": "Cartoon",
+        "value": "cartoon"
+      }
+    ],
+    "durations": [
+      {
+        "label": "5 seconds",
+        "value": 5,
+        "credits": 20
+      },
+      {
+        "label": "10 seconds",
+        "value": 10,
+        "credits": 35
+      },
+      {
+        "label": "30 seconds",
+        "value": 30,
+        "credits": 80
+      }
+    ]
+  },
+  "musicGeneratePage": {
+    "title": "AI Music Generator",
+    "subtitle": "Create the music you want with AI",
+    "promptLabel": "Music Description",
+    "promptPlaceholder": "e.g. calming piano music for focus...",
+    "errEnterPrompt": "Enter a music description",
+    "errGenerate": "Music generation failed",
+    "genreLabel": "Genre",
+    "durationLabel": "Duration",
+    "creditsSuffix": "credits",
+    "generatingText": "Generating music...",
+    "generateBtn": "Generate Music",
+    "processingHint": "May take 1 to 3 minutes.",
+    "musicReady": "Music ready! 🎵",
+    "musicReadyLabel": "Music is ready",
+    "downloadMp3": "Download MP3",
+    "genFailed": "Music generation failed. Please try again.",
+    "retryBtn": "Retry",
+    "genres": [
+      "Pop",
+      "Classical",
+      "Electronic",
+      "Persian Traditional",
+      "Relaxing",
+      "Rock",
+      "Jazz",
+      "Hip-Hop"
+    ],
+    "durations": [
+      {
+        "label": "30 seconds",
+        "value": 30,
+        "credits": 10
+      },
+      {
+        "label": "1 minute",
+        "value": 60,
+        "credits": 18
+      },
+      {
+        "label": "2 minutes",
+        "value": 120,
+        "credits": 30
+      }
+    ]
+  },
+  "crm": {
+    "header": {
+      "title": "CRM",
+      "subtitle": "Your sales pipeline and business contacts"
+    },
+    "tabs": {
+      "board": "Pipeline",
+      "contacts": "Contacts",
+      "automation": "Automation",
+      "agent": "CRM Agent",
+      "calendar": "Calendar",
+      "analytics": "Analytics",
+      "products": "Products",
+      "invoices": "Invoices",
+      "contracts": "Contracts",
+      "projects": "Projects"
+    },
+    "upgrade": {
+      "banner": "Invoicing, contracts, product catalog, and automation are part of the CRM Pro add-on",
+      "bannerSub": "Pipeline and contacts remain free (up to 20 contacts).",
+      "solo": "CRM Solo",
+      "team": "CRM Team"
+    },
+    "empty": {
+      "noPipeline": "You don't have a pipeline yet. Pick your industry to get a ready-made pipeline with the right stages.",
+      "createPipeline": "Create Pipeline",
+      "noContacts": "No contacts yet",
+      "defaultPipelineName": "General Sales"
+    },
+    "board": {
+      "exportCsv": "Export CSV",
+      "newDeal": "New Deal",
+      "currency": ""
+    },
+    "contacts": {
+      "exportCsv": "Export CSV",
+      "newContact": "New Contact"
+    },
+    "newDealModal": {
+      "title": "New Deal",
+      "selectContact": "Select contact...",
+      "titlePlaceholder": "Deal title",
+      "valuePlaceholder": "Deal value",
+      "submit": "Create Deal",
+      "errorRequired": "Contact and title are required",
+      "errorGeneric": "Error"
+    },
+    "newContactModal": {
+      "title": "New Contact",
+      "namePlaceholder": "Name",
+      "phonePlaceholder": "Phone",
+      "emailPlaceholder": "Email",
+      "companyPlaceholder": "Company (optional)",
+      "sourceLabel": "Where did this lead come from?",
+      "submit": "Create Contact",
+      "errorNameRequired": "Name is required",
+      "errorGeneric": "Error"
+    },
+    "leadSources": {
+      "manual": "Manual entry",
+      "instagram_dm": "Instagram DM",
+      "referral": "Referral",
+      "walk_in": "Walk-in",
+      "website_form": "Website form",
+      "other": "Other"
+    },
+    "industries": {
+      "real-estate": "Real Estate",
+      "construction": "Construction",
+      "clinic": "Clinic",
+      "restaurant": "Restaurant",
+      "university": "Education",
+      "ecommerce": "E-commerce",
+      "law-firm": "Law Firm",
+      "hotel": "Hotel",
+      "generic": "Generic (default)"
+    },
+    "errors": {
+      "paymentStartFailed": "Error starting payment",
+      "paymentGeneric": "Payment error"
+    },
+    "common": {
+      "assignToTeam": "Assign to team member",
+      "unassigned": "Unassigned",
+      "delete": "Delete"
+    },
+    "dealDetail": {
+      "fallbackTitle": "Deal Detail",
+      "notePlaceholder": "New note/activity...",
+      "logActivity": "Log Activity"
+    },
+    "contactDetail": {
+      "deals": "Deals",
+      "tasks": "Tasks",
+      "newTaskPlaceholder": "New task...",
+      "activity": "Activity",
+      "noActivity": "No activity yet",
+      "newNotePlaceholder": "New note..."
+    },
+    "notes": {
+      "title": "Pinned Notes",
+      "empty": "No notes yet",
+      "placeholder": "New note..."
+    },
+    "documents": {
+      "title": "Documents",
+      "empty": "No documents yet",
+      "uploading": "Uploading...",
+      "upload": "Upload Document",
+      "errorGeneric": "Error"
+    },
+    "automation": {
+      "description": "Automation rules are checked every few minutes and auto-create a follow-up task for open deals that have had no activity for a while.",
+      "newRule": "New Rule",
+      "namePlaceholder": "e.g. Follow up stale deals",
+      "conditionPrefix": "If a deal has had no activity for more than",
+      "conditionSuffix": "days, create a follow-up task",
+      "createRule": "Create Rule",
+      "empty": "No automation rules yet",
+      "ruleSummaryPrefix": "Deals with no activity for",
+      "ruleSummarySuffix": "+ days → create follow-up task",
+      "active": "Active",
+      "inactive": "Inactive",
+      "errorNameRequired": "Rule name is required",
+      "errorGeneric": "Error"
+    },
+    "agent": {
+      "description": "The CRM Agent analyzes your sales pipeline using real data and generates suggested actions.",
+      "analyzeButton": "Analyze My CRM",
+      "savedNotesTitle": "Saved notes from prior analyses",
+      "noAnalysis": "No analysis run yet"
+    },
+    "calendar": {
+      "empty": "No tasks or deals with a due/close date"
+    },
+    "analytics": {
+      "noPipeline": "Create a pipeline first",
+      "totalDeals": "Total Deals",
+      "overallConversion": "Overall Conversion",
+      "funnelTitle": "Conversion Funnel by Stage",
+      "sourcePerfTitle": "Lead Source Performance",
+      "leads": "leads",
+      "customers": "customers"
+    },
+    "products": {
+      "new": "New Product",
+      "uploadingPhoto": "Uploading...",
+      "uploadPhoto": "Upload photo",
+      "namePlaceholder": "Product/service name",
+      "descriptionPlaceholder": "Description (optional)",
+      "skuPlaceholder": "SKU (optional)",
+      "pricePlaceholder": "Price",
+      "unitPlaceholder": "Unit (optional)",
+      "taxPlaceholder": "Tax %",
+      "cancel": "Cancel",
+      "save": "Save",
+      "empty": "No products yet",
+      "edit": "Edit",
+      "active": "Active",
+      "inactive": "Inactive",
+      "tax": "tax",
+      "errorNameRequired": "Product name is required",
+      "errorPriceRequired": "Valid price is required",
+      "errorGeneric": "Error",
+      "errorImageUpload": "Error uploading image",
+      "detail": {
+        "customersWhoBought": "Customers who bought this",
+        "notUsedYet": "Not used in any invoice yet"
+      }
+    },
+    "invoiceStatus": {
+      "draft": "Draft",
+      "sent": "Sent",
+      "paid": "Paid",
+      "overdue": "Overdue",
+      "cancelled": "Cancelled"
+    },
+    "invoices": {
+      "new": "New Invoice",
+      "selectContact": "Select contact...",
+      "fromCatalog": "From catalog",
+      "itemDescription": "Item description",
+      "qty": "Qty",
+      "unitPrice": "Unit price",
+      "addItem": "Add item",
+      "discount": "Discount:",
+      "total": "Total:",
+      "createInvoice": "Create Invoice",
+      "empty": "No invoices yet",
+      "currency": "",
+      "send": "Send",
+      "markPaid": "Mark Paid",
+      "errorContactRequired": "Selecting a contact is required",
+      "errorItemDescriptionRequired": "All items need a description",
+      "errorGeneric": "Error",
+      "print": {
+        "printPdf": "Print / PDF",
+        "close": "Close",
+        "invoiceTitle": "Invoice",
+        "billTo": "Bill to:",
+        "description": "Description",
+        "qty": "Qty",
+        "unit": "Unit",
+        "total": "Total",
+        "subtotal": "Subtotal:",
+        "tax": "Tax:",
+        "discount": "Discount:",
+        "grandTotal": "Total:"
+      }
+    },
+    "contractStatus": {
+      "draft": "Draft",
+      "sent": "Sent",
+      "signed": "Signed",
+      "cancelled": "Cancelled"
+    },
+    "contracts": {
+      "restoreDefaults": "Restore default templates",
+      "manageTemplates": "Manage Templates",
+      "newContract": "New Contract",
+      "legalDisclaimer": "This template is a starting point only and does not constitute legal advice. Please have your customized version reviewed by a qualified lawyer before use.",
+      "selectContact": "Select contact...",
+      "titlePlaceholder": "Contract title",
+      "noTemplate": "No template (free text)",
+      "contentPlaceholder": "Contract text...",
+      "createContract": "Create Contract",
+      "noTemplatesYet": "No templates yet",
+      "edit": "Edit",
+      "empty": "No contracts yet",
+      "send": "Send",
+      "markSigned": "Mark Signed",
+      "errorRequired": "Contact and title are required",
+      "errorGeneric": "Error",
+      "print": {
+        "printPdf": "Print / PDF",
+        "close": "Close",
+        "contact": "Contact:"
+      },
+      "editModal": {
+        "title": "Edit Contract",
+        "finalizedNotice": "This contract is finalized — the current version will be archived before your changes are saved.",
+        "save": "Save Changes"
+      },
+      "templateEditModal": {
+        "title": "Edit Contract Template",
+        "legalDisclaimer": "This template is a starting point only and does not constitute legal advice. Edit the text to match your own business policy.",
+        "namePlaceholder": "Template name",
+        "save": "Save Changes"
+      }
+    },
+    "projectStatus": {
+      "active": "Active",
+      "on_hold": "On Hold",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "projects": {
+      "new": "New Project",
+      "namePlaceholder": "Project name",
+      "noContact": "No contact (optional)",
+      "descriptionPlaceholder": "Description (optional)",
+      "createProject": "Create Project",
+      "empty": "No projects yet",
+      "errorNameRequired": "Project name is required",
+      "errorGeneric": "Error"
+    }
+  }
+};
+
+export default de;

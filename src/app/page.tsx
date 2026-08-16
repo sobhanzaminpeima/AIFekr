@@ -172,8 +172,11 @@ export default async function HomePage() {
   }
 
   const lang = await getServerLang();
-  const s = STR[lang];
+  // German copy for this page isn't translated yet — fall back to English.
+  const s = STR[lang === "fa" ? "fa" : "en"];
   const dir = lang === "fa" ? "rtl" : "ltr";
+  // Components below only support fa/en copy — German falls back to English for now.
+  const displayLang: "fa" | "en" = lang === "fa" ? "fa" : "en";
 
   let packs: { id: string; slug: string; name: string; nameEn: string | null; emoji: string; tagline: string; taglineEn: string | null; agents: string; tier: string; price: number; color: string; gradientFrom: string; gradientTo: string }[] = [];
   try {
@@ -181,8 +184,8 @@ export default async function HomePage() {
   } catch {}
   const localizedPacks = packs.map((p) => ({
     ...p,
-    name: lang === "en" && p.nameEn ? p.nameEn : p.name,
-    tagline: lang === "en" && p.taglineEn ? p.taglineEn : p.tagline,
+    name: lang !== "fa" && p.nameEn ? p.nameEn : p.name,
+    tagline: lang !== "fa" && p.taglineEn ? p.taglineEn : p.tagline,
   }));
 
   let packages: { planCode: string; name: string; nameEn: string; price: number; priceUsd: number | null; credits: number; features: string; featuresEn: string | null; isFeatured: boolean; color: string }[] = [];
@@ -279,7 +282,7 @@ export default async function HomePage() {
 
       {/* Demo Chat */}
       <Reveal y={16}>
-        <DemoChat lang={lang} />
+        <DemoChat lang={displayLang} />
       </Reveal>
 
       {/* How it works */}
@@ -336,7 +339,7 @@ export default async function HomePage() {
       </section>
 
       {/* Startup Builder Teaser */}
-      <StartupBuilderTeaser lang={lang} />
+      <StartupBuilderTeaser lang={displayLang} />
 
       {/* Pricing */}
       {pricingPlans.length > 0 && (

@@ -97,7 +97,8 @@ const STR = {
 
 export default async function AiTeamPage() {
   const lang = await getServerLang();
-  const s = STR[lang];
+  // German copy for this page isn't translated yet — fall back to English.
+  const s = STR[lang === "fa" ? "fa" : "en"];
   const dir = lang === "fa" ? "rtl" : "ltr";
 
   return (

@@ -111,7 +111,9 @@ function getDataKey(stage: Stage): "ideaData" | "financialData" | "proposalData"
 }
 
 export default function StartupBuilderPage() {
-  const { lang } = useTranslation();
+  const { lang: uiLang } = useTranslation();
+  // German copy for this page isn't translated yet — fall back to English.
+  const lang: Lang = uiLang === "fa" ? "fa" : "en";
   const dir = lang === "fa" ? "rtl" : "ltr";
 
   const [projects, setProjects] = useState<Project[]>([]);
