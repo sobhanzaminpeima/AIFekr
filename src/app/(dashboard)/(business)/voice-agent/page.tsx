@@ -225,8 +225,8 @@ export default function VoiceAgentPage() {
   return (
     <div dir={isFa ? "rtl" : "ltr"} className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(22,163,74,0.15)" }}>
-          <Phone className="w-5 h-5" style={{ color: "#16a34a" }} />
+        <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(245,158,11,0.15)" }}>
+          <Phone className="w-5 h-5" style={{ color: "#f59e0b" }} />
         </div>
         <div>
           <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "ایجنت صوتی املاک" : "Voice Agent"}</h1>
@@ -244,14 +244,14 @@ export default function VoiceAgentPage() {
         ].map((tb) => (
           <button key={tb.id} onClick={() => setTab(tb.id)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all flex-shrink-0"
-            style={{ background: tab === tb.id ? "#16a34a" : "var(--surface-1)", color: tab === tb.id ? "white" : "var(--text-secondary)", border: "1px solid var(--border)" }}>
+            style={{ background: tab === tb.id ? "#f59e0b" : "var(--surface-1)", color: tab === tb.id ? "white" : "var(--text-secondary)", border: "1px solid var(--border)" }}>
             <tb.icon className="w-4 h-4" /> {tb.label}
           </button>
         ))}
       </div>
 
       {voicePlan === "NONE" && (
-        <div className="rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3" style={{ background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.3)" }}>
+        <div className="rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)" }}>
           <div>
             <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
               {isFa ? "اتصال شماره تلفن واقعی و تماس نامحدود بخشی از افزونه Voice Agent است" : "Real phone numbers and unlimited calling are part of the Voice Agent add-on"}
@@ -261,7 +261,7 @@ export default function VoiceAgentPage() {
             </p>
           </div>
           <button onClick={purchaseVoicePlan} disabled={upgrading}
-            className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "#16a34a" }}>
+            className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "#f59e0b" }}>
             {upgrading ? <Loader2 className="w-4 h-4 animate-spin" /> : (isFa ? "فعال‌سازی Voice Agent" : "Activate Voice Agent")}
           </button>
         </div>
@@ -310,7 +310,7 @@ function AgentsTab({
     <div className="space-y-4">
       <div className="flex justify-end">
         <button onClick={() => setShowNewAgent(true)}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "#16a34a" }}>
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "#f59e0b" }}>
           <Plus className="w-4 h-4" /> {isFa ? "ایجنت جدید" : "New Agent"}
         </button>
       </div>
@@ -340,7 +340,7 @@ function AgentsTab({
               </div>
               <button onClick={() => onToggleActive(a)}
                 className="text-xs px-2 py-1 rounded-lg"
-                style={{ background: a.isActive ? "rgba(22,163,74,0.15)" : "rgba(148,163,184,0.15)", color: a.isActive ? "#16a34a" : "var(--text-muted)" }}>
+                style={{ background: a.isActive ? "rgba(245,158,11,0.15)" : "rgba(148,163,184,0.15)", color: a.isActive ? "#f59e0b" : "var(--text-muted)" }}>
                 {a.isActive ? (isFa ? "فعال" : "Active") : (isFa ? "غیرفعال" : "Inactive")}
               </button>
             </div>
@@ -409,7 +409,7 @@ function AgentsTab({
               </div>
             )}
             <button onClick={() => onCreate({ name, focus, vertical })} disabled={!name.trim()}
-              className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "#16a34a" }}>
+              className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "#f59e0b" }}>
               {isFa ? "ساخت ایجنت" : "Create Agent"}
             </button>
           </div>
@@ -453,7 +453,7 @@ function KnowledgeTab({
           {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
         <button onClick={submit} disabled={!title.trim() || !content.trim()}
-          className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "#16a34a" }}>
+          className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "#f59e0b" }}>
           {isFa ? "افزودن" : "Add"}
         </button>
       </div>
@@ -504,7 +504,7 @@ function PropertiesTab({
     <div className="space-y-4">
       <div className="flex justify-end">
         <button onClick={() => setShowNew(true)}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "#16a34a" }}>
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "#f59e0b" }}>
           <Plus className="w-4 h-4" /> {isFa ? "ملک جدید" : "New Property"}
         </button>
       </div>
@@ -524,7 +524,7 @@ function PropertiesTab({
               <button onClick={() => onDelete(p.id)}><Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} /></button>
             </div>
             <p className="text-xs flex items-center gap-1" style={{ color: "var(--text-secondary)" }}><MapPin className="w-3.5 h-3.5" /> {p.address}{p.city ? `، ${p.city}` : ""}</p>
-            <p className="text-sm font-semibold" style={{ color: "#16a34a" }}>{fmtMoney(p.price)} {isFa ? "تومان" : "IRT"}</p>
+            <p className="text-sm font-semibold" style={{ color: "#f59e0b" }}>{fmtMoney(p.price)} {isFa ? "تومان" : "IRT"}</p>
             <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
               <span className="px-2 py-0.5 rounded-full" style={{ background: "var(--surface-2)" }}>{p.listingType}</span>
               <span className="px-2 py-0.5 rounded-full" style={{ background: "var(--surface-2)" }}>{p.status}</span>
@@ -569,7 +569,7 @@ function PropertiesTab({
                 className="px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <button onClick={submit} disabled={!form.title.trim() || !form.address.trim() || !form.price}
-              className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "#16a34a" }}>
+              className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "#f59e0b" }}>
               {isFa ? "ثبت ملک" : "Save Property"}
             </button>
           </div>
@@ -596,7 +596,7 @@ function CallsTab({ isFa, calls, expandedCallId, setExpandedCallId }: {
         <div key={c.id} className="rounded-2xl overflow-hidden" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <button onClick={() => setExpandedCallId(expandedCallId === c.id ? null : c.id)} className="w-full p-4 flex items-center justify-between text-left">
             <div className="flex items-center gap-3">
-              <PhoneCall className="w-4 h-4" style={{ color: "#16a34a" }} />
+              <PhoneCall className="w-4 h-4" style={{ color: "#f59e0b" }} />
               <div>
                 <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{c.callerPhone || (isFa ? "شماره ناشناس" : "Unknown number")}</p>
                 <p className="text-xs" style={{ color: "var(--text-muted)" }}>{c.agent?.name} · {new Date(c.createdAt).toLocaleString(isFa ? "fa-IR" : "en-US")}</p>
@@ -637,7 +637,7 @@ function AppointmentsTab({ isFa, appointments, onUpdateStatus }: {
       {appointments.map((a) => (
         <div key={a.id} className="p-4 rounded-2xl flex items-center justify-between flex-wrap gap-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <div className="flex items-center gap-3">
-            <User className="w-4 h-4" style={{ color: "#16a34a" }} />
+            <User className="w-4 h-4" style={{ color: "#f59e0b" }} />
             <div>
               <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{a.leadName || (isFa ? "بدون نام" : "No name")} · {a.leadPhone}</p>
               <p className="text-xs" style={{ color: "var(--text-muted)" }}>

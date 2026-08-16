@@ -93,8 +93,29 @@ model User {
   voiceCallLogs       VoiceCallLog[]
   voiceAppointments   VoiceAppointment[]
   voiceKnowledgeBase  VoiceKnowledgeBase[]
+  notifications       Notification[]
 
   @@index([industryPackId])
+}
+
+/// In-app notification for a user — created by notify() in
+/// src/lib/notifications/create.ts whenever something relevant happens even
+/// while the user isn't looking (new CRM lead, voice call ended, scheduled
+/// post published/failed, etc). `type` is kept an open string (not an enum)
+/// so new notification kinds can be added without a migration.
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String?
+  link      String?
+  isRead    Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
 }
 
 /// A TEAM-plan subscription shared by up to maxSeats users. Credits are

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Briefcase, Plus, X, Phone, Mail, Building2, Loader2, ChevronDown,
   Users, LayoutGrid, Clock, CheckCircle2, Circle, Zap, FileText, Trash2, Upload, Sparkles, CalendarDays,
@@ -34,6 +34,8 @@ interface ContactDetail extends Contact {
 interface AutomationRule { id: string; name: string; trigger: string; condition: string | null; action: string; isActive: boolean; }
 interface CrmDocument { id: string; name: string; type: string; fileUrl: string; createdAt: string; }
 
+type CrmTab = "board" | "contacts" | "automation" | "agent" | "calendar" | "analytics" | "products" | "invoices" | "contracts" | "projects";
+
 const INDUSTRY_OPTIONS: { slug: string; labelFa: string; labelEn: string }[] = [
   { slug: "real-estate", labelFa: "املاک", labelEn: "Real Estate" },
   { slug: "construction", labelFa: "ساخت‌وساز", labelEn: "Construction" },
@@ -55,7 +57,7 @@ export default function CrmPage() {
   const isFa = lang !== "en";
   const c = t.crm;
 
-  const [tab, setTab] = useState<"board" | "contacts" | "automation" | "agent" | "calendar" | "analytics" | "products" | "invoices" | "contracts" | "projects">("board");
+  const [tab, setTab] = useState<CrmTab>("board");
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
@@ -180,7 +182,7 @@ export default function CrmPage() {
   }
 
   return (
-    <div dir={isFa ? "rtl" : "ltr"} className="p-6 max-w-6xl mx-auto space-y-6">
+    <div dir={isFa ? "rtl" : "ltr"} className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
         <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(234,88,12,0.15)" }}>
           <Briefcase className="w-5 h-5" style={{ color: "var(--primary)" }} />
@@ -191,27 +193,10 @@ export default function CrmPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-6 px-6 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "thin" }}>
-        {[
-          { id: "board" as const, label: c.tabs.board, icon: LayoutGrid },
-          { id: "contacts" as const, label: c.tabs.contacts, icon: Users },
-          { id: "automation" as const, label: c.tabs.automation, icon: Zap },
-          { id: "agent" as const, label: c.tabs.agent, icon: Sparkles },
-          { id: "calendar" as const, label: c.tabs.calendar, icon: CalendarDays },
-          { id: "analytics" as const, label: c.tabs.analytics, icon: LayoutGrid },
-          { id: "products" as const, label: c.tabs.products, icon: Package },
-          { id: "invoices" as const, label: c.tabs.invoices, icon: Receipt },
-          { id: "contracts" as const, label: c.tabs.contracts, icon: FileSignature },
-          { id: "projects" as const, label: c.tabs.projects, icon: FolderKanban },
-        ].map((tabItem) => (
-          <button key={tabItem.id} onClick={() => setTab(tabItem.id)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all flex-shrink-0"
-            style={{ background: tab === tabItem.id ? "var(--primary)" : "var(--surface-1)", color: tab === tabItem.id ? "white" : "var(--text-secondary)", border: "1px solid var(--border)" }}>
-            <tabItem.icon className="w-4 h-4" /> {tabItem.label}
-          </button>
-        ))}
-      </div>
+      <div className={`flex ${isFa ? "md:flex-row-reverse" : "md:flex-row"} flex-col gap-4 md:gap-6 items-start`}>
+        <CrmSidebar tab={tab} setTab={setTab} c={c} isFa={isFa} />
 
+        <div className="flex-1 min-w-0 w-full space-y-6">
       {crmPlan === "NONE" && (
         <div className="rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3" style={{ background: "rgba(234,88,12,0.08)", border: "1px solid rgba(234,88,12,0.3)" }}>
           <div>
@@ -272,7 +257,7 @@ export default function CrmPage() {
             </button>
           </div>
 
-          <div className="flex gap-3 overflow-x-auto pb-2">
+          <BoardScrollRow>
             {selectedPipeline?.stages.sort((a, b) => a.order - b.order).map((stage) => {
               const stageDeals = deals.filter((d) => d.stageId === stage.id);
               const stageTotal = stageDeals.reduce((sum, d) => sum + d.value, 0);
@@ -313,7 +298,7 @@ export default function CrmPage() {
                 </div>
               );
             })}
-          </div>
+          </BoardScrollRow>
         </div>
       ) : tab === "contacts" ? (
         <div className="space-y-3">
@@ -368,6 +353,8 @@ export default function CrmPage() {
       ) : (
         <ProjectsPanel isFa={isFa} t={c} contacts={contacts} />
       )}
+        </div>
+      </div>
 
       {/* New Deal modal */}
       {showNewDeal && selectedPipeline && (
@@ -407,6 +394,98 @@ export default function CrmPage() {
           teamMembers={teamMembers}
           onClose={() => { setSelectedContactId(null); setContactDetail(null); }}
           onChanged={() => openContact(selectedContactId)}
+        />
+      )}
+    </div>
+  );
+}
+
+function CrmSidebar({ tab, setTab, c, isFa }: { tab: CrmTab; setTab: (t: CrmTab) => void; c: Translations["crm"]; isFa: boolean }) {
+  const items: { id: CrmTab; label: string; icon: React.ElementType }[] = [
+    { id: "board", label: c.tabs.board, icon: LayoutGrid },
+    { id: "contacts", label: c.tabs.contacts, icon: Users },
+    { id: "automation", label: c.tabs.automation, icon: Zap },
+    { id: "agent", label: c.tabs.agent, icon: Sparkles },
+    { id: "calendar", label: c.tabs.calendar, icon: CalendarDays },
+    { id: "analytics", label: c.tabs.analytics, icon: LayoutGrid },
+    { id: "products", label: c.tabs.products, icon: Package },
+    { id: "invoices", label: c.tabs.invoices, icon: Receipt },
+    { id: "contracts", label: c.tabs.contracts, icon: FileSignature },
+    { id: "projects", label: c.tabs.projects, icon: FolderKanban },
+  ];
+
+  return (
+    <nav
+      className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-1 md:pb-0 -mx-6 px-6 md:mx-0 md:px-0 md:w-52 lg:w-56 md:flex-shrink-0 md:sticky md:top-6 flex-shrink-0"
+      style={{ scrollbarWidth: "thin" }}
+      aria-label={c.header.title}
+    >
+      {items.map((item) => {
+        const active = tab === item.id;
+        return (
+          <button
+            key={item.id}
+            onClick={() => setTab(item.id)}
+            className="flex items-center gap-2 px-4 py-2.5 md:px-3.5 rounded-xl text-sm font-medium transition-all flex-shrink-0 md:w-full"
+            style={{
+              background: active ? "var(--primary)" : "var(--surface-1)",
+              color: active ? "white" : "var(--text-secondary)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <item.icon className="w-4 h-4 flex-shrink-0" />
+            <span className="whitespace-nowrap md:whitespace-normal">{item.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function BoardScrollRow({ children }: { children: React.ReactNode }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showStartFade, setShowStartFade] = useState(false);
+  const [showEndFade, setShowEndFade] = useState(false);
+
+  const updateFades = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    setShowStartFade(el.scrollLeft > 4);
+    setShowEndFade(el.scrollLeft < maxScroll - 4);
+  }, []);
+
+  useEffect(() => {
+    updateFades();
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => updateFades();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", updateFades);
+    // Re-check after content (deal cards / stages) has rendered.
+    const t = setTimeout(updateFades, 100);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", updateFades);
+      clearTimeout(t);
+    };
+  }, [updateFades, children]);
+
+  return (
+    <div className="relative">
+      <div ref={scrollRef} className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "thin" }}>
+        {children}
+      </div>
+      {showStartFade && (
+        <div
+          className="pointer-events-none absolute top-0 bottom-2 left-0 w-8"
+          style={{ background: "linear-gradient(to right, var(--surface-0), transparent)" }}
+        />
+      )}
+      {showEndFade && (
+        <div
+          className="pointer-events-none absolute top-0 bottom-2 right-0 w-8"
+          style={{ background: "linear-gradient(to left, var(--surface-0), transparent)" }}
         />
       )}
     </div>
