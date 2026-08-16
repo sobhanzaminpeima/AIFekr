@@ -22,7 +22,7 @@ export async function streamCustomProvider(
 ): Promise<void> {
   const id = model.slice("custom:".length);
   const row = await prisma.customAiProvider.findUnique({ where: { id } });
-  if (!row || !row.enabled) throw new Error("این مدل سفارشی دیگر در دسترس نیست");
+  if (!row || !row.enabled || row.type !== "chat") throw new Error("این مدل سفارشی دیگر در دسترس نیست");
 
   const provider: Provider = {
     id: `custom:${row.id}`,

@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { routedStreamChat } from "@/lib/ai/router";
-import type { Provider } from "@/lib/ai/providers";
+import { PROVIDERS, type Provider } from "@/lib/ai/providers";
+import { isCustomProviderModel, streamCustomProvider } from "@/lib/ai/customProviders";
 import { CREDIT_COSTS } from "@/lib/utils/credits";
 import { getAvailableCredits, deductCredits } from "@/lib/utils/teamCredits";
 
@@ -95,20 +96,29 @@ Expert in: hiring, team building, culture design, performance management, compen
 Language rule: Farsi in → Farsi out. English in → English out.${PROMPT_BOX_INSTRUCTION}${SUGGESTIONS_INSTRUCTION}`,
 };
 
+const MAX_AUTO_CREDIT_COST = Math.max(CREDIT_COSTS.chat, ...PROVIDERS.map((p) => p.creditCost));
+
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
-
-  const availableCredits = await getAvailableCredits(user.id);
-  if (availableCredits < CREDIT_COSTS.chat) {
-    return NextResponse.json({ error: "اعتبار کافی ندارید. لطفاً اعتبار خود را شارژ کنید" }, { status: 402 });
-  }
 
   try {
     const { message, conversationId, model, history = [], systemPrompt, expertMode } = await req.json();
 
     if (!message?.trim()) {
       return NextResponse.json({ error: "پیام خالی است" }, { status: 400 });
+    }
+
+    // Pre-check against the actual cost the selected model can incur, not a
+    // flat floor — a user with e.g. 2 credits could otherwise pass a flat-1
+    // check and then get billed 5 for GPT-5, landing their balance negative.
+    // "auto"/unset routing can land on any provider, so it's checked against
+    // the most expensive one rather than the cheapest.
+    const explicitProvider = typeof model === "string" ? PROVIDERS.find((p) => p.model === model) : undefined;
+    const expectedCost = isCustomProviderModel(model) ? 3 : explicitProvider?.creditCost ?? MAX_AUTO_CREDIT_COST;
+    const availableCredits = await getAvailableCredits(user.id);
+    if (availableCredits < expectedCost) {
+      return NextResponse.json({ error: "اعتبار کافی ندارید. لطفاً اعتبار خود را شارژ کنید" }, { status: 402 });
     }
 
     const systemStr = systemPrompt || SYSTEM_PROMPTS[expertMode as string] || SYSTEM_PROMPTS.default;
@@ -146,59 +156,92 @@ export async function POST(req: NextRequest) {
         const encoder = new TextEncoder();
 
         try {
-          await routedStreamChat(
-            apiMessages,
-            systemStr,
-            (text) => {
+          if (isCustomProviderModel(model)) {
+            // Admin-added custom provider, picked explicitly by the user —
+            // no fallback chain, matches streamCustomProvider's own contract.
+            const id = model.slice("custom:".length);
+            const row = await prisma.customAiProvider.findUnique({ where: { id } });
+            selectedProvider = {
+              id: model,
+              name: row?.name ?? "Custom",
+              model,
+              provider: "custom",
+              baseURL: "",
+              apiKey: "",
+              strengths: [],
+              maxTokens: 4096,
+              creditCost: 3,
+            };
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ provider: selectedProvider.name })}\n\n`));
+            await streamCustomProvider(model, apiMessages, systemStr, (text) => {
               assistantContent += text;
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
-            },
-            (provider) => {
-              selectedProvider = provider;
-              // Notify client which provider was selected
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ provider: provider.name })}\n\n`));
-            },
-            model,
-            ({ partial }) => {
-              // Previous provider failed mid-response — discard whatever it
-              // already streamed so the next provider's answer isn't
-              // concatenated onto a half-finished one.
-              if (partial) {
-                assistantContent = "";
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ reset: true })}\n\n`));
+            });
+          } else {
+            await routedStreamChat(
+              apiMessages,
+              systemStr,
+              (text) => {
+                assistantContent += text;
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
+              },
+              (provider) => {
+                selectedProvider = provider;
+                // Notify client which provider was selected
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ provider: provider.name })}\n\n`));
+              },
+              model,
+              ({ partial }) => {
+                // Previous provider failed mid-response — discard whatever it
+                // already streamed so the next provider's answer isn't
+                // concatenated onto a half-finished one.
+                if (partial) {
+                  assistantContent = "";
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ reset: true })}\n\n`));
+                }
+              },
+              undefined,
+              (usage) => {
+                tokensUsed = usage.totalTokens;
               }
-            },
-            undefined,
-            (usage) => {
-              tokensUsed = usage.totalTokens;
-            }
-          );
+            );
+          }
 
-          // Save assistant message
-          await prisma.message.create({
-            data: {
-              conversationId: convId,
-              role: "assistant",
-              content: assistantContent,
-            },
-          });
+          // Generation succeeded and the full response has already been
+          // streamed to the client at this point — from here on, a failure
+          // is a billing/bookkeeping problem, not a generation failure, and
+          // must never be reported to the user as "failed to get a response"
+          // (they already have it). Isolated in its own try/catch so it
+          // can't be confused with the generation try above.
+          try {
+            await prisma.message.create({
+              data: {
+                conversationId: convId,
+                role: "assistant",
+                content: assistantContent,
+              },
+            });
 
-          // Deduct credit only now that generation actually succeeded (from
-          // the shared team pool if the user is on a team), scaled to the
-          // model that was actually used rather than a flat per-message cost.
-          const creditsUsed = selectedProvider?.creditCost ?? CREDIT_COSTS.chat;
-          await deductCredits(user.id, creditsUsed);
+            // Deduct credit only now that generation actually succeeded (from
+            // the shared team pool if the user is on a team), scaled to the
+            // model that was actually used rather than a flat per-message cost.
+            const creditsUsed = selectedProvider?.creditCost ?? CREDIT_COSTS.chat;
+            await deductCredits(user.id, creditsUsed);
 
-          // Log usage
-          await prisma.usageLog.create({
-            data: {
-              userId: user.id,
-              type: "chat",
-              model: selectedProvider?.model ?? model ?? "auto",
-              tokens: tokensUsed,
-              credits: creditsUsed,
-            },
-          });
+            await prisma.usageLog.create({
+              data: {
+                userId: user.id,
+                type: "chat",
+                model: selectedProvider?.model ?? model ?? "auto",
+                tokens: tokensUsed,
+                credits: creditsUsed,
+              },
+            });
+          } catch (bookkeepingErr) {
+            // Logged for manual reconciliation — the user already has their
+            // answer, so we still send [DONE] below rather than an error.
+            console.error("Chat post-generation bookkeeping failed (message save/credit deduct/usage log):", bookkeepingErr);
+          }
 
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();

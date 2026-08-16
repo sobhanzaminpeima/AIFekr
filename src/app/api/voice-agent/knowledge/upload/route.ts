@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
+import { looksLikeInjectionAttempt } from "@/lib/ai/promptSafety";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB
 
@@ -37,6 +38,15 @@ async function extractText(file: File): Promise<string> {
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
+
+  // Reject oversized uploads by declared Content-Length before buffering the
+  // body at all — req.formData() below fully reads the request into memory,
+  // so checking file.size afterward doesn't bound worst-case memory usage.
+  const declaredLength = Number(req.headers.get("content-length") || 0);
+  if (declaredLength > MAX_FILE_BYTES * 1.5) {
+    // *1.5 headroom for multipart boundary/field overhead around the file itself.
+    return NextResponse.json({ error: "حجم فایل بیش از حد مجاز است (حداکثر ۱۰ مگابایت)" }, { status: 400 });
+  }
 
   let formData: FormData;
   try {
@@ -79,6 +89,13 @@ export async function POST(req: NextRequest) {
   }
 
   const title = typeof titleField === "string" && titleField.trim() ? titleField.trim() : file.name;
+
+  // This text reaches a live call assistant's context verbatim (via the
+  // search_knowledge_base tool) — reject files whose extracted text looks
+  // like an attempt to override the assistant's instructions.
+  if (looksLikeInjectionAttempt(text) || looksLikeInjectionAttempt(title)) {
+    return NextResponse.json({ error: "محتوای این فایل شامل عباراتی است که ممکن است دستورالعمل هوش مصنوعی را نادیده بگیرد و پذیرفته نشد" }, { status: 400 });
+  }
 
   const entry = await prisma.voiceKnowledgeBase.create({
     data: { userId: user.id, agentId: agentId || undefined, title: title.slice(0, 300), content: text.slice(0, 100000) },

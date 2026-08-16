@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { matchCrmContactByPhone } from "@/lib/voice/crmLink";
 import { notify } from "@/lib/notifications/create";
+import { wrapUntrustedContent } from "@/lib/ai/promptSafety";
 
 /**
  * Vapi's single server-side webhook — handles both mid-call tool invocations
@@ -125,7 +126,10 @@ async function handleToolCall(tc: VapiToolCall, message: VapiMessage) {
     const summary = entries.length
       ? entries.map((e) => `${e.title}: ${e.content}`).join(" | ")
       : "پاسخ این سوال در دانش‌نامه موجود نیست — به تماس‌گیرنده بگویید کارشناس پیگیری خواهد کرد.";
-    return { toolCallId: tc.id, result: summary };
+    // Knowledge-base content is user-uploaded (pasted text or a parsed
+    // PDF/DOCX) and reaches the live call assistant's context verbatim —
+    // mark it as reference data, not instructions, before it's returned.
+    return { toolCallId: tc.id, result: wrapUntrustedContent("دانش‌نامه", summary) };
   }
 
   if (tc.function.name === "book_appointment") {

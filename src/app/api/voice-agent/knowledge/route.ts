@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
+import { looksLikeInjectionAttempt } from "@/lib/ai/promptSafety";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -27,6 +28,12 @@ export async function POST(req: NextRequest) {
   const { title, content, agentId } = body;
   if (!title?.trim()) return NextResponse.json({ error: "عنوان الزامی است" }, { status: 400 });
   if (!content?.trim()) return NextResponse.json({ error: "محتوا الزامی است" }, { status: 400 });
+  // This content reaches a live call assistant's context verbatim (via the
+  // search_knowledge_base tool) — reject anything that looks like an attempt
+  // to override the assistant's instructions rather than silently storing it.
+  if (looksLikeInjectionAttempt(content) || looksLikeInjectionAttempt(title)) {
+    return NextResponse.json({ error: "این محتوا شامل عباراتی است که ممکن است دستورالعمل هوش مصنوعی را نادیده بگیرد و پذیرفته نشد" }, { status: 400 });
+  }
 
   if (agentId) {
     const agent = await prisma.voiceAgent.findUnique({ where: { id: agentId } });

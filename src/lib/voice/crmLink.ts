@@ -32,9 +32,13 @@ export async function matchCrmContactByPhone(userId: string, callerPhone: string
   // SQLite has no phone-normalizing index to query against, so pull the
   // user's contacts with a phone set and compare in memory — CRM contact
   // counts are small enough (hundreds, not millions) for this to be cheap.
+  // orderBy makes the pick deterministic when two contacts share a phone
+  // number (duplicate contacts) — most-recently-updated wins, rather than
+  // whatever order SQLite happens to return rows in.
   const candidates = await prisma.crmContact.findMany({
     where: { userId, phone: { not: null } },
     select: { id: true, phone: true },
+    orderBy: { updatedAt: "desc" },
   });
   const hit = candidates.find((c) => normalizePhone(c.phone) === normalized);
   return hit?.id || null;

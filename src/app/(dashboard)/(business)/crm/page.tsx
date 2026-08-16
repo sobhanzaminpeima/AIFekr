@@ -730,7 +730,7 @@ function ContactDetailModal({ isFa, t, contact, teamMembers, onClose, onChanged 
 
   function openTelegram() {
     if (!contact.telegram) return;
-    const username = contact.telegram.replace(/^@/, "");
+    const username = encodeURIComponent(contact.telegram.replace(/^@/, ""));
     window.open(`https://t.me/${username}`, "_blank", "noopener,noreferrer");
     logActivity("telegram", t.contactDetail.telegramActivityLog);
   }

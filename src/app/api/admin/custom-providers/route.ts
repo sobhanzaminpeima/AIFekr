@@ -18,6 +18,30 @@ export async function GET(req: NextRequest) {
 
 const VALID_TYPES = new Set(["chat", "image", "video"]);
 
+// Blunt SSRF guard: an admin (or a compromised admin account) shouldn't be
+// able to point this server's outbound requests at itself or internal-network
+// hosts. Not exhaustive (doesn't resolve DNS to catch rebinding), but blocks
+// the obvious cases cheaply.
+const BLOCKED_HOST_PATTERNS: RegExp[] = [
+  /^localhost$/i,
+  /^127\./,
+  /^0\.0\.0\.0$/,
+  /^10\./,
+  /^192\.168\./,
+  /^172\.(1[6-9]|2\d|3[0-1])\./,
+  /^169\.254\./, // link-local / cloud metadata (e.g. 169.254.169.254)
+  /^\[?::1\]?$/,
+];
+
+function isBlockedBaseUrl(url: string): boolean {
+  try {
+    const { hostname } = new URL(url);
+    return BLOCKED_HOST_PATTERNS.some((re) => re.test(hostname));
+  } catch {
+    return true; // unparseable URL — reject rather than guess
+  }
+}
+
 export async function POST(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin) return unauthorizedResponse();
@@ -28,6 +52,9 @@ export async function POST(req: NextRequest) {
   }
   if (!VALID_TYPES.has(type)) {
     return NextResponse.json({ error: "نوع مدل نامعتبر است" }, { status: 400 });
+  }
+  if (isBlockedBaseUrl(baseUrl.trim())) {
+    return NextResponse.json({ error: "این آدرس مجاز نیست (شبکه داخلی/لوکال)" }, { status: 400 });
   }
 
   const provider = await prisma.customAiProvider.create({
