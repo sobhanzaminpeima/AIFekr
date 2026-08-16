@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { matchCrmContactByPhone } from "@/lib/voice/crmLink";
+import { notify } from "@/lib/notifications/create";
 
 /**
  * Vapi's single server-side webhook — handles both mid-call tool invocations
@@ -211,4 +212,11 @@ async function handleEndOfCall(message: VapiMessage) {
       },
     }).catch(() => {});
   }
+
+  notify(agent.userId, {
+    type: "voice_call",
+    title: `تماس پایان یافت: ${agent.name}`,
+    body: callLog.summary || (callLog.durationSec ? `مدت تماس: ${callLog.durationSec} ثانیه` : undefined),
+    link: "/voice-agent",
+  }).catch(() => {});
 }

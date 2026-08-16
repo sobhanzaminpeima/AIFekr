@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { crmContactLimit } from "@/lib/utils/planGates";
 import { countUserContacts } from "@/lib/repositories/crmRepository";
 import { resolveCrmWorkspace, agentFilter } from "@/lib/crm/workspace";
+import { notify } from "@/lib/notifications/create";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -60,5 +61,15 @@ export async function POST(req: NextRequest) {
       customFields: customFields ? JSON.stringify(customFields) : undefined,
     },
   });
+
+  // Notify the workspace owner (not necessarily the caller — an AGENT can
+  // create contacts on behalf of the owner's workspace) that a new lead came in.
+  notify(ws.workspaceUserId, {
+    type: "crm_lead",
+    title: `سرنخ جدید: ${contact.name}`,
+    body: contact.company || contact.phone || contact.email || undefined,
+    link: `/crm?contact=${contact.id}`,
+  }).catch(() => {});
+
   return NextResponse.json({ contact });
 }

@@ -15,6 +15,7 @@ import {
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
 import CurrencySelector from "@/components/ui/CurrencySelector";
+import NotificationBell from "@/components/layout/NotificationBell";
 import { useTranslation } from "@/lib/i18n";
 import { formatNumber } from "@/lib/utils/jalali";
 
@@ -498,6 +499,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
           </Link>
           {/* JARVIS link temporarily disabled on the site per request — SSO route itself untouched. */}
           <div className="flex items-center justify-center gap-1.5">
+            <NotificationBell iconOnly />
             <LanguageSwitcher iconOnly />
             <ThemeSwitcher iconOnly />
             <CurrencySelector iconOnly />

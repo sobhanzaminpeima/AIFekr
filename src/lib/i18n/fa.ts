@@ -999,6 +999,15 @@ const fa: Translations = {
       errorGeneric: "خطا",
     },
   },
+  notifications: {
+    bellTooltip: "اعلان‌ها",
+    empty: "هنوز اعلانی وجود ندارد",
+    markAllRead: "علامت‌گذاری همه به‌عنوان خوانده‌شده",
+    justNow: "همین الان",
+    minutesAgo: "{n} دقیقه پیش",
+    hoursAgo: "{n} ساعت پیش",
+    daysAgo: "{n} روز پیش",
+  },
 };
 
 export default fa;

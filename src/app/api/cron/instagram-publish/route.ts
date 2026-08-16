@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { publishToInstagram, publishReelToInstagram } from "@/lib/instagram";
+import { notify } from "@/lib/notifications/create";
 
 // Hit by a system crontab entry every few minutes (see deployment notes) —
 // this is what makes mode="auto" posts actually go out without a human
@@ -35,6 +36,12 @@ export async function GET(req: NextRequest) {
     const conn = post.user.instagramConn;
     if (!conn || (!post.imageUrl && !post.videoUrl)) {
       await prisma.scheduledPost.update({ where: { id: post.id }, data: { status: "FAILED", errorMessage: "اتصال اینستاگرام یا تصویر/ویدیو موجود نیست" } });
+      notify(post.userId, {
+        type: "social_post",
+        title: "انتشار پست ناموفق بود",
+        body: "اتصال اینستاگرام یا تصویر/ویدیو موجود نیست",
+        link: "/social",
+      }).catch(() => {});
       results.push({ id: post.id, ok: false });
       continue;
     }
@@ -43,10 +50,22 @@ export async function GET(req: NextRequest) {
         ? await publishReelToInstagram(conn.igUserId, conn.accessToken, post.videoUrl, `${post.caption}\n\n${post.hashtags}`)
         : await publishToInstagram(conn.igUserId, conn.accessToken, post.imageUrl!, `${post.caption}\n\n${post.hashtags}`);
       await prisma.scheduledPost.update({ where: { id: post.id }, data: { status: "PUBLISHED", igMediaId } });
+      notify(post.userId, {
+        type: "social_post",
+        title: "پست اینستاگرام منتشر شد",
+        body: post.caption?.slice(0, 120) || undefined,
+        link: "/social",
+      }).catch(() => {});
       results.push({ id: post.id, ok: true });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "خطا";
       await prisma.scheduledPost.update({ where: { id: post.id }, data: { status: "FAILED", errorMessage: msg } });
+      notify(post.userId, {
+        type: "social_post",
+        title: "انتشار پست ناموفق بود",
+        body: msg,
+        link: "/social",
+      }).catch(() => {});
       results.push({ id: post.id, ok: false, error: msg });
     }
   }

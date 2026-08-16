@@ -1146,6 +1146,15 @@ const de: Translations = {
       "errorNameRequired": "Projektname ist erforderlich",
       "errorGeneric": "Fehler"
     }
+  },
+  "notifications": {
+    "bellTooltip": "Benachrichtigungen",
+    "empty": "Noch keine Benachrichtigungen",
+    "markAllRead": "Alle als gelesen markieren",
+    "justNow": "Gerade eben",
+    "minutesAgo": "vor {n} Min.",
+    "hoursAgo": "vor {n} Std.",
+    "daysAgo": "vor {n} Tg."
   }
 };
 

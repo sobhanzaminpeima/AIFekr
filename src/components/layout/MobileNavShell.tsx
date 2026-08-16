@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, MessageSquare, Sparkles, Image as ImageIcon, User } from "lucide-react";
 import CommandPalette from "@/components/ui/CommandPalette";
+import NotificationBell from "@/components/layout/NotificationBell";
 
 export default function MobileNavShell({
   sidebar, children, lang,
@@ -51,7 +52,7 @@ export default function MobileNavShell({
           <Menu className="w-5 h-5" />
         </button>
         <span className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>AiFekr</span>
-        <div className="w-9" />
+        <NotificationBell iconOnly />
       </header>
 
       {/* Drawer backdrop */}

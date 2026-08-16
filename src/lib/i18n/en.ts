@@ -1016,6 +1016,15 @@ const en = {
       errorGeneric: "Error",
     },
   },
+  notifications: {
+    bellTooltip: "Notifications",
+    empty: "No notifications yet",
+    markAllRead: "Mark all read",
+    justNow: "Just now",
+    minutesAgo: "{n}m ago",
+    hoursAgo: "{n}h ago",
+    daysAgo: "{n}d ago",
+  },
 };
 
 
