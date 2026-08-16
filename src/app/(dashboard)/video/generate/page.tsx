@@ -45,6 +45,7 @@ export default function VideoGeneratePage() {
   const [templates, setTemplates] = useState<PromptTemplate[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
   const [videoProviders, setVideoProviders] = useState<{ id: string; name: string }[]>([]);
+  const [videoProvidersLoaded, setVideoProvidersLoaded] = useState(false);
   const [videoProvider, setVideoProvider] = useState<string>("qwen");
 
   useEffect(() => {
@@ -57,9 +58,10 @@ export default function VideoGeneratePage() {
       .then((data) => {
         const list = data.providers ?? [];
         setVideoProviders(list);
+        setVideoProvidersLoaded(true);
         if (list.length) setVideoProvider(list[0].id);
       })
-      .catch(() => {});
+      .catch(() => setVideoProvidersLoaded(true));
   }, []);
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -233,6 +235,11 @@ export default function VideoGeneratePage() {
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
+          </div>
+        )}
+        {!sourceImageUrl && videoProvidersLoaded && videoProviders.length === 0 && (
+          <div className="p-3 rounded-xl text-xs" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
+            {isFa ? "هیچ مدل ویدیویی پیکربندی نشده است. با پشتیبانی تماس بگیرید." : "No video models are configured. Contact support."}
           </div>
         )}
 

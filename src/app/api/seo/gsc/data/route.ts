@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { getGscAccessToken, querySearchAnalytics } from "@/lib/googleSearchConsole";
+import { getGscAccessToken, querySearchAnalytics, GscReconnectRequiredError } from "@/lib/googleSearchConsole";
 
 function fmtDate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -49,6 +49,12 @@ export async function GET(req: NextRequest) {
     });
   } catch (e) {
     console.error("GSC data fetch failed:", e);
+    if (e instanceof GscReconnectRequiredError) {
+      return NextResponse.json(
+        { error: "اتصال گوگل شما منقضی یا نامعتبر شده است. لطفاً دوباره وارد Google Search Console شوید.", reconnectRequired: true },
+        { status: 400 }
+      );
+    }
     const msg = e instanceof Error ? e.message : "خطا";
     return NextResponse.json({ error: msg }, { status: 400 });
   }

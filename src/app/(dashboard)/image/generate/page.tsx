@@ -69,6 +69,7 @@ export default function ImageGeneratePage() {
   const [mode, setMode] = useState<"credits" | "puter">("credits");
   const [puterReady, setPuterReady] = useState(false);
   const [imageProviders, setImageProviders] = useState<{ id: string; name: string }[]>([]);
+  const [imageProvidersLoaded, setImageProvidersLoaded] = useState(false);
   const [imageProvider, setImageProvider] = useState<string>("");
 
   useEffect(() => {
@@ -77,9 +78,10 @@ export default function ImageGeneratePage() {
       .then((data) => {
         const list = data.providers ?? [];
         setImageProviders(list);
+        setImageProvidersLoaded(true);
         if (list.length) setImageProvider(list[0].id);
       })
-      .catch(() => {});
+      .catch(() => setImageProvidersLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -260,6 +262,13 @@ export default function ImageGeneratePage() {
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
+            </div>
+          )}
+          {/* Was silently invisible before — same block with providers.length === 0 just
+              rendered nothing, with no signal to the user or admin about why. */}
+          {mode === "credits" && imageProvidersLoaded && imageProviders.length === 0 && (
+            <div className="p-4 rounded-2xl text-xs" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
+              {isFa ? "هیچ مدل تصویری پیکربندی نشده است. با پشتیبانی تماس بگیرید." : "No image models are configured. Contact support."}
             </div>
           )}
 

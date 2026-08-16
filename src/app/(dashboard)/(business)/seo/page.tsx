@@ -98,6 +98,7 @@ export default function SEOPage() {
       const r = await fetch("/api/seo/gsc/sites", { credentials: "include" });
       const d = await r.json();
       if (r.ok) setGscSites(d.sites || []);
+      else if (d.reconnectRequired) { setGscConnected(false); toast.error(d.error || t.common.error); }
       else toast.error(d.error || t.common.error);
     } catch {}
     finally { setGscSitesLoading(false); }
@@ -121,6 +122,7 @@ export default function SEOPage() {
       const r = await fetch("/api/seo/gsc/data", { credentials: "include" });
       const d = await r.json();
       if (r.ok) setGscData(d);
+      else if (d.reconnectRequired) { setGscConnected(false); toast.error(d.error || t.common.error); }
       else toast.error(d.error || t.common.error);
     } catch {}
     finally { setGscDataLoading(false); }

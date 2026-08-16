@@ -40,12 +40,34 @@ export async function exchangeGscCode(code: string, redirectUri: string): Promis
   return { accessToken: data.access_token, refreshToken: data.refresh_token || null };
 }
 
+/**
+ * Thrown whenever the connected Google account needs to go through OAuth
+ * consent again — invalid/revoked refresh token, or Google's edge rejecting
+ * the request before it reaches the API (API not enabled for the OAuth
+ * client's project, or the app is in Testing mode and this account isn't a
+ * test user). The caller should surface a "reconnect" CTA, not a raw error.
+ */
+export class GscReconnectRequiredError extends Error {
+  constructor(detail: string) {
+    super(detail);
+    this.name = "GscReconnectRequiredError";
+  }
+}
+
 async function parseJsonOrThrow(res: Response, label: string): Promise<any> {
   const text = await res.text();
   try {
     return JSON.parse(text);
   } catch {
-    throw new Error(`${label} ${res.status}: non-JSON response (${text.slice(0, 200)})`);
+    // Full body only goes to the server log — truncating it in the thrown
+    // message (as before) meant the actual "Error 403 (Forbidden)" HTML page
+    // Google returns from its edge (API not enabled / OAuth app in Testing
+    // mode with this account not added as a tester) was shown raw to users.
+    console.error(`GSC ${label} — non-JSON ${res.status} response:`, text.slice(0, 2000));
+    if (res.status === 401 || res.status === 403) {
+      throw new GscReconnectRequiredError(`${label} ${res.status}: Google rejected the request before reaching the API — most likely the Search Console API isn't enabled for this project, or the OAuth app is in Testing mode without this account as a tester.`);
+    }
+    throw new Error(`${label} ${res.status}: پاسخ نامعتبر از گوگل دریافت شد`);
   }
 }
 
@@ -58,7 +80,14 @@ export async function getGscAccessToken(refreshToken: string): Promise<string> {
   });
   const res = await fetch(TOKEN_URL, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form });
   const data = await parseJsonOrThrow(res, "token refresh");
-  if (!res.ok) throw new Error(data.error_description || data.error || "خطا در تازه‌سازی توکن گوگل");
+  if (!res.ok) {
+    // invalid_grant = refresh token was revoked/expired (user revoked app
+    // access, or password change invalidated it) — only real fix is reconnecting.
+    if (data.error === "invalid_grant") {
+      throw new GscReconnectRequiredError(data.error_description || "Refresh token no longer valid");
+    }
+    throw new Error(data.error_description || data.error || "خطا در تازه‌سازی توکن گوگل");
+  }
   return data.access_token;
 }
 
@@ -70,7 +99,10 @@ export interface GscSite {
 export async function listGscSites(accessToken: string): Promise<GscSite[]> {
   const res = await fetch(`${SC_BASE}/sites`, { headers: { Authorization: `Bearer ${accessToken}` } });
   const data = await parseJsonOrThrow(res, "list sites");
-  if (!res.ok) throw new Error(data.error?.message || "خطا در دریافت لیست سایت‌ها");
+  if (!res.ok) {
+    if (res.status === 401) throw new GscReconnectRequiredError(data.error?.message || "Access token rejected");
+    throw new Error(data.error?.message || "خطا در دریافت لیست سایت‌ها");
+  }
   return (data.siteEntry || []).map((s: { siteUrl: string; permissionLevel: string }) => ({ siteUrl: s.siteUrl, permissionLevel: s.permissionLevel }));
 }
 
@@ -100,6 +132,9 @@ export async function querySearchAnalytics(
     body: JSON.stringify({ startDate, endDate, dimensions, rowLimit }),
   });
   const data = await parseJsonOrThrow(res, "search analytics query");
-  if (!res.ok) throw new Error(data.error?.message || "خطا در دریافت داده‌های Search Console");
+  if (!res.ok) {
+    if (res.status === 401) throw new GscReconnectRequiredError(data.error?.message || "Access token rejected");
+    throw new Error(data.error?.message || "خطا در دریافت داده‌های Search Console");
+  }
   return { rows: data.rows || [] };
 }

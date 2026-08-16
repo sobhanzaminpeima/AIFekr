@@ -1452,7 +1452,12 @@ export default function SocialPage() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {analytics!.recentMedia.map((m) => (
                       <a key={m.id} href={m.permalink} target="_blank" rel="noopener noreferrer" className="rounded-xl overflow-hidden relative group" style={{ border: "1px solid var(--border)" }}>
-                        <img src={m.thumbnailUrl || m.mediaUrl || ""} alt="" className="w-full aspect-square object-cover" />
+                        <img
+                          src={`/api/social/instagram/media-proxy?url=${encodeURIComponent(m.thumbnailUrl || m.mediaUrl || "")}`}
+                          alt=""
+                          className="w-full aspect-square object-cover bg-[var(--surface-1)]"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                        />
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white text-[11px]">
                           <span className="flex items-center gap-1"><Heart className="w-3 h-3" /> {m.likeCount}</span>
                           <span className="flex items-center gap-1"><MessageCircle className="w-3 h-3" /> {m.commentsCount}</span>

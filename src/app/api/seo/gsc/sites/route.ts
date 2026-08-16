@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { getGscAccessToken, listGscSites } from "@/lib/googleSearchConsole";
+import { getGscAccessToken, listGscSites, GscReconnectRequiredError } from "@/lib/googleSearchConsole";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -19,6 +19,12 @@ export async function GET(req: NextRequest) {
     // 502/504 get intercepted by nginx's own error_page and replaced with a static
     // HTML page, hiding this message from the client — use a status nginx doesn't rewrite.
     console.error("GSC sites fetch failed:", e);
+    if (e instanceof GscReconnectRequiredError) {
+      return NextResponse.json(
+        { error: "اتصال گوگل شما منقضی یا نامعتبر شده است. لطفاً دوباره وارد Google Search Console شوید.", reconnectRequired: true },
+        { status: 400 }
+      );
+    }
     const msg = e instanceof Error ? e.message : "خطا";
     return NextResponse.json({ error: msg }, { status: 400 });
   }
