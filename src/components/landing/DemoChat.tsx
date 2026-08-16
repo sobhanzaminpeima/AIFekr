@@ -28,6 +28,15 @@ const DEMO_EN: Message[] = [
   { role: "ai", text: "**Suggested Hashtags:**\n#cafe #coffee #coffeeshop #barista #espresso #coffeelovers #morningcoffee #specialtycoffee #latteart\n\n**Name Ideas:**\n• **The Grind** — Simple, memorable, on-brand\n• **Ember Café** — Warm, modern, unique\n• **Brew & Co.** — Trendy, professional\n• **First Light** — Evokes morning energy\n• **Common Ground** — Community feel, double meaning\n\nIf your vibe is modern & minimal, **Ember** or **First Light** are your best bets!", delay: 900 },
 ];
 
+const DEMO_DE: Message[] = [
+  { role: "user", text: "Hallo! Kannst du eine Marketingstrategie für mein neues Café schreiben?", delay: 600 },
+  { role: "ai", text: "Hallo! Auf jeden Fall. Ich würde mit 3 zentralen Säulen beginnen:\n\n**1. Instagram** — Täglich 1 Beitrag: Blick hinter die Kulissen, Menü-Highlights & Café-Atmosphäre\n**2. Google Maps** — Vervollständige dein Profil mit hochwertigen Fotos und lade frühe Kunden zu Bewertungen ein\n**3. Eröffnungsangebot** — 20% Rabatt in der ersten Woche + eine Challenge zum Teilen in sozialen Netzwerken\n\nSoll ich zu einem dieser Punkte mehr ins Detail gehen?", delay: 800 },
+  { role: "user", text: "Super! Erzähl mir mehr über die Instagram-Content-Strategie", delay: 700 },
+  { role: "ai", text: "Hier ist ein wöchentlicher Content-Kalender für dein Café:\n\n— **Montag** — Blick hinter die Kulissen: Kaffeezubereitung\n— **Dienstag** — Menü-Highlight mit professionellem Foto\n— **Mittwoch** — Kundenbewertung (nutzergenerierter Inhalt)\n— **Donnerstag** — Kaffee-Tipps (lehrreich)\n— **Freitag** — Wochenend-Sonderangebot\n\nJeder Beitrag sollte mindestens 5 passende Hashtags haben. Soll ich dir auch eine Hashtag-Liste erstellen?", delay: 800 },
+  { role: "user", text: "Ja, bitte! Und schlag mir auch einen einprägsamen Namen für das Café vor", delay: 600 },
+  { role: "ai", text: "**Vorgeschlagene Hashtags:**\n#cafe #kaffee #coffeeshop #barista #espresso #kaffeeliebe #morgenkaffee #spezialitätenkaffee #latteart\n\n**Namensideen:**\n• **Die Röstkammer** — Einfach, einprägsam, markentauglich\n• **Café Glut** — Warm, modern, einzigartig\n• **Brauhaus & Co.** — Trendig, professionell\n• **Erstes Licht** — Weckt morgendliche Energie\n• **Gemeinsamer Grund** — Gemeinschaftsgefühl, doppelte Bedeutung\n\nWenn dein Stil modern & minimalistisch ist, sind **Glut** oder **Erstes Licht** deine beste Wahl!", delay: 900 },
+];
+
 function parseMarkdown(text: string) {
   const lines = text.split("\n");
   return lines.map((line, i) => {
@@ -45,8 +54,8 @@ function parseMarkdown(text: string) {
 
 const TYPING_SPEED = 18;
 
-export default function DemoChat({ lang = "fa" }: { lang?: "fa" | "en" }) {
-  const DEMO = lang === "en" ? DEMO_EN : DEMO_FA;
+export default function DemoChat({ lang = "fa" }: { lang?: "fa" | "en" | "de" }) {
+  const DEMO = lang === "en" ? DEMO_EN : lang === "de" ? DEMO_DE : DEMO_FA;
   const [visibleMessages, setVisibleMessages] = useState<{ role: "user" | "ai"; text: string; typing: boolean }[]>([]);
   const [currentTyped, setCurrentTyped] = useState("");
   const [phase, setPhase] = useState<"idle" | "running" | "done">("idle");
@@ -110,8 +119,10 @@ export default function DemoChat({ lang = "fa" }: { lang?: "fa" | "en" }) {
 
   const isRtl = lang === "fa";
   const label = lang === "fa"
-    ? { title: "همین الان امتحان کن", subtitle: "چت هوش مصنوعی — مثل ChatGPT", cta: "شروع رایگان", typing: "AiFekr در حال تایپ..." }
-    : { title: "Try it now", subtitle: "AI Chat — just like ChatGPT", cta: "Get Started Free", typing: "AiFekr is typing..." };
+    ? { title: "همین الان امتحان کن", subtitle: "چت هوش مصنوعی — مثل ChatGPT", cta: "شروع رایگان", typing: "AiFekr در حال تایپ...", scrollHint: "اسکرول کن تا ببینی...", inputPlaceholder: "پیام خود را بنویسید...", replay: "▶ پخش مجدد دمو" }
+    : lang === "de"
+    ? { title: "Jetzt ausprobieren", subtitle: "KI-Chat — wie ChatGPT", cta: "Kostenlos starten", typing: "AiFekr tippt...", scrollHint: "Scrolle, um die Demo zu sehen...", inputPlaceholder: "Schreibe deine Nachricht...", replay: "▶ Demo wiederholen" }
+    : { title: "Try it now", subtitle: "AI Chat — just like ChatGPT", cta: "Get Started Free", typing: "AiFekr is typing...", scrollHint: "Scroll to see the demo...", inputPlaceholder: "Type your message...", replay: "▶ Replay Demo" };
 
   return (
     <section ref={containerRef} className="py-16 px-6 relative" dir={isRtl ? "rtl" : "ltr"}>
@@ -182,7 +193,7 @@ export default function DemoChat({ lang = "fa" }: { lang?: "fa" | "en" }) {
 
             {phase === "idle" && (
               <div className="flex items-center justify-center py-10" style={{ color: "rgba(255,255,255,0.3)" }}>
-                <span className="text-sm">{isRtl ? "اسکرول کن تا ببینی..." : "Scroll to see the demo..."}</span>
+                <span className="text-sm">{label.scrollHint}</span>
               </div>
             )}
           </div>
@@ -191,7 +202,7 @@ export default function DemoChat({ lang = "fa" }: { lang?: "fa" | "en" }) {
           <div className="px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", background: "#0e0e14" }}>
             <div className="flex items-center gap-3 px-4 py-3 rounded-2xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
               <span className="flex-1 text-sm" style={{ color: "rgba(255,255,255,0.25)" }}>
-                {isRtl ? "پیام خود را بنویسید..." : "Type your message..."}
+                {label.inputPlaceholder}
               </span>
               <Link href="/register"
                 className="flex items-center gap-2 px-4 py-1.5 rounded-xl text-sm font-medium text-white transition-all hover:opacity-90"
@@ -207,7 +218,7 @@ export default function DemoChat({ lang = "fa" }: { lang?: "fa" | "en" }) {
             <button onClick={() => { setVisibleMessages([]); setMsgIndex(0); setCurrentTyped(""); setPhase("idle"); setTimeout(() => setPhase("running"), 100); }}
               className="text-xs px-4 py-2 rounded-xl transition-all"
               style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              {isRtl ? "▶ پخش مجدد دمو" : "▶ Replay Demo"}
+              {label.replay}
             </button>
           </div>
         )}

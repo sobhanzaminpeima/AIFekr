@@ -486,7 +486,15 @@ function CustomProvidersSection() {
         </button>
       </div>
       <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-        نوع مدل رو انتخاب کن (چت/تصویر/ویدیو) — بلافاصله بدون نیاز به تغییر کد یا دیپلوی، در انتخابگر مدل همون بخش (چت، تولید تصویر، تولید ویدیو، کپشن اینستاگرام) قابل انتخاب میشه. مدل‌های چت باید endpoint سازگار با OpenAI (chat/completions) باشن.
+        نوع مدل رو انتخاب کن (چت/تصویر/ویدیو) — بلافاصله بدون نیاز به تغییر کد یا دیپلوی، در انتخابگر مدل همون بخش (چت، تولید تصویر، تولید ویدیو، کپشن اینستاگرام) قابل انتخاب میشه.
+        <br />
+        <b>چت:</b> باید endpoint سازگار با OpenAI باشه (POST به <code dir="ltr">{"{baseUrl}"}/chat/completions</code>).
+        <br />
+        <b>تصویر:</b> باید POST به <code dir="ltr">{"{baseUrl}"}/images/generations</code> با بدنه‌ی <code dir="ltr">{"{ model, prompt, n, size }"}</code> رو بپذیره و <code dir="ltr">{"{ data: [{ url }] }"}</code> یا <code dir="ltr">{"{ data: [{ b64_json }] }"}</code> برگردونه (همون قالب رایج API تصویر OpenAI).
+        <br />
+        <b>ویدیو:</b> باید یک API ناهمگام (job-based) باشه — POST به <code dir="ltr">{"{baseUrl}"}/videos/generations</code> یک شناسه‌ی کار برگردونه (<code dir="ltr">id</code>/<code dir="ltr">jobId</code>/<code dir="ltr">predictionId</code>) و GET به <code dir="ltr">{"{baseUrl}"}/videos/generations/{"{jobId}"}</code> وضعیت (<code dir="ltr">status</code>) و در پایان آدرس ویدیو (<code dir="ltr">output</code>/<code dir="ltr">url</code>/<code dir="ltr">video_url</code>) رو بده.
+        <br />
+        این‌ها قراردادهای عمومیِ best-effort هستن، نه استاندارد تضمینی — چون API‌های تصویر و به‌خصوص ویدیوی سفارشی خیلی متنوع‌اند، اگه API شما این شکل دقیق رو نداشته باشه، اتصال کار نمی‌کنه و نیاز به یکپارچه‌سازی اختصاصی داره.
       </p>
 
       {showForm && (

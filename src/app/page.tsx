@@ -158,6 +158,71 @@ const STR = {
     aiTeamAgents: ["Idea Finder", "Strategist", "Researcher", "Writer", "Editor", "SEO Expert", "Publisher", "Critic"],
     aiTeamCta: "See the full system",
   },
+  de: {
+    brand: "AiFekr",
+    navPacks: "Branchenpakete",
+    navAbout: "Über uns",
+    navContact: "Kontakt",
+    navLogin: "Anmelden",
+    navRegister: "Kostenlos starten",
+    badge: "KI-Plattform für Unternehmen",
+    heroTitle1: "Ein KI-Team",
+    heroTitle2: "Für Ihr Unternehmen",
+    heroDesc: "Spezialisierte KI-Agentenpakete für jede Branche — vom Bauwesen bis zu Kliniken, von Restaurants bis Hotels. Ihre KI-Agenten arbeiten rund um die Uhr.",
+    ctaStart: "Kostenlos starten →",
+    ctaViewPacks: "Pakete ansehen",
+    howTitle: "So funktioniert es",
+    howSubtitle: "In 3 einfachen Schritten",
+    steps: [
+      { step: "1", title: "Branche wählen", desc: "Wählen Sie das passende Paket für Ihr Unternehmen aus 8 fertigen Branchenpaketen" },
+      { step: "2", title: "Registrieren", desc: "Erstellen Sie in 30 Sekunden ein Konto und aktivieren Sie Ihr gewähltes Paket" },
+      { step: "3", title: "KI-Agenten einsetzen", desc: "Auf Ihr Unternehmen zugeschnittene KI-Agenten arbeiten ab sofort rund um die Uhr" },
+    ],
+    stepLabel: "Schritt",
+    packsTitle: "Branchenpakete",
+    packsSubtitle: "Jedes Paket enthält ein Team von KI-Agenten, spezialisiert auf Ihre Branche",
+    agentsLabel: "KI-Agenten",
+    viewPack: "Paket ansehen →",
+    viewAllPacks: "Alle Pakete ansehen",
+    featuresTitle: "KI-Tools",
+    features: [
+      { title: "Business-Doktor", desc: "SWOT-Analyse, 90-Tage-Aktionsplan, Schwachstellenerkennung", href: "/business-doctor" },
+      { title: "CEO-Berater", desc: "Strategischer Berater mit über 20 Jahren Erfahrung für Führungsentscheidungen", href: "/ceo" },
+      { title: "SEO-Arbeitsbereich", desc: "Keyword-Recherche, URL-Analyse, Content-Optimierung", href: "/seo" },
+      { title: "Social-Media-Agent", desc: "Content-Erstellung für Instagram, LinkedIn, Twitter und TikTok", href: "/social" },
+      { title: "KI-Website-Designer", desc: "Entwerfen und programmieren Sie eine komplette professionelle Website mit einem Klick", href: "/website-designer" },
+      { title: "KI-Besprechungsraum", desc: "Simulieren Sie eine strategische Besprechung mit 7 Fachagenten", href: "/meeting" },
+    ],
+    ctaTitle: "Bereit loszulegen?",
+    ctaDesc: "Wählen Sie jetzt Ihr Branchenpaket und setzen Sie Ihre KI-Agenten ein",
+    ctaButton: "Jetzt kostenlos starten",
+    footer: "© 2025 AiFekr — KI-Plattform für Unternehmen",
+    stats: [
+      { label: "Aktive Agenten", value: "17" },
+      { label: "Branchenpakete", value: "8" },
+      { label: "Verfügbarkeit", value: "99,9%" },
+      { label: "Aktive Nutzer", value: "1.000+" },
+    ],
+    pricingTitle: "Transparente Preise",
+    pricingSubtitle: "Keine versteckten Kosten — alles ist klar",
+    popularLabel: "Am beliebtesten",
+    freeLabel: "Kostenlos",
+    perMonth: "/Monat",
+    viewAllPricing: "Alle Pakete ansehen →",
+    faqTitle: "Häufig gestellte Fragen",
+    faqSubtitle: "Antworten auf häufige Fragen",
+    faqs: [
+      { q: "Muss ich etwas installieren?", a: "Nein, AiFekr ist vollständig webbasiert und läuft in jedem Browser." },
+      { q: "Sind meine Daten sicher?", a: "Ja, alle Daten werden verschlüsselt und gemäß Sicherheitsstandards gespeichert." },
+      { q: "Kann ich meinen Plan ändern?", a: "Ja, Sie können Ihren Plan jederzeit upgraden oder ändern." },
+      { q: "Bieten Sie Support an?", a: "Ja, unser Support-Team steht Ihnen gerne zur Verfügung." },
+    ],
+    aiTeamEyebrow: "Neu — Autonomes Business-Betriebssystem",
+    aiTeamTitle: "Ein komplettes Team von KI-Agenten für Ihr Unternehmen",
+    aiTeamDesc: "8 spezialisierte Agenten, die gemeinsam Artikel schreiben und veröffentlichen, plus ein KI-Geschäftsführer, der Ihr gesamtes Unternehmen analysiert und priorisiert — mit gemeinsamem Gedächtnis und Live-Webrecherche.",
+    aiTeamAgents: ["Ideenfinder", "Stratege", "Rechercheur", "Autor", "Lektor", "SEO-Experte", "Publisher", "Kritiker"],
+    aiTeamCta: "Das gesamte System ansehen",
+  },
 };
 
 export default async function HomePage() {
@@ -172,11 +237,8 @@ export default async function HomePage() {
   }
 
   const lang = await getServerLang();
-  // German copy for this page isn't translated yet — fall back to English.
-  const s = STR[lang === "fa" ? "fa" : "en"];
+  const s = STR[lang];
   const dir = lang === "fa" ? "rtl" : "ltr";
-  // Components below only support fa/en copy — German falls back to English for now.
-  const displayLang: "fa" | "en" = lang === "fa" ? "fa" : "en";
 
   let packs: { id: string; slug: string; name: string; nameEn: string | null; emoji: string; tagline: string; taglineEn: string | null; agents: string; tier: string; price: number; color: string; gradientFrom: string; gradientTo: string }[] = [];
   try {
@@ -282,7 +344,7 @@ export default async function HomePage() {
 
       {/* Demo Chat */}
       <Reveal y={16}>
-        <DemoChat lang={displayLang} />
+        <DemoChat lang={lang} />
       </Reveal>
 
       {/* How it works */}
@@ -339,7 +401,7 @@ export default async function HomePage() {
       </section>
 
       {/* Startup Builder Teaser */}
-      <StartupBuilderTeaser lang={displayLang} />
+      <StartupBuilderTeaser lang={lang} />
 
       {/* Pricing */}
       {pricingPlans.length > 0 && (

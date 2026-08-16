@@ -8,6 +8,8 @@ import { getAvailableCredits, deductCredits } from "@/lib/utils/teamCredits";
 import { getLimitsForPlan } from "@/lib/utils/planLimits";
 import * as qwen from "@/lib/ai/qwen";
 import * as openaiImage from "@/lib/ai/openaiImage";
+import { isCustomProviderModel } from "@/lib/ai/customProviders";
+import { generateCustomImage } from "@/lib/ai/customImageProvider";
 import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
 
 // OpenAI (gpt-image) is preferred when configured — real credit was purchased
@@ -82,8 +84,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Image-to-image when the user uploaded a reference photo, text-to-image otherwise
-    const rawUrls = sourceImageUrl
+    // Image-to-image when the user uploaded a reference photo, text-to-image otherwise.
+    // Admin-added custom providers (model string "custom:<id>") bypass the
+    // built-in provider table entirely and go through the generic
+    // OpenAI-compatible /images/generations contract in customImageProvider.ts —
+    // reference-image (image-to-image) isn't part of that contract.
+    const rawUrls = isCustomProviderModel(requestedProvider)
+      ? await generateCustomImage(requestedProvider.slice("custom:".length), prompt, {
+          n: count,
+          size: ratio === "16:9" ? "1792x1024" : ratio === "9:16" ? "1024x1792" : "1024x1024",
+        })
+      : sourceImageUrl
       ? await provider.generateImageFromReference({ prompt, style, ratio, count, imageUrl: sourceImageUrl })
       : quality === "hd"
       ? await provider.generateImagesHQ({ prompt, style, ratio, count })

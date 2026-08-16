@@ -7,8 +7,10 @@ const USD_TO_EUR = Number(process.env.USD_TO_EUR_RATE) || 0.92;
 
 export function formatPackPrice(usd: number, lang: "fa" | "en" | "de"): string {
   if (lang === "fa") {
-    const toman = Math.round((usd * USD_TO_TOMAN) / 1000) * 1000;
-    return `${toman.toLocaleString("fa-IR")} تومان`;
+    // Rial = Toman * 10 (Iran's official currency unit; Toman is the everyday
+    // colloquial unit). Rounded to the nearest 10,000 Rial for a clean number.
+    const rial = Math.round((usd * USD_TO_TOMAN * 10) / 10000) * 10000;
+    return `${rial.toLocaleString("fa-IR")} ریال`;
   }
   if (lang === "de") {
     const eur = Math.round(usd * USD_TO_EUR);

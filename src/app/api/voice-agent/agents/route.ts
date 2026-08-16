@@ -12,7 +12,10 @@ const DEFAULT_PROMPTS: Record<string, string> = {
   rent: "شما دستیار صوتی بخش اجاره ملک یک آژانس املاک هستید. نیاز مستأجر (نوع ملک، بودجه ماهانه، منطقه) را جویا شوید، با ابزار جستجوی ملک گزینه مناسب پیدا کنید و وقت بازدید رزرو کنید.",
 };
 
-const GENERAL_DEFAULT_PROMPT = "شما دستیار صوتی این کسب‌وکار هستید. مؤدب، کوتاه و کاربردی صحبت کنید. به سوالات تماس‌گیرنده با استفاده از ابزار جستجوی دانش‌نامه پاسخ دهید و در صورت نیاز، وقت پیگیری یا تماس مجدد را با نام، شماره تماس و زمان دلخواه رزرو کنید.";
+function buildGeneralDefaultPrompt(businessType?: string | null) {
+  const businessLabel = businessType?.trim() ? businessType.trim() : "این کسب‌وکار";
+  return `شما دستیار صوتی ${businessLabel} هستید. مؤدب، کوتاه و کاربردی صحبت کنید. به سوالات تماس‌گیرنده با استفاده از ابزار جستجوی دانش‌نامه پاسخ دهید و در صورت نیاز، وقت پیگیری یا تماس مجدد را با نام، شماره تماس و زمان دلخواه رزرو کنید.`;
+}
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -39,13 +42,16 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { name, focus, systemPrompt, voiceId, vertical } = body;
+  const { name, focus, systemPrompt, voiceId, vertical, businessType } = body;
   if (!name?.trim()) return NextResponse.json({ error: "نام ایجنت الزامی است" }, { status: 400 });
 
   const resolvedVertical = vertical === "general" ? "general" : "real_estate";
   const resolvedFocus = resolvedVertical === "general"
     ? "general"
     : (["buy", "sell", "rent", "general"].includes(focus) ? focus : "general");
+  const resolvedBusinessType = resolvedVertical === "general" && typeof businessType === "string" && businessType.trim()
+    ? businessType.trim().slice(0, 200)
+    : null;
 
   const agent = await prisma.voiceAgent.create({
     data: {
@@ -53,7 +59,8 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       focus: resolvedFocus,
       vertical: resolvedVertical,
-      systemPrompt: systemPrompt?.trim() || (resolvedVertical === "general" ? GENERAL_DEFAULT_PROMPT : DEFAULT_PROMPTS[resolvedFocus]),
+      businessType: resolvedBusinessType,
+      systemPrompt: systemPrompt?.trim() || (resolvedVertical === "general" ? buildGeneralDefaultPrompt(resolvedBusinessType) : DEFAULT_PROMPTS[resolvedFocus]),
       voiceId: voiceId || undefined,
     },
   });

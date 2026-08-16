@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Rocket, Lightbulb, DollarSign, FileText, Code2, ArrowRight, Sparkles } from "lucide-react";
 
 interface Props {
-  lang: "fa" | "en";
+  lang: "fa" | "en" | "de";
 }
 
 const STEPS = {
@@ -19,6 +19,12 @@ const STEPS = {
     { icon: DollarSign, label: "Financial Model", desc: "3-year forecast, break-even, financial KPIs", color: "#10b981" },
     { icon: FileText, label: "Investor Proposal", desc: "Professional pitch deck ready for VCs", color: "#3b82f6" },
     { icon: Code2, label: "Implementation Plan", desc: "Tech architecture, sprint plan, launch checklist", color: "#8b5cf6" },
+  ],
+  de: [
+    { icon: Lightbulb, label: "Ideenanalyse", desc: "SWOT-Analyse, Wertversprechen, Wettbewerbsvorteil", color: "#f59e0b" },
+    { icon: DollarSign, label: "Finanzmodell", desc: "3-Jahres-Prognose, Break-even, Finanz-KPIs", color: "#10b981" },
+    { icon: FileText, label: "Investorenvorschlag", desc: "Professionelles Pitch-Deck, bereit für VCs", color: "#3b82f6" },
+    { icon: Code2, label: "Umsetzungsplan", desc: "Technische Architektur, Sprint-Plan, Launch-Checkliste", color: "#8b5cf6" },
   ],
 };
 
@@ -36,6 +42,13 @@ const STR = {
     desc: "From idea to implementation — AI generates everything for you. Financial model, investor proposal, and execution plan in minutes.",
     cta: "Start for Free →",
     badge: "Smart · Professional · Complete",
+  },
+  de: {
+    eyebrow: "Neues Tool — KI-gestützter Startup-Aufbau",
+    title: "Bau dein Startup mit AIFekr",
+    desc: "Von der Idee bis zur Umsetzung — die KI erstellt alles für dich. Finanzmodell, Investorenvorschlag und Umsetzungsplan in wenigen Minuten.",
+    cta: "Kostenlos starten →",
+    badge: "Intelligent · Professionell · Vollständig",
   },
 };
 
@@ -138,7 +151,7 @@ export default function StartupBuilderTeaser({ lang }: Props) {
                     className="text-xs font-bold mb-1 tracking-wider uppercase"
                     style={{ color: step.color }}
                   >
-                    {lang === "fa" ? `مرحله ${["۱","۲","۳","۴"][i]}` : `Step ${i + 1}`}
+                    {lang === "fa" ? `مرحله ${["۱","۲","۳","۴"][i]}` : lang === "de" ? `Schritt ${i + 1}` : `Step ${i + 1}`}
                   </div>
                   <h3 className="font-bold mb-2 text-base" style={{ color: "white" }}>{step.label}</h3>
                   <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>{step.desc}</p>

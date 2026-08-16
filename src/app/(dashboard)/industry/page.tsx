@@ -28,6 +28,17 @@ const strings = {
     gold: "Gold",
     pro: "Professional",
   },
+  de: {
+    title: "Marktplatz für Branchen-KI-Pakete",
+    subtitle: "Spezialisierte KI-Agententeams für jede Branche — einsatzbereit rund um die Uhr",
+    empty: "Keine Pakete gefunden",
+    emptySub: "Bitte wenden Sie sich an den Administrator",
+    agents: "KI-Agenten",
+    month: "Mon.",
+    view: "Paket ansehen",
+    gold: "Gold",
+    pro: "Professionell",
+  },
 };
 
 interface Pack {
@@ -39,8 +50,7 @@ interface Pack {
 
 export default async function IndustryPage() {
   const lang = await getServerLang();
-  // German UI strings for this page aren't translated yet — fall back to English.
-  const s = strings[lang === "fa" ? "fa" : "en"];
+  const s = strings[lang];
 
   let packs: Pack[] = [];
   try {

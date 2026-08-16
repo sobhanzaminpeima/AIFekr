@@ -5,6 +5,8 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { generateVideo as generateVideoQwen, generateVideoFromReference } from "@/lib/ai/qwen";
 import { generateVideo as generateVideoReplicate } from "@/lib/ai/replicate";
+import { isCustomProviderModel } from "@/lib/ai/customProviders";
+import { startCustomVideoJob } from "@/lib/ai/customVideoProvider";
 import { CREDIT_COSTS } from "@/lib/utils/credits";
 import { getAvailableCredits, deductCredits } from "@/lib/utils/teamCredits";
 import { getLimitsForPlan } from "@/lib/utils/planLimits";
@@ -37,7 +39,13 @@ export async function POST(req: NextRequest) {
 
     // Image-to-video always goes through Replicate — Qwen's I2V endpoint isn't
     // wired up yet (see qwen.ts). Text-to-video respects the user's provider choice.
-    const { predictionId, status } = sourceImageUrl
+    // Admin-added custom providers (model string "custom:<id>") bypass the
+    // built-in provider table and go through the generic async job-based
+    // contract in customVideoProvider.ts — reference-image (image-to-video)
+    // isn't part of that contract.
+    const { predictionId, status } = isCustomProviderModel(provider)
+      ? await startCustomVideoJob(provider.slice("custom:".length), prompt, { duration, ratio, style })
+      : sourceImageUrl
       ? await generateVideoFromReference({ prompt, duration: duration as any, ratio, style, imageUrl: sourceImageUrl })
       : provider === "replicate"
       ? await generateVideoReplicate({ prompt, duration: duration as any, ratio, style })

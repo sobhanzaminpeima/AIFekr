@@ -5,6 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { getPredictionStatus } from "@/lib/ai/replicate";
 import { getQwenTaskStatus } from "@/lib/ai/qwen";
+import { getCustomVideoStatus } from "@/lib/ai/customVideoProvider";
 import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
 import { refundCredits } from "@/lib/utils/teamCredits";
 
@@ -19,10 +20,21 @@ export async function GET(req: NextRequest) {
 
   // Qwen (DashScope) task ids are prefixed "qwen:" at creation time (see
   // generateVideo in qwen.ts) so they can be told apart from a Replicate
-  // prediction id — both are otherwise opaque strings.
-  const { status, output, error } = predictionId.startsWith("qwen:")
-    ? await getQwenTaskStatus(predictionId.slice("qwen:".length))
-    : await getPredictionStatus(predictionId);
+  // prediction id — both are otherwise opaque strings. Custom-provider job
+  // ids are prefixed "custom:<providerId>:<jobId>" the same way (see
+  // startCustomVideoJob in customVideoProvider.ts).
+  let statusResult: { status: string; output: unknown; error?: unknown };
+  if (predictionId.startsWith("qwen:")) {
+    statusResult = await getQwenTaskStatus(predictionId.slice("qwen:".length));
+  } else if (predictionId.startsWith("custom:")) {
+    const [, providerId, ...jobIdParts] = predictionId.split(":");
+    statusResult = await getCustomVideoStatus(providerId, jobIdParts.join(":"));
+  } else {
+    statusResult = await getPredictionStatus(predictionId);
+  }
+  const status = statusResult.status;
+  const output = (statusResult.output as string | null) ?? null;
+  const error = statusResult.error as string | undefined;
 
   if (status === "succeeded" && output && videoId) {
     // Upload to R2 if it's a real URL

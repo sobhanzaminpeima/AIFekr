@@ -1287,6 +1287,10 @@ model VoiceAgent {
   /// Agent add-on works for any business, not just real estate. Extensible
   /// to future verticals without a schema change (plain string, not an enum).
   vertical          String   @default("real_estate")
+  /// Free-text business type/description, only used when vertical="general"
+  /// (e.g. "Dental clinic", "Law firm") — interpolated into the default
+  /// system prompt so the assistant knows what business it represents.
+  businessType      String?
   systemPrompt      String
   /// Vapi voice id (e.g. "jennifer") — cosmetic, defaults server-side if unset.
   voiceId           String?

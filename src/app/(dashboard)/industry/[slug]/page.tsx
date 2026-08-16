@@ -26,6 +26,14 @@ const strings = {
     registerFirst: "Register & Activate", alreadyActive: "Your pack is active",
     goToBusiness: "Go to Business Dashboard",
   },
+  de: {
+    agents: "KI-Agenten", agent: "Agenten", painPoints: "Probleme, die es löst",
+    outcomes: "Erwartete Ergebnisse", kpis: "Dashboard-KPIs", month: "pro Monat",
+    activate: "Paket aktivieren", loginToActivate: "Zum Aktivieren anmelden",
+    back: "← Zurück zu allen Paketen", gold: "Gold", pro: "Professionell",
+    registerFirst: "Registrieren & aktivieren", alreadyActive: "Ihr Paket ist aktiv",
+    goToBusiness: "Zum Business-Dashboard",
+  },
 };
 
 export default async function PackDetailPage({ params }: { params: { slug: string } }) {
@@ -33,8 +41,7 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
   if (!pack) notFound();
 
   const lang = await getServerLang();
-  // German UI strings for this page aren't translated yet — fall back to English.
-  const s = strings[lang === "fa" ? "fa" : "en"];
+  const s = strings[lang];
 
   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;

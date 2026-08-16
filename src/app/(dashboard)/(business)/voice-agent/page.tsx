@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Phone, Plus, X, Loader2, PhoneCall, CalendarDays, Settings2,
-  Trash2, PlayCircle, Home, MapPin, Clock, XCircle, User, BookOpen,
+  Trash2, PlayCircle, Home, MapPin, Clock, XCircle, User, BookOpen, Upload,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import { useTranslation } from "@/lib/i18n";
 
 interface VoiceAgent {
-  id: string; name: string; focus: string; vertical: string; systemPrompt: string; voiceId: string | null;
+  id: string; name: string; focus: string; vertical: string; businessType?: string | null; systemPrompt: string; voiceId: string | null;
   phoneNumber: string | null; vapiAssistantId: string | null; isActive: boolean;
   _count?: { calls: number; appointments: number };
 }
@@ -49,7 +50,7 @@ function fmtMoney(n: number) {
 }
 
 export default function VoiceAgentPage() {
-  const { lang } = useTranslation();
+  const { lang, t } = useTranslation();
   const isFa = lang !== "en";
 
   const [tab, setTab] = useState<"agents" | "properties" | "knowledge" | "calls" | "appointments">("agents");
@@ -130,7 +131,7 @@ export default function VoiceAgentPage() {
     }
   }
 
-  async function createAgent(form: { name: string; focus: string; vertical: string }) {
+  async function createAgent(form: { name: string; focus: string; vertical: string; businessType?: string }) {
     setError("");
     const res = await fetch("/api/voice-agent/agents", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
@@ -229,8 +230,8 @@ export default function VoiceAgentPage() {
           <Phone className="w-5 h-5" style={{ color: "#f59e0b" }} />
         </div>
         <div>
-          <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "ایجنت صوتی املاک" : "Voice Agent"}</h1>
-          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "پاسخگویی تلفنی هوشمند برای خرید، فروش و اجاره ملک" : "AI phone agents for property buy, sell & rent inquiries"}</p>
+          <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "ایجنت صوتی (کال‌سنتر هوش مصنوعی)" : "Voice Agent (AI Call Center)"}</h1>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "پاسخگویی تلفنی هوشمند برای هر کسب‌وکار — از املاک تا هر صنعت دیگر" : "AI phone agents for any business — real estate and beyond"}</p>
         </div>
       </div>
 
@@ -283,7 +284,7 @@ export default function VoiceAgentPage() {
         />
       )}
       {tab === "knowledge" && (
-        <KnowledgeTab isFa={isFa} agents={agents} entries={knowledgeEntries} onCreate={createKnowledge} onDelete={deleteKnowledge} />
+        <KnowledgeTab isFa={isFa} t={t} agents={agents} entries={knowledgeEntries} onCreate={createKnowledge} onDelete={deleteKnowledge} onUploaded={loadKnowledge} />
       )}
       {tab === "calls" && (
         <CallsTab isFa={isFa} calls={calls} expandedCallId={expandedCallId} setExpandedCallId={setExpandedCallId} />
@@ -299,12 +300,13 @@ function AgentsTab({
   isFa, agents, showNewAgent, setShowNewAgent, onCreate, onDelete, onToggleActive, onProvision, provisioningId,
 }: {
   isFa: boolean; agents: VoiceAgent[]; showNewAgent: boolean; setShowNewAgent: (v: boolean) => void;
-  onCreate: (f: { name: string; focus: string; vertical: string }) => void; onDelete: (id: string) => void;
+  onCreate: (f: { name: string; focus: string; vertical: string; businessType?: string }) => void; onDelete: (id: string) => void;
   onToggleActive: (a: VoiceAgent) => void; onProvision: (id: string) => void; provisioningId: string | null;
 }) {
   const [name, setName] = useState("");
   const [focus, setFocus] = useState("general");
   const [vertical, setVertical] = useState("real_estate");
+  const [businessType, setBusinessType] = useState("");
 
   return (
     <div className="space-y-4">
@@ -329,7 +331,7 @@ function AgentsTab({
               <div>
                 <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{a.name}</p>
                 <p className="text-xs mt-0.5 flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
-                  <span>{VERTICAL_OPTIONS.find((v) => v.value === a.vertical)?.[isFa ? "fa" : "en"] || a.vertical}</span>
+                  <span>{a.vertical === "general" && a.businessType ? a.businessType : (VERTICAL_OPTIONS.find((v) => v.value === a.vertical)?.[isFa ? "fa" : "en"] || a.vertical)}</span>
                   {a.vertical !== "general" && (
                     <>
                       <span>·</span>
@@ -408,7 +410,15 @@ function AgentsTab({
                 </select>
               </div>
             )}
-            <button onClick={() => onCreate({ name, focus, vertical })} disabled={!name.trim()}
+            {vertical === "general" && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{isFa ? "نوع دقیق کسب‌وکار" : "Business Type"}</label>
+                <input value={businessType} onChange={(e) => setBusinessType(e.target.value)}
+                  placeholder={isFa ? "مثلاً «کلینیک دندانپزشکی»، «دفتر وکالت»، «فروشگاه لوازم الکترونیکی»" : "e.g. \"Dental clinic\", \"Law firm\", \"Online electronics store\""}
+                  className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
+            )}
+            <button onClick={() => onCreate({ name, focus, vertical, businessType: vertical === "general" ? businessType : undefined })} disabled={!name.trim()}
               className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "#f59e0b" }}>
               {isFa ? "ساخت ایجنت" : "Create Agent"}
             </button>
@@ -420,29 +430,100 @@ function AgentsTab({
 }
 
 function KnowledgeTab({
-  isFa, agents, entries, onCreate, onDelete,
+  isFa, t, agents, entries, onCreate, onDelete, onUploaded,
 }: {
-  isFa: boolean; agents: VoiceAgent[]; entries: VoiceKnowledgeEntry[];
+  isFa: boolean; t: ReturnType<typeof useTranslation>["t"]; agents: VoiceAgent[]; entries: VoiceKnowledgeEntry[];
   onCreate: (f: { title: string; content: string; agentId?: string }) => void; onDelete: (id: string) => void;
+  onUploaded: () => void;
 }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [agentId, setAgentId] = useState("");
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [uploadAgentId, setUploadAgentId] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const up = t.voiceAgentUpload;
 
   function submit() {
     onCreate({ title, content, agentId: agentId || undefined });
     setTitle(""); setContent(""); setAgentId("");
   }
 
+  async function handleFile(file: File) {
+    const isPdf = file.name.toLowerCase().endsWith(".pdf") || file.type === "application/pdf";
+    const isDocx = file.name.toLowerCase().endsWith(".docx") || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    if (!isPdf && !isDocx) { toast.error(up.unsupportedType); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error(up.fileTooLarge); return; }
+
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      if (uploadTitle.trim()) fd.append("title", uploadTitle.trim());
+      if (uploadAgentId) fd.append("agentId", uploadAgentId);
+      const res = await fetch("/api/voice-agent/knowledge/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || up.parseFailed);
+      toast.success(up.uploadSuccess);
+      setUploadTitle(""); setUploadAgentId("");
+      onUploaded();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : up.parseFailed);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="p-5 rounded-2xl space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-        <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-          {isFa ? "افزودن به دانش‌نامه" : "Add Knowledge Entry"}
-        </p>
-        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          {isFa ? "ایجنت هنگام تماس برای سوالاتی که مربوط به ملک خاصی نیست (ساعات کاری، مدارک، شرایط پرداخت و...) از این موارد استفاده می‌کند." : "The agent draws on these mid-call for questions that aren't about a specific property (hours, required documents, payment terms, etc.)."}
-        </p>
+        <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{up.title}</p>
+        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{up.description}</p>
+
+        <input value={uploadTitle} onChange={(e) => setUploadTitle(e.target.value)} placeholder={up.titleLabel}
+          className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        <select value={uploadAgentId} onChange={(e) => setUploadAgentId(e.target.value)}
+          className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+          <option value="">{isFa ? "همه ایجنت‌ها" : "All agents"}</option>
+          {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+        </select>
+
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault(); setDragOver(false);
+            const f = e.dataTransfer.files?.[0];
+            if (f) handleFile(f);
+          }}
+          onClick={() => !uploading && fileInputRef.current?.click()}
+          className="flex flex-col items-center justify-center gap-2 py-8 rounded-xl cursor-pointer text-center transition-colors"
+          style={{ border: `2px dashed ${dragOver ? "#f59e0b" : "var(--border)"}`, background: dragOver ? "rgba(245,158,11,0.06)" : "var(--surface-2)" }}
+        >
+          {uploading ? (
+            <>
+              <Loader2 className="w-6 h-6 animate-spin" style={{ color: "#f59e0b" }} />
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{up.uploading}</p>
+            </>
+          ) : (
+            <>
+              <Upload className="w-6 h-6" style={{ color: "var(--text-muted)" }} />
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{up.dropText}</p>
+            </>
+          )}
+          <input ref={fileInputRef} type="file" accept=".pdf,.docx" className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+        </div>
+
+        <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
+          <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+          {up.or}
+          <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+        </div>
+
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={isFa ? "عنوان (مثلاً «ساعات کاری»)" : "Title (e.g. \"Office hours\")"}
           className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={3} placeholder={isFa ? "پاسخ کامل..." : "Full answer..."}

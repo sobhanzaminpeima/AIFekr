@@ -12,7 +12,7 @@ const de: Translations = {
     "businessDoctor": "Business Doctor",
     "crm": "CRM",
     "salesAgent": "Sales Agent",
-    "voiceAgent": "Sprachassistent",
+    "voiceAgent": "Sprachassistent (KI-Callcenter)",
     "ceoAdvisor": "CEO-Berater",
     "seoWorkspace": "SEO-Arbeitsbereich",
     "socialMedia": "Social Media",
@@ -1022,7 +1022,35 @@ const de: Translations = {
       "funnelTitle": "Konversionstrichter nach Phase",
       "sourcePerfTitle": "Leistung nach Lead-Quelle",
       "leads": "Leads",
-      "customers": "Kunden"
+      "customers": "Kunden",
+      "pipelineSubTab": "Pipeline",
+      "callsSubTab": "Anrufstatistik"
+    },
+    "voiceAnalytics": {
+      "empty": "Noch keine Anrufe des Sprachassistenten",
+      "totalCalls": "Anrufe gesamt",
+      "totalMinutes": "Minuten gesamt",
+      "avgDuration": "Ø Anrufdauer",
+      "successRate": "Erfolgsquote",
+      "trendTitle": "Anrufe — letzte 30 Tage",
+      "byStatusTitle": "Anrufe nach Status",
+      "byOutcomeTitle": "Anrufe nach Ergebnis",
+      "recentCallsTitle": "Letzte Anrufe",
+      "unknownCaller": "Unbekannter Anrufer",
+      "viewContact": "Kontakt anzeigen",
+      "status": {
+        "in_progress": "Läuft",
+        "completed": "Abgeschlossen",
+        "failed": "Fehlgeschlagen",
+        "no_answer": "Keine Antwort"
+      },
+      "outcome": {
+        "qualified": "Qualifiziert",
+        "not_interested": "Kein Interesse",
+        "appointment_booked": "Termin vereinbart",
+        "callback_requested": "Rückruf gewünscht",
+        "unknown": "Unbekannt"
+      }
     },
     "products": {
       "new": "Neues Produkt",
@@ -1155,6 +1183,18 @@ const de: Translations = {
     "minutesAgo": "vor {n} Min.",
     "hoursAgo": "vor {n} Std.",
     "daysAgo": "vor {n} Tg."
+  },
+  "voiceAgentUpload": {
+    "title": "Dokument hochladen",
+    "description": "Laden Sie eine PDF- oder Word-Datei hoch — der Text wird automatisch extrahiert und der Wissensdatenbank hinzugefügt.",
+    "dropText": "PDF- oder DOCX-Datei hierher ziehen oder klicken zum Auswählen",
+    "uploading": "Hochladen und Text wird extrahiert...",
+    "titleLabel": "Titel (optional, Standard ist der Dateiname)",
+    "fileTooLarge": "Datei ist zu groß (max. 10 MB)",
+    "unsupportedType": "Dateityp wird nicht unterstützt — nur PDF und DOCX sind erlaubt",
+    "parseFailed": "Der Inhalt dieser Datei konnte nicht gelesen werden",
+    "uploadSuccess": "Dokument zur Wissensdatenbank hinzugefügt",
+    "or": "oder Text direkt einfügen"
   }
 };
 

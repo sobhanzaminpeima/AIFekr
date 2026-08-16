@@ -343,7 +343,7 @@ export default function CrmPage() {
       ) : tab === "calendar" ? (
         <CalendarPanel isFa={isFa} t={c} />
       ) : tab === "analytics" ? (
-        <AnalyticsPanel isFa={isFa} t={c} pipelines={pipelines} />
+        <AnalyticsPanel isFa={isFa} t={c} pipelines={pipelines} onOpenContact={(id) => { setTab("contacts"); openContact(id); }} />
       ) : tab === "products" ? (
         <ProductsPanel isFa={isFa} t={c} />
       ) : tab === "invoices" ? (
@@ -1269,7 +1269,8 @@ function CalendarPanel({ isFa, t }: { isFa: boolean; t: Translations["crm"] }) {
   );
 }
 
-function AnalyticsPanel({ isFa, t, pipelines }: { isFa: boolean; t: Translations["crm"]; pipelines: Pipeline[] }) {
+function AnalyticsPanel({ isFa, t, pipelines, onOpenContact }: { isFa: boolean; t: Translations["crm"]; pipelines: Pipeline[]; onOpenContact: (id: string) => void }) {
+  const [subTab, setSubTab] = useState<"pipeline" | "calls">("pipeline");
   const [pipelineId, setPipelineId] = useState(pipelines[0]?.id || "");
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1298,7 +1299,36 @@ function AnalyticsPanel({ isFa, t, pipelines }: { isFa: boolean; t: Translations
 
   const pipeline = pipelines.find((p) => p.id === pipelineId) || null;
 
-  if (pipelines.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.analytics.noPipeline}</p>;
+  const subTabToggle = (
+    <div className="flex gap-2">
+      <button onClick={() => setSubTab("pipeline")}
+        className="px-3.5 py-1.5 rounded-xl text-xs font-medium"
+        style={{ background: subTab === "pipeline" ? "var(--primary)" : "var(--surface-1)", color: subTab === "pipeline" ? "white" : "var(--text-secondary)", border: "1px solid var(--border)" }}>
+        {t.analytics.pipelineSubTab}
+      </button>
+      <button onClick={() => setSubTab("calls")}
+        className="px-3.5 py-1.5 rounded-xl text-xs font-medium"
+        style={{ background: subTab === "calls" ? "var(--primary)" : "var(--surface-1)", color: subTab === "calls" ? "white" : "var(--text-secondary)", border: "1px solid var(--border)" }}>
+        {t.analytics.callsSubTab}
+      </button>
+    </div>
+  );
+
+  if (subTab === "calls") {
+    return (
+      <div className="space-y-4">
+        {subTabToggle}
+        <VoiceCallAnalyticsPanel isFa={isFa} t={t} onOpenContact={onOpenContact} />
+      </div>
+    );
+  }
+
+  if (pipelines.length === 0) return (
+    <div className="space-y-4">
+      {subTabToggle}
+      <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.analytics.noPipeline}</p>
+    </div>
+  );
 
   const funnelData = pipeline
     ? [...pipeline.stages].sort((a, b) => a.order - b.order).map((s) => ({
@@ -1314,6 +1344,7 @@ function AnalyticsPanel({ isFa, t, pipelines }: { isFa: boolean; t: Translations
 
   return (
     <div className="space-y-4">
+      {subTabToggle}
       {pipelines.length > 1 && (
         <select value={pipelineId} onChange={(e) => setPipelineId(e.target.value)}
           className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
@@ -1368,6 +1399,154 @@ function AnalyticsPanel({ isFa, t, pipelines }: { isFa: boolean; t: Translations
           )}
         </>
       )}
+    </div>
+  );
+}
+
+interface VoiceAnalyticsData {
+  totalCalls: number;
+  totalDurationSec: number;
+  avgDurationSec: number;
+  completedCalls: number;
+  successRate: number;
+  byStatus: { status: string; count: number }[];
+  byOutcome: { outcome: string; count: number }[];
+  callsPerDay: { date: string; count: number }[];
+  recentCalls: {
+    id: string; callerPhone: string | null; direction: string; status: string; outcome: string | null;
+    durationSec: number | null; createdAt: string; contactId: string | null; contactName: string | null;
+  }[];
+}
+
+function fmtDuration(sec: number) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+const CALL_STATUS_COLOR: Record<string, string> = {
+  completed: "#22c55e",
+  in_progress: "#3b82f6",
+  failed: "#ef4444",
+  no_answer: "var(--text-muted)",
+};
+
+function VoiceCallAnalyticsPanel({ isFa, t, onOpenContact }: { isFa: boolean; t: Translations["crm"]; onOpenContact: (id: string) => void }) {
+  const [data, setData] = useState<VoiceAnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const tv = t.voiceAnalytics;
+
+  useEffect(() => {
+    setLoading(true);
+    fetch("/api/crm/voice-analytics").then((r) => r.json()).then((d) => {
+      setData(d);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  if (loading) return <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />;
+  if (!data || data.totalCalls === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tv.empty}</p>;
+
+  const totalMinutes = Math.round(data.totalDurationSec / 60);
+  const maxDayCount = Math.max(1, ...data.callsPerDay.map((d) => d.count));
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tv.totalCalls}</p>
+          <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{data.totalCalls}</p>
+        </div>
+        <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tv.totalMinutes}</p>
+          <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{totalMinutes}</p>
+        </div>
+        <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tv.avgDuration}</p>
+          <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{fmtDuration(data.avgDurationSec)}</p>
+        </div>
+        <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tv.successRate}</p>
+          <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{data.successRate}%</p>
+        </div>
+      </div>
+
+      <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <p className="text-xs font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{tv.trendTitle}</p>
+        <div className="flex items-end gap-[2px]" style={{ height: 80 }}>
+          {data.callsPerDay.map((d) => (
+            <div key={d.date} title={`${d.date}: ${d.count}`} className="flex-1 rounded-sm" style={{
+              height: `${Math.max(2, (d.count / maxDayCount) * 80)}px`,
+              background: "var(--primary)",
+              opacity: d.count === 0 ? 0.2 : 0.85,
+            }} />
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <p className="text-xs font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{tv.byStatusTitle}</p>
+          <div className="space-y-2">
+            {data.byStatus.map((s) => (
+              <div key={s.status} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
+                <span style={{ color: CALL_STATUS_COLOR[s.status] || "var(--text-secondary)" }}>{tv.status[s.status as keyof typeof tv.status] || s.status}</span>
+                <b style={{ color: "var(--text-primary)" }}>{s.count}</b>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <p className="text-xs font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{tv.byOutcomeTitle}</p>
+          <div className="space-y-2">
+            {data.byOutcome.map((o) => (
+              <div key={o.outcome} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
+                <span style={{ color: "var(--text-secondary)" }}>{tv.outcome[o.outcome as keyof typeof tv.outcome] || o.outcome}</span>
+                <b style={{ color: "var(--text-primary)" }}>{o.count}</b>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+        <p className="text-xs font-semibold px-4 py-3" style={{ color: "var(--text-primary)", background: "var(--surface-1)" }}>{tv.recentCallsTitle}</p>
+        {data.recentCalls.map((call, i) => (
+          <div key={call.id} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2"
+            style={{ background: "var(--surface-1)", borderTop: "1px solid var(--border)" }}>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(234,88,12,0.15)" }}>
+                <PhoneCall className="w-3.5 h-3.5" style={{ color: "var(--primary)" }} />
+              </div>
+              <div>
+                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                  {call.contactName || call.callerPhone || tv.unknownCaller}
+                </p>
+                <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                  {call.callerPhone} · {new Date(call.createdAt).toLocaleString(isFa ? "fa-IR" : "en-US")}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: "var(--surface-2)", color: CALL_STATUS_COLOR[call.status] || "var(--text-secondary)" }}>
+                {tv.status[call.status as keyof typeof tv.status] || call.status}
+              </span>
+              {call.outcome && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                  {tv.outcome[call.outcome as keyof typeof tv.outcome] || call.outcome}
+                </span>
+              )}
+              <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{call.durationSec != null ? fmtDuration(call.durationSec) : "—"}</span>
+              {call.contactId && (
+                <button onClick={() => onOpenContact(call.contactId!)}
+                  className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--primary)" }}>
+                  {tv.viewContact}
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

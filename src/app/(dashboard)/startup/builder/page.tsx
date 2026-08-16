@@ -7,7 +7,13 @@ import toast from "react-hot-toast";
 import { useTranslation } from "@/lib/i18n";
 
 type Stage = "idea" | "financial" | "proposal" | "implementation";
-type Lang = "fa" | "en";
+type Lang = "fa" | "en" | "de";
+
+function t(lang: Lang, fa: string, en: string, de: string): string {
+  if (lang === "fa") return fa;
+  if (lang === "de") return de;
+  return en;
+}
 
 interface Project {
   id: string;
@@ -20,11 +26,11 @@ interface Project {
   updatedAt: string;
 }
 
-const STAGES: { id: Stage; icon: React.ComponentType<{ className?: string }> ; labelFa: string; labelEn: string; color: string }[] = [
-  { id: "idea", icon: Lightbulb, labelFa: "ایده و تحلیل", labelEn: "Idea & Analysis", color: "#f59e0b" },
-  { id: "financial", icon: DollarSign, labelFa: "مدل مالی", labelEn: "Financial Model", color: "#10b981" },
-  { id: "proposal", icon: FileText, labelFa: "پروپوزال سرمایه‌گذار", labelEn: "Investor Proposal", color: "#3b82f6" },
-  { id: "implementation", icon: Code2, labelFa: "پیاده‌سازی", labelEn: "Implementation Plan", color: "#8b5cf6" },
+const STAGES: { id: Stage; icon: React.ComponentType<{ className?: string }> ; labelFa: string; labelEn: string; labelDe: string; color: string }[] = [
+  { id: "idea", icon: Lightbulb, labelFa: "ایده و تحلیل", labelEn: "Idea & Analysis", labelDe: "Idee & Analyse", color: "#f59e0b" },
+  { id: "financial", icon: DollarSign, labelFa: "مدل مالی", labelEn: "Financial Model", labelDe: "Finanzmodell", color: "#10b981" },
+  { id: "proposal", icon: FileText, labelFa: "پروپوزال سرمایه‌گذار", labelEn: "Investor Proposal", labelDe: "Investorenvorschlag", color: "#3b82f6" },
+  { id: "implementation", icon: Code2, labelFa: "پیاده‌سازی", labelEn: "Implementation Plan", labelDe: "Umsetzungsplan", color: "#8b5cf6" },
 ];
 
 const IDEA_FIELDS = {
@@ -41,6 +47,13 @@ const IDEA_FIELDS = {
     { key: "problem", label: "Problem You Solve", placeholder: "What problem does your customer face?" },
     { key: "targetMarket", label: "Target Market", placeholder: "Who are your customers?" },
     { key: "solution", label: "Your Solution", placeholder: "What is your product or service?" },
+  ],
+  de: [
+    { key: "name", label: "Name des Startups", placeholder: "z. B. DigiFood" },
+    { key: "description", label: "Kurzbeschreibung", placeholder: "Beschreiben Sie es in einem Satz..." },
+    { key: "problem", label: "Problem, das Sie lösen", placeholder: "Vor welchem Problem steht Ihr Kunde?" },
+    { key: "targetMarket", label: "Zielmarkt", placeholder: "Wer sind Ihre Kunden?" },
+    { key: "solution", label: "Ihre Lösung", placeholder: "Was ist Ihr Produkt oder Ihre Dienstleistung?" },
   ],
 };
 
@@ -61,6 +74,14 @@ const FINANCIAL_FIELDS = {
     { key: "growthRate", label: "Monthly Growth Rate", placeholder: "e.g. 15% per month" },
     { key: "teamSize", label: "Team Size", placeholder: "e.g. 4 people" },
   ],
+  de: [
+    { key: "businessModel", label: "Geschäftsmodell", placeholder: "z. B. monatliches SaaS, Provision, Freemium" },
+    { key: "initialInvestment", label: "Anfangsinvestition", placeholder: "z. B. 50.000 €" },
+    { key: "monthlyRevenue", label: "Prognostizierter Monatsumsatz", placeholder: "Schätzung für Monat 1-3?" },
+    { key: "monthlyCosts", label: "Monatliche Kosten", placeholder: "Gehälter, Server, Marketing..." },
+    { key: "growthRate", label: "Monatliche Wachstumsrate", placeholder: "z. B. 15 % pro Monat" },
+    { key: "teamSize", label: "Teamgröße", placeholder: "z. B. 4 Personen" },
+  ],
 };
 
 const PROPOSAL_FIELDS = {
@@ -76,6 +97,12 @@ const PROPOSAL_FIELDS = {
     { key: "useOfFunds", label: "Use of Funds", placeholder: "Where will the money go?" },
     { key: "founderBackground", label: "Founder Background", placeholder: "Who is the team? What's their experience?" },
   ],
+  de: [
+    { key: "askAmount", label: "Gewünschte Investitionssumme", placeholder: "z. B. 200.000 €" },
+    { key: "equity", label: "Angebotener Unternehmensanteil", placeholder: "z. B. 15 %" },
+    { key: "useOfFunds", label: "Verwendung der Mittel", placeholder: "Wofür wird das Geld eingesetzt?" },
+    { key: "founderBackground", label: "Hintergrund der Gründer", placeholder: "Wer ist das Team? Welche Erfahrung bringt es mit?" },
+  ],
 };
 
 const IMPL_FIELDS = {
@@ -90,6 +117,12 @@ const IMPL_FIELDS = {
     { key: "mvpFeatures", label: "MVP Features", placeholder: "Most important features for v1" },
     { key: "launchTimeline", label: "Launch Timeline", placeholder: "e.g. 3 months to MVP" },
     { key: "teamRoles", label: "Team Roles", placeholder: "e.g. 1 frontend, 1 backend, 1 designer" },
+  ],
+  de: [
+    { key: "techStack", label: "Bevorzugter Tech-Stack", placeholder: "z. B. Next.js, PostgreSQL, AWS" },
+    { key: "mvpFeatures", label: "MVP-Funktionen", placeholder: "Wichtigste Funktionen für Version 1" },
+    { key: "launchTimeline", label: "Launch-Zeitplan", placeholder: "z. B. 3 Monate bis zum MVP" },
+    { key: "teamRoles", label: "Teamrollen", placeholder: "z. B. 1 Frontend, 1 Backend, 1 Design" },
   ],
 };
 
@@ -112,8 +145,7 @@ function getDataKey(stage: Stage): "ideaData" | "financialData" | "proposalData"
 
 export default function StartupBuilderPage() {
   const { lang: uiLang } = useTranslation();
-  // German copy for this page isn't translated yet — fall back to English.
-  const lang: Lang = uiLang === "fa" ? "fa" : "en";
+  const lang: Lang = uiLang;
   const dir = lang === "fa" ? "rtl" : "ltr";
 
   const [projects, setProjects] = useState<Project[]>([]);
@@ -134,7 +166,7 @@ export default function StartupBuilderPage() {
       const res = await fetch("/api/startup");
       const data = await res.json();
       setProjects(data.projects || []);
-    } catch { toast.error(lang === "fa" ? "خطا در بارگذاری" : "Load error"); }
+    } catch { toast.error(t(lang, "خطا در بارگذاری", "Load error", "Fehler beim Laden")); }
     finally { setLoadingProjects(false); }
   }
 
@@ -154,17 +186,17 @@ export default function StartupBuilderPage() {
       setActiveStage("idea");
       setFormData({});
       setAiResult("");
-      toast.success(lang === "fa" ? "پروژه ساخته شد" : "Project created");
-    } catch { toast.error(lang === "fa" ? "خطا" : "Error"); }
+      toast.success(t(lang, "پروژه ساخته شد", "Project created", "Projekt erstellt"));
+    } catch { toast.error(t(lang, "خطا", "Error", "Fehler")); }
     finally { setCreating(false); }
   }
 
   async function deleteProject(id: string) {
-    if (!confirm(lang === "fa" ? "حذف شود؟" : "Delete?")) return;
+    if (!confirm(t(lang, "حذف شود؟", "Delete?", "Löschen?"))) return;
     await fetch(`/api/startup/${id}`, { method: "DELETE" });
     setProjects((p) => p.filter((x) => x.id !== id));
     if (selectedProject?.id === id) { setSelectedProject(null); setAiResult(""); }
-    toast.success(lang === "fa" ? "حذف شد" : "Deleted");
+    toast.success(t(lang, "حذف شد", "Deleted", "Gelöscht"));
   }
 
   function selectProject(p: Project) {
@@ -185,7 +217,7 @@ export default function StartupBuilderPage() {
     const fields = getFieldsForStage(activeStage, lang);
     const missing = fields.find((f) => !formData[f.key]?.trim());
     if (missing) {
-      toast.error(lang === "fa" ? `لطفاً "${missing.label}" را وارد کنید` : `Please fill in "${missing.label}"`);
+      toast.error(t(lang, `لطفاً "${missing.label}" را وارد کنید`, `Please fill in "${missing.label}"`, `Bitte "${missing.label}" ausfüllen`));
       return;
     }
 
@@ -210,7 +242,7 @@ export default function StartupBuilderPage() {
       });
       loadProjects();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : (lang === "fa" ? "خطا در تولید" : "Generation error"));
+      toast.error(err instanceof Error ? err.message : t(lang, "خطا در تولید", "Generation error", "Fehler bei der Generierung"));
     } finally {
       setLoading(false);
     }
@@ -239,10 +271,10 @@ export default function StartupBuilderPage() {
           </div>
           <div>
             <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-              {lang === "fa" ? "سازنده استارتاپ با AI" : "AI Startup Builder"}
+              {t(lang, "سازنده استارتاپ با AI", "AI Startup Builder", "KI-Startup-Builder")}
             </h1>
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              {lang === "fa" ? "ایده → مالی → پروپوزال → پیاده‌سازی — همه با هوش مصنوعی" : "Idea → Financial → Proposal → Implementation — all with AI"}
+              {t(lang, "ایده → مالی → پروپوزال → پیاده‌سازی — همه با هوش مصنوعی", "Idea → Financial → Proposal → Implementation — all with AI", "Idee → Finanzen → Vorschlag → Umsetzung — alles mit KI")}
             </p>
           </div>
         </div>
@@ -253,14 +285,14 @@ export default function StartupBuilderPage() {
         <div className="lg:col-span-1 space-y-3">
           <div className="p-4 rounded-2xl space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-              {lang === "fa" ? "پروژه جدید" : "New Project"}
+              {t(lang, "پروژه جدید", "New Project", "Neues Projekt")}
             </p>
             <div className="flex gap-2">
               <input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && createProject()}
-                placeholder={lang === "fa" ? "نام استارتاپ..." : "Startup name..."}
+                placeholder={t(lang, "نام استارتاپ...", "Startup name...", "Name des Startups...")}
                 className="flex-1 px-3 py-2 rounded-xl text-sm outline-none"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
               />
@@ -278,7 +310,7 @@ export default function StartupBuilderPage() {
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1">
               <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-                {lang === "fa" ? "پروژه‌های من" : "My Projects"}
+                {t(lang, "پروژه‌های من", "My Projects", "Meine Projekte")}
               </p>
               <button onClick={loadProjects} disabled={loadingProjects}>
                 <RefreshCw className={`w-3.5 h-3.5 ${loadingProjects ? "animate-spin" : ""}`} style={{ color: "var(--text-muted)" }} />
@@ -286,7 +318,7 @@ export default function StartupBuilderPage() {
             </div>
             {projects.length === 0 && !loadingProjects && (
               <p className="text-xs text-center py-6" style={{ color: "var(--text-muted)" }}>
-                {lang === "fa" ? "هنوز پروژه‌ای ندارید" : "No projects yet"}
+                {t(lang, "هنوز پروژه‌ای ندارید", "No projects yet", "Noch keine Projekte")}
               </p>
             )}
             {projects.map((p) => {
@@ -314,7 +346,7 @@ export default function StartupBuilderPage() {
                   <div className="flex items-center gap-1.5 mt-1.5">
                     <div className="w-2 h-2 rounded-full" style={{ background: stageInfo?.color || "#6b7280" }} />
                     <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      {lang === "fa" ? stageInfo?.labelFa : stageInfo?.labelEn}
+                      {lang === "fa" ? stageInfo?.labelFa : lang === "de" ? stageInfo?.labelDe : stageInfo?.labelEn}
                     </span>
                   </div>
                 </div>
@@ -329,10 +361,10 @@ export default function StartupBuilderPage() {
             <div className="flex flex-col items-center justify-center min-h-80 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px dashed var(--border)" }}>
               <Rocket className="w-14 h-14 mb-4 opacity-20" style={{ color: "var(--primary)" }} />
               <p className="font-semibold mb-1" style={{ color: "var(--text-primary)" }}>
-                {lang === "fa" ? "یک پروژه انتخاب یا بسازید" : "Select or create a project"}
+                {t(lang, "یک پروژه انتخاب یا بسازید", "Select or create a project", "Wählen oder erstellen Sie ein Projekt")}
               </p>
               <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                {lang === "fa" ? "از پنل سمت راست یک پروژه جدید بسازید" : "Create a new project from the left panel"}
+                {t(lang, "از پنل سمت راست یک پروژه جدید بسازید", "Create a new project from the left panel", "Erstellen Sie ein neues Projekt über das linke Panel")}
               </p>
             </div>
           ) : (
@@ -355,7 +387,7 @@ export default function StartupBuilderPage() {
                       }}
                     >
                       {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
-                      {lang === "fa" ? s.labelFa : s.labelEn}
+                      {lang === "fa" ? s.labelFa : lang === "de" ? s.labelDe : s.labelEn}
                     </button>
                   );
                 })}
@@ -366,7 +398,7 @@ export default function StartupBuilderPage() {
                 <div className="flex items-center gap-2 mb-2">
                   {(() => { const s = STAGES.find((x) => x.id === activeStage)!; const Icon = s.icon; return <div className="w-5 h-5" style={{ color: s.color }}><Icon className="w-5 h-5" /></div>; })()}
                   <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>
-                    {lang === "fa" ? STAGES.find((s) => s.id === activeStage)?.labelFa : STAGES.find((s) => s.id === activeStage)?.labelEn}
+                    {lang === "fa" ? STAGES.find((s) => s.id === activeStage)?.labelFa : lang === "de" ? STAGES.find((s) => s.id === activeStage)?.labelDe : STAGES.find((s) => s.id === activeStage)?.labelEn}
                   </h2>
                 </div>
 
@@ -392,9 +424,9 @@ export default function StartupBuilderPage() {
                   style={{ background: STAGES.find((s) => s.id === activeStage)?.color || "var(--primary)" }}
                 >
                   {loading ? (
-                    <><Loader2 className="w-5 h-5 animate-spin" /> {lang === "fa" ? "در حال تولید با AI..." : "Generating with AI..."}</>
+                    <><Loader2 className="w-5 h-5 animate-spin" /> {t(lang, "در حال تولید با AI...", "Generating with AI...", "Wird mit KI generiert...")}</>
                   ) : (
-                    <><Rocket className="w-5 h-5" /> {lang === "fa" ? "تولید با هوش مصنوعی" : "Generate with AI"} <ArrowRight className="w-4 h-4" /></>
+                    <><Rocket className="w-5 h-5" /> {t(lang, "تولید با هوش مصنوعی", "Generate with AI", "Mit KI generieren")} <ArrowRight className="w-4 h-4" /></>
                   )}
                 </button>
               </div>
@@ -405,7 +437,7 @@ export default function StartupBuilderPage() {
                   <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
                     <div className="flex items-center justify-between px-5 py-3 flex-wrap gap-2" style={{ background: "var(--surface-2)", borderBottom: "1px solid var(--border)" }}>
                       <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                        {lang === "fa" ? "نتیجه هوش مصنوعی" : "AI Result"}
+                        {t(lang, "نتیجه هوش مصنوعی", "AI Result", "KI-Ergebnis")}
                       </span>
                       <div className="flex gap-2">
                         {activeStage !== "implementation" && (
@@ -417,7 +449,7 @@ export default function StartupBuilderPage() {
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
                             style={{ background: "var(--primary)" }}
                           >
-                            {lang === "fa" ? "مرحله بعد" : "Next Stage"} <ChevronRight className="w-3.5 h-3.5" />
+                            {t(lang, "مرحله بعد", "Next Stage", "Nächste Stufe")} <ChevronRight className="w-3.5 h-3.5" />
                           </button>
                         )}
                         <button
@@ -426,7 +458,7 @@ export default function StartupBuilderPage() {
                           style={{ background: "var(--surface-1)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
                         >
                           <Download className="w-3.5 h-3.5" />
-                          {lang === "fa" ? "دانلود" : "Download"}
+                          {t(lang, "دانلود", "Download", "Herunterladen")}
                         </button>
                       </div>
                     </div>
@@ -461,14 +493,20 @@ export default function StartupBuilderPage() {
                       </div>
                       <div>
                         <h3 className="font-bold text-base mb-2" style={{ color: "var(--text-primary)" }}>
-                          {lang === "fa"
-                            ? "در صورت نیاز برای پیاده‌سازی استارتاپ توسط تیم حرفه‌ای و کامل AIFekr کلیک کنید"
-                            : "Need professional implementation? Click to connect with the AIFekr team"}
+                          {t(
+                            lang,
+                            "در صورت نیاز برای پیاده‌سازی استارتاپ توسط تیم حرفه‌ای و کامل AIFekr کلیک کنید",
+                            "Need professional implementation? Click to connect with the AIFekr team",
+                            "Brauchen Sie eine professionelle Umsetzung? Klicken Sie, um sich mit dem AIFekr-Team zu verbinden"
+                          )}
                         </h3>
                         <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
-                          {lang === "fa"
-                            ? "تیم متخصص ما ایده شما را از صفر تا محصول کامل پیاده‌سازی می‌کند"
-                            : "Our expert team takes your idea from zero to a complete product"}
+                          {t(
+                            lang,
+                            "تیم متخصص ما ایده شما را از صفر تا محصول کامل پیاده‌سازی می‌کند",
+                            "Our expert team takes your idea from zero to a complete product",
+                            "Unser Expertenteam führt Ihre Idee von null bis zum fertigen Produkt"
+                          )}
                         </p>
                         <Link
                           href="/startup/contact"
@@ -476,7 +514,7 @@ export default function StartupBuilderPage() {
                           style={{ background: "linear-gradient(135deg,#ea580c,#f97316)", boxShadow: "0 0 30px rgba(234,88,12,0.4)" }}
                         >
                           <Rocket className="w-5 h-5" />
-                          {lang === "fa" ? "درخواست پیاده‌سازی حرفه‌ای ←" : "Request Professional Implementation →"}
+                          {t(lang, "درخواست پیاده‌سازی حرفه‌ای ←", "Request Professional Implementation →", "Professionelle Umsetzung anfragen →")}
                         </Link>
                       </div>
                     </div>

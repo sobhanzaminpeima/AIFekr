@@ -93,12 +93,54 @@ const STR = {
     finalCtaDesc: "No credit card needed — start free",
     finalCtaButton: "Start Free",
   },
+  de: {
+    back: "Zurück zur Startseite",
+    heroEyebrow: "Autonomes Business-Betriebssystem",
+    heroTitle: "Ein komplettes Team von KI-Agenten, das für Sie arbeitet",
+    heroDesc: "AiFekr ist längst kein Einzweck-Tool mehr. Eine Kette aus 8 spezialisierten Agenten schreibt und veröffentlicht Inhalte, und ein KI-Geschäftsführer behält Ihr gesamtes Unternehmen im Blick, analysiert es und entscheidet, was wichtig ist — mit einem gemeinsamen Gedächtnis, das sich mit jedem Durchlauf verbessert.",
+    heroCta: "Kostenlos starten",
+    pipelineTitle: "Content-Pipeline — 8 Agenten, eine Kette",
+    pipelineDesc: "Die Ausgabe jedes Agenten ist die Eingabe des nächsten. Das Ergebnis: ein vollständiger, SEO-optimierter Artikel, bereit zur direkten Veröffentlichung auf Ihrer Website.",
+    agents: [
+      { title: "Ideenfinder", desc: "Findet 6-8 unterschiedliche Artikelideen für Ihre Branche." },
+      { title: "Content-Stratege", desc: "Wählt die beste Idee nach Nutzerwert und SEO-Potenzial aus." },
+      { title: "Rechercheur", desc: "Nutzt Live-Websuche für aktuelle, echte Fakten — keine Vermutungen." },
+      { title: "Autor", desc: "Schreibt einen vollständigen Entwurf im Ton Ihrer Marke." },
+      { title: "Lektor", desc: "Bewertet den Entwurf; ist die Note niedrig, geht er zur Überarbeitung zurück an den Autor." },
+      { title: "SEO-Experte", desc: "Optimiert Titel, Meta-Beschreibung, Slug und Keywords." },
+      { title: "Publisher", desc: "Veröffentlicht den freigegebenen Artikel direkt auf Ihrer WordPress-Website." },
+      { title: "Kritiker", desc: "Bewertet den veröffentlichten Beitrag und hält praktische Lehren für den nächsten Durchlauf fest." },
+    ],
+    loopTitle: "Eine echte Feedback-Schleife",
+    loopDesc: "Bewertet der Lektor den Entwurf niedrig, geht er automatisch zur Überarbeitung an den Autor zurück — bis zu mehreren Runden — bevor es zu SEO und Veröffentlichung weitergeht.",
+    memoryTitle: "Gemeinsames Gedächtnis — das System wird mit jedem Mal besser",
+    memoryDesc: "Nach jedem Durchlauf schreibt der Kritiker kurze, praktische Lehren für jeden Agenten (z. B. „kürzere Sätze schreiben“). Diese werden bei zukünftigen Durchläufen automatisch abgerufen. Sie können auch selbst Hinweise hinzufügen.",
+    doctorEyebrow: "Ein weiteres Mitglied des Teams",
+    doctorTitle: "Business-Doktor — Eine vollständige Diagnose, keine oberflächliche Antwort",
+    doctorDesc: "Ein simulierter Berater mit 20 Jahren Erfahrung, der Ihr Unternehmen wie eine Krankenakte untersucht und einen vollständigen Diagnosebericht liefert — dessen Ergebnisse fließen auch direkt in das gemeinsame Gedächtnis des CEO-Orchestrators ein.",
+    doctorFeatures: [
+      { title: "Vollständige SWOT-Analyse", desc: "Identifiziert die echten Stärken, Schwächen, Chancen und Risiken Ihres Unternehmens." },
+      { title: "Erkennung zentraler Herausforderungen", desc: "Findet die größten Wachstumshindernisse — auch solche, die Ihnen selbst vielleicht nicht aufgefallen sind." },
+      { title: "30/60/90-Tage-Aktionsplan", desc: "Eine konkrete, terminierte Roadmap für die nächsten drei Monate — statt allgemeiner Ratschläge." },
+      { title: "Wichtige Leistungskennzahlen (KPIs)", desc: "Definiert die Kennzahlen, mit denen Sie echten Fortschritt messen können." },
+    ],
+    ceoTitle: "KI-Geschäftsführer — Der reale Blick auf Ihr Unternehmen",
+    ceoDesc: "Ein eigener Agent, der den tatsächlichen Status all Ihrer Tools sieht und priorisiert — keine Demo, sondern eine Analyse auf Basis echter Daten.",
+    ceoFeatures: [
+      { title: "Echte Daten, keine Fiktion", desc: "Analysen des Business-Doktors, veröffentlichte Artikel, Social-Media-Beiträge, CRM-Kontakte mit Nachfassbedarf, Umsatz und Aktivität der letzten 30 Tage." },
+      { title: "Live-Markt- und Wettbewerbsrecherche", desc: "Durchsucht das Web nach den neuesten Trends und Wettbewerbern in Ihrer Branche." },
+      { title: "Entwürfe für Vertriebs-Follow-ups", desc: "Verfasst versandfertige Nachrichten für Kontakte, die nachgefasst werden müssen — Sie prüfen und senden." },
+      { title: "Automatischer täglicher Lauf", desc: "Aktivieren Sie ihn, damit er jeden Tag ohne Ihr Zutun läuft und eine Zusammenfassung per E-Mail sendet." },
+    ],
+    finalCtaTitle: "Testen Sie dieses System jetzt sofort",
+    finalCtaDesc: "Keine Kreditkarte nötig — kostenlos starten",
+    finalCtaButton: "Kostenlos starten",
+  },
 };
 
 export default async function AiTeamPage() {
   const lang = await getServerLang();
-  // German copy for this page isn't translated yet — fall back to English.
-  const s = STR[lang === "fa" ? "fa" : "en"];
+  const s = STR[lang];
   const dir = lang === "fa" ? "rtl" : "ltr";
 
   return (
