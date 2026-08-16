@@ -12,14 +12,20 @@ import { wrapUntrustedContent } from "@/lib/ai/promptSafety";
  * shape for every VoiceAgent; which agent/user a call belongs to is resolved
  * from the assistant id Vapi includes on every message.
  *
- * Auth: if VAPI_WEBHOOK_SECRET is set, Vapi is configured (dashboard →
- * Server URL Secret) to echo it back in the x-vapi-secret header on every
- * request — reject anything that doesn't match. Left optional so the route
- * still works before a real Vapi account is wired up.
+ * Auth: if VAPI_WEBHOOK_SECRET is set, reject anything that doesn't present
+ * it. Vapi's dashboard "Server URL" credential only offers OAuth 2.0 / HMAC /
+ * Bearer Token as custom-credential types (no plain "secret header" option),
+ * so this is configured as a Bearer Token credential in Vapi — sent as
+ * `Authorization: Bearer <secret>`. Also accepts the legacy `x-vapi-secret`
+ * header for forward-compat with older Vapi accounts that still send it.
+ * Left optional (passes when unset) so the route still works before a real
+ * Vapi account is wired up.
  */
 function verifySecret(req: NextRequest): boolean {
   const expected = process.env.VAPI_WEBHOOK_SECRET;
   if (!expected) return true;
+  const bearer = req.headers.get("authorization");
+  if (bearer === `Bearer ${expected}`) return true;
   return req.headers.get("x-vapi-secret") === expected;
 }
 
