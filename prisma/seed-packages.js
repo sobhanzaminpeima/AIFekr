@@ -30,6 +30,13 @@ const PACKAGES = [
     color: "#0ea5e9", isFeatured: true, sortOrder: 11,
     features: ["همه امکانات CRM انفرادی", "تا ۵ کاربر (agent/manager/owner)", "گزارش عملکرد تیم", "تخصیص و انتقال مخاطبین بین اعضا", "برای seat بیشتر با پشتیبانی تماس بگیرید"].join("\n"),
   },
+  // Voice Agent add-on — same independent-billing pattern as CRM_* above
+  // (see User.voicePlan / activatePlanForPayment's "VOICE_" branch).
+  {
+    planCode: "VOICE_MONTHLY", name: "ایجنت صوتی املاک", nameEn: "Voice Agent", price: 9900000, priceUsd: 3900, market: "BOTH", duration: 30, credits: 0,
+    color: "#16a34a", isFeatured: false, sortOrder: 20,
+    features: ["ایجنت صوتی نامحدود", "شماره تلفن اختصاصی هوشمند", "مدیریت ملک و رزرو بازدید", "تاریخچه و رونوشت تماس‌ها", "پیشنهاد خودکار ملک به تماس‌گیرنده"].join("\n"),
+  },
 ];
 
 async function main() {

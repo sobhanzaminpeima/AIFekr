@@ -10,6 +10,7 @@ const en = {
     assistants: "Assistants",
     businessDoctor: "Business Doctor",
     crm: "CRM",
+    voiceAgent: "Voice Agent",
     ceoAdvisor: "CEO Advisor",
     seoWorkspace: "SEO Workspace",
     socialMedia: "Social Media",

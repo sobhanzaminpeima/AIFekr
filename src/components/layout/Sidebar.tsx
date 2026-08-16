@@ -10,7 +10,7 @@ import {
   Briefcase, TrendingUp, ShoppingCart, Calculator, Salad,
   GraduationCap, Stethoscope, Languages, ChefHat, Dumbbell, Plane, Code2,
   Plus, History, HeartPulse, Search, Share2, Globe, Factory, Users,
-  FolderOpen, Folder, FolderPlus, X, Check, MoreHorizontal, Trash2, ArrowLeft, Zap, Rocket, Gift, Sparkles, FlaskConical,
+  FolderOpen, Folder, FolderPlus, X, Check, MoreHorizontal, Trash2, ArrowLeft, Zap, Rocket, Gift, Sparkles, FlaskConical, Phone,
 } from "lucide-react";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
@@ -244,6 +244,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
               <div className="space-y-0.5">
                 <NavItem icon={HeartPulse} label={t.nav.businessDoctor} href="/business-doctor" active={isActive("/business-doctor")} />
                 <NavItem icon={Briefcase} label={t.nav.crm} href="/crm" active={isActive("/crm")} />
+                <NavItem icon={Phone} label={t.nav.voiceAgent} href="/voice-agent" active={isActive("/voice-agent")} />
                 <NavItem icon={Crown} label={t.nav.ceoAdvisor} href="/ceo" active={isActive("/ceo")} />
                 <NavItem icon={Search} label={t.nav.seoWorkspace} href="/seo" active={isActive("/seo")} />
                 <NavItem icon={Share2} label={t.nav.socialMedia} href="/social" active={isActive("/social")} />

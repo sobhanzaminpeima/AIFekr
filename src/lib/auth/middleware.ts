@@ -23,6 +23,8 @@ export async function requireAuth(req: NextRequest) {
       isBlocked: true,
       crmPlan: true,
       crmPlanExpiry: true,
+      voicePlan: true,
+      voicePlanExpiry: true,
     },
   });
 

@@ -18,6 +18,10 @@ model User {
   plan              String    @default("FREE")
   credits           Int       @default(100)
   planExpiry        DateTime?
+  /// Voice Agent add-on tier, purchased and billed separately from `plan` —
+  /// same pattern as crmPlan. "NONE" | "ACTIVE".
+  voicePlan         String    @default("NONE")
+  voicePlanExpiry   DateTime?
   /// CRM add-on tier, purchased and billed separately from `plan` (the AI-usage
   /// tier) — buying CRM must never overwrite a user's AI plan. "NONE" | "SOLO" | "TEAM".
   crmPlan           String    @default("NONE")
@@ -84,6 +88,11 @@ model User {
   startupInquiries    StartupInquiry[]
   ceoTasks            CeoTask[]
   boardroomSessions   BoardroomSession[]
+  voiceAgents         VoiceAgent[]
+  voiceProperties     VoiceProperty[]
+  voiceCallLogs       VoiceCallLog[]
+  voiceAppointments   VoiceAppointment[]
+  voiceKnowledgeBase  VoiceKnowledgeBase[]
 
   @@index([industryPackId])
 }
@@ -1221,4 +1230,140 @@ model BoardroomSession {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+/// ── Voice Agent add-on (AI real-estate calling agent) ──────────────────────
+/// Gated by User.voicePlan, same pattern as crmPlan. One user can run multiple
+/// named agents (e.g. "Buyer Line", "Rental Line"), each backed by a Vapi
+/// assistant + phone number. See src/lib/voice/workspace.ts for the gate and
+/// src/lib/voice/vapiClient.ts for the Vapi API wrapper.
+model VoiceAgent {
+  id                String   @id @default(cuid())
+  userId            String
+  name              String
+  /// "buy" | "sell" | "rent" | "general" — shapes the default system prompt.
+  focus             String   @default("general")
+  systemPrompt      String
+  /// Vapi voice id (e.g. "jennifer") — cosmetic, defaults server-side if unset.
+  voiceId           String?
+  /// E.164 phone number assigned to this agent once provisioned via Vapi.
+  phoneNumber       String?
+  vapiAssistantId   String?
+  vapiPhoneNumberId String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  properties    VoiceProperty[]
+  calls         VoiceCallLog[]
+  appointments  VoiceAppointment[]
+  knowledgeBase VoiceKnowledgeBase[]
+
+  @@index([userId])
+}
+
+/// A Q&A / policy / info snippet the agent can pull from mid-call when a
+/// caller asks something outside the property-search/booking flow (opening
+/// hours, financing terms, company policy, etc.) — a lightweight knowledge
+/// base, not a vector index. `agentId` null means it applies to every one of
+/// the user's agents; set means it's specific to that one agent.
+model VoiceKnowledgeBase {
+  id        String   @id @default(cuid())
+  userId    String
+  agentId   String?
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent VoiceAgent? @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([agentId])
+}
+
+/// A listing the agent can reference/offer during a call. Kept separate from
+/// any future generic "Property" model — intentionally scoped to this add-on.
+model VoiceProperty {
+  id           String   @id @default(cuid())
+  userId       String
+  agentId      String?
+  title        String
+  /// "buy" | "sell" | "rent"
+  listingType  String
+  propertyType String   @default("apartment")
+  /// Price in Toman.
+  /// BigInt, not Int — Toman real-estate prices routinely exceed 2.1B (Int32 max).
+  price        BigInt
+  address      String
+  city         String?
+  bedrooms     Int?
+  bathrooms    Int?
+  areaSqm      Int?
+  description  String?
+  status       String   @default("available") // available | pending | sold | rented
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent        VoiceAgent?        @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  appointments VoiceAppointment[]
+
+  @@index([userId])
+  @@index([agentId])
+}
+
+/// One row per phone call handled by a VoiceAgent, populated from Vapi's
+/// end-of-call-report webhook (see src/app/api/webhooks/vapi/route.ts).
+model VoiceCallLog {
+  id           String    @id @default(cuid())
+  userId       String
+  agentId      String
+  vapiCallId   String?   @unique
+  callerPhone  String?
+  direction    String    @default("inbound") // inbound | outbound
+  status       String    @default("in_progress") // in_progress | completed | failed | no_answer
+  /// qualified | not_interested | appointment_booked | callback_requested | unknown
+  outcome      String?
+  transcript   String?
+  summary      String?
+  durationSec  Int?
+  recordingUrl String?
+  /// Call cost in USD, as reported by Vapi.
+  cost         Float?
+  createdAt    DateTime  @default(now())
+  endedAt      DateTime?
+
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent       VoiceAgent        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  appointment VoiceAppointment?
+
+  @@index([userId])
+  @@index([agentId])
+}
+
+/// A property viewing booked by the agent during (or after) a call.
+model VoiceAppointment {
+  id          String   @id @default(cuid())
+  userId      String
+  agentId     String
+  propertyId  String?
+  callLogId   String?  @unique
+  leadName    String?
+  leadPhone   String?
+  scheduledAt DateTime
+  status      String   @default("pending") // pending | confirmed | completed | cancelled | no_show
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent    VoiceAgent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  property VoiceProperty? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  callLog  VoiceCallLog?  @relation(fields: [callLogId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([agentId])
 }

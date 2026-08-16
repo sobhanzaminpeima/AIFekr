@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, CreditCard, DollarSign, Bot, Wrench,
   Activity, Settings, LogOut, Sparkles, Shield, MessageSquare,
   HelpCircle, Package, UserCog, Database, Cpu, Contact,
-  ChevronDown, Factory, Building2, Tag, Clock, Globe, Coins, Rocket, BarChart2,
+  ChevronDown, Factory, Building2, Tag, Clock, Globe, Coins, Rocket, BarChart2, Phone,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -23,6 +23,7 @@ const navGroups = [
       { icon: Users, label: "کاربران", href: "/admin/users" },
       { icon: UserCog, label: "مدیران سیستم", href: "/admin/admins" },
       { icon: Contact, label: "CRM", href: "/admin/crm" },
+      { icon: Phone, label: "ایجنت صوتی", href: "/admin/voice-agent" },
     ],
   },
   {

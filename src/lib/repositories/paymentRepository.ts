@@ -82,6 +82,16 @@ export async function activatePlanForPayment(
     return expiry;
   }
 
+  // Voice Agent add-on — same independent-billing pattern as CRM_* above:
+  // must never touch/overwrite the user's AI-usage `plan`.
+  if (payment.plan.startsWith("VOICE_")) {
+    await prisma.$transaction([
+      prisma.payment.update({ where: { id: payment.id }, data: { status: "SUCCESS", refId, authority } }),
+      prisma.user.update({ where: { id: payment.userId }, data: { voicePlan: "ACTIVE", voicePlanExpiry: expiry } }),
+    ]);
+    return expiry;
+  }
+
   if (payment.plan === "TEAM") {
     const existingTeam = await prisma.team.findUnique({ where: { ownerId: payment.userId } });
     await prisma.$transaction([
