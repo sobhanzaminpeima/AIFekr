@@ -35,8 +35,23 @@ export async function GET(req: NextRequest) {
       prisma.usageLog.count({ where: { createdAt: { gte: todayStart } } }),
       prisma.usageLog.count({ where: { createdAt: { gte: yesterdayStart, lt: todayStart } } }),
       prisma.user.groupBy({ by: ["plan"], _count: true }),
-      prisma.usageLog.findMany({ take: 10, orderBy: { createdAt: "desc" }, include: { user: { select: { name: true, email: true } } } }),
+      // Not using `include: { user: ... }` — some UsageLog rows have a userId
+      // pointing to a since-deleted user, and Prisma's required-relation
+      // include throws for the whole query in that case (see logs route for
+      // the same issue). Fetch separately and join in JS instead.
+      prisma.usageLog.findMany({ take: 10, orderBy: { createdAt: "desc" } }),
     ]);
+
+    const activityUserIds = Array.from(new Set(recentActivity.map((l) => l.userId)));
+    const activityUsers = await prisma.user.findMany({
+      where: { id: { in: activityUserIds } },
+      select: { id: true, name: true, email: true },
+    });
+    const activityUserById = new Map(activityUsers.map((u) => [u.id, u]));
+    const recentActivityWithUser = recentActivity.map((l) => ({
+      ...l,
+      user: activityUserById.get(l.userId) || null,
+    }));
 
     // Revenue last 30 days
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
@@ -70,7 +85,7 @@ export async function GET(req: NextRequest) {
       },
       planDistribution: planDistribution.map((p) => ({ plan: p.plan, count: p._count })),
       revenueByDay,
-      recentActivity,
+      recentActivity: recentActivityWithUser,
     });
   } catch (err) {
     console.error("admin stats error:", err);

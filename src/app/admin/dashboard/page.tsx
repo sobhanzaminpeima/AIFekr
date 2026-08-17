@@ -34,11 +34,16 @@ export default function AdminDashboard() {
   const [planDist, setPlanDist] = useState<{ plan: string; count: number }[]>([]);
   const [revenueByDay, setRevenueByDay] = useState<{ date: string; revenue: number }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const fetchStats = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/stats");
-      if (!res.ok) return;
+      if (!res.ok) {
+        setError(true);
+        return;
+      }
+      setError(false);
       const data = await res.json();
       setStats(data.stats);
       setPlanDist(data.planDistribution);
@@ -84,6 +89,12 @@ export default function AdminDashboard() {
           بروزرسانی
         </button>
       </div>
+
+      {error && (
+        <div className="p-4 rounded-xl text-sm" style={{ background: "rgba(239,68,68,0.1)", color: "var(--danger)" }}>
+          خطا در دریافت آمار داشبورد. لطفاً دوباره تلاش کنید.
+        </div>
+      )}
 
       {/* Stat cards */}
       {stats && (

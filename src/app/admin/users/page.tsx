@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Filter, ChevronLeft, ChevronRight, MoreVertical, Ban, Coins, UserCheck, Trash2, Loader2, Repeat } from "lucide-react";
+import { Search, Filter, ChevronLeft, ChevronRight, MoreVertical, Ban, Coins, UserCheck, Trash2, Loader2, Repeat, Plus } from "lucide-react";
 import { toJalali, formatNumber } from "@/lib/utils/jalali";
 import toast from "react-hot-toast";
 
@@ -37,6 +37,9 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [actionUserId, setActionUserId] = useState<string | null>(null);
   const [planMenuUserId, setPlanMenuUserId] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [addForm, setAddForm] = useState({ name: "", email: "", phone: "", password: "", plan: "FREE" });
+  const [addSaving, setAddSaving] = useState(false);
 
   useEffect(() => {
     if (!actionUserId) return;
@@ -55,13 +58,45 @@ export default function AdminUsersPage() {
       const params = new URLSearchParams({ page: page.toString(), search, plan: planFilter });
       const res = await fetch(`/api/admin/users?${params}`);
       const data = await res.json();
-      setUsers(data.users);
-      setTotal(data.total);
-      setTotalPages(data.totalPages);
+      if (!res.ok) {
+        setUsers([]);
+        setTotal(0);
+        setTotalPages(1);
+        toast.error(data.error || "خطا در دریافت کاربران");
+        return;
+      }
+      setUsers(data.users ?? []);
+      setTotal(data.total ?? 0);
+      setTotalPages(data.totalPages ?? 1);
     } finally {
       setLoading(false);
     }
   }, [page, search, planFilter]);
+
+  async function addUser() {
+    if (!addForm.name.trim()) return toast.error("نام الزامی است");
+    if (!addForm.email && !addForm.phone) return toast.error("ایمیل یا موبایل الزامی است");
+    if (addForm.password.length < 6) return toast.error("رمز عبور حداقل ۶ کاراکتر باشد");
+    setAddSaving(true);
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(addForm),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "خطا در ایجاد کاربر");
+        return;
+      }
+      toast.success("کاربر ایجاد شد");
+      setShowAdd(false);
+      setAddForm({ name: "", email: "", phone: "", password: "", plan: "FREE" });
+      fetchUsers();
+    } finally {
+      setAddSaving(false);
+    }
+  }
 
   useEffect(() => {
     const timeout = setTimeout(fetchUsers, 300);
@@ -122,6 +157,9 @@ export default function AdminUsersPage() {
           <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>مدیریت کاربران</h1>
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{formatNumber(total)} کاربر</p>
         </div>
+        <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
+          <Plus className="w-4 h-4" /> افزودن کاربر
+        </button>
       </div>
 
       {/* Filters */}
@@ -154,7 +192,7 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+      <div className="rounded-2xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--primary)" }} />
@@ -169,8 +207,9 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => {
+              {users.map((user, idx) => {
                 const badge = PLAN_BADGE[user.plan];
+                const openUp = idx >= users.length - 3;
                 return (
                   <tr key={user.id} style={{ borderBottom: "1px solid var(--border)" }} className="hover:bg-white/2 transition-colors">
                     <td className="px-4 py-3 cursor-pointer" onClick={() => router.push(`/admin/users/${user.id}`)}>
@@ -201,7 +240,7 @@ export default function AdminUsersPage() {
                         <MoreVertical className="w-4 h-4" />
                       </button>
                       {actionUserId === user.id && planMenuUserId !== user.id && (
-                        <div className="absolute left-0 top-full z-50 mt-1 w-44 rounded-xl overflow-hidden shadow-xl" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                        <div className={`absolute left-0 z-50 w-44 rounded-xl overflow-hidden shadow-xl ${openUp ? "bottom-full mb-1" : "top-full mt-1"}`} style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
                           <ActionItem icon={user.isBlocked ? UserCheck : Ban} label={user.isBlocked ? "آزادسازی" : "مسدودسازی"} onClick={() => toggleBlock(user.id, user.isBlocked)} danger={!user.isBlocked} />
                           <ActionItem icon={Coins} label="افزایش اعتبار" onClick={() => addCredits(user.id)} />
                           <ActionItem icon={Repeat} label="تغییر پلن" onClick={() => setPlanMenuUserId(user.id)} />
@@ -209,7 +248,7 @@ export default function AdminUsersPage() {
                         </div>
                       )}
                       {actionUserId === user.id && planMenuUserId === user.id && (
-                        <div className="absolute left-0 top-full z-50 mt-1 w-44 rounded-xl overflow-hidden shadow-xl" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                        <div className={`absolute left-0 z-50 w-44 rounded-xl overflow-hidden shadow-xl ${openUp ? "bottom-full mb-1" : "top-full mt-1"}`} style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
                           <div className="px-3 py-2 text-xs font-medium" style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
                             انتخاب پلن جدید
                           </div>
@@ -256,6 +295,50 @@ export default function AdminUsersPage() {
             >
               <ChevronLeft className="w-4 h-4" style={{ color: "var(--text-primary)" }} />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Add user modal */}
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}>
+          <div className="w-full max-w-md rounded-2xl p-6 space-y-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+            <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>افزودن کاربر جدید</h2>
+            <div>
+              <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>نام</label>
+              <input value={addForm.name} onChange={(e) => setAddForm((p) => ({ ...p, name: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>ایمیل</label>
+                <input value={addForm.email} onChange={(e) => setAddForm((p) => ({ ...p, email: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>موبایل</label>
+                <input value={addForm.phone} onChange={(e) => setAddForm((p) => ({ ...p, phone: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>رمز عبور</label>
+              <input type="password" value={addForm.password} onChange={(e) => setAddForm((p) => ({ ...p, password: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+            <div>
+              <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>پلن</label>
+              <select value={addForm.plan} onChange={(e) => setAddForm((p) => ({ ...p, plan: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                {Object.keys(PLAN_BADGE).map((p) => <option key={p} value={p}>{PLAN_BADGE[p].label}</option>)}
+              </select>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button onClick={addUser} disabled={addSaving} className="flex-1 py-2 rounded-xl font-semibold text-sm text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+                {addSaving ? "در حال ذخیره..." : "افزودن"}
+              </button>
+              <button onClick={() => setShowAdd(false)} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>انصراف</button>
+            </div>
           </div>
         </div>
       )}
