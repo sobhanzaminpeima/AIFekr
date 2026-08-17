@@ -95,7 +95,7 @@ async function handleToolCall(tc: VapiToolCall, message: VapiMessage) {
     const { listingType, propertyType, city, maxPrice } = args as {
       listingType?: string; propertyType?: string; city?: string; maxPrice?: number;
     };
-    const matches = await prisma.voiceProperty.findMany({
+    const matches = await prisma.property.findMany({
       where: {
         userId: agent.userId,
         status: "available",
@@ -149,7 +149,7 @@ async function handleToolCall(tc: VapiToolCall, message: VapiMessage) {
     if (!leadName || !leadPhone || !scheduledAt || isNaN(scheduledAt.getTime())) {
       return { toolCallId: tc.id, result: "برای رزرو، نام، شماره تماس و زمان معتبر لازم است." };
     }
-    const property = propertyId ? await prisma.voiceProperty.findUnique({ where: { id: propertyId } }) : null;
+    const property = propertyId ? await prisma.property.findUnique({ where: { id: propertyId } }) : null;
 
     const appointment = await prisma.voiceAppointment.create({
       data: {

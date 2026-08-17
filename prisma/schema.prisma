@@ -89,7 +89,7 @@ model User {
   ceoTasks            CeoTask[]
   boardroomSessions   BoardroomSession[]
   voiceAgents         VoiceAgent[]
-  voiceProperties     VoiceProperty[]
+  voiceProperties     Property[]
   voiceCallLogs       VoiceCallLog[]
   voiceAppointments   VoiceAppointment[]
   voiceKnowledgeBase  VoiceKnowledgeBase[]
@@ -409,6 +409,7 @@ model CrmContact {
   notesList  CrmNote[]
   projects   CrmProject[]
   voiceCallLogs VoiceCallLog[]
+  properties Property[]
 
   @@index([userId])
   @@index([status])
@@ -484,6 +485,7 @@ model CrmDeal {
   contracts  CrmContract[]
   dealProducts CrmDealProduct[]
   projects   CrmProject[]
+  properties Property[]
 
   @@index([userId])
   @@index([contactId])
@@ -1303,7 +1305,7 @@ model VoiceAgent {
   updatedAt         DateTime @updatedAt
 
   user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  properties    VoiceProperty[]
+  properties    Property[]
   calls         VoiceCallLog[]
   appointments  VoiceAppointment[]
   knowledgeBase VoiceKnowledgeBase[]
@@ -1334,10 +1336,25 @@ model VoiceKnowledgeBase {
 
 /// A listing the agent can reference/offer during a call. Kept separate from
 /// any future generic "Property" model — intentionally scoped to this add-on.
-model VoiceProperty {
+/// Industry-agnostic "extension record" attached to a CRM contact/deal —
+/// currently only populated by the real-estate voice agent (hence the
+/// mapped table name, kept as-is to avoid a physical rename), but the shape
+/// (owner + optional CrmContact/CrmDeal links + industry-specific columns)
+/// is the reusable pattern for any future industry needing structured
+/// records beyond CrmContact/CrmDeal's generic customFields JSON blob
+/// (e.g. a future VehicleRecord for a car dealership would follow the same
+/// shape: its own table, optional FKs into CRM, zero changes to CRM core).
+model Property {
   id           String   @id @default(cuid())
   userId       String
   agentId      String?
+  /// Optional link to the CRM lead interested in / associated with this
+  /// property (a contact may be linked to several properties they're
+  /// browsing). Nullable — a property can exist with no CRM contact yet.
+  crmContactId String?
+  /// Optional link to the specific deal this property is being sold/rented
+  /// through — set once a contact's interest turns into an active deal.
+  crmDealId    String?
   title        String
   /// "buy" | "sell" | "rent"
   listingType  String
@@ -1357,10 +1374,15 @@ model VoiceProperty {
 
   user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   agent        VoiceAgent?        @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  crmContact   CrmContact?        @relation(fields: [crmContactId], references: [id], onDelete: SetNull)
+  crmDeal      CrmDeal?           @relation(fields: [crmDealId], references: [id], onDelete: SetNull)
   appointments VoiceAppointment[]
 
   @@index([userId])
   @@index([agentId])
+  @@index([crmContactId])
+  @@index([crmDealId])
+  @@map("VoiceProperty")
 }
 
 /// One row per phone call handled by a VoiceAgent, populated from Vapi's
@@ -1415,7 +1437,7 @@ model VoiceAppointment {
 
   user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   agent    VoiceAgent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  property VoiceProperty? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  property Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   callLog  VoiceCallLog?  @relation(fields: [callLogId], references: [id], onDelete: SetNull)
 
   @@index([userId])

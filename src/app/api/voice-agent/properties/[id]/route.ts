@@ -10,13 +10,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!user) return unauthorizedResponse();
   const { id } = await params;
 
-  const existing = await prisma.voiceProperty.findUnique({ where: { id } });
+  const existing = await prisma.property.findUnique({ where: { id } });
   if (!existing || existing.userId !== user.id) return NextResponse.json({ error: "ملک یافت نشد" }, { status: 404 });
 
   const body = await req.json();
   const { title, price, address, city, bedrooms, bathrooms, areaSqm, description, status } = body;
 
-  const updated = await prisma.voiceProperty.update({
+  const updated = await prisma.property.update({
     where: { id },
     data: {
       title: typeof title === "string" && title.trim() ? title.trim() : undefined,
@@ -38,9 +38,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!user) return unauthorizedResponse();
   const { id } = await params;
 
-  const existing = await prisma.voiceProperty.findUnique({ where: { id } });
+  const existing = await prisma.property.findUnique({ where: { id } });
   if (!existing || existing.userId !== user.id) return NextResponse.json({ error: "ملک یافت نشد" }, { status: 404 });
 
-  await prisma.voiceProperty.delete({ where: { id } });
+  await prisma.property.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

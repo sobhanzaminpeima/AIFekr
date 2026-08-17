@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
 
-  const properties = await prisma.voiceProperty.findMany({
+  const properties = await prisma.property.findMany({
     where: { userId: user.id, ...(status ? { status } : {}) },
     orderBy: { updatedAt: "desc" },
     take: 500,
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     if (!agent || agent.userId !== user.id) return NextResponse.json({ error: "ایجنت نامعتبر است" }, { status: 400 });
   }
 
-  const property = await prisma.voiceProperty.create({
+  const property = await prisma.property.create({
     data: {
       userId: user.id,
       agentId: agentId || undefined,
