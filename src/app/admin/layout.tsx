@@ -14,12 +14,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const payload = verifyToken(token);
   if (!payload) redirect("/login");
 
-  if (payload.role !== "ADMIN" && payload.role !== "SUPER_ADMIN") redirect("/chat");
-
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { name: true, role: true },
+    select: { name: true, role: true, isBlocked: true },
   });
+
+  if (!user || user.isBlocked) redirect("/login");
+  if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") redirect("/chat");
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "var(--surface-0)" }}>
