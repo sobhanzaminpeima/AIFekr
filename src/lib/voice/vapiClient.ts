@@ -109,8 +109,22 @@ const REAL_ESTATE_TOOLS = [
   {
     type: "function",
     function: {
+      name: "check_property_status",
+      description: "بررسی وضعیت فعلی یک ملک (موجود/رزرو شده/فروخته شده) — همیشه قبل از پیشنهاد بازدید یا رزرو وقت برای یک ملک خاص این را چک کن تا به تماس‌گیرنده ملکی که دیگر موجود نیست پیشنهاد نشود.",
+      parameters: {
+        type: "object",
+        properties: {
+          propertyId: { type: "string" },
+        },
+        required: ["propertyId"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "book_appointment",
-      description: "رزرو وقت بازدید ملک برای تماس‌گیرنده پس از تعیین ملک مورد نظر و زمان دلخواه.",
+      description: "رزرو وقت بازدید ملک برای تماس‌گیرنده پس از تعیین ملک مورد نظر و زمان دلخواه. اگر زمان درخواستی با نوبت دیگری تداخل داشته باشد، زمان‌های آزاد نزدیک پیشنهاد می‌شود.",
       parameters: {
         type: "object",
         properties: {

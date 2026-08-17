@@ -113,6 +113,24 @@ async function handleToolCall(tc: VapiToolCall, message: VapiMessage) {
     return { toolCallId: tc.id, result: summary };
   }
 
+  if (tc.function.name === "check_property_status") {
+    if (!agent) return { toolCallId: tc.id, result: "ایجنت یافت نشد" };
+    const { propertyId } = args as { propertyId?: string };
+    if (!propertyId) return { toolCallId: tc.id, result: "شناسه ملک ارسال نشده است." };
+    const property = await prisma.property.findUnique({ where: { id: String(propertyId) } });
+    if (!property || property.userId !== agent.userId) {
+      return { toolCallId: tc.id, result: "ملکی با این شناسه یافت نشد." };
+    }
+    const STATUS_LABELS: Record<string, string> = {
+      available: "موجود و قابل بازدید",
+      pending: "در حال معامله (رزرو شده)",
+      sold: "فروخته شده",
+      rented: "اجاره داده شده",
+    };
+    const label = STATUS_LABELS[property.status] || property.status;
+    return { toolCallId: tc.id, result: `وضعیت فعلی «${property.title}»: ${label}.${property.status !== "available" ? " این ملک را برای بازدید پیشنهاد نده." : ""}` };
+  }
+
   if (tc.function.name === "search_knowledge_base") {
     if (!agent) return { toolCallId: tc.id, result: "ایجنت یافت نشد" };
     const { query } = args as { query?: string };
@@ -150,6 +168,30 @@ async function handleToolCall(tc: VapiToolCall, message: VapiMessage) {
       return { toolCallId: tc.id, result: "برای رزرو، نام، شماره تماس و زمان معتبر لازم است." };
     }
     const property = propertyId ? await prisma.property.findUnique({ where: { id: propertyId } }) : null;
+
+    // Double-booking guard — no calendar system exists yet, so treat any
+    // other non-cancelled appointment for this agent within a 30-minute
+    // window of the requested time as a conflict, rather than silently
+    // stacking two visits on top of each other.
+    const CONFLICT_WINDOW_MS = 30 * 60 * 1000;
+    const conflict = await prisma.voiceAppointment.findFirst({
+      where: {
+        agentId: agent.id,
+        status: { in: ["pending", "confirmed"] },
+        scheduledAt: {
+          gte: new Date(scheduledAt.getTime() - CONFLICT_WINDOW_MS),
+          lte: new Date(scheduledAt.getTime() + CONFLICT_WINDOW_MS),
+        },
+      },
+      orderBy: { scheduledAt: "asc" },
+    });
+    if (conflict) {
+      const suggestion = new Date(conflict.scheduledAt.getTime() + CONFLICT_WINDOW_MS + 15 * 60 * 1000);
+      return {
+        toolCallId: tc.id,
+        result: `این بازه زمانی قبلاً رزرو شده است (نوبت دیگری در ${conflict.scheduledAt.toLocaleString("fa-IR")} ثبت شده). زمان جایگزین مثلاً ${suggestion.toLocaleString("fa-IR")} را به تماس‌گیرنده پیشنهاد بده و در صورت تأیید دوباره با همان زمان جدید این ابزار را فراخوانی کن.`,
+      };
+    }
 
     const appointment = await prisma.voiceAppointment.create({
       data: {
