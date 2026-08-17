@@ -42,3 +42,33 @@ export function getSalesPlaybook(industrySlug: string | null | undefined): Indus
   if (!industrySlug) return null;
   return salesPlaybooks.get(industrySlug) || null;
 }
+
+export interface GeneratedSocialPost {
+  caption: string;
+  hashtags: string[];
+  bestTime: string;
+}
+
+export interface IndustrySocialContentPack {
+  slug: string;
+  /**
+   * Builds a ready-to-post Instagram caption/hashtags from a record this
+   * pack owns (a real-estate Property row, keyed by id) — never invoked
+   * with a generic businessName/topic, since the record itself carries
+   * enough structured data (price, address, deal type, ...) to skip manual
+   * prompt engineering entirely. Returns null on missing/foreign-owned
+   * record or any generation failure — caller falls back to the generic
+   * businessName/businessType/topic flow.
+   */
+  buildInstagramPost(userId: string, recordId: string, lang: "fa" | "en"): Promise<GeneratedSocialPost | null>;
+}
+
+const socialContentPacks = new Map<string, IndustrySocialContentPack>();
+
+export function registerSocialContentPack(pack: IndustrySocialContentPack) {
+  socialContentPacks.set(pack.slug, pack);
+}
+
+export function getSocialContentPack(slug: string): IndustrySocialContentPack | null {
+  return socialContentPacks.get(slug) || null;
+}

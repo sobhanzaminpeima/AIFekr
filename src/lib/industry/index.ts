@@ -3,5 +3,6 @@
 // here) to make it available; nothing in src/lib/agents should ever import
 // an industry-specific module directly.
 import "./realEstate/salesPlaybook";
+import "./realEstate/socialContentPack";
 
 export * from "./registry";

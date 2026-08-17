@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { generateIgContent } from "@/lib/instagram";
+import { getSocialContentPack } from "@/lib/industry";
 
 // Structured counterpart to /api/social/generate — that one streams free
 // -form markdown; this returns strict JSON (caption, exactly 5 hashtags,
@@ -11,11 +12,25 @@ export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
-  const { businessName, businessType, topic, language, model } = await req.json();
+  const { businessName, businessType, topic, language, model, propertyId } = await req.json();
+  const lang = language === "en" ? "en" : "fa";
+
+  // Real-estate content pack — only ever engages when the caller explicitly
+  // passes a propertyId they own (see src/lib/industry/realEstate/socialContentPack.ts).
+  // Every other business keeps calling this route exactly as before; this
+  // branch is a no-op for them since they never send a propertyId.
+  if (propertyId) {
+    const pack = getSocialContentPack("real-estate");
+    const packResult = pack ? await pack.buildInstagramPost(user.id, String(propertyId), lang) : null;
+    if (packResult) return NextResponse.json(packResult);
+    // Falls through to the generic flow below if the pack couldn't produce
+    // a result (foreign/missing property, generation failure) — never a
+    // hard error just because the specialized path didn't pan out.
+  }
+
   if (!businessName || !businessType) {
     return NextResponse.json({ error: "نام و نوع کسب‌وکار الزامی است" }, { status: 400 });
   }
-  const lang = language === "en" ? "en" : "fa";
 
   try {
     const result = await generateIgContent(businessName, businessType, topic || "", lang, model);
