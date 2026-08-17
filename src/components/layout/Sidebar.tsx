@@ -500,7 +500,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
           {/* JARVIS link temporarily disabled on the site per request — SSO route itself untouched. */}
           <div className="flex items-center justify-center gap-1.5">
             <NotificationBell iconOnly />
-            <LanguageSwitcher iconOnly />
+            <LanguageSwitcher iconOnly dropUp />
             <ThemeSwitcher iconOnly />
             <CurrencySelector iconOnly />
           </div>

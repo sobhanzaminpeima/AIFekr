@@ -92,12 +92,19 @@ export default function MobileNavShell({
       <div className="hidden md:flex md:h-full">{sidebar}</div>
 
       {/* Main content */}
-      <main className={`flex-1 overflow-y-auto pt-[calc(52px+env(safe-area-inset-top))] pb-[calc(56px+env(safe-area-inset-bottom))] md:pb-0 relative ${isChatPage ? "md:pt-0" : "md:pt-14"}`}>
+      {/* Business pages (CEO/SEO/Social/...) each render their own header row
+          with a secondary action button pushed to the flex "end" side, which
+          in RTL lands on the same left corner as the floating search trigger
+          below — pt-14 (56px) wasn't enough vertical clearance to keep them
+          from visually touching. Bumped to pt-20 (80px) and the trigger
+          nudged down to top-4 so there's a real gap between them regardless
+          of how tall a given page's own header happens to be. */}
+      <main className={`flex-1 overflow-y-auto pt-[calc(52px+env(safe-area-inset-top))] pb-[calc(56px+env(safe-area-inset-bottom))] md:pb-0 relative ${isChatPage ? "md:pt-0" : "md:pt-20"}`}>
         {/* /chat renders its own compact search icon inline next to its header
             controls (see ChatInterface.tsx) — the floating trigger would sit
             directly above that row and read as a redundant, disconnected line. */}
         {!isChatPage && (
-          <div className="hidden md:block fixed top-3 z-40" style={{ [dir === "rtl" ? "left" : "right"]: 16 }}>
+          <div className="hidden md:block fixed top-4 z-40" style={{ [dir === "rtl" ? "left" : "right"]: 16 }}>
             <CommandPalette />
           </div>
         )}

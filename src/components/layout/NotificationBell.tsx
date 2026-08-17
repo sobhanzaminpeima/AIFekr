@@ -124,7 +124,7 @@ export default function NotificationBell({ iconOnly = true }: { iconOnly?: boole
       {open && (
         <div
           dir={dir}
-          className="absolute z-50 mt-2 w-80 max-h-96 overflow-y-auto rounded-xl shadow-lg"
+          className="absolute bottom-full z-50 mb-2 w-80 max-h-96 overflow-y-auto rounded-xl shadow-lg"
           style={{
             [dir === "rtl" ? "right" : "left"]: 0,
             background: "var(--surface-1)",

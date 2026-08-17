@@ -259,6 +259,7 @@ export default function SocialPage() {
     current: { followersCount: number; mediaCount: number } | null;
     trend: { date: string; followersCount: number; mediaCount: number }[];
     recentMedia: { id: string; caption: string | null; mediaType: string; mediaUrl: string | null; thumbnailUrl: string | null; permalink: string; timestamp: string; likeCount: number; commentsCount: number }[];
+    mediaError?: string | null;
   } | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [aiReport, setAiReport] = useState("");
@@ -1446,6 +1447,13 @@ export default function SocialPage() {
               )}
 
               {/* Content performance */}
+              {analytics?.mediaError && (analytics?.recentMedia?.length ?? 0) === 0 && (
+                <p className="text-xs mb-5 px-3 py-2 rounded-lg" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+                  {isFa
+                    ? `دریافت پست‌های اینستاگرام ناموفق بود: ${analytics.mediaError} — لطفاً حساب اینستاگرام را دوباره متصل کنید.`
+                    : `Failed to load Instagram posts: ${analytics.mediaError} — please reconnect your Instagram account.`}
+                </p>
+              )}
               {(analytics?.recentMedia?.length ?? 0) > 0 && (
                 <div className="mb-5">
                   <p className="text-xs font-medium mb-3" style={{ color: "var(--text-secondary)" }}>{isFa ? "روند و عملکرد محتوا" : "Content Performance"}</p>

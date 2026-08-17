@@ -26,7 +26,7 @@ function applyLang(lang: Lang) {
   window.location.reload();
 }
 
-export default function LanguageSwitcher({ className = "", iconOnly = false }: { className?: string; iconOnly?: boolean }) {
+export default function LanguageSwitcher({ className = "", iconOnly = false, dropUp = false }: { className?: string; iconOnly?: boolean; dropUp?: boolean }) {
   const [lang, setLangState] = useState<Lang>("fa");
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -63,7 +63,7 @@ export default function LanguageSwitcher({ className = "", iconOnly = false }: {
 
       {open && (
         <div
-          className="absolute top-full mt-1 z-50 py-1 rounded-xl shadow-2xl min-w-[140px]"
+          className={`absolute ${dropUp ? "bottom-full mb-1" : "top-full mt-1"} z-50 py-1 rounded-xl shadow-2xl min-w-[140px]`}
           style={{ background: "var(--surface-1)", border: "1px solid var(--border)", insetInlineEnd: 0 }}
         >
           {OPTIONS.map((opt) => (

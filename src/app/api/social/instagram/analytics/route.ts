@@ -21,14 +21,22 @@ export async function GET(req: NextRequest) {
   ]);
 
   let media: Awaited<ReturnType<typeof getRecentMedia>> = [];
+  let mediaError: string | null = null;
   try {
     media = await getRecentMedia(conn.igUserId, conn.accessToken, 12);
-  } catch {}
+  } catch (err) {
+    // Previously swallowed entirely — the UI just showed an empty gallery/
+    // dropdown with no way to tell "no posts yet" apart from "token expired/
+    // API call failed". Surface it so the frontend can prompt a reconnect.
+    mediaError = err instanceof Error ? err.message : "خطا در دریافت پست‌های اینستاگرام";
+    console.error("Instagram getRecentMedia failed:", err);
+  }
 
   return NextResponse.json({
     igUsername: conn.igUsername,
     current: live,
     trend: snapshots.map((s) => ({ date: s.date, followersCount: s.followersCount, mediaCount: s.mediaCount })),
     recentMedia: media,
+    mediaError,
   });
 }
