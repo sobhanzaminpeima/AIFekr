@@ -966,6 +966,11 @@ const de: Translations = {
       "logActivity": "Aktivität protokollieren"
     },
     "contactDetail": {
+      "profile": "Profil",
+      "notesFiles": "Notizen & Dateien",
+      "edit": "Bearbeiten",
+      "save": "Speichern",
+      "cancel": "Abbrechen",
       "deals": "Deals",
       "tasks": "Aufgaben",
       "newTaskPlaceholder": "Neue Aufgabe...",

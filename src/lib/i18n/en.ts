@@ -835,6 +835,11 @@ const en = {
       logActivity: "Log Activity",
     },
     contactDetail: {
+      profile: "Profile",
+      notesFiles: "Notes & Files",
+      edit: "Edit",
+      save: "Save",
+      cancel: "Cancel",
       deals: "Deals",
       tasks: "Tasks",
       newTaskPlaceholder: "New task...",

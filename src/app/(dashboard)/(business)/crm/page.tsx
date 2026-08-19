@@ -379,6 +379,7 @@ export default function CrmPage() {
           t={c}
           dealId={selectedDealId}
           deal={deals.find((d) => d.id === selectedDealId) || null}
+          pipelines={pipelines}
           teamMembers={teamMembers}
           onClose={() => setSelectedDealId(null)}
           onChanged={() => { if (selectedPipelineId) loadDeals(selectedPipelineId); }}
@@ -639,10 +640,19 @@ function NewContactModal({ isFa, t, onClose, onCreated }: { isFa: boolean; t: Tr
   );
 }
 
-function DealDetailModal({ isFa, t, dealId, deal, teamMembers, onClose, onChanged }: { isFa: boolean; t: Translations["crm"]; dealId: string; deal: Deal | null; teamMembers: TeamMember[]; onClose: () => void; onChanged: () => void }) {
+function DealDetailModal({ isFa, t, dealId, deal, pipelines, teamMembers, onClose, onChanged }: { isFa: boolean; t: Translations["crm"]; dealId: string; deal: Deal | null; pipelines: Pipeline[]; teamMembers: TeamMember[]; onClose: () => void; onChanged: () => void }) {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [ownerId, setOwnerId] = useState(deal?.ownerId || "");
+  const [activities, setActivities] = useState<Activity[]>([]);
+
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/crm/activities?dealId=${dealId}`);
+    const data = await res.json();
+    setActivities(data.activities || []);
+  }, [dealId]);
+
+  useEffect(() => { load(); }, [load]);
 
   async function addActivity() {
     if (!note.trim()) return;
@@ -654,6 +664,7 @@ function DealDetailModal({ isFa, t, dealId, deal, teamMembers, onClose, onChange
     });
     setNote("");
     setSaving(false);
+    load();
   }
 
   async function assignOwner(newOwnerId: string) {
@@ -670,12 +681,29 @@ function DealDetailModal({ isFa, t, dealId, deal, teamMembers, onClose, onChange
     onClose();
   }
 
+  const pipeline = pipelines.find((p) => p.id === deal?.pipelineId);
+  const stage = pipeline?.stages.find((s) => s.id === deal?.stageId);
+
   return (
     <Modal onClose={onClose}>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{deal?.title || t.dealDetail.fallbackTitle}</h2>
         <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
       </div>
+
+      {deal && (
+        <div className="grid grid-cols-2 gap-2 text-sm mb-4">
+          <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "ارزش: " : "Value: "}</span><span style={{ color: "var(--text-primary)" }}>{fmtMoney(deal.value)}</span></div>
+          <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "مرحله: " : "Stage: "}</span><span style={{ color: "var(--text-primary)" }}>{stage?.name || "—"}</span></div>
+          <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "پایپ‌لاین: " : "Pipeline: "}</span><span style={{ color: "var(--text-primary)" }}>{pipeline?.name || "—"}</span></div>
+          <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "وضعیت: " : "Status: "}</span><span style={{ color: "var(--text-primary)" }}>{deal.status}</span></div>
+          <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{isFa ? "مخاطب: " : "Contact: "}</span><span style={{ color: "var(--text-primary)" }}>{deal.contact.name}{deal.contact.phone ? ` — ${deal.contact.phone}` : ""}</span></div>
+          {deal.expectedCloseDate && (
+            <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{isFa ? "تاریخ تخمینی بستن: " : "Expected close: "}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(deal.expectedCloseDate)}</span></div>
+          )}
+        </div>
+      )}
+
       <div className="space-y-3">
         {teamMembers.length > 0 && (
           <div>
@@ -687,6 +715,20 @@ function DealDetailModal({ isFa, t, dealId, deal, teamMembers, onClose, onChange
             </select>
           </div>
         )}
+
+        <div>
+          <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{t.contactDetail.activity}</p>
+          <div className="space-y-1.5 mb-2 max-h-40 overflow-y-auto">
+            {activities.map((a) => (
+              <div key={a.id} className="flex items-start gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
+                <Clock className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
+                <span style={{ color: "var(--text-secondary)" }}>{a.content}</span>
+              </div>
+            ))}
+            {activities.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t.contactDetail.noActivity}</p>}
+          </div>
+        </div>
+
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder={t.dealDetail.notePlaceholder}
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         <div className="flex gap-2">
@@ -702,6 +744,8 @@ function DealDetailModal({ isFa, t, dealId, deal, teamMembers, onClose, onChange
   );
 }
 
+type ContactDetailTab = "profile" | "deals" | "tasks" | "activity" | "notesFiles";
+
 function ContactDetailModal({ isFa, t, contact, teamMembers, onClose, onChanged }: { isFa: boolean; t: Translations["crm"]; contact: ContactDetail; teamMembers: TeamMember[]; onClose: () => void; onChanged: () => void }) {
   const [note, setNote] = useState("");
   const [taskTitle, setTaskTitle] = useState("");
@@ -709,6 +753,26 @@ function ContactDetailModal({ isFa, t, contact, teamMembers, onClose, onChanged 
   const [callingViaVoice, setCallingViaVoice] = useState(false);
   const [whatsappMessage, setWhatsappMessage] = useState("");
   const [showWhatsappInput, setShowWhatsappInput] = useState(false);
+  const [tab, setTab] = useState<ContactDetailTab>("profile");
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: contact.name, phone: contact.phone || "", email: contact.email || "",
+    whatsapp: contact.whatsapp || "", telegram: contact.telegram || "", company: contact.company || "",
+  });
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  async function saveProfile() {
+    setSavingProfile(true);
+    try {
+      await fetch(`/api/crm/contacts/${contact.id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editForm),
+      });
+      setEditing(false);
+      onChanged();
+    } finally {
+      setSavingProfile(false);
+    }
+  }
 
   async function logActivity(type: string, content: string) {
     await fetch("/api/crm/activities", {
@@ -787,6 +851,14 @@ function ContactDetailModal({ isFa, t, contact, teamMembers, onClose, onChanged 
     onChanged();
   }
 
+  const TABS: { id: ContactDetailTab; label: string }[] = [
+    { id: "profile", label: t.contactDetail.profile },
+    { id: "deals", label: t.contactDetail.deals },
+    { id: "tasks", label: t.contactDetail.tasks },
+    { id: "activity", label: t.contactDetail.activity },
+    { id: "notesFiles", label: t.contactDetail.notesFiles },
+  ];
+
   return (
     <Modal onClose={onClose}>
       <div className="flex items-center justify-between mb-4">
@@ -836,68 +908,130 @@ function ContactDetailModal({ isFa, t, contact, teamMembers, onClose, onChanged 
         </div>
       )}
 
-      {teamMembers.length > 0 && (
-        <div className="mb-4">
-          <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>{t.common.assignToTeam}</p>
-          <select value={assignedToId} onChange={(e) => assignTo(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{t.common.unassigned}</option>
-            {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </select>
+      {/* Tab bar */}
+      <div className="flex flex-wrap gap-1.5 mb-4 pb-3" style={{ borderBottom: "1px solid var(--border)" }}>
+        {TABS.map((tb) => (
+          <button key={tb.id} onClick={() => setTab(tb.id)}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            style={{ background: tab === tb.id ? "var(--primary)" : "var(--surface-2)", color: tab === tb.id ? "white" : "var(--text-secondary)" }}>
+            {tb.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "profile" && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{t.contactDetail.profile}</p>
+            {!editing ? (
+              <button onClick={() => setEditing(true)} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                {t.contactDetail.edit}
+              </button>
+            ) : (
+              <div className="flex gap-1.5">
+                <button onClick={saveProfile} disabled={savingProfile} className="px-3 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+                  {t.contactDetail.save}
+                </button>
+                <button onClick={() => { setEditing(false); setEditForm({ name: contact.name, phone: contact.phone || "", email: contact.email || "", whatsapp: contact.whatsapp || "", telegram: contact.telegram || "", company: contact.company || "" }); }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                  {t.contactDetail.cancel}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {editing ? (
+            <div className="grid grid-cols-2 gap-3">
+              {([
+                ["name", isFa ? "نام" : "Name"], ["phone", isFa ? "تلفن" : "Phone"], ["email", isFa ? "ایمیل" : "Email"],
+                ["whatsapp", "WhatsApp"], ["telegram", "Telegram"], ["company", isFa ? "شرکت" : "Company"],
+              ] as const).map(([key, label]) => (
+                <div key={key}>
+                  <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{label}</label>
+                  <input value={editForm[key]} onChange={(e) => setEditForm((p) => ({ ...p, [key]: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "نام: " : "Name: "}</span><span style={{ color: "var(--text-primary)" }}>{contact.name}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "تلفن: " : "Phone: "}</span><span style={{ color: "var(--text-primary)" }}>{contact.phone || "—"}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "ایمیل: " : "Email: "}</span><span style={{ color: "var(--text-primary)" }}>{contact.email || "—"}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>WhatsApp: </span><span style={{ color: "var(--text-primary)" }}>{contact.whatsapp || "—"}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>Telegram: </span><span style={{ color: "var(--text-primary)" }}>{contact.telegram || "—"}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "شرکت: " : "Company: "}</span><span style={{ color: "var(--text-primary)" }}>{contact.company || "—"}</span></div>
+            </div>
+          )}
+
+          {teamMembers.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>{t.common.assignToTeam}</p>
+              <select value={assignedToId} onChange={(e) => assignTo(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                <option value="">{t.common.unassigned}</option>
+                {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </div>
+          )}
         </div>
       )}
 
-      {contact.deals.length > 0 && (
-        <div className="mb-4">
-          <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{t.contactDetail.deals}</p>
-          <div className="space-y-1.5">
-            {contact.deals.map((d) => (
-              <div key={d.id} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
-                <span style={{ color: "var(--text-primary)" }}>{d.title}</span>
-                <span style={{ color: "var(--text-muted)" }}>{d.status}</span>
-              </div>
+      {tab === "deals" && (
+        <div className="space-y-1.5">
+          {contact.deals.map((d) => (
+            <div key={d.id} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
+              <span style={{ color: "var(--text-primary)" }}>{d.title}</span>
+              <span style={{ color: "var(--text-muted)" }}>{d.status}</span>
+            </div>
+          ))}
+          {contact.deals.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t.contactDetail.noActivity}</p>}
+        </div>
+      )}
+
+      {tab === "tasks" && (
+        <div>
+          <div className="space-y-1.5 mb-2">
+            {contact.tasks.map((tk) => (
+              <button key={tk.id} onClick={() => toggleTask(tk.id, tk.status)} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-right" style={{ background: "var(--surface-2)" }}>
+                {tk.status === "done" ? <CheckCircle2 className="w-3.5 h-3.5" style={{ color: "#22c55e" }} /> : <Circle className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} />}
+                <span style={{ color: tk.status === "done" ? "var(--text-muted)" : "var(--text-primary)", textDecoration: tk.status === "done" ? "line-through" : "none" }}>{tk.title}</span>
+              </button>
             ))}
+          </div>
+          <div className="flex gap-2">
+            <input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder={t.contactDetail.newTaskPlaceholder}
+              className="flex-1 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <button onClick={addTask} className="px-3 py-2 rounded-xl text-xs font-medium text-white" style={{ background: "var(--primary)" }}>+</button>
           </div>
         </div>
       )}
 
-      <div className="mb-4">
-        <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{t.contactDetail.tasks}</p>
-        <div className="space-y-1.5 mb-2">
-          {contact.tasks.map((tk) => (
-            <button key={tk.id} onClick={() => toggleTask(tk.id, tk.status)} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-right" style={{ background: "var(--surface-2)" }}>
-              {tk.status === "done" ? <CheckCircle2 className="w-3.5 h-3.5" style={{ color: "#22c55e" }} /> : <Circle className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} />}
-              <span style={{ color: tk.status === "done" ? "var(--text-muted)" : "var(--text-primary)", textDecoration: tk.status === "done" ? "line-through" : "none" }}>{tk.title}</span>
-            </button>
-          ))}
+      {tab === "activity" && (
+        <div>
+          <div className="space-y-1.5 mb-2 max-h-64 overflow-y-auto">
+            {contact.activities.map((a) => (
+              <div key={a.id} className="flex items-start gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
+                <Clock className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
+                <span style={{ color: "var(--text-secondary)" }}>{a.content}</span>
+              </div>
+            ))}
+            {contact.activities.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t.contactDetail.noActivity}</p>}
+          </div>
+          <div className="flex gap-2">
+            <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t.contactDetail.newNotePlaceholder}
+              className="flex-1 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <button onClick={addActivity} className="px-3 py-2 rounded-xl text-xs font-medium text-white" style={{ background: "var(--primary)" }}>+</button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder={t.contactDetail.newTaskPlaceholder}
-            className="flex-1 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-          <button onClick={addTask} className="px-3 py-2 rounded-xl text-xs font-medium text-white" style={{ background: "var(--primary)" }}>+</button>
-        </div>
-      </div>
+      )}
 
-      <div>
-        <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{t.contactDetail.activity}</p>
-        <div className="space-y-1.5 mb-2 max-h-32 overflow-y-auto">
-          {contact.activities.map((a) => (
-            <div key={a.id} className="flex items-start gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
-              <Clock className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
-              <span style={{ color: "var(--text-secondary)" }}>{a.content}</span>
-            </div>
-          ))}
-          {contact.activities.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t.contactDetail.noActivity}</p>}
+      {tab === "notesFiles" && (
+        <div>
+          <PinnedNotesSection isFa={isFa} t={t} contactId={contact.id} />
+          <DocumentsSection isFa={isFa} t={t} contactId={contact.id} />
         </div>
-        <div className="flex gap-2">
-          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t.contactDetail.newNotePlaceholder}
-            className="flex-1 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-          <button onClick={addActivity} className="px-3 py-2 rounded-xl text-xs font-medium text-white" style={{ background: "var(--primary)" }}>+</button>
-        </div>
-      </div>
-
-      <PinnedNotesSection isFa={isFa} t={t} contactId={contact.id} />
-      <DocumentsSection isFa={isFa} t={t} contactId={contact.id} />
+      )}
     </Modal>
   );
 }
@@ -2275,6 +2409,7 @@ function ProjectsPanel({ isFa, t, contacts }: { isFa: boolean; t: Translations["
   const [showNew, setShowNew] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [contactId, setContactId] = useState("");
@@ -2356,12 +2491,12 @@ function ProjectsPanel({ isFa, t, contacts }: { isFa: boolean; t: Translations["
           {projects.map((p, i) => {
             const st = PROJECT_STATUS_LABEL[p.status] || PROJECT_STATUS_LABEL.active;
             return (
-              <div key={p.id} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+              <div key={p.id} onClick={() => setSelectedProjectId(p.id)} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2 cursor-pointer transition-colors hover:bg-white/[0.02]" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
                 <div>
                   <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{p.name} {p.contact ? `— ${p.contact.name}` : ""}</p>
                   {p.description && <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{p.description}</p>}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                   <select value={p.status} onChange={(e) => setStatus(p.id, e.target.value)}
                     className="text-[10px] px-2 py-1 rounded-full font-medium outline-none" style={{ background: "var(--surface-2)", color: st.color, border: "none" }}>
                     {Object.entries(t.projectStatus).map(([val, label]) => <option key={val} value={val}>{label}</option>)}
@@ -2373,6 +2508,104 @@ function ProjectsPanel({ isFa, t, contacts }: { isFa: boolean; t: Translations["
           })}
         </div>
       )}
+
+      {selectedProjectId && (
+        <ProjectDetailModal
+          isFa={isFa}
+          t={t}
+          project={projects.find((p) => p.id === selectedProjectId) || null}
+          onClose={() => setSelectedProjectId(null)}
+          onChanged={load}
+        />
+      )}
     </div>
+  );
+}
+
+function ProjectDetailModal({ isFa, t, project, onClose, onChanged }: { isFa: boolean; t: Translations["crm"]; project: CrmProjectRow | null; onClose: () => void; onChanged: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    name: project?.name || "", description: project?.description || "",
+    startDate: project?.startDate ? project.startDate.slice(0, 10) : "",
+    endDate: project?.endDate ? project.endDate.slice(0, 10) : "",
+  });
+
+  if (!project) return null;
+  const st = PROJECT_STATUS_LABEL[project.status] || PROJECT_STATUS_LABEL.active;
+
+  async function save() {
+    setSaving(true);
+    try {
+      await fetch(`/api/crm/projects/${project!.id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, startDate: form.startDate || null, endDate: form.endDate || null }),
+      });
+      setEditing(false);
+      onChanged();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal onClose={onClose}>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{project.name}</h2>
+        <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
+      </div>
+
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[11px] px-2 py-1 rounded-full font-medium" style={{ background: "var(--surface-2)", color: st.color }}>
+          {isFa ? st.fa : st.en}
+        </span>
+        {!editing ? (
+          <button onClick={() => setEditing(true)} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+            {t.contactDetail.edit}
+          </button>
+        ) : (
+          <div className="flex gap-1.5">
+            <button onClick={save} disabled={saving} className="px-3 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+              {t.contactDetail.save}
+            </button>
+            <button onClick={() => setEditing(false)} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+              {t.contactDetail.cancel}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {editing ? (
+        <div className="space-y-3">
+          <input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} rows={3}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{isFa ? "تاریخ شروع" : "Start date"}</label>
+              <input type="date" value={form.startDate} onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{isFa ? "تاریخ پایان" : "End date"}</label>
+              <input type="date" value={form.endDate} onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2 text-sm">
+          {project.description && <p style={{ color: "var(--text-secondary)" }}>{project.description}</p>}
+          {project.contact && <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "مخاطب: " : "Contact: "}</span><span style={{ color: "var(--text-primary)" }}>{project.contact.name}</span></div>}
+          {project.deal && <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "معامله مرتبط: " : "Related deal: "}</span><span style={{ color: "var(--text-primary)" }}>{project.deal.title}</span></div>}
+          {project.startDate && <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "شروع: " : "Start: "}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(project.startDate)}</span></div>}
+          {project.endDate && <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "پایان: " : "End: "}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(project.endDate)}</span></div>}
+          {!project.description && !project.contact && !project.deal && !project.startDate && !project.endDate && (
+            <p style={{ color: "var(--text-muted)" }}>{t.contactDetail.noActivity}</p>
+          )}
+        </div>
+      )}
+    </Modal>
   );
 }

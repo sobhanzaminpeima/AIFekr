@@ -818,6 +818,11 @@ const fa: Translations = {
       logActivity: "ثبت فعالیت",
     },
     contactDetail: {
+      profile: "پروفایل",
+      notesFiles: "یادداشت‌ها و اسناد",
+      edit: "ویرایش",
+      save: "ذخیره",
+      cancel: "انصراف",
       deals: "معاملات",
       tasks: "تسک‌ها",
       newTaskPlaceholder: "تسک جدید...",
