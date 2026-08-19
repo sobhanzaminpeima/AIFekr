@@ -212,7 +212,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         <button onClick={() => setToolsOpen(!toolsOpen)}
           className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium"
           style={{ color: "var(--text-secondary)" }}>
-          <span className="flex items-center gap-2"><Briefcase className="w-4 h-4" />{t.nav.tools}</span>
+          <span className="flex items-center gap-2 min-w-0"><Briefcase className="w-4 h-4 flex-shrink-0" /><span className="truncate">{t.nav.tools}</span></span>
           {toolsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
         {toolsOpen && <div className="pr-4 space-y-0.5">{tools.map((t) => <NavItem key={t.href} icon={t.icon} label={t.label} href={t.href} active={isActive(t.href)} small />)}</div>}
@@ -221,7 +221,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         <button onClick={() => setAssistantsOpen(!assistantsOpen)}
           className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium"
           style={{ color: "var(--text-secondary)" }}>
-          <span className="flex items-center gap-2"><GraduationCap className="w-4 h-4" />{t.nav.assistants}</span>
+          <span className="flex items-center gap-2 min-w-0"><GraduationCap className="w-4 h-4 flex-shrink-0" /><span className="truncate">{t.nav.assistants}</span></span>
           {assistantsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
         {assistantsOpen && <div className="pr-4 space-y-0.5">{assistants.map((a) => <NavItem key={a.href} icon={a.icon} label={a.label} href={a.href} active={isActive(a.href)} small />)}</div>}
@@ -235,9 +235,9 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             <button onClick={() => setBusinessOpen(!businessOpen)}
               className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium"
               style={{ color: "var(--text-secondary)" }}>
-              <span className="flex items-center gap-2">
-                <Zap className="w-4 h-4" style={{ color: "#ea580c" }} />
-                {lang === "en" ? "AI Agents" : "ایجنت‌های هوش مصنوعی"}
+              <span className="flex items-center gap-2 min-w-0">
+                <Zap className="w-4 h-4 flex-shrink-0" style={{ color: "#ea580c" }} />
+                <span className="truncate">{lang === "en" ? "AI Agents" : "ایجنت‌های هوش مصنوعی"}</span>
               </span>
               {businessOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
             </button>

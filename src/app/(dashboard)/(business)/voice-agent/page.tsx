@@ -230,7 +230,7 @@ export default function VoiceAgentPage() {
           <Phone className="w-5 h-5" style={{ color: "#f59e0b" }} />
         </div>
         <div>
-          <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "ایجنت صوتی (کال‌سنتر هوش مصنوعی)" : "Voice Agent (AI Call Center)"}</h1>
+          <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "مرکز تماس هوش مصنوعی" : "AI Call Center"}</h1>
           <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "پاسخگویی تلفنی هوشمند برای هر کسب‌وکار — از املاک تا هر صنعت دیگر" : "AI phone agents for any business — real estate and beyond"}</p>
         </div>
       </div>

@@ -12,7 +12,7 @@ const fa: Translations = {
     businessDoctor: "دکتر کسب‌وکار",
     crm: "مدیریت مشتریان (CRM)",
     salesAgent: "ایجنت فروش",
-    voiceAgent: "ایجنت صوتی (کال‌سنتر هوش مصنوعی)",
+    voiceAgent: "مرکز تماس هوش مصنوعی",
     ceoAdvisor: "مشاور مدیرعامل",
     seoWorkspace: "فضای کار سئو",
     socialMedia: "شبکه‌های اجتماعی",

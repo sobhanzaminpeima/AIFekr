@@ -58,7 +58,7 @@ export default function AdminVoiceAgentPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>ایجنت صوتی (کال‌سنتر هوش مصنوعی) — مدیریت</h1>
+        <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>مرکز تماس هوش مصنوعی — مدیریت</h1>
         <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>کاربران، ایجنت‌ها و تماس‌های ماژول Voice Agent</p>
       </div>
 
