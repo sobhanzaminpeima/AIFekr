@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Send, Bot, Copy, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
+import { useTranslation, tri } from "@/lib/i18n";
 
 interface Field {
   key: string;
@@ -20,13 +21,17 @@ interface ToolPageProps {
 }
 
 export default function ToolPage({ title, description, systemPrompt, fields, promptTemplate }: ToolPageProps) {
+  const { lang } = useTranslation();
   const [values, setValues] = useState<Record<string, string>>({});
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit() {
     const missingField = fields.find((f) => !values[f.key]?.trim());
-    if (missingField) { toast.error(`لطفاً ${missingField.label} را وارد کنید`); return; }
+    if (missingField) {
+      toast.error(tri(lang, `لطفاً ${missingField.label} را وارد کنید`, `Please enter ${missingField.label}`, `Bitte geben Sie ${missingField.label} ein`));
+      return;
+    }
 
     setLoading(true);
     setResult("");
@@ -45,7 +50,7 @@ export default function ToolPage({ title, description, systemPrompt, fields, pro
       }
 
       const reader = response.body?.getReader();
-      if (!reader) throw new Error("خطا");
+      if (!reader) throw new Error(tri(lang, "خطا", "Error", "Fehler"));
 
       const decoder = new TextDecoder();
       let accumulated = "";
@@ -64,7 +69,7 @@ export default function ToolPage({ title, description, systemPrompt, fields, pro
         }
       }
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "خطا در پردازش");
+      toast.error(err instanceof Error ? err.message : tri(lang, "خطا در پردازش", "Processing error", "Verarbeitungsfehler"));
     } finally {
       setLoading(false);
     }
@@ -80,7 +85,7 @@ export default function ToolPage({ title, description, systemPrompt, fields, pro
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Form */}
         <div className="p-5 rounded-2xl space-y-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-          <h2 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>اطلاعات شما</h2>
+          <h2 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{tri(lang, "اطلاعات شما", "Your information", "Ihre Angaben")}</h2>
           {fields.map((field) => (
             <div key={field.key}>
               <label className="block text-xs mb-1.5 font-medium" style={{ color: "var(--text-secondary)" }}>{field.label}</label>
@@ -100,7 +105,7 @@ export default function ToolPage({ title, description, systemPrompt, fields, pro
             style={{ background: "var(--primary)" }}
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-            {loading ? "در حال پردازش..." : "دریافت نتیجه"}
+            {loading ? tri(lang, "در حال پردازش...", "Processing...", "Wird verarbeitet...") : tri(lang, "دریافت نتیجه", "Get Result", "Ergebnis erhalten")}
           </button>
         </div>
 
@@ -109,14 +114,14 @@ export default function ToolPage({ title, description, systemPrompt, fields, pro
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Bot className="w-4 h-4" style={{ color: "var(--primary)" }} />
-              <h2 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>نتیجه</h2>
+              <h2 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{tri(lang, "نتیجه", "Result", "Ergebnis")}</h2>
             </div>
             {result && (
-              <button onClick={() => { navigator.clipboard.writeText(result); toast.success("کپی شد"); }}
+              <button onClick={() => { navigator.clipboard.writeText(result); toast.success(tri(lang, "کپی شد", "Copied", "Kopiert")); }}
                 className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg"
                 style={{ color: "var(--text-muted)", background: "var(--surface-2)" }}>
                 <Copy className="w-3 h-3" />
-                کپی
+                {tri(lang, "کپی", "Copy", "Kopieren")}
               </button>
             )}
           </div>
@@ -127,7 +132,7 @@ export default function ToolPage({ title, description, systemPrompt, fields, pro
           ) : (
             <div className="flex flex-col items-center justify-center h-48" style={{ color: "var(--text-muted)" }}>
               <Bot className="w-10 h-10 mb-2 opacity-20" />
-              <p className="text-sm">نتیجه اینجا نمایش داده می‌شود</p>
+              <p className="text-sm">{tri(lang, "نتیجه اینجا نمایش داده می‌شود", "Your result will appear here", "Ihr Ergebnis wird hier angezeigt")}</p>
             </div>
           )}
         </div>
