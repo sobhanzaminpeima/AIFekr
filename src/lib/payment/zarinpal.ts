@@ -42,11 +42,13 @@ export interface PaymentResult {
 export async function createPayment(req: PaymentRequest): Promise<PaymentResult> {
   const { merchant, base, gate } = await getConfig();
 
-  if (!merchant || merchant === "your-merchant-id") {
+  if ((!merchant || merchant === "your-merchant-id") && process.env.NODE_ENV !== "production") {
     // Dev mode — simulate payment by redirecting straight to the real
     // callback URL (the same one Zarinpal itself would hit), instead of a
     // separate /api/payment/dev-callback route that was never implemented
     // and dropped the paymentId query param — every purchase 404'd.
+    // Hard-gated to non-production so a merchant-ID misconfiguration can
+    // never silently grant free "successful" payments in prod.
     const fakeAuthority = `DEV_${Date.now()}`;
     const separator = req.callbackUrl.includes("?") ? "&" : "?";
     return { ok: true, authority: fakeAuthority, paymentUrl: `${req.callbackUrl}${separator}Authority=${fakeAuthority}&Status=OK` };
@@ -97,7 +99,7 @@ export interface VerifyResult {
 export async function verifyPayment(req: VerifyRequest): Promise<VerifyResult> {
   const { merchant, base } = await getConfig();
 
-  if (!merchant || merchant === "your-merchant-id" || req.authority.startsWith("DEV_")) {
+  if (process.env.NODE_ENV !== "production" && ((!merchant || merchant === "your-merchant-id") || req.authority.startsWith("DEV_"))) {
     return { ok: true, refId: `DEV_REF_${Date.now()}` };
   }
 

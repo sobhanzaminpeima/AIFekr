@@ -34,8 +34,8 @@ export async function resolveCrmWorkspace(sessionUserId: string): Promise<CrmWor
   });
 
   if (membership && membership.crmRole && membership.team.ownerId !== sessionUserId) {
-    const owner = await prisma.user.findUnique({ where: { id: membership.team.ownerId }, select: { crmPlan: true } });
-    if (owner?.crmPlan === "TEAM") {
+    const owner = await prisma.user.findUnique({ where: { id: membership.team.ownerId }, select: { crmPlan: true, crmPlanExpiry: true } });
+    if (owner?.crmPlan === "TEAM" && !isExpired(owner.crmPlanExpiry)) {
       const role = membership.crmRole as CrmRole;
       return {
         workspaceUserId: membership.team.ownerId,
@@ -47,11 +47,17 @@ export async function resolveCrmWorkspace(sessionUserId: string): Promise<CrmWor
     }
   }
 
-  const self = await prisma.user.findUnique({ where: { id: sessionUserId }, select: { crmPlan: true } });
-  return { workspaceUserId: sessionUserId, actingUserId: sessionUserId, crmRole: "OWNER", isAgentRestricted: false, crmPlan: self?.crmPlan || "NONE" };
+  const self = await prisma.user.findUnique({ where: { id: sessionUserId }, select: { crmPlan: true, crmPlanExpiry: true } });
+  const crmPlan = self && !isExpired(self.crmPlanExpiry) ? self.crmPlan || "NONE" : "NONE";
+  return { workspaceUserId: sessionUserId, actingUserId: sessionUserId, crmRole: "OWNER", isAgentRestricted: false, crmPlan };
 }
 
-/** Gate for the paid CRM surfaces — invoices, contracts, product catalog, automation, CRM Agent, team roles. Pipeline/Contacts/Activities/Tasks/Notes stay available on the free-trial contact cap (crmContactLimit) regardless of this. */
+/** True once a stored expiry date has passed — null/undefined means no expiry (never purchased, or a non-expiring grant). */
+function isExpired(expiry: Date | null | undefined): boolean {
+  return !!expiry && expiry.getTime() < Date.now();
+}
+
+/** Gate for the paid CRM surfaces — invoices, contracts, product catalog, automation, CRM Agent, team roles. Pipeline/Contacts/Activities/Tasks/Notes stay available on the free-trial contact cap (crmContactLimit) regardless of this. Expiry is already folded into ws.crmPlan by resolveCrmWorkspace (an expired plan resolves to "NONE"), so this stays a plain plan check. */
 export function hasCrmAccess(ws: CrmWorkspace): boolean {
   return ws.crmPlan !== "NONE";
 }

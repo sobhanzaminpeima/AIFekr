@@ -375,6 +375,7 @@ export default function CrmPage() {
       {/* Deal detail panel */}
       {selectedDealId && (
         <DealDetailModal
+          key={selectedDealId}
           isFa={isFa}
           lang={lang}
           t={c}
@@ -390,6 +391,7 @@ export default function CrmPage() {
       {/* Contact detail panel */}
       {selectedContactId && contactDetail && (
         <ContactDetailModal
+          key={selectedContactId}
           isFa={isFa}
           lang={lang}
           t={c}
@@ -2513,6 +2515,7 @@ function ProjectsPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang;
 
       {selectedProjectId && (
         <ProjectDetailModal
+          key={selectedProjectId}
           isFa={isFa}
           lang={lang}
           t={t}

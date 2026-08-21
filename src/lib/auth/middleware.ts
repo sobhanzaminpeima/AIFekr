@@ -29,6 +29,18 @@ export async function requireAuth(req: NextRequest) {
   });
 
   if (!user || user.isBlocked) return null;
+
+  // A lapsed paid plan must fall back to FREE-tier limits everywhere plan
+  // gates read user.plan (image/video/music generation, CRM contact caps,
+  // social auto-publish, etc.) — planExpiry was being stored but never
+  // enforced, so every non-team paid plan kept full access forever after
+  // the subscription lapsed. Downgrading here (the single shared auth
+  // entry point) closes that gap for every caller at once, mirroring the
+  // expiry check hasVoiceAccess already does for the Voice add-on.
+  if (user.plan !== "FREE" && user.planExpiry && user.planExpiry.getTime() < Date.now()) {
+    user.plan = "FREE";
+  }
+
   return user;
 }
 

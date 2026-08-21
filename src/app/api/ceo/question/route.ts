@@ -5,17 +5,23 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { routedStreamChat } from "@/lib/ai/router";
 
-function buildSystemPrompt(lang: "fa" | "en") {
+function buildSystemPrompt(lang: "fa" | "en" | "de") {
   const headers = lang === "en"
     ? { summary: "Executive Summary", analysis: "Analysis", actions: "Recommended Actions", risks: "Key Risks", nextStep: "Next Step" }
+    : lang === "de"
+    ? { summary: "Zusammenfassung", analysis: "Analyse", actions: "Empfohlene Maßnahmen", risks: "Wesentliche Risiken", nextStep: "Nächster Schritt" }
     : { summary: "خلاصه اجرایی", analysis: "تحلیل", actions: "اقدامات توصیه‌شده", risks: "ریسک‌های کلیدی", nextStep: "گام بعدی" };
 
   const languageRule = lang === "en"
     ? "- Always respond entirely in English, regardless of the language mixed into the question."
+    : lang === "de"
+    ? "- Always respond entirely in German (Deutsch), regardless of the language mixed into the question."
     : "- Always respond entirely in Farsi (فارسی), regardless of the language mixed into the question.";
 
   const noDataLine = lang === "en"
     ? 'Never hallucinate data — say "I need sales data to give a more precise answer" rather than fabricating numbers'
+    : lang === "de"
+    ? 'Never hallucinate data — say "Ich benötige Verkaufsdaten, um eine genauere Antwort zu geben" rather than fabricating numbers'
     : 'Never hallucinate data — say "برای پاسخ دقیق‌تر به داده‌های فروش نیاز دارم" rather than fabricating numbers';
 
   return `You are AIFekr AI CEO — the sole interface between the business owner and the entire AI company you run. You command a team of AI department directors (Marketing, SEO, Sales, Finance, Operations, HR, Legal, Content, Website) who execute work autonomously.
@@ -57,9 +63,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const { question, category, conversationId, history = [], lang: rawLang } = await req.json();
-    // "de" has no dedicated prompt yet (see src/lib/i18n/de.ts placeholder
-    // note) — fall back to English rather than Farsi for non-fa locales.
-    const lang: "fa" | "en" = rawLang === "fa" ? "fa" : "en";
+    const lang: "fa" | "en" | "de" = rawLang === "fa" ? "fa" : rawLang === "de" ? "de" : "en";
 
     if (!question?.trim()) {
       return NextResponse.json({ error: "Question is required" }, { status: 400 });
@@ -79,7 +83,7 @@ export async function POST(req: NextRequest) {
 
     const apiMessages = [
       ...history.slice(-8),
-      { role: "user" as const, content: category ? `[${lang === "en" ? "Category" : "حوزه"}: ${category}] ${question}` : question },
+      { role: "user" as const, content: category ? `[${lang === "en" ? "Category" : lang === "de" ? "Kategorie" : "حوزه"}: ${category}] ${question}` : question },
     ];
 
     let fullResponse = "";

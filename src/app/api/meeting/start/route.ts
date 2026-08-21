@@ -5,14 +5,21 @@ import { prisma } from "@/lib/db/prisma";
 import { routedStreamChat } from "@/lib/ai/router";
 import { getServerLang } from "@/lib/i18n/server";
 
-// German has no dedicated meeting prompt yet (see src/lib/i18n/de.ts
-// placeholder note) — fall back to English rather than Farsi.
-type Lang = "fa" | "en";
+type Lang = "fa" | "en" | "de";
 function promptLang(l: "fa" | "en" | "de"): Lang {
-  return l === "fa" ? "fa" : "en";
+  return l;
 }
 
 const AGENT_PERSONAS: Record<Lang, Record<string, string>> = {
+  de: {
+    ceo: "Sie sind der CEO — eine visionäre Führungskraft mit Fokus auf Gesamtstrategie, Unternehmensmission und langfristiges Wachstum.",
+    marketing: "Sie sind der Marketingleiter — ein Wachstumsspezialist mit Fokus auf Branding, Kundengewinnung, Kampagnen und Marktpositionierung.",
+    finance: "Sie sind der CFO — ein Zahlenspezialist mit Fokus auf ROI, Budgetierung, Cashflow und finanzielle Risiken.",
+    seo: "Sie sind der SEO-Spezialist — ein Digitalexperte mit Fokus auf Suchmaschinen-Rankings, organischen Traffic und Content-Strategie.",
+    sales: "Sie sind der Vertriebsleiter — ein Umsatzspezialist mit Fokus auf die Vertriebspipeline, Vertragsabschlüsse und Kundenbeziehungen.",
+    product: "Sie sind der Produktmanager — ein nutzerorientierter Spezialist für Produkt-Roadmap, Funktionen und Nutzererfahrung.",
+    legal: "Sie sind der Rechtsberater — ein Risikospezialist mit Fokus auf Compliance, Verträge und rechtliche Fragen.",
+  },
   fa: {
     ceo: "شما مدیرعامل (CEO) هستید — رهبر دیدمند با تمرکز بر استراتژی کلی، ماموریت شرکت و رشد بلندمدت.",
     marketing: "شما مدیر بازاریابی هستید — متخصص رشد با تمرکز بر برندینگ، جذب مشتری، کمپین‌ها و جایگاه‌یابی بازار.",
@@ -49,6 +56,8 @@ async function getBusinessProfile(userId: string, lang: Lang): Promise<string> {
 
     const labels = lang === "en"
       ? { company: "Company", industry: "Industry", size: "Team size", revenue: "Revenue", description: "Description", products: "Products/Services", targetCustomers: "Target customers", competitors: "Competitors", uniqueValue: "Competitive edge", goals: "Goals", challenges: "Challenges" }
+      : lang === "de"
+      ? { company: "Unternehmen", industry: "Branche", size: "Teamgröße", revenue: "Umsatz", description: "Beschreibung", products: "Produkte/Dienstleistungen", targetCustomers: "Zielkunden", competitors: "Wettbewerber", uniqueValue: "Wettbewerbsvorteil", goals: "Ziele", challenges: "Herausforderungen" }
       : { company: "شرکت", industry: "صنعت", size: "اندازه تیم", revenue: "درآمد", description: "توضیح", products: "محصولات/خدمات", targetCustomers: "مشتریان هدف", competitors: "رقبا", uniqueValue: "مزیت رقابتی", goals: "اهداف", challenges: "چالش‌ها" };
 
     const lines = [
@@ -106,6 +115,39 @@ Format: **[Agent name]:** [statement]
 Agents should occasionally disagree and negotiate. Each agent should stay in character.`;
   }
 
+  if (lang === "de") {
+    const contextSection = businessContext ? `\n## Unternehmensinfo (Knowledge Base):\n${businessContext}\n` : "";
+    return `Sie moderieren ein strategisches Geschäftstreffen. Folgende Agenten sind anwesend:
+
+${agentList}
+${contextSection}
+## Sitzungsthema: ${topic}
+
+Simulieren Sie ein realistisches, nützliches Meeting im folgenden Format (auf Deutsch):
+
+---Phase 1: Eröffnungsstatements---
+Jeder Agent gibt eine kurze Einschätzung zum Thema ab (2-3 Sätze).
+Format: **[Agentenname]:** [Aussage]
+
+---Phase 2: Diskussion---
+Agenten beziehen sich auf die Punkte der anderen, hinterfragen sie und bauen auf Ideen auf. Mindestens 2 Wortwechsel pro Agent.
+Format: **[Agentenname]:** [Aussage]
+
+---Phase 3: Entscheidungen und Maßnahmen---
+**Vereinbarte Entscheidungen:**
+1. [Entscheidung]
+2. [Entscheidung]
+
+**Maßnahmen:**
+- [ ] [Aufgabe] — Verantwortlich: [Agent], Frist: [Zeitraum]
+- [ ] [Aufgabe] — Verantwortlich: [Agent], Frist: [Zeitraum]
+
+**Meeting-Zusammenfassung:**
+[2-3 Sätze zum Ergebnis]
+
+Die Agenten sollten gelegentlich anderer Meinung sein und verhandeln. Jeder Agent sollte in seiner Rolle bleiben.`;
+  }
+
   const contextSection = businessContext ? `\n## اطلاعات شرکت (Knowledge Base):\n${businessContext}\n` : "";
   return `شما مجری یک جلسه استراتژیک کسب‌وکار هستید. ایجنت‌های زیر در جلسه شرکت دارند:
 
@@ -149,7 +191,7 @@ export async function POST(req: NextRequest) {
 
     if (!topic || !agents?.length || agents.length < 2) {
       return NextResponse.json(
-        { error: lang === "en" ? "Topic and at least 2 agents are required" : "موضوع و حداقل ۲ ایجنت الزامی است" },
+        { error: lang === "en" ? "Topic and at least 2 agents are required" : lang === "de" ? "Thema und mindestens 2 Agenten sind erforderlich" : "موضوع و حداقل ۲ ایجنت الزامی است" },
         { status: 400 }
       );
     }
@@ -174,6 +216,8 @@ export async function POST(req: NextRequest) {
             [{ role: "user", content: prompt }],
             lang === "en"
               ? "You are an AI meeting facilitator running strategic meetings with multiple agents."
+              : lang === "de"
+              ? "Sie sind ein KI-Meeting-Moderator, der strategische Sitzungen mit mehreren Agenten leitet."
               : "شما مجری جلسه هوش مصنوعی هستید که جلسات استراتژیک با چند ایجنت برگزار می‌کنید.",
             (text) => {
               fullTranscript += text;
@@ -186,7 +230,7 @@ export async function POST(req: NextRequest) {
             data: {
               conversationId: conv.id,
               role: "user",
-              content: lang === "en" ? `Meeting topic: ${topic}\nAgents: ${agents.join(", ")}` : `موضوع جلسه: ${topic}\nایجنت‌ها: ${agents.join(", ")}`,
+              content: lang === "en" ? `Meeting topic: ${topic}\nAgents: ${agents.join(", ")}` : lang === "de" ? `Sitzungsthema: ${topic}\nAgenten: ${agents.join(", ")}` : `موضوع جلسه: ${topic}\nایجنت‌ها: ${agents.join(", ")}`,
             },
           });
           await prisma.message.create({
@@ -197,7 +241,7 @@ export async function POST(req: NextRequest) {
           controller.close();
         } catch (err) {
           console.error("Meeting stream error:", err);
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: lang === "en" ? "The meeting failed" : "جلسه با خطا مواجه شد" })}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: lang === "en" ? "The meeting failed" : lang === "de" ? "Das Meeting ist fehlgeschlagen" : "جلسه با خطا مواجه شد" })}\n\n`));
           controller.close();
         }
       },
