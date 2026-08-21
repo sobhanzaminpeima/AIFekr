@@ -346,7 +346,7 @@ export default function StartupBuilderPage() {
                   <div className="flex items-center gap-1.5 mt-1.5">
                     <div className="w-2 h-2 rounded-full" style={{ background: stageInfo?.color || "#6b7280" }} />
                     <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      {lang === "fa" ? stageInfo?.labelFa : lang === "de" ? stageInfo?.labelDe : stageInfo?.labelEn}
+                      {t(lang, stageInfo?.labelFa || "", stageInfo?.labelEn || "", stageInfo?.labelDe || "")}
                     </span>
                   </div>
                 </div>
@@ -387,7 +387,7 @@ export default function StartupBuilderPage() {
                       }}
                     >
                       {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
-                      {lang === "fa" ? s.labelFa : lang === "de" ? s.labelDe : s.labelEn}
+                      {t(lang, s.labelFa, s.labelEn, s.labelDe)}
                     </button>
                   );
                 })}
@@ -398,7 +398,7 @@ export default function StartupBuilderPage() {
                 <div className="flex items-center gap-2 mb-2">
                   {(() => { const s = STAGES.find((x) => x.id === activeStage)!; const Icon = s.icon; return <div className="w-5 h-5" style={{ color: s.color }}><Icon className="w-5 h-5" /></div>; })()}
                   <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>
-                    {lang === "fa" ? STAGES.find((s) => s.id === activeStage)?.labelFa : lang === "de" ? STAGES.find((s) => s.id === activeStage)?.labelDe : STAGES.find((s) => s.id === activeStage)?.labelEn}
+                    {t(lang, STAGES.find((s) => s.id === activeStage)?.labelFa || "", STAGES.find((s) => s.id === activeStage)?.labelEn || "", STAGES.find((s) => s.id === activeStage)?.labelDe || "")}
                   </h2>
                 </div>
 

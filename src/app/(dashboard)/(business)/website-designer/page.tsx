@@ -159,7 +159,7 @@ export default function WebsiteDesignerPage() {
                     <div>
                       <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{st.businessName}</p>
                       <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                        {lang === "fa" ? toJalali(st.createdAt) : new Date(st.createdAt).toLocaleDateString(lang === "de" ? "de-DE" : "en-US")} · {st.sizeKB} KB
+                        {tri(lang, toJalali(st.createdAt), new Date(st.createdAt).toLocaleDateString("en-US"), new Date(st.createdAt).toLocaleDateString("de-DE"))} · {st.sizeKB} KB
                       </p>
                     </div>
                     <div className="flex items-center gap-2">

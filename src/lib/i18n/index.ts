@@ -41,8 +41,8 @@ export function useTranslation() {
 
 export { en, fa, de };
 
-/** Trilingual helper — returns the correct string for fa / en / de. */
-export function tri(lang: Lang, fa: string, en: string, de: string): string {
+/** Trilingual helper — returns the correct value for fa / en / de. */
+export function tri<T>(lang: Lang, fa: T, en: T, de: T): T {
   if (lang === "fa") return fa;
   if (lang === "de") return de;
   return en;

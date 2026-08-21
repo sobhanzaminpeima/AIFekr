@@ -16,7 +16,7 @@ import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
 import CurrencySelector from "@/components/ui/CurrencySelector";
 import NotificationBell from "@/components/layout/NotificationBell";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
 import { formatNumber } from "@/lib/utils/jalali";
 
 interface Project { id: string; name: string; color: string; icon: string; conversationCount: number; }
@@ -132,43 +132,24 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
   const planNames = lang === "en" ? planNamesEN : planNamesFA;
 
-  const tools = lang === "en"
-    ? [
-        { icon: Briefcase, label: "Business Ideas", href: "/tools/business-ideas" },
-        { icon: TrendingUp, label: "Market Analysis", href: "/tools/trading" },
-        { icon: ShoppingCart, label: "Dropshipping", href: "/tools/drop-shipping" },
-        { icon: Calculator, label: "Math Solver", href: "/tools/math" },
-        { icon: Salad, label: "Diet Plan", href: "/tools/healthy-diet" },
-        { icon: FlaskConical, label: "Try Free AI (Experimental)", href: "/tools/try-free-ai" },
-      ]
-    : [
-        { icon: Briefcase, label: "ایده کسب‌وکار", href: "/tools/business-ideas" },
-        { icon: TrendingUp, label: "تحلیل بازار", href: "/tools/trading" },
-        { icon: ShoppingCart, label: "دراپشیپینگ", href: "/tools/drop-shipping" },
-        { icon: Calculator, label: "حل ریاضیات", href: "/tools/math" },
-        { icon: Salad, label: "برنامه غذایی", href: "/tools/healthy-diet" },
-        { icon: FlaskConical, label: "امتحان AI رایگان (آزمایشی)", href: "/tools/try-free-ai" },
-      ];
+  const tools = [
+    { icon: Briefcase, label: tri(lang, "ایده کسب‌وکار", "Business Ideas", "Geschäftsideen"), href: "/tools/business-ideas" },
+    { icon: TrendingUp, label: tri(lang, "تحلیل بازار", "Market Analysis", "Marktanalyse"), href: "/tools/trading" },
+    { icon: ShoppingCart, label: tri(lang, "دراپشیپینگ", "Dropshipping", "Dropshipping"), href: "/tools/drop-shipping" },
+    { icon: Calculator, label: tri(lang, "حل ریاضیات", "Math Solver", "Mathe-Löser"), href: "/tools/math" },
+    { icon: Salad, label: tri(lang, "برنامه غذایی", "Diet Plan", "Ernährungsplan"), href: "/tools/healthy-diet" },
+    { icon: FlaskConical, label: tri(lang, "امتحان AI رایگان (آزمایشی)", "Try Free AI (Experimental)", "Kostenlose KI testen (experimentell)"), href: "/tools/try-free-ai" },
+  ];
 
-  const assistants = lang === "en"
-    ? [
-        { icon: GraduationCap, label: "Teacher", href: "/assistants/teacher" },
-        { icon: Stethoscope, label: "Doctor", href: "/assistants/doctor" },
-        { icon: Languages, label: "Translator", href: "/assistants/translator" },
-        { icon: ChefHat, label: "Chef", href: "/assistants/cooking" },
-        { icon: Dumbbell, label: "Fitness Coach", href: "/assistants/fitness-coach" },
-        { icon: Plane, label: "Travel Agent", href: "/assistants/travel-agent" },
-        { icon: Code2, label: "Code Expert", href: "/assistants/code-expert" },
-      ]
-    : [
-        { icon: GraduationCap, label: "معلم", href: "/assistants/teacher" },
-        { icon: Stethoscope, label: "پزشک", href: "/assistants/doctor" },
-        { icon: Languages, label: "مترجم", href: "/assistants/translator" },
-        { icon: ChefHat, label: "آشپز", href: "/assistants/cooking" },
-        { icon: Dumbbell, label: "مربی بدنسازی", href: "/assistants/fitness-coach" },
-        { icon: Plane, label: "مشاور سفر", href: "/assistants/travel-agent" },
-        { icon: Code2, label: "کارشناس کد", href: "/assistants/code-expert" },
-      ];
+  const assistants = [
+    { icon: GraduationCap, label: tri(lang, "معلم", "Teacher", "Lehrer"), href: "/assistants/teacher" },
+    { icon: Stethoscope, label: tri(lang, "پزشک", "Doctor", "Arzt"), href: "/assistants/doctor" },
+    { icon: Languages, label: tri(lang, "مترجم", "Translator", "Übersetzer"), href: "/assistants/translator" },
+    { icon: ChefHat, label: tri(lang, "آشپز", "Chef", "Koch"), href: "/assistants/cooking" },
+    { icon: Dumbbell, label: tri(lang, "مربی بدنسازی", "Fitness Coach", "Fitnesstrainer"), href: "/assistants/fitness-coach" },
+    { icon: Plane, label: tri(lang, "مشاور سفر", "Travel Agent", "Reiseberater"), href: "/assistants/travel-agent" },
+    { icon: Code2, label: tri(lang, "کارشناس کد", "Code Expert", "Code-Experte"), href: "/assistants/code-expert" },
+  ];
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });

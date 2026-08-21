@@ -11,7 +11,7 @@ import {
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri, type Lang } from "@/lib/i18n";
 import { OPEN_COMMAND_PALETTE_EVENT } from "@/components/ui/CommandPalette";
 
 interface PromptBoxData {
@@ -98,7 +98,7 @@ function parseSuggestions(rawContent: string): { displayContent: string; suggest
   return { displayContent: content, suggestions, promptBox };
 }
 
-function PromptBoxCard({ data, isFa, lang }: { data: PromptBoxData; isFa: boolean; lang: string }) {
+function PromptBoxCard({ data, isFa, lang }: { data: PromptBoxData; isFa: boolean; lang: Lang }) {
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(true);
 
@@ -131,7 +131,7 @@ function PromptBoxCard({ data, isFa, lang }: { data: PromptBoxData; isFa: boolea
       <div className="px-4 pt-3 pb-2.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 flex-shrink-0" style={{ color: "var(--primary)" }} />
-          <span className="text-sm font-semibold text-white truncate">{data.name || (isFa ? "پرامپت" : "Prompt")}</span>
+          <span className="text-sm font-semibold text-white truncate">{data.name || tri(lang, "پرامپت", "Prompt", "Prompt")}</span>
         </div>
         {meta.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-2">
@@ -158,10 +158,10 @@ function PromptBoxCard({ data, isFa, lang }: { data: PromptBoxData; isFa: boolea
       <div className="flex items-center justify-between px-3 py-2 flex-wrap gap-2" style={{ borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
         <div className="flex items-center gap-1.5 text-[11px]" style={{ color: "#a1a1aa" }}>
           <Hash className="w-3 h-3" />
-          <span>{wordCount} {lang === "fa" ? "کلمه" : lang === "de" ? "Wörter" : "words"} · ~{tokenEstimate} tokens</span>
+          <span>{wordCount} {tri(lang, "کلمه", "words", "Wörter")} · ~{tokenEstimate} tokens</span>
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={() => setExpanded((v) => !v)} className="p-1.5 rounded-lg transition-colors" style={{ color: "#a1a1aa" }} title={expanded ? (isFa ? "بستن" : "Collapse") : (isFa ? "باز کردن" : "Expand")}>
+          <button onClick={() => setExpanded((v) => !v)} className="p-1.5 rounded-lg transition-colors" style={{ color: "#a1a1aa" }} title={expanded ? tri(lang, "بستن", "Collapse", "Schließen") : tri(lang, "باز کردن", "Expand", "Erweitern")}>
             {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
           <button onClick={() => download("txt", "text/plain")} className="p-1.5 rounded-lg transition-colors" style={{ color: "#a1a1aa" }} title="TXT">
@@ -176,7 +176,7 @@ function PromptBoxCard({ data, isFa, lang }: { data: PromptBoxData; isFa: boolea
             style={{ background: copied ? "rgba(34,197,94,0.15)" : "var(--primary)", color: copied ? "#22c55e" : "white" }}
           >
             {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-            {copied ? (isFa ? "کپی شد" : lang === "de" ? "Kopiert" : "Copied") : (isFa ? "کپی" : lang === "de" ? "Kopieren" : "Copy")}
+            {copied ? tri(lang, "کپی شد", "Copied", "Kopiert") : tri(lang, "کپی", "Copy", "Kopieren")}
           </button>
         </div>
       </div>
@@ -385,12 +385,12 @@ export default function ChatInterface({
   const toggleVoiceInput = useCallback(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
-      toast.error(lang === "fa" ? "مرورگر شما از تشخیص صدا پشتیبانی نمی‌کند" : lang === "de" ? "Ihr Browser unterstützt keine Spracheingabe" : "Your browser doesn't support voice input");
+      toast.error(tri(lang, "مرورگر شما از تشخیص صدا پشتیبانی نمی‌کند", "Your browser doesn't support voice input", "Ihr Browser unterstützt keine Spracheingabe"));
       return;
     }
     if (listening) { recognitionRef.current?.stop(); setListening(false); return; }
     const recognition = new SR();
-    recognition.lang = lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US";
+    recognition.lang = tri(lang, "fa-IR", "en-US", "de-DE");
     recognition.interimResults = true;
     recognition.continuous = false;
     recognitionRef.current = recognition;
@@ -415,10 +415,10 @@ export default function ChatInterface({
     if (speakingId === msgId) { window.speechSynthesis.cancel(); setSpeakingId(null); return; }
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US";
+    utterance.lang = tri(lang, "fa-IR", "en-US", "de-DE");
     utterance.rate = 1;
     const voices = window.speechSynthesis.getVoices();
-    const langCode = lang === "fa" ? "fa" : lang === "de" ? "de" : "en";
+    const langCode = tri(lang, "fa", "en", "de");
     const match = voices.find((v) => v.lang.startsWith(langCode));
     if (match) utterance.voice = match;
     utterance.onend = () => setSpeakingId(null);
@@ -445,7 +445,7 @@ export default function ChatInterface({
     "Planen Sie eine Reise in eine neue Stadt",
     "Wie erstelle ich ein Geschäftsmodell für mein Startup?",
   ];
-  const starterPrompts = lang === "fa" ? STARTER_PROMPTS_FA : lang === "de" ? STARTER_PROMPTS_DE : STARTER_PROMPTS_EN;
+  const starterPrompts = tri(lang, STARTER_PROMPTS_FA, STARTER_PROMPTS_EN, STARTER_PROMPTS_DE);
 
   return (
     <div className="flex flex-col h-screen" dir={isRtl ? "rtl" : "ltr"} style={{ background: "var(--surface-0)" }}>
@@ -471,14 +471,14 @@ export default function ChatInterface({
             style={{ background: "var(--primary)", color: "white" }}
           >
             <Zap className="w-3.5 h-3.5" />
-            {lang === "fa" ? "افزایش اعتبار" : lang === "de" ? "Guthaben aufladen" : "Add Credits"}
+            {tri(lang, "افزایش اعتبار", "Add Credits", "Guthaben aufladen")}
           </Link>
 
           {/* Global search — opens the shared command palette (Cmd/Ctrl+K) */}
           <button
             onClick={() => window.dispatchEvent(new Event(OPEN_COMMAND_PALETTE_EVENT))}
-            aria-label={lang === "fa" ? "جستجو" : lang === "de" ? "Suche" : "Search"}
-            title={lang === "fa" ? "جستجو (⌘K)" : lang === "de" ? "Suche (⌘K)" : "Search (⌘K)"}
+            aria-label={tri(lang, "جستجو", "Search", "Suche")}
+            title={tri(lang, "جستجو (⌘K)", "Search (⌘K)", "Suche (⌘K)")}
             className="hidden md:flex items-center justify-center w-8 h-8 rounded-xl transition-all"
             style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
           >
@@ -497,7 +497,7 @@ export default function ChatInterface({
               }}
             >
               <currentMode.icon className="w-3.5 h-3.5" />
-              <span>{lang === "fa" ? currentMode.labelFa : lang === "de" ? (currentMode as any).labelDe || currentMode.labelEn : currentMode.labelEn}</span>
+              <span>{tri(lang, currentMode.labelFa, currentMode.labelEn, (currentMode as any).labelDe || currentMode.labelEn)}</span>
               <ChevronDown className="w-3 h-3 opacity-60" />
             </button>
 
@@ -525,7 +525,7 @@ export default function ChatInterface({
                       }}
                     >
                       <mode.icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: mode.color }} />
-                      <span>{lang === "fa" ? mode.labelFa : lang === "de" ? (mode as any).labelDe || mode.labelEn : mode.labelEn}</span>
+                      <span>{tri(lang, mode.labelFa, mode.labelEn, (mode as any).labelDe || mode.labelEn)}</span>
                     </button>
                   ))}
                 </div>
@@ -560,7 +560,7 @@ export default function ChatInterface({
               <currentMode.icon className="w-8 h-8" style={{ color: currentMode.color }} />
             </div>
             <h2 className="text-xl font-semibold mb-1" style={{ color: "var(--text-primary)" }}>
-              {lang === "fa" ? currentMode.labelFa : currentMode.labelEn}
+              {tri(lang, currentMode.labelFa, currentMode.labelEn, currentMode.labelDe)}
             </h2>
             <p className="text-sm mb-1" style={{ color: "var(--text-secondary)" }}>{t.chat.greeting}</p>
             <p className="text-xs mb-8 max-w-sm" style={{ color: "var(--text-muted)" }}>{t.chat.greetingSubtitle}</p>

@@ -7,7 +7,7 @@ import {
   Stethoscope, Users as UsersIcon, Globe2, Share2, Rocket, Settings,
   Crown, Gift, Search, TrendingUp,
 } from "lucide-react";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
 
 const ITEMS_FA = [
   { href: "/chat", label: "چت هوش مصنوعی", icon: MessageSquare },
@@ -75,7 +75,7 @@ export default function CommandPalette({ hideTrigger = false }: { hideTrigger?: 
   const router = useRouter();
   const { lang } = useTranslation();
   const isFa = lang === "fa";
-  const ITEMS = lang === "fa" ? ITEMS_FA : lang === "de" ? ITEMS_DE : ITEMS_EN;
+  const ITEMS = tri(lang, ITEMS_FA, ITEMS_EN, ITEMS_DE);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -115,7 +115,7 @@ export default function CommandPalette({ hideTrigger = false }: { hideTrigger?: 
           style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
         >
           <Search className="w-3.5 h-3.5 flex-shrink-0" />
-          <span className="flex-1 text-right truncate">{lang === "fa" ? "جستجو..." : lang === "de" ? "Suchen..." : "Search..."}</span>
+          <span className="flex-1 text-right truncate">{tri(lang, "جستجو...", "Search...", "Suchen...")}</span>
           <kbd className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: "var(--surface-2)" }}>⌘K</kbd>
         </button>
       )}
@@ -139,7 +139,7 @@ export default function CommandPalette({ hideTrigger = false }: { hideTrigger?: 
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && filtered[0] && go(filtered[0].href)}
-                placeholder={lang === "fa" ? "کجا می‌خواهید بروید؟" : lang === "de" ? "Wohin möchten Sie gehen?" : "Where do you want to go?"}
+                placeholder={tri(lang, "کجا می‌خواهید بروید؟", "Where do you want to go?", "Wohin möchten Sie gehen?")}
                 className="flex-1 bg-transparent text-sm outline-none"
                 style={{ color: "var(--text-primary)" }}
               />
@@ -158,7 +158,7 @@ export default function CommandPalette({ hideTrigger = false }: { hideTrigger?: 
               ))}
               {filtered.length === 0 && (
                 <p className="px-4 py-6 text-sm text-center" style={{ color: "var(--text-muted)" }}>
-                  {lang === "fa" ? "چیزی یافت نشد." : lang === "de" ? "Keine Treffer." : "No matches."}
+                  {tri(lang, "چیزی یافت نشد.", "No matches.", "Keine Treffer.")}
                 </p>
               )}
             </div>

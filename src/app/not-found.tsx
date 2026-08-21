@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
+import { tri, type Lang } from "@/lib/i18n";
 
 export default async function NotFound() {
   const cookieStore = await cookies();
@@ -15,16 +16,16 @@ export default async function NotFound() {
       <h1 className="text-6xl font-bold mb-4" style={{ color: "var(--primary)" }}>
         404
       </h1>
-      <p className="text-xl mb-2">{lang === "de" ? "Seite nicht gefunden" : lang === "fa" ? "صفحه پیدا نشد" : "Page not found"}</p>
+      <p className="text-xl mb-2">{tri(lang as Lang, "صفحه پیدا نشد", "Page not found", "Seite nicht gefunden")}</p>
       <p className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>
-        {lang === "de" ? "Die gesuchte Seite existiert nicht." : lang === "fa" ? "صفحه‌ای که دنبالش هستید وجود ندارد" : "The page you're looking for doesn't exist"}
+        {tri(lang as Lang, "صفحه‌ای که دنبالش هستید وجود ندارد", "The page you're looking for doesn't exist", "Die gesuchte Seite existiert nicht.")}
       </p>
       <Link
         href="/"
         className="px-6 py-3 rounded-xl font-medium text-white"
         style={{ background: "var(--primary)" }}
       >
-        {lang === "de" ? "Zurück zur Startseite" : lang === "fa" ? "بازگشت به خانه" : "Back to home"}
+        {tri(lang as Lang, "بازگشت به خانه", "Back to home", "Zurück zur Startseite")}
       </Link>
     </div>
   );

@@ -3,7 +3,7 @@ import Image from "next/image";
 import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
 import { getServerLang } from "@/lib/i18n/server";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 const SECTIONS_FA = [
   {
