@@ -54,7 +54,7 @@ function fmtMoney(n: number) {
 
 export default function CrmPage() {
   const { t, lang } = useTranslation();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const c = t.crm;
 
   const [tab, setTab] = useState<CrmTab>("board");
@@ -347,11 +347,11 @@ export default function CrmPage() {
       ) : tab === "products" ? (
         <ProductsPanel isFa={isFa} t={c} />
       ) : tab === "invoices" ? (
-        <InvoicesPanel isFa={isFa} t={c} contacts={contacts} />
+        <InvoicesPanel isFa={isFa} lang={lang} t={c} contacts={contacts} />
       ) : tab === "contracts" ? (
-        <ContractsPanel isFa={isFa} t={c} contacts={contacts} />
+        <ContractsPanel isFa={isFa} lang={lang} t={c} contacts={contacts} />
       ) : (
-        <ProjectsPanel isFa={isFa} t={c} contacts={contacts} />
+        <ProjectsPanel isFa={isFa} lang={lang} t={c} contacts={contacts} />
       )}
         </div>
       </div>
@@ -699,7 +699,7 @@ function DealDetailModal({ isFa, lang, t, dealId, deal, pipelines, teamMembers, 
           <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "مرحله: ", "Stage: ", "Phase: ")}</span><span style={{ color: "var(--text-primary)" }}>{stage?.name || "—"}</span></div>
           <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "پایپ‌لاین: ", "Pipeline: ", "Pipeline: ")}</span><span style={{ color: "var(--text-primary)" }}>{pipeline?.name || "—"}</span></div>
           <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "وضعیت: ", "Status: ", "Status: ")}</span><span style={{ color: "var(--text-primary)" }}>{deal.status}</span></div>
-          <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{isFa ? "مخاطب: " : "Contact: "}</span><span style={{ color: "var(--text-primary)" }}>{deal.contact.name}{deal.contact.phone ? ` — ${deal.contact.phone}` : ""}</span></div>
+          <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "مخاطب: ", "Contact: ", "Kontakt: ")}</span><span style={{ color: "var(--text-primary)" }}>{deal.contact.name}{deal.contact.phone ? ` — ${deal.contact.phone}` : ""}</span></div>
           {deal.expectedCloseDate && (
             <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "تاریخ تخمینی بستن: ", "Expected close: ", "Erwarteter Abschluss: ")}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(deal.expectedCloseDate)}</span></div>
           )}
@@ -1904,7 +1904,7 @@ const INVOICE_STATUS_LABEL: Record<string, { fa: string; en: string; color: stri
   cancelled: { fa: "لغوشده", en: "Cancelled", color: "var(--text-muted)" },
 };
 
-function InvoicesPanel({ isFa, t, contacts }: { isFa: boolean; t: Translations["crm"]; contacts: Contact[] }) {
+function InvoicesPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang; t: Translations["crm"]; contacts: Contact[] }) {
   const [invoices, setInvoices] = useState<CrmInvoiceRow[]>([]);
   const [products, setProducts] = useState<CrmProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2055,12 +2055,12 @@ function InvoicesPanel({ isFa, t, contacts }: { isFa: boolean; t: Translations["
         </div>
       )}
 
-      {printInvoice && <InvoicePrintModal isFa={isFa} t={t} invoice={printInvoice} onClose={() => setPrintInvoice(null)} />}
+      {printInvoice && <InvoicePrintModal isFa={isFa} lang={lang} t={t} invoice={printInvoice} onClose={() => setPrintInvoice(null)} />}
     </div>
   );
 }
 
-function InvoicePrintModal({ isFa, t, invoice, onClose }: { isFa: boolean; t: Translations["crm"]; invoice: CrmInvoiceRow; onClose: () => void }) {
+function InvoicePrintModal({ isFa, lang, t, invoice, onClose }: { isFa: boolean; lang: Lang; t: Translations["crm"]; invoice: CrmInvoiceRow; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:p-0 print:static" style={{ background: "rgba(0,0,0,0.6)" }}>
       <div className="print:hidden absolute top-4 left-4 flex gap-2">
@@ -2071,7 +2071,7 @@ function InvoicePrintModal({ isFa, t, invoice, onClose }: { isFa: boolean; t: Tr
         style={{ background: "#fff", color: "#111" }}>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">{t.invoices.print.invoiceTitle} {invoice.invoiceNumber}</h2>
-          <span className="text-xs">{isFa ? toJalali(invoice.issueDate) : new Date(invoice.issueDate).toLocaleDateString("en-US")}</span>
+          <span className="text-xs">{lang === "fa" ? toJalali(invoice.issueDate) : new Date(invoice.issueDate).toLocaleDateString(lang === "de" ? "de-DE" : "en-US")}</span>
         </div>
         <p className="text-sm">{t.invoices.print.billTo} {invoice.contact.name}</p>
         <table className="w-full text-sm border-collapse">
@@ -2118,7 +2118,7 @@ const CONTRACT_STATUS_LABEL: Record<string, { fa: string; en: string; color: str
   cancelled: { fa: "لغوشده", en: "Cancelled", color: "var(--text-muted)" },
 };
 
-function ContractsPanel({ isFa, t, contacts }: { isFa: boolean; t: Translations["crm"]; contacts: Contact[] }) {
+function ContractsPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang; t: Translations["crm"]; contacts: Contact[] }) {
   const [contracts, setContracts] = useState<CrmContractRow[]>([]);
   const [templates, setTemplates] = useState<CrmContractTemplateRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2405,7 +2405,7 @@ const PROJECT_STATUS_LABEL: Record<string, { fa: string; en: string; color: stri
 };
 
 /** Generic post-sale/ongoing-work tracking — usable by any vertical (a construction job, a real-estate closing's paperwork, a service engagement), not tied to one industry's schema. */
-function ProjectsPanel({ isFa, t, contacts }: { isFa: boolean; t: Translations["crm"]; contacts: Contact[] }) {
+function ProjectsPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang; t: Translations["crm"]; contacts: Contact[] }) {
   const [projects, setProjects] = useState<CrmProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -2514,6 +2514,7 @@ function ProjectsPanel({ isFa, t, contacts }: { isFa: boolean; t: Translations["
       {selectedProjectId && (
         <ProjectDetailModal
           isFa={isFa}
+          lang={lang}
           t={t}
           project={projects.find((p) => p.id === selectedProjectId) || null}
           onClose={() => setSelectedProjectId(null)}
@@ -2524,7 +2525,7 @@ function ProjectsPanel({ isFa, t, contacts }: { isFa: boolean; t: Translations["
   );
 }
 
-function ProjectDetailModal({ isFa, t, project, onClose, onChanged }: { isFa: boolean; t: Translations["crm"]; project: CrmProjectRow | null; onClose: () => void; onChanged: () => void }) {
+function ProjectDetailModal({ isFa, lang, t, project, onClose, onChanged }: { isFa: boolean; lang: Lang; t: Translations["crm"]; project: CrmProjectRow | null; onClose: () => void; onChanged: () => void }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -2559,7 +2560,7 @@ function ProjectDetailModal({ isFa, t, project, onClose, onChanged }: { isFa: bo
 
       <div className="flex items-center justify-between mb-3">
         <span className="text-[11px] px-2 py-1 rounded-full font-medium" style={{ background: "var(--surface-2)", color: st.color }}>
-          {isFa ? st.fa : st.en}
+          {lang === "fa" ? st.fa : lang === "de" ? (st as any).de || st.en : st.en}
         </span>
         {!editing ? (
           <button onClick={() => setEditing(true)} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
@@ -2585,12 +2586,12 @@ function ProjectDetailModal({ isFa, t, project, onClose, onChanged }: { isFa: bo
             className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{isFa ? "تاریخ شروع" : "Start date"}</label>
+              <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "تاریخ شروع", "Start date", "Startdatum")}</label>
               <input type="date" value={form.startDate} onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div>
-              <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{isFa ? "تاریخ پایان" : "End date"}</label>
+              <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "تاریخ پایان", "End date", "Enddatum")}</label>
               <input type="date" value={form.endDate} onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
@@ -2599,10 +2600,10 @@ function ProjectDetailModal({ isFa, t, project, onClose, onChanged }: { isFa: bo
       ) : (
         <div className="space-y-2 text-sm">
           {project.description && <p style={{ color: "var(--text-secondary)" }}>{project.description}</p>}
-          {project.contact && <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "مخاطب: " : "Contact: "}</span><span style={{ color: "var(--text-primary)" }}>{project.contact.name}</span></div>}
-          {project.deal && <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "معامله مرتبط: " : "Related deal: "}</span><span style={{ color: "var(--text-primary)" }}>{project.deal.title}</span></div>}
-          {project.startDate && <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "شروع: " : "Start: "}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(project.startDate)}</span></div>}
-          {project.endDate && <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "پایان: " : "End: "}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(project.endDate)}</span></div>}
+          {project.contact && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "مخاطب: ", "Contact: ", "Kontakt: ")}</span><span style={{ color: "var(--text-primary)" }}>{project.contact.name}</span></div>}
+          {project.deal && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "معامله مرتبط: ", "Related deal: ", "Zugehöriger Deal: ")}</span><span style={{ color: "var(--text-primary)" }}>{project.deal.title}</span></div>}
+          {project.startDate && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "شروع: ", "Start: ", "Start: ")}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(project.startDate)}</span></div>}
+          {project.endDate && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "پایان: ", "End: ", "Ende: ")}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(project.endDate)}</span></div>}
           {!project.description && !project.contact && !project.deal && !project.startDate && !project.endDate && (
             <p style={{ color: "var(--text-muted)" }}>{t.contactDetail.noActivity}</p>
           )}

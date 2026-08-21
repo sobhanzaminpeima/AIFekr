@@ -11,7 +11,7 @@ function RegisterForm() {
   const router = useRouter();
   const params = useSearchParams();
   const { t, lang } = useTranslation();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const packSlug = params.get("pack") || "";
   const refCode = params.get("ref") || "";
   const planCode = params.get("plan") || "";

@@ -50,8 +50,8 @@ interface TeamData {
 
 export default function SettingsPage() {
   const { t, lang } = useTranslation();
-  const isFa = lang !== "en";
-  const dateLocale = isFa ? "fa-IR" : "en-US";
+  const isFa = lang === "fa";
+  const dateLocale = lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US";
   const STATUS_LABEL: Record<string, string> = { PENDING: t.settingsPage.statusPending, PAID: t.settingsPage.statusPaid, FAILED: t.settingsPage.statusFailed };
   const TYPE_LABEL: Record<string, string> = { chat: t.settingsPage.typeChat, image: t.settingsPage.typeImage, video: t.settingsPage.typeVideo, music: t.settingsPage.typeMusic, tool: t.settingsPage.typeTool };
 
@@ -310,10 +310,10 @@ export default function SettingsPage() {
               <div key={p.id} className="flex items-center justify-between text-sm p-2 rounded-xl" style={{ background: "var(--surface-2)" }}>
                 <div>
                   <div style={{ color: "var(--text-primary)" }}>{p.plan}</div>
-                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? toJalali(p.createdAt) : new Date(p.createdAt).toLocaleDateString("en-US")}</div>
+                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>{lang === "fa" ? toJalali(p.createdAt) : new Date(p.createdAt).toLocaleDateString(dateLocale)}</div>
                 </div>
                 <div className="text-left">
-                  <div style={{ color: "var(--text-primary)" }}>{(p.amount / 10).toLocaleString(dateLocale)} {isFa ? "ت" : "T"}</div>
+                  <div style={{ color: "var(--text-primary)" }}>{(p.amount / 10).toLocaleString(dateLocale)} {lang === "fa" ? "ت" : lang === "de" ? "T" : "T"}</div>
                   <div className="text-xs" style={{ color: p.status === "PAID" ? "var(--success)" : p.status === "FAILED" ? "var(--danger)" : "var(--text-muted)" }}>
                     {STATUS_LABEL[p.status] || p.status}
                   </div>

@@ -34,14 +34,14 @@ interface Message {
 }
 
 const EXPERT_MODES = [
-  { id: "default",   labelFa: "دستیار هوشمند",     labelEn: "Smart Assistant", icon: Sparkles,     color: "#ea580c" },
-  { id: "business",  labelFa: "دکتر کسب‌وکار",     labelEn: "Business Doctor", icon: Briefcase,    color: "#3b82f6" },
-  { id: "marketing", labelFa: "بازاریابی",          labelEn: "Marketing",       icon: TrendingUp,   color: "#10b981" },
-  { id: "financial", labelFa: "مالی و سرمایه",      labelEn: "Financial",       icon: DollarSign,   color: "#f59e0b" },
-  { id: "sales",     labelFa: "فروش",               labelEn: "Sales",           icon: ShoppingCart, color: "#8b5cf6" },
-  { id: "startup",   labelFa: "استارتاپ",           labelEn: "Startup",         icon: Rocket,       color: "#ef4444" },
-  { id: "legal",     labelFa: "حقوقی",              labelEn: "Legal",           icon: Scale,        color: "#06b6d4" },
-  { id: "hr",        labelFa: "منابع انسانی",       labelEn: "HR & People",     icon: Users,        color: "#d97706" },
+  { id: "default",   labelFa: "دستیار هوشمند",     labelEn: "Smart Assistant", labelDe: "Intelligenter Assistent", icon: Sparkles,     color: "#ea580c" },
+  { id: "business",  labelFa: "دکتر کسب‌وکار",     labelEn: "Business Doctor", labelDe: "Geschäftsberater", icon: Briefcase,    color: "#3b82f6" },
+  { id: "marketing", labelFa: "بازاریابی",          labelEn: "Marketing",       labelDe: "Marketing", icon: TrendingUp,   color: "#10b981" },
+  { id: "financial", labelFa: "مالی و سرمایه",      labelEn: "Financial",       labelDe: "Finanzen", icon: DollarSign,   color: "#f59e0b" },
+  { id: "sales",     labelFa: "فروش",               labelEn: "Sales",           labelDe: "Vertrieb", icon: ShoppingCart, color: "#8b5cf6" },
+  { id: "startup",   labelFa: "استارتاپ",           labelEn: "Startup",         labelDe: "Startup", icon: Rocket,       color: "#ef4444" },
+  { id: "legal",     labelFa: "حقوقی",              labelEn: "Legal",           labelDe: "Recht", icon: Scale,        color: "#06b6d4" },
+  { id: "hr",        labelFa: "منابع انسانی",       labelEn: "HR & People",     labelDe: "HR & Personal", icon: Users,        color: "#d97706" },
 ];
 
 const MODEL_IDS = [
@@ -98,7 +98,7 @@ function parseSuggestions(rawContent: string): { displayContent: string; suggest
   return { displayContent: content, suggestions, promptBox };
 }
 
-function PromptBoxCard({ data, isFa }: { data: PromptBoxData; isFa: boolean }) {
+function PromptBoxCard({ data, isFa, lang }: { data: PromptBoxData; isFa: boolean; lang: string }) {
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(true);
 
@@ -158,7 +158,7 @@ function PromptBoxCard({ data, isFa }: { data: PromptBoxData; isFa: boolean }) {
       <div className="flex items-center justify-between px-3 py-2 flex-wrap gap-2" style={{ borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
         <div className="flex items-center gap-1.5 text-[11px]" style={{ color: "#a1a1aa" }}>
           <Hash className="w-3 h-3" />
-          <span>{wordCount} {isFa ? "کلمه" : "words"} · ~{tokenEstimate} tokens</span>
+          <span>{wordCount} {lang === "fa" ? "کلمه" : lang === "de" ? "Wörter" : "words"} · ~{tokenEstimate} tokens</span>
         </div>
         <div className="flex items-center gap-1">
           <button onClick={() => setExpanded((v) => !v)} className="p-1.5 rounded-lg transition-colors" style={{ color: "#a1a1aa" }} title={expanded ? (isFa ? "بستن" : "Collapse") : (isFa ? "باز کردن" : "Expand")}>
@@ -176,7 +176,7 @@ function PromptBoxCard({ data, isFa }: { data: PromptBoxData; isFa: boolean }) {
             style={{ background: copied ? "rgba(34,197,94,0.15)" : "var(--primary)", color: copied ? "#22c55e" : "white" }}
           >
             {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-            {copied ? (isFa ? "کپی شد" : "Copied") : (isFa ? "کپی" : "Copy")}
+            {copied ? (isFa ? "کپی شد" : lang === "de" ? "Kopiert" : "Copied") : (isFa ? "کپی" : lang === "de" ? "Kopieren" : "Copy")}
           </button>
         </div>
       </div>
@@ -385,12 +385,12 @@ export default function ChatInterface({
   const toggleVoiceInput = useCallback(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
-      toast.error(lang === "fa" ? "مرورگر شما از تشخیص صدا پشتیبانی نمی‌کند" : "Your browser doesn't support voice input");
+      toast.error(lang === "fa" ? "مرورگر شما از تشخیص صدا پشتیبانی نمی‌کند" : lang === "de" ? "Ihr Browser unterstützt keine Spracheingabe" : "Your browser doesn't support voice input");
       return;
     }
     if (listening) { recognitionRef.current?.stop(); setListening(false); return; }
     const recognition = new SR();
-    recognition.lang = lang === "fa" ? "fa-IR" : "en-US";
+    recognition.lang = lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US";
     recognition.interimResults = true;
     recognition.continuous = false;
     recognitionRef.current = recognition;
@@ -415,10 +415,10 @@ export default function ChatInterface({
     if (speakingId === msgId) { window.speechSynthesis.cancel(); setSpeakingId(null); return; }
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = lang === "fa" ? "fa-IR" : "en-US";
+    utterance.lang = lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US";
     utterance.rate = 1;
     const voices = window.speechSynthesis.getVoices();
-    const langCode = lang === "fa" ? "fa" : "en";
+    const langCode = lang === "fa" ? "fa" : lang === "de" ? "de" : "en";
     const match = voices.find((v) => v.lang.startsWith(langCode));
     if (match) utterance.voice = match;
     utterance.onend = () => setSpeakingId(null);
@@ -439,7 +439,13 @@ export default function ChatInterface({
     "Plan a trip to a new city",
     "How do I build a business model for my startup?",
   ];
-  const starterPrompts = lang === "fa" ? STARTER_PROMPTS_FA : STARTER_PROMPTS_EN;
+  const STARTER_PROMPTS_DE = [
+    "Schreiben Sie ein formelles E-Mail für mich",
+    "Fassen Sie diesen Text zusammen",
+    "Planen Sie eine Reise in eine neue Stadt",
+    "Wie erstelle ich ein Geschäftsmodell für mein Startup?",
+  ];
+  const starterPrompts = lang === "fa" ? STARTER_PROMPTS_FA : lang === "de" ? STARTER_PROMPTS_DE : STARTER_PROMPTS_EN;
 
   return (
     <div className="flex flex-col h-screen" dir={isRtl ? "rtl" : "ltr"} style={{ background: "var(--surface-0)" }}>
@@ -465,14 +471,14 @@ export default function ChatInterface({
             style={{ background: "var(--primary)", color: "white" }}
           >
             <Zap className="w-3.5 h-3.5" />
-            {isRtl ? "افزایش اعتبار" : "Add Credits"}
+            {lang === "fa" ? "افزایش اعتبار" : lang === "de" ? "Guthaben aufladen" : "Add Credits"}
           </Link>
 
           {/* Global search — opens the shared command palette (Cmd/Ctrl+K) */}
           <button
             onClick={() => window.dispatchEvent(new Event(OPEN_COMMAND_PALETTE_EVENT))}
-            aria-label={isRtl ? "جستجو" : "Search"}
-            title={isRtl ? "جستجو (⌘K)" : "Search (⌘K)"}
+            aria-label={lang === "fa" ? "جستجو" : lang === "de" ? "Suche" : "Search"}
+            title={lang === "fa" ? "جستجو (⌘K)" : lang === "de" ? "Suche (⌘K)" : "Search (⌘K)"}
             className="hidden md:flex items-center justify-center w-8 h-8 rounded-xl transition-all"
             style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
           >
@@ -491,7 +497,7 @@ export default function ChatInterface({
               }}
             >
               <currentMode.icon className="w-3.5 h-3.5" />
-              <span>{lang === "fa" ? currentMode.labelFa : currentMode.labelEn}</span>
+              <span>{lang === "fa" ? currentMode.labelFa : lang === "de" ? (currentMode as any).labelDe || currentMode.labelEn : currentMode.labelEn}</span>
               <ChevronDown className="w-3 h-3 opacity-60" />
             </button>
 
@@ -519,7 +525,7 @@ export default function ChatInterface({
                       }}
                     >
                       <mode.icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: mode.color }} />
-                      <span>{lang === "fa" ? mode.labelFa : mode.labelEn}</span>
+                      <span>{lang === "fa" ? mode.labelFa : lang === "de" ? (mode as any).labelDe || mode.labelEn : mode.labelEn}</span>
                     </button>
                   ))}
                 </div>
@@ -605,7 +611,7 @@ export default function ChatInterface({
                     ) : !msg.promptBox ? (
                       <span className="cursor-blink" />
                     ) : null}
-                    {msg.promptBox && <PromptBoxCard data={msg.promptBox} isFa={lang === "fa"} />}
+                    {msg.promptBox && <PromptBoxCard data={msg.promptBox} isFa={lang === "fa"} lang={lang} />}
                   </div>
                 ) : (
                   <p className="whitespace-pre-wrap">{msg.content}</p>

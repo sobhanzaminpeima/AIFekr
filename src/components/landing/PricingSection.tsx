@@ -32,7 +32,7 @@ export default function PricingSection({
   lang?: string;
 }) {
   const reduce = useReducedMotion();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
 
   // Show max 3 plans on landing: Free, Plus, Pro
   const displayed = plans.slice(0, 3);
@@ -65,9 +65,9 @@ export default function PricingSection({
                 {popularLabel}
               </div>
             )}
-            <h3 className="font-bold text-lg mb-1 text-white">{isFa ? p.name : p.nameEn}</h3>
+            <h3 className="font-bold text-lg mb-1 text-white">{lang === "fa" ? p.name : lang === "de" ? (p as any).nameDe || p.nameEn : p.nameEn}</h3>
             <div className="mb-4">
-              {isFa ? (
+              {lang === "fa" ? (
                 <>
                   <span className="text-3xl font-bold text-white">
                     {p.price > 0 ? Math.round(p.price / 10).toLocaleString("fa-IR") : freeLabel}

@@ -11,7 +11,7 @@ type GenStatus = "idle" | "generating" | "polling" | "succeeded" | "failed";
 
 export default function MusicGeneratePage() {
   const { t, lang } = useTranslation();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const s = t.musicGeneratePage;
   const GENRES = s.genres;
   const DURATIONS = s.durations;

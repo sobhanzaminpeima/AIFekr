@@ -58,7 +58,7 @@ function HealthRing({ score }: { score: number }) {
 
 export default function AiBosPage() {
   const { t, lang } = useTranslation();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const s = t.ceoOrchestratorPage;
   const dateLocale = lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US";
 

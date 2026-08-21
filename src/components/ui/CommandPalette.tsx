@@ -47,6 +47,25 @@ const ITEMS_EN = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
+const ITEMS_DE = [
+  { href: "/chat", label: "KI-Chat", icon: MessageSquare },
+  { href: "/business-doctor", label: "Geschäftsberater", icon: Stethoscope },
+  { href: "/ceo", label: "CEO-Berater", icon: TrendingUp },
+  { href: "/seo", label: "SEO", icon: Globe2 },
+  { href: "/social", label: "Soziale Medien", icon: Share2 },
+  { href: "/website-designer", label: "Webseitenersteller", icon: Globe2 },
+  { href: "/startup/builder", label: "Startup-Builder", icon: Rocket },
+  { href: "/image/generate", label: "Bild erstellen", icon: ImageIcon },
+  { href: "/video/generate", label: "Video erstellen", icon: Video },
+  { href: "/music/generate", label: "Musik erstellen", icon: Music },
+  { href: "/image/gallery", label: "Meine Galerie", icon: GalleryHorizontal },
+  { href: "/meeting", label: "Besprechungsraum", icon: UsersIcon },
+  { href: "/industry", label: "Geschäftspläne", icon: Crown },
+  { href: "/referral", label: "Einladen & Verdienen", icon: Gift },
+  { href: "/plans", label: "Pläne", icon: Crown },
+  { href: "/settings", label: "Einstellungen", icon: Settings },
+];
+
 // Custom event name pages can dispatch to open the palette from their own
 // header (e.g. a compact icon button next to page-specific controls)
 // without duplicating the modal or its keyboard-shortcut listener.
@@ -55,8 +74,8 @@ export const OPEN_COMMAND_PALETTE_EVENT = "aifekr:open-command-palette";
 export default function CommandPalette({ hideTrigger = false }: { hideTrigger?: boolean }) {
   const router = useRouter();
   const { lang } = useTranslation();
-  const isFa = lang !== "en";
-  const ITEMS = isFa ? ITEMS_FA : ITEMS_EN;
+  const isFa = lang === "fa";
+  const ITEMS = lang === "fa" ? ITEMS_FA : lang === "de" ? ITEMS_DE : ITEMS_EN;
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -96,7 +115,7 @@ export default function CommandPalette({ hideTrigger = false }: { hideTrigger?: 
           style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
         >
           <Search className="w-3.5 h-3.5 flex-shrink-0" />
-          <span className="flex-1 text-right truncate">{isFa ? "جستجو..." : "Search..."}</span>
+          <span className="flex-1 text-right truncate">{lang === "fa" ? "جستجو..." : lang === "de" ? "Suchen..." : "Search..."}</span>
           <kbd className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: "var(--surface-2)" }}>⌘K</kbd>
         </button>
       )}
@@ -120,7 +139,7 @@ export default function CommandPalette({ hideTrigger = false }: { hideTrigger?: 
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && filtered[0] && go(filtered[0].href)}
-                placeholder={isFa ? "کجا می‌خواهید بروید؟" : "Where do you want to go?"}
+                placeholder={lang === "fa" ? "کجا می‌خواهید بروید؟" : lang === "de" ? "Wohin möchten Sie gehen?" : "Where do you want to go?"}
                 className="flex-1 bg-transparent text-sm outline-none"
                 style={{ color: "var(--text-primary)" }}
               />
@@ -139,7 +158,7 @@ export default function CommandPalette({ hideTrigger = false }: { hideTrigger?: 
               ))}
               {filtered.length === 0 && (
                 <p className="px-4 py-6 text-sm text-center" style={{ color: "var(--text-muted)" }}>
-                  {isFa ? "چیزی یافت نشد." : "No matches."}
+                  {lang === "fa" ? "چیزی یافت نشد." : lang === "de" ? "Keine Treffer." : "No matches."}
                 </p>
               )}
             </div>

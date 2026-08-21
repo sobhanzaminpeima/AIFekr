@@ -55,7 +55,7 @@ export default function SEOPage() {
   useEffect(() => { loadConnection(); }, [loadConnection]);
 
   // ── Google Search Console ────────────────────────────────────────────────
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const [gscConnected, setGscConnected] = useState(false);
   const [gscSiteUrl, setGscSiteUrl] = useState<string | null>(null);
   const [gscSites, setGscSites] = useState<{ siteUrl: string; permissionLevel: string }[]>([]);

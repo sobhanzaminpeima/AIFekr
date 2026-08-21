@@ -67,7 +67,7 @@ function splitReportSections(markdown: string): { title: string; body: string }[
 
 export default function SocialPage() {
   const { t, lang } = useTranslation();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const TONES = [
     { value: "Professional", label: t.social.tones.professional },
     { value: "Casual", label: t.social.tones.casual },

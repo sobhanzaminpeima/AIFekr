@@ -15,6 +15,13 @@ const DEFAULTS = {
   contact_telegram: "@aifekr_support",
 };
 
+const DEFAULTS_DE = {
+  contact_email: "support@aifekr.com",
+  contact_phone: "021-12345678",
+  contact_address: "Tehran, Iran",
+  contact_telegram: "@aifekr_support",
+};
+
 const DEFAULTS_EN = {
   contact_email: "support@aifekr.com",
   contact_phone: "021-12345678",
@@ -22,8 +29,8 @@ const DEFAULTS_EN = {
   contact_telegram: "@aifekr_support",
 };
 
-async function getSettings(isFa: boolean) {
-  const defaults = isFa ? DEFAULTS : DEFAULTS_EN;
+async function getSettings(lang: string) {
+  const defaults = lang === "de" ? DEFAULTS_DE : lang === "fa" ? DEFAULTS : DEFAULTS_EN;
   try {
     const rows = await prisma.siteSetting.findMany({
       where: { key: { in: ["contact_email", "contact_phone", "contact_address", "contact_telegram"] } },
@@ -31,7 +38,7 @@ async function getSettings(isFa: boolean) {
     const map: Record<string, string> = {};
     for (const r of rows) map[r.key] = r.value;
     // The address field from the DB is Persian-authored, so only apply DB overrides in Persian mode.
-    return isFa ? { ...defaults, ...map } : { ...defaults, ...map, contact_address: defaults.contact_address };
+    return { ...defaults, ...map, contact_address: defaults.contact_address };
   } catch {
     return defaults;
   }
@@ -40,7 +47,7 @@ async function getSettings(isFa: boolean) {
 export default async function ContactPage() {
   const lang = await getServerLang();
   const isFa = lang === "fa";
-  const s = await getSettings(isFa);
+  const s = await getSettings(lang);
 
   const cards = [
     { icon: Mail, label: lang === "de" ? "E-Mail" : isFa ? "ایمیل" : "Email", value: s.contact_email, href: `mailto:${s.contact_email}` },

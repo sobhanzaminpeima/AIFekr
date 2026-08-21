@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Script from "next/script";
 import { Image as ImageIcon, Wand2, Download, Loader2, Languages, Upload, X, Sparkles, Gift, Coins, Copy, Check, User, Package, Mountain, Palette, Briefcase, Wand } from "lucide-react";
 import toast from "react-hot-toast";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
 
 const RATIOS = ["1:1", "16:9", "9:16", "4:3"];
 
@@ -19,13 +19,13 @@ interface PromptTemplate {
 }
 
 const CATEGORIES = [
-  { id: "all",       fa: "همه",              en: "All",         icon: Sparkles,   gradient: "linear-gradient(135deg, #ea580c, #f97316)" },
-  { id: "portrait",  fa: "پرتره",            en: "Portrait",    icon: User,       gradient: "linear-gradient(135deg, #ec4899, #f472b6)" },
-  { id: "product",   fa: "محصول",            en: "Product",     icon: Package,    gradient: "linear-gradient(135deg, #06b6d4, #0ea5e9)" },
-  { id: "landscape", fa: "منظره و طبیعت",    en: "Landscape",   icon: Mountain,   gradient: "linear-gradient(135deg, #10b981, #22c55e)" },
-  { id: "art",       fa: "هنری و نقاشی",     en: "Art",         icon: Palette,    gradient: "linear-gradient(135deg, #8b5cf6, #a78bfa)" },
-  { id: "corporate", fa: "کسب‌وکار",         en: "Corporate",   icon: Briefcase,  gradient: "linear-gradient(135deg, #3b82f6, #6366f1)" },
-  { id: "fantasy",   fa: "فانتزی و سینمایی", en: "Fantasy",     icon: Wand,       gradient: "linear-gradient(135deg, #f59e0b, #ea580c)" },
+  { id: "all",       fa: "همه",              en: "All",         de: "Alle", icon: Sparkles,   gradient: "linear-gradient(135deg, #ea580c, #f97316)" },
+  { id: "portrait",  fa: "پرتره",            en: "Portrait",    de: "Porträt", icon: User,       gradient: "linear-gradient(135deg, #ec4899, #f472b6)" },
+  { id: "product",   fa: "محصول",            en: "Product",     de: "Produkt", icon: Package,    gradient: "linear-gradient(135deg, #06b6d4, #0ea5e9)" },
+  { id: "landscape", fa: "منظره و طبیعت",    en: "Landscape",   de: "Landschaft", icon: Mountain,   gradient: "linear-gradient(135deg, #10b981, #22c55e)" },
+  { id: "art",       fa: "هنری و نقاشی",     en: "Art",         de: "Kunst", icon: Palette,    gradient: "linear-gradient(135deg, #8b5cf6, #a78bfa)" },
+  { id: "corporate", fa: "کسب‌وکار",         en: "Corporate",   de: "Unternehmen", icon: Briefcase,  gradient: "linear-gradient(135deg, #3b82f6, #6366f1)" },
+  { id: "fantasy",   fa: "فانتزی و سینمایی", en: "Fantasy",     de: "Fantasie", icon: Wand,       gradient: "linear-gradient(135deg, #f59e0b, #ea580c)" },
 ];
 
 // Minimal shape of the global `puter` object injected by https://js.puter.com/v2/.
@@ -44,7 +44,7 @@ declare global {
 
 export default function ImageGeneratePage() {
   const { t, lang } = useTranslation();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const s = t.imageGeneratePage;
   const STYLES = s.styles;
 
@@ -129,10 +129,10 @@ export default function ImageGeneratePage() {
     try {
       await navigator.clipboard.writeText(templateText(tpl));
       setCopiedId(tpl.id);
-      toast.success(isFa ? "پرامپت کپی شد" : "Prompt copied");
+      toast.success(tri(lang, "پرامپت کپی شد", "Prompt copied", "Prompt kopiert"));
       setTimeout(() => setCopiedId((v) => (v === tpl.id ? null : v)), 1500);
     } catch {
-      toast.error(isFa ? "کپی ناموفق بود" : "Copy failed");
+      toast.error(tri(lang, "کپی ناموفق بود", "Copy failed", "Kopieren fehlgeschlagen"));
     }
   }
 
@@ -250,7 +250,7 @@ export default function ImageGeneratePage() {
           {mode === "credits" && imageProviders.length > 0 && (
             <div className="p-5 rounded-2xl space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
               <label className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                {isFa ? "مدل تصویر" : "Image Model"}
+                {tri(lang, "مدل تصویر", "Image Model", "Bildmodell")}
               </label>
               <select
                 value={imageProvider}
@@ -268,7 +268,7 @@ export default function ImageGeneratePage() {
               rendered nothing, with no signal to the user or admin about why. */}
           {mode === "credits" && imageProvidersLoaded && imageProviders.length === 0 && (
             <div className="p-4 rounded-2xl text-xs" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
-              {isFa ? "هیچ مدل تصویری پیکربندی نشده است. با پشتیبانی تماس بگیرید." : "No image models are configured. Contact support."}
+              {tri(lang, "هیچ مدل تصویری پیکربندی نشده است. با پشتیبانی تماس بگیرید.", "No image models are configured. Contact support.", "Keine Bildmodelle konfiguriert. Kontaktieren Sie den Support.")}
             </div>
           )}
 
@@ -309,7 +309,7 @@ export default function ImageGeneratePage() {
             className="w-full flex items-center justify-between p-5 rounded-2xl text-sm font-medium transition-all"
             style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
           >
-            <span className="flex items-center gap-2"><Sparkles className="w-4 h-4" style={{ color: "var(--primary)" }} /> {isFa ? "گالری پرامپت‌های آماده" : "Prompt Gallery"}</span>
+            <span className="flex items-center gap-2"><Sparkles className="w-4 h-4" style={{ color: "var(--primary)" }} /> {tri(lang, "گالری پرامپت‌های آماده", "Prompt Gallery", "Prompt-Galerie")}</span>
             <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>{templates.length}</span>
           </button>
 
@@ -464,7 +464,7 @@ export default function ImageGeneratePage() {
             <div className="flex items-center justify-between px-5 py-4 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
               <h2 className="text-base font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
                 <Sparkles className="w-4 h-4" style={{ color: "var(--primary)" }} />
-                {isFa ? "گالری پرامپت‌های آماده" : "Prompt Gallery"}
+                {tri(lang, "گالری پرامپت‌های آماده", "Prompt Gallery", "Prompt-Galerie")}
               </h2>
               <button onClick={() => setShowTemplates(false)} className="p-1.5 rounded-lg" style={{ color: "var(--text-muted)" }}>
                 <X className="w-5 h-5" />
@@ -485,7 +485,7 @@ export default function ImageGeneratePage() {
                   }}
                 >
                   <cat.icon className="w-3.5 h-3.5" />
-                  {isFa ? cat.fa : cat.en}
+                  {lang === "fa" ? cat.fa : lang === "de" ? cat.de || cat.en : cat.en}
                 </button>
               ))}
             </div>
@@ -526,14 +526,14 @@ export default function ImageGeneratePage() {
                                 style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
                               >
                                 {copiedId === tpl.id ? <Check className="w-3.5 h-3.5" style={{ color: "#22c55e" }} /> : <Copy className="w-3.5 h-3.5" />}
-                                {copiedId === tpl.id ? (isFa ? "کپی شد" : "Copied") : (isFa ? "کپی" : "Copy")}
+                                {copiedId === tpl.id ? tri(lang, "کپی شد", "Copied", "Kopiert") : tri(lang, "کپی", "Copy", "Kopieren")}
                               </button>
                               <button
                                 onClick={() => pickTemplate(tpl)}
                                 className="flex-1 py-1.5 rounded-lg text-xs font-semibold text-white transition-all"
                                 style={{ background: "var(--primary)" }}
                               >
-                                {isFa ? "استفاده" : "Use"}
+                                {tri(lang, "استفاده", "Use", "Verwenden")}
                               </button>
                             </div>
                           </div>

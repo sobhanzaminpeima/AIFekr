@@ -32,7 +32,7 @@ interface BusinessProfile {
 
 export default function BusinessDoctorPage() {
   const { t, lang } = useTranslation();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const s = t.businessDoctorPage;
 
   const INDUSTRIES = s.industries;

@@ -10,7 +10,7 @@ type Tab = "image" | "video" | "music";
 
 export default function GalleryPage() {
   const { lang } = useTranslation();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const [tab, setTab] = useState<Tab>("image");
   const [items, setItems] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);

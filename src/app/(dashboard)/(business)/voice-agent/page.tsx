@@ -51,7 +51,7 @@ function fmtMoney(n: number) {
 
 export default function VoiceAgentPage() {
   const { lang, t } = useTranslation();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
 
   const [tab, setTab] = useState<"agents" | "properties" | "knowledge" | "calls" | "appointments">("agents");
   const [loading, setLoading] = useState(true);

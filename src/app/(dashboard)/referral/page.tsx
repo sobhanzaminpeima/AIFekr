@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Gift, Copy, Check, Users, Coins, Clock } from "lucide-react";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
 import { formatNumber, toJalali } from "@/lib/utils/jalali";
 
 interface InvitedUser {
@@ -22,7 +22,7 @@ interface ReferralData {
 
 export default function ReferralPage() {
   const { lang } = useTranslation();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const [data, setData] = useState<ReferralData | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -63,12 +63,10 @@ export default function ReferralPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
-              {isFa ? "دعوت کن، اعتبار بگیر" : "Invite & Earn"}
+              {tri(lang, "دعوت کن، اعتبار بگیر", "Invite & Earn", "Einladen & Verdienen")}
             </h1>
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              {isFa
-                ? `به ازای هر دوست که با لینک تو ثبت‌نام و خرید کند، ${formatNumber(data?.bonusPerReferral ?? 100, lang)} اعتبار رایگان می‌گیرید — هر دوی شما.`
-                : `Both you and your friend get ${data?.bonusPerReferral ?? 100} free credits when they sign up with your link and make their first purchase.`}
+              {tri(lang, `به ازای هر دوست که با لینک تو ثبت‌نام و خرید کند، ${formatNumber(data?.bonusPerReferral ?? 100, lang)} اعتبار رایگان می‌گیرید — هر دوی شما.`, `Both you and your friend get ${data?.bonusPerReferral ?? 100} free credits when they sign up with your link and make their first purchase.`, `Sie und Ihr Freund erhalten je ${data?.bonusPerReferral ?? 100} kostenlose Guthaben, wenn er sich mit Ihrem Link anmeldet und den ersten Kauf tätigt.`)}
             </p>
           </div>
         </div>
@@ -78,14 +76,14 @@ export default function ReferralPage() {
           <div className="rounded-2xl p-5" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             <div className="flex items-center gap-2 mb-2">
               <Users className="w-4 h-4" style={{ color: "var(--primary)" }} />
-              <span className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? "دعوت‌شدگان" : "Invited"}</span>
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>{tri(lang, "دعوت‌شدگان", "Invited", "Eingeladen")}</span>
             </div>
             <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{formatNumber(data?.invitedCount ?? 0, lang)}</p>
           </div>
           <div className="rounded-2xl p-5" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             <div className="flex items-center gap-2 mb-2">
               <Coins className="w-4 h-4" style={{ color: "#10b981" }} />
-              <span className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? "اعتبار کسب‌شده" : "Credits earned"}</span>
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>{tri(lang, "اعتبار کسب‌شده", "Credits earned", "Verdientes Guthaben")}</span>
             </div>
             <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{formatNumber(data?.creditsEarned ?? 0, lang)}</p>
           </div>
@@ -94,7 +92,7 @@ export default function ReferralPage() {
         {/* Referral link */}
         <div className="rounded-2xl p-5" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>
-            {isFa ? "لینک دعوت شما" : "Your invite link"}
+            {tri(lang, "لینک دعوت شما", "Your invite link", "Ihr Einladungslink")}
           </label>
           <div className="flex gap-2">
             <input
@@ -109,7 +107,7 @@ export default function ReferralPage() {
               style={{ background: copied ? "#10b981" : "var(--primary)" }}
             >
               {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              {copied ? (isFa ? "کپی شد" : "Copied") : (isFa ? "کپی" : "Copy")}
+              {copied ? tri(lang, "کپی شد", "Copied", "Kopiert") : tri(lang, "کپی", "Copy", "Kopieren")}
             </button>
           </div>
         </div>
@@ -118,26 +116,26 @@ export default function ReferralPage() {
         {(data?.invitedUsers?.length ?? 0) > 0 && (
           <div className="rounded-2xl p-5 mt-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             <h2 className="text-sm font-semibold mb-3" style={{ color: "var(--text-primary)" }}>
-              {isFa ? "دوستان دعوت‌شده" : "Invited Friends"}
+              {tri(lang, "دوستان دعوت‌شده", "Invited Friends", "Eingeladene Freunde")}
             </h2>
             <div className="space-y-2">
               {data!.invitedUsers.map((u, i) => (
                 <div key={i} className="flex items-center justify-between p-3 rounded-xl" style={{ background: "var(--surface-2)" }}>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{u.name || u.email || (isFa ? "کاربر" : "User")}</p>
+                    <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{u.name || u.email || tri(lang, "کاربر", "User", "Benutzer")}</p>
                     <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                      {isFa ? toJalali(u.createdAt) : new Date(u.createdAt).toLocaleDateString("en-US")}
+                      {lang === "fa" ? toJalali(u.createdAt) : new Date(u.createdAt).toLocaleDateString(lang === "de" ? "de-DE" : "en-US")}
                     </p>
                   </div>
                   {u.rewarded ? (
                     <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full flex-shrink-0" style={{ background: "rgba(16,185,129,0.1)", color: "#10b981" }}>
                       <Coins className="w-3 h-3" />
-                      {isFa ? `${formatNumber(data!.bonusPerReferral, lang)} اعتبار گرفتی` : `+${data!.bonusPerReferral} credits`}
+                      {tri(lang, `${formatNumber(data!.bonusPerReferral, lang)} اعتبار گرفتی`, `+${data!.bonusPerReferral} credits`, `+${data!.bonusPerReferral} Guthaben`)}
                     </span>
                   ) : (
                     <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full flex-shrink-0" style={{ background: "var(--surface-1)", color: "var(--text-muted)" }}>
                       <Clock className="w-3 h-3" />
-                      {isFa ? "منتظر اولین خرید" : "Awaiting first purchase"}
+                      {tri(lang, "منتظر اولین خرید", "Awaiting first purchase", "Warterster Kauf")}
                     </span>
                   )}
                 </div>

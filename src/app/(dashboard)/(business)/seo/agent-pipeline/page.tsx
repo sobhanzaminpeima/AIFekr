@@ -45,7 +45,7 @@ interface SeoConn { platform: string; siteUrl: string | null; wpUsername: string
 
 export default function AgentPipelinePage() {
   const { t, lang } = useTranslation();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const s = t.agentPipelinePage;
 
   const AGENTS = AGENT_ORDER.map((key) => ({ key, nameFa: s.agents[key].name, roleFa: s.agents[key].role, icon: AGENT_ICONS[key] }));

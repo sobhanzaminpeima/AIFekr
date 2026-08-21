@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useRef } from "react";
 import { Video, Wand2, Loader2, CheckCircle, AlertCircle, Download, Play, Pause, Upload, X, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
 
 interface PromptTemplate {
   id: string;
@@ -21,7 +21,7 @@ type GenStatus = "idle" | "generating" | "polling" | "succeeded" | "failed";
 
 export default function VideoGeneratePage() {
   const { t, lang } = useTranslation();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const s = t.videoGeneratePage;
   const STYLES = s.styles;
   const DURATIONS = s.durations;
@@ -222,7 +222,7 @@ export default function VideoGeneratePage() {
         {!sourceImageUrl && videoProviders.length > 0 && (
           <div>
             <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
-              {isFa ? "مدل ویدیو" : "Video Model"}
+              {tri(lang, "مدل ویدیو", "Video Model", "Videomodell")}
             </label>
             <select
               value={videoProvider}
@@ -239,7 +239,7 @@ export default function VideoGeneratePage() {
         )}
         {!sourceImageUrl && videoProvidersLoaded && videoProviders.length === 0 && (
           <div className="p-3 rounded-xl text-xs" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
-            {isFa ? "هیچ مدل ویدیویی پیکربندی نشده است. با پشتیبانی تماس بگیرید." : "No video models are configured. Contact support."}
+            {tri(lang, "هیچ مدل ویدیویی پیکربندی نشده است. با پشتیبانی تماس بگیرید.", "No video models are configured. Contact support.", "Keine Videomodelle konfiguriert. Kontaktieren Sie den Support.")}
           </div>
         )}
 

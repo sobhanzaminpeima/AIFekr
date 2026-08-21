@@ -151,7 +151,7 @@ export default function PlansPage() {
     fetch("/api/packages")
       .then(r => r.json())
       .then((d: { packages: ApiPackage[] }) => setPackages(d.packages || []))
-      .catch(() => toast.error(isFa ? "خطا در بارگذاری پلن‌ها" : "Failed to load plans"));
+      .catch(() => toast.error(tri(lang, "خطا در بارگذاری پلن‌ها", "Failed to load plans", "Pläne konnten nicht geladen werden")));
   }, []);
 
   // Coming from registration with a pre-selected plan (landing page → register → here) —
@@ -167,7 +167,7 @@ export default function PlansPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [packages, searchParams]);
 
-  const effectiveMarket = market ?? (isFa ? "IR" : "INTL");
+  const effectiveMarket = market ?? (lang === "fa" ? "IR" : "INTL");
   const isIr     = effectiveMarket === "IR";
   const planCodes = isIr ? IR_PLAN_CODES : USD_PLAN_CODES;
   const freePlan  = isIr ? FREE_IR : FREE_USD;
@@ -189,33 +189,31 @@ export default function PlansPage() {
 
   // i18n strings
   const s = {
-    title:        isFa ? "خرید و ارتقا بسته"                    : "Plans & Pricing",
-    subtitle:     isFa ? "هوش مصنوعی برای همه — چت، تصویر، موزیک و ویدیو" : "AI for everyone — chat, image, music & video",
-    iran:         "🇮🇷 " + (isFa ? "ایران (تومان)" : "Iran (Toman)"),
-    intl:         "🌍 " + (isFa ? "بین‌المللی (دلار)" : "International ($)"),
-    monthly:      isFa ? "ماهانه"     : "Monthly",
-    annual:       isFa ? "سالانه"     : "Annual",
-    freeMonths:   isFa ? "۲ ماه رایگان" : "2 months free",
-    popular:      isFa ? "پرطرفدار"   : "Popular",
-    recommended:  isFa ? "پیشنهادی"   : "Recommended",
-    free:         isFa ? "رایگان"     : "Free",
-    perMonth:     isFa ? "در ماه"     : "/ mo",
-    active:       isFa ? "فعال"       : "Active",
-    buy:          isFa ? "خرید"       : "Buy",
-    redirecting:  isFa ? "در حال انتقال..." : "Redirecting...",
-    contactIntl:  isFa ? "برای خرید پلن بین‌المللی با ما تماس بگیرید." : "Contact us for international plans.",
-    payError:     isFa ? "خطا در ایجاد پرداخت" : "Payment error",
-    connError:    isFa ? "خطا در اتصال به درگاه" : "Connection error",
-    successBanner:isFa ? "اشتراک شما با موفقیت فعال شد!" : "Your subscription was activated!",
-    compareBtn:   isFa ? "مقایسه کامل امکانات" : "Full Feature Comparison",
-    featuresCol:  isFa ? "امکانات"    : "Features",
-    customPrice:  isFa ? "سفارشی"    : "Custom",
-    contactUs:    isFa ? "تماس با ما" : "Contact Us",
-    getStarted:   isFa ? "شروع کنید" : "Get Started",
-    faqTitle:     isFa ? "سؤالات متداول" : "FAQ",
-    footerNote:   isFa
-      ? "پرداخت از طریق درگاه امن زرین‌پال — اطلاعات کارت شما نزد ما ذخیره نمی‌شود"
-      : "Payments processed securely — we never store your card details",
+    title:        tri(lang, "خرید و ارتقا بسته", "Plans & Pricing", "Pläne & Preise"),
+    subtitle:     tri(lang, "هوش مصنوعی برای همه — چت، تصویر، موزیک و ویدیو", "AI for everyone — chat, image, music & video", "KI für alle — Chat, Bild, Musik & Video"),
+    iran:         "🇮🇷 " + tri(lang, "ایران (تومان)", "Iran (Toman)", "Iran (Toman)"),
+    intl:         "🌍 " + tri(lang, "بین‌المللی (دلار)", "International ($)", "International ($)"),
+    monthly:      tri(lang, "ماهانه", "Monthly", "Monatlich"),
+    annual:       tri(lang, "سالانه", "Annual", "Jährlich"),
+    freeMonths:   tri(lang, "۲ ماه رایگان", "2 months free", "2 Monate gratis"),
+    popular:      tri(lang, "پرطرفدار", "Popular", "Beliebt"),
+    recommended:  tri(lang, "پیشنهادی", "Recommended", "Empfohlen"),
+    free:         tri(lang, "رایگان", "Free", "Kostenlos"),
+    perMonth:     tri(lang, "در ماه", "/ mo", "/ Monat"),
+    active:       tri(lang, "فعال", "Active", "Aktiv"),
+    buy:          tri(lang, "خرید", "Buy", "Kaufen"),
+    redirecting:  tri(lang, "در حال انتقال...", "Redirecting...", "Weiterleitung..."),
+    contactIntl:  tri(lang, "برای خرید پلن بین‌المللی با ما تماس بگیرید.", "Contact us for international plans.", "Kontaktieren Sie uns für internationale Pläne."),
+    payError:     tri(lang, "خطا در ایجاد پرداخت", "Payment error", "Zahlungsfehler"),
+    connError:    tri(lang, "خطا در اتصال به درگاه", "Connection error", "Verbindungsfehler"),
+    successBanner:tri(lang, "اشتراک شما با موفقیت فعال شد!", "Your subscription was activated!", "Ihr Abonnement wurde aktiviert!"),
+    compareBtn:   tri(lang, "مقایسه کامل امکانات", "Full Feature Comparison", "Vollständiger Funktionsvergleich"),
+    featuresCol:  tri(lang, "امکانات", "Features", "Funktionen"),
+    customPrice:  tri(lang, "سفارشی", "Custom", "Individuell"),
+    contactUs:    tri(lang, "تماس با ما", "Contact Us", "Kontakt"),
+    getStarted:   tri(lang, "شروع کنید", "Get Started", "Loslegen"),
+    faqTitle:     tri(lang, "سؤالات متداول", "FAQ", "FAQ"),
+    footerNote:   tri(lang, "پرداخت از طریق درگاه امن زرین‌پال — اطلاعات کارت شما نزد ما ذخیره نمی‌شود", "Payments processed securely — we never store your card details", "Zahlungen werden sicher verarbeitet — wir speichern Ihre Karteninformationen nie"),
   };
 
   async function handleBuy(planCode: string) {
@@ -389,7 +387,7 @@ export default function PlansPage() {
                   </th>
                   {plans.map(p => (
                     <th key={p.planCode} className="text-center px-3 py-3 font-bold" style={{ color: p.color }}>
-                      {isFa ? p.name : p.nameEn}
+                      {tri(lang, p.name, p.nameEn, p.nameEn)}
                     </th>
                   ))}
                 </tr>
@@ -434,10 +432,10 @@ export default function PlansPage() {
           <Building2 className="w-6 h-6" style={{ color: "var(--primary)" }} />
           <div>
             <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-              {isFa ? "پلن‌های کسب‌وکار" : "Business Plans"}
+              {tri(lang, "پلن‌های کسب‌وکار", "Business Plans", "Geschäftspläne")}
             </h2>
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              {isFa ? "برای تیم‌ها، آژانس‌ها و سازمان‌ها" : "For teams, agencies and enterprises"}
+              {tri(lang, "برای تیم‌ها، آژانس‌ها و سازمان‌ها", "For teams, agencies and enterprises", "Für Teams, Agenturen und Unternehmen")}
             </p>
           </div>
         </div>
@@ -506,9 +504,9 @@ export default function PlansPage() {
       {/* ── Trust / guarantee ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {[
-          { icon: "🔒", title: isFa ? "پرداخت امن"       : "Secure Payment", desc: isFa ? "درگاه امن زرین‌پال"                   : "SSL-secured checkout" },
-          { icon: "♾️", title: isFa ? "بدون انقضا"       : "No Expiry",      desc: isFa ? "اعتبار شما هرگز منقضی نمی‌شود"       : "Credits never expire" },
-          { icon: "↩️", title: isFa ? "ضمانت بازگشت"    : "Money-back",     desc: isFa ? "در صورت مشکل وجه برمی‌گردد"          : "Refund if issues arise" },
+          { icon: "🔒", title: tri(lang, "پرداخت امن", "Secure Payment", "Sichere Zahlung"), desc: tri(lang, "درگاه امن زرین‌پال", "SSL-secured checkout", "SSL-gesicherter Checkout") },
+          { icon: "♾️", title: tri(lang, "بدون انقضا", "No Expiry", "Kein Ablauf"), desc: tri(lang, "اعتبار شما هرگز منقضی نمی‌شود", "Credits never expire", "Guthaben läuft nie ab") },
+          { icon: "↩️", title: tri(lang, "ضمانت بازگشت", "Money-back", "Geld-zurück"), desc: tri(lang, "در صورت مشکل وجه برمی‌گردد", "Refund if issues arise", "Erstattung bei Problemen") },
         ].map(t => (
           <div key={t.title} className="flex items-center gap-3 p-4 rounded-2xl"
             style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
