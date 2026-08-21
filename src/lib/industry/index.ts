@@ -4,5 +4,6 @@
 // an industry-specific module directly.
 import "./realEstate/salesPlaybook";
 import "./realEstate/socialContentPack";
+import "./realEstate/contentIdeas";
 
 export * from "./registry";

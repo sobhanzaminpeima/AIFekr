@@ -72,3 +72,35 @@ export function registerSocialContentPack(pack: IndustrySocialContentPack) {
 export function getSocialContentPack(slug: string): IndustrySocialContentPack | null {
   return socialContentPacks.get(slug) || null;
 }
+
+export interface ContentIdea {
+  title: string;
+  format: string;
+  why: string;
+}
+
+/**
+ * Per-industry engaging-format suggestions (item 6, batch2) — deliberately
+ * framed as "proven patterns for this industry" (baseWhyPrefix below), never
+ * "trending this week," since this registry has no live trend-data source.
+ * A caller must show that framing honestly rather than implying real-time
+ * awareness it doesn't have.
+ */
+const contentIdeaPacks = new Map<string, ContentIdea[]>();
+
+export function registerContentIdeas(slug: string, ideas: ContentIdea[]) {
+  contentIdeaPacks.set(slug, ideas);
+}
+
+/** Generic fallback used for any industry without a dedicated pack (or no industry selected at all) — the master-prompt's own example set (UGC/unboxing etc.), industry-agnostic by design. */
+const GENERIC_CONTENT_IDEAS: ContentIdea[] = [
+  { title: "محتوای تولیدشده توسط مشتری (UGC)", format: "ریشر یا معرفی مشتریان واقعی و تجربه‌شان", why: "اعتماد بیشتری نسبت به تبلیغ مستقیم ایجاد می‌کند" },
+  { title: "پشت‌صحنه کسب‌وکار", format: "ویدیوی کوتاه از فرآیند کار روزمره تیم", why: "شفافیت و صمیمیت با مخاطب می‌سازد" },
+  { title: "سوال و جواب با مخاطبان", format: "استوری با استیکر سوال یا نظرسنجی", why: "تعامل مستقیم و داده واقعی از نیاز مخاطب می‌دهد" },
+  { title: "قبل و بعد", format: "مقایسه تصویری نتیجه کار شما", why: "نتیجه ملموس را بهتر از هر توضیحی نشان می‌دهد" },
+];
+
+export function getContentIdeas(industrySlug: string | null | undefined): { ideas: ContentIdea[]; isGeneric: boolean } {
+  const packIdeas = industrySlug ? contentIdeaPacks.get(industrySlug) : undefined;
+  return packIdeas ? { ideas: packIdeas, isGeneric: false } : { ideas: GENERIC_CONTENT_IDEAS, isGeneric: true };
+}

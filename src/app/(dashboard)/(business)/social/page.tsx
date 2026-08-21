@@ -86,6 +86,8 @@ export default function SocialPage() {
   });
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
+  const [contentIdeas, setContentIdeas] = useState<{ ideas: { title: string; format: string; why: string }[]; isGeneric: boolean } | null>(null);
+  const [showIdeas, setShowIdeas] = useState(false);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -145,6 +147,13 @@ export default function SocialPage() {
     fetch("/api/ai/image-providers", { credentials: "include" })
       .then((r) => r.json())
       .then((data) => setImageProviders(data.providers ?? []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/social/content-ideas", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => setContentIdeas(data))
       .catch(() => {});
   }, []);
 
@@ -743,6 +752,38 @@ export default function SocialPage() {
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{t.social.description}</p>
           </div>
         </div>
+
+        {/* Content-format suggestions — framed honestly as proven patterns for
+            this industry, never "trending now" (no live trend-data source exists). */}
+        {contentIdeas && contentIdeas.ideas.length > 0 && (
+          <div className="rounded-2xl p-4 mb-6" style={{ background: "rgba(139,92,246,0.06)", border: "1px solid rgba(139,92,246,0.2)" }}>
+            <button onClick={() => setShowIdeas((v) => !v)} className="w-full flex items-center justify-between text-right">
+              <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                <Sparkles className="w-4 h-4 text-violet-400" />
+                {isFa ? "پیشنهاد فرمت محتوای پرتعامل — می‌خوای امتحان کنیم؟" : lang === "de" ? "Vorschlag für engagement-starke Formate — möchten Sie es ausprobieren?" : "Suggested engaging content formats — want to try one?"}
+              </span>
+              <ChevronLeft className="w-4 h-4 transition-transform" style={{ color: "var(--text-muted)", transform: showIdeas ? "rotate(-90deg)" : "none" }} />
+            </button>
+            {showIdeas && (
+              <div className="mt-3 space-y-2">
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  {isFa
+                    ? `بر اساس بهترین‌های شناخته‌شدهٔ ${contentIdeas.isGeneric ? "شبکه‌های اجتماعی" : "این صنعت"} — نه لزوماً ترند همین هفته:`
+                    : lang === "de"
+                    ? `Basierend auf bekannten Best Practices ${contentIdeas.isGeneric ? "für Social Media" : "dieser Branche"} — nicht unbedingt der aktuelle Trend dieser Woche:`
+                    : `Based on known best practices for ${contentIdeas.isGeneric ? "social media" : "this industry"} — not necessarily this week's trend:`}
+                </p>
+                {contentIdeas.ideas.map((idea, i) => (
+                  <div key={i} className="p-3 rounded-xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+                    <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{idea.title}</p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{idea.format}</p>
+                    <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>💡 {idea.why}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Form */}
         <div className="rounded-2xl p-6 mb-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Phone, Plus, X, Loader2, PhoneCall, CalendarDays, Settings2,
-  Trash2, PlayCircle, Home, MapPin, Clock, XCircle, User, BookOpen, Upload,
+  Trash2, PlayCircle, Home, MapPin, Clock, XCircle, User, BookOpen, Upload, Share2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTranslation, tri, type Lang } from "@/lib/i18n";
@@ -179,6 +179,14 @@ export default function VoiceAgentPage() {
     if (!res.ok) { setError(data.error || tri(lang, "خطا", "Error", "Fehler")); return; }
     setShowNewProperty(false);
     loadProperties();
+    if (data.matchedLeads?.length) {
+      const names = data.matchedLeads.map((l: { contactName: string }) => l.contactName).join("، ");
+      toast.success(tri(lang,
+        `${data.matchedLeads.length} لید قدیمی با پروفایل مشابه پیدا شد — پیشنهاد می‌شود اطلاع‌رسانی کنید: ${names}`,
+        `Found ${data.matchedLeads.length} past lead(s) with a matching profile — consider notifying them: ${names}`,
+        `${data.matchedLeads.length} frühere(r) Lead(s) mit passendem Profil gefunden — Benachrichtigung empfohlen: ${names}`
+      ), { duration: 8000 });
+    }
   }
 
   async function deleteProperty(id: string) {
@@ -602,7 +610,18 @@ function PropertiesTab({
           <div key={p.id} className="p-5 rounded-2xl space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             <div className="flex items-start justify-between">
               <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{p.title}</p>
-              <button onClick={() => onDelete(p.id)}><Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} /></button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/p/${p.id}`);
+                    toast.success(tri(lang, "لینک اشتراک‌گذاری کپی شد", "Share link copied", "Link kopiert"));
+                  }}
+                  title={tri(lang, "کپی لینک اشتراک‌گذاری", "Copy share link", "Link kopieren")}
+                >
+                  <Share2 className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} />
+                </button>
+                <button onClick={() => onDelete(p.id)}><Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} /></button>
+              </div>
             </div>
             <p className="text-xs flex items-center gap-1" style={{ color: "var(--text-secondary)" }}><MapPin className="w-3.5 h-3.5" /> {p.address}{p.city ? `، ${p.city}` : ""}</p>
             <p className="text-sm font-semibold" style={{ color: "#f59e0b" }}>{fmtMoney(p.price)} {tri(lang, "تومان", "IRT", "IRR")}</p>

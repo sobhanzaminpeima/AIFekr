@@ -53,5 +53,37 @@ export async function POST(req: NextRequest) {
       description: description?.trim() || undefined,
     },
   });
-  return NextResponse.json({ property: serializeVoiceProperty(property) });
+
+  // Internal lead-matching (item 1, batch2) — no external ad-platform
+  // dependency: look for CRM contacts whose PAST property interest (any
+  // Property row previously linked to them via crmContactId — from a voice
+  // call, a property-link lead capture, etc.) resembles this new listing
+  // (same city + type, price within ±20%), and surface them as "notify
+  // these N leads" candidates. Best-effort — never blocks property creation.
+  let matchedLeads: { contactId: string; contactName: string; phone: string | null }[] = [];
+  try {
+    const priceNum = Number(property.price);
+    const priorInterest = await prisma.property.findMany({
+      where: {
+        userId: user.id,
+        id: { not: property.id },
+        crmContactId: { not: null },
+        propertyType: property.propertyType,
+        ...(property.city ? { city: property.city } : {}),
+        price: { gte: BigInt(Math.round(priceNum * 0.8)), lte: BigInt(Math.round(priceNum * 1.2)) },
+      },
+      select: { crmContactId: true },
+      distinct: ["crmContactId"],
+      take: 5,
+    });
+    const contactIds = priorInterest.map((p) => p.crmContactId).filter((id): id is string => !!id);
+    if (contactIds.length) {
+      const contacts = await prisma.crmContact.findMany({ where: { id: { in: contactIds } }, select: { id: true, name: true, phone: true } });
+      matchedLeads = contacts.map((c) => ({ contactId: c.id, contactName: c.name, phone: c.phone }));
+    }
+  } catch (err) {
+    console.error("lead-matching failed (non-fatal):", err);
+  }
+
+  return NextResponse.json({ property: serializeVoiceProperty(property), matchedLeads });
 }
