@@ -915,6 +915,7 @@ const de: Translations = {
       "selectContact": "Kontakt auswählen...",
       "titlePlaceholder": "Deal-Titel",
       "valuePlaceholder": "Deal-Wert",
+      "expectedCloseDateLabel": "Voraussichtliches Abschlussdatum (optional)",
       "submit": "Deal erstellen",
       "errorRequired": "Kontakt und Titel sind erforderlich",
       "errorGeneric": "Fehler"

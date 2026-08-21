@@ -767,6 +767,7 @@ const fa: Translations = {
       selectContact: "انتخاب مخاطب...",
       titlePlaceholder: "عنوان معامله",
       valuePlaceholder: "ارزش معامله (تومان)",
+      expectedCloseDateLabel: "تاریخ تخمینی بستن معامله (اختیاری)",
       submit: "ساخت معامله",
       errorRequired: "مخاطب و عنوان الزامی است",
       errorGeneric: "خطا",

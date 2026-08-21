@@ -351,7 +351,7 @@ export default function CrmPage() {
       ) : tab === "contracts" ? (
         <ContractsPanel isFa={isFa} lang={lang} t={c} contacts={contacts} />
       ) : (
-        <ProjectsPanel isFa={isFa} lang={lang} t={c} contacts={contacts} />
+        <ProjectsPanel isFa={isFa} lang={lang} t={c} contacts={contacts} isRealEstate={pipelines.some((p) => p.industrySlug === "real-estate")} />
       )}
         </div>
       </div>
@@ -513,6 +513,7 @@ function NewDealModal({ isFa, t, pipeline, onClose, onCreated }: { isFa: boolean
   const [title, setTitle] = useState("");
   const [value, setValue] = useState("");
   const [stageId, setStageId] = useState(pipeline.stages[0]?.id || "");
+  const [expectedCloseDate, setExpectedCloseDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -528,7 +529,7 @@ function NewDealModal({ isFa, t, pipeline, onClose, onCreated }: { isFa: boolean
       const res = await fetch("/api/crm/deals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contactId, pipelineId: pipeline.id, stageId, title: title.trim(), value: Number(value) || 0 }),
+        body: JSON.stringify({ contactId, pipelineId: pipeline.id, stageId, title: title.trim(), value: Number(value) || 0, expectedCloseDate: expectedCloseDate || undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -560,6 +561,11 @@ function NewDealModal({ isFa, t, pipeline, onClose, onCreated }: { isFa: boolean
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
           {pipeline.stages.sort((a, b) => a.order - b.order).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
+        <div>
+          <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{t.newDealModal.expectedCloseDateLabel}</label>
+          <input type="date" value={expectedCloseDate} onChange={(e) => setExpectedCloseDate(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        </div>
         {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
         <button onClick={submit} disabled={saving} className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
           {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t.newDealModal.submit}
@@ -2393,11 +2399,22 @@ function TemplateEditModal({ isFa, t, template, onClose, onSave }: { isFa: boole
   );
 }
 
+interface ProjectProperty {
+  id: string; listingType: string; propertyType: string; price: number; nightlyPrice: number | null;
+  bookingLink: string | null; address: string; city: string | null; areaSqm: number | null;
+}
 interface CrmProjectRow {
   id: string; name: string; status: string; description: string | null;
   startDate: string | null; endDate: string | null;
   contact: { id: string; name: string } | null; deal: { id: string; title: string } | null;
+  property: ProjectProperty | null;
 }
+
+const PROJECT_LISTING_TYPE_LABEL: Record<string, { fa: string; en: string; de: string }> = {
+  sell: { fa: "فروش", en: "Sale", de: "Verkauf" },
+  rent: { fa: "اجاره", en: "Rent", de: "Miete" },
+  short_term_rent: { fa: "اجاره روزانه", en: "Short-term rental", de: "Kurzzeitvermietung" },
+};
 
 const PROJECT_STATUS_LABEL: Record<string, { fa: string; en: string; color: string }> = {
   active: { fa: "در حال انجام", en: "Active", color: "#3b82f6" },
@@ -2407,7 +2424,7 @@ const PROJECT_STATUS_LABEL: Record<string, { fa: string; en: string; color: stri
 };
 
 /** Generic post-sale/ongoing-work tracking — usable by any vertical (a construction job, a real-estate closing's paperwork, a service engagement), not tied to one industry's schema. */
-function ProjectsPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang; t: Translations["crm"]; contacts: Contact[] }) {
+function ProjectsPanel({ isFa, lang, t, contacts, isRealEstate }: { isFa: boolean; lang: Lang; t: Translations["crm"]; contacts: Contact[]; isRealEstate: boolean }) {
   const [projects, setProjects] = useState<CrmProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -2418,6 +2435,18 @@ function ProjectsPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang;
   const [name, setName] = useState("");
   const [contactId, setContactId] = useState("");
   const [description, setDescription] = useState("");
+
+  // Real-estate industry pack only — conditional fields per deal type, all
+  // stored on the linked Property row (see api/crm/projects), never on
+  // CrmProject itself, so a non-real-estate customer's schema/UI is
+  // completely unaffected.
+  const [dealType, setDealType] = useState("");
+  const [propertyType, setPropertyType] = useState("apartment");
+  const [reAddress, setReAddress] = useState("");
+  const [reCity, setReCity] = useState("");
+  const [price, setPrice] = useState("");
+  const [nightlyPrice, setNightlyPrice] = useState("");
+  const [bookingLink, setBookingLink] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch("/api/crm/projects");
@@ -2435,12 +2464,22 @@ function ProjectsPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang;
     try {
       const res = await fetch("/api/crm/projects", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), contactId: contactId || undefined, description: description.trim() || undefined }),
+        body: JSON.stringify({
+          name: name.trim(), contactId: contactId || undefined, description: description.trim() || undefined,
+          realEstate: isRealEstate && dealType ? {
+            dealType, propertyType, address: reAddress.trim(), city: reCity.trim() || undefined,
+            price: dealType !== "short_term_rent" ? price : undefined,
+            nightlyPrice: dealType === "short_term_rent" ? nightlyPrice : undefined,
+            bookingLink: bookingLink.trim() || undefined,
+          } : undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      if (data.bookingLinkWarning) alert(data.bookingLinkWarning);
       setShowNew(false);
       setName(""); setContactId(""); setDescription("");
+      setDealType(""); setPropertyType("apartment"); setReAddress(""); setReCity(""); setPrice(""); setNightlyPrice(""); setBookingLink("");
       load();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t.projects.errorGeneric);
@@ -2481,6 +2520,47 @@ function ProjectsPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang;
           </select>
           <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder={t.projects.descriptionPlaceholder}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+
+          {isRealEstate && (
+            <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+              <select value={dealType} onChange={(e) => setDealType(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                <option value="">{tri(lang, "نوع معامله (اختیاری)", "Deal type (optional)", "Geschäftsart (optional)")}</option>
+                {Object.entries(PROJECT_LISTING_TYPE_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
+              </select>
+
+              {dealType && (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                      <option value="apartment">{tri(lang, "آپارتمان", "Apartment", "Wohnung")}</option>
+                      <option value="villa">{tri(lang, "ویلا", "Villa", "Villa")}</option>
+                      <option value="land">{tri(lang, "زمین", "Land", "Grundstück")}</option>
+                      <option value="commercial">{tri(lang, "تجاری", "Commercial", "Gewerbe")}</option>
+                    </select>
+                    <input value={reCity} onChange={(e) => setReCity(e.target.value)} placeholder={tri(lang, "شهر", "City", "Stadt")}
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                  </div>
+                  <input value={reAddress} onChange={(e) => setReAddress(e.target.value)} placeholder={tri(lang, "آدرس", "Address", "Adresse")}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+
+                  {dealType === "short_term_rent" ? (
+                    <>
+                      <input value={nightlyPrice} onChange={(e) => setNightlyPrice(e.target.value)} type="number" placeholder={tri(lang, "قیمت هر شب (تومان)", "Price per night (Toman)", "Preis pro Nacht (Toman)")}
+                        className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                      <input value={bookingLink} onChange={(e) => setBookingLink(e.target.value)} placeholder={tri(lang, "لینک پلتفرم رزرو (Airbnb، Booking.com و...)", "Booking platform link (Airbnb, Booking.com, ...)", "Buchungsplattform-Link (Airbnb, Booking.com, ...)")}
+                        className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                    </>
+                  ) : (
+                    <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" placeholder={tri(lang, "قیمت کل (تومان)", "Total price (Toman)", "Gesamtpreis (Toman)")}
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
           <button onClick={createProject} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t.projects.createProject}
@@ -2536,17 +2616,35 @@ function ProjectDetailModal({ isFa, lang, t, project, onClose, onChanged }: { is
     startDate: project?.startDate ? project.startDate.slice(0, 10) : "",
     endDate: project?.endDate ? project.endDate.slice(0, 10) : "",
   });
+  const [reForm, setReForm] = useState({
+    propertyType: project?.property?.propertyType || "apartment",
+    address: project?.property?.address || "",
+    city: project?.property?.city || "",
+    price: project?.property?.price ? String(project.property.price) : "",
+    nightlyPrice: project?.property?.nightlyPrice ? String(project.property.nightlyPrice) : "",
+    bookingLink: project?.property?.bookingLink || "",
+  });
 
   if (!project) return null;
   const st = PROJECT_STATUS_LABEL[project.status] || PROJECT_STATUS_LABEL.active;
+  const isShortTerm = project.property?.listingType === "short_term_rent";
 
   async function save() {
     setSaving(true);
     try {
-      await fetch(`/api/crm/projects/${project!.id}`, {
+      const res = await fetch(`/api/crm/projects/${project!.id}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, startDate: form.startDate || null, endDate: form.endDate || null }),
+        body: JSON.stringify({
+          ...form, startDate: form.startDate || null, endDate: form.endDate || null,
+          realEstate: project!.property ? {
+            propertyType: reForm.propertyType, address: reForm.address, city: reForm.city,
+            price: isShortTerm ? undefined : reForm.price, nightlyPrice: isShortTerm ? reForm.nightlyPrice : undefined,
+            bookingLink: reForm.bookingLink,
+          } : undefined,
+        }),
       });
+      const data = await res.json();
+      if (data.bookingLinkWarning) alert(data.bookingLinkWarning);
       setEditing(false);
       onChanged();
     } finally {
@@ -2599,6 +2697,38 @@ function ProjectDetailModal({ isFa, lang, t, project, onClose, onChanged }: { is
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
           </div>
+
+          {project.property && (
+            <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+              <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
+                {PROJECT_LISTING_TYPE_LABEL[project.property.listingType]?.[lang] || project.property.listingType}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <select value={reForm.propertyType} onChange={(e) => setReForm((p) => ({ ...p, propertyType: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                  <option value="apartment">{tri(lang, "آپارتمان", "Apartment", "Wohnung")}</option>
+                  <option value="villa">{tri(lang, "ویلا", "Villa", "Villa")}</option>
+                  <option value="land">{tri(lang, "زمین", "Land", "Grundstück")}</option>
+                  <option value="commercial">{tri(lang, "تجاری", "Commercial", "Gewerbe")}</option>
+                </select>
+                <input value={reForm.city} onChange={(e) => setReForm((p) => ({ ...p, city: e.target.value }))} placeholder={tri(lang, "شهر", "City", "Stadt")}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
+              <input value={reForm.address} onChange={(e) => setReForm((p) => ({ ...p, address: e.target.value }))} placeholder={tri(lang, "آدرس", "Address", "Adresse")}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              {isShortTerm ? (
+                <>
+                  <input value={reForm.nightlyPrice} onChange={(e) => setReForm((p) => ({ ...p, nightlyPrice: e.target.value }))} type="number" placeholder={tri(lang, "قیمت هر شب (تومان)", "Price per night (Toman)", "Preis pro Nacht (Toman)")}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                  <input value={reForm.bookingLink} onChange={(e) => setReForm((p) => ({ ...p, bookingLink: e.target.value }))} placeholder={tri(lang, "لینک پلتفرم رزرو", "Booking platform link", "Buchungsplattform-Link")}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </>
+              ) : (
+                <input value={reForm.price} onChange={(e) => setReForm((p) => ({ ...p, price: e.target.value }))} type="number" placeholder={tri(lang, "قیمت کل (تومان)", "Total price (Toman)", "Gesamtpreis (Toman)")}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-2 text-sm">
@@ -2607,7 +2737,26 @@ function ProjectDetailModal({ isFa, lang, t, project, onClose, onChanged }: { is
           {project.deal && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "معامله مرتبط: ", "Related deal: ", "Zugehöriger Deal: ")}</span><span style={{ color: "var(--text-primary)" }}>{project.deal.title}</span></div>}
           {project.startDate && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "شروع: ", "Start: ", "Start: ")}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(project.startDate)}</span></div>}
           {project.endDate && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "پایان: ", "End: ", "Ende: ")}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(project.endDate)}</span></div>}
-          {!project.description && !project.contact && !project.deal && !project.startDate && !project.endDate && (
+          {project.property && (
+            <div className="pt-2 mt-2 space-y-1" style={{ borderTop: "1px solid var(--border)" }}>
+              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "نوع معامله: ", "Deal type: ", "Geschäftsart: ")}</span><span style={{ color: "var(--text-primary)" }}>{PROJECT_LISTING_TYPE_LABEL[project.property.listingType]?.[lang] || project.property.listingType}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "آدرس: ", "Address: ", "Adresse: ")}</span><span style={{ color: "var(--text-primary)" }}>{project.property.address}{project.property.city ? `، ${project.property.city}` : ""}</span></div>
+              {isShortTerm ? (
+                <>
+                  {project.property.nightlyPrice != null && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "قیمت هر شب: ", "Per night: ", "Pro Nacht: ")}</span><span style={{ color: "var(--text-primary)" }}>{fmtMoney(project.property.nightlyPrice)}</span></div>}
+                  {project.property.bookingLink && (
+                    <div>
+                      <span style={{ color: "var(--text-muted)" }}>{tri(lang, "لینک رزرو: ", "Booking link: ", "Buchungslink: ")}</span>
+                      <a href={project.property.bookingLink} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>{project.property.bookingLink}</a>
+                    </div>
+                  )}
+                </>
+              ) : (
+                project.property.price > 0 && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "قیمت: ", "Price: ", "Preis: ")}</span><span style={{ color: "var(--text-primary)" }}>{fmtMoney(project.property.price)}</span></div>
+              )}
+            </div>
+          )}
+          {!project.description && !project.contact && !project.deal && !project.startDate && !project.endDate && !project.property && (
             <p style={{ color: "var(--text-muted)" }}>{t.contactDetail.noActivity}</p>
           )}
         </div>

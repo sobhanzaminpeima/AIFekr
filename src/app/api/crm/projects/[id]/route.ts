@@ -27,7 +27,38 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if ("endDate" in body) data.endDate = body.endDate ? new Date(body.endDate) : null;
 
   const project = await prisma.crmProject.update({ where: { id: params.id }, data });
-  return NextResponse.json({ project });
+
+  // Real-estate linked-Property update — same warn-not-block rule as create.
+  let bookingLinkWarning: string | null = null;
+  if (body.realEstate) {
+    const { propertyType, price, nightlyPrice, bookingLink: rawBookingLink, address, city } = body.realEstate;
+    let bookingLink: string | undefined;
+    if (rawBookingLink) {
+      try {
+        bookingLink = new URL(rawBookingLink).toString();
+      } catch {
+        bookingLinkWarning = "لینک پلتفرم رزرو معتبر به‌نظر نمی‌رسد — بعداً می‌توانید اصلاحش کنید";
+      }
+    } else if (rawBookingLink === "") {
+      bookingLink = "";
+    }
+    const property = await prisma.property.findFirst({ where: { crmProjectId: params.id } });
+    if (property) {
+      await prisma.property.update({
+        where: { id: property.id },
+        data: {
+          propertyType: propertyType || undefined,
+          price: price != null ? BigInt(Math.round(Number(price))) : undefined,
+          nightlyPrice: nightlyPrice != null ? BigInt(Math.round(Number(nightlyPrice))) : undefined,
+          bookingLink,
+          address: address || undefined,
+          city: city || undefined,
+        },
+      });
+    }
+  }
+
+  return NextResponse.json({ project, bookingLinkWarning });
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {

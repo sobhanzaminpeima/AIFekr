@@ -771,9 +771,10 @@ model CrmProject {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  user    User        @relation(fields: [userId], references: [id])
-  contact CrmContact? @relation(fields: [contactId], references: [id])
-  deal    CrmDeal?    @relation(fields: [dealId], references: [id])
+  user     User        @relation(fields: [userId], references: [id])
+  contact  CrmContact? @relation(fields: [contactId], references: [id])
+  deal     CrmDeal?    @relation(fields: [dealId], references: [id])
+  property Property[]
 
   @@index([userId])
   @@index([contactId])
@@ -1355,13 +1356,30 @@ model Property {
   /// Optional link to the specific deal this property is being sold/rented
   /// through — set once a contact's interest turns into an active deal.
   crmDealId    String?
+  /// Optional link to a CRM Project (the general post-sale/ongoing-work
+  /// tracker) — set for the real-estate industry pack's "پروژه‌های ملکی"
+  /// feature, so a project's transaction-type-specific fields (short-term
+  /// rental booking link/nightly price, below) live on this single unified
+  /// Property row rather than a separate real-estate-only table.
+  crmProjectId String?
   title        String
-  /// "buy" | "sell" | "rent"
+  /// "buy" | "sell" | "rent" | "short_term_rent"
   listingType  String
   propertyType String   @default("apartment")
-  /// Price in Toman.
+  /// Price in Toman. For listingType "short_term_rent" this is unused —
+  /// nightlyPrice is the relevant figure instead.
   /// BigInt, not Int — Toman real-estate prices routinely exceed 2.1B (Int32 max).
   price        BigInt
+  /// Per-night price in Toman — only meaningful when listingType is
+  /// "short_term_rent". BigInt for the same overflow reason as price.
+  nightlyPrice BigInt?
+  /// Booking-platform listing URL for short-term rentals — deliberately
+  /// generic ("booking platform link"), not Airbnb-specific, so Booking.com
+  /// or a future in-house booking page can be added later without a schema
+  /// change. Not validated as a strict URL at the DB layer — malformed
+  /// values are a warning in the UI, not a save-blocking error, since an
+  /// agent may want to create the project before the listing link exists.
+  bookingLink  String?
   address      String
   city         String?
   bedrooms     Int?
@@ -1376,12 +1394,14 @@ model Property {
   agent        VoiceAgent?        @relation(fields: [agentId], references: [id], onDelete: SetNull)
   crmContact   CrmContact?        @relation(fields: [crmContactId], references: [id], onDelete: SetNull)
   crmDeal      CrmDeal?           @relation(fields: [crmDealId], references: [id], onDelete: SetNull)
+  crmProject   CrmProject?        @relation(fields: [crmProjectId], references: [id], onDelete: SetNull)
   appointments VoiceAppointment[]
 
   @@index([userId])
   @@index([agentId])
   @@index([crmContactId])
   @@index([crmDealId])
+  @@index([crmProjectId])
   @@map("VoiceProperty")
 }
 

@@ -784,6 +784,7 @@ const en = {
       selectContact: "Select contact...",
       titlePlaceholder: "Deal title",
       valuePlaceholder: "Deal value",
+      expectedCloseDateLabel: "Expected close date (optional)",
       submit: "Create Deal",
       errorRequired: "Contact and title are required",
       errorGeneric: "Error",
