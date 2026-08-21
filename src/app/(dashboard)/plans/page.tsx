@@ -216,7 +216,7 @@ export default function PlansPage() {
     footerNote:   tri(lang, "پرداخت از طریق درگاه امن زرین‌پال — اطلاعات کارت شما نزد ما ذخیره نمی‌شود", "Payments processed securely — we never store your card details", "Zahlungen werden sicher verarbeitet — wir speichern Ihre Karteninformationen nie"),
   };
 
-  async function handleBuy(planCode: string) {
+  async function handleBuy(planCode: string, gateway: "zarinpal" | "usdt_trc20" = "zarinpal") {
     if (planCode === "FREE") return;
     if (!isIr) { toast(s.contactIntl); return; }
     setLoading(planCode);
@@ -224,7 +224,7 @@ export default function PlansPage() {
       const res  = await fetch("/api/payment/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: planCode, period }),
+        body: JSON.stringify({ plan: planCode, period, gateway }),
       });
       const data = await res.json();
       if (!res.ok) return toast.error(data.error || s.payError);
@@ -245,6 +245,18 @@ export default function PlansPage() {
           style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)" }}>
           <CheckCircle className="w-5 h-5 flex-shrink-0" style={{ color: "#10b981" }} />
           <p className="font-medium text-sm" style={{ color: "#10b981" }}>{s.successBanner}</p>
+        </div>
+      )}
+
+      {/* ── USDT pending banner — activation happens async via webhook once
+           the blockchain transaction confirms, not on this redirect ── */}
+      {searchParams.get("payment") === "pending" && (
+        <div className="p-4 rounded-2xl flex items-center gap-3"
+          style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)" }}>
+          <Loader2 className="w-5 h-5 flex-shrink-0" style={{ color: "#f59e0b" }} />
+          <p className="font-medium text-sm" style={{ color: "#f59e0b" }}>
+            {tri(lang, "پرداخت شما در حال تأیید روی بلاکچین است — به‌محض تأیید، پلن شما خودکار فعال می‌شود.", "Your payment is confirming on the blockchain — your plan will activate automatically once confirmed.", "Ihre Zahlung wird auf der Blockchain bestätigt — Ihr Plan wird automatisch aktiviert, sobald sie bestätigt ist.")}
+          </p>
         </div>
       )}
 
@@ -362,6 +374,16 @@ export default function PlansPage() {
                   : <><Zap className="w-3.5 h-3.5" /> {s.buy}</>
                 }
               </button>
+              {!isFree && (
+                <button
+                  onClick={() => handleBuy(plan.planCode, "usdt_trc20")}
+                  disabled={!!loading}
+                  className="w-full mt-1.5 py-1.5 rounded-lg text-xs font-medium disabled:opacity-60"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {tri(lang, "یا پرداخت با USDT (TRC20)", "or pay with USDT (TRC20)", "oder mit USDT (TRC20) bezahlen")}
+                </button>
+              )}
             </div>
           );
         })}

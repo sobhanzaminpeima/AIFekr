@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { createPayment } from "@/lib/payment/zarinpal";
+import { createUsdtInvoice } from "@/lib/payment/nowpayments";
+import { getFxRates } from "@/lib/utils/currency";
 import { createPendingPayment, markPaymentAuthority, markPaymentFailed } from "@/lib/repositories/paymentRepository";
 
 // Annual billing: 2 months free ≈ 16.67% discount
@@ -13,7 +15,8 @@ export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
-  const { plan, period } = await req.json();
+  const { plan, period, gateway } = await req.json();
+  const selectedGateway: "zarinpal" | "usdt_trc20" = gateway === "usdt_trc20" ? "usdt_trc20" : "zarinpal";
   const pkg = await prisma.package.findUnique({ where: { planCode: plan } });
   if (!pkg || !pkg.isActive) return NextResponse.json({ error: "پلن نامعتبر" }, { status: 400 });
 
@@ -28,6 +31,29 @@ export async function POST(req: NextRequest) {
     : baseToman;
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
+
+  if (selectedGateway === "usdt_trc20") {
+    const payment = await createPendingPayment({ userId: user.id, amount: toman, plan, gateway: "usdt_trc20" });
+    const rates = await getFxRates();
+    const amountUsd = Math.round((toman / rates.usdToToman) * 100) / 100;
+
+    const result = await createUsdtInvoice({
+      amountUsd,
+      description: `خرید اشتراک ${plan} — هوشمند AI`,
+      orderId: payment.id,
+      successUrl: `${appUrl}/plans?payment=pending`,
+      cancelUrl: `${appUrl}/plans?payment=failed`,
+      ipnCallbackUrl: `${appUrl}/api/webhooks/nowpayments`,
+    });
+
+    if (!result.ok) {
+      await markPaymentFailed(payment.id);
+      return NextResponse.json({ error: result.error || "خطا در ایجاد پرداخت USDT" }, { status: 500 });
+    }
+    await markPaymentAuthority(payment.id, result.invoiceId);
+    return NextResponse.json({ paymentUrl: result.paymentUrl, paymentId: payment.id });
+  }
+
   // Zarinpal validates the callback domain against whatever domain the merchant
   // ID was registered under — this merchant is registered for rosedigital.ir,
   // not aifekr.com, so the callback sent to Zarinpal must be on a subdomain of
