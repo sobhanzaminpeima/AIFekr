@@ -24,6 +24,7 @@ import PricingSection from "@/components/landing/PricingSection";
 import FaqSection from "@/components/landing/FaqSection";
 import AiTeamTeaser from "@/components/landing/AiTeamTeaser";
 import StartupBuilderTeaser from "@/components/landing/StartupBuilderTeaser";
+import { getFxRates } from "@/lib/utils/currency";
 
 export const dynamic = "force-dynamic";
 
@@ -237,6 +238,7 @@ export default async function HomePage() {
   }
 
   const lang = await getServerLang();
+  const fxRates = await getFxRates();
   const s = STR[lang];
   const dir = lang === "fa" ? "rtl" : "ltr";
 
@@ -365,7 +367,7 @@ export default async function HomePage() {
             <h2 className="text-3xl font-bold text-center mb-4">{s.packsTitle}</h2>
             <p className="text-center mb-12" style={{ color: "rgba(255,255,255,0.5)" }}>{s.packsSubtitle}</p>
           </Reveal>
-          <PackGrid packs={localizedPacks} agentsLabel={s.agentsLabel} viewPack={s.viewPack} lang={lang} />
+          <PackGrid packs={localizedPacks} agentsLabel={s.agentsLabel} viewPack={s.viewPack} lang={lang} fxRates={fxRates} />
           <Reveal delay={0.1}>
             <div className="text-center mt-10">
               <Link href="/industry" className="px-8 py-3 rounded-2xl font-medium transition-all" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", color: "white" }}>

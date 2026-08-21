@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { verifyToken } from "@/lib/auth/jwt";
 import { getServerLang } from "@/lib/i18n/server";
 import ActivateButton from "@/components/industry/ActivateButton";
-import { formatPackPrice } from "@/lib/utils/currency";
+import { formatPackPriceSync, getFxRates } from "@/lib/utils/currency";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +42,7 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
 
   const lang = await getServerLang();
   const s = strings[lang];
+  const fxRates = await getFxRates();
 
   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;
@@ -155,7 +156,7 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
               }}>
               {pack.tier === "gold" ? s.gold : s.pro}
             </span>
-            <div className="text-4xl font-bold mb-1" style={{ color: pack.color }}>{formatPackPrice(pack.price, lang)}</div>
+            <div className="text-4xl font-bold mb-1" style={{ color: pack.color }}>{formatPackPriceSync(pack.price, lang, fxRates)}</div>
             <div className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>{s.month}</div>
 
             {isCurrentPack ? (

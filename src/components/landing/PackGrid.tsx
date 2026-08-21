@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { Package } from "lucide-react";
-import { formatPackPrice } from "@/lib/utils/currency";
+import { formatPackPriceSync, type FxRates } from "@/lib/utils/currency";
 
 interface Pack {
   id: string; slug: string; name: string; emoji: string; tagline: string;
@@ -13,7 +13,7 @@ interface Pack {
 const container: Variants = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
 const item: Variants = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.21, 0.47, 0.32, 0.98] } } };
 
-export default function PackGrid({ packs, agentsLabel, viewPack, lang = "en" }: { packs: Pack[]; agentsLabel: string; viewPack: string; lang?: "fa" | "en" | "de" }) {
+export default function PackGrid({ packs, agentsLabel, viewPack, lang = "en", fxRates }: { packs: Pack[]; agentsLabel: string; viewPack: string; lang?: "fa" | "en" | "de"; fxRates: FxRates }) {
   const reduce = useReducedMotion();
 
   return (
@@ -46,7 +46,7 @@ export default function PackGrid({ packs, agentsLabel, viewPack, lang = "en" }: 
               <div className="p-4">
                 <div className="flex items-center justify-between">
                   <span className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>{agentCount} {agentsLabel}</span>
-                  <span className="font-bold text-sm" style={{ color: pack.color }}>{formatPackPrice(pack.price, lang)}</span>
+                  <span className="font-bold text-sm" style={{ color: pack.color }}>{formatPackPriceSync(pack.price, lang, fxRates)}</span>
                 </div>
                 <div className="mt-3 w-full py-1.5 rounded-lg text-xs font-medium text-center transition-all" style={{ background: `${pack.color}22`, color: pack.color }}>
                   {viewPack}

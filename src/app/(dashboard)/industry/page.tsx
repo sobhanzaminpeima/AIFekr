@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db/prisma";
 import { getServerLang } from "@/lib/i18n/server";
-import { formatPackPrice } from "@/lib/utils/currency";
+import { formatPackPriceSync, getFxRates } from "@/lib/utils/currency";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +56,7 @@ export default async function IndustryPage() {
   try {
     packs = await prisma.industryPack.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } });
   } catch {}
+  const fxRates = await getFxRates();
 
   return (
     <div className="min-h-screen p-8" style={{ background: "var(--surface-0)" }}>
@@ -105,7 +106,7 @@ export default async function IndustryPage() {
 
                   <div className="flex items-center justify-between mt-4">
                     <span className="font-bold" style={{ color: pack.color }}>
-                      {formatPackPrice(pack.price, lang)}<span className="text-xs font-normal" style={{ color: "var(--text-muted)" }}>/{s.month}</span>
+                      {formatPackPriceSync(pack.price, lang, fxRates)}<span className="text-xs font-normal" style={{ color: "var(--text-muted)" }}>/{s.month}</span>
                     </span>
                     <Link href={`/industry/${pack.slug}`}
                       className="px-4 py-1.5 rounded-lg text-xs font-medium text-white transition-all"
