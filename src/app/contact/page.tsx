@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { Mail, Phone, MapPin, MessageCircle } from "lucide-react";
 import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
 import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -38,18 +39,18 @@ async function getSettings(isFa: boolean) {
 
 export default async function ContactPage() {
   const lang = await getServerLang();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const s = await getSettings(isFa);
 
   const cards = [
-    { icon: Mail, label: isFa ? "ایمیل" : "Email", value: s.contact_email, href: `mailto:${s.contact_email}` },
-    { icon: Phone, label: isFa ? "تلفن" : "Phone", value: s.contact_phone, href: `tel:${s.contact_phone.replace(/[^0-9+]/g, "")}` },
-    { icon: MessageCircle, label: isFa ? "تلگرام" : "Telegram", value: s.contact_telegram, href: `https://t.me/${s.contact_telegram.replace("@", "")}` },
-    { icon: MapPin, label: isFa ? "آدرس" : "Address", value: s.contact_address, href: undefined },
+    { icon: Mail, label: lang === "de" ? "E-Mail" : isFa ? "ایمیل" : "Email", value: s.contact_email, href: `mailto:${s.contact_email}` },
+    { icon: Phone, label: lang === "de" ? "Telefon" : isFa ? "تلفن" : "Phone", value: s.contact_phone, href: `tel:${s.contact_phone.replace(/[^0-9+]/g, "")}` },
+    { icon: MessageCircle, label: lang === "de" ? "Telegram" : isFa ? "تلگرام" : "Telegram", value: s.contact_telegram, href: `https://t.me/${s.contact_telegram.replace("@", "")}` },
+    { icon: MapPin, label: lang === "de" ? "Adresse" : isFa ? "آدرس" : "Address", value: s.contact_address, href: undefined },
   ];
 
   return (
-    <div className="min-h-screen" dir={isFa ? "rtl" : "ltr"} style={{ background: "#0a0a0f", color: "#f5f5f5" }}>
+    <div className="min-h-screen" dir={lang === "fa" ? "rtl" : "ltr"} style={{ background: "#0a0a0f", color: "#f5f5f5" }}>
       <nav
         className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4"
         style={{ background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
@@ -59,19 +60,21 @@ export default async function ContactPage() {
           <span className="font-bold text-lg text-white">AiFekr</span>
         </Link>
         <div className="flex items-center gap-2">
-          <Link href="/about" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{isFa ? "درباره ما" : "About"}</Link>
-          <Link href="/contact" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "#ea580c" }}>{isFa ? "تماس با ما" : "Contact"}</Link>
-          <Link href="/login" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{isFa ? "ورود" : "Log in"}</Link>
-          <Link href="/register" className="text-sm px-4 py-2 rounded-xl font-medium text-white transition-all" style={{ background: "#ea580c" }}>{isFa ? "ثبت‌نام" : "Sign up"}</Link>
+          <Link href="/about" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{lang === "de" ? "Über uns" : isFa ? "درباره ما" : "About"}</Link>
+          <Link href="/contact" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "#ea580c" }}>{lang === "de" ? "Kontakt" : isFa ? "تماس با ما" : "Contact"}</Link>
+          <Link href="/login" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{lang === "de" ? "Anmelden" : isFa ? "ورود" : "Log in"}</Link>
+          <Link href="/register" className="text-sm px-4 py-2 rounded-xl font-medium text-white transition-all" style={{ background: "#ea580c" }}>{lang === "de" ? "Registrieren" : isFa ? "ثبت‌نام" : "Sign up"}</Link>
         </div>
       </nav>
 
       <section className="pt-40 pb-10 px-6 max-w-3xl mx-auto text-center">
-        <h1 className="text-4xl md:text-5xl font-bold mb-4">{isFa ? "تماس با ما" : "Contact Us"}</h1>
+        <h1 className="text-4xl md:text-5xl font-bold mb-4">{tri(lang, "تماس با ما", "Contact Us", "Kontakt")}</h1>
         <p className="text-lg" style={{ color: "rgba(255,255,255,0.65)" }}>
-          {isFa
-            ? "سؤالی داری یا نیاز به راهنمایی داری؟ از هر کدام از راه‌های زیر می‌توانی با تیم AiFekr در ارتباط باشی."
-            : "Have a question or need help? You can reach the AiFekr team through any of the channels below."}
+          {lang === "de"
+            ? "Haben Sie eine Frage oder benötigen Sie Hilfe? Sie können das AiFekr-Team über einen der folgenden Kanäle erreichen."
+            : isFa
+              ? "سؤالی داری یا نیاز به راهنمایی داری؟ از هر کدام از راه‌های زیر می‌توانی با تیم AiFekr در ارتباط باشی."
+              : "Have a question or need help? You can reach the AiFekr team through any of the channels below."}
         </p>
       </section>
 

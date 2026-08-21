@@ -14,16 +14,16 @@ export default async function NotFound() {
       <h1 className="text-6xl font-bold mb-4" style={{ color: "var(--primary)" }}>
         404
       </h1>
-      <p className="text-xl mb-2">{isFa ? "صفحه پیدا نشد" : "Page not found"}</p>
+      <p className="text-xl mb-2">{isFa ? "صفحه پیدا نشد" : (cookieStore.get("lang")?.value === "de" ? "Seite nicht gefunden" : "Page not found")}</p>
       <p className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>
-        {isFa ? "صفحه‌ای که دنبالش هستید وجود ندارد" : "The page you're looking for doesn't exist"}
+        {isFa ? "صفحه‌ای که دنبالش هستید وجود ندارد" : (cookieStore.get("lang")?.value === "de" ? "Die gesuchte Seite existiert nicht." : "The page you're looking for doesn't exist")}
       </p>
       <Link
         href="/"
         className="px-6 py-3 rounded-xl font-medium text-white"
         style={{ background: "var(--primary)" }}
       >
-        {isFa ? "بازگشت به خانه" : "Back to home"}
+        {isFa ? "بازگشت به خانه" : (cookieStore.get("lang")?.value === "de" ? "Zurück zur Startseite" : "Back to home")}
       </Link>
     </div>
   );

@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useSearchParams } from "next/navigation";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type Market = "IR" | "INTL";
@@ -26,7 +26,7 @@ type ApiPackage = {
 const ANNUAL_DISCOUNT = 2 / 12;
 
 const FEATURE_ROWS = [
-  { sectionFa: "چت", sectionEn: "Chat", icon: MessageSquare, rows: [
+  { sectionFa: "چت", sectionEn: "Chat", sectionDe: "Chat", icon: MessageSquare, rows: [
     { labelFa: "پیام در روز / ۳ ساعت", labelEn: "Messages per day / 3h", ir: ["۲۰/روز", "۵۰/۳ساعت", "۱۰۰/۳ساعت", "۱۵۰/۳ساعت", "۷۵۰/۳ساعت"], en: ["20/day", "50/3h", "100/3h", "150/3h", "750/3h"] },
     { labelFa: "مدل‌های پایه", labelEn: "Basic models", ir: [true, true, true, true, true], en: [true, true, true, true, true] },
     { labelFa: "مدل‌های پیشرفته", labelEn: "Advanced models", subtitle: "Claude Sonnet, GPT-5, Gemini Pro", ir: [false, false, true, true, true], en: [false, false, true, true, true] },
@@ -35,19 +35,19 @@ const FEATURE_ROWS = [
     { labelFa: "آپلود فایل", labelEn: "File upload", ir: [false, true, true, true, true], en: [false, true, true, true, true] },
     { labelFa: "کاوش عمیق (Deep Research)", labelEn: "Deep Research", ir: [false, false, true, true, true], en: [false, false, true, true, true] },
   ]},
-  { sectionFa: "تصویر", sectionEn: "Image", icon: Image, rows: [
+  { sectionFa: "تصویر", sectionEn: "Image", sectionDe: "Bild", icon: Image, rows: [
     { labelFa: "تعداد تصویر", labelEn: "Images", ir: ["۳/روز", "۱۵/روز", "نامحدود", "نامحدود", "نامحدود"], en: ["3/day", "15/day", "Unlimited", "Unlimited", "Unlimited"] },
     { labelFa: "مدل‌های پیشرفته", labelEn: "Advanced models", subtitle: "Flux Pro, SDXL, Gemini Image", ir: [false, false, true, true, true], en: [false, false, true, true, true] },
     { labelFa: "Midjourney", labelEn: "Midjourney", ir: [false, false, false, true, true], en: [false, false, false, true, true] },
   ]},
-  { sectionFa: "موزیک", sectionEn: "Music", icon: Music, rows: [
+  { sectionFa: "موزیک", sectionEn: "Music", sectionDe: "Musik", icon: Music, rows: [
     { labelFa: "ساخت موزیک (Suno)", labelEn: "Music generation (Suno)", ir: [false, false, true, true, true], en: [false, false, true, true, true] },
   ]},
-  { sectionFa: "ویدیو", sectionEn: "Video", icon: Video, rows: [
+  { sectionFa: "ویدیو", sectionEn: "Video", sectionDe: "Video", icon: Video, rows: [
     { labelFa: "تعداد ویدیو در هفته", labelEn: "Videos per week", ir: ["—", "—", "—", "۲۰", "۱۰۰"], en: ["—", "—", "—", "20", "100"] },
     { labelFa: "مدل ویدیو (Veo, Kling)", labelEn: "Video models (Veo, Kling)", ir: [false, false, false, true, true], en: [false, false, false, true, true] },
   ]},
-  { sectionFa: "امکانات دیگر", sectionEn: "Other Features", icon: Sparkles, rows: [
+  { sectionFa: "امکانات دیگر", sectionEn: "Other Features", sectionDe: "Weitere Funktionen", icon: Sparkles, rows: [
     { labelFa: "ساخت وبسایت هوشمند", labelEn: "AI website builder", ir: [false, false, false, true, true], en: [false, false, false, true, true] },
     { labelFa: "بدون تبلیغات", labelEn: "Ad-free", ir: [false, true, true, true, true], en: [false, true, true, true, true] },
     { labelFa: "سرعت پاسخ بالاتر", labelEn: "Faster responses", ir: [false, false, false, true, true], en: [false, false, false, true, true] },
@@ -88,6 +88,13 @@ const FAQ_EN = [
   { q: "How do I pay?", a: "International plans are available via contact. Iranian plans via ZarinPal secure gateway." },
   { q: "Is there an annual discount?", a: "Yes, with annual billing you get 2 months free (≈17% off)." },
   { q: "What about support?", a: "Plus and above get email support, Pro gets priority support, Ultra gets VIP support." },
+];
+const FAQ_DE = [
+  { q: "Was ist der Unterschied zwischen den Plänen?", a: "Jeder Plan hat unterschiedliche Limits für Nachrichten, Bilder, Videos und Zugang zu KI-Modellen. Höhere Pläne bieten leistungsfähigere Modelle und mehr Tools." },
+  { q: "Kann ich meinen Plan upgraden?", a: "Ja, Sie können jederzeit einen höheren Plan kaufen." },
+  { q: "Wie bezahle ich?", a: "Internationale Pläne sind per Kontakt verfügbar. Iranianische Pläne über das sichere ZarinPal-Portal." },
+  { q: "Gibt es einen Jahresrabatt?", a: "Ja, mit jährlicher Abrechnung erhalten Sie 2 Monate gratis (ca. 17% Rabatt)." },
+  { q: "Wie ist der Support?", a: "Plus und höher erhalten E-Mail-Support, Pro erhält Prioritäts-Support, Ultra erhält VIP-Support." },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -136,8 +143,8 @@ export default function PlansPage() {
   useEffect(() => {
     const payStatus = searchParams.get("payment");
     const refId     = searchParams.get("ref");
-    if (payStatus === "success") toast.success(isFa ? `اشتراک فعال شد! کد پیگیری: ${refId}` : `Subscription activated! Ref: ${refId}`);
-    if (payStatus === "failed")  toast.error(isFa ? "پرداخت ناموفق بود. دوباره تلاش کنید." : "Payment failed. Please try again.");
+    if (payStatus === "success") toast.success(tri(lang, `اشتراک فعال شد! کد پیگیری: ${refId}`, `Subscription activated! Ref: ${refId}`, `Abonnement aktiviert! Ref: ${refId}`));
+    if (payStatus === "failed")  toast.error(tri(lang, "پرداخت ناموفق بود. دوباره تلاش کنید.", "Payment failed. Please try again.", "Zahlung fehlgeschlagen. Bitte versuchen Sie es erneut."));
   }, [searchParams, isFa]);
 
   useEffect(() => {
@@ -172,13 +179,13 @@ export default function PlansPage() {
 
     return [freePlan, ...paid].map(p => ({
       ...p,
-      parsedFeatures: ((!isFa && p.featuresEn) || p.features || "").split("\n").filter(Boolean),
+      parsedFeatures: ((lang !== "fa" && p.featuresEn) || p.features || "").split("\n").filter(Boolean),
     }));
   }
 
   const plans    = getPlans();
   const bizPlans = isIr ? BIZ_PLANS_IR : BIZ_PLANS_USD;
-  const faqItems = isFa ? FAQ_IR : FAQ_EN;
+  const faqItems = lang === "de" ? FAQ_DE : isFa ? FAQ_IR : FAQ_EN;
 
   // i18n strings
   const s = {
@@ -314,7 +321,7 @@ export default function PlansPage() {
               )}
 
               <div className="font-bold text-base mb-1" style={{ color: plan.color }}>
-                {isFa ? plan.name : plan.nameEn}
+                {tri(lang, plan.name, plan.nameEn, plan.nameEn)}
               </div>
 
               <div className="mb-3">
@@ -395,7 +402,7 @@ export default function PlansPage() {
                         <div className="flex items-center gap-2">
                           <section.icon className="w-3.5 h-3.5" style={{ color: "var(--primary)" }} />
                           <span className="font-semibold text-xs" style={{ color: "var(--text-primary)" }}>
-                            {isFa ? section.sectionFa : section.sectionEn}
+                            {tri(lang, section.sectionFa, section.sectionEn, section.sectionDe || section.sectionEn)}
                           </span>
                         </div>
                       </td>
@@ -403,7 +410,7 @@ export default function PlansPage() {
                     {section.rows.map((row, ri) => (
                       <tr key={row.labelFa} style={{ background: ri % 2 === 0 ? "var(--surface-1)" : "var(--surface-0)" }}>
                         <td className={`px-4 py-2.5 ${isFa ? "text-right" : "text-left"}`}>
-                          <div style={{ color: "var(--text-primary)" }}>{isFa ? row.labelFa : row.labelEn}</div>
+                          <div style={{ color: "var(--text-primary)" }}>{tri(lang, row.labelFa, row.labelEn, row.labelEn)}</div>
                           {row.subtitle && <div className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>{row.subtitle}</div>}
                         </td>
                         {(isIr ? row.ir : row.en).map((val, ci) => (

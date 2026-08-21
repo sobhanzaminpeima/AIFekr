@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Script from "next/script";
 import { Loader2, Sparkles, ImageIcon, AlertTriangle } from "lucide-react";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
 
 // Minimal shape of the global `puter` object injected by https://js.puter.com/v2/.
 // Not an official type — Puter doesn't ship one — kept narrow to what's used here.
@@ -28,7 +28,6 @@ declare global {
  */
 export default function TryFreeAiPage() {
   const { lang } = useTranslation();
-  const isFa = lang !== "en";
 
   const [scriptReady, setScriptReady] = useState(false);
 
@@ -50,8 +49,7 @@ export default function TryFreeAiPage() {
     try {
       const response = await window.puter.ai.chat(textPrompt.trim(), { model: "gpt-5.4-nano" });
       setTextResult(response);
-    } catch (err) {
-      setTextError(err instanceof Error ? err.message : (isFa ? "خطا در ارتباط با Puter" : "Puter request failed"));
+    } catch (err) {            setTextError(err instanceof Error ? err.message : tri(lang, "خطا در ارتباط با Puter", "Puter request failed", "Puter-Anfrage fehlgeschlagen"));
     } finally {
       setTextLoading(false);
     }
@@ -65,15 +63,14 @@ export default function TryFreeAiPage() {
     try {
       const imgEl = await window.puter.ai.txt2img(imagePrompt.trim(), { model: "gpt-image-1-mini" });
       setImageUrl(imgEl.src);
-    } catch (err) {
-      setImageError(err instanceof Error ? err.message : (isFa ? "خطا در ارتباط با Puter" : "Puter request failed"));
+    } catch (err) {            setImageError(err instanceof Error ? err.message : tri(lang, "خطا در ارتباط با Puter", "Puter request failed", "Puter-Anfrage fehlgeschlagen"));
     } finally {
       setImageLoading(false);
     }
   }
 
   return (
-    <div dir={isFa ? "rtl" : "ltr"} className="p-6 max-w-3xl mx-auto space-y-6">
+    <div dir={lang === "fa" ? "rtl" : "ltr"} className="p-6 max-w-3xl mx-auto space-y-6">
       <Script src="https://js.puter.com/v2/" strategy="afterInteractive" onReady={() => setScriptReady(true)} />
 
       <div className="flex items-center gap-3">
@@ -81,30 +78,31 @@ export default function TryFreeAiPage() {
           <Sparkles className="w-5 h-5" style={{ color: "var(--primary)" }} />
         </div>
         <div>
-          <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "امتحان AI رایگان (آزمایشی)" : "Try Free AI (Experimental)"}</h1>
-          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "با حساب Puter.com شخصی خودتان، جدا از اعتبار AiFekr" : "Uses your own puter.com account — separate from AiFekr credits"}</p>
+          <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "امتحان AI رایگان (آزمایشی)", "Try Free AI (Experimental)", "KI kostenlos testen (experimentell)")}</h1>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{tri(lang, "با حساب Puter.com شخصی خودتان، جدا از اعتبار AiFekr", "Uses your own puter.com account — separate from AiFekr credits", "Nutzt Ihr eigenes puter.com-Konto — getrennt vom AiFekr-Guthaben")}</p>
         </div>
       </div>
 
       <div className="rounded-2xl p-4 flex items-start gap-3" style={{ background: "rgba(234,88,12,0.08)", border: "1px solid rgba(234,88,12,0.3)" }}>
         <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "var(--primary)" }} />
         <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-          {isFa
-            ? "این ابزار کاملاً آزمایشی است و از سرویس شخص ثالث Puter.js استفاده می‌کند — نه از سیستم اصلی تولید تصویر/ویدیوی AiFekr. اولین بار که دکمه رو بزنید، Puter از شما می‌خواد وارد حساب puter.com خودتون بشید؛ مصرف روی حساب شماست، نه اعتبار AiFekr."
-            : "This is a fully experimental tool that uses the third-party Puter.js service — not AiFekr's main image/video pipeline. The first time you use it, Puter will ask you to sign into your own puter.com account; usage is billed to that account, not your AiFekr credits."}
+          {tri(lang,
+            "این ابزار کاملاً آزمایشی است و از سرویس شخص ثالث Puter.js استفاده می‌کند — نه از سیستم اصلی تولید تصویر/ویدیوی AiFekr. اولین بار که دکمه رو بزنید، Puter از شما می‌خواد وارد حساب puter.com خودتون بشید؛ مصرف روی حساب شماست، نه اعتبار AiFekr.",
+            "This is a fully experimental tool that uses the third-party Puter.js service — not AiFekr's main image/video pipeline. The first time you use it, Puter will ask you to sign into your own puter.com account; usage is billed to that account, not your AiFekr credits.",
+            "Dies ist ein vollständig experimentelles Tool, das den Drittanbieterdienst Puter.js nutzt — nicht die Hauptbild-/Videopipeline von AiFekr. Beim ersten Mal fordert Puter Sie auf, sich bei Ihrem eigenen puter.com-Konto anzumelden; die Nutzung wird diesem Konto berechnet, nicht Ihrem AiFekr-Guthaben.")}
         </p>
       </div>
 
       {/* Text generation */}
       <div className="rounded-2xl p-5 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{isFa ? "تولید متن" : "Text Generation"}</h2>
+        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "تولید متن", "Text Generation", "Textgenerierung")}</h2>
         <textarea value={textPrompt} onChange={(e) => setTextPrompt(e.target.value)} rows={3}
-          placeholder={isFa ? "سوال یا درخواست خود را بنویسید..." : "Ask anything..."}
+          placeholder={tri(lang, "سوال یا درخواست خود را بنویسید...", "Ask anything...", "Fragen Sie alles...")}
           className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         <button onClick={runText} disabled={!scriptReady || textLoading || !textPrompt.trim()}
           className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
           {textLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          {isFa ? "تولید متن" : "Generate Text"}
+          {tri(lang, "تولید متن", "Generate Text", "Text generieren")}
         </button>
         {textError && <p className="text-xs" style={{ color: "#ef4444" }}>{textError}</p>}
         {textResult && (
@@ -116,14 +114,14 @@ export default function TryFreeAiPage() {
 
       {/* Image generation */}
       <div className="rounded-2xl p-5 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{isFa ? "تولید تصویر" : "Image Generation"}</h2>
+        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "تولید تصویر", "Image Generation", "Bildgenerierung")}</h2>
         <input value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)}
-          placeholder={isFa ? "توضیح تصویر مورد نظر..." : "Describe the image..."}
+          placeholder={tri(lang, "توضیح تصویر مورد نظر...", "Describe the image...", "Beschreiben Sie das Bild...")}
           className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         <button onClick={runImage} disabled={!scriptReady || imageLoading || !imagePrompt.trim()}
           className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
           {imageLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
-          {isFa ? "تولید تصویر" : "Generate Image"}
+          {tri(lang, "تولید تصویر", "Generate Image", "Bild generieren")}
         </button>
         {imageError && <p className="text-xs" style={{ color: "#ef4444" }}>{imageError}</p>}
         {imageUrl && (
@@ -132,7 +130,7 @@ export default function TryFreeAiPage() {
       </div>
 
       <p className="text-[11px] text-center" style={{ color: "var(--text-muted)" }}>
-        {isFa ? "ویدیو در این ابزار آزمایشی موجود نیست — مستندات Puter.js نمونه‌ی کارکردی برای آن ارائه نکرده بود." : "Video isn't included in this experiment — Puter.js's docs didn't provide a working example for it."}
+        {tri(lang, "ویدیو در این ابزار آزمایشی موجود نیست — مستندات Puter.js نمونه‌ی کارکردی برای آن ارائه نکرده بود.", "Video isn't included in this experiment — Puter.js's docs didn't provide a working example for it.", "Video ist in diesem Experiment nicht enthalten — die Puter.js-Dokumentation lieferte kein funktionierendes Beispiel dafür.")}
       </p>
     </div>
   );

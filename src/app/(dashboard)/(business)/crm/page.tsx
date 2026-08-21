@@ -7,7 +7,7 @@ import {
   Package, Receipt, FileSignature, Pin, Printer, FolderKanban, PhoneCall,
   MessageCircle, Send,
 } from "lucide-react";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri, type Lang } from "@/lib/i18n";
 import type { Translations } from "@/lib/i18n/en";
 import { toJalali } from "@/lib/utils/jalali";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -341,9 +341,9 @@ export default function CrmPage() {
       ) : tab === "agent" ? (
         <CrmAgentPanel isFa={isFa} t={c} />
       ) : tab === "calendar" ? (
-        <CalendarPanel isFa={isFa} t={c} />
+        <CalendarPanel isFa={isFa} lang={lang} t={c} />
       ) : tab === "analytics" ? (
-        <AnalyticsPanel isFa={isFa} t={c} pipelines={pipelines} onOpenContact={(id) => { setTab("contacts"); openContact(id); }} />
+        <AnalyticsPanel isFa={isFa} lang={lang} t={c} pipelines={pipelines} onOpenContact={(id) => { setTab("contacts"); openContact(id); }} />
       ) : tab === "products" ? (
         <ProductsPanel isFa={isFa} t={c} />
       ) : tab === "invoices" ? (
@@ -376,6 +376,7 @@ export default function CrmPage() {
       {selectedDealId && (
         <DealDetailModal
           isFa={isFa}
+          lang={lang}
           t={c}
           dealId={selectedDealId}
           deal={deals.find((d) => d.id === selectedDealId) || null}
@@ -390,6 +391,7 @@ export default function CrmPage() {
       {selectedContactId && contactDetail && (
         <ContactDetailModal
           isFa={isFa}
+          lang={lang}
           t={c}
           contact={contactDetail}
           teamMembers={teamMembers}
@@ -640,7 +642,7 @@ function NewContactModal({ isFa, t, onClose, onCreated }: { isFa: boolean; t: Tr
   );
 }
 
-function DealDetailModal({ isFa, t, dealId, deal, pipelines, teamMembers, onClose, onChanged }: { isFa: boolean; t: Translations["crm"]; dealId: string; deal: Deal | null; pipelines: Pipeline[]; teamMembers: TeamMember[]; onClose: () => void; onChanged: () => void }) {
+function DealDetailModal({ isFa, lang, t, dealId, deal, pipelines, teamMembers, onClose, onChanged }: { isFa: boolean; lang: Lang; t: Translations["crm"]; dealId: string; deal: Deal | null; pipelines: Pipeline[]; teamMembers: TeamMember[]; onClose: () => void; onChanged: () => void }) {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [ownerId, setOwnerId] = useState(deal?.ownerId || "");
@@ -693,13 +695,13 @@ function DealDetailModal({ isFa, t, dealId, deal, pipelines, teamMembers, onClos
 
       {deal && (
         <div className="grid grid-cols-2 gap-2 text-sm mb-4">
-          <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "ارزش: " : "Value: "}</span><span style={{ color: "var(--text-primary)" }}>{fmtMoney(deal.value)}</span></div>
-          <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "مرحله: " : "Stage: "}</span><span style={{ color: "var(--text-primary)" }}>{stage?.name || "—"}</span></div>
-          <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "پایپ‌لاین: " : "Pipeline: "}</span><span style={{ color: "var(--text-primary)" }}>{pipeline?.name || "—"}</span></div>
-          <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "وضعیت: " : "Status: "}</span><span style={{ color: "var(--text-primary)" }}>{deal.status}</span></div>
+          <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "ارزش: ", "Value: ", "Wert: ")}</span><span style={{ color: "var(--text-primary)" }}>{fmtMoney(deal.value)}</span></div>
+          <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "مرحله: ", "Stage: ", "Phase: ")}</span><span style={{ color: "var(--text-primary)" }}>{stage?.name || "—"}</span></div>
+          <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "پایپ‌لاین: ", "Pipeline: ", "Pipeline: ")}</span><span style={{ color: "var(--text-primary)" }}>{pipeline?.name || "—"}</span></div>
+          <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "وضعیت: ", "Status: ", "Status: ")}</span><span style={{ color: "var(--text-primary)" }}>{deal.status}</span></div>
           <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{isFa ? "مخاطب: " : "Contact: "}</span><span style={{ color: "var(--text-primary)" }}>{deal.contact.name}{deal.contact.phone ? ` — ${deal.contact.phone}` : ""}</span></div>
           {deal.expectedCloseDate && (
-            <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{isFa ? "تاریخ تخمینی بستن: " : "Expected close: "}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(deal.expectedCloseDate)}</span></div>
+            <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "تاریخ تخمینی بستن: ", "Expected close: ", "Erwarteter Abschluss: ")}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(deal.expectedCloseDate)}</span></div>
           )}
         </div>
       )}
@@ -746,7 +748,7 @@ function DealDetailModal({ isFa, t, dealId, deal, pipelines, teamMembers, onClos
 
 type ContactDetailTab = "profile" | "deals" | "tasks" | "activity" | "notesFiles";
 
-function ContactDetailModal({ isFa, t, contact, teamMembers, onClose, onChanged }: { isFa: boolean; t: Translations["crm"]; contact: ContactDetail; teamMembers: TeamMember[]; onClose: () => void; onChanged: () => void }) {
+function ContactDetailModal({ isFa, lang, t, contact, teamMembers, onClose, onChanged }: { isFa: boolean; lang: Lang; t: Translations["crm"]; contact: ContactDetail; teamMembers: TeamMember[]; onClose: () => void; onChanged: () => void }) {
   const [note, setNote] = useState("");
   const [taskTitle, setTaskTitle] = useState("");
   const [assignedToId, setAssignedToId] = useState(contact.assignedToId || "");
@@ -806,10 +808,10 @@ function ContactDetailModal({ isFa, t, contact, teamMembers, onClose, onChanged 
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contactId: contact.id }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || (isFa ? "خطا در برقراری تماس" : "Failed to start call"));
+      if (!res.ok) throw new Error(data.error || tri(lang, "خطا در برقراری تماس", "Failed to start call", "Fehler beim Anruf"));
       onChanged();
     } catch (e) {
-      alert(e instanceof Error ? e.message : (isFa ? "خطا" : "Error"));
+      alert(e instanceof Error ? e.message : tri(lang, "خطا", "Error", "Fehler"));
     } finally {
       setCallingViaVoice(false);
     }
@@ -943,8 +945,8 @@ function ContactDetailModal({ isFa, t, contact, teamMembers, onClose, onChanged 
           {editing ? (
             <div className="grid grid-cols-2 gap-3">
               {([
-                ["name", isFa ? "نام" : "Name"], ["phone", isFa ? "تلفن" : "Phone"], ["email", isFa ? "ایمیل" : "Email"],
-                ["whatsapp", "WhatsApp"], ["telegram", "Telegram"], ["company", isFa ? "شرکت" : "Company"],
+                ["name", tri(lang, "نام", "Name", "Name")], ["phone", tri(lang, "تلفن", "Phone", "Telefon")], ["email", tri(lang, "ایمیل", "Email", "E-Mail")],
+                ["whatsapp", "WhatsApp"], ["telegram", "Telegram"], ["company", tri(lang, "شرکت", "Company", "Unternehmen")],
               ] as const).map(([key, label]) => (
                 <div key={key}>
                   <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{label}</label>
@@ -955,12 +957,12 @@ function ContactDetailModal({ isFa, t, contact, teamMembers, onClose, onChanged 
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "نام: " : "Name: "}</span><span style={{ color: "var(--text-primary)" }}>{contact.name}</span></div>
-              <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "تلفن: " : "Phone: "}</span><span style={{ color: "var(--text-primary)" }}>{contact.phone || "—"}</span></div>
-              <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "ایمیل: " : "Email: "}</span><span style={{ color: "var(--text-primary)" }}>{contact.email || "—"}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "نام: ", "Name: ", "Name: ")}</span><span style={{ color: "var(--text-primary)" }}>{contact.name}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "تلفن: ", "Phone: ", "Telefon: ")}</span><span style={{ color: "var(--text-primary)" }}>{contact.phone || "—"}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "ایمیل: ", "Email: ", "E-Mail: ")}</span><span style={{ color: "var(--text-primary)" }}>{contact.email || "—"}</span></div>
               <div><span style={{ color: "var(--text-muted)" }}>WhatsApp: </span><span style={{ color: "var(--text-primary)" }}>{contact.whatsapp || "—"}</span></div>
               <div><span style={{ color: "var(--text-muted)" }}>Telegram: </span><span style={{ color: "var(--text-primary)" }}>{contact.telegram || "—"}</span></div>
-              <div><span style={{ color: "var(--text-muted)" }}>{isFa ? "شرکت: " : "Company: "}</span><span style={{ color: "var(--text-primary)" }}>{contact.company || "—"}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "شرکت: ", "Company: ", "Unternehmen: ")}</span><span style={{ color: "var(--text-primary)" }}>{contact.company || "—"}</span></div>
             </div>
           )}
 
@@ -1355,7 +1357,7 @@ function CrmAgentPanel({ isFa, t }: { isFa: boolean; t: Translations["crm"] }) {
 
 interface CalendarItem { id: string; date: string; label: string; type: "task" | "deal"; }
 
-function CalendarPanel({ isFa, t }: { isFa: boolean; t: Translations["crm"] }) {
+function CalendarPanel({ isFa, lang, t }: { isFa: boolean; lang: Lang; t: Translations["crm"] }) {
   const [items, setItems] = useState<CalendarItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -1388,7 +1390,7 @@ function CalendarPanel({ isFa, t }: { isFa: boolean; t: Translations["crm"] }) {
     <div className="space-y-4">
       {Array.from(grouped.entries()).map(([day, dayItems]) => (
         <div key={day} className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-          <p className="text-xs font-semibold mb-2" style={{ color: "var(--primary)" }}>{isFa ? toJalali(day) : new Date(day).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
+          <p className="text-xs font-semibold mb-2" style={{ color: "var(--primary)" }}>{tri(lang, toJalali(day), new Date(day).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }), new Date(day).toLocaleDateString("de-DE", { year: "numeric", month: "long", day: "numeric" }))}</p>
           <div className="space-y-1.5">
             {dayItems.map((item) => (
               <div key={item.id} className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
@@ -1403,7 +1405,7 @@ function CalendarPanel({ isFa, t }: { isFa: boolean; t: Translations["crm"] }) {
   );
 }
 
-function AnalyticsPanel({ isFa, t, pipelines, onOpenContact }: { isFa: boolean; t: Translations["crm"]; pipelines: Pipeline[]; onOpenContact: (id: string) => void }) {
+function AnalyticsPanel({ isFa, lang, t, pipelines, onOpenContact }: { isFa: boolean; lang: Lang; t: Translations["crm"]; pipelines: Pipeline[]; onOpenContact: (id: string) => void }) {
   const [subTab, setSubTab] = useState<"pipeline" | "calls">("pipeline");
   const [pipelineId, setPipelineId] = useState(pipelines[0]?.id || "");
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -1452,7 +1454,7 @@ function AnalyticsPanel({ isFa, t, pipelines, onOpenContact }: { isFa: boolean; 
     return (
       <div className="space-y-4">
         {subTabToggle}
-        <VoiceCallAnalyticsPanel isFa={isFa} t={t} onOpenContact={onOpenContact} />
+        <VoiceCallAnalyticsPanel isFa={isFa} lang={lang} t={t} onOpenContact={onOpenContact} />
       </div>
     );
   }
@@ -1565,7 +1567,7 @@ const CALL_STATUS_COLOR: Record<string, string> = {
   no_answer: "var(--text-muted)",
 };
 
-function VoiceCallAnalyticsPanel({ isFa, t, onOpenContact }: { isFa: boolean; t: Translations["crm"]; onOpenContact: (id: string) => void }) {
+function VoiceCallAnalyticsPanel({ isFa, lang, t, onOpenContact }: { isFa: boolean; lang: Lang; t: Translations["crm"]; onOpenContact: (id: string) => void }) {
   const [data, setData] = useState<VoiceAnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const tv = t.voiceAnalytics;
@@ -1657,7 +1659,7 @@ function VoiceCallAnalyticsPanel({ isFa, t, onOpenContact }: { isFa: boolean; t:
                   {call.contactName || call.callerPhone || tv.unknownCaller}
                 </p>
                 <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                  {call.callerPhone} · {new Date(call.createdAt).toLocaleString(isFa ? "fa-IR" : "en-US")}
+                  {call.callerPhone} · {new Date(call.createdAt).toLocaleString(tri(lang, "fa-IR", "en-US", "de-DE"))}
                 </p>
               </div>
             </div>

@@ -30,7 +30,7 @@ export default function GlobalError({
             onClick={reset}
             style={{ padding: "0.75rem 1.5rem", borderRadius: "0.75rem", background: "#ea580c", color: "white", border: "none", cursor: "pointer", fontSize: "1rem" }}
           >
-            {isFa ? "تلاش مجدد" : "Try again"}
+            {isFa ? "تلاش مجدد" : "Erneut versuchen"}
           </button>
         </div>
       </body>

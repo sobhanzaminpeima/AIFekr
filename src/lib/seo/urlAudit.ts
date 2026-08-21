@@ -90,60 +90,60 @@ export async function crawlUrl(url: string): Promise<CrawledPageData | null> {
 
 export type CheckStatus = "pass" | "warning" | "fail";
 export interface UrlCheck { id: string; label: string; status: CheckStatus; detail: string; }
-export interface UrlCheckGroup { id: string; titleFa: string; titleEn: string; checks: UrlCheck[]; }
+export interface UrlCheckGroup { id: string; titleFa: string; titleEn: string; titleDe: string; checks: UrlCheck[]; }
 
-export function auditUrlPage(data: CrawledPageData, url: string, lang: "fa" | "en"): { score: number; groups: UrlCheckGroup[] } {
-  const isFa = lang === "fa";
+export function auditUrlPage(data: CrawledPageData, url: string, lang: "fa" | "en" | "de"): { score: number; groups: UrlCheckGroup[] } {
+  const tri = (fa: string, en: string, de: string) => lang === "fa" ? fa : lang === "de" ? de : en;
   const check = (id: string, label: string, status: CheckStatus, detail: string): UrlCheck => ({ id, label, status, detail });
 
   const basic: UrlCheck[] = [
-    check("statusCode", isFa ? "کد وضعیت HTTP" : "HTTP status code", data.statusCode === 200 ? "pass" : "warning", String(data.statusCode)),
-    check("https", isFa ? "HTTPS" : "HTTPS", data.isHttps ? "pass" : "fail", data.isHttps ? (isFa ? "سایت از HTTPS استفاده می‌کند" : "Site uses HTTPS") : (isFa ? "سایت HTTPS ندارد" : "Site does not use HTTPS")),
-    check("doctype", isFa ? "اعلان Doctype" : "Doctype declaration", data.doctype ? "pass" : "warning", data.doctype ? "<!DOCTYPE html>" : (isFa ? "یافت نشد" : "Not found")),
-    check("charset", isFa ? "کدگذاری کاراکتر" : "Meta charset", data.charset ? "pass" : "warning", data.charset || (isFa ? "یافت نشد" : "Not found")),
-    check("lang", isFa ? "ویژگی زبان" : "Language attribute", data.langAttr ? "pass" : "warning", data.langAttr || (isFa ? "یافت نشد" : "Not found")),
-    check("favicon", isFa ? "فاوآیکون" : "Favicon", data.hasFavicon ? "pass" : "warning", data.hasFavicon ? (isFa ? "موجود است" : "Present") : (isFa ? "یافت نشد" : "Not found")),
-    check("responseTime", isFa ? "زمان پاسخ سرور" : "Server response time", data.responseTimeMs < 800 ? "pass" : data.responseTimeMs < 2000 ? "warning" : "fail", `${data.responseTimeMs}ms`),
-    check("server", isFa ? "امضای سرور" : "Server signature", data.server ? "warning" : "pass", data.server ? (isFa ? `افشا شده: ${data.server}` : `Exposed: ${data.server}`) : (isFa ? "افشا نشده" : "Not exposed")),
+    check("statusCode", tri("کد وضعیت HTTP", "HTTP status code", "HTTP-Statuscode"), data.statusCode === 200 ? "pass" : "warning", String(data.statusCode)),
+    check("https", "HTTPS", data.isHttps ? "pass" : "fail", data.isHttps ? tri("سایت از HTTPS استفاده می‌کند", "Site uses HTTPS", "Site verwendet HTTPS") : tri("سایت HTTPS ندارد", "Site does not use HTTPS", "Site verwendet kein HTTPS")),
+    check("doctype", tri("اعلان Doctype", "Doctype declaration", "Doctype-Deklaration"), data.doctype ? "pass" : "warning", data.doctype ? "<!DOCTYPE html>" : tri("یافت نشد", "Not found", "Nicht gefunden")),
+    check("charset", tri("کدگذاری کاراکتر", "Meta charset", "Meta-Zeichensatz"), data.charset ? "pass" : "warning", data.charset || tri("یافت نشد", "Not found", "Nicht gefunden")),
+    check("lang", tri("ویژگی زبان", "Language attribute", "Sprachattribut"), data.langAttr ? "pass" : "warning", data.langAttr || tri("یافت نشد", "Not found", "Nicht gefunden")),
+    check("favicon", tri("فاوآیکون", "Favicon", "Favicon"), data.hasFavicon ? "pass" : "warning", data.hasFavicon ? tri("موجود است", "Present", "Vorhanden") : tri("یافت نشد", "Not found", "Nicht gefunden")),
+    check("responseTime", tri("زمان پاسخ سرور", "Server response time", "Server-Antwortzeit"), data.responseTimeMs < 800 ? "pass" : data.responseTimeMs < 2000 ? "warning" : "fail", `${data.responseTimeMs}ms`),
+    check("server", tri("امضای سرور", "Server signature", "Server-Signatur"), data.server ? "warning" : "pass", data.server ? tri(`افشا شده: ${data.server}`, `Exposed: ${data.server}`, `Offengelegt: ${data.server}`) : tri("افشا نشده", "Not exposed", "Nicht offengelegt")),
   ];
 
   const onPage: UrlCheck[] = [
-    check("title", isFa ? "تگ Title" : "Title tag", !data.title ? "fail" : data.title.length >= 30 && data.title.length <= 65 ? "pass" : "warning", data.title ? `"${data.title}" (${data.title.length} ${isFa ? "کاراکتر" : "chars"})` : (isFa ? "یافت نشد" : "Missing")),
-    check("metaDesc", isFa ? "توضیحات متا" : "Meta description", !data.metaDesc ? "fail" : data.metaDesc.length >= 110 && data.metaDesc.length <= 165 ? "pass" : "warning", data.metaDesc ? `${data.metaDesc.length} ${isFa ? "کاراکتر" : "chars"}` : (isFa ? "یافت نشد" : "Missing")),
-    check("h1", isFa ? "تگ H1" : "H1 tag", data.h1.length === 1 ? "pass" : data.h1.length === 0 ? "fail" : "warning", data.h1.length === 0 ? (isFa ? "یافت نشد" : "Missing") : data.h1.length > 1 ? (isFa ? `${data.h1.length} عدد H1 — باید فقط یکی باشد` : `${data.h1.length} H1 tags — should be exactly one`) : data.h1[0]),
-    check("headingStructure", isFa ? "ساختار هدینگ‌ها" : "Heading structure", data.h2.length > 0 ? "pass" : "warning", isFa ? `${data.h2.length} تگ H2، ${data.h3Count} تگ H3` : `${data.h2.length} H2 tags, ${data.h3Count} H3 tags`),
-    check("canonical", isFa ? "تگ Canonical" : "Canonical tag", data.canonical ? "pass" : "warning", data.canonical || (isFa ? "یافت نشد" : "Not found")),
-    check("metaKeywords", isFa ? "متا کلمات کلیدی" : "Meta keywords", "pass", data.metaKeywords ? data.metaKeywords.slice(0, 80) : (isFa ? "استفاده نشده (اختیاری است)" : "Not used (optional)")),
-    check("robotsMeta", isFa ? "متا Robots" : "Meta robots", /noindex/i.test(data.robotsMeta) ? "fail" : "pass", data.robotsMeta || (isFa ? "پیش‌فرض (index, follow)" : "Default (index, follow)")),
-    check("seoUrl", isFa ? "URL مناسب سئو" : "SEO-friendly URL", /^https?:\/\/[^?]+$/.test(url) && !/[A-Z]/.test(new URL(url).pathname) ? "pass" : "warning", url),
+    check("title", tri("تگ Title", "Title tag", "Title-Tag"), !data.title ? "fail" : data.title.length >= 30 && data.title.length <= 65 ? "pass" : "warning", data.title ? `"${data.title}" (${data.title.length} ${tri("کاراکتر", "chars", "Zeichen")})` : tri("یافت نشد", "Missing", "Fehlt")),
+    check("metaDesc", tri("توضیحات متا", "Meta description", "Meta-Beschreibung"), !data.metaDesc ? "fail" : data.metaDesc.length >= 110 && data.metaDesc.length <= 165 ? "pass" : "warning", data.metaDesc ? `${data.metaDesc.length} ${tri("کاراکتر", "chars", "Zeichen")}` : tri("یافت نشد", "Missing", "Fehlt")),
+    check("h1", tri("تگ H1", "H1 tag", "H1-Tag"), data.h1.length === 1 ? "pass" : data.h1.length === 0 ? "fail" : "warning", data.h1.length === 0 ? tri("یافت نشد", "Missing", "Fehlt") : data.h1.length > 1 ? tri(`${data.h1.length} عدد H1 — باید فقط یکی باشد`, `${data.h1.length} H1 tags — should be exactly one`, `${data.h1.length} H1-Tags — sollte genau eins sein`) : data.h1[0]),
+    check("headingStructure", tri("ساختار هدینگ‌ها", "Heading structure", "Überschriftenstruktur"), data.h2.length > 0 ? "pass" : "warning", tri(`${data.h2.length} تگ H2، ${data.h3Count} تگ H3`, `${data.h2.length} H2 tags, ${data.h3Count} H3 tags`, `${data.h2.length} H2-Tags, ${data.h3Count} H3-Tags`)),
+    check("canonical", tri("تگ Canonical", "Canonical tag", "Canonical-Tag"), data.canonical ? "pass" : "warning", data.canonical || tri("یافت نشد", "Not found", "Nicht gefunden")),
+    check("metaKeywords", tri("متا کلمات کلیدی", "Meta keywords", "Meta-Schlüsselwörter"), "pass", data.metaKeywords ? data.metaKeywords.slice(0, 80) : tri("استفاده نشده (اختیاری است)", "Not used (optional)", "Nicht verwendet (optional)")),
+    check("robotsMeta", tri("متا Robots", "Meta robots", "Meta-Robots"), /noindex/i.test(data.robotsMeta) ? "fail" : "pass", data.robotsMeta || tri("پیش‌فرض (index, follow)", "Default (index, follow)", "Standard (index, follow)")),
+    check("seoUrl", tri("URL مناسب سئو", "SEO-friendly URL", "SEO-freundliche URL"), /^https?:\/\/[^?]+$/.test(url) && !/[A-Z]/.test(new URL(url).pathname) ? "pass" : "warning", url),
   ];
 
   const content: UrlCheck[] = [
-    check("wordCount", isFa ? "تعداد کلمات" : "Word count", data.wordCount >= 300 ? "pass" : "warning", String(data.wordCount)),
-    check("schema", isFa ? "داده ساختاریافته (Schema)" : "Structured data (Schema)", data.hasSchema ? "pass" : "warning", data.hasSchema ? (isFa ? "یافت شد" : "Found") : (isFa ? "یافت نشد" : "Not found")),
-    check("ogTags", isFa ? "برچسب‌های OpenGraph" : "OpenGraph tags", data.ogTitle && data.ogDesc ? "pass" : "warning", `og:title ${data.ogTitle ? "✓" : "✗"}, og:description ${data.ogDesc ? "✓" : "✗"}, og:image ${data.ogImage ? "✓" : "✗"}`),
-    check("deprecatedTags", isFa ? "تگ‌های منسوخ HTML" : "Deprecated HTML tags", data.hasDeprecatedTags ? "warning" : "pass", data.hasDeprecatedTags ? (isFa ? "یافت شد (font/center/marquee)" : "Found (font/center/marquee)") : (isFa ? "یافت نشد" : "None found")),
-    check("inlineCss", isFa ? "CSS درون‌خطی" : "Inline CSS", data.hasInlineCss ? "warning" : "pass", data.hasInlineCss ? (isFa ? "استفاده شده — روی سرعت اثر می‌گذارد" : "In use — affects performance") : (isFa ? "استفاده نشده" : "Not used")),
+    check("wordCount", tri("تعداد کلمات", "Word count", "Wortanzahl"), data.wordCount >= 300 ? "pass" : "warning", String(data.wordCount)),
+    check("schema", tri("داده ساختاریافته (Schema)", "Structured data (Schema)", "Strukturierte Daten (Schema)"), data.hasSchema ? "pass" : "warning", data.hasSchema ? tri("یافت شد", "Found", "Gefunden") : tri("یافت نشد", "Not found", "Nicht gefunden")),
+    check("ogTags", tri("برچسب‌های OpenGraph", "OpenGraph tags", "OpenGraph-Tags"), data.ogTitle && data.ogDesc ? "pass" : "warning", `og:title ${data.ogTitle ? "✓" : "✗"}, og:description ${data.ogDesc ? "✓" : "✗"}, og:image ${data.ogImage ? "✓" : "✗"}`),
+    check("deprecatedTags", tri("تگ‌های منسوخ HTML", "Deprecated HTML tags", "Veraltete HTML-Tags"), data.hasDeprecatedTags ? "warning" : "pass", data.hasDeprecatedTags ? tri("یافت شد (font/center/marquee)", "Found (font/center/marquee)", "Gefunden (font/center/marquee)") : tri("یافت نشد", "None found", "Keine gefunden")),
+    check("inlineCss", tri("CSS درون‌خطی", "Inline CSS", "Inline-CSS"), data.hasInlineCss ? "warning" : "pass", data.hasInlineCss ? tri("استفاده شده — روی سرعت اثر می‌گذارد", "In use — affects performance", "Wird verwendet — beeinträchtigt die Leistung") : tri("استفاده نشده", "Not used", "Nicht verwendet")),
   ];
 
   const media: UrlCheck[] = [
-    check("imageAlt", isFa ? "برچسب Alt تصاویر" : "Image ALT attributes", data.images === 0 ? "pass" : data.imagesWithAlt === data.images ? "pass" : data.imagesWithAlt > 0 ? "warning" : "fail", isFa ? `${data.imagesWithAlt} از ${data.images} تصویر دارای alt` : `${data.imagesWithAlt} of ${data.images} images have alt`),
-    check("lazyLoading", isFa ? "بارگذاری تنبل تصاویر" : "Lazy loading images", data.images === 0 ? "pass" : data.lazyImages > 0 ? "pass" : "warning", isFa ? `${data.lazyImages} از ${data.images} تصویر با lazy loading` : `${data.lazyImages} of ${data.images} images use lazy loading`),
+    check("imageAlt", tri("برچسب Alt تصاویر", "Image ALT attributes", "Bild-ALT-Attribute"), data.images === 0 ? "pass" : data.imagesWithAlt === data.images ? "pass" : data.imagesWithAlt > 0 ? "warning" : "fail", tri(`${data.imagesWithAlt} از ${data.images} تصویر دارای alt`, `${data.imagesWithAlt} of ${data.images} images have alt`, `${data.imagesWithAlt} von ${data.images} Bildern haben ALT`)),
+    check("lazyLoading", tri("بارگذاری تنبل تصاویر", "Lazy loading images", "Lazy-Loading für Bilder"), data.images === 0 ? "pass" : data.lazyImages > 0 ? "pass" : "warning", tri(`${data.lazyImages} از ${data.images} تصویر با lazy loading`, `${data.lazyImages} of ${data.images} images use lazy loading`, `${data.lazyImages} von ${data.images} Bildern verwenden Lazy Loading`)),
   ];
 
   const technical: UrlCheck[] = [
-    check("htmlSize", isFa ? "حجم صفحه" : "Page size", data.htmlSize < 200000 ? "pass" : data.htmlSize < 500000 ? "warning" : "fail", `${Math.round(data.htmlSize / 1024)} KB`),
-    check("internalLinks", isFa ? "لینک‌های داخلی" : "Internal links", data.internalLinks > 0 ? "pass" : "warning", String(data.internalLinks)),
-    check("externalLinks", isFa ? "لینک‌های خارجی" : "External links", "pass", String(data.externalLinks)),
-    check("totalLinks", isFa ? "مجموع لینک‌ها" : "Total links on page", data.links < 200 ? "pass" : "warning", String(data.links)),
+    check("htmlSize", tri("حجم صفحه", "Page size", "Seitengröße"), data.htmlSize < 200000 ? "pass" : data.htmlSize < 500000 ? "warning" : "fail", `${Math.round(data.htmlSize / 1024)} KB`),
+    check("internalLinks", tri("لینک‌های داخلی", "Internal links", "Interne Links"), data.internalLinks > 0 ? "pass" : "warning", String(data.internalLinks)),
+    check("externalLinks", tri("لینک‌های خارجی", "External links", "Externe Links"), "pass", String(data.externalLinks)),
+    check("totalLinks", tri("مجموع لینک‌ها", "Total links on page", "Gesamtlinks auf Seite"), data.links < 200 ? "pass" : "warning", String(data.links)),
   ];
 
   const groups: UrlCheckGroup[] = [
-    { id: "basic", titleFa: "اطلاعات پایه", titleEn: "Basic Information", checks: basic },
-    { id: "onpage", titleFa: "سئوی درون‌صفحه", titleEn: "On-page SEO", checks: onPage },
-    { id: "content", titleFa: "کیفیت و نشانه‌گذاری محتوا", titleEn: "Content Quality & Markup", checks: content },
-    { id: "media", titleFa: "رسانه و بهینه‌سازی تصاویر", titleEn: "Media & Image Optimization", checks: media },
-    { id: "technical", titleFa: "فنی، عملکرد و لینک‌ها", titleEn: "Technical, Performance & Links", checks: technical },
+    { id: "basic", titleFa: "اطلاعات پایه", titleEn: "Basic Information", titleDe: "Grundinformationen", checks: basic },
+    { id: "onpage", titleFa: "سئوی درون‌صفحه", titleEn: "On-page SEO", titleDe: "On-page SEO", checks: onPage },
+    { id: "content", titleFa: "کیفیت و نشانه‌گذاری محتوا", titleEn: "Content Quality & Markup", titleDe: "Inhaltsqualität & Markup", checks: content },
+    { id: "media", titleFa: "رسانه و بهینه‌سازی تصاویر", titleEn: "Media & Image Optimization", titleDe: "Medien & Bildoptimierung", checks: media },
+    { id: "technical", titleFa: "فنی، عملکرد و لینک‌ها", titleEn: "Technical, Performance & Links", titleDe: "Technik, Leistung & Links", checks: technical },
   ];
 
   const allChecks = groups.flatMap((g) => g.checks);

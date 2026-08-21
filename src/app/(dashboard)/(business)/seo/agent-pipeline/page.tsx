@@ -22,7 +22,7 @@ declare global {
 import { trackFeature } from "@/lib/analytics";
 import ReactMarkdown from "react-markdown";
 import { toJalali } from "@/lib/utils/jalali";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
 
 type AgentKey = "ideaFinder" | "strategist" | "researcher" | "writer" | "editor" | "seo" | "publisher" | "critic";
 
@@ -531,7 +531,7 @@ export default function AgentPipelinePage() {
                       <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{post.title}</p>
                       <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{post.metaDescription}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? toJalali(post.publishedAt) : new Date(post.publishedAt).toLocaleDateString("en-US")}</p>
+                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{tri(lang, toJalali(post.publishedAt), new Date(post.publishedAt).toLocaleDateString("en-US"), new Date(post.publishedAt).toLocaleDateString("de-DE"))}</p>
                         {post.externalStatus === "published" && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>{s.publishedBadge}</span>
                         )}
@@ -540,7 +540,7 @@ export default function AgentPipelinePage() {
                         )}
                         {post.externalStatus === "held_for_review" && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(234,179,8,0.15)", color: "#eab308" }} title={post.externalError || ""}>
-                            {isFa ? "نیازمند بازبینی" : "Needs review"}
+                            {tri(lang, "نیازمند بازبینی", "Needs review", "Überprüfung erforderlich")}
                           </span>
                         )}
                         {audits[post.id] && (
@@ -551,7 +551,7 @@ export default function AgentPipelinePage() {
                               color: audits[post.id].score >= 80 ? "#22c55e" : audits[post.id].score >= 60 ? "#eab308" : "#ef4444",
                             }}
                           >
-                            {isFa ? "امتیاز سئو" : "SEO score"}: {audits[post.id].score}
+                            {tri(lang, "امتیاز سئو", "SEO score", "SEO-Wertung")}: {audits[post.id].score}
                           </span>
                         )}
                       </div>
@@ -589,7 +589,7 @@ export default function AgentPipelinePage() {
                         style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px dashed var(--border)" }}
                       >
                         {imageGeneratingId === post.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
-                        {isFa ? "طراحی تصویر شاخص با AI" : "Design hero image with AI"}
+                        {tri(lang, "طراحی تصویر شاخص با AI", "Design hero image with AI", "Hauptbild mit KI gestalten")}
                       </button>
                       <button
                         onClick={() => openGalleryForPost(post.id)}
@@ -597,7 +597,7 @@ export default function AgentPipelinePage() {
                         style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px dashed var(--border)" }}
                       >
                         <ImageIcon className="w-3.5 h-3.5" />
-                        {isFa ? "انتخاب از گالری" : "Choose from gallery"}
+                        {tri(lang, "انتخاب از گالری", "Choose from gallery", "Aus Galerie wählen")}
                       </button>
                     </>
                   )}
@@ -608,7 +608,7 @@ export default function AgentPipelinePage() {
                     style={{ background: "rgba(59,130,246,0.1)", color: "#3b82f6" }}
                   >
                     {auditingId === post.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
-                    {isFa ? "بررسی سئو" : "Run SEO audit"}
+                    {tri(lang, "بررسی سئو", "Run SEO audit", "SEO-Prüfung durchführen")}
                   </button>
                 </div>
 
@@ -624,7 +624,7 @@ export default function AgentPipelinePage() {
                           ) : (
                             <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
                           )}
-                          <span>{isFa ? issue.messageFa : issue.messageEn}</span>
+                          <span>{tri(lang, issue.messageFa, issue.messageEn, issue.messageEn)}</span>
                         </li>
                       ))}
                     </ul>
@@ -636,14 +636,14 @@ export default function AgentPipelinePage() {
                     >
                       {fixingId === post.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
                       {fixingId === post.id
-                        ? (isFa ? "در حال رفع مشکلات..." : "Fixing issues...")
-                        : (isFa ? "رفع خودکار مشکلات و بررسی مجدد" : "Auto-fix issues & re-audit")}
+                        ? tri(lang, "در حال رفع مشکلات...", "Fixing issues...", "Probleme werden behoben...")
+                        : tri(lang, "رفع خودکار مشکلات و بررسی مجدد", "Auto-fix issues & re-audit", "Probleme automatisch beheben & erneut prüfen")}
                     </button>
                   </>
                 )}
                 {audits[post.id] && audits[post.id].issues.length === 0 && (
                   <p className="flex items-center gap-1.5 mt-3 text-xs" style={{ color: "#22c55e" }}>
-                    <Check className="w-3.5 h-3.5" /> {isFa ? "هیچ مشکل سئویی پیدا نشد." : "No SEO issues found."}
+                    <Check className="w-3.5 h-3.5" /> {tri(lang, "هیچ مشکل سئویی پیدا نشد.", "No SEO issues found.", "Keine SEO-Probleme gefunden.")}
                   </p>
                 )}
               </div>
@@ -659,13 +659,13 @@ export default function AgentPipelinePage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "انتخاب تصویر شاخص" : "Choose Hero Image"}</h2>
+                <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "انتخاب تصویر شاخص", "Choose Hero Image", "Hauptbild auswählen")}</h2>
                 <button onClick={() => setGalleryPickerFor(null)} style={{ color: "var(--text-muted)" }}><X className="w-5 h-5" /></button>
               </div>
               {galleryLoading ? (
                 <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} /></div>
               ) : galleryImages.length === 0 ? (
-                <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "گالری خالی است." : "Gallery is empty."}</p>
+                <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "گالری خالی است.", "Gallery is empty.", "Galerie ist leer.")}</p>
               ) : (
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                   {galleryImages.map((img) => (

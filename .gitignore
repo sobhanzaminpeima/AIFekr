@@ -61,3 +61,6 @@ tsc-errors.txt
 
 # local docs / backups / investor materials (not for the repo)
 /docs/
+
+# vendored OpenMontage tool (nested git repo, venv, node_modules, .env — not part of AIfekr app)
+/tools/openmontage/

@@ -36,6 +36,21 @@ const STR = {
     needsCrm: "This feature requires the CRM add-on",
     ownerOnly: "Only a manager or owner can run the Sales Agent analysis",
   },
+  de: {
+    title: "Vertriebs-Agent",
+    subtitle: "KI-Vertriebsmanager — Prognose, gefährdete Deals, Einwände, Battlecard und Coaching",
+    runAnalysis: "Vertriebspipeline analysieren",
+    memoryHeader: "Notizen für zukünftige Erinnerung",
+    followUpsTitle: "Versandfertige Follow-ups",
+    followUpsDesc: "Kurze, versandfertige Nachrichtenentwürfe für Leads, die Nachverfolgung benötigen",
+    generateDrafts: "Follow-up-Entwürfe generieren",
+    noDrafts: "Keine Leads benötigen gerade Nachverfolgung",
+    send: "E-Mail senden",
+    sent: "Gesendet",
+    noEmail: "Keine E-Mail",
+    needsCrm: "Diese Funktion erfordert das CRM-Add-on",
+    ownerOnly: "Nur ein Manager oder Eigentümer kann die Vertriebs-Agent-Analyse ausführen",
+  },
 } as const;
 
 interface FollowUpDraft {
@@ -48,8 +63,7 @@ interface FollowUpDraft {
 
 export default function SalesAgentPage() {
   const { lang } = useTranslation();
-  const isFa = lang === "fa";
-  const s = STR[isFa ? "fa" : "en"];
+  const s = STR[lang] || STR.en;
 
   const [running, setRunning] = useState(false);
   const [analysis, setAnalysis] = useState("");
@@ -68,7 +82,7 @@ export default function SalesAgentPage() {
       const res = await fetch("/api/sales/agent", { method: "POST" });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error || (isFa ? "خطا در تحلیل" : "Analysis failed"));
+        setError(data.error || (lang === "fa" ? "خطا در تحلیل" : lang === "de" ? "Analyse fehlgeschlagen" : "Analysis failed"));
         return;
       }
       const reader = res.body!.getReader();
@@ -121,7 +135,7 @@ export default function SalesAgentPage() {
     }
   }
 
-  const memoryHeaderPattern = isFa ? /## ۶?\.?\s*نکاتی برای حافظهٔ آینده/ : /## Notes for future memory/;
+  const memoryHeaderPattern = lang === "fa" ? /## ۶?\.?\s*نکاتی برای حافظهٔ آینده/ : lang === "de" ? /## Notizen für zukünftige Erinnerung/ : /## Notes for future memory/;
 
   return (
     <div className="min-h-screen p-6" style={{ background: "var(--surface-0)" }}>

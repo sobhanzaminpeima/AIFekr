@@ -90,14 +90,56 @@ const SECTIONS_EN = [
     body: "For any questions about these terms, please contact AiFekr support through the \"Contact Us\" page.",
   },
 ];
+const SECTIONS_DE = [
+  {
+    title: "1. Annahme der Bedingungen",
+    body: "Durch die Registrierung und Nutzung von AiFekr akzeptieren Sie diese Terms of Service. Wenn Sie mit einem Teil dieser Bedingungen nicht einverstanden sind, nutzen Sie bitte nicht unsere Dienste.",
+  },
+  {
+    title: "2. Beschreibung der Dienste",
+    body: "AiFekr ist eine KI-Plattform, die Dienste wie intelligenten Chat, Bild-/Video-/Musikerstellung, SEO-Tools und Social-Media-Automatisierung (Instagram) auf Basis eines Gutschriftsystems anbietet. Einige Tools (wie WordPress- oder Instagram-Integration) erfordern die Verbindung Ihrer Drittanbieter-Konten, was vollständig optional und nur mit Ihrer ausdrücklichen Genehmigung erfolgt.",
+  },
+  {
+    title: "3. Benutzerkonto",
+    body: "Sie sind verantwortlich für die Vertraulichkeit Ihrer Zugangsdaten (E-Mail/Mobilnummer und Passwort). Sie sind verantwortlich für jede Aktivität, die über Ihr Konto ausgeführt wird. Bei unbefugter Nutzung müssen Sie sofort den Support informieren.",
+  },
+  {
+    title: "4. Gutschriften, Pläne und Zahlung",
+    body: "Pläne und Gutschriften werden über das Zarinpal-Zahlungsportal gekauft. Gekaufte Gutschrifte laufen nicht ab, bis sie vollständig verbraucht sind. Preise können sich ohne Vorankündigung ändern, aber Preisänderungen beeinflussen bereits gekaufte Pläne nicht.",
+  },
+  {
+    title: "5. Rückerstattungsrichtlinie",
+    body: "Aufgrund der sofortigen Verbrauchsart von KI-Gutschriften sind Zahlungen für verbrauchte Gutschrifte nicht erstattungsfähig. Wenn ein technischer Fehler zu Gutschriftabzügen ohne Ergebnis führt, werden die Gutschrifte als Entschädigung auf Ihr Konto zurückerstattet, nachdem Sie einen Beleg (z.B. Transaktions-ID) über den Support vorgelegt haben.",
+  },
+  {
+    title: "6. Erlaubte Nutzung",
+    body: "Die Nutzung von AiFekr zur Erstellung illegaler oder beleidigender Inhalte, Inhalte die geistige Eigentumsrechte verletzen, oder jede Tätigkeit gegen die Gesetze der Islamischen Republik Iran ist verboten. AiFekr kann Konten ohne Vorankündigung sperren, wenn solche Verstöße festgestellt werden.",
+  },
+  {
+    title: "7. KI-generierte Inhalte",
+    body: "Von KI-Modellen generierte Ausgaben können Fehler oder Ungenauigkeiten enthalten. Der Benutzer ist verantwortlich für die endgültige Überprüfung und Nutzung jeder Ausgabe (Text, Bilder, Social-Media-Beiträge, SEO-Änderungen), insbesondere bei Automatisierungsfunktionen (wie automatische Veröffentlichung auf Instagram oder automatische Website-Edits), die direkt auf Ihren echten Konten/Websites angewendet werden.",
+  },
+  {
+    title: "8. Haftungsbeschränkung",
+    body: "AiFekr übernimmt keine Garantie für dauerhafte Serviceverfügbarkeit oder 100%ige Genauigkeit von KI-generierten Ausgaben. Im maximal gesetzlich zulässigen Umfang ist die Haftung von AiFekr für mittelbare Schäden beschränkt.",
+  },
+  {
+    title: "9. Änderungen der Bedingungen",
+    body: "Diese Bedingungen können in Zukunft aktualisiert werden. Das Datum der letzten Aktualisierung wird unten auf dieser Seite angezeigt. Durch die weitere Nutzung des Dienstes nach einer Änderung der Bedingungen akzeptieren Sie die neuen Bedingungen.",
+  },
+  {
+    title: "10. Kontakt",
+    body: "Bei Fragen zu diesen Bedingungen kontaktieren Sie bitte den AiFekr-Support über die Seite \"Kontakt\".",
+  },
+];
 
 export default async function TermsPage() {
   const lang = await getServerLang();
-  const isFa = lang !== "en";
-  const SECTIONS = isFa ? SECTIONS_FA : SECTIONS_EN;
+  const isFa = lang === "fa";
+  const SECTIONS = lang === "de" ? SECTIONS_DE : isFa ? SECTIONS_FA : SECTIONS_EN;
 
   return (
-    <div className="min-h-screen" dir={isFa ? "rtl" : "ltr"} style={{ background: "#0a0a0f", color: "#f5f5f5" }}>
+    <div className="min-h-screen" dir={lang === "fa" ? "rtl" : "ltr"} style={{ background: "#0a0a0f", color: "#f5f5f5" }}>
       <nav
         className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4"
         style={{ background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
@@ -107,15 +149,15 @@ export default async function TermsPage() {
           <span className="font-bold text-lg text-white">AiFekr</span>
         </Link>
         <div className="flex items-center gap-2">
-          <Link href="/terms" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "#ea580c" }}>{isFa ? "قوانین و مقررات" : "Terms of Service"}</Link>
-          <Link href="/privacy" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{isFa ? "حریم خصوصی" : "Privacy Policy"}</Link>
-          <Link href="/login" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{isFa ? "ورود" : "Log in"}</Link>
+          <Link href="/terms" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "#ea580c" }}>{lang === "de" ? "Nutzungsbedingungen" : isFa ? "قوانین و مقررات" : "Terms of Service"}</Link>
+          <Link href="/privacy" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{lang === "de" ? "Datenschutzrichtlinie" : isFa ? "حریم خصوصی" : "Privacy Policy"}</Link>
+          <Link href="/login" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{lang === "de" ? "Anmelden" : isFa ? "ورود" : "Log in"}</Link>
         </div>
       </nav>
 
       <section className="pt-40 pb-16 px-6 max-w-3xl mx-auto">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2">{isFa ? "قوانین و مقررات استفاده از AiFekr" : "AiFekr Terms of Service"}</h1>
-        <p className="text-sm mb-10" style={{ color: "rgba(255,255,255,0.5)" }}>{isFa ? "آخرین به‌روزرسانی: تیر ۱۴۰۵" : "Last updated: July 2026"}</p>
+        <h1 className="text-3xl md:text-4xl font-bold mb-2">{lang === "de" ? "AiFekr Nutzungsbedingungen" : isFa ? "قوانین و مقررات استفاده از AiFekr" : "AiFekr Terms of Service"}</h1>
+        <p className="text-sm mb-10" style={{ color: "rgba(255,255,255,0.5)" }}>{lang === "de" ? "Zuletzt aktualisiert: Juli 2026" : isFa ? "آخرین به‌روزرسانی: تیر ۱۴۰۵" : "Last updated: July 2026"}</p>
 
         <div className="space-y-8">
           {SECTIONS.map((s) => (

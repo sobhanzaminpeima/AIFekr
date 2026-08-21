@@ -4,24 +4,24 @@ import { useState } from "react";
 import { Users, Play, Copy, Check, Crown, Megaphone, DollarSign, Search, Handshake, Package, Scale } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import type { LucideIcon } from "lucide-react";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
 
-interface Agent { key: string; nameFa: string; nameEn: string; Icon: LucideIcon; color: string; }
+interface Agent { key: string; nameFa: string; nameEn: string; nameDe: string; Icon: LucideIcon; color: string; }
 
 const AVAILABLE_AGENTS: Agent[] = [
-  { key: "ceo", nameFa: "ایجنت مدیرعامل", nameEn: "CEO Agent", Icon: Crown, color: "#ea580c" },
-  { key: "marketing", nameFa: "ایجنت بازاریابی", nameEn: "Marketing Agent", Icon: Megaphone, color: "#8b5cf6" },
-  { key: "finance", nameFa: "ایجنت مالی", nameEn: "Finance Agent", Icon: DollarSign, color: "#10b981" },
-  { key: "seo", nameFa: "ایجنت سئو", nameEn: "SEO Agent", Icon: Search, color: "#3b82f6" },
-  { key: "sales", nameFa: "ایجنت فروش", nameEn: "Sales Agent", Icon: Handshake, color: "#f59e0b" },
-  { key: "product", nameFa: "مدیر محصول", nameEn: "Product Manager", Icon: Package, color: "#ec4899" },
-  { key: "legal", nameFa: "مشاور حقوقی", nameEn: "Legal Advisor", Icon: Scale, color: "#6b7280" },
+  { key: "ceo", nameFa: "ایجنت مدیرعامل", nameEn: "CEO Agent", nameDe: "CEO-Agent", Icon: Crown, color: "#ea580c" },
+  { key: "marketing", nameFa: "ایجنت بازاریابی", nameEn: "Marketing Agent", nameDe: "Marketing-Agent", Icon: Megaphone, color: "#8b5cf6" },
+  { key: "finance", nameFa: "ایجنت مالی", nameEn: "Finance Agent", nameDe: "Finanz-Agent", Icon: DollarSign, color: "#10b981" },
+  { key: "seo", nameFa: "ایجنت سئو", nameEn: "SEO Agent", nameDe: "SEO-Agent", Icon: Search, color: "#3b82f6" },
+  { key: "sales", nameFa: "ایجنت فروش", nameEn: "Sales Agent", nameDe: "Verkaufs-Agent", Icon: Handshake, color: "#f59e0b" },
+  { key: "product", nameFa: "مدیر محصول", nameEn: "Product Manager", nameDe: "Produktmanager", Icon: Package, color: "#ec4899" },
+  { key: "legal", nameFa: "مشاور حقوقی", nameEn: "Legal Advisor", nameDe: "Rechtsberater", Icon: Scale, color: "#6b7280" },
 ];
 
 export default function MeetingPage() {
   const { t, lang } = useTranslation();
   const isFa = lang === "fa";
-  const agentName = (a: Agent) => (isFa ? a.nameFa : a.nameEn);
+  const agentName = (a: Agent) => isFa ? a.nameFa : lang === "de" ? a.nameDe : a.nameEn;
   const [topic, setTopic] = useState("");
   const [selectedAgents, setSelectedAgents] = useState<string[]>(["ceo", "marketing", "finance"]);
   const [transcript, setTranscript] = useState("");

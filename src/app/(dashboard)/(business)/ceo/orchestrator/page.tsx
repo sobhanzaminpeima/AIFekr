@@ -60,7 +60,7 @@ export default function AiBosPage() {
   const { t, lang } = useTranslation();
   const isFa = lang !== "en";
   const s = t.ceoOrchestratorPage;
-  const dateLocale = isFa ? "fa-IR" : "en-US";
+  const dateLocale = lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US";
 
   const DEPT_META: Record<string, { icon: React.ElementType; color: string; labelFa: string }> = {
     marketing:  { icon: TrendingUp,  color: "#10b981", labelFa: s.departments.marketing },
@@ -359,8 +359,7 @@ export default function AiBosPage() {
                   : "—"}
               </p>
               {lastSession && (
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  {s.lastSession} {isFa ? toJalali(lastSession.createdAt) : new Date(lastSession.createdAt).toLocaleDateString("en-US")}
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>                   {s.lastSession} {lang === "fa" ? toJalali(lastSession.createdAt) : new Date(lastSession.createdAt).toLocaleDateString(dateLocale)}
                 </p>
               )}
               <button
@@ -376,8 +375,7 @@ export default function AiBosPage() {
           </div>
 
           {/* KPI tiles */}
-          <div className="lg:col-span-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <KpiTile icon={DollarSign} color="#22c55e" label={s.kpiRevenue30d} value={(snapshot?.data.revenueLast30d ?? 0).toLocaleString(dateLocale) + (isFa ? " ت" : "")} />
+          <div className="lg:col-span-3 grid grid-cols-2 sm:grid-cols-4 gap-3">                    <KpiTile icon={DollarSign} color="#22c55e" label={s.kpiRevenue30d} value={(snapshot?.data.revenueLast30d ?? 0).toLocaleString(dateLocale) + (lang === "fa" ? " ت" : "")} />
             <KpiTile icon={Users} color="#8b5cf6" label={s.kpiSalesFollowup} value={snapshot?.sales.needingFollowUp.length ?? "—"} />
             <KpiTile icon={Target} color="#f59e0b" label={s.kpiActiveTasks} value={tasks.filter((tk) => tk.status === "pending").length} />
             <KpiTile icon={Activity} color="#3b82f6" label={s.kpiActivity} value={snapshot?.data.usageEventsLast30d ?? "—"} />

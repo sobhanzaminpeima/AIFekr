@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useCallback } from "react";
 import { Images, Trash2, Share2, Download, Lock, Globe, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
 
 type Image = { id: string; url: string; prompt: string; style: string; isPublic: boolean; createdAt: string; credits: number };
 
@@ -30,16 +30,16 @@ export default function ImageGalleryPage() {
   useEffect(() => { fetchImages(page); }, [page, fetchImages]);
 
   async function handleDelete(id: string) {
-    if (!confirm(isFa ? "این تصویر حذف شود؟" : "Delete this image?")) return;
+    if (!confirm(tri(lang, "این تصویر حذف شود؟", "Delete this image?", "Dieses Bild löschen?"))) return;
     const res = await fetch("/api/image/gallery", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
-    if (res.ok) { setImages(imgs => imgs.filter(i => i.id !== id)); toast.success(isFa ? "تصویر حذف شد" : "Image deleted"); }
+    if (res.ok) { setImages(imgs => imgs.filter(i => i.id !== id)); toast.success(tri(lang, "تصویر حذف شد", "Image deleted", "Bild gelöscht")); }
   }
 
   async function handleTogglePublic(img: Image) {
     const res = await fetch("/api/image/gallery", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: img.id, isPublic: !img.isPublic }) });
     if (res.ok) {
       setImages(imgs => imgs.map(i => i.id === img.id ? { ...i, isPublic: !i.isPublic } : i));
-      toast.success(img.isPublic ? (isFa ? "تصویر خصوصی شد" : "Image is now private") : (isFa ? "تصویر عمومی شد" : "Image is now public"));
+      toast.success(img.isPublic ? tri(lang, "تصویر خصوصی شد", "Image is now private", "Bild ist jetzt privat") : tri(lang, "تصویر عمومی شد", "Image is now public", "Bild ist jetzt öffentlich"));
     }
   }
 

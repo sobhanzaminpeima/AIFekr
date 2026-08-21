@@ -9,11 +9,12 @@ export async function POST(req: NextRequest) {
 
   const { url, language } = await req.json().catch(() => ({}));
   if (!url) return NextResponse.json({ error: "URL الزامی است" }, { status: 400 });
-  const lang = language === "en" ? "en" : "fa";
+  const lang = language === "de" ? "de" : language === "en" ? "en" : "fa";
 
   const data = await crawlUrl(url);
   if (!data) {
-    return NextResponse.json({ error: lang === "fa" ? "خطا در بارگذاری URL" : "Failed to load URL" }, { status: 502 });
+    const errorMsg = lang === "de" ? "URL konnte nicht geladen werden" : lang === "fa" ? "خطا در بارگذاری URL" : "Failed to load URL";
+    return NextResponse.json({ error: errorMsg }, { status: 502 });
   }
 
   const { score, groups } = auditUrlPage(data, url, lang);

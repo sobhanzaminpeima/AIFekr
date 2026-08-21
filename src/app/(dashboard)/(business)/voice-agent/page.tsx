@@ -6,7 +6,7 @@ import {
   Trash2, PlayCircle, Home, MapPin, Clock, XCircle, User, BookOpen, Upload,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri, type Lang } from "@/lib/i18n";
 
 interface VoiceAgent {
   id: string; name: string; focus: string; vertical: string; businessType?: string | null; systemPrompt: string; voiceId: string | null;
@@ -32,15 +32,15 @@ interface VoiceKnowledgeEntry {
 }
 
 const FOCUS_OPTIONS = [
-  { value: "general", fa: "عمومی", en: "General" },
-  { value: "buy", fa: "خرید", en: "Buy" },
-  { value: "sell", fa: "فروش", en: "Sell" },
-  { value: "rent", fa: "اجاره", en: "Rent" },
+  { value: "general", fa: "عمومی", en: "General", de: "Allgemein" },
+  { value: "buy", fa: "خرید", en: "Buy", de: "Kauf" },
+  { value: "sell", fa: "فروش", en: "Sell", de: "Verkauf" },
+  { value: "rent", fa: "اجاره", en: "Rent", de: "Miete" },
 ];
 
 const VERTICAL_OPTIONS = [
-  { value: "real_estate", fa: "املاک", en: "Real Estate" },
-  { value: "general", fa: "سایر کسب‌وکارها", en: "Any Business (General)" },
+  { value: "real_estate", fa: "املاک", en: "Real Estate", de: "Immobilien" },
+  { value: "general", fa: "سایر کسب‌وکارها", en: "Any Business (General)", de: "Jedes Geschäft (Allgemein)" },
 ];
 
 const APPOINTMENT_STATUSES = ["pending", "confirmed", "completed", "cancelled", "no_show"];
@@ -117,16 +117,16 @@ export default function VoiceAgentPage() {
       // never reached a server — server down, wrong origin, offline, or a
       // browser extension/CORS block. A raw "Failed to fetch" here is
       // meaningless to a user, so translate it to an actionable message.
-      setError(isFa ? "اتصال به سرور برقرار نشد. اتصال اینترنت یا در دسترس بودن سرور را بررسی کنید." : "Could not reach the server. Check your connection or try again shortly.");
+      setError(tri(lang, "اتصال به سرور برقرار نشد. اتصال اینترنت یا در دسترس بودن سرور را بررسی کنید.", "Could not reach the server. Check your connection or try again shortly.", "Server nicht erreichbar. Überprüfen Sie Ihre Verbindung oder versuchen Sie es später erneut."));
       setUpgrading(false);
       return;
     }
     try {
       const data = await res.json();
-      if (!res.ok || !data.paymentUrl) throw new Error(data.error || (isFa ? "خطا در شروع پرداخت" : "Failed to start payment"));
+      if (!res.ok || !data.paymentUrl) throw new Error(data.error || tri(lang, "خطا در شروع پرداخت", "Failed to start payment", "Fehler beim Starten der Zahlung"));
       window.location.href = data.paymentUrl;
     } catch (e) {
-      setError(e instanceof Error ? e.message : (isFa ? "خطا در پرداخت" : "Payment error"));
+      setError(e instanceof Error ? e.message : tri(lang, "خطا در پرداخت", "Payment error", "Zahlungsfehler"));
       setUpgrading(false);
     }
   }
@@ -137,13 +137,13 @@ export default function VoiceAgentPage() {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
     });
     const data = await res.json();
-    if (!res.ok) { setError(data.error || (isFa ? "خطا" : "Error")); return; }
+    if (!res.ok) { setError(data.error || tri(lang, "خطا", "Error", "Fehler")); return; }
     setShowNewAgent(false);
     loadAgents();
   }
 
   async function deleteAgent(id: string) {
-    if (!confirm(isFa ? "این ایجنت حذف شود؟" : "Delete this agent?")) return;
+    if (!confirm(tri(lang, "این ایجنت حذف شود؟", "Delete this agent?", "Diesen Agenten löschen?"))) return;
     await fetch(`/api/voice-agent/agents/${id}`, { method: "DELETE" });
     loadAgents();
   }
@@ -161,10 +161,10 @@ export default function VoiceAgentPage() {
     try {
       const res = await fetch(`/api/voice-agent/agents/${id}/provision`, { method: "POST" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || (isFa ? "خطا در اتصال به Vapi" : "Failed to connect to Vapi"));
+      if (!res.ok) throw new Error(data.error || tri(lang, "خطا در اتصال به Vapi", "Failed to connect to Vapi", "Verbindung zu Vapi fehlgeschlagen"));
       loadAgents();
     } catch (e) {
-      setError(e instanceof Error ? e.message : (isFa ? "خطا" : "Error"));
+      setError(e instanceof Error ? e.message : tri(lang, "خطا", "Error", "Fehler"));
     } finally {
       setProvisioningId(null);
     }
@@ -176,13 +176,13 @@ export default function VoiceAgentPage() {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
     });
     const data = await res.json();
-    if (!res.ok) { setError(data.error || (isFa ? "خطا" : "Error")); return; }
+    if (!res.ok) { setError(data.error || tri(lang, "خطا", "Error", "Fehler")); return; }
     setShowNewProperty(false);
     loadProperties();
   }
 
   async function deleteProperty(id: string) {
-    if (!confirm(isFa ? "این ملک حذف شود؟" : "Delete this property?")) return;
+    if (!confirm(tri(lang, "این ملک حذف شود؟", "Delete this property?", "Diese Immobilie löschen?"))) return;
     await fetch(`/api/voice-agent/properties/${id}`, { method: "DELETE" });
     loadProperties();
   }
@@ -193,12 +193,12 @@ export default function VoiceAgentPage() {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
     });
     const data = await res.json();
-    if (!res.ok) { setError(data.error || (isFa ? "خطا" : "Error")); return; }
+    if (!res.ok) { setError(data.error || tri(lang, "خطا", "Error", "Fehler")); return; }
     loadKnowledge();
   }
 
   async function deleteKnowledge(id: string) {
-    if (!confirm(isFa ? "این مورد حذف شود؟" : "Delete this entry?")) return;
+    if (!confirm(tri(lang, "این مورد حذف شود؟", "Delete this entry?", "Diesen Eintrag löschen?"))) return;
     await fetch(`/api/voice-agent/knowledge/${id}`, { method: "DELETE" });
     loadKnowledge();
   }
@@ -230,18 +230,18 @@ export default function VoiceAgentPage() {
           <Phone className="w-5 h-5" style={{ color: "#f59e0b" }} />
         </div>
         <div>
-          <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "مرکز تماس هوش مصنوعی" : "AI Call Center"}</h1>
-          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "پاسخگویی تلفنی هوشمند برای هر کسب‌وکار — از املاک تا هر صنعت دیگر" : "AI phone agents for any business — real estate and beyond"}</p>
+          <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مرکز تماس هوش مصنوعی", "AI Call Center", "KI-Callcenter")}</h1>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{tri(lang, "پاسخگویی تلفنی هوشمند برای هر کسب‌وکار — از املاک تا هر صنعت دیگر", "AI phone agents for any business — real estate and beyond", "KI-Telefonagenten für jedes Unternehmen — Immobilien und darüber hinaus")}</p>
         </div>
       </div>
 
       <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-6 px-6 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "thin" }}>
         {[
-          { id: "agents" as const, label: isFa ? "ایجنت‌ها" : "Agents", icon: Settings2 },
-          ...(showPropertiesTab ? [{ id: "properties" as const, label: isFa ? "ملک‌ها" : "Properties", icon: Home }] : []),
-          { id: "knowledge" as const, label: isFa ? "دانش‌نامه" : "Knowledge Base", icon: BookOpen },
-          { id: "calls" as const, label: isFa ? "تماس‌ها" : "Calls", icon: PhoneCall },
-          { id: "appointments" as const, label: isFa ? "رزروها" : "Appointments", icon: CalendarDays },
+          { id: "agents" as const, label: tri(lang, "ایجنت‌ها", "Agents", "Agenten"), icon: Settings2 },
+          ...(showPropertiesTab ? [{ id: "properties" as const, label: tri(lang, "ملک‌ها", "Properties", "Immobilien"), icon: Home }] : []),
+          { id: "knowledge" as const, label: tri(lang, "دانش‌نامه", "Knowledge Base", "Wissensdatenbank"), icon: BookOpen },
+          { id: "calls" as const, label: tri(lang, "تماس‌ها", "Calls", "Anrufe"), icon: PhoneCall },
+          { id: "appointments" as const, label: tri(lang, "رزروها", "Appointments", "Termine"), icon: CalendarDays },
         ].map((tb) => (
           <button key={tb.id} onClick={() => setTab(tb.id)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all flex-shrink-0"
@@ -255,15 +255,15 @@ export default function VoiceAgentPage() {
         <div className="rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)" }}>
           <div>
             <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-              {isFa ? "اتصال شماره تلفن واقعی و تماس نامحدود بخشی از افزونه Voice Agent است" : "Real phone numbers and unlimited calling are part of the Voice Agent add-on"}
+              {tri(lang, "اتصال شماره تلفن واقعی و تماس نامحدود بخشی از افزونه Voice Agent است", "Real phone numbers and unlimited calling are part of the Voice Agent add-on", "Echte Telefonnummern und unbegrenzte Anrufe sind Teil des Voice-Agent-Add-ons")}
             </p>
             <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-              {isFa ? "می‌توانید ۱ ایجنت رایگان بسازید و تنظیمات را آماده کنید؛ برای شماره تلفن واقعی ارتقا دهید." : "You can create 1 free agent and configure it; upgrade to connect a real phone number."}
+              {tri(lang, "می‌توانید ۱ ایجنت رایگان بسازید و تنظیمات را آماده کنید؛ برای شماره تلفن واقعی ارتقا دهید.", "You can create 1 free agent and configure it; upgrade to connect a real phone number.", "Sie können 1 kostenlosen Agenten erstellen und konfigurieren; upgraden Sie für eine echte Telefonnummer.")}
             </p>
           </div>
           <button onClick={purchaseVoicePlan} disabled={upgrading}
             className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "#f59e0b" }}>
-            {upgrading ? <Loader2 className="w-4 h-4 animate-spin" /> : (isFa ? "فعال‌سازی Voice Agent" : "Activate Voice Agent")}
+            {upgrading ? <Loader2 className="w-4 h-4 animate-spin" /> : tri(lang, "فعال‌سازی Voice Agent", "Activate Voice Agent", "Voice Agent aktivieren")}
           </button>
         </div>
       )}
@@ -272,34 +272,34 @@ export default function VoiceAgentPage() {
 
       {tab === "agents" && (
         <AgentsTab
-          isFa={isFa} agents={agents} showNewAgent={showNewAgent} setShowNewAgent={setShowNewAgent}
+          isFa={isFa} lang={lang} agents={agents} showNewAgent={showNewAgent} setShowNewAgent={setShowNewAgent}
           onCreate={createAgent} onDelete={deleteAgent} onToggleActive={toggleAgentActive}
           onProvision={provisionAgent} provisioningId={provisioningId}
         />
       )}
       {tab === "properties" && (
         <PropertiesTab
-          isFa={isFa} properties={properties} showNew={showNewProperty} setShowNew={setShowNewProperty}
+          isFa={isFa} lang={lang} properties={properties} showNew={showNewProperty} setShowNew={setShowNewProperty}
           onCreate={createProperty} onDelete={deleteProperty}
         />
       )}
       {tab === "knowledge" && (
-        <KnowledgeTab isFa={isFa} t={t} agents={agents} entries={knowledgeEntries} onCreate={createKnowledge} onDelete={deleteKnowledge} onUploaded={loadKnowledge} />
+        <KnowledgeTab isFa={isFa} lang={lang} t={t} agents={agents} entries={knowledgeEntries} onCreate={createKnowledge} onDelete={deleteKnowledge} onUploaded={loadKnowledge} />
       )}
       {tab === "calls" && (
-        <CallsTab isFa={isFa} calls={calls} expandedCallId={expandedCallId} setExpandedCallId={setExpandedCallId} />
+        <CallsTab isFa={isFa} lang={lang} calls={calls} expandedCallId={expandedCallId} setExpandedCallId={setExpandedCallId} />
       )}
       {tab === "appointments" && (
-        <AppointmentsTab isFa={isFa} appointments={appointments} onUpdateStatus={updateAppointmentStatus} />
+        <AppointmentsTab isFa={isFa} lang={lang} appointments={appointments} onUpdateStatus={updateAppointmentStatus} />
       )}
     </div>
   );
 }
 
 function AgentsTab({
-  isFa, agents, showNewAgent, setShowNewAgent, onCreate, onDelete, onToggleActive, onProvision, provisioningId,
+  isFa, lang, agents, showNewAgent, setShowNewAgent, onCreate, onDelete, onToggleActive, onProvision, provisioningId,
 }: {
-  isFa: boolean; agents: VoiceAgent[]; showNewAgent: boolean; setShowNewAgent: (v: boolean) => void;
+  isFa: boolean; lang: Lang; agents: VoiceAgent[]; showNewAgent: boolean; setShowNewAgent: (v: boolean) => void;
   onCreate: (f: { name: string; focus: string; vertical: string; businessType?: string }) => void; onDelete: (id: string) => void;
   onToggleActive: (a: VoiceAgent) => void; onProvision: (id: string) => void; provisioningId: string | null;
 }) {
@@ -313,14 +313,14 @@ function AgentsTab({
       <div className="flex justify-end">
         <button onClick={() => setShowNewAgent(true)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "#f59e0b" }}>
-          <Plus className="w-4 h-4" /> {isFa ? "ایجنت جدید" : "New Agent"}
+          <Plus className="w-4 h-4" /> {tri(lang, "ایجنت جدید", "New Agent", "Neuer Agent")}
         </button>
       </div>
 
       {agents.length === 0 && (
         <div className="text-center py-16 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <Phone className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--text-muted)" }} />
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{isFa ? "هنوز ایجنتی نساخته‌اید" : "You haven't created an agent yet"}</p>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{tri(lang, "هنوز ایجنتی نساخته‌اید", "You haven't created an agent yet", "Sie haben noch keinen Agenten erstellt")}</p>
         </div>
       )}
 
@@ -331,11 +331,11 @@ function AgentsTab({
               <div>
                 <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{a.name}</p>
                 <p className="text-xs mt-0.5 flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
-                  <span>{a.vertical === "general" && a.businessType ? a.businessType : (VERTICAL_OPTIONS.find((v) => v.value === a.vertical)?.[isFa ? "fa" : "en"] || a.vertical)}</span>
+                  <span>{a.vertical === "general" && a.businessType ? a.businessType : (VERTICAL_OPTIONS.find((v) => v.value === a.vertical)?.[isFa ? "fa" : lang === "de" ? "de" : "en"] || a.vertical)}</span>
                   {a.vertical !== "general" && (
                     <>
                       <span>·</span>
-                      <span>{FOCUS_OPTIONS.find((f) => f.value === a.focus)?.[isFa ? "fa" : "en"]}</span>
+                      <span>{FOCUS_OPTIONS.find((f) => f.value === a.focus)?.[isFa ? "fa" : lang === "de" ? "de" : "en"]}</span>
                     </>
                   )}
                 </p>
@@ -343,7 +343,7 @@ function AgentsTab({
               <button onClick={() => onToggleActive(a)}
                 className="text-xs px-2 py-1 rounded-lg"
                 style={{ background: a.isActive ? "rgba(245,158,11,0.15)" : "rgba(148,163,184,0.15)", color: a.isActive ? "#f59e0b" : "var(--text-muted)" }}>
-                {a.isActive ? (isFa ? "فعال" : "Active") : (isFa ? "غیرفعال" : "Inactive")}
+                {a.isActive ? tri(lang, "فعال", "Active", "Aktiv") : tri(lang, "غیرفعال", "Inactive", "Inaktiv")}
               </button>
             </div>
 
@@ -352,14 +352,14 @@ function AgentsTab({
                 <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5" /> {a.phoneNumber}</span>
               ) : (
                 <span className="flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
-                  <XCircle className="w-3.5 h-3.5" /> {isFa ? "بدون شماره تلفن" : "No phone number yet"}
+                  <XCircle className="w-3.5 h-3.5" /> {tri(lang, "بدون شماره تلفن", "No phone number yet", "Noch keine Telefonnummer")}
                 </span>
               )}
             </div>
 
             <div className="flex items-center gap-3 text-xs" style={{ color: "var(--text-muted)" }}>
-              <span>{isFa ? `${a._count?.calls ?? 0} تماس` : `${a._count?.calls ?? 0} calls`}</span>
-              <span>{isFa ? `${a._count?.appointments ?? 0} رزرو` : `${a._count?.appointments ?? 0} bookings`}</span>
+              <span>{tri(lang, `${a._count?.calls ?? 0} تماس`, `${a._count?.calls ?? 0} calls`, `${a._count?.calls ?? 0} Anrufe`)}</span>
+              <span>{tri(lang, `${a._count?.appointments ?? 0} رزرو`, `${a._count?.appointments ?? 0} bookings`, `${a._count?.appointments ?? 0} Buchungen`)}</span>
             </div>
 
             <div className="flex items-center gap-2 pt-1">
@@ -367,7 +367,7 @@ function AgentsTab({
                 className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium disabled:opacity-50"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
                 {provisioningId === a.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PlayCircle className="w-3.5 h-3.5" />}
-                {a.vapiAssistantId ? (isFa ? "همگام‌سازی با Vapi" : "Sync to Vapi") : (isFa ? "اتصال شماره تلفن" : "Connect phone number")}
+                {a.vapiAssistantId ? tri(lang, "همگام‌سازی با Vapi", "Sync to Vapi", "Mit Vapi synchronisieren") : tri(lang, "اتصال شماره تلفن", "Connect phone number", "Telefonnummer verbinden")}
               </button>
               <button onClick={() => onDelete(a.id)} className="p-2 rounded-xl" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
                 <Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} />
@@ -381,46 +381,46 @@ function AgentsTab({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)" }} onClick={() => setShowNewAgent(false)}>
           <div className="w-full max-w-md p-6 rounded-2xl space-y-4" style={{ background: "var(--surface-0)", border: "1px solid var(--border)" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <p className="font-semibold" style={{ color: "var(--text-primary)" }}>{isFa ? "ایجنت صوتی جدید" : "New Voice Agent"}</p>
+              <p className="font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "ایجنت صوتی جدید", "New Voice Agent", "Neuer Sprachagent")}</p>
               <button onClick={() => setShowNewAgent(false)}><X className="w-4 h-4" /></button>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{isFa ? "نام" : "Name"}</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={isFa ? "مثلاً خط فروش" : "e.g. Sales Line"}
+              <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{tri(lang, "نام", "Name", "Name")}</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={tri(lang, "مثلاً خط فروش", "e.g. Sales Line", "z.B. Verkaufslinie")}
                 className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{isFa ? "نوع کسب‌وکار" : "Business Type"}</label>
+              <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{tri(lang, "نوع کسب‌وکار", "Business Type", "Geschäftstyp")}</label>
               <select value={vertical} onChange={(e) => setVertical(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                {VERTICAL_OPTIONS.map((v) => <option key={v.value} value={v.value}>{isFa ? v.fa : v.en}</option>)}
+                {VERTICAL_OPTIONS.map((v) => <option key={v.value} value={v.value}>{tri(lang, v.fa, v.en, v.de)}</option>)}
               </select>
               <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
                 {vertical === "general"
-                  ? (isFa ? "برای هر کسب‌وکاری مناسب است — از دانش‌نامه و رزرو وقت عمومی استفاده می‌کند." : "Works for any business — uses the knowledge base and generic appointment booking.")
-                  : (isFa ? "برای آژانس‌های املاک — شامل جستجوی ملک و رزرو بازدید." : "For real-estate agencies — includes property search and viewing bookings.")}
+                  ? tri(lang, "برای هر کسب‌وکاری مناسب است — از دانش‌نامه و رزرو وقت عمومی استفاده می‌کند.", "Works for any business — uses the knowledge base and generic appointment booking.", "Für jedes Geschäft — nutzt die Wissensdatenbank und allgemeine Terminbuchung.")
+                  : tri(lang, "برای آژانس‌های املاک — شامل جستجوی ملک و رزرو بازدید.", "For real-estate agencies — includes property search and viewing bookings.", "Für Immobilienagenturen — umfasst Immobiliensuche und Besichtigungsbuchungen.")}
               </p>
             </div>
             {vertical !== "general" && (
               <div className="space-y-1">
-                <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{isFa ? "تمرکز" : "Focus"}</label>
+                <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{tri(lang, "تمرکز", "Focus", "Fokus")}</label>
                 <select value={focus} onChange={(e) => setFocus(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                  {FOCUS_OPTIONS.map((f) => <option key={f.value} value={f.value}>{isFa ? f.fa : f.en}</option>)}
+                  {FOCUS_OPTIONS.map((f) => <option key={f.value} value={f.value}>{tri(lang, f.fa, f.en, f.de)}</option>)}
                 </select>
               </div>
             )}
             {vertical === "general" && (
               <div className="space-y-1">
-                <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{isFa ? "نوع دقیق کسب‌وکار" : "Business Type"}</label>
+                <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{tri(lang, "نوع دقیق کسب‌وکار", "Business Type", "Geschäftstyp")}</label>
                 <input value={businessType} onChange={(e) => setBusinessType(e.target.value)}
-                  placeholder={isFa ? "مثلاً «کلینیک دندانپزشکی»، «دفتر وکالت»، «فروشگاه لوازم الکترونیکی»" : "e.g. \"Dental clinic\", \"Law firm\", \"Online electronics store\""}
+                  placeholder={tri(lang, "مثلاً «کلینیک دندانپزشکی»، «دفتر وکالت»، «فروشگاه لوازم الکترونیکی»", "e.g. \"Dental clinic\", \"Law firm\", \"Online electronics store\"", "z.B. \"Zahnarztpraxis\", \"Anwaltskanzlei\", \"Online-Elektronikgeschäft\"")}
                   className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
               </div>
             )}
             <button onClick={() => onCreate({ name, focus, vertical, businessType: vertical === "general" ? businessType : undefined })} disabled={!name.trim()}
               className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "#f59e0b" }}>
-              {isFa ? "ساخت ایجنت" : "Create Agent"}
+              {tri(lang, "ساخت ایجنت", "Create Agent", "Agent erstellen")}
             </button>
           </div>
         </div>
@@ -430,9 +430,9 @@ function AgentsTab({
 }
 
 function KnowledgeTab({
-  isFa, t, agents, entries, onCreate, onDelete, onUploaded,
+  isFa, lang, t, agents, entries, onCreate, onDelete, onUploaded,
 }: {
-  isFa: boolean; t: ReturnType<typeof useTranslation>["t"]; agents: VoiceAgent[]; entries: VoiceKnowledgeEntry[];
+  isFa: boolean; lang: Lang; t: ReturnType<typeof useTranslation>["t"]; agents: VoiceAgent[]; entries: VoiceKnowledgeEntry[];
   onCreate: (f: { title: string; content: string; agentId?: string }) => void; onDelete: (id: string) => void;
   onUploaded: () => void;
 }) {
@@ -487,7 +487,7 @@ function KnowledgeTab({
           className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         <select value={uploadAgentId} onChange={(e) => setUploadAgentId(e.target.value)}
           className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-          <option value="">{isFa ? "همه ایجنت‌ها" : "All agents"}</option>
+          <option value="">{tri(lang, "همه ایجنت‌ها", "All agents", "Alle Agenten")}</option>
           {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
 
@@ -524,25 +524,25 @@ function KnowledgeTab({
           <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
         </div>
 
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={isFa ? "عنوان (مثلاً «ساعات کاری»)" : "Title (e.g. \"Office hours\")"}
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tri(lang, "عنوان (مثلاً «ساعات کاری»)", "Title (e.g. Office hours)", "Titel (z.B. Bürozeiten)")}
           className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-        <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={3} placeholder={isFa ? "پاسخ کامل..." : "Full answer..."}
+        <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={3} placeholder={tri(lang, "پاسخ کامل...", "Full answer...", "Vollständige Antwort...")}
           className="w-full px-3 py-2 rounded-xl text-sm resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         <select value={agentId} onChange={(e) => setAgentId(e.target.value)}
           className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-          <option value="">{isFa ? "همه ایجنت‌ها" : "All agents"}</option>
+          <option value="">{tri(lang, "همه ایجنت‌ها", "All agents", "Alle Agenten")}</option>
           {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
         <button onClick={submit} disabled={!title.trim() || !content.trim()}
           className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "#f59e0b" }}>
-          {isFa ? "افزودن" : "Add"}
+          {tri(lang, "افزودن", "Add", "Hinzufügen")}
         </button>
       </div>
 
       {entries.length === 0 && (
         <div className="text-center py-10 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <BookOpen className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--text-muted)" }} />
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{isFa ? "دانش‌نامه هنوز خالی است" : "Knowledge base is empty"}</p>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{tri(lang, "دانش‌نامه هنوز خالی است", "Knowledge base is empty", "Wissensdatenbank ist leer")}</p>
         </div>
       )}
 
@@ -553,7 +553,7 @@ function KnowledgeTab({
               <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{e.title}</p>
               <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{e.content}</p>
               <p className="text-[11px] mt-1" style={{ color: "var(--text-muted)" }}>
-                {e.agentId ? (agents.find((a) => a.id === e.agentId)?.name || "") : (isFa ? "همه ایجنت‌ها" : "All agents")}
+                {e.agentId ? (agents.find((a) => a.id === e.agentId)?.name || "") : tri(lang, "همه ایجنت‌ها", "All agents", "Alle Agenten")}
               </p>
             </div>
             <button onClick={() => onDelete(e.id)}><Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} /></button>
@@ -565,9 +565,9 @@ function KnowledgeTab({
 }
 
 function PropertiesTab({
-  isFa, properties, showNew, setShowNew, onCreate, onDelete,
+  isFa, lang, properties, showNew, setShowNew, onCreate, onDelete,
 }: {
-  isFa: boolean; properties: VoiceProperty[]; showNew: boolean; setShowNew: (v: boolean) => void;
+  isFa: boolean; lang: Lang; properties: VoiceProperty[]; showNew: boolean; setShowNew: (v: boolean) => void;
   onCreate: (f: Record<string, unknown>) => void; onDelete: (id: string) => void;
 }) {
   const [form, setForm] = useState({ title: "", listingType: "sell", propertyType: "apartment", price: "", address: "", city: "", bedrooms: "", areaSqm: "" });
@@ -586,14 +586,14 @@ function PropertiesTab({
       <div className="flex justify-end">
         <button onClick={() => setShowNew(true)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "#f59e0b" }}>
-          <Plus className="w-4 h-4" /> {isFa ? "ملک جدید" : "New Property"}
+          <Plus className="w-4 h-4" /> {tri(lang, "ملک جدید", "New Property", "Neue Immobilie")}
         </button>
       </div>
 
       {properties.length === 0 && (
         <div className="text-center py-16 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <Home className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--text-muted)" }} />
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{isFa ? "هنوز ملکی ثبت نکرده‌اید" : "No properties yet"}</p>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{tri(lang, "هنوز ملکی ثبت نکرده‌اید", "No properties yet", "Noch keine Immobilien")}</p>
         </div>
       )}
 
@@ -605,11 +605,11 @@ function PropertiesTab({
               <button onClick={() => onDelete(p.id)}><Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} /></button>
             </div>
             <p className="text-xs flex items-center gap-1" style={{ color: "var(--text-secondary)" }}><MapPin className="w-3.5 h-3.5" /> {p.address}{p.city ? `، ${p.city}` : ""}</p>
-            <p className="text-sm font-semibold" style={{ color: "#f59e0b" }}>{fmtMoney(p.price)} {isFa ? "تومان" : "IRT"}</p>
+            <p className="text-sm font-semibold" style={{ color: "#f59e0b" }}>{fmtMoney(p.price)} {tri(lang, "تومان", "IRT", "IRR")}</p>
             <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
               <span className="px-2 py-0.5 rounded-full" style={{ background: "var(--surface-2)" }}>{p.listingType}</span>
               <span className="px-2 py-0.5 rounded-full" style={{ background: "var(--surface-2)" }}>{p.status}</span>
-              {p.bedrooms != null && <span>{p.bedrooms} {isFa ? "خواب" : "bed"}</span>}
+              {p.bedrooms != null && <span>{p.bedrooms} {tri(lang, "خواب", "bed", "Zi.")}</span>}
               {p.areaSqm != null && <span>{p.areaSqm} m²</span>}
             </div>
           </div>
@@ -620,38 +620,38 @@ function PropertiesTab({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)" }} onClick={() => setShowNew(false)}>
           <div className="w-full max-w-md p-6 rounded-2xl space-y-3 max-h-[90vh] overflow-y-auto" style={{ background: "var(--surface-0)", border: "1px solid var(--border)" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <p className="font-semibold" style={{ color: "var(--text-primary)" }}>{isFa ? "ملک جدید" : "New Property"}</p>
+              <p className="font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "ملک جدید", "New Property", "Neue Immobilie")}</p>
               <button onClick={() => setShowNew(false)}><X className="w-4 h-4" /></button>
             </div>
-            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={isFa ? "عنوان" : "Title"}
+            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={tri(lang, "عنوان", "Title", "Titel")}
               className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             <div className="grid grid-cols-2 gap-2">
               <select value={form.listingType} onChange={(e) => setForm({ ...form, listingType: e.target.value })}
                 className="px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                <option value="sell">{isFa ? "فروش" : "Sell"}</option>
-                <option value="buy">{isFa ? "خرید" : "Buy"}</option>
-                <option value="rent">{isFa ? "اجاره" : "Rent"}</option>
+                <option value="sell">{tri(lang, "فروش", "Sell", "Verkauf")}</option>
+                <option value="buy">{tri(lang, "خرید", "Buy", "Kauf")}</option>
+                <option value="rent">{tri(lang, "اجاره", "Rent", "Miete")}</option>
               </select>
-              <input value={form.propertyType} onChange={(e) => setForm({ ...form, propertyType: e.target.value })} placeholder={isFa ? "نوع ملک" : "Property type"}
+              <input value={form.propertyType} onChange={(e) => setForm({ ...form, propertyType: e.target.value })} placeholder={tri(lang, "نوع ملک", "Property type", "Immobilientyp")}
                 className="px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
-            <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder={isFa ? "آدرس" : "Address"}
+            <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder={tri(lang, "آدرس", "Address", "Adresse")}
               className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             <div className="grid grid-cols-2 gap-2">
-              <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder={isFa ? "شهر" : "City"}
+              <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder={tri(lang, "شهر", "City", "Stadt")}
                 className="px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-              <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder={isFa ? "قیمت (تومان)" : "Price"} type="number"
+              <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder={tri(lang, "قیمت (تومان)", "Price", "Preis")} type="number"
                 className="px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <input value={form.bedrooms} onChange={(e) => setForm({ ...form, bedrooms: e.target.value })} placeholder={isFa ? "تعداد خواب" : "Bedrooms"} type="number"
+              <input value={form.bedrooms} onChange={(e) => setForm({ ...form, bedrooms: e.target.value })} placeholder={tri(lang, "تعداد خواب", "Bedrooms", "Schlafzimmer")} type="number"
                 className="px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-              <input value={form.areaSqm} onChange={(e) => setForm({ ...form, areaSqm: e.target.value })} placeholder={isFa ? "متراژ" : "Area (m²)"} type="number"
+              <input value={form.areaSqm} onChange={(e) => setForm({ ...form, areaSqm: e.target.value })} placeholder={tri(lang, "متراژ", "Area (m²)", "Fläche (m²)")} type="number"
                 className="px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <button onClick={submit} disabled={!form.title.trim() || !form.address.trim() || !form.price}
               className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "#f59e0b" }}>
-              {isFa ? "ثبت ملک" : "Save Property"}
+              {tri(lang, "ثبت ملک", "Save Property", "Immobilie speichern")}
             </button>
           </div>
         </div>
@@ -660,14 +660,14 @@ function PropertiesTab({
   );
 }
 
-function CallsTab({ isFa, calls, expandedCallId, setExpandedCallId }: {
-  isFa: boolean; calls: VoiceCall[]; expandedCallId: string | null; setExpandedCallId: (id: string | null) => void;
+function CallsTab({ isFa, lang, calls, expandedCallId, setExpandedCallId }: {
+  isFa: boolean; lang: Lang; calls: VoiceCall[]; expandedCallId: string | null; setExpandedCallId: (id: string | null) => void;
 }) {
   if (calls.length === 0) {
     return (
       <div className="text-center py-16 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
         <PhoneCall className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--text-muted)" }} />
-        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{isFa ? "هنوز تماسی ثبت نشده است" : "No calls yet"}</p>
+        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{tri(lang, "هنوز تماسی ثبت نشده است", "No calls yet", "Noch keine Anrufe")}</p>
       </div>
     );
   }
@@ -679,8 +679,8 @@ function CallsTab({ isFa, calls, expandedCallId, setExpandedCallId }: {
             <div className="flex items-center gap-3">
               <PhoneCall className="w-4 h-4" style={{ color: "#f59e0b" }} />
               <div>
-                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{c.callerPhone || (isFa ? "شماره ناشناس" : "Unknown number")}</p>
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>{c.agent?.name} · {new Date(c.createdAt).toLocaleString(isFa ? "fa-IR" : "en-US")}</p>
+                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{c.callerPhone || tri(lang, "شماره ناشناس", "Unknown number", "Unbekannte Nummer")}</p>
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>{c.agent?.name} · {new Date(c.createdAt).toLocaleString(tri(lang, "fa-IR", "en-US", "de-DE"))}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
@@ -690,10 +690,10 @@ function CallsTab({ isFa, calls, expandedCallId, setExpandedCallId }: {
           </button>
           {expandedCallId === c.id && (
             <div className="px-4 pb-4 space-y-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-              {c.summary && <p><strong>{isFa ? "خلاصه: " : "Summary: "}</strong>{c.summary}</p>}
-              {c.outcome && <p><strong>{isFa ? "نتیجه: " : "Outcome: "}</strong>{c.outcome}</p>}
+              {c.summary && <p><strong>{tri(lang, "خلاصه: ", "Summary: ", "Zusammenfassung: ")}</strong>{c.summary}</p>}
+              {c.outcome && <p><strong>{tri(lang, "نتیجه: ", "Outcome: ", "Ergebnis: ")}</strong>{c.outcome}</p>}
               {c.transcript && <pre className="whitespace-pre-wrap text-xs p-3 rounded-xl" style={{ background: "var(--surface-2)" }}>{c.transcript}</pre>}
-              {!c.summary && !c.transcript && <p style={{ color: "var(--text-muted)" }}>{isFa ? "جزئیاتی موجود نیست" : "No details available"}</p>}
+              {!c.summary && !c.transcript && <p style={{ color: "var(--text-muted)" }}>{tri(lang, "جزئیاتی موجود نیست", "No details available", "Keine Details verfügbar")}</p>}
             </div>
           )}
         </div>
@@ -702,14 +702,14 @@ function CallsTab({ isFa, calls, expandedCallId, setExpandedCallId }: {
   );
 }
 
-function AppointmentsTab({ isFa, appointments, onUpdateStatus }: {
-  isFa: boolean; appointments: VoiceAppointment[]; onUpdateStatus: (id: string, status: string) => void;
+function AppointmentsTab({ isFa, lang, appointments, onUpdateStatus }: {
+  isFa: boolean; lang: Lang; appointments: VoiceAppointment[]; onUpdateStatus: (id: string, status: string) => void;
 }) {
   if (appointments.length === 0) {
     return (
       <div className="text-center py-16 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
         <CalendarDays className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--text-muted)" }} />
-        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{isFa ? "هنوز رزروی ثبت نشده است" : "No appointments yet"}</p>
+        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{tri(lang, "هنوز رزروی ثبت نشده است", "No appointments yet", "Noch keine Termine")}</p>
       </div>
     );
   }
@@ -720,9 +720,9 @@ function AppointmentsTab({ isFa, appointments, onUpdateStatus }: {
           <div className="flex items-center gap-3">
             <User className="w-4 h-4" style={{ color: "#f59e0b" }} />
             <div>
-              <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{a.leadName || (isFa ? "بدون نام" : "No name")} · {a.leadPhone}</p>
+              <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{a.leadName || tri(lang, "بدون نام", "No name", "Kein Name")} · {a.leadPhone}</p>
               <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                {new Date(a.scheduledAt).toLocaleString(isFa ? "fa-IR" : "en-US")}
+                {new Date(a.scheduledAt).toLocaleString(tri(lang, "fa-IR", "en-US", "de-DE"))}
                 {a.property && ` · ${a.property.title}`}
               </p>
             </div>

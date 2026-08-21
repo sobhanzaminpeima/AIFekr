@@ -27,16 +27,16 @@ export default function Error({
       style={{ background: "var(--surface-0)", color: "var(--text-primary)" }}
       dir={isFa ? "rtl" : "ltr"}
     >
-      <h2 className="text-2xl font-bold mb-4">{isFa ? "خطایی رخ داد" : "Something went wrong"}</h2>
+      <h2 className="text-2xl font-bold mb-4">{isFa ? "خطایی رخ داد" : (readLangCookie() ? "Etwas ist schiefgelaufen" : "Something went wrong")}</h2>
       <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
-        {error.message || (isFa ? "لطفاً دوباره تلاش کنید" : "Please try again")}
+        {error.message || (isFa ? "لطفاً دوباره تلاش کنید" : (readLangCookie() ? "Bitte versuchen Sie es erneut" : "Please try again"))}
       </p>
       <button
         onClick={reset}
         className="px-6 py-3 rounded-xl font-medium text-white"
         style={{ background: "var(--primary)" }}
       >
-        {isFa ? "تلاش مجدد" : "Try again"}
+        {isFa ? "تلاش مجدد" : (readLangCookie() ? "Erneut versuchen" : "Try again")}
       </button>
     </div>
   );

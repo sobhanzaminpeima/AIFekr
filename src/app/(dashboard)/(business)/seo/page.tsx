@@ -5,7 +5,7 @@ import { Search, Globe, FileText, Tag, Copy, Check, ExternalLink, Zap, Loader2, 
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
 import Link from "next/link";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 type Tab = "url" | "keyword" | "content" | "meta";
@@ -81,7 +81,7 @@ export default function SEOPage() {
     loadGscStatus();
     const params = new URLSearchParams(window.location.search);
     const status = params.get("gsc");
-    if (status === "connected") toast.success(isFa ? "به Search Console متصل شدی" : "Connected to Search Console");
+    if (status === "connected") toast.success(tri(lang, "به Search Console متصل شدی", "Connected to Search Console", "Mit Search Console verbunden"));
     if (status === "failed") toast.error(t.common.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadGscStatus]);
@@ -130,7 +130,7 @@ export default function SEOPage() {
 
   // ── URL audit checklist ─────────────────────────────────────────────────
   interface UrlCheck { id: string; label: string; status: "pass" | "warning" | "fail"; detail: string; }
-  interface UrlCheckGroup { id: string; titleFa: string; titleEn: string; checks: UrlCheck[]; }
+  interface UrlCheckGroup { id: string; titleFa: string; titleEn: string; titleDe?: string; checks: UrlCheck[]; }
   const [urlAudit, setUrlAudit] = useState<{ score: number; groups: UrlCheckGroup[] } | null>(null);
   const [urlAuditLoading, setUrlAuditLoading] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -274,7 +274,7 @@ export default function SEOPage() {
           style={{ background: "rgba(234,88,12,0.15)", color: "var(--primary)" }}
         >
           <Sparkles className="w-3.5 h-3.5" />
-          خط تولید محتوای هوشمند (۸ Agent)
+          {tri(lang, "خط تولید محتوای هوشمند (۸ Agent)", "Smart Content Pipeline (8 Agents)", "Intelligente Content-Pipeline (8 Agenten)")}
         </Link>
       </div>
 
@@ -333,20 +333,21 @@ export default function SEOPage() {
           </div>
           {!gscConnected ? (
             <a href="/api/seo/gsc/connect" className="text-xs px-3 py-1.5 rounded-lg font-medium text-white" style={{ background: "var(--primary)" }}>
-              {isFa ? "اتصال به Search Console" : "Connect Search Console"}
+              {tri(lang, "اتصال به Search Console", "Connect Search Console", "Mit Search Console verbinden")}
             </a>
           ) : (
             <button onClick={() => { setGscSiteUrl(null); setGscData(null); loadGscSites(); }} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-              {isFa ? "تغییر سایت" : "Change site"}
+              {tri(lang, "تغییر سایت", "Change site", "Website wechseln")}
             </button>
           )}
         </div>
 
         {!gscConnected && (
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            {isFa
-              ? "با اتصال به Google Search Console، آمار واقعی کلیک، بازدید (impression) و رتبه کلمات کلیدی سایتت رو مستقیم اینجا ببین."
-              : "Connect Google Search Console to see your site's real click, impression, and keyword ranking data right here."}
+            {tri(lang,
+              "اتصال گوگل شما منقضی یا نامعتبر شده است. لطفاً دوباره وارد Google Search Console شوید.",
+              "Connect Google Search Console to see your site's real click, impression, and keyword ranking data right here.",
+              "Verbinden Sie sich mit Google Search Console, um echte Klick-, Impressionen- und Keyword-Ranking-Daten Ihrer Website hier zu sehen.")}
           </p>
         )}
 
@@ -354,15 +355,15 @@ export default function SEOPage() {
           <div>
             {gscSitesLoading ? (
               <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
-                <Loader2 className="w-4 h-4 animate-spin" /> {isFa ? "در حال دریافت لیست سایت‌ها..." : "Loading your sites..."}
+                <Loader2 className="w-4 h-4 animate-spin" /> {tri(lang, "در حال دریافت لیست سایت‌ها...", "Loading your sites...", "Websites werden geladen...")}
               </div>
             ) : gscSites.length === 0 ? (
               <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                {isFa ? "هیچ سایت تایید‌شده‌ای در حساب Search Console شما پیدا نشد." : "No verified sites found in your Search Console account."}
+                {tri(lang, "هیچ سایت تایید‌شده‌ای در حساب Search Console شما پیدا نشد.", "No verified sites found in your Search Console account.", "Keine verifizierten Websites in Ihrem Search Console-Konto gefunden.")}
               </p>
             ) : (
               <div className="space-y-1.5">
-                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "کدوم سایت رو می‌خوای ببینی؟" : "Which site do you want to view?"}</p>
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{tri(lang, "کدوم سایت رو می‌خوای ببینی؟", "Which site do you want to view?", "Welche Website möchten Sie ansehen?")}</p>
                 {gscSites.map((s) => (
                   <button key={s.siteUrl} onClick={() => pickGscSite(s.siteUrl)} dir="ltr"
                     className="w-full text-left px-3 py-2 rounded-lg text-xs" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>
@@ -383,11 +384,11 @@ export default function SEOPage() {
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                   <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
-                    <div className="flex items-center gap-1.5 mb-1"><MousePointerClick className="w-3.5 h-3.5" style={{ color: "#3b82f6" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "کلیک" : "Clicks"}</span></div>
+                    <div className="flex items-center gap-1.5 mb-1"><MousePointerClick className="w-3.5 h-3.5" style={{ color: "#3b82f6" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "کلیک", "Clicks", "Klicks")}</span></div>
                     <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.clicks.toLocaleString()}</p>
                   </div>
                   <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
-                    <div className="flex items-center gap-1.5 mb-1"><Eye className="w-3.5 h-3.5" style={{ color: "#8b5cf6" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "بازدید" : "Impressions"}</span></div>
+                    <div className="flex items-center gap-1.5 mb-1"><Eye className="w-3.5 h-3.5" style={{ color: "#8b5cf6" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "بازدید", "Impressions", "Impressionen")}</span></div>
                     <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.impressions.toLocaleString()}</p>
                   </div>
                   <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
@@ -395,22 +396,22 @@ export default function SEOPage() {
                     <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.avgCtr.toFixed(1)}%</p>
                   </div>
                   <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
-                    <div className="flex items-center gap-1.5 mb-1"><Search className="w-3.5 h-3.5" style={{ color: "#eab308" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "رتبه میانگین" : "Avg. position"}</span></div>
+                    <div className="flex items-center gap-1.5 mb-1"><Search className="w-3.5 h-3.5" style={{ color: "#eab308" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "رتبه میانگین", "Avg. position", "Ø Position")}</span></div>
                     <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.avgPosition.toFixed(1)}</p>
                   </div>
                 </div>
 
                 {gscData.trend.length >= 2 && (
                   <div className="rounded-xl p-3 mb-4" style={{ background: "var(--surface-2)" }}>
-                    <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{isFa ? "روند ۲۸ روز اخیر" : "Last 28 days"}</p>
+                    <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{tri(lang, "روند ۲۸ روز اخیر", "Last 28 days", "Letzte 28 Tage")}</p>
                     <ResponsiveContainer width="100%" height={180}>
                       <LineChart data={gscData.trend}>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                         <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--text-muted)" }} />
                         <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
                         <Tooltip contentStyle={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
-                        <Line type="monotone" dataKey="clicks" stroke="#3b82f6" strokeWidth={2} dot={false} name={isFa ? "کلیک" : "Clicks"} />
-                        <Line type="monotone" dataKey="impressions" stroke="#8b5cf6" strokeWidth={2} dot={false} name={isFa ? "بازدید" : "Impressions"} />
+                        <Line type="monotone" dataKey="clicks" stroke="#3b82f6" strokeWidth={2} dot={false} name={tri(lang, "کلیک", "Clicks", "Klicks")} />
+                        <Line type="monotone" dataKey="impressions" stroke="#8b5cf6" strokeWidth={2} dot={false} name={tri(lang, "بازدید", "Impressions", "Impressionen")} />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
@@ -418,7 +419,7 @@ export default function SEOPage() {
 
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{isFa ? "پرکلیک‌ترین کلمات کلیدی" : "Top queries"}</p>
+                    <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{tri(lang, "پرکلیک‌ترین کلمات کلیدی", "Top queries", "Top-Abfragen")}</p>
                     <div className="space-y-1">
                       {gscData.topQueries.slice(0, 10).map((q, i) => (
                         <div key={i} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg" style={{ background: i % 2 === 0 ? "var(--surface-2)" : "transparent" }}>
@@ -429,7 +430,7 @@ export default function SEOPage() {
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{isFa ? "پرکلیک‌ترین صفحات" : "Top pages"}</p>
+                    <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{tri(lang, "پرکلیک‌ترین صفحات", "Top pages", "Top-Seiten")}</p>
                     <div className="space-y-1">
                       {gscData.topPages.slice(0, 10).map((p, i) => (
                         <div key={i} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg" style={{ background: i % 2 === 0 ? "var(--surface-2)" : "transparent" }}>
@@ -572,7 +573,7 @@ export default function SEOPage() {
                 return (
                   <div key={group.id} style={{ borderBottom: "1px solid var(--border)" }}>
                     <button onClick={() => toggleGroup(group.id)} className="w-full flex items-center justify-between px-5 py-3" style={{ background: "var(--surface-2)" }}>
-                      <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{isFa ? group.titleFa : group.titleEn}</span>
+                      <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, group.titleFa, group.titleEn, group.titleEn)}</span>
                       <div className="flex items-center gap-2">
                         {failCount > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444" }}>{failCount}</span>}
                         {warnCount > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(234,179,8,0.15)", color: "#eab308" }}>{warnCount}</span>}
