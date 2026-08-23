@@ -8,6 +8,7 @@ import { PROVIDERS, type Provider } from "@/lib/ai/providers";
 import { isCustomProviderModel, streamCustomProvider } from "@/lib/ai/customProviders";
 import { CREDIT_COSTS } from "@/lib/utils/credits";
 import { getAvailableCredits, deductCredits } from "@/lib/utils/teamCredits";
+import { rateLimit } from "@/lib/utils/rateLimit";
 
 const SUGGESTIONS_INSTRUCTION = `
 
@@ -101,6 +102,14 @@ const MAX_AUTO_CREDIT_COST = Math.max(CREDIT_COSTS.chat, ...PROVIDERS.map((p) =>
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
+
+  // Credits already gate cost per-message, but that doesn't stop a scripted
+  // burst hammering the LLM providers/DB in a tight loop — a light per-user
+  // cap as defense-in-depth, generous enough to never bother a real chat session.
+  const limit = rateLimit(`chat:${user.id}`, 30, 60 * 1000);
+  if (!limit.allowed) {
+    return NextResponse.json({ error: "تعداد درخواست‌ها بیش از حد مجاز — کمی صبر کنید" }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } });
+  }
 
   try {
     const { message, conversationId, model, history = [], systemPrompt, expertMode } = await req.json();

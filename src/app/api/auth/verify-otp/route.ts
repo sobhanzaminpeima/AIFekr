@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { signToken, signRefreshToken } from "@/lib/auth/jwt";
+import { rateLimit } from "@/lib/utils/rateLimit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,6 +11,13 @@ export async function POST(req: NextRequest) {
 
     if (!phone || !code) {
       return NextResponse.json({ error: "اطلاعات ناقص است" }, { status: 400 });
+    }
+
+    // A 4-digit OTP is only 10,000 combinations — without this, it's
+    // brute-forceable in a handful of minutes. Capped per phone number.
+    const limit = rateLimit(`verify-otp:${phone}`, 5, 10 * 60 * 1000);
+    if (!limit.allowed) {
+      return NextResponse.json({ error: "تعداد تلاش‌های نامعتبر بیش از حد مجاز — کمی صبر کنید" }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } });
     }
 
     const otpRecord = await prisma.otpCode.findFirst({

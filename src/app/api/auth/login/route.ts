@@ -4,9 +4,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { signToken, signRefreshToken } from "@/lib/auth/jwt";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { findUserByEmail, recordLogin } from "@/lib/repositories/userRepository";
+import { rateLimit, getClientIp } from "@/lib/utils/rateLimit";
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req.headers);
+    const limit = rateLimit(`login:${ip}`, 10, 5 * 60 * 1000);
+    if (!limit.allowed) {
+      return NextResponse.json({ error: "تعداد تلاش‌های ورود بیش از حد مجاز — کمی صبر کنید" }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } });
+    }
+
     const { email, password } = await req.json();
 
     if (!email || !password) {
