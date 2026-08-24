@@ -26,6 +26,7 @@ interface Contact {
   id: string; name: string; phone: string | null; email: string | null;
   whatsapp: string | null; telegram: string | null; company: string | null;
   status: string; totalSpent: number; lastContact: string | null; assignedToId?: string | null;
+  _count?: { properties: number; propertyInterests: number };
 }
 interface TeamMember { id: string; name: string; email: string; }
 interface Activity { id: string; type: string; content: string; createdAt: string; }
@@ -383,8 +384,20 @@ export default function CrmPage() {
                       <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{c.phone || c.email || c.company || "—"}</p>
                     </div>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium"
-                    style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{c.status}</span>
+                  <div className="flex items-center gap-1.5">
+                    {propertiesEnabled && !!c._count?.properties && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: "rgba(234,88,12,0.12)", color: "var(--primary)" }}>
+                        {isFa ? `مالک ${c._count.properties} ملک` : `Owner of ${c._count.properties}`}
+                      </span>
+                    )}
+                    {propertiesEnabled && !!c._count?.propertyInterests && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>
+                        {isFa ? `علاقه‌مند به ${c._count.propertyInterests} ملک` : `Interested in ${c._count.propertyInterests}`}
+                      </span>
+                    )}
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium"
+                      style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{c.status}</span>
+                  </div>
                 </button>
               ))}
             </div>

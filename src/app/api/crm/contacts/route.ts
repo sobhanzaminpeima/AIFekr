@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
     where: { userId: ws.workspaceUserId, ...(status ? { status } : {}), ...agentFilter(ws) },
     orderBy: { updatedAt: "desc" },
     take: 500,
+    include: { _count: { select: { properties: true, propertyInterests: true } } },
   });
   return NextResponse.json({ contacts });
 }
