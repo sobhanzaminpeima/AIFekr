@@ -62,7 +62,7 @@ interface ViewingRow {
   assignedTo: { id: string; name: string } | null;
 }
 
-const REAL_ESTATE_MODULE_KEYS = ["crm.property", "crm.owner", "crm.viewingScheduler", "crm.contractCommission", "crm.shortTermCalendar", "crm.matchView", "crm.propertyDocuments", "crm.performanceReport", "agent.leadMatcher", "agent.listingCopywriter", "agent.viewingCoordinator", "agent.pricingAdvisor"];
+const REAL_ESTATE_MODULE_KEYS = ["crm.property", "crm.owner", "crm.viewingScheduler", "crm.contractCommission", "crm.shortTermCalendar", "crm.matchView", "crm.propertyDocuments", "crm.performanceReport", "agent.leadMatcher", "agent.listingCopywriter", "agent.viewingCoordinator", "agent.pricingAdvisor", "agent.agencyManager"];
 
 interface BuyerMatchRow {
   contactId: string; contactName: string; phone: string | null;
@@ -129,6 +129,7 @@ export default function CrmPage() {
   const listingCopywriterEnabled = !!moduleAccess["agent.listingCopywriter"];
   const viewingCoordinatorEnabled = !!moduleAccess["agent.viewingCoordinator"];
   const pricingAdvisorEnabled = !!moduleAccess["agent.pricingAdvisor"];
+  const agencyManagerEnabled = !!moduleAccess["agent.agencyManager"];
 
   async function purchaseCrmPlan(planCode: "CRM_SOLO" | "CRM_TEAM") {
     setUpgrading(true);
@@ -412,7 +413,7 @@ export default function CrmPage() {
       ) : tab === "matches" && matchViewEnabled ? (
         <BuyerMatchPanel lang={lang} leadMatcherAgentEnabled={leadMatcherAgentEnabled} />
       ) : tab === "performance" && performanceReportEnabled ? (
-        <PerformanceReportPanel lang={lang} />
+        <PerformanceReportPanel lang={lang} agencyManagerEnabled={agencyManagerEnabled} />
       ) : (
         <ProjectsPanel isFa={isFa} lang={lang} t={c} contacts={contacts} isRealEstate={pipelines.some((p) => p.industrySlug === "real-estate")} />
       )}
@@ -4236,13 +4237,18 @@ interface PerformanceRow {
 function isoDate(d: Date) { return d.toISOString().slice(0, 10); }
 
 /** Section 1, item 8 — Agent/Team performance report. Has no storage of its own — every figure is computed from CrmDeal (item 5) and PropertyViewing (item 4) rows already created elsewhere, not a separate ledger. */
-function PerformanceReportPanel({ lang }: { lang: Lang }) {
+function PerformanceReportPanel({ lang, agencyManagerEnabled }: { lang: Lang; agencyManagerEnabled: boolean }) {
   const today = new Date();
   const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
   const [startDate, setStartDate] = useState(isoDate(monthAgo));
   const [endDate, setEndDate] = useState(isoDate(today));
   const [report, setReport] = useState<PerformanceRow[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [periodDays, setPeriodDays] = useState("7");
+  const [agencyReport, setAgencyReport] = useState("");
+  const [generatingAgencyReport, setGeneratingAgencyReport] = useState(false);
+  const [agencyReportError, setAgencyReportError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -4254,8 +4260,54 @@ function PerformanceReportPanel({ lang }: { lang: Lang }) {
 
   useEffect(() => { load(); }, [load]);
 
+  async function generateAgencyReport() {
+    setGeneratingAgencyReport(true);
+    setAgencyReportError("");
+    setAgencyReport("");
+    try {
+      const res = await fetch(`/api/crm/agency-report?periodDays=${periodDays}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setAgencyReport(data.report);
+    } catch (err: unknown) {
+      setAgencyReportError(err instanceof Error ? err.message : tri(lang, "خطا در تولید گزارش", "Failed to generate report", "Fehler beim Erstellen des Berichts"));
+    } finally {
+      setGeneratingAgencyReport(false);
+    }
+  }
+
   return (
     <div className="space-y-3">
+      {/* Section 2, item 6 — Agency Manager Assistant. Purely reportive/suggestive — the report text itself is written to ask questions per stale item, never to just dump numbers; nothing here writes to any CRM record. */}
+      {agencyManagerEnabled && (
+        <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "دستیار مدیر آژانس", "Agency Manager Assistant", "Assistent der Agenturleitung")}</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{tri(lang, "خلاصهٔ دوره‌ای Pipeline + سوالات پیشنهادی درباره لیدهای رهاشده و بازدیدهای بدون بازخورد", "Periodic pipeline summary + suggested questions about abandoned leads and feedback-less viewings", "Regelmäßige Pipeline-Zusammenfassung + Fragen zu inaktiven Leads und Besichtigungen ohne Rückmeldung")}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <select value={periodDays} onChange={(e) => setPeriodDays(e.target.value)}
+                className="px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                <option value="7">{tri(lang, "هفتگی", "Weekly", "Wöchentlich")}</option>
+                <option value="14">{tri(lang, "دو‌هفتگی", "Bi-weekly", "Zweiwöchentlich")}</option>
+                <option value="30">{tri(lang, "ماهانه", "Monthly", "Monatlich")}</option>
+              </select>
+              <button onClick={generateAgencyReport} disabled={generatingAgencyReport} className="text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-50 flex items-center gap-1.5" style={{ background: "var(--primary)" }}>
+                {generatingAgencyReport ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                {tri(lang, "تولید گزارش", "Generate report", "Bericht erstellen")}
+              </button>
+            </div>
+          </div>
+          {agencyReportError && <p className="text-xs" style={{ color: "#ef4444" }}>{agencyReportError}</p>}
+          {agencyReport && (
+            <div className="rounded-xl p-3 prose prose-invert prose-sm max-w-none" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>
+              <ReactMarkdown>{agencyReport}</ReactMarkdown>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center gap-2 flex-wrap">
         <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
           className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
