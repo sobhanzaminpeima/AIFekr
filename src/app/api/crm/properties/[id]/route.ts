@@ -28,7 +28,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!existing) return NextResponse.json({ error: "ملک یافت نشد" }, { status: 404 });
 
   const body = await req.json();
-  const { title, propertyType, price, nightlyPrice, bookingLink, address, city, bedrooms, bathrooms, areaSqm, description, images, status, crmContactId, crmDealId, representationStartDate, representationEndDate, agreedCommissionRate } = body;
+  const { title, propertyType, price, nightlyPrice, currency, bookingLink, address, city, bedrooms, bathrooms, areaSqm, description, images, status, crmContactId, crmDealId, representationStartDate, representationEndDate, agreedCommissionRate } = body;
+  if (currency !== undefined && !["IRT", "IRR", "USD", "GBP", "EUR"].includes(currency)) {
+    return NextResponse.json({ error: "واحد پولی نامعتبر است" }, { status: 400 });
+  }
 
   const touchesOwnerFields = representationStartDate !== undefined || representationEndDate !== undefined || agreedCommissionRate !== undefined;
   if (touchesOwnerFields && !(await checkModuleAccess(user.id, user.role, ws.workspaceUserId, "crm.owner"))) {
@@ -52,6 +55,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       propertyType: propertyType || undefined,
       price: price !== undefined ? BigInt(Math.round(Number(price) || 0)) : undefined,
       nightlyPrice: nightlyPrice !== undefined ? (nightlyPrice != null ? BigInt(Math.round(Number(nightlyPrice))) : null) : undefined,
+      currency: currency || undefined,
       bookingLink: bookingLink !== undefined ? resolvedBookingLink : undefined,
       address: address !== undefined ? address.trim() : undefined,
       city: city !== undefined ? city : undefined,

@@ -7,6 +7,7 @@ import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 
 const LISTING_TYPES = ["buy", "sell", "rent", "short_term_rent"];
+const CURRENCIES = ["IRT", "IRR", "USD", "GBP", "EUR"];
 
 function serialize(p: { price: bigint; nightlyPrice: bigint | null; [k: string]: unknown }) {
   return { ...p, price: Number(p.price), nightlyPrice: p.nightlyPrice != null ? Number(p.nightlyPrice) : null };
@@ -62,11 +63,12 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { title, listingType, propertyType, price, nightlyPrice, bookingLink, address, city, bedrooms, bathrooms, areaSqm, description, images, crmContactId, crmDealId } = body;
+  const { title, listingType, propertyType, price, nightlyPrice, currency, bookingLink, address, city, bedrooms, bathrooms, areaSqm, description, images, crmContactId, crmDealId } = body;
 
   if (!title?.trim()) return NextResponse.json({ error: "عنوان ملک الزامی است" }, { status: 400 });
   if (!LISTING_TYPES.includes(listingType)) return NextResponse.json({ error: "نوع معامله نامعتبر است" }, { status: 400 });
   if (!address?.trim()) return NextResponse.json({ error: "آدرس الزامی است" }, { status: 400 });
+  if (currency !== undefined && !CURRENCIES.includes(currency)) return NextResponse.json({ error: "واحد پولی نامعتبر است" }, { status: 400 });
 
   if (crmContactId) {
     const contact = await prisma.crmContact.findFirst({ where: { id: crmContactId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}) } });
@@ -95,6 +97,7 @@ export async function POST(req: NextRequest) {
       propertyType: propertyType || "apartment",
       price: listingType === "short_term_rent" ? BigInt(0) : BigInt(Math.round(Number(price) || 0)),
       nightlyPrice: listingType === "short_term_rent" && nightlyPrice ? BigInt(Math.round(Number(nightlyPrice))) : undefined,
+      currency: currency || "IRT",
       bookingLink: resolvedBookingLink,
       address: address.trim(),
       city: city || undefined,

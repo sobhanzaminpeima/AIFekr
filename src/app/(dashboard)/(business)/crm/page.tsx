@@ -40,7 +40,7 @@ type CrmTab = "board" | "contacts" | "automation" | "agent" | "calendar" | "anal
 
 interface PropertyRow {
   id: string; title: string; listingType: string; propertyType: string;
-  price: number; nightlyPrice: number | null; bookingLink: string | null;
+  price: number; nightlyPrice: number | null; currency: string; bookingLink: string | null;
   address: string; city: string | null; bedrooms: number | null; bathrooms: number | null; areaSqm: number | null;
   description: string | null; images: string | null; status: string;
   representationStartDate: string | null; representationEndDate: string | null; agreedCommissionRate: number | null;
@@ -490,7 +490,7 @@ function CrmSidebar({ tab, setTab, c, isFa, propertiesEnabled, ownersEnabled, vi
 
   return (
     <nav
-      className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-1 md:pb-0 -mx-6 px-6 md:mx-0 md:px-0 md:w-52 lg:w-56 md:flex-shrink-0 md:sticky md:top-6 flex-shrink-0"
+      className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-1 md:pb-0 -mx-6 px-6 md:mx-0 md:px-0 w-full min-w-0 md:w-52 lg:w-56 md:flex-shrink-0 md:sticky md:top-6 flex-shrink-0"
       style={{ scrollbarWidth: "thin" }}
       aria-label={c.header.title}
     >
@@ -2743,6 +2743,26 @@ const PROPERTY_STATUS_LABEL: Record<string, Record<Lang, string>> = {
   sold: { fa: "فروخته‌شده", en: "Sold", de: "Verkauft" },
   rented: { fa: "اجاره‌داده‌شده", en: "Rented", de: "Vermietet" },
 };
+// IRT/IRR only make sense in Persian; USD/GBP/EUR are offered regardless of
+// UI language (an agency may list a property in whatever currency the
+// listing itself was priced in) — but the *default* choice when creating a
+// property follows the current UI language (fa->IRT, de->EUR, else USD).
+const CURRENCY_OPTIONS: { value: string; fa?: true; symbol: string; label: Record<Lang, string> }[] = [
+  { value: "IRT", fa: true, symbol: "تومان", label: { fa: "تومان (IRT)", en: "Toman (IRT)", de: "Toman (IRT)" } },
+  { value: "IRR", fa: true, symbol: "ریال", label: { fa: "ریال (IRR)", en: "Rial (IRR)", de: "Rial (IRR)" } },
+  { value: "USD", symbol: "$", label: { fa: "دلار (USD)", en: "US Dollar (USD)", de: "US-Dollar (USD)" } },
+  { value: "GBP", symbol: "£", label: { fa: "پوند (GBP)", en: "British Pound (GBP)", de: "Britisches Pfund (GBP)" } },
+  { value: "EUR", symbol: "€", label: { fa: "یورو (EUR)", en: "Euro (EUR)", de: "Euro (EUR)" } },
+];
+function defaultCurrencyForLang(lang: Lang): string {
+  return lang === "fa" ? "IRT" : lang === "de" ? "EUR" : "USD";
+}
+function fmtPrice(n: number, currency: string, lang: Lang): string {
+  const opt = CURRENCY_OPTIONS.find((c) => c.value === currency);
+  const formatted = new Intl.NumberFormat(lang === "fa" ? "fa-IR" : "en-US").format(n);
+  if (!opt) return formatted;
+  return opt.fa ? `${formatted} ${opt.symbol}` : `${opt.symbol}${formatted}`;
+}
 
 /** Real-estate industry-pack module — Property/Listing Management. Only rendered when isModuleEnabled("crm.property") returned true (checked once in the parent via /api/crm/module-access). Reuses the unified Property model — same one Voice Agent and CRM Projects already write to — never a parallel table. */
 function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, propertyDocumentsEnabled }: { isFa: boolean; lang: Lang; contacts: Contact[]; shortTermCalendarEnabled: boolean; propertyDocumentsEnabled: boolean }) {
@@ -2760,6 +2780,7 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
   const [propertyType, setPropertyType] = useState("apartment");
   const [price, setPrice] = useState("");
   const [nightlyPrice, setNightlyPrice] = useState("");
+  const [currency, setCurrency] = useState(defaultCurrencyForLang(lang));
   const [bookingLink, setBookingLink] = useState("");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
@@ -2780,6 +2801,7 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
 
   function resetForm() {
     setTitle(""); setListingType("sell"); setPropertyType("apartment"); setPrice(""); setNightlyPrice("");
+    setCurrency(defaultCurrencyForLang(lang));
     setBookingLink(""); setAddress(""); setCity(""); setBedrooms(""); setBathrooms(""); setAreaSqm(""); setDescription(""); setOwnerContactId("");
   }
 
@@ -2795,6 +2817,7 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
           title: title.trim(), listingType, propertyType, address: address.trim(), city: city.trim() || undefined,
           price: listingType !== "short_term_rent" ? price : undefined,
           nightlyPrice: listingType === "short_term_rent" ? nightlyPrice : undefined,
+          currency,
           bookingLink: bookingLink.trim() || undefined,
           bedrooms: bedrooms || undefined, bathrooms: bathrooms || undefined, areaSqm: areaSqm || undefined,
           description: description.trim() || undefined,
@@ -2859,14 +2882,24 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
 
           {listingType === "short_term_rent" ? (
             <div className="grid grid-cols-2 gap-2">
-              <input value={nightlyPrice} onChange={(e) => setNightlyPrice(e.target.value)} type="number" placeholder={tri(lang, "قیمت هر شب (تومان)", "Price per night (Toman)", "Preis pro Nacht (Toman)")}
+              <input value={nightlyPrice} onChange={(e) => setNightlyPrice(e.target.value)} type="number" placeholder={tri(lang, "قیمت هر شب", "Price per night", "Preis pro Nacht")}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-              <input value={bookingLink} onChange={(e) => setBookingLink(e.target.value)} placeholder={tri(lang, "لینک پلتفرم رزرو", "Booking platform link", "Buchungsplattform-Link")}
-                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <select value={currency} onChange={(e) => setCurrency(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                {CURRENCY_OPTIONS.map((c) => <option key={c.value} value={c.value}>{c.label[lang]}</option>)}
+              </select>
+              <input value={bookingLink} onChange={(e) => setBookingLink(e.target.value)} placeholder={tri(lang, "لینک Airbnb یا پلتفرم رزرو", "Airbnb or booking platform link", "Airbnb- oder Buchungsplattform-Link")}
+                className="col-span-2 w-full px-3 py-2 rounded-xl text-sm outline-none" dir="ltr" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
           ) : (
-            <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" placeholder={tri(lang, "قیمت کل (تومان)", "Total price (Toman)", "Gesamtpreis (Toman)")}
-              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <div className="grid grid-cols-2 gap-2">
+              <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" placeholder={tri(lang, "قیمت کل", "Total price", "Gesamtpreis")}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <select value={currency} onChange={(e) => setCurrency(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                {CURRENCY_OPTIONS.map((c) => <option key={c.value} value={c.value}>{c.label[lang]}</option>)}
+              </select>
+            </div>
           )}
 
           <div className="grid grid-cols-3 gap-2">
@@ -2906,7 +2939,7 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
                   {p.crmContact ? ` · ${p.crmContact.name}` : ""}
                 </p>
                 <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                  {p.address}{p.city ? `، ${p.city}` : ""} · {p.listingType === "short_term_rent" ? (p.nightlyPrice ? `${fmtMoney(p.nightlyPrice)} ${tri(lang, "شب", "/night", "/Nacht")}` : "—") : fmtMoney(p.price)}
+                  {p.address}{p.city ? `، ${p.city}` : ""} · {p.listingType === "short_term_rent" ? (p.nightlyPrice ? `${fmtPrice(p.nightlyPrice, p.currency, lang)} ${tri(lang, "شب", "/night", "/Nacht")}` : "—") : fmtPrice(p.price, p.currency, lang)}
                 </p>
               </div>
               <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
@@ -2936,6 +2969,12 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
       )}
       {docsPropertyId && (
         <PropertyDocsModal lang={lang} propertyId={docsPropertyId} onClose={() => setDocsPropertyId(null)} />
+      )}
+      {selected && (
+        <PropertyDetailModal lang={lang} property={selected} contacts={contacts}
+          onClose={() => setSelected(null)}
+          onChanged={() => { load(); }}
+        />
       )}
     </div>
   );
@@ -3143,6 +3182,255 @@ function PropertyDocsModal({ lang, propertyId, onClose }: { lang: Lang; property
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** "View more" property detail — clicking a property row used to just set state with no modal ever rendering it (a real bug). Also covers: photo upload/gallery, editable currency, editable booking (Airbnb) link post-creation, and converting/creating an owner contact inline instead of only picking an existing one. */
+function PropertyDetailModal({ lang, property, contacts, onClose, onChanged }: { lang: Lang; property: PropertyRow; contacts: Contact[]; onClose: () => void; onChanged: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [form, setForm] = useState({
+    title: property.title,
+    price: property.listingType === "short_term_rent" ? "" : String(property.price),
+    nightlyPrice: property.nightlyPrice != null ? String(property.nightlyPrice) : "",
+    currency: property.currency,
+    bookingLink: property.bookingLink || "",
+    address: property.address,
+    city: property.city || "",
+    bedrooms: property.bedrooms != null ? String(property.bedrooms) : "",
+    bathrooms: property.bathrooms != null ? String(property.bathrooms) : "",
+    areaSqm: property.areaSqm != null ? String(property.areaSqm) : "",
+    description: property.description || "",
+  });
+  const [ownerContactId, setOwnerContactId] = useState(property.crmContact?.id || "");
+  const [showNewOwner, setShowNewOwner] = useState(false);
+  const [newOwnerName, setNewOwnerName] = useState("");
+  const [newOwnerPhone, setNewOwnerPhone] = useState("");
+  const [savingOwner, setSavingOwner] = useState(false);
+
+  const [images, setImages] = useState<string[]>(() => {
+    try { return property.images ? JSON.parse(property.images) : []; } catch { return []; }
+  });
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  async function saveEdit() {
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/crm/properties/${property.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: form.title.trim(),
+          price: property.listingType !== "short_term_rent" ? form.price : undefined,
+          nightlyPrice: property.listingType === "short_term_rent" ? form.nightlyPrice : undefined,
+          currency: form.currency,
+          bookingLink: form.bookingLink.trim() || null,
+          address: form.address.trim(),
+          city: form.city.trim() || null,
+          bedrooms: form.bedrooms || null,
+          bathrooms: form.bathrooms || null,
+          areaSqm: form.areaSqm || null,
+          description: form.description.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (data.bookingLinkWarning) alert(data.bookingLinkWarning);
+      setEditing(false);
+      onChanged();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در ذخیره", "Failed to save", "Fehler beim Speichern"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function changeOwner(contactId: string) {
+    setOwnerContactId(contactId);
+    await fetch(`/api/crm/properties/${property.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ crmContactId: contactId || null }),
+    });
+    onChanged();
+  }
+
+  async function createOwnerAndAssign() {
+    if (!newOwnerName.trim()) return;
+    setSavingOwner(true);
+    try {
+      const res = await fetch("/api/crm/contacts", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newOwnerName.trim(), phone: newOwnerPhone.trim() || undefined, status: "customer" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      await changeOwner(data.contact.id);
+      setShowNewOwner(false);
+      setNewOwnerName(""); setNewOwnerPhone("");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در ایجاد مالک", "Failed to create owner", "Fehler beim Anlegen des Eigentümers"));
+    } finally {
+      setSavingOwner(false);
+    }
+  }
+
+  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const form2 = new FormData();
+      form2.append("file", file);
+      const res = await fetch(`/api/crm/properties/${property.id}/images`, { method: "POST", body: form2 });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setImages(data.images || []);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در آپلود عکس", "Failed to upload photo", "Fehler beim Hochladen des Fotos"));
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = "";
+    }
+  }
+
+  async function removeImage(url: string) {
+    const res = await fetch(`/api/crm/properties/${property.id}/images`, {
+      method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }),
+    });
+    const data = await res.json();
+    if (res.ok) setImages(data.images || []);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
+      <div className="w-full max-w-2xl rounded-2xl p-5 space-y-4 max-h-[88vh] overflow-y-auto" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>{property.title}</h3>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setEditing((v) => !v)} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+              {editing ? tri(lang, "انصراف", "Cancel", "Abbrechen") : tri(lang, "ویرایش", "Edit", "Bearbeiten")}
+            </button>
+            <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
+          </div>
+        </div>
+
+        {/* Photo gallery */}
+        <div>
+          <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{tri(lang, "تصاویر ملک", "Property photos", "Immobilienfotos")}</p>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {images.map((url) => (
+              <div key={url} className="relative w-20 h-20 rounded-xl overflow-hidden group" style={{ background: "var(--surface-2)" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="" className="w-full h-full object-cover" />
+                <button onClick={() => removeImage(url)} className="absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-xs" style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}>×</button>
+              </div>
+            ))}
+            <label className="w-20 h-20 rounded-xl flex items-center justify-center cursor-pointer" style={{ background: "var(--surface-2)", border: "1px dashed var(--border)" }}>
+              {uploadingImage ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--primary)" }} /> : <Upload className="w-4 h-4" style={{ color: "var(--text-muted)" }} />}
+              <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageSelect} disabled={uploadingImage} className="hidden" />
+            </label>
+          </div>
+          <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "JPEG، PNG یا WebP — حداکثر ۸ مگابایت", "JPEG, PNG, or WebP — max 8MB", "JPEG, PNG oder WebP — max. 8MB")}</p>
+        </div>
+
+        {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
+
+        {editing ? (
+          <div className="space-y-2">
+            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={tri(lang, "عنوان", "Title", "Titel")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <div className="grid grid-cols-2 gap-2">
+              {property.listingType === "short_term_rent" ? (
+                <input value={form.nightlyPrice} onChange={(e) => setForm({ ...form, nightlyPrice: e.target.value })} type="number" placeholder={tri(lang, "قیمت هر شب", "Price per night", "Preis pro Nacht")}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              ) : (
+                <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} type="number" placeholder={tri(lang, "قیمت کل", "Total price", "Gesamtpreis")}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              )}
+              <select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                {CURRENCY_OPTIONS.map((c) => <option key={c.value} value={c.value}>{c.label[lang]}</option>)}
+              </select>
+            </div>
+            {property.listingType === "short_term_rent" && (
+              <input value={form.bookingLink} onChange={(e) => setForm({ ...form, bookingLink: e.target.value })} placeholder={tri(lang, "لینک Airbnb یا پلتفرم رزرو", "Airbnb or booking platform link", "Airbnb- oder Buchungsplattform-Link")} dir="ltr"
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder={tri(lang, "آدرس", "Address", "Adresse")}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder={tri(lang, "شهر", "City", "Stadt")}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <input value={form.bedrooms} onChange={(e) => setForm({ ...form, bedrooms: e.target.value })} type="number" placeholder={tri(lang, "خواب", "Bedrooms", "Schlafzimmer")}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <input value={form.bathrooms} onChange={(e) => setForm({ ...form, bathrooms: e.target.value })} type="number" placeholder={tri(lang, "سرویس", "Bathrooms", "Badezimmer")}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <input value={form.areaSqm} onChange={(e) => setForm({ ...form, areaSqm: e.target.value })} type="number" placeholder={tri(lang, "متراژ", "Area (sqm)", "Fläche (qm)")}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} placeholder={tri(lang, "توضیحات", "Description", "Beschreibung")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <button onClick={saveEdit} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : tri(lang, "ذخیره تغییرات", "Save changes", "Änderungen speichern")}
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "نوع معامله: ", "Deal type: ", "Geschäftsart: ")}</span><span style={{ color: "var(--text-primary)" }}>{PROPERTY_LISTING_TYPE_LABEL[property.listingType]?.[lang] || property.listingType}</span></div>
+            <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "نوع ملک: ", "Property type: ", "Immobilientyp: ")}</span><span style={{ color: "var(--text-primary)" }}>{PROPERTY_TYPE_LABEL[property.propertyType]?.[lang] || property.propertyType}</span></div>
+            <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "قیمت: ", "Price: ", "Preis: ")}</span><span style={{ color: "var(--text-primary)" }}>{property.listingType === "short_term_rent" ? (property.nightlyPrice ? `${fmtPrice(property.nightlyPrice, property.currency, lang)} / ${tri(lang, "شب", "night", "Nacht")}` : "—") : fmtPrice(property.price, property.currency, lang)}</span></div>
+            {property.listingType === "short_term_rent" && property.bookingLink && (
+              <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "لینک رزرو: ", "Booking link: ", "Buchungslink: ")}</span><a href={property.bookingLink} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>{property.bookingLink}</a></div>
+            )}
+            <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "آدرس: ", "Address: ", "Adresse: ")}</span><span style={{ color: "var(--text-primary)" }}>{property.address}{property.city ? `، ${property.city}` : ""}</span></div>
+            {(property.bedrooms != null || property.bathrooms != null || property.areaSqm != null) && (
+              <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "مشخصات: ", "Details: ", "Details: ")}</span><span style={{ color: "var(--text-primary)" }}>{[property.bedrooms != null ? tri(lang, `${property.bedrooms} خواب`, `${property.bedrooms} bed`, `${property.bedrooms} Schlafz.`) : null, property.bathrooms != null ? tri(lang, `${property.bathrooms} سرویس`, `${property.bathrooms} bath`, `${property.bathrooms} Bad`) : null, property.areaSqm != null ? tri(lang, `${property.areaSqm} متر`, `${property.areaSqm} sqm`, `${property.areaSqm} qm`) : null].filter(Boolean).join(" · ")}</span></div>
+            )}
+            {property.description && (
+              <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "توضیحات: ", "Description: ", "Beschreibung: ")}</span><span style={{ color: "var(--text-primary)" }}>{property.description}</span></div>
+            )}
+          </div>
+        )}
+
+        {/* Owner section — pick existing, or create+assign a new one inline. */}
+        <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+          <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مالک", "Owner", "Eigentümer")}</p>
+          {!showNewOwner ? (
+            <div className="flex items-center gap-2">
+              <select value={ownerContactId} onChange={(e) => changeOwner(e.target.value)}
+                className="flex-1 px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                <option value="">{tri(lang, "بدون مالک", "No owner", "Kein Eigentümer")}</option>
+                {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <button onClick={() => setShowNewOwner(true)} className="text-xs px-3 py-2 rounded-xl whitespace-nowrap" style={{ background: "var(--surface-2)", color: "var(--primary)" }}>
+                {tri(lang, "+ مالک جدید", "+ New owner", "+ Neuer Eigentümer")}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <input value={newOwnerName} onChange={(e) => setNewOwnerName(e.target.value)} placeholder={tri(lang, "نام مالک", "Owner name", "Name des Eigentümers")}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                <input value={newOwnerPhone} onChange={(e) => setNewOwnerPhone(e.target.value)} placeholder={tri(lang, "شماره تماس (اختیاری)", "Phone (optional)", "Telefon (optional)")}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
+              <div className="flex gap-2">
+                <button onClick={createOwnerAndAssign} disabled={savingOwner || !newOwnerName.trim()} className="flex-1 py-2 rounded-xl text-xs font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+                  {savingOwner ? "..." : tri(lang, "ایجاد و انتساب مالک", "Create & assign owner", "Erstellen & zuweisen")}
+                </button>
+                <button onClick={() => setShowNewOwner(false)} className="flex-1 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                  {tri(lang, "لغو", "Cancel", "Abbrechen")}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

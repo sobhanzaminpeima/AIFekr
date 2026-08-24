@@ -838,7 +838,7 @@ export default function SocialPage() {
                 {TONES.map((tone) => <option key={tone.value} value={tone.value}>{tone.label}</option>)}
               </select>
             </div>
-            <div className="flex items-center gap-6">
+            <div className="flex items-center flex-wrap gap-4 gap-y-3">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"

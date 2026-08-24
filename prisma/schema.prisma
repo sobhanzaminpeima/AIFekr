@@ -1531,6 +1531,13 @@ model Property {
   /// JSON array of image URLs (uploaded via the same R2 storage used by
   /// CrmDocument). Nullable — a property can exist with no photos yet.
   images       String?
+  /// IRT (Toman) | IRR (Rial) | USD | GBP | EUR — price/nightlyPrice are
+  /// stored in this currency's smallest common display unit (Toman/Rial
+  /// for IRT/IRR, cents-free whole units for USD/GBP/EUR — this platform
+  /// doesn't handle sub-unit precision anywhere else either). Defaults to
+  /// IRT since every existing row was priced in Toman before this field
+  /// existed.
+  currency     String   @default("IRT")
   status       String   @default("available") // available | pending | sold | rented
   /// Owner-representation terms (Section 1, item 2) — deliberately kept on
   /// Property rather than on CrmContact, since a single owner contact can
