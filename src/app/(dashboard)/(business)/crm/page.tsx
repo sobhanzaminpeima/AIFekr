@@ -36,7 +36,7 @@ interface ContactDetail extends Contact {
 interface AutomationRule { id: string; name: string; trigger: string; condition: string | null; action: string; isActive: boolean; }
 interface CrmDocument { id: string; name: string; type: string; fileUrl: string; createdAt: string; }
 
-type CrmTab = "board" | "contacts" | "automation" | "agent" | "calendar" | "analytics" | "products" | "invoices" | "contracts" | "projects" | "properties" | "owners" | "viewings";
+type CrmTab = "board" | "contacts" | "automation" | "agent" | "calendar" | "analytics" | "products" | "invoices" | "contracts" | "projects" | "properties" | "owners" | "viewings" | "matches";
 
 interface PropertyRow {
   id: string; title: string; listingType: string; propertyType: string;
@@ -62,7 +62,13 @@ interface ViewingRow {
   assignedTo: { id: string; name: string } | null;
 }
 
-const REAL_ESTATE_MODULE_KEYS = ["crm.property", "crm.owner", "crm.viewingScheduler", "crm.contractCommission", "crm.shortTermCalendar"];
+const REAL_ESTATE_MODULE_KEYS = ["crm.property", "crm.owner", "crm.viewingScheduler", "crm.contractCommission", "crm.shortTermCalendar", "crm.matchView"];
+
+interface BuyerMatchRow {
+  contactId: string; contactName: string; phone: string | null;
+  criteria: { propertyType?: string; listingType?: string; city?: string; budgetMin?: number; budgetMax?: number; minBedrooms?: number };
+  matches: { id: string; title: string; listingType: string; propertyType: string; price: number; city: string | null; bedrooms: number | null; address: string }[];
+}
 
 const INDUSTRY_OPTIONS: { slug: string; labelFa: string; labelEn: string }[] = [
   { slug: "real-estate", labelFa: "املاک", labelEn: "Real Estate" },
@@ -116,6 +122,7 @@ export default function CrmPage() {
   const viewingsEnabled = !!moduleAccess["crm.viewingScheduler"];
   const commissionEnabled = !!moduleAccess["crm.contractCommission"];
   const shortTermCalendarEnabled = !!moduleAccess["crm.shortTermCalendar"];
+  const matchViewEnabled = !!moduleAccess["crm.matchView"];
 
   async function purchaseCrmPlan(planCode: "CRM_SOLO" | "CRM_TEAM") {
     setUpgrading(true);
@@ -166,6 +173,7 @@ export default function CrmPage() {
   useEffect(() => { if (tab === "properties" && !propertiesEnabled) setTab("board"); }, [tab, propertiesEnabled]);
   useEffect(() => { if (tab === "owners" && !ownersEnabled) setTab("board"); }, [tab, ownersEnabled]);
   useEffect(() => { if (tab === "viewings" && !viewingsEnabled) setTab("board"); }, [tab, viewingsEnabled]);
+  useEffect(() => { if (tab === "matches" && !matchViewEnabled) setTab("board"); }, [tab, matchViewEnabled]);
   useEffect(() => { if (tab === "automation") loadRules(); }, [tab, loadRules]);
   useEffect(() => {
     fetch("/api/team").then((r) => r.json()).then((data) => {
@@ -232,7 +240,7 @@ export default function CrmPage() {
       </div>
 
       <div className={`flex ${isFa ? "md:flex-row-reverse" : "md:flex-row"} flex-col gap-4 md:gap-6 items-start`}>
-        <CrmSidebar tab={tab} setTab={setTab} c={c} isFa={isFa} propertiesEnabled={propertiesEnabled} ownersEnabled={ownersEnabled} viewingsEnabled={viewingsEnabled} />
+        <CrmSidebar tab={tab} setTab={setTab} c={c} isFa={isFa} propertiesEnabled={propertiesEnabled} ownersEnabled={ownersEnabled} viewingsEnabled={viewingsEnabled} matchViewEnabled={matchViewEnabled} />
 
         <div className="flex-1 min-w-0 w-full space-y-6">
       {crmPlan === "NONE" && (
@@ -394,6 +402,8 @@ export default function CrmPage() {
         <OwnersPanel lang={lang} />
       ) : tab === "viewings" && viewingsEnabled ? (
         <ViewingsPanel lang={lang} teamMembers={teamMembers} />
+      ) : tab === "matches" && matchViewEnabled ? (
+        <BuyerMatchPanel lang={lang} />
       ) : (
         <ProjectsPanel isFa={isFa} lang={lang} t={c} contacts={contacts} isRealEstate={pipelines.some((p) => p.industrySlug === "real-estate")} />
       )}
@@ -450,7 +460,7 @@ export default function CrmPage() {
   );
 }
 
-function CrmSidebar({ tab, setTab, c, isFa, propertiesEnabled, ownersEnabled, viewingsEnabled }: { tab: CrmTab; setTab: (t: CrmTab) => void; c: Translations["crm"]; isFa: boolean; propertiesEnabled: boolean; ownersEnabled: boolean; viewingsEnabled: boolean }) {
+function CrmSidebar({ tab, setTab, c, isFa, propertiesEnabled, ownersEnabled, viewingsEnabled, matchViewEnabled }: { tab: CrmTab; setTab: (t: CrmTab) => void; c: Translations["crm"]; isFa: boolean; propertiesEnabled: boolean; ownersEnabled: boolean; viewingsEnabled: boolean; matchViewEnabled: boolean }) {
   const items: { id: CrmTab; label: string; icon: React.ElementType }[] = [
     { id: "board", label: c.tabs.board, icon: LayoutGrid },
     { id: "contacts", label: c.tabs.contacts, icon: Users },
@@ -468,6 +478,7 @@ function CrmSidebar({ tab, setTab, c, isFa, propertiesEnabled, ownersEnabled, vi
     ...(propertiesEnabled ? [{ id: "properties" as CrmTab, label: isFa ? "ملک‌ها" : "Properties", icon: Building2 }] : []),
     ...(ownersEnabled ? [{ id: "owners" as CrmTab, label: isFa ? "مالکین" : "Owners", icon: Users }] : []),
     ...(viewingsEnabled ? [{ id: "viewings" as CrmTab, label: isFa ? "زمان‌بندی بازدید" : "Viewings", icon: CalendarDays }] : []),
+    ...(matchViewEnabled ? [{ id: "matches" as CrmTab, label: isFa ? "تطبیق خریدار↔ملک" : "Buyer Match", icon: Users }] : []),
   ];
 
   return (
@@ -3299,6 +3310,139 @@ function ViewingsPanel({ lang, teamMembers }: { lang: Lang; teamMembers: TeamMem
               <button onClick={() => setFeedbackTarget(null)} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{tri(lang, "لغو", "Cancel", "Abbrechen")}</button>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Section 1, item 3 — Buyer↔Property match view, feeding the Lead Matcher agent (Section 2). Buyer criteria live in CrmContact.customFields.buyerCriteria — reuses the existing contacts PUT endpoint to save, only this read-side matching view is new. */
+function BuyerMatchPanel({ lang }: { lang: Lang }) {
+  const [results, setResults] = useState<BuyerMatchRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [contacts, setContacts] = useState<{ id: string; name: string }[]>([]);
+  const [showSetCriteria, setShowSetCriteria] = useState(false);
+  const [selectedContactId, setSelectedContactId] = useState("");
+  const [propertyType, setPropertyType] = useState("");
+  const [listingType, setListingType] = useState("");
+  const [city, setCity] = useState("");
+  const [budgetMin, setBudgetMin] = useState("");
+  const [budgetMax, setBudgetMax] = useState("");
+  const [minBedrooms, setMinBedrooms] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    const [mRes, cRes] = await Promise.all([fetch("/api/crm/buyer-matches"), fetch("/api/crm/contacts")]);
+    const mData = await mRes.json();
+    const cData = await cRes.json();
+    setResults(mData.results || []);
+    setContacts((cData.contacts || []).map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })));
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function saveCriteria() {
+    if (!selectedContactId) { setError(tri(lang, "یک مخاطب انتخاب کنید", "Select a contact", "Kontakt auswählen")); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const buyerCriteria: Record<string, unknown> = {};
+      if (propertyType) buyerCriteria.propertyType = propertyType;
+      if (listingType) buyerCriteria.listingType = listingType;
+      if (city) buyerCriteria.city = city;
+      if (budgetMin) buyerCriteria.budgetMin = Number(budgetMin);
+      if (budgetMax) buyerCriteria.budgetMax = Number(budgetMax);
+      if (minBedrooms) buyerCriteria.minBedrooms = Number(minBedrooms);
+
+      const res = await fetch(`/api/crm/contacts/${selectedContactId}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customFields: { buyerCriteria } }),
+      });
+      if (!res.ok) throw new Error();
+      setShowSetCriteria(false);
+      setSelectedContactId(""); setPropertyType(""); setListingType(""); setCity(""); setBudgetMin(""); setBudgetMax(""); setMinBedrooms("");
+      load();
+    } catch {
+      setError(tri(lang, "خطا در ذخیره معیارها", "Failed to save criteria", "Fehler beim Speichern"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <button onClick={() => setShowSetCriteria((v) => !v)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
+          <Plus className="w-4 h-4" /> {tri(lang, "تعیین معیار خریدار", "Set buyer criteria", "Käuferkriterien festlegen")}
+        </button>
+      </div>
+
+      {showSetCriteria && (
+        <div className="rounded-2xl p-4 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <select value={selectedContactId} onChange={(e) => setSelectedContactId(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{tri(lang, "انتخاب مخاطب خریدار", "Select buyer contact", "Käuferkontakt auswählen")}</option>
+            {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <div className="grid grid-cols-2 gap-2">
+            <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              <option value="">{tri(lang, "نوع ملک (هر نوع)", "Property type (any)", "Immobilientyp (alle)")}</option>
+              {Object.entries(PROPERTY_TYPE_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
+            </select>
+            <select value={listingType} onChange={(e) => setListingType(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              <option value="">{tri(lang, "نوع معامله (هر نوع)", "Deal type (any)", "Geschäftsart (alle)")}</option>
+              <option value="buy">{tri(lang, "خرید", "Buy", "Kauf")}</option>
+              <option value="rent">{tri(lang, "اجاره", "Rent", "Miete")}</option>
+            </select>
+          </div>
+          <input value={city} onChange={(e) => setCity(e.target.value)} placeholder={tri(lang, "شهر (هر شهر)", "City (any)", "Stadt (alle)")}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <div className="grid grid-cols-3 gap-2">
+            <input value={budgetMin} onChange={(e) => setBudgetMin(e.target.value)} type="number" placeholder={tri(lang, "حداقل بودجه", "Min budget", "Min. Budget")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <input value={budgetMax} onChange={(e) => setBudgetMax(e.target.value)} type="number" placeholder={tri(lang, "حداکثر بودجه", "Max budget", "Max. Budget")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <input value={minBedrooms} onChange={(e) => setMinBedrooms(e.target.value)} type="number" placeholder={tri(lang, "حداقل خواب", "Min bedrooms", "Min. Schlafzimmer")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          </div>
+          {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
+          <button onClick={saveCriteria} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : tri(lang, "ذخیره معیارها", "Save criteria", "Kriterien speichern")}
+          </button>
+        </div>
+      )}
+
+      {results.length === 0 ? (
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز هیچ خریداری معیار جستجو ندارد", "No buyers have search criteria yet", "Noch keine Käuferkriterien")}</p>
+      ) : (
+        <div className="space-y-3">
+          {results.map((r) => (
+            <div key={r.contactId} className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{r.contactName}{r.phone ? ` · ${r.phone}` : ""}</p>
+                <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: r.matches.length > 0 ? "rgba(34,197,94,0.1)" : "var(--surface-2)", color: r.matches.length > 0 ? "#22c55e" : "var(--text-muted)" }}>
+                  {r.matches.length} {tri(lang, "ملک منطبق", "matches", "Treffer")}
+                </span>
+              </div>
+              {r.matches.length > 0 && (
+                <div className="space-y-1.5">
+                  {r.matches.map((m) => (
+                    <div key={m.id} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
+                      <span style={{ color: "var(--text-primary)" }}>{m.title} — {m.address}{m.city ? `، ${m.city}` : ""}</span>
+                      <span style={{ color: "var(--primary)" }}>{fmtMoney(m.price)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

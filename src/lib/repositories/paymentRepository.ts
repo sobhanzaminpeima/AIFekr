@@ -7,7 +7,7 @@ import type { Payment, User } from "@prisma/client";
  * so it gets one audited implementation instead of being re-derived per route.
  */
 
-export function createPendingPayment(data: { userId: string; amount: number; plan: string; gateway: string }) {
+export function createPendingPayment(data: { userId: string; amount: number; plan: string; gateway: string; walletDiscountToman?: number }) {
   return prisma.payment.create({ data: { ...data, status: "PENDING" } });
 }
 

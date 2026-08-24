@@ -44,6 +44,13 @@ model User {
   referredBy        String?
   /// True once the referral signup bonus has been granted to both this user and their referrer — prevents double-granting on plan renewals.
   referralRewarded  Boolean   @default(false)
+  /// Affiliate wallet balance in Toman — earned as a configurable % commission
+  /// (see SiteSetting key "referral_commission_percent", src/lib/utils/referralWallet.ts)
+  /// whenever a user this account referred makes a purchase. Never moved by
+  /// automated code beyond the transactions in WalletTransaction — cash
+  /// payouts always go through a WalletPayoutRequest an admin resolves
+  /// manually after actually sending the money outside this app.
+  walletBalance     Int       @default(0)
 
   conversations       Conversation[]
   projects            Project[]
@@ -51,6 +58,8 @@ model User {
   videos              GeneratedVideo[]
   musics              GeneratedMusic[]
   payments            Payment[]
+  walletTransactions  WalletTransaction[]
+  walletPayoutRequests WalletPayoutRequest[]
   usageLogs           UsageLog[]
   otpCodes            OtpCode[]
   crmContacts         CrmContact[]
@@ -301,10 +310,72 @@ model Payment {
   refId     String?
   authority String?  @unique
   createdAt DateTime @default(now())
+  /// Toman amount of the affiliate-wallet discount already subtracted from
+  /// `amount` for this checkout (0 = no wallet used). Deliberately NOT
+  /// deducted from the wallet at creation time — only at payment success
+  /// (see payment/verify and webhooks/nowpayments) — so an abandoned or
+  /// failed checkout never loses the user real wallet money for nothing.
+  walletDiscountToman Int @default(0)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+/// Audit ledger for User.walletBalance — every balance change is one row
+/// here, so the running balance is always reconstructable/verifiable rather
+/// than trusted blindly. Amount is signed Toman (positive = credit, negative
+/// = debit).
+model WalletTransaction {
+  id                String   @id @default(cuid())
+  userId            String
+  /// commission | redeem_at_checkout | payout_request | payout_rejected_refund
+  type              String
+  amount            Int
+  /// The purchase that generated a commission entry, or that a redeem
+  /// discount was applied to — null for payout entries.
+  relatedPaymentId  String?
+  /// The referred user whose purchase generated a commission entry.
+  relatedUserId     String?
+  payoutRequestId   String?
+  note              String?
+  createdAt         DateTime @default(now())
+
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payoutRequest WalletPayoutRequest? @relation(fields: [payoutRequestId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([payoutRequestId])
+}
+
+/// A cash-out request against User.walletBalance. Creating one immediately
+/// reserves (debits) the balance so it can't be double-spent while pending —
+/// see POST /api/wallet/payout-request. Actually sending the money always
+/// happens outside this app (bank transfer / PayPal, done by an admin
+/// manually); this row is only ever marked "paid" after that already
+/// happened, never used to trigger a transfer itself.
+model WalletPayoutRequest {
+  id              String    @id @default(cuid())
+  userId          String
+  amount          Int
+  /// iran_sheba | iran_card | intl_card | paypal
+  method          String
+  sheba           String?
+  cardNumber      String?
+  cardHolderName  String?
+  paypalEmail     String?
+  /// pending | paid | rejected
+  status          String    @default("pending")
+  adminNote       String?
+  createdAt       DateTime  @default(now())
+  resolvedAt      DateTime?
+  resolvedById    String?
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+
+  @@index([userId])
+  @@index([status])
 }
 
 /// Admin-added AI providers — lets an admin plug in a new chat model (any

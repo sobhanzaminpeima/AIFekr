@@ -6,7 +6,7 @@ import { verifyIpnSignature } from "@/lib/payment/nowpayments";
 import { findPaymentById, markPaymentFailed, activatePlanForPayment } from "@/lib/repositories/paymentRepository";
 import { sendPaymentConfirmEmail } from "@/lib/email/resend";
 import { REFERRAL_BONUS_CREDITS } from "@/lib/utils/credits";
-import { grantReferralBonus } from "@/lib/repositories/userRepository";
+import { grantReferralReward } from "@/lib/utils/referralWallet";
 
 /**
  * NowPayments IPN — this is the ONLY place a USDT payment gets activated.
@@ -60,8 +60,17 @@ export async function POST(req: NextRequest) {
   const refId = String(data.payment_id || data.invoice_id || "");
   await activatePlanForPayment(payment, refId, payment.authority || "", planInfo);
 
+  if (payment.walletDiscountToman > 0) {
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: payment.userId }, data: { walletBalance: { decrement: payment.walletDiscountToman } } }),
+      prisma.walletTransaction.create({
+        data: { userId: payment.userId, type: "redeem_at_checkout", amount: -payment.walletDiscountToman, relatedPaymentId: payment.id, note: `استفاده از موجودی ولت برای خرید ${payment.plan}` },
+      }),
+    ]).catch((err) => console.error("Wallet discount deduction failed:", err));
+  }
+
   if (payment.user.referredBy && !payment.user.referralRewarded) {
-    await grantReferralBonus(payment.userId, payment.user.referredBy, REFERRAL_BONUS_CREDITS).catch((err) => console.error("Referral bonus grant failed:", err));
+    await grantReferralReward(payment.userId, payment.user.referredBy, REFERRAL_BONUS_CREDITS, payment.amount, payment.id).catch((err) => console.error("Referral reward grant failed:", err));
   }
   if (payment.user.email) {
     sendPaymentConfirmEmail(payment.user.email, payment.user.name || "کاربر", payment.plan, payment.amount, refId).catch(console.error);

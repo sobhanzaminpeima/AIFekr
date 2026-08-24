@@ -35,18 +35,6 @@ export function recordLogin(userId: string, rehashedPassword?: string) {
   });
 }
 
-/**
- * Grants the one-time referral bonus to both sides of a referral atomically.
- * Caller is responsible for the `referralRewarded` guard check before calling
- * this (kept out of the transaction so a failed lookup doesn't need a rollback).
- */
-export function grantReferralBonus(userId: string, referrerId: string, amount: number) {
-  return prisma.$transaction([
-    prisma.user.update({ where: { id: userId }, data: { credits: { increment: amount }, referralRewarded: true } }),
-    prisma.user.update({ where: { id: referrerId }, data: { credits: { increment: amount } } }),
-  ]);
-}
-
 /** Removes a team seat and resets the departing member back to the FREE plan, atomically. */
 export function removeTeamSeatAndResetPlan(teamMemberUserId: string) {
   return prisma.$transaction([

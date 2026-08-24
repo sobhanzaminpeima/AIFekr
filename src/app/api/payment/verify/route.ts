@@ -7,7 +7,7 @@ import { sendPaymentConfirmEmail } from "@/lib/email/resend";
 import { redirect } from "next/navigation";
 import { REFERRAL_BONUS_CREDITS } from "@/lib/utils/credits";
 import { findPaymentById, markPaymentFailed, activatePlanForPayment } from "@/lib/repositories/paymentRepository";
-import { grantReferralBonus } from "@/lib/repositories/userRepository";
+import { grantReferralReward } from "@/lib/utils/referralWallet";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -40,12 +40,24 @@ export async function GET(req: NextRequest) {
   const planInfo = pkg ? { credits: pkg.credits, days: pkg.duration, crmSeatLimit: pkg.crmSeatLimit } : undefined;
   await activatePlanForPayment(payment, result.refId || "", authority, planInfo);
 
-  // Referral bonus — first paid purchase by a referred user rewards both
-  // sides once. Guarded by referralRewarded so a plan renewal (a second
-  // successful payment) never grants it twice.
+  // Wallet discount is only actually deducted now, on success — see the
+  // comment in payment/create/route.ts for why it isn't deducted at creation.
+  if (payment.walletDiscountToman > 0) {
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: payment.userId }, data: { walletBalance: { decrement: payment.walletDiscountToman } } }),
+      prisma.walletTransaction.create({
+        data: { userId: payment.userId, type: "redeem_at_checkout", amount: -payment.walletDiscountToman, relatedPaymentId: payment.id, note: `استفاده از موجودی ولت برای خرید ${payment.plan}` },
+      }),
+    ]).catch((err) => console.error("Wallet discount deduction failed:", err));
+  }
+
+  // Referral reward — first paid purchase by a referred user grants a credit
+  // bonus to the referred user and a wallet commission (% of the purchase,
+  // admin-configurable) to the referrer. Guarded by referralRewarded so a
+  // plan renewal (a second successful payment) never grants it twice.
   if (payment.user.referredBy && !payment.user.referralRewarded) {
-    await grantReferralBonus(payment.userId, payment.user.referredBy, REFERRAL_BONUS_CREDITS)
-      .catch((err) => console.error("Referral bonus grant failed:", err));
+    await grantReferralReward(payment.userId, payment.user.referredBy, REFERRAL_BONUS_CREDITS, payment.amount, payment.id)
+      .catch((err) => console.error("Referral reward grant failed:", err));
   }
 
   // Send confirmation email

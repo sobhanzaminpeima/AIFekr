@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, CreditCard, DollarSign, Bot, Wrench,
   Activity, Settings, LogOut, Sparkles, Shield, MessageSquare,
   HelpCircle, Package, UserCog, Database, Cpu, Contact,
-  ChevronDown, Factory, Building2, Tag, Clock, Globe, Coins, Rocket, BarChart2, Phone, ToggleRight,
+  ChevronDown, Factory, Building2, Tag, Clock, Globe, Coins, Rocket, BarChart2, Phone, ToggleRight, Wallet,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -60,6 +60,7 @@ const navGroups = [
       { icon: Package, label: "مدیریت پکیج", href: "/admin/packages" },
       { icon: CreditCard, label: "اشتراک‌ها", href: "/admin/subscriptions" },
       { icon: DollarSign, label: "مدیریت مالی", href: "/admin/financial" },
+      { icon: Wallet, label: "افیلیت مارکتینگ", href: "/admin/affiliate" },
     ],
   },
   {

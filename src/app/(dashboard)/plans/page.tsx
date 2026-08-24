@@ -129,6 +129,8 @@ export default function PlansPage() {
   const [packages, setPackages]         = useState<ApiPackage[]>([]);
   const [showTable, setShowTable]       = useState(false);
   const [openFaq, setOpenFaq]           = useState<number | null>(null);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [useWallet, setUseWallet]       = useState(false);
   const searchParams                    = useSearchParams();
   const langInitialized                 = useRef(false);
 
@@ -152,6 +154,13 @@ export default function PlansPage() {
       .then(r => r.json())
       .then((d: { packages: ApiPackage[] }) => setPackages(d.packages || []))
       .catch(() => toast.error(tri(lang, "خطا در بارگذاری پلن‌ها", "Failed to load plans", "Pläne konnten nicht geladen werden")));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/wallet/me")
+      .then(r => r.json())
+      .then((d: { walletBalance?: number }) => setWalletBalance(d.walletBalance || 0))
+      .catch(() => {});
   }, []);
 
   // Coming from registration with a pre-selected plan (landing page → register → here) —
@@ -224,10 +233,15 @@ export default function PlansPage() {
       const res  = await fetch("/api/payment/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: planCode, period, gateway }),
+        body: JSON.stringify({ plan: planCode, period, gateway, useWallet }),
       });
       const data = await res.json();
       if (!res.ok) return toast.error(data.error || s.payError);
+      if (data.activatedByWallet) {
+        toast.success(tri(lang, "با موجودی ولت خریداری و فعال شد!", "Purchased and activated using your wallet balance!", "Mit Wallet-Guthaben gekauft und aktiviert!"));
+        window.location.href = "/plans?payment=success&ref=WALLET";
+        return;
+      }
       window.location.href = data.paymentUrl;
     } catch {
       toast.error(s.connError);
@@ -257,6 +271,20 @@ export default function PlansPage() {
           <p className="font-medium text-sm" style={{ color: "#f59e0b" }}>
             {tri(lang, "پرداخت شما در حال تأیید روی بلاکچین است — به‌محض تأیید، پلن شما خودکار فعال می‌شود.", "Your payment is confirming on the blockchain — your plan will activate automatically once confirmed.", "Ihre Zahlung wird auf der Blockchain bestätigt — Ihr Plan wird automatisch aktiviert, sobald sie bestätigt ist.")}
           </p>
+        </div>
+      )}
+
+      {/* ── Affiliate wallet balance ── */}
+      {walletBalance > 0 && isIr && (
+        <div className="p-4 rounded-2xl flex items-center gap-3 flex-wrap justify-between"
+          style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.3)" }}>
+          <p className="text-sm font-medium" style={{ color: "#10b981" }}>
+            {tri(lang, `موجودی ولت شما: ${new Intl.NumberFormat("fa-IR").format(walletBalance)} تومان`, `Your wallet balance: ${walletBalance.toLocaleString()} Toman`, `Ihr Wallet-Guthaben: ${walletBalance.toLocaleString()} Toman`)}
+          </p>
+          <label className="flex items-center gap-2 cursor-pointer text-sm" style={{ color: "var(--text-primary)" }}>
+            <input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} />
+            {tri(lang, "استفاده از موجودی ولت برای این خرید", "Use wallet balance for this purchase", "Wallet-Guthaben für diesen Kauf verwenden")}
+          </label>
         </div>
       )}
 
