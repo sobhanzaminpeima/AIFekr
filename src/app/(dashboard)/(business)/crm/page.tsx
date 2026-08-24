@@ -2765,6 +2765,57 @@ function fmtPrice(n: number, currency: string, lang: Lang): string {
 }
 
 /** Real-estate industry-pack module — Property/Listing Management. Only rendered when isModuleEnabled("crm.property") returned true (checked once in the parent via /api/crm/module-access). Reuses the unified Property model — same one Voice Agent and CRM Projects already write to — never a parallel table. */
+interface GeoCountry { id: string; iso2: string; name: string; nameFa: string | null; nameDe: string | null; emoji: string | null; }
+interface GeoCity { id: string; name: string; }
+
+// Module-level cache — the country list (251 rows) never changes during a
+// session, so every CountryCityPicker instance on a page shares one fetch
+// instead of each form issuing its own.
+let countriesCache: Promise<GeoCountry[]> | null = null;
+function loadCountries(): Promise<GeoCountry[]> {
+  if (!countriesCache) {
+    countriesCache = fetch("/api/geo/countries").then((r) => r.json()).then((d) => d.countries || []);
+  }
+  return countriesCache;
+}
+
+/** Country → City cascading picker, backed by the seeded Country/City reference tables (prisma/seed-data/countries-cities.json, ~251 countries / ~141k cities, including Northern Cyprus). Only ever writes the plain city name into onCityChange — Property.city stays a string, this is purely an input-quality improvement over free text. */
+function CountryCityPicker({ lang, cityValue, onCityChange }: { lang: Lang; cityValue: string; onCityChange: (city: string) => void }) {
+  const [countries, setCountries] = useState<GeoCountry[]>([]);
+  const [countryId, setCountryId] = useState("");
+  const [cities, setCities] = useState<GeoCity[]>([]);
+  const [loadingCities, setLoadingCities] = useState(false);
+
+  useEffect(() => { loadCountries().then(setCountries); }, []);
+
+  useEffect(() => {
+    if (!countryId) { setCities([]); return; }
+    setLoadingCities(true);
+    fetch(`/api/geo/cities?countryId=${countryId}`).then((r) => r.json()).then((d) => setCities(d.cities || [])).finally(() => setLoadingCities(false));
+  }, [countryId]);
+
+  function countryLabel(c: GeoCountry) {
+    const name = lang === "fa" ? (c.nameFa || c.name) : lang === "de" ? (c.nameDe || c.name) : c.name;
+    return `${c.emoji ? c.emoji + " " : ""}${name}`;
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <select value={countryId} onChange={(e) => { setCountryId(e.target.value); onCityChange(""); }}
+        className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+        <option value="">{tri(lang, "کشور", "Country", "Land")}</option>
+        {countries.map((c) => <option key={c.id} value={c.id}>{countryLabel(c)}</option>)}
+      </select>
+      <select value={cityValue} onChange={(e) => onCityChange(e.target.value)} disabled={!countryId || loadingCities}
+        className="w-full px-3 py-2 rounded-xl text-sm outline-none disabled:opacity-50" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+        <option value="">{loadingCities ? tri(lang, "در حال بارگذاری...", "Loading...", "Wird geladen...") : tri(lang, "شهر", "City", "Stadt")}</option>
+        {cityValue && !cities.some((c) => c.name === cityValue) && <option value={cityValue}>{cityValue}</option>}
+        {cities.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+      </select>
+    </div>
+  );
+}
+
 function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, propertyDocumentsEnabled }: { isFa: boolean; lang: Lang; contacts: Contact[]; shortTermCalendarEnabled: boolean; propertyDocumentsEnabled: boolean }) {
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2873,12 +2924,9 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
               {Object.entries(PROPERTY_TYPE_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={tri(lang, "آدرس", "Address", "Adresse")}
-              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-            <input value={city} onChange={(e) => setCity(e.target.value)} placeholder={tri(lang, "شهر", "City", "Stadt")}
-              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-          </div>
+          <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={tri(lang, "آدرس", "Address", "Adresse")}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <CountryCityPicker lang={lang} cityValue={city} onCityChange={setCity} />
 
           {listingType === "short_term_rent" ? (
             <div className="grid grid-cols-2 gap-2">
@@ -3217,6 +3265,55 @@ function PropertyDetailModal({ lang, property, contacts, onClose, onChanged }: {
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
+  // Interested customers — buyers/tenants who want THIS property, distinct
+  // from the owner above (Property.crmContactId is the owner/seller link).
+  const [interests, setInterests] = useState<{ contactId: string; note: string | null; contact: { id: string; name: string; phone: string | null; email: string | null } }[]>([]);
+  const [loadingInterests, setLoadingInterests] = useState(true);
+  const [showRegisterInterest, setShowRegisterInterest] = useState(false);
+  const [interestContactId, setInterestContactId] = useState("");
+  const [interestNewName, setInterestNewName] = useState("");
+  const [interestNewPhone, setInterestNewPhone] = useState("");
+  const [interestNote, setInterestNote] = useState("");
+  const [savingInterest, setSavingInterest] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/crm/properties/${property.id}/interests`)
+      .then((r) => r.json())
+      .then((d) => setInterests(d.interests || []))
+      .finally(() => setLoadingInterests(false));
+  }, [property.id]);
+
+  async function registerInterest() {
+    setSavingInterest(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/crm/properties/${property.id}/interests`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          interestContactId
+            ? { contactId: interestContactId, note: interestNote.trim() || undefined }
+            : { name: interestNewName.trim(), phone: interestNewPhone.trim() || undefined, note: interestNote.trim() || undefined }
+        ),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setInterests((prev) => [data.interest, ...prev.filter((i) => i.contactId !== data.interest.contactId)]);
+      setShowRegisterInterest(false);
+      setInterestContactId(""); setInterestNewName(""); setInterestNewPhone(""); setInterestNote("");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در ثبت مشتری", "Failed to register customer", "Fehler beim Registrieren des Kunden"));
+    } finally {
+      setSavingInterest(false);
+    }
+  }
+
+  async function removeInterest(contactId: string) {
+    await fetch(`/api/crm/properties/${property.id}/interests`, {
+      method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contactId }),
+    });
+    setInterests((prev) => prev.filter((i) => i.contactId !== contactId));
+  }
+
   async function saveEdit() {
     setSaving(true);
     setError("");
@@ -3360,12 +3457,9 @@ function PropertyDetailModal({ lang, property, contacts, onClose, onChanged }: {
               <input value={form.bookingLink} onChange={(e) => setForm({ ...form, bookingLink: e.target.value })} placeholder={tri(lang, "لینک Airbnb یا پلتفرم رزرو", "Airbnb or booking platform link", "Airbnb- oder Buchungsplattform-Link")} dir="ltr"
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             )}
-            <div className="grid grid-cols-2 gap-2">
-              <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder={tri(lang, "آدرس", "Address", "Adresse")}
-                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-              <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder={tri(lang, "شهر", "City", "Stadt")}
-                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-            </div>
+            <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder={tri(lang, "آدرس", "Address", "Adresse")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <CountryCityPicker lang={lang} cityValue={form.city} onCityChange={(city) => setForm({ ...form, city })} />
             <div className="grid grid-cols-3 gap-2">
               <input value={form.bedrooms} onChange={(e) => setForm({ ...form, bedrooms: e.target.value })} type="number" placeholder={tri(lang, "خواب", "Bedrooms", "Schlafzimmer")}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
@@ -3428,6 +3522,63 @@ function PropertyDetailModal({ lang, property, contacts, onClose, onChanged }: {
                   {tri(lang, "لغو", "Cancel", "Abbrechen")}
                 </button>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Interested customers — buyers/tenants who want THIS property; distinct from the owner above. */}
+        <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مشتریان علاقه‌مند به این ملک", "Customers interested in this property", "Interessierte Kunden")}</p>
+            <button onClick={() => setShowRegisterInterest((v) => !v)} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--primary)" }}>
+              {tri(lang, "+ ثبت مشتری", "+ Register customer", "+ Kunde registrieren")}
+            </button>
+          </div>
+
+          {showRegisterInterest && (
+            <div className="rounded-xl p-3 space-y-2" style={{ background: "var(--surface-2)" }}>
+              <select value={interestContactId} onChange={(e) => setInterestContactId(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                <option value="">{tri(lang, "مشتری جدید (نام را زیر وارد کنید)", "New customer (enter name below)", "Neuer Kunde (Namen unten eingeben)")}</option>
+                {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              {!interestContactId && (
+                <div className="grid grid-cols-2 gap-2">
+                  <input value={interestNewName} onChange={(e) => setInterestNewName(e.target.value)} placeholder={tri(lang, "نام مشتری", "Customer name", "Kundenname")}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                  <input value={interestNewPhone} onChange={(e) => setInterestNewPhone(e.target.value)} placeholder={tri(lang, "شماره تماس (اختیاری)", "Phone (optional)", "Telefon (optional)")}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </div>
+              )}
+              <input value={interestNote} onChange={(e) => setInterestNote(e.target.value)} placeholder={tri(lang, "یادداشت (اختیاری)", "Note (optional)", "Notiz (optional)")}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <div className="flex gap-2">
+                <button onClick={registerInterest} disabled={savingInterest || (!interestContactId && !interestNewName.trim())} className="flex-1 py-2 rounded-xl text-xs font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+                  {savingInterest ? "..." : tri(lang, "ثبت", "Register", "Registrieren")}
+                </button>
+                <button onClick={() => setShowRegisterInterest(false)} className="flex-1 py-2 rounded-xl text-xs" style={{ background: "var(--surface-1)", color: "var(--text-secondary)" }}>
+                  {tri(lang, "لغو", "Cancel", "Abbrechen")}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {loadingInterests ? (
+            <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--primary)" }} />
+          ) : interests.length === 0 ? (
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز مشتری‌ای ثبت نشده است", "No customers registered yet", "Noch keine Kunden registriert")}</p>
+          ) : (
+            <div className="space-y-1.5">
+              {interests.map((i) => (
+                <div key={i.contactId} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
+                  <div>
+                    <span style={{ color: "var(--text-primary)" }}>{i.contact.name}</span>
+                    {i.contact.phone && <span style={{ color: "var(--text-muted)" }}> · {i.contact.phone}</span>}
+                    {i.note && <p style={{ color: "var(--text-muted)" }}>{i.note}</p>}
+                  </div>
+                  <button onClick={() => removeInterest(i.contactId)}><Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} /></button>
+                </div>
+              ))}
             </div>
           )}
         </div>

@@ -378,6 +378,59 @@ model WalletPayoutRequest {
   @@index([status])
 }
 
+/// Reference data seeded once from prisma/seed-data/countries-cities.json
+/// (github.com/dr5hn/countries-states-cities-database) plus Northern
+/// Cyprus, added explicitly since it's absent from that dataset (a
+/// disputed territory most geo-databases omit). Generic — not tied to
+/// real estate — any part of the app needing a country/city picker (the
+/// Property city field today) can reuse this instead of free text.
+model Country {
+  id     String @id @default(cuid())
+  /// ISO 3166-1 alpha-2 where one exists; 'CY-N' for Northern Cyprus,
+  /// which has no official ISO code.
+  iso2   String @unique
+  name   String
+  nameFa String?
+  nameDe String?
+  emoji  String?
+
+  cities City[]
+}
+
+model City {
+  id        String  @id @default(cuid())
+  countryId String
+  name      String
+
+  country Country @relation(fields: [countryId], references: [id], onDelete: Cascade)
+
+  @@index([countryId])
+  @@index([name])
+}
+
+/// A buyer/tenant lead registered as wanting a specific property this
+/// agency already has — deliberately separate from Property.crmContactId
+/// (the OWNER/seller link, Section 1 item 2). One property can have many
+/// interested contacts, and one contact can be interested in many
+/// properties, so this is its own join row rather than a second FK on
+/// either side.
+model PropertyInterest {
+  id         String   @id @default(cuid())
+  userId     String
+  propertyId String
+  contactId  String
+  note       String?
+  createdAt  DateTime @default(now())
+
+  property Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  contact  CrmContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, contactId])
+  @@index([userId])
+  @@index([propertyId])
+  @@index([contactId])
+}
+
 /// Admin-added AI providers — lets an admin plug in a new chat model (any
 /// OpenAI-compatible /chat/completions endpoint) from the UI, without a code
 /// change or redeploy, so it immediately becomes selectable in the business
@@ -519,6 +572,7 @@ model CrmContact {
   properties Property[]
   viewings   PropertyViewing[]
   bookings   PropertyBooking[]
+  propertyInterests PropertyInterest[]
 
   @@index([userId])
   @@index([status])
@@ -1562,6 +1616,7 @@ model Property {
   viewings     PropertyViewing[]
   bookings     PropertyBooking[]
   documents    CrmDocument[]
+  interests    PropertyInterest[]
 
   @@index([userId])
   @@index([agentId])
