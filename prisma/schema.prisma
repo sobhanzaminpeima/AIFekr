@@ -1422,6 +1422,9 @@ model Property {
   bathrooms    Int?
   areaSqm      Int?
   description  String?
+  /// JSON array of image URLs (uploaded via the same R2 storage used by
+  /// CrmDocument). Nullable — a property can exist with no photos yet.
+  images       String?
   status       String   @default("available") // available | pending | sold | rented
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

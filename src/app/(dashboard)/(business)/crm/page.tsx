@@ -34,7 +34,16 @@ interface ContactDetail extends Contact {
 interface AutomationRule { id: string; name: string; trigger: string; condition: string | null; action: string; isActive: boolean; }
 interface CrmDocument { id: string; name: string; type: string; fileUrl: string; createdAt: string; }
 
-type CrmTab = "board" | "contacts" | "automation" | "agent" | "calendar" | "analytics" | "products" | "invoices" | "contracts" | "projects";
+type CrmTab = "board" | "contacts" | "automation" | "agent" | "calendar" | "analytics" | "products" | "invoices" | "contracts" | "projects" | "properties";
+
+interface PropertyRow {
+  id: string; title: string; listingType: string; propertyType: string;
+  price: number; nightlyPrice: number | null; bookingLink: string | null;
+  address: string; city: string | null; bedrooms: number | null; bathrooms: number | null; areaSqm: number | null;
+  description: string | null; images: string | null; status: string;
+  crmContact: { id: string; name: string; phone: string | null } | null;
+  crmDeal: { id: string; title: string } | null;
+}
 
 const INDUSTRY_OPTIONS: { slug: string; labelFa: string; labelEn: string }[] = [
   { slug: "real-estate", labelFa: "املاک", labelEn: "Real Estate" },
@@ -77,9 +86,11 @@ export default function CrmPage() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [crmPlan, setCrmPlan] = useState<string | null>(null);
   const [upgrading, setUpgrading] = useState(false);
+  const [propertiesEnabled, setPropertiesEnabled] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me").then((r) => r.json()).then((d) => setCrmPlan(d.user?.crmPlan || "NONE")).catch(() => setCrmPlan("NONE"));
+    fetch("/api/crm/properties/access").then((r) => r.json()).then((d) => setPropertiesEnabled(!!d.enabled)).catch(() => setPropertiesEnabled(false));
   }, []);
 
   async function purchaseCrmPlan(planCode: "CRM_SOLO" | "CRM_TEAM") {
@@ -127,7 +138,8 @@ export default function CrmPage() {
 
   useEffect(() => { loadPipelines(); }, [loadPipelines]);
   useEffect(() => { if (selectedPipelineId) loadDeals(selectedPipelineId); }, [selectedPipelineId, loadDeals]);
-  useEffect(() => { if (tab === "contacts" || tab === "invoices" || tab === "contracts" || tab === "projects") loadContacts(); }, [tab, loadContacts]);
+  useEffect(() => { if (tab === "contacts" || tab === "invoices" || tab === "contracts" || tab === "projects" || tab === "properties") loadContacts(); }, [tab, loadContacts]);
+  useEffect(() => { if (tab === "properties" && !propertiesEnabled) setTab("board"); }, [tab, propertiesEnabled]);
   useEffect(() => { if (tab === "automation") loadRules(); }, [tab, loadRules]);
   useEffect(() => {
     fetch("/api/team").then((r) => r.json()).then((data) => {
@@ -194,7 +206,7 @@ export default function CrmPage() {
       </div>
 
       <div className={`flex ${isFa ? "md:flex-row-reverse" : "md:flex-row"} flex-col gap-4 md:gap-6 items-start`}>
-        <CrmSidebar tab={tab} setTab={setTab} c={c} isFa={isFa} />
+        <CrmSidebar tab={tab} setTab={setTab} c={c} isFa={isFa} propertiesEnabled={propertiesEnabled} />
 
         <div className="flex-1 min-w-0 w-full space-y-6">
       {crmPlan === "NONE" && (
@@ -350,6 +362,8 @@ export default function CrmPage() {
         <InvoicesPanel isFa={isFa} lang={lang} t={c} contacts={contacts} />
       ) : tab === "contracts" ? (
         <ContractsPanel isFa={isFa} lang={lang} t={c} contacts={contacts} />
+      ) : tab === "properties" && propertiesEnabled ? (
+        <PropertiesPanel isFa={isFa} lang={lang} contacts={contacts} />
       ) : (
         <ProjectsPanel isFa={isFa} lang={lang} t={c} contacts={contacts} isRealEstate={pipelines.some((p) => p.industrySlug === "real-estate")} />
       )}
@@ -405,7 +419,7 @@ export default function CrmPage() {
   );
 }
 
-function CrmSidebar({ tab, setTab, c, isFa }: { tab: CrmTab; setTab: (t: CrmTab) => void; c: Translations["crm"]; isFa: boolean }) {
+function CrmSidebar({ tab, setTab, c, isFa, propertiesEnabled }: { tab: CrmTab; setTab: (t: CrmTab) => void; c: Translations["crm"]; isFa: boolean; propertiesEnabled: boolean }) {
   const items: { id: CrmTab; label: string; icon: React.ElementType }[] = [
     { id: "board", label: c.tabs.board, icon: LayoutGrid },
     { id: "contacts", label: c.tabs.contacts, icon: Users },
@@ -417,6 +431,10 @@ function CrmSidebar({ tab, setTab, c, isFa }: { tab: CrmTab; setTab: (t: CrmTab)
     { id: "invoices", label: c.tabs.invoices, icon: Receipt },
     { id: "contracts", label: c.tabs.contracts, icon: FileSignature },
     { id: "projects", label: c.tabs.projects, icon: FolderKanban },
+    // Real-estate industry-pack module — hidden entirely (not greyed out)
+    // unless isModuleEnabled() says so for this user, per the platform's
+    // access-control rule: invisible by default, never a fail-open leak.
+    ...(propertiesEnabled ? [{ id: "properties" as CrmTab, label: isFa ? "ملک‌ها" : "Properties", icon: Building2 }] : []),
   ];
 
   return (
@@ -2603,6 +2621,203 @@ function ProjectsPanel({ isFa, lang, t, contacts, isRealEstate }: { isFa: boolea
           onClose={() => setSelectedProjectId(null)}
           onChanged={load}
         />
+      )}
+    </div>
+  );
+}
+
+const PROPERTY_LISTING_TYPE_LABEL: Record<string, Record<Lang, string>> = {
+  buy: { fa: "خرید", en: "Buy", de: "Kauf" },
+  sell: { fa: "فروش", en: "Sell", de: "Verkauf" },
+  rent: { fa: "اجاره", en: "Rent", de: "Miete" },
+  short_term_rent: { fa: "اجاره روزانه", en: "Short-term rental", de: "Kurzzeitmiete" },
+};
+const PROPERTY_TYPE_LABEL: Record<string, Record<Lang, string>> = {
+  apartment: { fa: "آپارتمان", en: "Apartment", de: "Wohnung" },
+  villa: { fa: "ویلا", en: "Villa", de: "Villa" },
+  land: { fa: "زمین", en: "Land", de: "Grundstück" },
+  commercial: { fa: "تجاری", en: "Commercial", de: "Gewerbe" },
+};
+const PROPERTY_STATUS_LABEL: Record<string, Record<Lang, string>> = {
+  available: { fa: "موجود", en: "Available", de: "Verfügbar" },
+  pending: { fa: "در حال معامله", en: "Pending", de: "Ausstehend" },
+  sold: { fa: "فروخته‌شده", en: "Sold", de: "Verkauft" },
+  rented: { fa: "اجاره‌داده‌شده", en: "Rented", de: "Vermietet" },
+};
+
+/** Real-estate industry-pack module — Property/Listing Management. Only rendered when isModuleEnabled("crm.property") returned true (checked once in the parent via /api/crm/properties/access). Reuses the unified Property model — same one Voice Agent and CRM Projects already write to — never a parallel table. */
+function PropertiesPanel({ isFa, lang, contacts }: { isFa: boolean; lang: Lang; contacts: Contact[] }) {
+  const [properties, setProperties] = useState<PropertyRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showNew, setShowNew] = useState(false);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [selected, setSelected] = useState<PropertyRow | null>(null);
+
+  const [title, setTitle] = useState("");
+  const [listingType, setListingType] = useState("sell");
+  const [propertyType, setPropertyType] = useState("apartment");
+  const [price, setPrice] = useState("");
+  const [nightlyPrice, setNightlyPrice] = useState("");
+  const [bookingLink, setBookingLink] = useState("");
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [bedrooms, setBedrooms] = useState("");
+  const [bathrooms, setBathrooms] = useState("");
+  const [areaSqm, setAreaSqm] = useState("");
+  const [description, setDescription] = useState("");
+  const [ownerContactId, setOwnerContactId] = useState("");
+
+  const load = useCallback(async () => {
+    const res = await fetch("/api/crm/properties");
+    const data = await res.json();
+    setProperties(data.properties || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  function resetForm() {
+    setTitle(""); setListingType("sell"); setPropertyType("apartment"); setPrice(""); setNightlyPrice("");
+    setBookingLink(""); setAddress(""); setCity(""); setBedrooms(""); setBathrooms(""); setAreaSqm(""); setDescription(""); setOwnerContactId("");
+  }
+
+  async function createProperty() {
+    if (!title.trim()) { setError(tri(lang, "عنوان ملک الزامی است", "Property title is required", "Immobilientitel ist erforderlich")); return; }
+    if (!address.trim()) { setError(tri(lang, "آدرس الزامی است", "Address is required", "Adresse ist erforderlich")); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/crm/properties", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(), listingType, propertyType, address: address.trim(), city: city.trim() || undefined,
+          price: listingType !== "short_term_rent" ? price : undefined,
+          nightlyPrice: listingType === "short_term_rent" ? nightlyPrice : undefined,
+          bookingLink: bookingLink.trim() || undefined,
+          bedrooms: bedrooms || undefined, bathrooms: bathrooms || undefined, areaSqm: areaSqm || undefined,
+          description: description.trim() || undefined,
+          crmContactId: ownerContactId || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (data.bookingLinkWarning) alert(data.bookingLinkWarning);
+      setShowNew(false);
+      resetForm();
+      load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در ذخیره ملک", "Failed to save property", "Fehler beim Speichern der Immobilie"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function setStatus(id: string, status: string) {
+    await fetch(`/api/crm/properties/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    load();
+  }
+
+  async function deleteProperty(id: string) {
+    await fetch(`/api/crm/properties/${id}`, { method: "DELETE" });
+    setSelected(null);
+    load();
+  }
+
+  if (loading) return <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <button onClick={() => setShowNew((v) => !v)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
+          <Plus className="w-4 h-4" /> {tri(lang, "ملک جدید", "New property", "Neue Immobilie")}
+        </button>
+      </div>
+
+      {showNew && (
+        <div className="rounded-2xl p-4 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tri(lang, "عنوان ملک", "Property title", "Immobilientitel")}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <div className="grid grid-cols-2 gap-2">
+            <select value={listingType} onChange={(e) => setListingType(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              {Object.entries(PROPERTY_LISTING_TYPE_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
+            </select>
+            <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              {Object.entries(PROPERTY_TYPE_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={tri(lang, "آدرس", "Address", "Adresse")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <input value={city} onChange={(e) => setCity(e.target.value)} placeholder={tri(lang, "شهر", "City", "Stadt")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          </div>
+
+          {listingType === "short_term_rent" ? (
+            <div className="grid grid-cols-2 gap-2">
+              <input value={nightlyPrice} onChange={(e) => setNightlyPrice(e.target.value)} type="number" placeholder={tri(lang, "قیمت هر شب (تومان)", "Price per night (Toman)", "Preis pro Nacht (Toman)")}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <input value={bookingLink} onChange={(e) => setBookingLink(e.target.value)} placeholder={tri(lang, "لینک پلتفرم رزرو", "Booking platform link", "Buchungsplattform-Link")}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+          ) : (
+            <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" placeholder={tri(lang, "قیمت کل (تومان)", "Total price (Toman)", "Gesamtpreis (Toman)")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          )}
+
+          <div className="grid grid-cols-3 gap-2">
+            <input value={bedrooms} onChange={(e) => setBedrooms(e.target.value)} type="number" placeholder={tri(lang, "خواب", "Bedrooms", "Schlafzimmer")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <input value={bathrooms} onChange={(e) => setBathrooms(e.target.value)} type="number" placeholder={tri(lang, "سرویس", "Bathrooms", "Badezimmer")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <input value={areaSqm} onChange={(e) => setAreaSqm(e.target.value)} type="number" placeholder={tri(lang, "متراژ", "Area (sqm)", "Fläche (qm)")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          </div>
+
+          <select value={ownerContactId} onChange={(e) => setOwnerContactId(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{tri(lang, "بدون مالک/مخاطب مشخص", "No owner/contact set", "Kein Eigentümer/Kontakt festgelegt")}</option>
+            {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder={tri(lang, "توضیحات", "Description", "Beschreibung")}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+
+          {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
+          <button onClick={createProperty} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : tri(lang, "ذخیره ملک", "Save property", "Immobilie speichern")}
+          </button>
+        </div>
+      )}
+
+      {properties.length === 0 ? (
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز ملکی ثبت نشده است", "No properties yet", "Noch keine Immobilien")}</p>
+      ) : (
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+          {properties.map((p, i) => (
+            <div key={p.id} onClick={() => setSelected(p)} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2 cursor-pointer transition-colors hover:bg-white/[0.02]" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+              <div>
+                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                  {p.title} — {PROPERTY_LISTING_TYPE_LABEL[p.listingType]?.[lang] || p.listingType}
+                  {p.crmContact ? ` · ${p.crmContact.name}` : ""}
+                </p>
+                <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                  {p.address}{p.city ? `، ${p.city}` : ""} · {p.listingType === "short_term_rent" ? (p.nightlyPrice ? `${fmtMoney(p.nightlyPrice)} ${tri(lang, "شب", "/night", "/Nacht")}` : "—") : fmtMoney(p.price)}
+                </p>
+              </div>
+              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                <select value={p.status} onChange={(e) => setStatus(p.id, e.target.value)}
+                  className="text-[10px] px-2 py-1 rounded-full font-medium outline-none" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "none" }}>
+                  {Object.entries(PROPERTY_STATUS_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
+                </select>
+                <button onClick={() => deleteProperty(p.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
