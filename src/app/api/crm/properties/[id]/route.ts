@@ -10,9 +10,9 @@ function serialize(p: { price: bigint; nightlyPrice: bigint | null; [k: string]:
   return { ...p, price: Number(p.price), nightlyPrice: p.nightlyPrice != null ? Number(p.nightlyPrice) : null };
 }
 
-async function checkPropertyModuleAccess(userId: string, role: string, workspaceUserId: string) {
+async function checkModuleAccess(userId: string, role: string, workspaceUserId: string, moduleKey: string) {
   const owner = await prisma.user.findUnique({ where: { id: workspaceUserId }, select: { industryPackId: true } });
-  return isModuleEnabled({ id: userId, role, industryPackId: owner?.industryPackId ?? null }, "crm.property");
+  return isModuleEnabled({ id: userId, role, industryPackId: owner?.industryPackId ?? null }, moduleKey);
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -20,7 +20,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
-  if (!(await checkPropertyModuleAccess(user.id, user.role, ws.workspaceUserId))) {
+  if (!(await checkModuleAccess(user.id, user.role, ws.workspaceUserId, "crm.property"))) {
     return NextResponse.json({ error: "این ماژول برای شما فعال نیست" }, { status: 403 });
   }
 
@@ -28,7 +28,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!existing) return NextResponse.json({ error: "ملک یافت نشد" }, { status: 404 });
 
   const body = await req.json();
-  const { title, propertyType, price, nightlyPrice, bookingLink, address, city, bedrooms, bathrooms, areaSqm, description, images, status, crmContactId, crmDealId } = body;
+  const { title, propertyType, price, nightlyPrice, bookingLink, address, city, bedrooms, bathrooms, areaSqm, description, images, status, crmContactId, crmDealId, representationStartDate, representationEndDate, agreedCommissionRate } = body;
+
+  const touchesOwnerFields = representationStartDate !== undefined || representationEndDate !== undefined || agreedCommissionRate !== undefined;
+  if (touchesOwnerFields && !(await checkModuleAccess(user.id, user.role, ws.workspaceUserId, "crm.owner"))) {
+    return NextResponse.json({ error: "ماژول مدیریت مالک برای شما فعال نیست" }, { status: 403 });
+  }
 
   let resolvedBookingLink: string | undefined;
   let bookingLinkWarning: string | null = null;
@@ -58,6 +63,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       status: status || undefined,
       crmContactId: crmContactId !== undefined ? (crmContactId || null) : undefined,
       crmDealId: crmDealId !== undefined ? (crmDealId || null) : undefined,
+      representationStartDate: representationStartDate !== undefined ? (representationStartDate ? new Date(representationStartDate) : null) : undefined,
+      representationEndDate: representationEndDate !== undefined ? (representationEndDate ? new Date(representationEndDate) : null) : undefined,
+      agreedCommissionRate: agreedCommissionRate !== undefined ? (agreedCommissionRate != null ? Number(agreedCommissionRate) : null) : undefined,
     },
   });
 
@@ -69,7 +77,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
-  if (!(await checkPropertyModuleAccess(user.id, user.role, ws.workspaceUserId))) {
+  if (!(await checkModuleAccess(user.id, user.role, ws.workspaceUserId, "crm.property"))) {
     return NextResponse.json({ error: "این ماژول برای شما فعال نیست" }, { status: 403 });
   }
 

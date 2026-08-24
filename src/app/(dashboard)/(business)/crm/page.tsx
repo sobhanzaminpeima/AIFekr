@@ -34,16 +34,33 @@ interface ContactDetail extends Contact {
 interface AutomationRule { id: string; name: string; trigger: string; condition: string | null; action: string; isActive: boolean; }
 interface CrmDocument { id: string; name: string; type: string; fileUrl: string; createdAt: string; }
 
-type CrmTab = "board" | "contacts" | "automation" | "agent" | "calendar" | "analytics" | "products" | "invoices" | "contracts" | "projects" | "properties";
+type CrmTab = "board" | "contacts" | "automation" | "agent" | "calendar" | "analytics" | "products" | "invoices" | "contracts" | "projects" | "properties" | "owners" | "viewings";
 
 interface PropertyRow {
   id: string; title: string; listingType: string; propertyType: string;
   price: number; nightlyPrice: number | null; bookingLink: string | null;
   address: string; city: string | null; bedrooms: number | null; bathrooms: number | null; areaSqm: number | null;
   description: string | null; images: string | null; status: string;
+  representationStartDate: string | null; representationEndDate: string | null; agreedCommissionRate: number | null;
   crmContact: { id: string; name: string; phone: string | null } | null;
   crmDeal: { id: string; title: string } | null;
 }
+
+interface OwnerRow {
+  id: string; name: string; phone: string | null; email: string | null;
+  propertiesOwnedCount: number;
+  properties: { id: string; title: string; status: string; listingType: string; address: string; city: string | null; representationStartDate: string | null; representationEndDate: string | null; agreedCommissionRate: number | null }[];
+}
+
+interface ViewingRow {
+  id: string; propertyId: string; contactId: string | null; assignedToId: string | null;
+  scheduledAt: string; durationMin: number; status: string; feedback: string | null; feedbackRating: number | null;
+  property: { id: string; title: string; address: string };
+  contact: { id: string; name: string; phone: string | null } | null;
+  assignedTo: { id: string; name: string } | null;
+}
+
+const REAL_ESTATE_MODULE_KEYS = ["crm.property", "crm.owner", "crm.viewingScheduler"];
 
 const INDUSTRY_OPTIONS: { slug: string; labelFa: string; labelEn: string }[] = [
   { slug: "real-estate", labelFa: "املاک", labelEn: "Real Estate" },
@@ -86,12 +103,15 @@ export default function CrmPage() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [crmPlan, setCrmPlan] = useState<string | null>(null);
   const [upgrading, setUpgrading] = useState(false);
-  const [propertiesEnabled, setPropertiesEnabled] = useState(false);
+  const [moduleAccess, setModuleAccess] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetch("/api/auth/me").then((r) => r.json()).then((d) => setCrmPlan(d.user?.crmPlan || "NONE")).catch(() => setCrmPlan("NONE"));
-    fetch("/api/crm/properties/access").then((r) => r.json()).then((d) => setPropertiesEnabled(!!d.enabled)).catch(() => setPropertiesEnabled(false));
+    fetch(`/api/crm/module-access?keys=${REAL_ESTATE_MODULE_KEYS.join(",")}`).then((r) => r.json()).then((d) => setModuleAccess(d.access || {})).catch(() => setModuleAccess({}));
   }, []);
+  const propertiesEnabled = !!moduleAccess["crm.property"];
+  const ownersEnabled = !!moduleAccess["crm.owner"];
+  const viewingsEnabled = !!moduleAccess["crm.viewingScheduler"];
 
   async function purchaseCrmPlan(planCode: "CRM_SOLO" | "CRM_TEAM") {
     setUpgrading(true);
@@ -138,8 +158,10 @@ export default function CrmPage() {
 
   useEffect(() => { loadPipelines(); }, [loadPipelines]);
   useEffect(() => { if (selectedPipelineId) loadDeals(selectedPipelineId); }, [selectedPipelineId, loadDeals]);
-  useEffect(() => { if (tab === "contacts" || tab === "invoices" || tab === "contracts" || tab === "projects" || tab === "properties") loadContacts(); }, [tab, loadContacts]);
+  useEffect(() => { if (tab === "contacts" || tab === "invoices" || tab === "contracts" || tab === "projects" || tab === "properties" || tab === "owners" || tab === "viewings") loadContacts(); }, [tab, loadContacts]);
   useEffect(() => { if (tab === "properties" && !propertiesEnabled) setTab("board"); }, [tab, propertiesEnabled]);
+  useEffect(() => { if (tab === "owners" && !ownersEnabled) setTab("board"); }, [tab, ownersEnabled]);
+  useEffect(() => { if (tab === "viewings" && !viewingsEnabled) setTab("board"); }, [tab, viewingsEnabled]);
   useEffect(() => { if (tab === "automation") loadRules(); }, [tab, loadRules]);
   useEffect(() => {
     fetch("/api/team").then((r) => r.json()).then((data) => {
@@ -206,7 +228,7 @@ export default function CrmPage() {
       </div>
 
       <div className={`flex ${isFa ? "md:flex-row-reverse" : "md:flex-row"} flex-col gap-4 md:gap-6 items-start`}>
-        <CrmSidebar tab={tab} setTab={setTab} c={c} isFa={isFa} propertiesEnabled={propertiesEnabled} />
+        <CrmSidebar tab={tab} setTab={setTab} c={c} isFa={isFa} propertiesEnabled={propertiesEnabled} ownersEnabled={ownersEnabled} viewingsEnabled={viewingsEnabled} />
 
         <div className="flex-1 min-w-0 w-full space-y-6">
       {crmPlan === "NONE" && (
@@ -364,6 +386,10 @@ export default function CrmPage() {
         <ContractsPanel isFa={isFa} lang={lang} t={c} contacts={contacts} />
       ) : tab === "properties" && propertiesEnabled ? (
         <PropertiesPanel isFa={isFa} lang={lang} contacts={contacts} />
+      ) : tab === "owners" && ownersEnabled ? (
+        <OwnersPanel lang={lang} />
+      ) : tab === "viewings" && viewingsEnabled ? (
+        <ViewingsPanel lang={lang} teamMembers={teamMembers} />
       ) : (
         <ProjectsPanel isFa={isFa} lang={lang} t={c} contacts={contacts} isRealEstate={pipelines.some((p) => p.industrySlug === "real-estate")} />
       )}
@@ -419,7 +445,7 @@ export default function CrmPage() {
   );
 }
 
-function CrmSidebar({ tab, setTab, c, isFa, propertiesEnabled }: { tab: CrmTab; setTab: (t: CrmTab) => void; c: Translations["crm"]; isFa: boolean; propertiesEnabled: boolean }) {
+function CrmSidebar({ tab, setTab, c, isFa, propertiesEnabled, ownersEnabled, viewingsEnabled }: { tab: CrmTab; setTab: (t: CrmTab) => void; c: Translations["crm"]; isFa: boolean; propertiesEnabled: boolean; ownersEnabled: boolean; viewingsEnabled: boolean }) {
   const items: { id: CrmTab; label: string; icon: React.ElementType }[] = [
     { id: "board", label: c.tabs.board, icon: LayoutGrid },
     { id: "contacts", label: c.tabs.contacts, icon: Users },
@@ -431,10 +457,12 @@ function CrmSidebar({ tab, setTab, c, isFa, propertiesEnabled }: { tab: CrmTab; 
     { id: "invoices", label: c.tabs.invoices, icon: Receipt },
     { id: "contracts", label: c.tabs.contracts, icon: FileSignature },
     { id: "projects", label: c.tabs.projects, icon: FolderKanban },
-    // Real-estate industry-pack module — hidden entirely (not greyed out)
+    // Real-estate industry-pack modules — hidden entirely (not greyed out)
     // unless isModuleEnabled() says so for this user, per the platform's
     // access-control rule: invisible by default, never a fail-open leak.
     ...(propertiesEnabled ? [{ id: "properties" as CrmTab, label: isFa ? "ملک‌ها" : "Properties", icon: Building2 }] : []),
+    ...(ownersEnabled ? [{ id: "owners" as CrmTab, label: isFa ? "مالکین" : "Owners", icon: Users }] : []),
+    ...(viewingsEnabled ? [{ id: "viewings" as CrmTab, label: isFa ? "زمان‌بندی بازدید" : "Viewings", icon: CalendarDays }] : []),
   ];
 
   return (
@@ -2645,7 +2673,7 @@ const PROPERTY_STATUS_LABEL: Record<string, Record<Lang, string>> = {
   rented: { fa: "اجاره‌داده‌شده", en: "Rented", de: "Vermietet" },
 };
 
-/** Real-estate industry-pack module — Property/Listing Management. Only rendered when isModuleEnabled("crm.property") returned true (checked once in the parent via /api/crm/properties/access). Reuses the unified Property model — same one Voice Agent and CRM Projects already write to — never a parallel table. */
+/** Real-estate industry-pack module — Property/Listing Management. Only rendered when isModuleEnabled("crm.property") returned true (checked once in the parent via /api/crm/module-access). Reuses the unified Property model — same one Voice Agent and CRM Projects already write to — never a parallel table. */
 function PropertiesPanel({ isFa, lang, contacts }: { isFa: boolean; lang: Lang; contacts: Contact[] }) {
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2817,6 +2845,286 @@ function PropertiesPanel({ isFa, lang, contacts }: { isFa: boolean; lang: Lang; 
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Section 1, item 2 — Owner Management. "Owner" is derived, not a stored role: a CrmContact shows up here purely because it's linked via Property.crmContactId to >=1 property. Representation terms are edited per-property (same PATCH endpoint as PropertiesPanel), gated separately behind crm.owner. */
+function OwnersPanel({ lang }: { lang: Lang }) {
+  const [owners, setOwners] = useState<OwnerRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ ownerId: string; propertyId: string } | null>(null);
+  const [form, setForm] = useState({ representationStartDate: "", representationEndDate: "", agreedCommissionRate: "" });
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    const res = await fetch("/api/crm/owners");
+    const data = await res.json();
+    setOwners(data.owners || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  function startEdit(ownerId: string, prop: OwnerRow["properties"][number]) {
+    setEditing({ ownerId, propertyId: prop.id });
+    setForm({
+      representationStartDate: prop.representationStartDate ? prop.representationStartDate.slice(0, 10) : "",
+      representationEndDate: prop.representationEndDate ? prop.representationEndDate.slice(0, 10) : "",
+      agreedCommissionRate: prop.agreedCommissionRate != null ? String(prop.agreedCommissionRate) : "",
+    });
+  }
+
+  async function saveRepresentation() {
+    if (!editing) return;
+    setSaving(true);
+    try {
+      await fetch(`/api/crm/properties/${editing.propertyId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          representationStartDate: form.representationStartDate || null,
+          representationEndDate: form.representationEndDate || null,
+          agreedCommissionRate: form.agreedCommissionRate ? Number(form.agreedCommissionRate) : null,
+        }),
+      });
+      setEditing(null);
+      load();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />;
+
+  return (
+    <div className="space-y-3">
+      {owners.length === 0 ? (
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>
+          {tri(lang, "هنوز مالکی ثبت نشده — یک مخاطب را در فرم ثبت ملک به‌عنوان مالک انتخاب کنید", "No owners yet — link a contact as owner when creating a property", "Noch keine Eigentümer — verknüpfen Sie einen Kontakt beim Anlegen einer Immobilie")}
+        </p>
+      ) : (
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+          {owners.map((o, i) => (
+            <div key={o.id} style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+              <button onClick={() => setExpanded(expanded === o.id ? null : o.id)} className="w-full flex items-center justify-between px-4 py-3 text-right">
+                <div>
+                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{o.name}</p>
+                  <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{o.phone || o.email || "—"}</p>
+                </div>
+                <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(234,88,12,0.12)", color: "var(--primary)" }}>
+                  {o.propertiesOwnedCount} {tri(lang, "ملک", "properties", "Immobilien")}
+                </span>
+              </button>
+              {expanded === o.id && (
+                <div className="px-4 pb-3 space-y-2">
+                  {o.properties.map((p) => (
+                    <div key={p.id} className="rounded-xl p-3 space-y-2" style={{ background: "var(--surface-2)" }}>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>{p.title} — {p.address}{p.city ? `، ${p.city}` : ""}</p>
+                        {editing?.propertyId !== p.id && (
+                          <button onClick={() => startEdit(o.id, p)} className="text-[11px]" style={{ color: "var(--primary)" }}>
+                            {tri(lang, "ویرایش قرارداد", "Edit terms", "Bedingungen bearbeiten")}
+                          </button>
+                        )}
+                      </div>
+                      {editing?.propertyId === p.id ? (
+                        <div className="grid grid-cols-3 gap-2">
+                          <input type="date" value={form.representationStartDate} onChange={(e) => setForm({ ...form, representationStartDate: e.target.value })}
+                            className="px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                          <input type="date" value={form.representationEndDate} onChange={(e) => setForm({ ...form, representationEndDate: e.target.value })}
+                            className="px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                          <input type="number" step="0.1" value={form.agreedCommissionRate} onChange={(e) => setForm({ ...form, agreedCommissionRate: e.target.value })}
+                            placeholder={tri(lang, "کمیسیون %", "Commission %", "Provision %")}
+                            className="px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                          <div className="col-span-3 flex gap-2">
+                            <button onClick={saveRepresentation} disabled={saving} className="flex-1 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+                              {saving ? "..." : tri(lang, "ذخیره", "Save", "Speichern")}
+                            </button>
+                            <button onClick={() => setEditing(null)} className="flex-1 py-1.5 rounded-lg text-xs" style={{ background: "var(--surface-1)", color: "var(--text-secondary)" }}>
+                              {tri(lang, "لغو", "Cancel", "Abbrechen")}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                          {tri(lang, "بازه قرارداد:", "Agreement period:", "Vertragszeitraum:")} {p.representationStartDate ? p.representationStartDate.slice(0, 10) : "—"} → {p.representationEndDate ? p.representationEndDate.slice(0, 10) : "—"}
+                          {" · "}{tri(lang, "کمیسیون:", "Commission:", "Provision:")} {p.agreedCommissionRate != null ? `${p.agreedCommissionRate}%` : "—"}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Section 1, item 4 — Viewing Scheduler. A real calendar slot per PropertyViewing row (not a text field), server-side double-booking check per assigned team member (src/app/api/crm/viewings). Post-viewing feedback capture built in. */
+function ViewingsPanel({ lang, teamMembers }: { lang: Lang; teamMembers: TeamMember[] }) {
+  const [viewings, setViewings] = useState<ViewingRow[]>([]);
+  const [properties, setProperties] = useState<PropertyRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showNew, setShowNew] = useState(false);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [feedbackTarget, setFeedbackTarget] = useState<ViewingRow | null>(null);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackRating, setFeedbackRating] = useState("");
+
+  const [propertyId, setPropertyId] = useState("");
+  const [contactId, setContactId] = useState("");
+  const [assignedToId, setAssignedToId] = useState("");
+  const [scheduledAt, setScheduledAt] = useState("");
+
+  const load = useCallback(async () => {
+    const [vRes, pRes] = await Promise.all([fetch("/api/crm/viewings"), fetch("/api/crm/properties")]);
+    const vData = await vRes.json();
+    const pData = await pRes.json();
+    setViewings(vData.viewings || []);
+    setProperties(pData.properties || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function createViewing() {
+    if (!propertyId) { setError(tri(lang, "ملک الزامی است", "Property is required", "Immobilie ist erforderlich")); return; }
+    if (!scheduledAt) { setError(tri(lang, "زمان بازدید الزامی است", "Viewing time is required", "Besichtigungszeit ist erforderlich")); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/crm/viewings", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ propertyId, contactId: contactId || undefined, assignedToId: assignedToId || undefined, scheduledAt }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setShowNew(false);
+      setPropertyId(""); setContactId(""); setAssignedToId(""); setScheduledAt("");
+      load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در ثبت بازدید", "Failed to book viewing", "Fehler beim Buchen der Besichtigung"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function setStatus(id: string, status: string) {
+    await fetch(`/api/crm/viewings/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    load();
+  }
+
+  async function deleteViewing(id: string) {
+    await fetch(`/api/crm/viewings/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  async function saveFeedback() {
+    if (!feedbackTarget) return;
+    await fetch(`/api/crm/viewings/${feedbackTarget.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ feedback: feedbackText, feedbackRating: feedbackRating ? Number(feedbackRating) : null, status: "completed" }),
+    });
+    setFeedbackTarget(null);
+    setFeedbackText(""); setFeedbackRating("");
+    load();
+  }
+
+  const STATUS_LABEL: Record<string, Record<Lang, string>> = {
+    scheduled: { fa: "برنامه‌ریزی‌شده", en: "Scheduled", de: "Geplant" },
+    completed: { fa: "انجام‌شده", en: "Completed", de: "Abgeschlossen" },
+    cancelled: { fa: "لغوشده", en: "Cancelled", de: "Storniert" },
+    no_show: { fa: "عدم حضور", en: "No-show", de: "Nicht erschienen" },
+  };
+
+  if (loading) return <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <button onClick={() => setShowNew((v) => !v)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
+          <Plus className="w-4 h-4" /> {tri(lang, "بازدید جدید", "New viewing", "Neue Besichtigung")}
+        </button>
+      </div>
+
+      {showNew && (
+        <div className="rounded-2xl p-4 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <select value={propertyId} onChange={(e) => setPropertyId(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{tri(lang, "انتخاب ملک", "Select property", "Immobilie auswählen")}</option>
+            {properties.map((p) => <option key={p.id} value={p.id}>{p.title} — {p.address}</option>)}
+          </select>
+          <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <select value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{tri(lang, "کارشناس (اختیاری)", "Agent (optional)", "Makler (optional)")}</option>
+            {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </select>
+          {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
+          <button onClick={createViewing} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : tri(lang, "ثبت بازدید", "Book viewing", "Besichtigung buchen")}
+          </button>
+        </div>
+      )}
+
+      {viewings.length === 0 ? (
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز بازدیدی ثبت نشده است", "No viewings yet", "Noch keine Besichtigungen")}</p>
+      ) : (
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+          {viewings.map((v, i) => (
+            <div key={v.id} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+              <div>
+                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{v.property.title} — {v.property.address}</p>
+                <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                  {new Date(v.scheduledAt).toLocaleString(lang === "fa" ? "fa-IR" : "en-US")}
+                  {v.contact ? ` · ${v.contact.name}` : ""}{v.assignedTo ? ` · ${v.assignedTo.name}` : ""}
+                </p>
+                {v.feedback && <p className="text-[11px] mt-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "بازخورد:", "Feedback:", "Rückmeldung:")} {v.feedback}{v.feedbackRating ? ` (${v.feedbackRating}/5)` : ""}</p>}
+              </div>
+              <div className="flex items-center gap-2">
+                <select value={v.status} onChange={(e) => setStatus(v.id, e.target.value)}
+                  className="text-[10px] px-2 py-1 rounded-full font-medium outline-none" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "none" }}>
+                  {Object.entries(STATUS_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
+                </select>
+                {v.status !== "completed" && (
+                  <button onClick={() => { setFeedbackTarget(v); setFeedbackText(v.feedback || ""); setFeedbackRating(v.feedbackRating ? String(v.feedbackRating) : ""); }}
+                    className="text-[11px]" style={{ color: "var(--primary)" }}>
+                    {tri(lang, "ثبت بازخورد", "Add feedback", "Rückmeldung")}
+                  </button>
+                )}
+                <button onClick={() => deleteViewing(v.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {feedbackTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }}>
+          <div className="w-full max-w-md rounded-2xl p-5 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+            <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "بازخورد پس از بازدید", "Post-viewing feedback", "Rückmeldung nach der Besichtigung")}</h3>
+            <textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} rows={3}
+              placeholder={tri(lang, "نظر خریدار/کارشناس درباره ملک", "Buyer/agent's impression of the property", "Eindruck des Käufers/Maklers")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <select value={feedbackRating} onChange={(e) => setFeedbackRating(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              <option value="">{tri(lang, "امتیاز (اختیاری)", "Rating (optional)", "Bewertung (optional)")}</option>
+              {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}/5</option>)}
+            </select>
+            <div className="flex gap-2">
+              <button onClick={saveFeedback} className="flex-1 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--primary)" }}>{tri(lang, "ذخیره", "Save", "Speichern")}</button>
+              <button onClick={() => setFeedbackTarget(null)} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{tri(lang, "لغو", "Cancel", "Abbrechen")}</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

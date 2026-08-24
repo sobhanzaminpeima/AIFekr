@@ -58,6 +58,7 @@ model User {
   crmPipelines        CrmPipeline[]
   crmDealsOwned       CrmDeal[]            @relation("CrmDealOwnerUser")
   crmDealsAssigned    CrmDeal[]            @relation("CrmDealAssignee")
+  propertyViewingsAssigned PropertyViewing[] @relation("PropertyViewingAssignee")
   crmDocuments        CrmDocument[]
   crmAutomationRules  CrmAutomationRule[]
   crmActivities       CrmActivity[]
@@ -445,6 +446,7 @@ model CrmContact {
   projects   CrmProject[]
   voiceCallLogs VoiceCallLog[]
   properties Property[]
+  viewings   PropertyViewing[]
 
   @@index([userId])
   @@index([status])
@@ -1426,6 +1428,17 @@ model Property {
   /// CrmDocument). Nullable — a property can exist with no photos yet.
   images       String?
   status       String   @default("available") // available | pending | sold | rented
+  /// Owner-representation terms (Section 1, item 2) — deliberately kept on
+  /// Property rather than on CrmContact, since a single owner contact can
+  /// have different representation dates/commission per listing. "Owner"
+  /// itself is not a stored role — a contact IS an owner by being linked
+  /// here via crmContactId to >=1 property; see /api/crm/owners.
+  representationStartDate DateTime?
+  representationEndDate   DateTime?
+  /// Commission percentage agreed with the owner at listing time (e.g. 2.5
+  /// meaning 2.5%) — distinct from CrmDeal's eventual closing commission
+  /// (item 5), which is the actual amount once a deal closes.
+  agreedCommissionRate    Float?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -1435,6 +1448,7 @@ model Property {
   crmDeal      CrmDeal?           @relation(fields: [crmDealId], references: [id], onDelete: SetNull)
   crmProject   CrmProject?        @relation(fields: [crmProjectId], references: [id], onDelete: SetNull)
   appointments VoiceAppointment[]
+  viewings     PropertyViewing[]
 
   @@index([userId])
   @@index([agentId])
@@ -1442,6 +1456,46 @@ model Property {
   @@index([crmDealId])
   @@index([crmProjectId])
   @@map("VoiceProperty")
+}
+
+/// Section 1, item 4 — Viewing Scheduler. A real calendar slot (not a text
+/// field), so double-booking can be checked server-side, distinct from
+/// VoiceAppointment (which is structurally tied to a VoiceAgent's phone
+/// calls and has a required agentId). assignedToId is a human CRM team
+/// member's userId — nullable until someone is assigned.
+model PropertyViewing {
+  id           String    @id @default(cuid())
+  /// Workspace owner's id (ws.workspaceUserId), same scoping convention as
+  /// every other CRM model — never the raw session user id.
+  userId       String
+  propertyId   String
+  /// The buyer/lead attending the viewing — optional so a slot can be
+  /// blocked out before a specific contact is confirmed.
+  contactId    String?
+  /// Human team member conducting the viewing — optional until assigned;
+  /// double-booking is only checked once this is set (see api/crm/viewings).
+  assignedToId String?
+  scheduledAt  DateTime
+  durationMin  Int       @default(30)
+  /// scheduled | completed | cancelled | no_show
+  status       String    @default("scheduled")
+  /// Post-viewing feedback captured from the buyer or the agent — required
+  /// by the master spec ("post-viewing feedback capture"), free text since
+  /// the shape of useful feedback varies too much for a fixed schema.
+  feedback     String?
+  feedbackRating Int?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  property   Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  contact    CrmContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  assignedTo User?       @relation("PropertyViewingAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([propertyId])
+  @@index([contactId])
+  @@index([assignedToId])
+  @@index([scheduledAt])
 }
 
 /// One row per phone call handled by a VoiceAgent, populated from Vapi's
