@@ -90,6 +90,7 @@ model User {
   boardroomSessions   BoardroomSession[]
   voiceAgents         VoiceAgent[]
   voiceProperties     Property[]
+  moduleOverrides     UserModuleOverride[]
   voiceCallLogs       VoiceCallLog[]
   voiceAppointments   VoiceAppointment[]
   voiceKnowledgeBase  VoiceKnowledgeBase[]
@@ -342,6 +343,40 @@ model SiteSetting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+/// Pack-level default for one gateable module/agent (see src/lib/industry/moduleAccess.ts
+/// for the full decision function — this is only the "industry pack default" layer,
+/// third priority behind platform-admin bypass and a per-customer UserModuleOverride).
+/// moduleKey values come from the static catalog in src/lib/industry/moduleRegistry.ts.
+model IndustryModuleFlag {
+  id             String       @id @default(cuid())
+  industryPackId String
+  moduleKey      String
+  enabled        Boolean      @default(true)
+  updatedAt      DateTime     @updatedAt
+
+  industryPack IndustryPack @relation(fields: [industryPackId], references: [id], onDelete: Cascade)
+
+  @@unique([industryPackId, moduleKey])
+  @@index([industryPackId])
+}
+
+/// Per-customer override of a module/agent's visibility, independent of their
+/// industry pack's default — always wins over IndustryModuleFlag (but loses to
+/// platform-admin bypass). E.g. a real-estate customer who doesn't want the
+/// commission module shown yet, without affecting any other real-estate customer.
+model UserModuleOverride {
+  id        String   @id @default(cuid())
+  userId    String
+  moduleKey String
+  enabled   Boolean
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleKey])
+  @@index([userId])
 }
 
 model Prompt {
@@ -1032,6 +1067,7 @@ model IndustryPack {
   sortOrder        Int       @default(0)
   users            User[]
   companies        Company[]
+  moduleFlags      IndustryModuleFlag[]
 }
 
 model BusinessCategory {

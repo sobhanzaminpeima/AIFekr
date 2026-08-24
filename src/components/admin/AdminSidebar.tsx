@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, CreditCard, DollarSign, Bot, Wrench,
   Activity, Settings, LogOut, Sparkles, Shield, MessageSquare,
   HelpCircle, Package, UserCog, Database, Cpu, Contact,
-  ChevronDown, Factory, Building2, Tag, Clock, Globe, Coins, Rocket, BarChart2, Phone,
+  ChevronDown, Factory, Building2, Tag, Clock, Globe, Coins, Rocket, BarChart2, Phone, ToggleRight,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -48,6 +48,7 @@ const navGroups = [
     label: "بیزنس و صنعت",
     items: [
       { icon: Factory, label: "بسته‌های صنعتی", href: "/admin/industry-packs" },
+      { icon: ToggleRight, label: "مدیریت دسترسی ماژول‌ها", href: "/admin/module-access" },
       { icon: Building2, label: "شرکت‌ها", href: "/admin/companies" },
       { icon: Tag, label: "دسته‌بندی‌ها", href: "/admin/categories" },
       { icon: Clock, label: "مدیریت انقضا", href: "/admin/subscriptions" },
