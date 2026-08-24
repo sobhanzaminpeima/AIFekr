@@ -5,7 +5,7 @@ import {
   Briefcase, Plus, X, Phone, Mail, Building2, Loader2, ChevronDown,
   Users, LayoutGrid, Clock, CheckCircle2, Circle, Zap, FileText, Trash2, Upload, Sparkles, CalendarDays,
   Package, Receipt, FileSignature, Pin, Printer, FolderKanban, PhoneCall,
-  MessageCircle, Send,
+  MessageCircle, Send, BarChart2,
 } from "lucide-react";
 import { useTranslation, tri, type Lang } from "@/lib/i18n";
 import type { Translations } from "@/lib/i18n/en";
@@ -34,9 +34,9 @@ interface ContactDetail extends Contact {
   deals: Deal[]; activities: Activity[]; tasks: Task[];
 }
 interface AutomationRule { id: string; name: string; trigger: string; condition: string | null; action: string; isActive: boolean; }
-interface CrmDocument { id: string; name: string; type: string; fileUrl: string; createdAt: string; }
+interface CrmDocument { id: string; name: string; type: string; createdAt: string; }
 
-type CrmTab = "board" | "contacts" | "automation" | "agent" | "calendar" | "analytics" | "products" | "invoices" | "contracts" | "projects" | "properties" | "owners" | "viewings" | "matches";
+type CrmTab = "board" | "contacts" | "automation" | "agent" | "calendar" | "analytics" | "products" | "invoices" | "contracts" | "projects" | "properties" | "owners" | "viewings" | "matches" | "performance";
 
 interface PropertyRow {
   id: string; title: string; listingType: string; propertyType: string;
@@ -62,7 +62,7 @@ interface ViewingRow {
   assignedTo: { id: string; name: string } | null;
 }
 
-const REAL_ESTATE_MODULE_KEYS = ["crm.property", "crm.owner", "crm.viewingScheduler", "crm.contractCommission", "crm.shortTermCalendar", "crm.matchView"];
+const REAL_ESTATE_MODULE_KEYS = ["crm.property", "crm.owner", "crm.viewingScheduler", "crm.contractCommission", "crm.shortTermCalendar", "crm.matchView", "crm.propertyDocuments", "crm.performanceReport"];
 
 interface BuyerMatchRow {
   contactId: string; contactName: string; phone: string | null;
@@ -123,6 +123,8 @@ export default function CrmPage() {
   const commissionEnabled = !!moduleAccess["crm.contractCommission"];
   const shortTermCalendarEnabled = !!moduleAccess["crm.shortTermCalendar"];
   const matchViewEnabled = !!moduleAccess["crm.matchView"];
+  const propertyDocumentsEnabled = !!moduleAccess["crm.propertyDocuments"];
+  const performanceReportEnabled = !!moduleAccess["crm.performanceReport"];
 
   async function purchaseCrmPlan(planCode: "CRM_SOLO" | "CRM_TEAM") {
     setUpgrading(true);
@@ -174,6 +176,7 @@ export default function CrmPage() {
   useEffect(() => { if (tab === "owners" && !ownersEnabled) setTab("board"); }, [tab, ownersEnabled]);
   useEffect(() => { if (tab === "viewings" && !viewingsEnabled) setTab("board"); }, [tab, viewingsEnabled]);
   useEffect(() => { if (tab === "matches" && !matchViewEnabled) setTab("board"); }, [tab, matchViewEnabled]);
+  useEffect(() => { if (tab === "performance" && !performanceReportEnabled) setTab("board"); }, [tab, performanceReportEnabled]);
   useEffect(() => { if (tab === "automation") loadRules(); }, [tab, loadRules]);
   useEffect(() => {
     fetch("/api/team").then((r) => r.json()).then((data) => {
@@ -240,7 +243,7 @@ export default function CrmPage() {
       </div>
 
       <div className={`flex ${isFa ? "md:flex-row-reverse" : "md:flex-row"} flex-col gap-4 md:gap-6 items-start`}>
-        <CrmSidebar tab={tab} setTab={setTab} c={c} isFa={isFa} propertiesEnabled={propertiesEnabled} ownersEnabled={ownersEnabled} viewingsEnabled={viewingsEnabled} matchViewEnabled={matchViewEnabled} />
+        <CrmSidebar tab={tab} setTab={setTab} c={c} isFa={isFa} propertiesEnabled={propertiesEnabled} ownersEnabled={ownersEnabled} viewingsEnabled={viewingsEnabled} matchViewEnabled={matchViewEnabled} performanceReportEnabled={performanceReportEnabled} />
 
         <div className="flex-1 min-w-0 w-full space-y-6">
       {crmPlan === "NONE" && (
@@ -397,13 +400,15 @@ export default function CrmPage() {
       ) : tab === "contracts" ? (
         <ContractsPanel isFa={isFa} lang={lang} t={c} contacts={contacts} />
       ) : tab === "properties" && propertiesEnabled ? (
-        <PropertiesPanel isFa={isFa} lang={lang} contacts={contacts} shortTermCalendarEnabled={shortTermCalendarEnabled} />
+        <PropertiesPanel isFa={isFa} lang={lang} contacts={contacts} shortTermCalendarEnabled={shortTermCalendarEnabled} propertyDocumentsEnabled={propertyDocumentsEnabled} />
       ) : tab === "owners" && ownersEnabled ? (
         <OwnersPanel lang={lang} />
       ) : tab === "viewings" && viewingsEnabled ? (
         <ViewingsPanel lang={lang} teamMembers={teamMembers} />
       ) : tab === "matches" && matchViewEnabled ? (
         <BuyerMatchPanel lang={lang} />
+      ) : tab === "performance" && performanceReportEnabled ? (
+        <PerformanceReportPanel lang={lang} />
       ) : (
         <ProjectsPanel isFa={isFa} lang={lang} t={c} contacts={contacts} isRealEstate={pipelines.some((p) => p.industrySlug === "real-estate")} />
       )}
@@ -460,7 +465,7 @@ export default function CrmPage() {
   );
 }
 
-function CrmSidebar({ tab, setTab, c, isFa, propertiesEnabled, ownersEnabled, viewingsEnabled, matchViewEnabled }: { tab: CrmTab; setTab: (t: CrmTab) => void; c: Translations["crm"]; isFa: boolean; propertiesEnabled: boolean; ownersEnabled: boolean; viewingsEnabled: boolean; matchViewEnabled: boolean }) {
+function CrmSidebar({ tab, setTab, c, isFa, propertiesEnabled, ownersEnabled, viewingsEnabled, matchViewEnabled, performanceReportEnabled }: { tab: CrmTab; setTab: (t: CrmTab) => void; c: Translations["crm"]; isFa: boolean; propertiesEnabled: boolean; ownersEnabled: boolean; viewingsEnabled: boolean; matchViewEnabled: boolean; performanceReportEnabled: boolean }) {
   const items: { id: CrmTab; label: string; icon: React.ElementType }[] = [
     { id: "board", label: c.tabs.board, icon: LayoutGrid },
     { id: "contacts", label: c.tabs.contacts, icon: Users },
@@ -479,6 +484,7 @@ function CrmSidebar({ tab, setTab, c, isFa, propertiesEnabled, ownersEnabled, vi
     ...(ownersEnabled ? [{ id: "owners" as CrmTab, label: isFa ? "مالکین" : "Owners", icon: Users }] : []),
     ...(viewingsEnabled ? [{ id: "viewings" as CrmTab, label: isFa ? "زمان‌بندی بازدید" : "Viewings", icon: CalendarDays }] : []),
     ...(matchViewEnabled ? [{ id: "matches" as CrmTab, label: isFa ? "تطبیق خریدار↔ملک" : "Buyer Match", icon: Users }] : []),
+    ...(performanceReportEnabled ? [{ id: "performance" as CrmTab, label: isFa ? "گزارش عملکرد" : "Performance", icon: BarChart2 }] : []),
   ];
 
   return (
@@ -1260,7 +1266,7 @@ function DocumentsSection({ isFa, t, contactId }: { isFa: boolean; t: Translatio
       <div className="space-y-1.5 mb-2">
         {documents.map((d) => (
           <div key={d.id} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
-            <a href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+            <a href={`/api/crm/documents/${d.id}/download`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
               <FileText className="w-3.5 h-3.5" style={{ color: "var(--primary)" }} /> {d.name}
             </a>
             <button onClick={() => removeDoc(d.id)}><Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} /></button>
@@ -2738,7 +2744,7 @@ const PROPERTY_STATUS_LABEL: Record<string, Record<Lang, string>> = {
 };
 
 /** Real-estate industry-pack module — Property/Listing Management. Only rendered when isModuleEnabled("crm.property") returned true (checked once in the parent via /api/crm/module-access). Reuses the unified Property model — same one Voice Agent and CRM Projects already write to — never a parallel table. */
-function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled }: { isFa: boolean; lang: Lang; contacts: Contact[]; shortTermCalendarEnabled: boolean }) {
+function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, propertyDocumentsEnabled }: { isFa: boolean; lang: Lang; contacts: Contact[]; shortTermCalendarEnabled: boolean; propertyDocumentsEnabled: boolean }) {
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -2746,6 +2752,7 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled }: { i
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<PropertyRow | null>(null);
   const [calendarPropertyId, setCalendarPropertyId] = useState<string | null>(null);
+  const [docsPropertyId, setDocsPropertyId] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
   const [listingType, setListingType] = useState("sell");
@@ -2911,6 +2918,11 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled }: { i
                     <CalendarDays className="w-4 h-4" style={{ color: "var(--primary)" }} />
                   </button>
                 )}
+                {propertyDocumentsEnabled && (
+                  <button onClick={() => setDocsPropertyId(p.id)} title={tri(lang, "اسناد ملک", "Property documents", "Immobiliendokumente")}>
+                    <FileText className="w-4 h-4" style={{ color: "var(--primary)" }} />
+                  </button>
+                )}
                 <button onClick={() => deleteProperty(p.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
               </div>
             </div>
@@ -2920,6 +2932,9 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled }: { i
 
       {calendarPropertyId && (
         <OccupancyCalendarModal lang={lang} propertyId={calendarPropertyId} contacts={contacts} onClose={() => setCalendarPropertyId(null)} />
+      )}
+      {docsPropertyId && (
+        <PropertyDocsModal lang={lang} propertyId={docsPropertyId} onClose={() => setDocsPropertyId(null)} />
       )}
     </div>
   );
@@ -3027,6 +3042,102 @@ function OccupancyCalendarModal({ lang, propertyId, contacts, onClose }: { lang:
                 <button onClick={() => cancelBooking(b.id)} className="text-[11px]" style={{ color: "#ef4444" }}>
                   {tri(lang, "لغو", "Cancel", "Stornieren")}
                 </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const DOC_TYPE_LABEL: Record<string, Record<Lang, string>> = {
+  title_deed: { fa: "سند مالکیت", en: "Title deed", de: "Eigentumsurkunde" },
+  power_of_attorney: { fa: "وکالت‌نامه", en: "Power of attorney", de: "Vollmacht" },
+  floor_plan: { fa: "نقشه پلان", en: "Floor plan", de: "Grundriss" },
+  photo: { fa: "عکس", en: "Photo", de: "Foto" },
+  attachment: { fa: "سایر", en: "Other", de: "Sonstiges" },
+};
+
+/** Section 1, item 7 — Property document archive. Reuses the existing CrmDocument model/upload route (adds propertyId) — not a parallel table. Files are only ever fetched through /api/crm/documents/[id]/download, which mints a short-lived signed URL per authenticated request instead of exposing the long-lived link stored in the DB. */
+function PropertyDocsModal({ lang, propertyId, onClose }: { lang: Lang; propertyId: string; onClose: () => void }) {
+  const [documents, setDocuments] = useState<{ id: string; name: string; type: string; createdAt: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [docType, setDocType] = useState("title_deed");
+  const [error, setError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/crm/documents?propertyId=${propertyId}`);
+    const data = await res.json();
+    setDocuments(data.documents || []);
+    setLoading(false);
+  }, [propertyId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("propertyId", propertyId);
+      form.append("type", docType);
+      form.append("name", file.name);
+      const res = await fetch("/api/crm/documents", { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در آپلود فایل", "Upload failed", "Upload fehlgeschlagen"));
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function removeDoc(id: string) {
+    await fetch("/api/crm/documents", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    load();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }}>
+      <div className="w-full max-w-lg rounded-2xl p-5 space-y-3 max-h-[85vh] overflow-y-auto" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "اسناد ملک", "Property documents", "Immobiliendokumente")}</h3>
+          <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
+        </div>
+
+        <div className="rounded-xl p-3 space-y-2" style={{ background: "var(--surface-2)" }}>
+          <select value={docType} onChange={(e) => setDocType(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            {Object.entries(DOC_TYPE_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
+          </select>
+          <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" onChange={handleFileSelect} disabled={uploading}
+            className="w-full text-xs" style={{ color: "var(--text-secondary)" }} />
+          <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "PDF، تصویر، Word یا Excel — حداکثر ۱۵ مگابایت", "PDF, image, Word, or Excel — max 15MB", "PDF, Bild, Word oder Excel — max. 15MB")}</p>
+          {uploading && <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--primary)" }} />}
+          {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
+        </div>
+
+        {loading ? (
+          <Loader2 className="w-5 h-5 animate-spin mx-auto" style={{ color: "var(--primary)" }} />
+        ) : documents.length === 0 ? (
+          <p className="text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز سندی آپلود نشده است", "No documents uploaded yet", "Noch keine Dokumente hochgeladen")}</p>
+        ) : (
+          <div className="space-y-1.5">
+            {documents.map((d) => (
+              <div key={d.id} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
+                <a href={`/api/crm/documents/${d.id}/download`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                  <FileText className="w-3.5 h-3.5" style={{ color: "var(--primary)" }} />
+                  {d.name} <span style={{ color: "var(--text-muted)" }}>— {DOC_TYPE_LABEL[d.type]?.[lang] || d.type}</span>
+                </a>
+                <button onClick={() => removeDoc(d.id)}><Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} /></button>
               </div>
             ))}
           </div>
@@ -3441,6 +3552,79 @@ function BuyerMatchPanel({ lang }: { lang: Lang }) {
                   ))}
                 </div>
               )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface PerformanceRow {
+  agentId: string; agentName: string | null;
+  propertiesClosedCount: number; commissionVolume: number;
+  viewingsScheduled: number; viewingsCompleted: number;
+  viewingToContractConversionRate: number | null;
+}
+
+function isoDate(d: Date) { return d.toISOString().slice(0, 10); }
+
+/** Section 1, item 8 — Agent/Team performance report. Has no storage of its own — every figure is computed from CrmDeal (item 5) and PropertyViewing (item 4) rows already created elsewhere, not a separate ledger. */
+function PerformanceReportPanel({ lang }: { lang: Lang }) {
+  const today = new Date();
+  const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const [startDate, setStartDate] = useState(isoDate(monthAgo));
+  const [endDate, setEndDate] = useState(isoDate(today));
+  const [report, setReport] = useState<PerformanceRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res = await fetch(`/api/crm/performance-report?startDate=${startDate}&endDate=${endDate}`);
+    const data = await res.json();
+    setReport(data.report || []);
+    setLoading(false);
+  }, [startDate, endDate]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+          className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        <span className="text-sm" style={{ color: "var(--text-muted)" }}>{tri(lang, "تا", "to", "bis")}</span>
+        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+          className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+      </div>
+
+      {loading ? (
+        <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />
+      ) : report.length === 0 ? (
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "داده‌ای در این بازه یافت نشد", "No data in this range", "Keine Daten in diesem Zeitraum")}</p>
+      ) : (
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+          {report.map((r, i) => (
+            <div key={r.agentId} className="px-4 py-3" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+              <p className="text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>{r.agentName || tri(lang, "بدون نام", "Unnamed", "Unbenannt")}</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                <div>
+                  <p style={{ color: "var(--text-muted)" }}>{tri(lang, "ملک بسته‌شده", "Properties closed", "Abgeschlossene Immobilien")}</p>
+                  <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{r.propertiesClosedCount}</p>
+                </div>
+                <div>
+                  <p style={{ color: "var(--text-muted)" }}>{tri(lang, "حجم کمیسیون", "Commission volume", "Provisionsvolumen")}</p>
+                  <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{fmtMoney(r.commissionVolume)}</p>
+                </div>
+                <div>
+                  <p style={{ color: "var(--text-muted)" }}>{tri(lang, "بازدید انجام‌شده", "Viewings completed", "Abgeschlossene Besichtigungen")}</p>
+                  <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{r.viewingsCompleted} / {r.viewingsScheduled}</p>
+                </div>
+                <div>
+                  <p style={{ color: "var(--text-muted)" }}>{tri(lang, "نرخ تبدیل بازدید→قرارداد", "Viewing→contract rate", "Besichtigung→Vertrag-Rate")}</p>
+                  <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{r.viewingToContractConversionRate != null ? `${r.viewingToContractConversionRate}%` : "—"}</p>
+                </div>
+              </div>
             </div>
           ))}
         </div>
