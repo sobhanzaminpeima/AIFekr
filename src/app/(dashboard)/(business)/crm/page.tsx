@@ -62,7 +62,7 @@ interface ViewingRow {
   assignedTo: { id: string; name: string } | null;
 }
 
-const REAL_ESTATE_MODULE_KEYS = ["crm.property", "crm.owner", "crm.viewingScheduler", "crm.contractCommission", "crm.shortTermCalendar", "crm.matchView", "crm.propertyDocuments", "crm.performanceReport", "agent.leadMatcher", "agent.listingCopywriter"];
+const REAL_ESTATE_MODULE_KEYS = ["crm.property", "crm.owner", "crm.viewingScheduler", "crm.contractCommission", "crm.shortTermCalendar", "crm.matchView", "crm.propertyDocuments", "crm.performanceReport", "agent.leadMatcher", "agent.listingCopywriter", "agent.viewingCoordinator"];
 
 interface BuyerMatchRow {
   contactId: string; contactName: string; phone: string | null;
@@ -127,6 +127,7 @@ export default function CrmPage() {
   const performanceReportEnabled = !!moduleAccess["crm.performanceReport"];
   const leadMatcherAgentEnabled = !!moduleAccess["agent.leadMatcher"];
   const listingCopywriterEnabled = !!moduleAccess["agent.listingCopywriter"];
+  const viewingCoordinatorEnabled = !!moduleAccess["agent.viewingCoordinator"];
 
   async function purchaseCrmPlan(planCode: "CRM_SOLO" | "CRM_TEAM") {
     setUpgrading(true);
@@ -406,7 +407,7 @@ export default function CrmPage() {
       ) : tab === "owners" && ownersEnabled ? (
         <OwnersPanel lang={lang} />
       ) : tab === "viewings" && viewingsEnabled ? (
-        <ViewingsPanel lang={lang} teamMembers={teamMembers} />
+        <ViewingsPanel lang={lang} teamMembers={teamMembers} viewingCoordinatorEnabled={viewingCoordinatorEnabled} />
       ) : tab === "matches" && matchViewEnabled ? (
         <BuyerMatchPanel lang={lang} leadMatcherAgentEnabled={leadMatcherAgentEnabled} />
       ) : tab === "performance" && performanceReportEnabled ? (
@@ -3765,7 +3766,7 @@ function OwnersPanel({ lang }: { lang: Lang }) {
 }
 
 /** Section 1, item 4 — Viewing Scheduler. A real calendar slot per PropertyViewing row (not a text field), server-side double-booking check per assigned team member (src/app/api/crm/viewings). Post-viewing feedback capture built in. */
-function ViewingsPanel({ lang, teamMembers }: { lang: Lang; teamMembers: TeamMember[] }) {
+function ViewingsPanel({ lang, teamMembers, viewingCoordinatorEnabled }: { lang: Lang; teamMembers: TeamMember[]; viewingCoordinatorEnabled: boolean }) {
   const [viewings, setViewings] = useState<ViewingRow[]>([]);
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -3780,6 +3781,9 @@ function ViewingsPanel({ lang, teamMembers }: { lang: Lang; teamMembers: TeamMem
   const [contactId, setContactId] = useState("");
   const [assignedToId, setAssignedToId] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
+  const [autoSlot, setAutoSlot] = useState(true);
+
+  const [needsFeedback, setNeedsFeedback] = useState<{ id: string; scheduledAt: string; property: { title: string }; contact: { name: string } | null }[]>([]);
 
   const load = useCallback(async () => {
     const [vRes, pRes] = await Promise.all([fetch("/api/crm/viewings"), fetch("/api/crm/properties")]);
@@ -3792,6 +3796,11 @@ function ViewingsPanel({ lang, teamMembers }: { lang: Lang; teamMembers: TeamMem
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    if (!viewingCoordinatorEnabled) return;
+    fetch("/api/crm/viewings/needs-feedback").then((r) => r.json()).then((d) => setNeedsFeedback(d.viewings || [])).catch(() => {});
+  }, [viewingCoordinatorEnabled, viewings]);
+
   async function createViewing() {
     if (!propertyId) { setError(tri(lang, "ملک الزامی است", "Property is required", "Immobilie ist erforderlich")); return; }
     if (!scheduledAt) { setError(tri(lang, "زمان بازدید الزامی است", "Viewing time is required", "Besichtigungszeit ist erforderlich")); return; }
@@ -3800,10 +3809,19 @@ function ViewingsPanel({ lang, teamMembers }: { lang: Lang; teamMembers: TeamMem
     try {
       const res = await fetch("/api/crm/viewings", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ propertyId, contactId: contactId || undefined, assignedToId: assignedToId || undefined, scheduledAt }),
+        body: JSON.stringify({
+          propertyId, contactId: contactId || undefined, assignedToId: assignedToId || undefined, scheduledAt,
+          autoSlot: viewingCoordinatorEnabled && !!assignedToId && autoSlot,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      if (data.autoRescheduled) {
+        alert(tri(lang,
+          `زمان درخواستی پر بود — بازدید در نزدیک‌ترین بازه آزاد (${new Date(data.viewing.scheduledAt).toLocaleString("fa-IR")}) ثبت شد.`,
+          `The requested time was busy — booked at the nearest free slot (${new Date(data.viewing.scheduledAt).toLocaleString()}) instead.`,
+          `Der gewünschte Termin war belegt — auf den nächsten freien Slot (${new Date(data.viewing.scheduledAt).toLocaleString()}) gebucht.`));
+      }
       setShowNew(false);
       setPropertyId(""); setContactId(""); setAssignedToId(""); setScheduledAt("");
       load();
@@ -3846,6 +3864,15 @@ function ViewingsPanel({ lang, teamMembers }: { lang: Lang; teamMembers: TeamMem
 
   return (
     <div className="space-y-3">
+      {/* Section 2, item 3 — Viewing Coordinator: post-viewing feedback nudge. Only a display/reminder — never messages the customer automatically. */}
+      {viewingCoordinatorEnabled && needsFeedback.length > 0 && (
+        <div className="rounded-2xl p-3" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)" }}>
+          <p className="text-xs font-medium" style={{ color: "#f59e0b" }}>
+            {tri(lang, `${needsFeedback.length} بازدید گذشته هنوز بازخورد ثبت نشده دارند`, `${needsFeedback.length} past viewings still need feedback logged`, `${needsFeedback.length} vergangene Besichtigungen brauchen noch Rückmeldung`)}
+          </p>
+        </div>
+      )}
+
       <div className="flex justify-end">
         <button onClick={() => setShowNew((v) => !v)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
@@ -3867,6 +3894,14 @@ function ViewingsPanel({ lang, teamMembers }: { lang: Lang; teamMembers: TeamMem
             <option value="">{tri(lang, "کارشناس (اختیاری)", "Agent (optional)", "Makler (optional)")}</option>
             {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
+          {viewingCoordinatorEnabled && assignedToId && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={autoSlot} onChange={(e) => setAutoSlot(e.target.checked)} className="w-4 h-4 accent-orange-500" />
+              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                {tri(lang, "اگر این زمان پر بود، نزدیک‌ترین بازه آزاد را خودکار پیدا کن", "If this time is busy, automatically find the nearest free slot", "Falls dieser Termin belegt ist, automatisch den nächsten freien Slot finden")}
+              </span>
+            </label>
+          )}
           {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
           <button onClick={createViewing} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : tri(lang, "ثبت بازدید", "Book viewing", "Besichtigung buchen")}

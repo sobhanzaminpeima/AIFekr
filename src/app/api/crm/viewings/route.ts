@@ -5,6 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
+import { suggestViewingSlot } from "@/lib/agents/viewingCoordinator";
 
 // Same conflict window the Voice Agent's phone-booking flow already uses
 // (src/app/api/webhooks/vapi/route.ts) — kept consistent rather than
@@ -58,11 +59,11 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { propertyId, contactId, assignedToId, scheduledAt, durationMin } = body;
+  const { propertyId, contactId, assignedToId, scheduledAt, durationMin, autoSlot } = body;
 
   if (!propertyId) return NextResponse.json({ error: "ملک الزامی است" }, { status: 400 });
-  const scheduledDate = new Date(scheduledAt);
-  if (!scheduledAt || isNaN(scheduledDate.getTime())) return NextResponse.json({ error: "زمان بازدید نامعتبر است" }, { status: 400 });
+  const requestedDate = new Date(scheduledAt);
+  if (!scheduledAt || isNaN(requestedDate.getTime())) return NextResponse.json({ error: "زمان بازدید نامعتبر است" }, { status: 400 });
 
   const property = await prisma.property.findFirst({ where: { id: propertyId, userId: ws.workspaceUserId } });
   if (!property) return NextResponse.json({ error: "ملک یافت نشد" }, { status: 404 });
@@ -72,9 +73,28 @@ export async function POST(req: NextRequest) {
     if (!contact) return NextResponse.json({ error: "مخاطب یافت نشد" }, { status: 404 });
   }
 
-  // Double-booking guard — only meaningful once a human agent is assigned;
-  // an unassigned viewing slot can't conflict with anyone's calendar yet.
-  if (assignedToId) {
+  let scheduledDate = requestedDate;
+  let autoRescheduled = false;
+
+  if (assignedToId && autoSlot) {
+    // Section 2, item 3 — Viewing Coordinator: booking a single slot may
+    // happen automatically (low risk) as long as a real free slot was
+    // found — if the calendar is fully booked within the search window,
+    // this returns null and we fail with a clear message instead of
+    // guessing a time, per the "warn and wait for manual confirmation"
+    // requirement.
+    if (!(await isModuleEnabled({ id: user.id, role: user.role, industryPackId: (await prisma.user.findUnique({ where: { id: ws.workspaceUserId }, select: { industryPackId: true } }))?.industryPackId ?? null }, "agent.viewingCoordinator"))) {
+      return NextResponse.json({ error: "ماژول هماهنگ‌کننده بازدید برای شما فعال نیست" }, { status: 403 });
+    }
+    const suggestion = await suggestViewingSlot(ws.workspaceUserId, assignedToId, requestedDate);
+    if (!suggestion) {
+      return NextResponse.json({ error: "تقویم این کارشناس در این بازه کاملاً پر است — لطفاً زمان دیگری را دستی انتخاب کنید" }, { status: 409 });
+    }
+    scheduledDate = suggestion.scheduledAt;
+    autoRescheduled = suggestion.wasRescheduled;
+  } else if (assignedToId) {
+    // Double-booking guard — only meaningful once a human agent is assigned;
+    // an unassigned viewing slot can't conflict with anyone's calendar yet.
     const conflict = await prisma.propertyViewing.findFirst({
       where: {
         userId: ws.workspaceUserId,
@@ -106,5 +126,5 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  return NextResponse.json({ viewing });
+  return NextResponse.json({ viewing, autoRescheduled });
 }
