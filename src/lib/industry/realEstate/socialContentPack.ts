@@ -92,3 +92,75 @@ async function buildInstagramPost(userId: string, propertyId: string, lang: "fa"
 }
 
 registerSocialContentPack({ slug: "real-estate", buildInstagramPost });
+
+/**
+ * Section 2, item 2 — Listing Copywriter agent. Deliberately reuses this
+ * same file's LLM-call shape (system/user prompt pair → routedStreamChat →
+ * parse) rather than new infrastructure — "multi-platform" just means a
+ * different system prompt per platform, not a different pipeline. AI only
+ * ever produces a draft string; publishing/posting is a separate, human
+ * action elsewhere (Instagram's existing publish flow, or copy-paste for
+ * Divar/website).
+ */
+export type ListingCopyPlatform = "instagram" | "divar" | "website";
+
+interface ListingCopyProperty {
+  title: string; listingType: string; propertyType: string; price: bigint;
+  address: string; city: string | null; bedrooms: number | null; bathrooms: number | null; areaSqm: number | null;
+}
+
+function buildDivarPrompt(property: ListingCopyProperty, lang: "fa" | "en") {
+  const priceFa = Number(property.price).toLocaleString("fa-IR");
+  const details = [
+    property.areaSqm ? `${property.areaSqm} متر` : null,
+    property.bedrooms ? `${property.bedrooms} خوابه` : null,
+    property.bathrooms ? `${property.bathrooms} سرویس` : null,
+  ].filter(Boolean).join("، ");
+  // Divar's own listing convention: plain factual paragraphs, no emojis,
+  // no hashtags, no call-to-action fluff — its audience reads it as a
+  // classified ad, not a marketing post.
+  const system = lang === "en"
+    ? "You write plain, factual property-listing descriptions for a classifieds site (Divar-style) — no emojis, no hashtags, no marketing language. Return ONLY the description text, nothing else."
+    : "تو توضیحات آگهی ملک برای یک سایت نیازمندی (به سبک دیوار) می‌نویسی — بدون ایموجی، بدون هشتگ، بدون زبان تبلیغاتی. فقط و فقط متن توضیحات را برگردان، هیچ چیز دیگری.";
+  const user = lang === "en"
+    ? `Write a factual classifieds description for:\nTitle: ${property.title}\nType: ${property.propertyType}\n${details ? `Details: ${details}\n` : ""}Address: ${property.address}${property.city ? `, ${property.city}` : ""}\nPrice: ${Number(property.price).toLocaleString("en-US")} Toman\nUse the price/area exactly as given, never invent numbers.`
+    : `توضیحات آگهی نیازمندی برای این ملک بنویس:\nعنوان: ${property.title}\nنوع ملک: ${property.propertyType}\n${details ? `مشخصات: ${details}\n` : ""}آدرس: ${property.address}${property.city ? `، ${property.city}` : ""}\nقیمت: ${priceFa} تومان\nقیمت و متراژ را دقیقاً همان‌طور که داده شده ذکر کن، عدد نساز.`;
+  return { system, user };
+}
+
+function buildWebsitePrompt(property: ListingCopyProperty, lang: "fa" | "en") {
+  const priceFa = Number(property.price).toLocaleString("fa-IR");
+  const details = [
+    property.areaSqm ? `${property.areaSqm} متر` : null,
+    property.bedrooms ? `${property.bedrooms} خوابه` : null,
+    property.bathrooms ? `${property.bathrooms} سرویس` : null,
+  ].filter(Boolean).join("، ");
+  const system = lang === "en"
+    ? "You write SEO-friendly property listing descriptions for a real-estate agency's own website — 2-3 short paragraphs, professional tone, natural (not stuffed) use of location/property-type keywords. Return ONLY the description text."
+    : "تو توضیحات سئو-پسند آگهی ملک برای وبسایت خود یک آژانس املاک می‌نویسی — ۲ تا ۳ پاراگراف کوتاه، لحن حرفه‌ای، استفاده طبیعی (نه انباشته) از کلمات کلیدی منطقه/نوع ملک. فقط و فقط متن توضیحات را برگردان.";
+  const user = lang === "en"
+    ? `Write a website listing description for:\nTitle: ${property.title}\nType: ${property.propertyType}\n${details ? `Details: ${details}\n` : ""}Address: ${property.address}${property.city ? `, ${property.city}` : ""}\nPrice: ${Number(property.price).toLocaleString("en-US")} Toman\nUse the price/area exactly as given, never invent numbers.`
+    : `توضیحات وبسایتی این ملک را بنویس:\nعنوان: ${property.title}\nنوع ملک: ${property.propertyType}\n${details ? `مشخصات: ${details}\n` : ""}آدرس: ${property.address}${property.city ? `، ${property.city}` : ""}\nقیمت: ${priceFa} تومان\nقیمت و متراژ را دقیقاً همان‌طور که داده شده ذکر کن، عدد نساز.`;
+  return { system, user };
+}
+
+export interface ListingCopyResult {
+  content: string;
+  hashtags?: string[];
+}
+
+export async function generateListingCopy(userId: string, propertyId: string, lang: "fa" | "en", platform: ListingCopyPlatform): Promise<ListingCopyResult | null> {
+  const property = await prisma.property.findUnique({ where: { id: propertyId } });
+  if (!property || property.userId !== userId) return null;
+
+  if (platform === "instagram") {
+    const post = await buildInstagramPost(userId, propertyId, lang);
+    return post ? { content: post.caption, hashtags: post.hashtags } : null;
+  }
+
+  const { system, user } = platform === "divar" ? buildDivarPrompt(property, lang) : buildWebsitePrompt(property, lang);
+  let content = "";
+  await routedStreamChat([{ role: "user", content: user }], system, (chunk) => { content += chunk; }, () => {});
+  content = content.trim();
+  return content ? { content } : null;
+}

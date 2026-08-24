@@ -62,7 +62,7 @@ interface ViewingRow {
   assignedTo: { id: string; name: string } | null;
 }
 
-const REAL_ESTATE_MODULE_KEYS = ["crm.property", "crm.owner", "crm.viewingScheduler", "crm.contractCommission", "crm.shortTermCalendar", "crm.matchView", "crm.propertyDocuments", "crm.performanceReport", "agent.leadMatcher"];
+const REAL_ESTATE_MODULE_KEYS = ["crm.property", "crm.owner", "crm.viewingScheduler", "crm.contractCommission", "crm.shortTermCalendar", "crm.matchView", "crm.propertyDocuments", "crm.performanceReport", "agent.leadMatcher", "agent.listingCopywriter"];
 
 interface BuyerMatchRow {
   contactId: string; contactName: string; phone: string | null;
@@ -126,6 +126,7 @@ export default function CrmPage() {
   const propertyDocumentsEnabled = !!moduleAccess["crm.propertyDocuments"];
   const performanceReportEnabled = !!moduleAccess["crm.performanceReport"];
   const leadMatcherAgentEnabled = !!moduleAccess["agent.leadMatcher"];
+  const listingCopywriterEnabled = !!moduleAccess["agent.listingCopywriter"];
 
   async function purchaseCrmPlan(planCode: "CRM_SOLO" | "CRM_TEAM") {
     setUpgrading(true);
@@ -401,7 +402,7 @@ export default function CrmPage() {
       ) : tab === "contracts" ? (
         <ContractsPanel isFa={isFa} lang={lang} t={c} contacts={contacts} />
       ) : tab === "properties" && propertiesEnabled ? (
-        <PropertiesPanel isFa={isFa} lang={lang} contacts={contacts} shortTermCalendarEnabled={shortTermCalendarEnabled} propertyDocumentsEnabled={propertyDocumentsEnabled} />
+        <PropertiesPanel isFa={isFa} lang={lang} contacts={contacts} shortTermCalendarEnabled={shortTermCalendarEnabled} propertyDocumentsEnabled={propertyDocumentsEnabled} listingCopywriterEnabled={listingCopywriterEnabled} />
       ) : tab === "owners" && ownersEnabled ? (
         <OwnersPanel lang={lang} />
       ) : tab === "viewings" && viewingsEnabled ? (
@@ -2816,7 +2817,7 @@ function CountryCityPicker({ lang, cityValue, onCityChange }: { lang: Lang; city
   );
 }
 
-function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, propertyDocumentsEnabled }: { isFa: boolean; lang: Lang; contacts: Contact[]; shortTermCalendarEnabled: boolean; propertyDocumentsEnabled: boolean }) {
+function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, propertyDocumentsEnabled, listingCopywriterEnabled }: { isFa: boolean; lang: Lang; contacts: Contact[]; shortTermCalendarEnabled: boolean; propertyDocumentsEnabled: boolean; listingCopywriterEnabled: boolean }) {
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -3019,7 +3020,7 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
         <PropertyDocsModal lang={lang} propertyId={docsPropertyId} onClose={() => setDocsPropertyId(null)} />
       )}
       {selected && (
-        <PropertyDetailModal lang={lang} property={selected} contacts={contacts}
+        <PropertyDetailModal lang={lang} property={selected} contacts={contacts} listingCopywriterEnabled={listingCopywriterEnabled}
           onClose={() => setSelected(null)}
           onChanged={() => { load(); }}
         />
@@ -3236,7 +3237,36 @@ function PropertyDocsModal({ lang, propertyId, onClose }: { lang: Lang; property
 }
 
 /** "View more" property detail — clicking a property row used to just set state with no modal ever rendering it (a real bug). Also covers: photo upload/gallery, editable currency, editable booking (Airbnb) link post-creation, and converting/creating an owner contact inline instead of only picking an existing one. */
-function PropertyDetailModal({ lang, property, contacts, onClose, onChanged }: { lang: Lang; property: PropertyRow; contacts: Contact[]; onClose: () => void; onChanged: () => void }) {
+function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnabled, onClose, onChanged }: { lang: Lang; property: PropertyRow; contacts: Contact[]; listingCopywriterEnabled: boolean; onClose: () => void; onChanged: () => void }) {
+  const [copyPlatform, setCopyPlatform] = useState<"instagram" | "divar" | "website">("instagram");
+  const [copyResult, setCopyResult] = useState<{ content: string; hashtags?: string[] } | null>(null);
+  const [generatingCopy, setGeneratingCopy] = useState(false);
+  const [copyError, setCopyError] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  async function generateCopy() {
+    setGeneratingCopy(true);
+    setCopyError("");
+    setCopyResult(null);
+    try {
+      const res = await fetch(`/api/crm/properties/${property.id}/listing-copy?platform=${copyPlatform}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setCopyResult(data);
+    } catch (err: unknown) {
+      setCopyError(err instanceof Error ? err.message : tri(lang, "خطا در تولید متن آگهی", "Failed to generate listing copy", "Fehler beim Erstellen des Anzeigentexts"));
+    } finally {
+      setGeneratingCopy(false);
+    }
+  }
+
+  function copyToClipboard() {
+    if (!copyResult) return;
+    const full = copyResult.hashtags?.length ? `${copyResult.content}\n\n${copyResult.hashtags.join(" ")}` : copyResult.content;
+    navigator.clipboard.writeText(full);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -3582,6 +3612,38 @@ function PropertyDetailModal({ lang, property, contacts, onClose, onChanged }: {
             </div>
           )}
         </div>
+
+        {/* Section 2, item 2 — Listing Copywriter agent. AI only ever produces a draft here; the agent copies it to actually post/publish, nothing is auto-published. */}
+        {listingCopywriterEnabled && (
+          <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+            <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "متن آگهی (چندپلتفرمی)", "Listing copy (multi-platform)", "Anzeigentext (mehrere Plattformen)")}</p>
+            <div className="flex items-center gap-2">
+              {(["instagram", "divar", "website"] as const).map((p) => (
+                <button key={p} onClick={() => { setCopyPlatform(p); setCopyResult(null); }}
+                  className="text-xs px-3 py-1.5 rounded-lg"
+                  style={{ background: copyPlatform === p ? "var(--primary)" : "var(--surface-2)", color: copyPlatform === p ? "#fff" : "var(--text-secondary)" }}>
+                  {p === "instagram" ? "Instagram" : p === "divar" ? "دیوار" : tri(lang, "وبسایت", "Website", "Website")}
+                </button>
+              ))}
+              <button onClick={generateCopy} disabled={generatingCopy} className="text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-50 flex items-center gap-1.5" style={{ background: "var(--primary)" }}>
+                {generatingCopy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                {tri(lang, "تولید", "Generate", "Generieren")}
+              </button>
+            </div>
+            {copyError && <p className="text-xs" style={{ color: "#ef4444" }}>{copyError}</p>}
+            {copyResult && (
+              <div className="rounded-xl p-3 space-y-2" style={{ background: "var(--surface-2)" }}>
+                <p className="text-xs whitespace-pre-wrap" style={{ color: "var(--text-primary)" }}>{copyResult.content}</p>
+                {copyResult.hashtags && copyResult.hashtags.length > 0 && (
+                  <p className="text-xs" style={{ color: "var(--primary)" }} dir="ltr">{copyResult.hashtags.join(" ")}</p>
+                )}
+                <button onClick={copyToClipboard} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: copied ? "#22c55e" : "var(--surface-1)", color: copied ? "#fff" : "var(--text-secondary)" }}>
+                  {copied ? tri(lang, "کپی شد", "Copied", "Kopiert") : tri(lang, "کپی متن", "Copy text", "Text kopieren")}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
