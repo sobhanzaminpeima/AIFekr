@@ -5,7 +5,7 @@ import {
   Briefcase, Plus, X, Phone, Mail, Building2, Loader2, ChevronDown,
   Users, LayoutGrid, Clock, CheckCircle2, Circle, Zap, FileText, Trash2, Upload, Sparkles, CalendarDays,
   Package, Receipt, FileSignature, Pin, Printer, FolderKanban, PhoneCall,
-  MessageCircle, Send, BarChart2,
+  MessageCircle, Send, BarChart2, Check,
 } from "lucide-react";
 import { useTranslation, tri, type Lang } from "@/lib/i18n";
 import type { Translations } from "@/lib/i18n/en";
@@ -62,7 +62,7 @@ interface ViewingRow {
   assignedTo: { id: string; name: string } | null;
 }
 
-const REAL_ESTATE_MODULE_KEYS = ["crm.property", "crm.owner", "crm.viewingScheduler", "crm.contractCommission", "crm.shortTermCalendar", "crm.matchView", "crm.propertyDocuments", "crm.performanceReport"];
+const REAL_ESTATE_MODULE_KEYS = ["crm.property", "crm.owner", "crm.viewingScheduler", "crm.contractCommission", "crm.shortTermCalendar", "crm.matchView", "crm.propertyDocuments", "crm.performanceReport", "agent.leadMatcher"];
 
 interface BuyerMatchRow {
   contactId: string; contactName: string; phone: string | null;
@@ -125,6 +125,7 @@ export default function CrmPage() {
   const matchViewEnabled = !!moduleAccess["crm.matchView"];
   const propertyDocumentsEnabled = !!moduleAccess["crm.propertyDocuments"];
   const performanceReportEnabled = !!moduleAccess["crm.performanceReport"];
+  const leadMatcherAgentEnabled = !!moduleAccess["agent.leadMatcher"];
 
   async function purchaseCrmPlan(planCode: "CRM_SOLO" | "CRM_TEAM") {
     setUpgrading(true);
@@ -406,7 +407,7 @@ export default function CrmPage() {
       ) : tab === "viewings" && viewingsEnabled ? (
         <ViewingsPanel lang={lang} teamMembers={teamMembers} />
       ) : tab === "matches" && matchViewEnabled ? (
-        <BuyerMatchPanel lang={lang} />
+        <BuyerMatchPanel lang={lang} leadMatcherAgentEnabled={leadMatcherAgentEnabled} />
       ) : tab === "performance" && performanceReportEnabled ? (
         <PerformanceReportPanel lang={lang} />
       ) : (
@@ -3428,7 +3429,7 @@ function ViewingsPanel({ lang, teamMembers }: { lang: Lang; teamMembers: TeamMem
 }
 
 /** Section 1, item 3 — Buyer↔Property match view, feeding the Lead Matcher agent (Section 2). Buyer criteria live in CrmContact.customFields.buyerCriteria — reuses the existing contacts PUT endpoint to save, only this read-side matching view is new. */
-function BuyerMatchPanel({ lang }: { lang: Lang }) {
+function BuyerMatchPanel({ lang, leadMatcherAgentEnabled }: { lang: Lang; leadMatcherAgentEnabled: boolean }) {
   const [results, setResults] = useState<BuyerMatchRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [contacts, setContacts] = useState<{ id: string; name: string }[]>([]);
@@ -3442,6 +3443,11 @@ function BuyerMatchPanel({ lang }: { lang: Lang }) {
   const [minBedrooms, setMinBedrooms] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const [leadDrafts, setLeadDrafts] = useState<{ contactId: string; name: string; email: string | null; matchedPropertyIds: string[]; message: string }[]>([]);
+  const [loadingDrafts, setLoadingDrafts] = useState(false);
+  const [sendingDraftId, setSendingDraftId] = useState<string | null>(null);
+  const [sentDraftIds, setSentDraftIds] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     const [mRes, cRes] = await Promise.all([fetch("/api/crm/buyer-matches"), fetch("/api/crm/contacts")]);
@@ -3482,10 +3488,85 @@ function BuyerMatchPanel({ lang }: { lang: Lang }) {
     }
   }
 
+  async function loadLeadMatcherDrafts() {
+    setLoadingDrafts(true);
+    try {
+      const res = await fetch("/api/crm/lead-matcher");
+      const data = await res.json();
+      setLeadDrafts(data.drafts || []);
+    } finally {
+      setLoadingDrafts(false);
+    }
+  }
+
+  async function sendLeadDraft(d: { contactId: string; message: string }) {
+    setSendingDraftId(d.contactId);
+    try {
+      const res = await fetch("/api/sales/followups/send", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId: d.contactId, message: d.message }),
+      });
+      if (res.ok) setSentDraftIds((prev) => new Set(prev).add(d.contactId));
+    } finally {
+      setSendingDraftId(null);
+    }
+  }
+
   if (loading) return <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />;
 
   return (
     <div className="space-y-3">
+      {/* Section 2, item 1 — Lead Matcher agent. Proposes ready-to-send follow-up drafts only; a human must click send. Falls back to a generic (no-property) draft when a lead has no saved criteria or no property matched — never errors. */}
+      {leadMatcherAgentEnabled && (
+        <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
+            <div>
+              <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "ایجنت تطبیق لید", "Lead Matcher agent", "Lead-Matcher-Agent")}</h2>
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{tri(lang, "پیش‌نویس پیام پیگیری برای لیدها — با اشاره به ملک منطبق در صورت وجود", "Follow-up message drafts for leads — mentioning a matching property where one exists", "Follow-up-Entwürfe für Leads — mit passender Immobilie, falls vorhanden")}</p>
+            </div>
+            <button onClick={loadLeadMatcherDrafts} disabled={loadingDrafts}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold disabled:opacity-50"
+              style={{ background: "var(--surface-2)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
+              {loadingDrafts ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+              {tri(lang, "تولید پیش‌نویس", "Generate drafts", "Entwürfe generieren")}
+            </button>
+          </div>
+          {leadDrafts.length === 0 && !loadingDrafts ? (
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{tri(lang, "روی «تولید پیش‌نویس» بزنید", "Click \"Generate drafts\"", "Klicken Sie auf \"Entwürfe generieren\"")}</p>
+          ) : (
+            <div className="space-y-2">
+              {leadDrafts.map((d) => {
+                const sent = sentDraftIds.has(d.contactId);
+                return (
+                  <div key={d.contactId} className="rounded-xl p-3 flex items-start justify-between gap-3" style={{ background: "var(--surface-2)" }}>
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
+                        {d.name}{d.matchedPropertyIds.length > 0 && <span className="mr-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(34,197,94,0.1)", color: "#22c55e" }}>{tri(lang, "با ملک منطبق", "with match", "mit Treffer")}</span>}
+                      </p>
+                      <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{d.message}</p>
+                    </div>
+                    {sent ? (
+                      <span className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg flex-shrink-0" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>
+                        <Check className="w-3.5 h-3.5" />{tri(lang, "ارسال شد", "Sent", "Gesendet")}
+                      </span>
+                    ) : d.email ? (
+                      <button onClick={() => sendLeadDraft(d)} disabled={sendingDraftId === d.contactId}
+                        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg flex-shrink-0 disabled:opacity-50"
+                        style={{ background: "var(--primary)", color: "white" }}>
+                        {sendingDraftId === d.contactId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                        {tri(lang, "ارسال", "Send", "Senden")}
+                      </button>
+                    ) : (
+                      <span className="text-xs px-2.5 py-1.5 rounded-lg flex-shrink-0" style={{ background: "var(--surface-1)", color: "var(--text-muted)" }}>{tri(lang, "بدون ایمیل", "No email", "Keine E-Mail")}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex justify-end">
         <button onClick={() => setShowSetCriteria((v) => !v)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { hasVoiceAccess, countUserVoiceAgents, FREE_VOICE_AGENT_LIMIT } from "@/lib/voice/workspace";
+import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 
 const DEFAULT_PROMPTS: Record<string, string> = {
   general: "شما یک دستیار صوتی هوشمند یک آژانس املاک هستید. مؤدب، کوتاه و کاربردی صحبت کنید. ابتدا بپرسید تماس‌گیرنده به دنبال خرید، فروش یا اجاره ملک است، سپس بودجه و منطقه مورد نظر را جویا شوید و از ابزار جستجوی ملک برای پیشنهاد گزینه مناسب استفاده کنید. در پایان، وقت بازدید پیشنهاد دهید. برای سوالاتی که به یک ملک خاص مربوط نیست (ساعات کاری، مدارک لازم، شرایط پرداخت و مشابه آن) از ابزار جستجوی دانش‌نامه استفاده کنید.",
@@ -45,7 +46,16 @@ export async function POST(req: NextRequest) {
   const { name, focus, systemPrompt, voiceId, vertical, businessType } = body;
   if (!name?.trim()) return NextResponse.json({ error: "نام ایجنت الزامی است" }, { status: 400 });
 
-  const resolvedVertical = vertical === "general" ? "general" : "real_estate";
+  // Section 2, item 4 — the real_estate vertical (property tools) is
+  // industry-pack-gated same as every other real-estate module; a direct
+  // API call from a non-real-estate customer must fall back to "general",
+  // not just be blocked by the UI hiding the option.
+  let resolvedVertical = vertical === "general" ? "general" : "real_estate";
+  if (resolvedVertical === "real_estate") {
+    const owner = await prisma.user.findUnique({ where: { id: user.id }, select: { industryPackId: true } });
+    const allowed = await isModuleEnabled({ id: user.id, role: user.role, industryPackId: owner?.industryPackId ?? null }, "agent.voiceCallCenter");
+    if (!allowed) resolvedVertical = "general";
+  }
   const resolvedFocus = resolvedVertical === "general"
     ? "general"
     : (["buy", "sell", "rent", "general"].includes(focus) ? focus : "general");

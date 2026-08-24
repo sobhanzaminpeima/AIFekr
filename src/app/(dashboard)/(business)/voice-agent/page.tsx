@@ -69,6 +69,19 @@ export default function VoiceAgentPage() {
   const [showNewProperty, setShowNewProperty] = useState(false);
   const [provisioningId, setProvisioningId] = useState<string | null>(null);
   const [expandedCallId, setExpandedCallId] = useState<string | null>(null);
+  // Section 2, item 4 — the real-estate vertical (property search/viewing
+  // tools) must only be offered when the customer's industry pack includes
+  // it; a non-real-estate customer still gets the (unrelated) generic
+  // voice agent, just without this vertical option — same access system as
+  // every other real-estate module, not a one-off check.
+  const [realEstateVerticalEnabled, setRealEstateVerticalEnabled] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/crm/module-access?keys=agent.voiceCallCenter")
+      .then((r) => r.json())
+      .then((d) => setRealEstateVerticalEnabled(!!d.access?.["agent.voiceCallCenter"]))
+      .catch(() => setRealEstateVerticalEnabled(false));
+  }, []);
 
   const loadAgents = useCallback(async () => {
     const res = await fetch("/api/voice-agent/agents");
@@ -283,6 +296,7 @@ export default function VoiceAgentPage() {
           isFa={isFa} lang={lang} agents={agents} showNewAgent={showNewAgent} setShowNewAgent={setShowNewAgent}
           onCreate={createAgent} onDelete={deleteAgent} onToggleActive={toggleAgentActive}
           onProvision={provisionAgent} provisioningId={provisioningId}
+          realEstateVerticalEnabled={realEstateVerticalEnabled}
         />
       )}
       {tab === "properties" && (
@@ -305,16 +319,27 @@ export default function VoiceAgentPage() {
 }
 
 function AgentsTab({
-  isFa, lang, agents, showNewAgent, setShowNewAgent, onCreate, onDelete, onToggleActive, onProvision, provisioningId,
+  isFa, lang, agents, showNewAgent, setShowNewAgent, onCreate, onDelete, onToggleActive, onProvision, provisioningId, realEstateVerticalEnabled,
 }: {
   isFa: boolean; lang: Lang; agents: VoiceAgent[]; showNewAgent: boolean; setShowNewAgent: (v: boolean) => void;
   onCreate: (f: { name: string; focus: string; vertical: string; businessType?: string }) => void; onDelete: (id: string) => void;
   onToggleActive: (a: VoiceAgent) => void; onProvision: (id: string) => void; provisioningId: string | null;
+  realEstateVerticalEnabled: boolean;
 }) {
   const [name, setName] = useState("");
   const [focus, setFocus] = useState("general");
-  const [vertical, setVertical] = useState("real_estate");
+  const [vertical, setVertical] = useState("general");
   const [businessType, setBusinessType] = useState("");
+  const verticalOptions = realEstateVerticalEnabled ? VERTICAL_OPTIONS : VERTICAL_OPTIONS.filter((v) => v.value === "general");
+
+  // Module access resolves asynchronously after mount — once it does, default
+  // a still-untouched form to real_estate (nicer for the common case: a
+  // real-estate customer's very first agent) without fighting a user who
+  // already picked something.
+  const touchedVertical = useRef(false);
+  useEffect(() => {
+    if (!touchedVertical.current && realEstateVerticalEnabled) setVertical("real_estate");
+  }, [realEstateVerticalEnabled]);
 
   return (
     <div className="space-y-4">
@@ -399,9 +424,9 @@ function AgentsTab({
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{tri(lang, "نوع کسب‌وکار", "Business Type", "Geschäftstyp")}</label>
-              <select value={vertical} onChange={(e) => setVertical(e.target.value)}
+              <select value={vertical} onChange={(e) => { touchedVertical.current = true; setVertical(e.target.value); }}
                 className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                {VERTICAL_OPTIONS.map((v) => <option key={v.value} value={v.value}>{tri(lang, v.fa, v.en, v.de)}</option>)}
+                {verticalOptions.map((v) => <option key={v.value} value={v.value}>{tri(lang, v.fa, v.en, v.de)}</option>)}
               </select>
               <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
                 {vertical === "general"
