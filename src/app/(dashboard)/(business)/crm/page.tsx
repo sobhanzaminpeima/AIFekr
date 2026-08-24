@@ -62,7 +62,7 @@ interface ViewingRow {
   assignedTo: { id: string; name: string } | null;
 }
 
-const REAL_ESTATE_MODULE_KEYS = ["crm.property", "crm.owner", "crm.viewingScheduler", "crm.contractCommission", "crm.shortTermCalendar", "crm.matchView", "crm.propertyDocuments", "crm.performanceReport", "agent.leadMatcher", "agent.listingCopywriter", "agent.viewingCoordinator"];
+const REAL_ESTATE_MODULE_KEYS = ["crm.property", "crm.owner", "crm.viewingScheduler", "crm.contractCommission", "crm.shortTermCalendar", "crm.matchView", "crm.propertyDocuments", "crm.performanceReport", "agent.leadMatcher", "agent.listingCopywriter", "agent.viewingCoordinator", "agent.pricingAdvisor"];
 
 interface BuyerMatchRow {
   contactId: string; contactName: string; phone: string | null;
@@ -128,6 +128,7 @@ export default function CrmPage() {
   const leadMatcherAgentEnabled = !!moduleAccess["agent.leadMatcher"];
   const listingCopywriterEnabled = !!moduleAccess["agent.listingCopywriter"];
   const viewingCoordinatorEnabled = !!moduleAccess["agent.viewingCoordinator"];
+  const pricingAdvisorEnabled = !!moduleAccess["agent.pricingAdvisor"];
 
   async function purchaseCrmPlan(planCode: "CRM_SOLO" | "CRM_TEAM") {
     setUpgrading(true);
@@ -403,7 +404,7 @@ export default function CrmPage() {
       ) : tab === "contracts" ? (
         <ContractsPanel isFa={isFa} lang={lang} t={c} contacts={contacts} />
       ) : tab === "properties" && propertiesEnabled ? (
-        <PropertiesPanel isFa={isFa} lang={lang} contacts={contacts} shortTermCalendarEnabled={shortTermCalendarEnabled} propertyDocumentsEnabled={propertyDocumentsEnabled} listingCopywriterEnabled={listingCopywriterEnabled} />
+        <PropertiesPanel isFa={isFa} lang={lang} contacts={contacts} shortTermCalendarEnabled={shortTermCalendarEnabled} propertyDocumentsEnabled={propertyDocumentsEnabled} listingCopywriterEnabled={listingCopywriterEnabled} pricingAdvisorEnabled={pricingAdvisorEnabled} />
       ) : tab === "owners" && ownersEnabled ? (
         <OwnersPanel lang={lang} />
       ) : tab === "viewings" && viewingsEnabled ? (
@@ -2818,7 +2819,7 @@ function CountryCityPicker({ lang, cityValue, onCityChange }: { lang: Lang; city
   );
 }
 
-function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, propertyDocumentsEnabled, listingCopywriterEnabled }: { isFa: boolean; lang: Lang; contacts: Contact[]; shortTermCalendarEnabled: boolean; propertyDocumentsEnabled: boolean; listingCopywriterEnabled: boolean }) {
+function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, propertyDocumentsEnabled, listingCopywriterEnabled, pricingAdvisorEnabled }: { isFa: boolean; lang: Lang; contacts: Contact[]; shortTermCalendarEnabled: boolean; propertyDocumentsEnabled: boolean; listingCopywriterEnabled: boolean; pricingAdvisorEnabled: boolean }) {
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -3021,7 +3022,7 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
         <PropertyDocsModal lang={lang} propertyId={docsPropertyId} onClose={() => setDocsPropertyId(null)} />
       )}
       {selected && (
-        <PropertyDetailModal lang={lang} property={selected} contacts={contacts} listingCopywriterEnabled={listingCopywriterEnabled}
+        <PropertyDetailModal lang={lang} property={selected} contacts={contacts} listingCopywriterEnabled={listingCopywriterEnabled} pricingAdvisorEnabled={pricingAdvisorEnabled}
           onClose={() => setSelected(null)}
           onChanged={() => { load(); }}
         />
@@ -3238,7 +3239,26 @@ function PropertyDocsModal({ lang, propertyId, onClose }: { lang: Lang; property
 }
 
 /** "View more" property detail — clicking a property row used to just set state with no modal ever rendering it (a real bug). Also covers: photo upload/gallery, editable currency, editable booking (Airbnb) link post-creation, and converting/creating an owner contact inline instead of only picking an existing one. */
-function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnabled, onClose, onChanged }: { lang: Lang; property: PropertyRow; contacts: Contact[]; listingCopywriterEnabled: boolean; onClose: () => void; onChanged: () => void }) {
+function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnabled, pricingAdvisorEnabled, onClose, onChanged }: { lang: Lang; property: PropertyRow; contacts: Contact[]; listingCopywriterEnabled: boolean; pricingAdvisorEnabled: boolean; onClose: () => void; onChanged: () => void }) {
+  const [pricingAdvice, setPricingAdvice] = useState<{ priceRangeLow: number; priceRangeHigh: number; reasoning: string; dataLimitation: string; comparablesUsed: number } | null>(null);
+  const [generatingAdvice, setGeneratingAdvice] = useState(false);
+  const [adviceError, setAdviceError] = useState("");
+
+  async function generatePricingAdviceClick() {
+    setGeneratingAdvice(true);
+    setAdviceError("");
+    setPricingAdvice(null);
+    try {
+      const res = await fetch(`/api/crm/properties/${property.id}/pricing-advice`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setPricingAdvice(data);
+    } catch (err: unknown) {
+      setAdviceError(err instanceof Error ? err.message : tri(lang, "خطا در تولید پیشنهاد قیمت", "Failed to generate pricing advice", "Fehler bei der Preisempfehlung"));
+    } finally {
+      setGeneratingAdvice(false);
+    }
+  }
   const [copyPlatform, setCopyPlatform] = useState<"instagram" | "divar" | "website">("instagram");
   const [copyResult, setCopyResult] = useState<{ content: string; hashtags?: string[] } | null>(null);
   const [generatingCopy, setGeneratingCopy] = useState(false);
@@ -3641,6 +3661,35 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
                 <button onClick={copyToClipboard} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: copied ? "#22c55e" : "var(--surface-1)", color: copied ? "#fff" : "var(--text-secondary)" }}>
                   {copied ? tri(lang, "کپی شد", "Copied", "Kopiert") : tri(lang, "کپی متن", "Copy text", "Text kopieren")}
                 </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Section 2, item 5 — Pricing Advisor. The most sensitive of the six agents (real money, owner trust): internal CRM data only, suggestion never a decision, reasoning always shown, and the "few comparables" limitation is surfaced honestly rather than hidden. */}
+        {pricingAdvisorEnabled && (
+          <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مشاور قیمت‌گذاری", "Pricing Advisor", "Preisberater")}</p>
+              <button onClick={generatePricingAdviceClick} disabled={generatingAdvice} className="text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-50 flex items-center gap-1.5" style={{ background: "var(--primary)" }}>
+                {generatingAdvice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                {tri(lang, "تحلیل قیمت", "Analyze price", "Preis analysieren")}
+              </button>
+            </div>
+            {adviceError && <p className="text-xs" style={{ color: "#ef4444" }}>{adviceError}</p>}
+            {pricingAdvice && (
+              <div className="rounded-xl p-3 space-y-2" style={{ background: "var(--surface-2)" }}>
+                <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                  {tri(lang, "⚠️ فقط بر اساس داده‌های داخلی CRM — بدون دسترسی به بازار زنده یا خارجی. این یک پیشنهاد است، نه تصمیم قطعی.", "⚠️ Based only on internal CRM data — no live or external market access. This is a suggestion, not a final decision.", "⚠️ Nur basierend auf internen CRM-Daten — kein Zugriff auf Live- oder externe Marktdaten. Dies ist ein Vorschlag, keine endgültige Entscheidung.")}
+                </p>
+                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                  {fmtPrice(pricingAdvice.priceRangeLow, property.currency, lang)} – {fmtPrice(pricingAdvice.priceRangeHigh, property.currency, lang)}
+                </p>
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{pricingAdvice.reasoning}</p>
+                <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{tri(lang, `بر اساس ${pricingAdvice.comparablesUsed} ملک مشابه در سیستم شما.`, `Based on ${pricingAdvice.comparablesUsed} comparable properties in your system.`, `Basierend auf ${pricingAdvice.comparablesUsed} vergleichbaren Immobilien in Ihrem System.`)}</p>
+                {pricingAdvice.dataLimitation && (
+                  <p className="text-[10px]" style={{ color: "#f59e0b" }}>{pricingAdvice.dataLimitation}</p>
+                )}
               </div>
             )}
           </div>
