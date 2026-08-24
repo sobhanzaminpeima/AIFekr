@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, dealAgentFilter } from "@/lib/crm/workspace";
+import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -27,7 +28,17 @@ export async function GET(req: NextRequest) {
     orderBy: { updatedAt: "desc" },
     take: 500,
   });
-  return NextResponse.json({ deals });
+
+  // Defense in depth beyond the write-side gate in [id]/route.ts — a
+  // customer without the module strips these fields from the payload
+  // entirely, not just hides them in the UI.
+  const owner = await prisma.user.findUnique({ where: { id: ws.workspaceUserId }, select: { industryPackId: true } });
+  const commissionEnabled = await isModuleEnabled({ id: user.id, role: user.role, industryPackId: owner?.industryPackId ?? null }, "crm.contractCommission");
+  const payload = commissionEnabled
+    ? deals
+    : deals.map(({ commissionRate: _cr, commissionAmount: _ca, commissionPaymentStatus: _cs, ...rest }) => rest);
+
+  return NextResponse.json({ deals: payload });
 }
 
 export async function POST(req: NextRequest) {

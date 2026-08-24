@@ -4,8 +4,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, dealAgentFilter } from "@/lib/crm/workspace";
+import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 
 const EDITABLE_FIELDS = ["title", "value", "probability", "expectedCloseDate", "ownerId", "lostReason"] as const;
+// Section 1, item 5 — Contract & Commission. Row-level visibility ("relevant
+// agent + manager only") already comes for free from dealAgentFilter() above
+// (an AGENT can only ever fetch their own deals); this only needs an
+// additional module gate, not new access-control logic.
+const COMMISSION_FIELDS = ["commissionRate", "commissionAmount", "commissionPaymentStatus"] as const;
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
@@ -23,6 +29,16 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     if (key in body) data[key] = key === "expectedCloseDate" && body[key] ? new Date(body[key]) : body[key];
   }
   if ("customFields" in body) data.customFields = body.customFields ? JSON.stringify(body.customFields) : null;
+
+  const touchesCommission = COMMISSION_FIELDS.some((k) => k in body);
+  if (touchesCommission) {
+    const owner = await prisma.user.findUnique({ where: { id: ws.workspaceUserId }, select: { industryPackId: true } });
+    const allowed = await isModuleEnabled({ id: user.id, role: user.role, industryPackId: owner?.industryPackId ?? null }, "crm.contractCommission");
+    if (!allowed) return NextResponse.json({ error: "ماژول قرارداد و کمیسیون برای شما فعال نیست" }, { status: 403 });
+    for (const key of COMMISSION_FIELDS) {
+      if (key in body) data[key] = body[key];
+    }
+  }
 
   const deal = await prisma.crmDeal.update({ where: { id: params.id }, data });
   return NextResponse.json({ deal });

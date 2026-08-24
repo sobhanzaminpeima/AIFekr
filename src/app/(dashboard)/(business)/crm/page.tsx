@@ -19,6 +19,8 @@ interface DealContact { id: string; name: string; phone: string | null; company:
 interface Deal {
   id: string; title: string; value: number; stageId: string; pipelineId: string;
   status: string; contactId: string; contact: DealContact; expectedCloseDate: string | null; ownerId: string | null;
+  wonAt?: string | null;
+  commissionRate?: number | null; commissionAmount?: number | null; commissionPaymentStatus?: string;
 }
 interface Contact {
   id: string; name: string; phone: string | null; email: string | null;
@@ -60,7 +62,7 @@ interface ViewingRow {
   assignedTo: { id: string; name: string } | null;
 }
 
-const REAL_ESTATE_MODULE_KEYS = ["crm.property", "crm.owner", "crm.viewingScheduler"];
+const REAL_ESTATE_MODULE_KEYS = ["crm.property", "crm.owner", "crm.viewingScheduler", "crm.contractCommission", "crm.shortTermCalendar"];
 
 const INDUSTRY_OPTIONS: { slug: string; labelFa: string; labelEn: string }[] = [
   { slug: "real-estate", labelFa: "املاک", labelEn: "Real Estate" },
@@ -112,6 +114,8 @@ export default function CrmPage() {
   const propertiesEnabled = !!moduleAccess["crm.property"];
   const ownersEnabled = !!moduleAccess["crm.owner"];
   const viewingsEnabled = !!moduleAccess["crm.viewingScheduler"];
+  const commissionEnabled = !!moduleAccess["crm.contractCommission"];
+  const shortTermCalendarEnabled = !!moduleAccess["crm.shortTermCalendar"];
 
   async function purchaseCrmPlan(planCode: "CRM_SOLO" | "CRM_TEAM") {
     setUpgrading(true);
@@ -385,7 +389,7 @@ export default function CrmPage() {
       ) : tab === "contracts" ? (
         <ContractsPanel isFa={isFa} lang={lang} t={c} contacts={contacts} />
       ) : tab === "properties" && propertiesEnabled ? (
-        <PropertiesPanel isFa={isFa} lang={lang} contacts={contacts} />
+        <PropertiesPanel isFa={isFa} lang={lang} contacts={contacts} shortTermCalendarEnabled={shortTermCalendarEnabled} />
       ) : tab === "owners" && ownersEnabled ? (
         <OwnersPanel lang={lang} />
       ) : tab === "viewings" && viewingsEnabled ? (
@@ -423,6 +427,7 @@ export default function CrmPage() {
           deal={deals.find((d) => d.id === selectedDealId) || null}
           pipelines={pipelines}
           teamMembers={teamMembers}
+          commissionEnabled={commissionEnabled}
           onClose={() => setSelectedDealId(null)}
           onChanged={() => { if (selectedPipelineId) loadDeals(selectedPipelineId); }}
         />
@@ -696,11 +701,15 @@ function NewContactModal({ isFa, t, onClose, onCreated }: { isFa: boolean; t: Tr
   );
 }
 
-function DealDetailModal({ isFa, lang, t, dealId, deal, pipelines, teamMembers, onClose, onChanged }: { isFa: boolean; lang: Lang; t: Translations["crm"]; dealId: string; deal: Deal | null; pipelines: Pipeline[]; teamMembers: TeamMember[]; onClose: () => void; onChanged: () => void }) {
+function DealDetailModal({ isFa, lang, t, dealId, deal, pipelines, teamMembers, commissionEnabled, onClose, onChanged }: { isFa: boolean; lang: Lang; t: Translations["crm"]; dealId: string; deal: Deal | null; pipelines: Pipeline[]; teamMembers: TeamMember[]; commissionEnabled: boolean; onClose: () => void; onChanged: () => void }) {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [ownerId, setOwnerId] = useState(deal?.ownerId || "");
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [commissionRate, setCommissionRate] = useState(deal?.commissionRate != null ? String(deal.commissionRate) : "");
+  const [commissionAmount, setCommissionAmount] = useState(deal?.commissionAmount != null ? String(deal.commissionAmount) : "");
+  const [commissionPaymentStatus, setCommissionPaymentStatus] = useState(deal?.commissionPaymentStatus || "unpaid");
+  const [savingCommission, setSavingCommission] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/crm/activities?dealId=${dealId}`);
@@ -737,6 +746,23 @@ function DealDetailModal({ isFa, lang, t, dealId, deal, pipelines, teamMembers, 
     onClose();
   }
 
+  async function saveCommission() {
+    setSavingCommission(true);
+    try {
+      await fetch(`/api/crm/deals/${dealId}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          commissionRate: commissionRate ? Number(commissionRate) : null,
+          commissionAmount: commissionAmount ? Number(commissionAmount) : null,
+          commissionPaymentStatus,
+        }),
+      });
+      onChanged();
+    } finally {
+      setSavingCommission(false);
+    }
+  }
+
   const pipeline = pipelines.find((p) => p.id === deal?.pipelineId);
   const stage = pipeline?.stages.find((s) => s.id === deal?.stageId);
 
@@ -757,6 +783,33 @@ function DealDetailModal({ isFa, lang, t, dealId, deal, pipelines, teamMembers, 
           {deal.expectedCloseDate && (
             <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "تاریخ تخمینی بستن: ", "Expected close: ", "Erwarteter Abschluss: ")}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(deal.expectedCloseDate)}</span></div>
           )}
+        </div>
+      )}
+
+      {/* Section 1, item 5 — Contract & Commission. Row-level visibility (relevant agent + manager only) already comes from dealAgentFilter() server-side; this UI section is additionally hidden entirely when the module is off. Deal date reuses deal.wonAt, final amount reuses deal.value — no duplicate fields. */}
+      {deal && commissionEnabled && (
+        <div className="rounded-2xl p-3 mb-4 space-y-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+          <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "قرارداد و کمیسیون", "Contract & Commission", "Vertrag & Provision")}</p>
+          {deal.wonAt && (
+            <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "تاریخ معامله: ", "Deal date: ", "Abschlussdatum: ")}{toJalali(deal.wonAt)}</p>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <input value={commissionRate} onChange={(e) => setCommissionRate(e.target.value)} type="number" step="0.1"
+              placeholder={tri(lang, "کمیسیون %", "Commission %", "Provision %")}
+              className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <input value={commissionAmount} onChange={(e) => setCommissionAmount(e.target.value)} type="number"
+              placeholder={tri(lang, "مبلغ کمیسیون (تومان)", "Commission amount (Toman)", "Provisionsbetrag (Toman)")}
+              className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          </div>
+          <select value={commissionPaymentStatus} onChange={(e) => setCommissionPaymentStatus(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="unpaid">{tri(lang, "پرداخت‌نشده", "Unpaid", "Unbezahlt")}</option>
+            <option value="partial">{tri(lang, "پرداخت جزئی", "Partially paid", "Teilweise bezahlt")}</option>
+            <option value="paid">{tri(lang, "پرداخت‌شده", "Paid", "Bezahlt")}</option>
+          </select>
+          <button onClick={saveCommission} disabled={savingCommission} className="w-full py-1.5 rounded-xl text-xs font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+            {savingCommission ? "..." : tri(lang, "ذخیره کمیسیون", "Save commission", "Provision speichern")}
+          </button>
         </div>
       )}
 
@@ -2674,13 +2727,14 @@ const PROPERTY_STATUS_LABEL: Record<string, Record<Lang, string>> = {
 };
 
 /** Real-estate industry-pack module — Property/Listing Management. Only rendered when isModuleEnabled("crm.property") returned true (checked once in the parent via /api/crm/module-access). Reuses the unified Property model — same one Voice Agent and CRM Projects already write to — never a parallel table. */
-function PropertiesPanel({ isFa, lang, contacts }: { isFa: boolean; lang: Lang; contacts: Contact[] }) {
+function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled }: { isFa: boolean; lang: Lang; contacts: Contact[]; shortTermCalendarEnabled: boolean }) {
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<PropertyRow | null>(null);
+  const [calendarPropertyId, setCalendarPropertyId] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
   const [listingType, setListingType] = useState("sell");
@@ -2841,12 +2895,132 @@ function PropertiesPanel({ isFa, lang, contacts }: { isFa: boolean; lang: Lang; 
                   className="text-[10px] px-2 py-1 rounded-full font-medium outline-none" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "none" }}>
                   {Object.entries(PROPERTY_STATUS_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
                 </select>
+                {p.listingType === "short_term_rent" && shortTermCalendarEnabled && (
+                  <button onClick={() => setCalendarPropertyId(p.id)} title={tri(lang, "تقویم اشغال", "Occupancy calendar", "Belegungskalender")}>
+                    <CalendarDays className="w-4 h-4" style={{ color: "var(--primary)" }} />
+                  </button>
+                )}
                 <button onClick={() => deleteProperty(p.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {calendarPropertyId && (
+        <OccupancyCalendarModal lang={lang} propertyId={calendarPropertyId} contacts={contacts} onClose={() => setCalendarPropertyId(null)} />
+      )}
+    </div>
+  );
+}
+
+/** Section 1, item 6 — Short-term rental occupancy calendar. Mandatory (not an optional add-on) for any property with listingType "short_term_rent" — the calendar icon always appears on that row's property whenever crm.shortTermCalendar is enabled, never behind a further per-property opt-in. Surfaces Property.bookingLink alongside the in-app calendar since (per researched Airbnb/Booking.com API limits) no live two-way sync exists — bookingLink stays a manual cross-check, not an automated source. */
+function OccupancyCalendarModal({ lang, propertyId, contacts, onClose }: { lang: Lang; propertyId: string; contacts: Contact[]; onClose: () => void }) {
+  const [bookings, setBookings] = useState<{ id: string; checkIn: string; checkOut: string; guestName: string | null; status: string; contact: { id: string; name: string } | null }[]>([]);
+  const [bookingLink, setBookingLink] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [checkIn, setCheckIn] = useState("");
+  const [checkOut, setCheckOut] = useState("");
+  const [guestName, setGuestName] = useState("");
+  const [contactId, setContactId] = useState("");
+
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/crm/properties/${propertyId}/bookings`);
+    const data = await res.json();
+    setBookings(data.bookings || []);
+    setBookingLink(data.bookingLink || null);
+    setLoading(false);
+  }, [propertyId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function addBooking() {
+    if (!checkIn || !checkOut) { setError(tri(lang, "تاریخ ورود و خروج الزامی است", "Check-in and check-out are required", "An- und Abreise erforderlich")); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/crm/properties/${propertyId}/bookings`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ checkIn, checkOut, guestName: guestName.trim() || undefined, contactId: contactId || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setCheckIn(""); setCheckOut(""); setGuestName(""); setContactId("");
+      load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در ثبت رزرو", "Failed to save booking", "Fehler beim Speichern der Buchung"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function cancelBooking(id: string) {
+    await fetch(`/api/crm/bookings/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "cancelled" }) });
+    load();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }}>
+      <div className="w-full max-w-lg rounded-2xl p-5 space-y-3 max-h-[85vh] overflow-y-auto" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "تقویم اشغال", "Occupancy calendar", "Belegungskalender")}</h3>
+          <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
+        </div>
+
+        {bookingLink && (
+          <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+            {tri(lang, "لینک پلتفرم رزرو (بررسی دستی — سینک آنی خودکار موجود نیست): ", "Booking platform link (manual check — no instant auto-sync available): ", "Buchungsplattform-Link (manuelle Prüfung — keine sofortige Auto-Synchronisierung): ")}
+            <a href={bookingLink} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>{bookingLink}</a>
+          </p>
+        )}
+
+        <div className="rounded-xl p-3 space-y-2" style={{ background: "var(--surface-2)" }}>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>{tri(lang, "ورود", "Check-in", "Anreise")}</label>
+              <input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)}
+                className="w-full px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+            <div>
+              <label className="block text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>{tri(lang, "خروج", "Check-out", "Abreise")}</label>
+              <input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)}
+                className="w-full px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+          </div>
+          <input value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder={tri(lang, "نام مهمان (اختیاری)", "Guest name (optional)", "Gastname (optional)")}
+            className="w-full px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <select value={contactId} onChange={(e) => setContactId(e.target.value)}
+            className="w-full px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{tri(lang, "بدون لینک به مخاطب", "No linked contact", "Kein verknüpfter Kontakt")}</option>
+            {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          {error && <p className="text-[11px]" style={{ color: "#ef4444" }}>{error}</p>}
+          <button onClick={addBooking} disabled={saving} className="w-full py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+            {saving ? "..." : tri(lang, "ثبت رزرو", "Add booking", "Buchung hinzufügen")}
+          </button>
+        </div>
+
+        {loading ? (
+          <Loader2 className="w-5 h-5 animate-spin mx-auto" style={{ color: "var(--primary)" }} />
+        ) : bookings.filter((b) => b.status === "confirmed").length === 0 ? (
+          <p className="text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز رزروی ثبت نشده است", "No bookings yet", "Noch keine Buchungen")}</p>
+        ) : (
+          <div className="space-y-1.5">
+            {bookings.filter((b) => b.status === "confirmed").map((b) => (
+              <div key={b.id} className="flex items-center justify-between px-3 py-2 rounded-lg text-xs" style={{ background: "var(--surface-2)" }}>
+                <span style={{ color: "var(--text-primary)" }}>
+                  {b.checkIn.slice(0, 10)} → {b.checkOut.slice(0, 10)}{b.guestName ? ` · ${b.guestName}` : b.contact ? ` · ${b.contact.name}` : ""}
+                </span>
+                <button onClick={() => cancelBooking(b.id)} className="text-[11px]" style={{ color: "#ef4444" }}>
+                  {tri(lang, "لغو", "Cancel", "Stornieren")}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

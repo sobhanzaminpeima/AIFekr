@@ -447,6 +447,7 @@ model CrmContact {
   voiceCallLogs VoiceCallLog[]
   properties Property[]
   viewings   PropertyViewing[]
+  bookings   PropertyBooking[]
 
   @@index([userId])
   @@index([status])
@@ -508,6 +509,21 @@ model CrmDeal {
   status            String    @default("open") // open | won | lost
   wonAt             DateTime?
   lostReason        String?
+  /// Section 1, item 5 — Contract & Commission. Deliberately kept on the
+  /// existing CrmDeal row (deal date = wonAt, final amount = value already
+  /// above) rather than a new table — this is closing-time financial data
+  /// for a deal that already exists, not a separate entity. Visibility is
+  /// already restricted correctly by the existing dealAgentFilter()/
+  /// resolveCrmWorkspace() row-scoping: an AGENT can only ever fetch deals
+  /// they own, MANAGER/OWNER can fetch every deal in the workspace — no
+  /// separate access-control code needed for "relevant agent + manager
+  /// only" beyond gating the fields behind the crm.contractCommission
+  /// module. Commission % and a fixed amount are both stored (not derived)
+  /// since real agencies negotiate either shape per deal.
+  commissionRate          Float?
+  commissionAmount        Float?
+  /// unpaid | partial | paid
+  commissionPaymentStatus String    @default("unpaid")
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -1449,6 +1465,7 @@ model Property {
   crmProject   CrmProject?        @relation(fields: [crmProjectId], references: [id], onDelete: SetNull)
   appointments VoiceAppointment[]
   viewings     PropertyViewing[]
+  bookings     PropertyBooking[]
 
   @@index([userId])
   @@index([agentId])
@@ -1496,6 +1513,43 @@ model PropertyViewing {
   @@index([contactId])
   @@index([assignedToId])
   @@index([scheduledAt])
+}
+
+/// Section 1, item 6 — Short-term rental occupancy calendar. Mandatory (not
+/// optional) UI for any Property with listingType "short_term_rent", to
+/// prevent double-booking the same nights. Coordinates with (does not
+/// replace) Property.bookingLink: as of this research, Airbnb/Booking.com
+/// only offer one-way, non-instant iCal export/import (no live two-way
+/// API for unaffiliated apps), so this table is the source of truth for
+/// in-app scheduling — bookingLink stays a manual reference for the agent
+/// to cross-check, not an automated sync target.
+model PropertyBooking {
+  id         String   @id @default(cuid())
+  /// Workspace owner's id, same scoping convention as every other CRM model.
+  userId     String
+  propertyId String
+  checkIn    DateTime
+  checkOut   DateTime
+  guestName  String?
+  /// Optional link to the CRM lead who booked, if known.
+  contactId  String?
+  /// manual | airbnb_ical | booking_ical — free-text today since only
+  /// "manual" is actually wired up; kept open for when iCal import lands.
+  source     String   @default("manual")
+  /// confirmed | cancelled
+  status     String   @default("confirmed")
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  property Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  contact  CrmContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([propertyId])
+  @@index([contactId])
+  @@index([checkIn])
+  @@index([checkOut])
 }
 
 /// One row per phone call handled by a VoiceAgent, populated from Vapi's
