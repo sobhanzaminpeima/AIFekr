@@ -38,6 +38,7 @@ interface UserDetail {
   lastLoginAt?: string;
   crmPlan?: string;
   crmPlanExpiry?: string;
+  commissionPercentOverride?: number | null;
   _count: { conversations: number; images: number; videos: number; payments: number };
   payments: Payment[];
   usageLogs: UsageLog[];
@@ -68,6 +69,8 @@ export default function AdminUserDetailPage() {
   const id = params?.id as string;
   const [user, setUser] = useState<UserDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [commissionInput, setCommissionInput] = useState("");
+  const [savingCommission, setSavingCommission] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -76,12 +79,32 @@ export default function AdminUserDetailPage() {
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "خطا در بارگذاری"); return; }
       setUser(data.user);
+      setCommissionInput(data.user.commissionPercentOverride != null ? String(data.user.commissionPercentOverride) : "");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => { if (id) load(); }, [id]);
+
+  async function saveCommissionOverride() {
+    setSavingCommission(true);
+    try {
+      const value = commissionInput.trim() === "" ? null : Number(commissionInput);
+      if (value !== null && (!Number.isFinite(value) || value < 0 || value > 100)) {
+        toast.error("درصد باید بین ۰ تا ۱۰۰ باشد"); return;
+      }
+      await fetch(`/api/admin/users/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commissionPercentOverride: value }),
+      });
+      toast.success("درصد کمیسیون اختصاصی ذخیره شد");
+      load();
+    } finally {
+      setSavingCommission(false);
+    }
+  }
 
   async function toggleBlock() {
     if (!user) return;
@@ -177,6 +200,24 @@ export default function AdminUserDetailPage() {
           <option value="SOLO">CRM انفرادی</option>
           <option value="TEAM">CRM تیمی</option>
         </select>
+      </div>
+
+      {/* Referral commission override */}
+      <div className="rounded-2xl p-5 flex items-center justify-between flex-wrap gap-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <div>
+          <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>درصد کمیسیون رفرال اختصاصی</span>
+          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>خالی = استفاده از درصد پیش‌فرض سراسری (تنظیمات افیلیت). فقط برای این کاربر جایگزین می‌شود.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input value={commissionInput} onChange={(e) => setCommissionInput(e.target.value)} type="number" min={0} max={100} step={0.5}
+            placeholder="پیش‌فرض" dir="ltr"
+            className="w-28 px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <span className="text-sm" style={{ color: "var(--text-secondary)" }}>٪</span>
+          <button onClick={saveCommissionOverride} disabled={savingCommission}
+            className="px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+            {savingCommission ? "..." : "ذخیره"}
+          </button>
+        </div>
       </div>
 
       {/* Stats */}

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Gift, Copy, Check, Users, Coins, Clock, Wallet, Send, History } from "lucide-react";
 import { useTranslation, tri } from "@/lib/i18n";
 import { formatNumber, toJalali } from "@/lib/utils/jalali";
+import type { FxRates } from "@/lib/utils/currency";
 
 interface InvitedUser {
   name: string | null;
@@ -29,8 +30,18 @@ interface PayoutRequest {
   id: string; amount: number; method: string; status: string; createdAt: string; adminNote: string | null;
 }
 
-function fmtToman(n: number, lang: string) {
-  return `${formatNumber(n, lang as "fa" | "en" | "de")} ${lang === "fa" ? "تومان" : "Toman"}`;
+// Wallet amounts are stored/processed in Toman on the backend (real cash),
+// but displayed converted to the viewer's own currency — USD for English,
+// EUR for German, Toman for Persian — using the same live FX rates the
+// pricing pages use, not just swapping the unit label.
+function fmtWallet(tomanAmount: number, lang: "fa" | "en" | "de", rates: FxRates | null): string {
+  if (lang === "fa" || !rates) {
+    return `${formatNumber(tomanAmount, lang)} ${lang === "fa" ? "تومان" : "Toman"}`;
+  }
+  const usd = tomanAmount / rates.usdToToman;
+  if (lang === "en") return `$${usd.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+  const eur = usd * rates.usdToEur;
+  return `€${eur.toLocaleString("de-DE", { maximumFractionDigits: 2 })}`;
 }
 
 const TX_TYPE_LABEL: Record<string, Record<string, string>> = {
@@ -46,6 +57,7 @@ export default function ReferralPage() {
   const [data, setData] = useState<ReferralData | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [fxRates, setFxRates] = useState<FxRates | null>(null);
 
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [payoutRequests, setPayoutRequests] = useState<PayoutRequest[]>([]);
@@ -74,7 +86,8 @@ export default function ReferralPage() {
 
   useEffect(() => {
     Promise.all([loadReferral(), loadWallet()]).finally(() => setLoading(false));
-  }, [loadReferral, loadWallet]);
+    if (lang !== "fa") fetch("/api/fx-rate").then((r) => r.json()).then(setFxRates).catch(() => {});
+  }, [loadReferral, loadWallet, lang]);
 
   const link = data?.referralCode && typeof window !== "undefined"
     ? `${window.location.origin}/register?ref=${data.referralCode}`
@@ -157,7 +170,7 @@ export default function ReferralPage() {
               <Wallet className="w-4 h-4" style={{ color: "#10b981" }} />
               <span className="text-xs" style={{ color: "var(--text-muted)" }}>{tri(lang, "موجودی ولت", "Wallet balance", "Wallet-Guthaben")}</span>
             </div>
-            <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{fmtToman(data?.walletBalance ?? 0, lang)}</p>
+            <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{fmtWallet(data?.walletBalance ?? 0, lang, fxRates)}</p>
           </div>
         </div>
 
@@ -232,7 +245,7 @@ export default function ReferralPage() {
               {payoutRequests.map((p) => (
                 <div key={p.id} className="flex items-center justify-between p-3 rounded-xl" style={{ background: "var(--surface-2)" }}>
                   <div>
-                    <p className="text-sm" style={{ color: "var(--text-primary)" }}>{fmtToman(p.amount, lang)}</p>
+                    <p className="text-sm" style={{ color: "var(--text-primary)" }}>{fmtWallet(p.amount, lang, fxRates)}</p>
                     <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{lang === "fa" ? toJalali(p.createdAt) : new Date(p.createdAt).toLocaleDateString()}</p>
                   </div>
                   <span className="text-xs px-2.5 py-1 rounded-full font-medium"
@@ -317,7 +330,7 @@ export default function ReferralPage() {
                     <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{lang === "fa" ? toJalali(t.createdAt) : new Date(t.createdAt).toLocaleDateString()}</p>
                   </div>
                   <span className="text-sm font-medium flex-shrink-0" style={{ color: t.amount >= 0 ? "#22c55e" : "#ef4444" }}>
-                    {t.amount >= 0 ? "+" : ""}{fmtToman(t.amount, lang)}
+                    {t.amount >= 0 ? "+" : ""}{fmtWallet(t.amount, lang, fxRates)}
                   </span>
                 </div>
               ))}

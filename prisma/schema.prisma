@@ -51,6 +51,10 @@ model User {
   /// payouts always go through a WalletPayoutRequest an admin resolves
   /// manually after actually sending the money outside this app.
   walletBalance     Int       @default(0)
+  /// Per-user referral commission override, in percent (0-100) — takes
+  /// priority over the global `referral_commission_percent` site setting.
+  /// Null means "use the global default."
+  commissionPercentOverride Int?
 
   conversations       Conversation[]
   projects            Project[]

@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     // purchase), not a flat credit grant — sum the actual commission entries
     // rather than multiplying a fixed bonus by the reward count.
     prisma.walletTransaction.aggregate({ where: { userId: auth.id, type: "commission" }, _sum: { amount: true } }),
-    getReferralCommissionPercent(),
+    getReferralCommissionPercent(auth.id),
   ]);
 
   return NextResponse.json({
