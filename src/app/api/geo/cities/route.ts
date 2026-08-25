@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
   const cities = await prisma.city.findMany({
     where: { countryId },
-    select: { id: true, name: true },
+    select: { id: true, name: true, nameFa: true, nameDe: true },
     orderBy: { name: "asc" },
     take: 15000, // largest country (US) has ~12k — generous ceiling, not a real cap
   });

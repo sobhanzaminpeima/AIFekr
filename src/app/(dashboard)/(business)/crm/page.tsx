@@ -2856,7 +2856,7 @@ function fmtPrice(n: number, currency: string, lang: Lang): string {
 
 /** Real-estate industry-pack module — Property/Listing Management. Only rendered when isModuleEnabled("crm.property") returned true (checked once in the parent via /api/crm/module-access). Reuses the unified Property model — same one Voice Agent and CRM Projects already write to — never a parallel table. */
 interface GeoCountry { id: string; iso2: string; name: string; nameFa: string | null; nameDe: string | null; emoji: string | null; }
-interface GeoCity { id: string; name: string; }
+interface GeoCity { id: string; name: string; nameFa: string | null; nameDe: string | null; }
 
 // Module-level cache, keyed by lang (server sorts by the localized name) —
 // the country list (251 rows) never changes during a session, so every
@@ -2892,6 +2892,11 @@ function CountryCityPicker({ lang, cityValue, onCityChange }: { lang: Lang; city
     const name = lang === "fa" ? (c.nameFa || c.name) : lang === "de" ? (c.nameDe || c.name) : c.name;
     return `${c.emoji ? c.emoji + " " : ""}${name}`;
   }
+  // Falls back to the English name when a city has no curated translation
+  // (only ~100 major cities are translated, not all ~153k rows).
+  function cityLabel(c: GeoCity) {
+    return lang === "fa" ? (c.nameFa || c.name) : lang === "de" ? (c.nameDe || c.name) : c.name;
+  }
 
   const countryListId = `geo-countries-${instanceId}`;
   const cityListId = `geo-cities-${instanceId}`;
@@ -2926,7 +2931,7 @@ function CountryCityPicker({ lang, cityValue, onCityChange }: { lang: Lang; city
           className="w-full px-3 py-2 rounded-xl text-sm outline-none disabled:opacity-50" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
         />
         <datalist id={cityListId}>
-          {cities.map((c) => <option key={c.id} value={c.name} />)}
+          {cities.map((c) => <option key={c.id} value={cityLabel(c)} />)}
         </datalist>
       </div>
     </div>

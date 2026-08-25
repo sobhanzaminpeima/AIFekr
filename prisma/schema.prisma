@@ -401,6 +401,11 @@ model City {
   id        String  @id @default(cuid())
   countryId String
   name      String
+  /// Only populated for major/well-known cities (curated list, not all
+  /// ~153k rows) — machine-translating every city name isn't reliable for
+  /// obscure places. Falls back to `name` in the UI when null.
+  nameFa    String?
+  nameDe    String?
 
   country Country @relation(fields: [countryId], references: [id], onDelete: Cascade)
 
