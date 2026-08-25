@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Briefcase, Plus, X, Phone, Mail, Building2, Loader2, ChevronDown,
-  Users, LayoutGrid, Clock, CheckCircle2, Circle, Zap, FileText, Trash2, Upload, Sparkles, CalendarDays,
+  Users, LayoutGrid, Clock, CheckCircle2, Circle, Zap, FileText, FileDown, Trash2, Upload, Sparkles, CalendarDays,
   Package, Receipt, FileSignature, Pin, Printer, FolderKanban, PhoneCall,
   MessageCircle, Send, BarChart2, Check, DollarSign, Tag, GitBranch, User,
 } from "lucide-react";
@@ -126,10 +126,15 @@ export default function CrmPage() {
   const [crmPlan, setCrmPlan] = useState<string | null>(null);
   const [upgrading, setUpgrading] = useState(false);
   const [moduleAccess, setModuleAccess] = useState<Record<string, boolean>>({});
+  // Every *Enabled flag below defaults to false until this resolves — the
+  // tab-guard effects further down must wait for this before deciding a
+  // requested tab (e.g. from a ?tab= deep link) is actually disabled,
+  // otherwise they'd bounce back to the board tab on every load.
+  const [moduleAccessLoaded, setModuleAccessLoaded] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me").then((r) => r.json()).then((d) => setCrmPlan(d.user?.crmPlan || "NONE")).catch(() => setCrmPlan("NONE"));
-    fetch(`/api/crm/module-access?keys=${REAL_ESTATE_MODULE_KEYS.join(",")}`).then((r) => r.json()).then((d) => setModuleAccess(d.access || {})).catch(() => setModuleAccess({}));
+    fetch(`/api/crm/module-access?keys=${REAL_ESTATE_MODULE_KEYS.join(",")}`).then((r) => r.json()).then((d) => setModuleAccess(d.access || {})).catch(() => setModuleAccess({})).finally(() => setModuleAccessLoaded(true));
   }, []);
   const propertiesEnabled = !!moduleAccess["crm.property"];
   const ownersEnabled = !!moduleAccess["crm.owner"];
@@ -191,11 +196,11 @@ export default function CrmPage() {
   useEffect(() => { loadPipelines(); }, [loadPipelines]);
   useEffect(() => { if (selectedPipelineId) loadDeals(selectedPipelineId); }, [selectedPipelineId, loadDeals]);
   useEffect(() => { if (tab === "contacts" || tab === "invoices" || tab === "contracts" || tab === "projects" || tab === "properties" || tab === "owners" || tab === "viewings") loadContacts(); }, [tab, loadContacts]);
-  useEffect(() => { if (tab === "properties" && !propertiesEnabled) setTab("board"); }, [tab, propertiesEnabled]);
-  useEffect(() => { if (tab === "owners" && !ownersEnabled) setTab("board"); }, [tab, ownersEnabled]);
-  useEffect(() => { if (tab === "viewings" && !viewingsEnabled) setTab("board"); }, [tab, viewingsEnabled]);
-  useEffect(() => { if (tab === "matches" && !matchViewEnabled) setTab("board"); }, [tab, matchViewEnabled]);
-  useEffect(() => { if (tab === "performance" && !performanceReportEnabled) setTab("board"); }, [tab, performanceReportEnabled]);
+  useEffect(() => { if (moduleAccessLoaded && tab === "properties" && !propertiesEnabled) setTab("board"); }, [tab, propertiesEnabled, moduleAccessLoaded]);
+  useEffect(() => { if (moduleAccessLoaded && tab === "owners" && !ownersEnabled) setTab("board"); }, [tab, ownersEnabled, moduleAccessLoaded]);
+  useEffect(() => { if (moduleAccessLoaded && tab === "viewings" && !viewingsEnabled) setTab("board"); }, [tab, viewingsEnabled, moduleAccessLoaded]);
+  useEffect(() => { if (moduleAccessLoaded && tab === "matches" && !matchViewEnabled) setTab("board"); }, [tab, matchViewEnabled, moduleAccessLoaded]);
+  useEffect(() => { if (moduleAccessLoaded && tab === "performance" && !performanceReportEnabled) setTab("board"); }, [tab, performanceReportEnabled, moduleAccessLoaded]);
   useEffect(() => { if (tab === "automation") loadRules(); }, [tab, loadRules]);
   useEffect(() => {
     fetch("/api/team").then((r) => r.json()).then((data) => {
@@ -2977,6 +2982,10 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
   const [description, setDescription] = useState("");
   const [ownerContactId, setOwnerContactId] = useState("");
 
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ createdCount: number; totalRows: number; errors: { row: number; error: string }[] } | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
+
   const load = useCallback(async () => {
     const res = await fetch("/api/crm/properties");
     const data = await res.json();
@@ -2985,6 +2994,27 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/crm/properties/import", { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setImportResult(data);
+      load();
+    } catch (err: unknown) {
+      setImportResult({ createdCount: 0, totalRows: 0, errors: [{ row: 0, error: err instanceof Error ? err.message : tri(lang, "خطا در وارد کردن فایل", "Failed to import file", "Fehler beim Importieren der Datei") }] });
+    } finally {
+      setImporting(false);
+      if (importInputRef.current) importInputRef.current.value = "";
+    }
+  }
 
   function resetForm() {
     setTitle(""); setListingType("sell"); setPropertyType("apartment"); setPrice(""); setNightlyPrice("");
@@ -3039,12 +3069,43 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex justify-end items-center gap-2 flex-wrap">
+        <a href="/api/crm/properties/import/template" download
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
+          <FileDown className="w-3.5 h-3.5" /> {tri(lang, "دانلود نمونه اکسل", "Download sample template", "Beispielvorlage herunterladen")}
+        </a>
+        <button onClick={() => importInputRef.current?.click()} disabled={importing}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium disabled:opacity-50" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
+          {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+          {tri(lang, "وارد کردن از فایل", "Import from file", "Aus Datei importieren")}
+        </button>
+        <input ref={importInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleImportFile} />
         <button onClick={() => setShowNew((v) => !v)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
           <Plus className="w-4 h-4" /> {tri(lang, "ملک جدید", "New property", "Neue Immobilie")}
         </button>
       </div>
+
+      {importResult && (
+        <div className="rounded-2xl p-4 space-y-2 text-sm" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center justify-between">
+            <p style={{ color: importResult.createdCount > 0 ? "#22c55e" : "var(--text-primary)" }}>
+              {tri(lang,
+                `${importResult.createdCount} از ${importResult.totalRows} ردیف با موفقیت وارد شد`,
+                `${importResult.createdCount} of ${importResult.totalRows} rows imported successfully`,
+                `${importResult.createdCount} von ${importResult.totalRows} Zeilen erfolgreich importiert`)}
+            </p>
+            <button onClick={() => setImportResult(null)} style={{ color: "var(--text-muted)" }}><X className="w-4 h-4" /></button>
+          </div>
+          {importResult.errors.length > 0 && (
+            <ul className="text-xs space-y-1" style={{ color: "#ef4444" }}>
+              {importResult.errors.slice(0, 20).map((e, i) => (
+                <li key={i}>{e.row > 0 ? tri(lang, `ردیف ${e.row}: `, `Row ${e.row}: `, `Zeile ${e.row}: `) : ""}{e.error}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {showNew && (
         <div className="rounded-2xl p-4 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
