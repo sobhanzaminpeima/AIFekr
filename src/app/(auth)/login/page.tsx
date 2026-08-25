@@ -30,6 +30,15 @@ export default function LoginPage() {
     if (error) toast.error(error);
   }, [searchParams]);
 
+  // Only ever redirect to a same-origin relative path — never follow an
+  // absolute/protocol-relative URL from the query string, since that'd be
+  // an open-redirect vector (e.g. ?redirect=//evil.com).
+  function getSafeRedirect(): string | null {
+    const target = searchParams.get("redirect");
+    if (target && target.startsWith("/") && !target.startsWith("//")) return target;
+    return null;
+  }
+
   async function handleSendOtp() {
     if (!phone || phone.length < 10) {
       toast.error(t.auth.login.errPhoneInvalid);
@@ -70,7 +79,7 @@ export default function LoginPage() {
       if (!res.ok) throw new Error(data.error);
       toast.success(t.auth.login.loginSuccess);
       const role = data.user?.role;
-      window.location.href = (role === "ADMIN" || role === "SUPER_ADMIN") ? "/admin/dashboard" : "/chat";
+      window.location.href = getSafeRedirect() || ((role === "ADMIN" || role === "SUPER_ADMIN") ? "/admin/dashboard" : "/chat");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t.auth.login.errOtpWrong);
     } finally {
@@ -93,7 +102,7 @@ export default function LoginPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       toast.success(t.auth.login.loginSuccess);
-      window.location.href = "/chat";
+      window.location.href = getSafeRedirect() || "/chat";
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t.auth.login.errEmailPassWrong);
     } finally {

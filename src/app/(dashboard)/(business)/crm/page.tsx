@@ -93,6 +93,15 @@ function fmtMoney(n: number) {
   return new Intl.NumberFormat("fa-IR").format(n);
 }
 
+// A 401 here means the session expired mid-visit (not a recoverable
+// in-page error) — send the user to log back in with a way back to
+// exactly where they were, instead of leaving a bare "authentication
+// required" string on screen with no path forward.
+function redirectToLogin() {
+  const returnTo = window.location.pathname + window.location.search;
+  window.location.href = `/login?redirect=${encodeURIComponent(returnTo)}`;
+}
+
 export default function CrmPage() {
   const { t, lang } = useTranslation();
   const isFa = lang === "fa";
@@ -169,6 +178,7 @@ export default function CrmPage() {
 
   const loadPipelines = useCallback(async () => {
     const res = await fetch("/api/crm/pipelines");
+    if (res.status === 401) { redirectToLogin(); return; }
     const data = await res.json();
     setPipelines(data.pipelines || []);
     if (data.pipelines?.length && !selectedPipelineId) setSelectedPipelineId(data.pipelines[0].id);
@@ -217,6 +227,7 @@ export default function CrmPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(industryChoice ? { industrySlug: industryChoice } : { name: c.empty.defaultPipelineName }),
       });
+      if (res.status === 401) { redirectToLogin(); return; }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       await loadPipelines();
