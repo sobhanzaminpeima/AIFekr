@@ -22,6 +22,12 @@ export interface ModuleDefinition {
   labelDe: string;
   /** Which industry pack slug this module currently belongs to — a module can only ever be listed under packs it's registered for. */
   industrySlug: string;
+  /** One-line "what does this do" — only set for agent-category modules, shown on the "My Agents" hub (/agents). */
+  descriptionFa?: string;
+  descriptionEn?: string;
+  descriptionDe?: string;
+  /** Where in the app this agent actually lives — e.g. /crm?tab=properties. Agent-category only. */
+  href?: string;
 }
 
 export const REAL_ESTATE_MODULES: ModuleDefinition[] = [
@@ -36,12 +42,54 @@ export const REAL_ESTATE_MODULES: ModuleDefinition[] = [
   { key: "crm.performanceReport", category: "crm", labelFa: "گزارش عملکرد agent/تیم", labelEn: "Agent/Team Performance Report", labelDe: "Makler-/Team-Leistungsbericht", industrySlug: "real-estate" },
 
   // Agents (بخش دوم)
-  { key: "agent.leadMatcher", category: "agent", labelFa: "مشاور لید و تطبیق ملک", labelEn: "Lead & Property Matcher", labelDe: "Lead- & Immobilien-Matcher", industrySlug: "real-estate" },
-  { key: "agent.listingCopywriter", category: "agent", labelFa: "دستیار تولید آگهی", labelEn: "Listing Copywriter", labelDe: "Anzeigen-Texter", industrySlug: "real-estate" },
-  { key: "agent.viewingCoordinator", category: "agent", labelFa: "هماهنگ‌کننده بازدید", labelEn: "Viewing Coordinator", labelDe: "Besichtigungskoordinator", industrySlug: "real-estate" },
-  { key: "agent.voiceCallCenter", category: "agent", labelFa: "مرکز تماس هوش مصنوعی (املاک)", labelEn: "AI Call Center (Real Estate)", labelDe: "KI-Callcenter (Immobilien)", industrySlug: "real-estate" },
-  { key: "agent.pricingAdvisor", category: "agent", labelFa: "مشاور قیمت‌گذاری", labelEn: "Pricing Advisor", labelDe: "Preisberater", industrySlug: "real-estate" },
-  { key: "agent.agencyManager", category: "agent", labelFa: "دستیار مدیر آژانس", labelEn: "Agency Manager Assistant", labelDe: "Assistent der Agenturleitung", industrySlug: "real-estate" },
+  {
+    key: "agent.leadMatcher", category: "agent", industrySlug: "real-estate",
+    labelFa: "مشاور لید و تطبیق ملک", labelEn: "Lead & Property Matcher", labelDe: "Lead- & Immobilien-Matcher",
+    descriptionFa: "لیدهای CRM را به‌طور خودکار با ملک‌های موجود تطبیق می‌دهد و پیش‌نویس پیام پیشنهاد می‌سازد.",
+    descriptionEn: "Automatically matches your CRM leads against your existing properties and drafts a suggestion message.",
+    descriptionDe: "Gleicht Ihre CRM-Leads automatisch mit vorhandenen Immobilien ab und entwirft eine Vorschlagsnachricht.",
+    href: "/crm?tab=matches",
+  },
+  {
+    key: "agent.listingCopywriter", category: "agent", industrySlug: "real-estate",
+    labelFa: "دستیار تولید آگهی", labelEn: "Listing Copywriter", labelDe: "Anzeigen-Texter",
+    descriptionFa: "برای هر ملک، متن آگهی مناسب اینستاگرام، دیوار یا وبسایت می‌سازد.",
+    descriptionEn: "Writes ready-to-post listing copy for Instagram, Divar, or your website for any property.",
+    descriptionDe: "Erstellt fertige Anzeigentexte für Instagram, Divar oder Ihre Website für jede Immobilie.",
+    href: "/crm?tab=properties",
+  },
+  {
+    key: "agent.viewingCoordinator", category: "agent", industrySlug: "real-estate",
+    labelFa: "هماهنگ‌کننده بازدید", labelEn: "Viewing Coordinator", labelDe: "Besichtigungskoordinator",
+    descriptionFa: "زمان بازدید بدون تداخل پیشنهاد می‌دهد و یادآوری ثبت بازخورد بازدیدهای گذشته را نشان می‌دهد.",
+    descriptionEn: "Suggests a conflict-free viewing time and flags past viewings still missing feedback.",
+    descriptionDe: "Schlägt eine konfliktfreie Besichtigungszeit vor und markiert vergangene Besichtigungen ohne Feedback.",
+    href: "/crm?tab=viewings",
+  },
+  {
+    key: "agent.voiceCallCenter", category: "agent", industrySlug: "real-estate",
+    labelFa: "مرکز تماس هوش مصنوعی (املاک)", labelEn: "AI Call Center (Real Estate)", labelDe: "KI-Callcenter (Immobilien)",
+    descriptionFa: "ایجنت صوتی که با مخاطبین تماس می‌گیرد یا پاسخ می‌دهد، با ورتیکال مخصوص املاک.",
+    descriptionEn: "A voice agent that calls or answers contacts, configured for the real-estate vertical.",
+    descriptionDe: "Ein Sprachagent, der Kontakte anruft oder Anrufe entgegennimmt, konfiguriert für die Immobilienbranche.",
+    href: "/voice-agent",
+  },
+  {
+    key: "agent.pricingAdvisor", category: "agent", industrySlug: "real-estate",
+    labelFa: "مشاور قیمت‌گذاری", labelEn: "Pricing Advisor", labelDe: "Preisberater",
+    descriptionFa: "بر اساس ملک‌های مشابه ثبت‌شده در همین آژانس، بازه قیمت پیشنهادی با دلیل ارائه می‌دهد.",
+    descriptionEn: "Suggests a price range with reasoning, based on comparable properties already in your agency.",
+    descriptionDe: "Schlägt anhand vergleichbarer Immobilien in Ihrer Agentur eine Preisspanne mit Begründung vor.",
+    href: "/crm?tab=properties",
+  },
+  {
+    key: "agent.agencyManager", category: "agent", industrySlug: "real-estate",
+    labelFa: "دستیار مدیر آژانس", labelEn: "Agency Manager Assistant", labelDe: "Assistent der Agenturleitung",
+    descriptionFa: "گزارش دوره‌ای پایپ‌لاین با سوال‌های مشخص دربارهٔ لیدهای رهاشده و بازدیدهای بی‌بازخورد می‌سازد.",
+    descriptionEn: "Builds a periodic pipeline report with specific questions about abandoned leads and feedback-less viewings.",
+    descriptionDe: "Erstellt einen periodischen Pipeline-Bericht mit gezielten Fragen zu verwaisten Leads und Besichtigungen ohne Feedback.",
+    href: "/crm?tab=performance",
+  },
 ];
 
 const ALL_MODULES: ModuleDefinition[] = [...REAL_ESTATE_MODULES];

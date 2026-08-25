@@ -98,7 +98,14 @@ export default function CrmPage() {
   const isFa = lang === "fa";
   const c = t.crm;
 
-  const [tab, setTab] = useState<CrmTab>("board");
+  // Supports deep-linking from outside the CRM (e.g. /crm?tab=properties from
+  // the "My Agents" hub) — falls back to the default board tab otherwise.
+  const [tab, setTab] = useState<CrmTab>(() => {
+    if (typeof window === "undefined") return "board";
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    const valid: CrmTab[] = ["board", "contacts", "automation", "agent", "calendar", "analytics", "products", "invoices", "contracts", "projects", "properties", "owners", "viewings", "matches", "performance"];
+    return valid.includes(requested as CrmTab) ? (requested as CrmTab) : "board";
+  });
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);

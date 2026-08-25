@@ -182,6 +182,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         {/* General section */}
         <NavItem icon={MessageSquare} label={t.nav.chat} href="/chat" active={isActive("/chat")} />
         <div style={{ borderTop: "1px solid var(--border)", margin: "6px 0" }} />
+        <NavItem icon={Sparkles} label={tri(lang, "ایجنت‌های من", "My Agents", "Meine Agenten")} href="/agents" active={isActive("/agents")} />
         <NavItem icon={ImageIcon} label={t.nav.image} href="/image/generate" active={isActive("/image")} />
         <NavItem icon={Video} label={t.nav.video} href="/video/generate" active={isActive("/video")} />
         <NavItem icon={Music} label={t.nav.music} href="/music/generate" active={isActive("/music")} />
