@@ -26,10 +26,15 @@ function applyLang(lang: Lang) {
   window.location.reload();
 }
 
+const MENU_WIDTH = 140;
+const VIEWPORT_MARGIN = 8;
+
 export default function LanguageSwitcher({ className = "", iconOnly = false, dropUp = false }: { className?: string; iconOnly?: boolean; dropUp?: boolean }) {
   const [lang, setLangState] = useState<Lang>("fa");
   const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setLangState(getLang());
@@ -43,10 +48,26 @@ export default function LanguageSwitcher({ className = "", iconOnly = false, dro
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
+  // Positioned with `fixed` + a clamped rect (instead of `absolute` anchored
+  // to the button's own edge) so the menu can't get clipped off-screen when
+  // the button sits near a viewport edge (e.g. the sidebar's bottom icon row).
+  function toggleOpen() {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      const left = Math.min(Math.max(rect.right - MENU_WIDTH, VIEWPORT_MARGIN), window.innerWidth - MENU_WIDTH - VIEWPORT_MARGIN);
+      const top = dropUp
+        ? Math.max(rect.top - 4, VIEWPORT_MARGIN)
+        : Math.min(rect.bottom + 4, window.innerHeight - VIEWPORT_MARGIN);
+      setMenuPos({ top, left });
+    }
+    setOpen((v) => !v);
+  }
+
   return (
     <div ref={rootRef} className="relative">
       <button
-        onClick={() => setOpen((v) => !v)}
+        ref={btnRef}
+        onClick={toggleOpen}
         title="Change language"
         className={`flex items-center justify-center transition-all ${iconOnly ? "w-8 h-8 rounded-lg" : "gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium"} ${className}`}
         style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
@@ -61,10 +82,16 @@ export default function LanguageSwitcher({ className = "", iconOnly = false, dro
         )}
       </button>
 
-      {open && (
+      {open && menuPos && (
         <div
-          className={`absolute ${dropUp ? "bottom-full mb-1" : "top-full mt-1"} z-50 py-1 rounded-xl shadow-2xl min-w-[140px]`}
-          style={{ background: "var(--surface-1)", border: "1px solid var(--border)", insetInlineEnd: 0 }}
+          className="fixed z-50 py-1 rounded-xl shadow-2xl"
+          style={{
+            background: "var(--surface-1)", border: "1px solid var(--border)",
+            width: MENU_WIDTH,
+            top: dropUp ? undefined : menuPos.top,
+            bottom: dropUp ? window.innerHeight - menuPos.top : undefined,
+            left: menuPos.left,
+          }}
         >
           {OPTIONS.map((opt) => (
             <button

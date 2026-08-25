@@ -99,7 +99,12 @@ export default function MobileNavShell({
           from visually touching. Bumped to pt-20 (80px) and the trigger
           nudged down to top-4 so there's a real gap between them regardless
           of how tall a given page's own header happens to be. */}
-      <main className={`flex-1 overflow-y-auto pt-[calc(52px+env(safe-area-inset-top))] pb-[calc(56px+env(safe-area-inset-bottom))] md:pb-0 relative ${isChatPage ? "md:pt-0" : "md:pt-20"}`}>
+      {/* Chat manages its own internal scroll region (header + scrollable
+          messages + docked input, all sized via h-full) — letting `main`
+          also scroll nested it inside another scroll container, which is
+          what pushed the input bar and header off-screen on mobile. Every
+          other page still relies on `main` itself scrolling. */}
+      <main className={`flex-1 pt-[calc(52px+env(safe-area-inset-top))] pb-[calc(56px+env(safe-area-inset-bottom))] md:pb-0 relative ${isChatPage ? "overflow-hidden md:pt-0" : "overflow-y-auto md:pt-20"}`}>
         {/* /chat renders its own compact search icon inline next to its header
             controls (see ChatInterface.tsx) — the floating trigger would sit
             directly above that row and read as a redundant, disconnected line. */}

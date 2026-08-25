@@ -448,9 +448,9 @@ export default function ChatInterface({
   const starterPrompts = tri(lang, STARTER_PROMPTS_FA, STARTER_PROMPTS_EN, STARTER_PROMPTS_DE);
 
   return (
-    <div className="flex flex-col h-screen" dir={isRtl ? "rtl" : "ltr"} style={{ background: "var(--surface-0)" }}>
+    <div className="flex flex-col h-full" dir={isRtl ? "rtl" : "ltr"} style={{ background: "var(--surface-0)" }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 gap-3 flex-wrap" style={{ borderBottom: "1px solid var(--border)" }}>
+      <div className="flex flex-col md:flex-row md:items-center justify-between px-4 py-3 gap-2 md:gap-3" style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="flex items-center gap-2 min-w-0">
           <h1 className="font-semibold truncate" style={{ color: "var(--text-primary)" }}>{title || t.chat.title}</h1>
           {activeProvider && (
@@ -463,7 +463,7 @@ export default function ChatInterface({
           )}
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-wrap md:flex-nowrap md:flex-shrink-0">
           {/* Increase credits — always visible entry point to the plans/payment page */}
           <Link
             href="/plans"
