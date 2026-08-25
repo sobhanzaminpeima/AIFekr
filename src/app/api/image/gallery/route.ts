@@ -10,16 +10,18 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const page = Number(searchParams.get("page") || 1);
+  const kind = searchParams.get("kind");
   const limit = 12;
+  const where = { userId: user.id, ...(kind ? { kind } : {}) };
 
   const [images, total] = await Promise.all([
     prisma.generatedImage.findMany({
-      where: { userId: user.id },
+      where,
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,
     }),
-    prisma.generatedImage.count({ where: { userId: user.id } }),
+    prisma.generatedImage.count({ where }),
   ]);
 
   return NextResponse.json({ images, total, page, totalPages: Math.ceil(total / limit) });

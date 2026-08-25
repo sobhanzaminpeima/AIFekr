@@ -251,6 +251,11 @@ model GeneratedImage {
   userId         String
   prompt         String
   style          String   @default("realistic")
+  /// "standard" for the free-form Image Generator, "character_sheet" for
+  /// the Character Creation submenu — lets the character panel show only
+  /// the user's own saved character sheets instead of every image they've
+  /// ever generated.
+  kind           String   @default("standard")
   url            String
   /// User-uploaded reference photo this image was generated from, if any (image-to-image).
   sourceImageUrl String?

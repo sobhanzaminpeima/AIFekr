@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Upload, X, Loader2, Sparkles, Download, User, Check } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Upload, X, Loader2, Sparkles, Download, User, Check, Images } from "lucide-react";
 import toast from "react-hot-toast";
 import { tri, type Lang } from "@/lib/i18n";
 import { SAMPLE_CHARACTERS, CHARACTER_SHEET_PROMPT } from "@/lib/ai/characterSheetPrompts";
@@ -18,6 +18,7 @@ import { SAMPLE_CHARACTERS, CHARACTER_SHEET_PROMPT } from "@/lib/ai/characterShe
  */
 
 type Source = { kind: "upload"; url: string } | { kind: "sample"; id: string; url: string } | null;
+interface SavedSheet { id: string; url: string; createdAt: string; }
 
 export default function CharacterCreationPanel({ lang, imageProvider }: { lang: Lang; imageProvider: string }) {
   const [source, setSource] = useState<Source>(null);
@@ -26,6 +27,24 @@ export default function CharacterCreationPanel({ lang, imageProvider }: { lang: 
   const [generatingSheet, setGeneratingSheet] = useState(false);
   const [sheetUrl, setSheetUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [savedSheets, setSavedSheets] = useState<SavedSheet[]>([]);
+  const [loadingSaved, setLoadingSaved] = useState(true);
+
+  const loadSavedSheets = useCallback(() => {
+    fetch("/api/image/gallery?kind=character_sheet", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setSavedSheets(d.images || []))
+      .catch(() => {})
+      .finally(() => setLoadingSaved(false));
+  }, []);
+
+  useEffect(() => { loadSavedSheets(); }, [loadSavedSheets]);
+
+  async function deleteSheet(id: string) {
+    setSavedSheets((prev) => prev.filter((s) => s.id !== id));
+    await fetch("/api/image/gallery", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) }).catch(() => {});
+  }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -78,13 +97,14 @@ export default function CharacterCreationPanel({ lang, imageProvider }: { lang: 
       const res = await fetch("/api/image/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: CHARACTER_SHEET_PROMPT, style: "realistic", ratio: "16:9", quality: "hd", count: 1, sourceImageUrl: source.url, provider: imageProvider }),
+        body: JSON.stringify({ prompt: CHARACTER_SHEET_PROMPT, style: "realistic", ratio: "16:9", quality: "hd", count: 1, sourceImageUrl: source.url, provider: imageProvider, kind: "character_sheet" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       const url = data.images?.[0]?.url;
       if (!url) throw new Error(tri(lang, "خطا در تولید کاراکترشیت", "Character sheet generation failed", "Charakterblatt-Generierung fehlgeschlagen"));
       setSheetUrl(url);
+      loadSavedSheets();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : tri(lang, "خطا در تولید کاراکترشیت", "Character sheet generation failed", "Charakterblatt-Generierung fehlgeschlagen"));
     } finally {
@@ -198,6 +218,40 @@ export default function CharacterCreationPanel({ lang, imageProvider }: { lang: 
           </a>
         </div>
       )}
+
+      {/* Saved character sheets — reuses the same GeneratedImage table as the
+          main Image Generator (every /api/image/generate call already saves
+          to the user's account), just filtered to kind="character_sheet"
+          so it doesn't mix in with unrelated generated images. */}
+      <div className="p-5 rounded-2xl space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <p className="text-sm font-semibold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+          <Images className="w-4 h-4" style={{ color: "var(--primary)" }} />
+          {tri(lang, "کاراکترشیت‌های ذخیره‌شدهٔ من", "My Saved Character Sheets", "Meine gespeicherten Charakterblätter")}
+        </p>
+        {loadingSaved ? (
+          <Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--primary)" }} />
+        ) : savedSheets.length === 0 ? (
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            {tri(lang, "هنوز کاراکترشیتی ذخیره نشده", "No character sheets saved yet", "Noch keine Charakterblätter gespeichert")}
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {savedSheets.map((sheet) => (
+              <div key={sheet.id} className="relative group rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+                <img src={sheet.url} alt="character sheet" className="w-full aspect-video object-cover" />
+                <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "rgba(0,0,0,0.55)" }}>
+                  <a href={sheet.url} download className="p-2 rounded-lg" style={{ background: "var(--surface-1)" }}>
+                    <Download className="w-4 h-4" style={{ color: "var(--text-primary)" }} />
+                  </a>
+                  <button onClick={() => deleteSheet(sheet.id)} className="p-2 rounded-lg" style={{ background: "var(--surface-1)" }}>
+                    <X className="w-4 h-4" style={{ color: "#ef4444" }} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   if (!user) return unauthorizedResponse();
 
   try {
-    const { prompt, style = "realistic", ratio = "1:1", quality = "standard", count = 1, sourceImageUrl, provider: requestedProvider } = await req.json();
+    const { prompt, style = "realistic", ratio = "1:1", quality = "standard", count = 1, sourceImageUrl, provider: requestedProvider, kind = "standard" } = await req.json();
 
     if (!prompt?.trim()) return NextResponse.json({ error: "توضیحات تصویر الزامی است" }, { status: 400 });
 
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
     const saved = await Promise.all(
       finalUrls.map(url =>
         prisma.generatedImage.create({
-          data: { userId: user.id, prompt, style, url, sourceImageUrl: sourceImageUrl || null, credits: Math.round(creditCost / count) },
+          data: { userId: user.id, prompt, style, url, sourceImageUrl: sourceImageUrl || null, credits: Math.round(creditCost / count), kind: kind === "character_sheet" ? "character_sheet" : "standard" },
         })
       )
     );
