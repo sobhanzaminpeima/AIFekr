@@ -12,9 +12,16 @@ export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
+  const lang = req.nextUrl.searchParams.get("lang");
   const countries = await prisma.country.findMany({
     select: { id: true, iso2: true, name: true, nameFa: true, nameDe: true, emoji: true },
     orderBy: { name: "asc" },
   });
-  return NextResponse.json({ countries });
+  // Sort by the localized name actually shown in the UI — sorting by the
+  // English `name` while displaying `nameFa`/`nameDe` made the list look
+  // scrambled/random to non-English users.
+  const sorted = lang === "fa" || lang === "de"
+    ? [...countries].sort((a, b) => (lang === "fa" ? (a.nameFa || a.name) : (a.nameDe || a.name)).localeCompare(lang === "fa" ? (b.nameFa || b.name) : (b.nameDe || b.name), lang))
+    : countries;
+  return NextResponse.json({ countries: sorted });
 }

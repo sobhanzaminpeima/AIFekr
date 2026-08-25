@@ -5,7 +5,7 @@ import {
   Briefcase, Plus, X, Phone, Mail, Building2, Loader2, ChevronDown,
   Users, LayoutGrid, Clock, CheckCircle2, Circle, Zap, FileText, Trash2, Upload, Sparkles, CalendarDays,
   Package, Receipt, FileSignature, Pin, Printer, FolderKanban, PhoneCall,
-  MessageCircle, Send, BarChart2, Check,
+  MessageCircle, Send, BarChart2, Check, DollarSign, Tag, GitBranch, User,
 } from "lucide-react";
 import { useTranslation, tri, type Lang } from "@/lib/i18n";
 import type { Translations } from "@/lib/i18n/en";
@@ -446,7 +446,7 @@ export default function CrmPage() {
 
       {/* New Contact modal */}
       {showNewContact && (
-        <NewContactModal isFa={isFa} t={c} onClose={() => setShowNewContact(false)} onCreated={() => { setShowNewContact(false); loadContacts(); }} />
+        <NewContactModal isFa={isFa} lang={lang} t={c} propertiesEnabled={propertiesEnabled} onClose={() => setShowNewContact(false)} onCreated={() => { setShowNewContact(false); loadContacts(); }} />
       )}
 
       {/* Deal detail panel */}
@@ -629,35 +629,57 @@ function NewDealModal({ isFa, t, pipeline, onClose, onCreated }: { isFa: boolean
 
   return (
     <Modal onClose={onClose}>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{t.newDealModal.title}</h2>
-        <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(234,88,12,0.12)" }}>
+          <Briefcase className="w-5 h-5" style={{ color: "var(--primary)" }} />
+        </div>
+        <h2 className="text-lg font-bold flex-1" style={{ color: "var(--text-primary)" }}>{t.newDealModal.title}</h2>
+        <button onClick={onClose} className="p-1 rounded-lg hover:opacity-70"><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
       </div>
-      <div className="space-y-3">
-        <select value={contactId} onChange={(e) => setContactId(e.target.value)}
-          className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-          <option value="">{t.newDealModal.selectContact}</option>
-          {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t.newDealModal.titlePlaceholder}
-          className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-        <input value={value} onChange={(e) => setValue(e.target.value)} type="number" placeholder={t.newDealModal.valuePlaceholder}
-          className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-        <select value={stageId} onChange={(e) => setStageId(e.target.value)}
-          className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-          {pipeline.stages.sort((a, b) => a.order - b.order).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-        <div>
-          <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{t.newDealModal.expectedCloseDateLabel}</label>
+      <div className="space-y-4">
+        <FormField icon={User} label={t.newDealModal.selectContact}>
+          <select value={contactId} onChange={(e) => setContactId(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{t.newDealModal.selectContact}</option>
+            {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </FormField>
+        <FormField icon={Tag} label={t.newDealModal.titlePlaceholder}>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t.newDealModal.titlePlaceholder}
+            className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        </FormField>
+        <FormField icon={DollarSign} label={t.newDealModal.valuePlaceholder}>
+          <input value={value} onChange={(e) => setValue(e.target.value)} type="number" placeholder={t.newDealModal.valuePlaceholder}
+            className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        </FormField>
+        <FormField icon={GitBranch} label={isFa ? "مرحله" : "Stage"}>
+          <select value={stageId} onChange={(e) => setStageId(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            {pipeline.stages.sort((a, b) => a.order - b.order).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </FormField>
+        <FormField icon={CalendarDays} label={t.newDealModal.expectedCloseDateLabel}>
           <input type="date" value={expectedCloseDate} onChange={(e) => setExpectedCloseDate(e.target.value)}
             className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-        </div>
+        </FormField>
         {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
-        <button onClick={submit} disabled={saving} className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-          {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t.newDealModal.submit}
+        <button onClick={submit} disabled={saving} className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2 transition-opacity hover:opacity-90" style={{ background: "var(--primary)" }}>
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4" />{t.newDealModal.submit}</>}
         </button>
       </div>
     </Modal>
+  );
+}
+
+function FormField({ icon: Icon, label, children }: { icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="flex items-center gap-1.5 text-xs font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
+        <Icon className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} />
+        {label}
+      </label>
+      {children}
+    </div>
   );
 }
 
@@ -670,7 +692,7 @@ const LEAD_SOURCE_OPTIONS: { value: string; fa: string; en: string }[] = [
   { value: "other", fa: "سایر", en: "Other" },
 ];
 
-function NewContactModal({ isFa, t, onClose, onCreated }: { isFa: boolean; t: Translations["crm"]; onClose: () => void; onCreated: () => void }) {
+function NewContactModal({ isFa, lang, t, propertiesEnabled, onClose, onCreated }: { isFa: boolean; lang: Lang; t: Translations["crm"]; propertiesEnabled: boolean; onClose: () => void; onCreated: () => void }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -681,8 +703,23 @@ function NewContactModal({ isFa, t, onClose, onCreated }: { isFa: boolean; t: Tr
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // Real-estate relation — optional, only shown when the property module is
+  // on. Lets a contact be marked as a property's owner or an interested
+  // buyer/tenant right when it's created, instead of only being settable
+  // from the property side.
+  const [propertyRole, setPropertyRole] = useState<"" | "owner" | "interested">("");
+  const [properties, setProperties] = useState<{ id: string; title: string }[]>([]);
+  const [relatedPropertyId, setRelatedPropertyId] = useState("");
+
+  useEffect(() => {
+    if (propertiesEnabled && propertyRole && properties.length === 0) {
+      fetch("/api/crm/properties").then((r) => r.json()).then((d) => setProperties((d.properties || []).map((p: { id: string; title: string }) => ({ id: p.id, title: p.title }))));
+    }
+  }, [propertiesEnabled, propertyRole, properties.length]);
+
   async function submit() {
     if (!name.trim()) { setError(t.newContactModal.errorNameRequired); return; }
+    if (propertyRole && !relatedPropertyId) { setError(tri(lang, "یک ملک را انتخاب کنید", "Select a property", "Wählen Sie eine Immobilie")); return; }
     setSaving(true);
     setError("");
     try {
@@ -693,6 +730,19 @@ function NewContactModal({ isFa, t, onClose, onCreated }: { isFa: boolean; t: Tr
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+
+      if (propertyRole === "owner" && relatedPropertyId) {
+        await fetch(`/api/crm/properties/${relatedPropertyId}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ crmContactId: data.contact.id }),
+        });
+      } else if (propertyRole === "interested" && relatedPropertyId) {
+        await fetch(`/api/crm/properties/${relatedPropertyId}/interests`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contactId: data.contact.id }),
+        });
+      }
+
       onCreated();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : t.newContactModal.errorGeneric);
@@ -703,9 +753,12 @@ function NewContactModal({ isFa, t, onClose, onCreated }: { isFa: boolean; t: Tr
 
   return (
     <Modal onClose={onClose}>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{t.newContactModal.title}</h2>
-        <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(234,88,12,0.12)" }}>
+          <User className="w-5 h-5" style={{ color: "var(--primary)" }} />
+        </div>
+        <h2 className="text-lg font-bold flex-1" style={{ color: "var(--text-primary)" }}>{t.newContactModal.title}</h2>
+        <button onClick={onClose} className="p-1 rounded-lg hover:opacity-70"><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
       </div>
       <div className="space-y-3">
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.newContactModal.namePlaceholder}
@@ -727,9 +780,29 @@ function NewContactModal({ isFa, t, onClose, onCreated }: { isFa: boolean; t: Tr
             {Object.entries(t.leadSources).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </div>
+        {propertiesEnabled && (
+          <div className="pt-1" style={{ borderTop: "1px solid var(--border)" }}>
+            <p className="text-xs font-semibold mb-1.5 mt-2" style={{ color: "var(--text-primary)" }}>
+              {tri(lang, "ارتباط با ملک (اختیاری)", "Property relation (optional)", "Immobilienbezug (optional)")}
+            </p>
+            <select value={propertyRole} onChange={(e) => { setPropertyRole(e.target.value as typeof propertyRole); setRelatedPropertyId(""); }}
+              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none mb-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              <option value="">{tri(lang, "بدون ارتباط", "No relation", "Keine Zuordnung")}</option>
+              <option value="owner">{tri(lang, "مالک ملک", "Property owner", "Immobilieneigentümer")}</option>
+              <option value="interested">{tri(lang, "مشتری علاقه‌مند به ملک", "Interested buyer/tenant", "Interessierter Käufer/Mieter")}</option>
+            </select>
+            {propertyRole && (
+              <select value={relatedPropertyId} onChange={(e) => setRelatedPropertyId(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                <option value="">{tri(lang, "انتخاب ملک...", "Select property...", "Immobilie wählen...")}</option>
+                {properties.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+              </select>
+            )}
+          </div>
+        )}
         {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
-        <button onClick={submit} disabled={saving} className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-          {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t.newContactModal.submit}
+        <button onClick={submit} disabled={saving} className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2 transition-opacity hover:opacity-90" style={{ background: "var(--primary)" }}>
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4" />{t.newContactModal.submit}</>}
         </button>
       </div>
     </Modal>
@@ -2785,25 +2858,29 @@ function fmtPrice(n: number, currency: string, lang: Lang): string {
 interface GeoCountry { id: string; iso2: string; name: string; nameFa: string | null; nameDe: string | null; emoji: string | null; }
 interface GeoCity { id: string; name: string; }
 
-// Module-level cache — the country list (251 rows) never changes during a
-// session, so every CountryCityPicker instance on a page shares one fetch
+// Module-level cache, keyed by lang (server sorts by the localized name) —
+// the country list (251 rows) never changes during a session, so every
+// CountryCityPicker instance on a page shares one fetch per language
 // instead of each form issuing its own.
-let countriesCache: Promise<GeoCountry[]> | null = null;
-function loadCountries(): Promise<GeoCountry[]> {
-  if (!countriesCache) {
-    countriesCache = fetch("/api/geo/countries").then((r) => r.json()).then((d) => d.countries || []);
+const countriesCache: Partial<Record<Lang, Promise<GeoCountry[]>>> = {};
+function loadCountries(lang: Lang): Promise<GeoCountry[]> {
+  if (!countriesCache[lang]) {
+    countriesCache[lang] = fetch(`/api/geo/countries?lang=${lang}`).then((r) => r.json()).then((d) => d.countries || []);
   }
-  return countriesCache;
+  return countriesCache[lang]!;
 }
 
 /** Country → City cascading picker, backed by the seeded Country/City reference tables (prisma/seed-data/countries-cities.json, ~251 countries / ~141k cities, including Northern Cyprus). Only ever writes the plain city name into onCityChange — Property.city stays a string, this is purely an input-quality improvement over free text. */
+let geoPickerSeq = 0;
 function CountryCityPicker({ lang, cityValue, onCityChange }: { lang: Lang; cityValue: string; onCityChange: (city: string) => void }) {
+  const [instanceId] = useState(() => ++geoPickerSeq);
   const [countries, setCountries] = useState<GeoCountry[]>([]);
   const [countryId, setCountryId] = useState("");
+  const [countryQuery, setCountryQuery] = useState("");
   const [cities, setCities] = useState<GeoCity[]>([]);
   const [loadingCities, setLoadingCities] = useState(false);
 
-  useEffect(() => { loadCountries().then(setCountries); }, []);
+  useEffect(() => { loadCountries(lang).then(setCountries); }, [lang]);
 
   useEffect(() => {
     if (!countryId) { setCities([]); return; }
@@ -2816,19 +2893,42 @@ function CountryCityPicker({ lang, cityValue, onCityChange }: { lang: Lang; city
     return `${c.emoji ? c.emoji + " " : ""}${name}`;
   }
 
+  const countryListId = `geo-countries-${instanceId}`;
+  const cityListId = `geo-cities-${instanceId}`;
+
   return (
     <div className="grid grid-cols-2 gap-2">
-      <select value={countryId} onChange={(e) => { setCountryId(e.target.value); onCityChange(""); }}
-        className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-        <option value="">{tri(lang, "کشور", "Country", "Land")}</option>
-        {countries.map((c) => <option key={c.id} value={c.id}>{countryLabel(c)}</option>)}
-      </select>
-      <select value={cityValue} onChange={(e) => onCityChange(e.target.value)} disabled={!countryId || loadingCities}
-        className="w-full px-3 py-2 rounded-xl text-sm outline-none disabled:opacity-50" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-        <option value="">{loadingCities ? tri(lang, "در حال بارگذاری...", "Loading...", "Wird geladen...") : tri(lang, "شهر", "City", "Stadt")}</option>
-        {cityValue && !cities.some((c) => c.name === cityValue) && <option value={cityValue}>{cityValue}</option>}
-        {cities.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
-      </select>
+      <div>
+        <input
+          list={countryListId}
+          value={countryQuery}
+          placeholder={tri(lang, "جستجوی کشور...", "Search country...", "Land suchen...")}
+          onChange={(e) => {
+            const val = e.target.value;
+            setCountryQuery(val);
+            const match = countries.find((c) => countryLabel(c) === val);
+            if (match) { setCountryId(match.id); onCityChange(""); }
+            else if (countryId) { setCountryId(""); onCityChange(""); }
+          }}
+          className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+        />
+        <datalist id={countryListId}>
+          {countries.map((c) => <option key={c.id} value={countryLabel(c)} />)}
+        </datalist>
+      </div>
+      <div>
+        <input
+          list={cityListId}
+          value={cityValue}
+          disabled={!countryId}
+          placeholder={!countryId ? tri(lang, "ابتدا کشور را انتخاب کنید", "Select a country first", "Zuerst Land wählen") : loadingCities ? tri(lang, "در حال بارگذاری...", "Loading...", "Wird geladen...") : tri(lang, "جستجوی شهر...", "Search city...", "Stadt suchen...")}
+          onChange={(e) => onCityChange(e.target.value)}
+          className="w-full px-3 py-2 rounded-xl text-sm outline-none disabled:opacity-50" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+        />
+        <datalist id={cityListId}>
+          {cities.map((c) => <option key={c.id} value={c.name} />)}
+        </datalist>
+      </div>
     </div>
   );
 }
