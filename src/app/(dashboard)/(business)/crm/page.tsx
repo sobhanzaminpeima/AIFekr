@@ -13,8 +13,14 @@ import { toJalali } from "@/lib/utils/jalali";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import ReactMarkdown from "react-markdown";
 
-interface Stage { id: string; name: string; order: number; isWon: boolean; isLost: boolean; }
-interface Pipeline { id: string; name: string; industrySlug: string | null; isDefault: boolean; stages: Stage[]; }
+interface Stage { id: string; name: string; nameEn: string | null; nameDe: string | null; order: number; isWon: boolean; isLost: boolean; }
+interface Pipeline { id: string; name: string; nameEn: string | null; nameDe: string | null; industrySlug: string | null; isDefault: boolean; stages: Stage[]; }
+
+// Falls back to the Persian `name` when there's no translation (a custom
+// user-typed pipeline/stage name, or a row from before this feature).
+function localizedName(item: { name: string; nameEn: string | null; nameDe: string | null }, lang: Lang): string {
+  return lang === "en" ? (item.nameEn || item.name) : lang === "de" ? (item.nameDe || item.name) : item.name;
+}
 interface DealContact { id: string; name: string; phone: string | null; company: string | null; }
 interface Deal {
   id: string; title: string; value: number; stageId: string; pipelineId: string;
@@ -296,10 +302,10 @@ export default function CrmPage() {
             {pipelines.length > 1 ? (
               <select value={selectedPipelineId || ""} onChange={(e) => setSelectedPipelineId(e.target.value)}
                 className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                {pipelines.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                {pipelines.map((p) => <option key={p.id} value={p.id}>{localizedName(p, lang)}</option>)}
               </select>
             ) : (
-              <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{selectedPipeline?.name}</h2>
+              <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{selectedPipeline && localizedName(selectedPipeline, lang)}</h2>
             )}
             <div className="flex-1" />
             <a href="/api/crm/export?type=deals" download
@@ -329,7 +335,7 @@ export default function CrmPage() {
                     <div className="flex items-center gap-1.5">
                       {stage.isWon && <CheckCircle2 className="w-3.5 h-3.5" style={{ color: "#22c55e" }} />}
                       {stage.isLost && <Circle className="w-3.5 h-3.5" style={{ color: "#ef4444" }} />}
-                      <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{stage.name}</span>
+                      <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{localizedName(stage, lang)}</span>
                     </div>
                     <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>{stageDeals.length}</span>
                   </div>
@@ -656,7 +662,7 @@ function NewDealModal({ isFa, lang, t, pipeline, onClose, onCreated }: { isFa: b
         <FormField icon={GitBranch} label={tri(lang, "مرحله", "Stage", "Phase")}>
           <select value={stageId} onChange={(e) => setStageId(e.target.value)}
             className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            {pipeline.stages.sort((a, b) => a.order - b.order).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            {pipeline.stages.sort((a, b) => a.order - b.order).map((s) => <option key={s.id} value={s.id}>{localizedName(s, lang)}</option>)}
           </select>
         </FormField>
         <FormField icon={CalendarDays} label={t.newDealModal.expectedCloseDateLabel}>
@@ -885,8 +891,8 @@ function DealDetailModal({ isFa, lang, t, dealId, deal, pipelines, teamMembers, 
       {deal && (
         <div className="grid grid-cols-2 gap-2 text-sm mb-4">
           <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "ارزش: ", "Value: ", "Wert: ")}</span><span style={{ color: "var(--text-primary)" }}>{fmtMoney(deal.value)}</span></div>
-          <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "مرحله: ", "Stage: ", "Phase: ")}</span><span style={{ color: "var(--text-primary)" }}>{stage?.name || "—"}</span></div>
-          <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "پایپ‌لاین: ", "Pipeline: ", "Pipeline: ")}</span><span style={{ color: "var(--text-primary)" }}>{pipeline?.name || "—"}</span></div>
+          <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "مرحله: ", "Stage: ", "Phase: ")}</span><span style={{ color: "var(--text-primary)" }}>{stage ? localizedName(stage, lang) : "—"}</span></div>
+          <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "پایپ‌لاین: ", "Pipeline: ", "Pipeline: ")}</span><span style={{ color: "var(--text-primary)" }}>{pipeline ? localizedName(pipeline, lang) : "—"}</span></div>
           <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "وضعیت: ", "Status: ", "Status: ")}</span><span style={{ color: "var(--text-primary)" }}>{deal.status}</span></div>
           <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "مخاطب: ", "Contact: ", "Kontakt: ")}</span><span style={{ color: "var(--text-primary)" }}>{deal.contact.name}{deal.contact.phone ? ` — ${deal.contact.phone}` : ""}</span></div>
           {deal.expectedCloseDate && (
@@ -1684,7 +1690,7 @@ function AnalyticsPanel({ isFa, lang, t, pipelines, onOpenContact }: { isFa: boo
 
   const funnelData = pipeline
     ? [...pipeline.stages].sort((a, b) => a.order - b.order).map((s) => ({
-        name: s.name,
+        name: localizedName(s, lang),
         count: deals.filter((d) => d.stageId === s.id).length,
         value: deals.filter((d) => d.stageId === s.id).reduce((sum, d) => sum + d.value, 0),
       }))
@@ -1700,7 +1706,7 @@ function AnalyticsPanel({ isFa, lang, t, pipelines, onOpenContact }: { isFa: boo
       {pipelines.length > 1 && (
         <select value={pipelineId} onChange={(e) => setPipelineId(e.target.value)}
           className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-          {pipelines.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          {pipelines.map((p) => <option key={p.id} value={p.id}>{localizedName(p, lang)}</option>)}
         </select>
       )}
 

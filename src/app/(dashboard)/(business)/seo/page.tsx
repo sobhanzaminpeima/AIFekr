@@ -345,7 +345,7 @@ export default function SEOPage() {
         {!gscConnected && (
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
             {tri(lang,
-              "اتصال گوگل شما منقضی یا نامعتبر شده است. لطفاً دوباره وارد Google Search Console شوید.",
+              "برای دیدن آمار واقعی کلیک، بازدید و رتبهٔ کلمات کلیدی سایتتان همین‌جا، به Google Search Console متصل شوید.",
               "Connect Google Search Console to see your site's real click, impression, and keyword ranking data right here.",
               "Verbinden Sie sich mit Google Search Console, um echte Klick-, Impressionen- und Keyword-Ranking-Daten Ihrer Website hier zu sehen.")}
           </p>

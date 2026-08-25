@@ -592,6 +592,11 @@ model CrmPipeline {
   id           String   @id @default(cuid())
   userId       String
   name         String
+  /// Only populated for pipelines seeded from a template (see
+  /// industryTemplates.ts) — a custom user-typed name has no translation
+  /// and stays as-is in every language. Null falls back to `name`.
+  nameEn       String?
+  nameDe       String?
   /// Optional link to the IndustryPack.slug this pipeline's template came from.
   industrySlug String?
   isDefault    Boolean  @default(false)
@@ -610,6 +615,10 @@ model CrmStage {
   id         String  @id @default(cuid())
   pipelineId String
   name       String
+  /// Same idea as CrmPipeline.nameEn/nameDe — only set for template-seeded
+  /// stages; a custom user-typed stage name has no translation.
+  nameEn     String?
+  nameDe     String?
   order      Int
   color      String?
   isWon      Boolean @default(false)

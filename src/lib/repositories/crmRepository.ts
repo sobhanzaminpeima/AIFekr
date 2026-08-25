@@ -15,11 +15,15 @@ export function createPipelineFromTemplate(userId: string, industrySlug: string 
     data: {
       userId,
       name: template.pipelineName,
+      nameEn: template.pipelineNameEn,
+      nameDe: template.pipelineNameDe,
       industrySlug: industrySlug || undefined,
       isDefault,
       stages: {
         create: template.stages.map((s, i) => ({
           name: s.name,
+          nameEn: s.nameEn,
+          nameDe: s.nameDe,
           order: i,
           isWon: s.isWon ?? false,
           isLost: s.isLost ?? false,
