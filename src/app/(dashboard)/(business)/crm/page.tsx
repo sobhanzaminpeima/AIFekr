@@ -204,7 +204,7 @@ export default function CrmPage() {
       await loadPipelines();
       setSelectedPipelineId(data.pipeline.id);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "خطا");
+      setError(e instanceof Error ? e.message : tri(lang, "خطا", "Error", "Fehler"));
     } finally {
       setCreatingPipeline(false);
     }
@@ -249,7 +249,7 @@ export default function CrmPage() {
       </div>
 
       <div className={`flex ${isFa ? "md:flex-row-reverse" : "md:flex-row"} flex-col gap-4 md:gap-6 items-start`}>
-        <CrmSidebar tab={tab} setTab={setTab} c={c} isFa={isFa} propertiesEnabled={propertiesEnabled} ownersEnabled={ownersEnabled} viewingsEnabled={viewingsEnabled} matchViewEnabled={matchViewEnabled} performanceReportEnabled={performanceReportEnabled} />
+        <CrmSidebar tab={tab} setTab={setTab} c={c} isFa={isFa} lang={lang} propertiesEnabled={propertiesEnabled} ownersEnabled={ownersEnabled} viewingsEnabled={viewingsEnabled} matchViewEnabled={matchViewEnabled} performanceReportEnabled={performanceReportEnabled} />
 
         <div className="flex-1 min-w-0 w-full space-y-6">
       {crmPlan === "NONE" && (
@@ -387,12 +387,12 @@ export default function CrmPage() {
                   <div className="flex items-center gap-1.5">
                     {propertiesEnabled && !!c._count?.properties && (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: "rgba(234,88,12,0.12)", color: "var(--primary)" }}>
-                        {isFa ? `مالک ${c._count.properties} ملک` : `Owner of ${c._count.properties}`}
+                        {tri(lang, `مالک ${c._count.properties} ملک`, `Owner of ${c._count.properties}`, `Eigentümer von ${c._count.properties}`)}
                       </span>
                     )}
                     {propertiesEnabled && !!c._count?.propertyInterests && (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>
-                        {isFa ? `علاقه‌مند به ${c._count.propertyInterests} ملک` : `Interested in ${c._count.propertyInterests}`}
+                        {tri(lang, `علاقه‌مند به ${c._count.propertyInterests} ملک`, `Interested in ${c._count.propertyInterests}`, `Interessiert an ${c._count.propertyInterests}`)}
                       </span>
                     )}
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-medium"
@@ -437,6 +437,7 @@ export default function CrmPage() {
       {showNewDeal && selectedPipeline && (
         <NewDealModal
           isFa={isFa}
+          lang={lang}
           t={c}
           pipeline={selectedPipeline}
           onClose={() => setShowNewDeal(false)}
@@ -483,7 +484,7 @@ export default function CrmPage() {
   );
 }
 
-function CrmSidebar({ tab, setTab, c, isFa, propertiesEnabled, ownersEnabled, viewingsEnabled, matchViewEnabled, performanceReportEnabled }: { tab: CrmTab; setTab: (t: CrmTab) => void; c: Translations["crm"]; isFa: boolean; propertiesEnabled: boolean; ownersEnabled: boolean; viewingsEnabled: boolean; matchViewEnabled: boolean; performanceReportEnabled: boolean }) {
+function CrmSidebar({ tab, setTab, c, isFa, lang, propertiesEnabled, ownersEnabled, viewingsEnabled, matchViewEnabled, performanceReportEnabled }: { tab: CrmTab; setTab: (t: CrmTab) => void; c: Translations["crm"]; isFa: boolean; lang: Lang; propertiesEnabled: boolean; ownersEnabled: boolean; viewingsEnabled: boolean; matchViewEnabled: boolean; performanceReportEnabled: boolean }) {
   const items: { id: CrmTab; label: string; icon: React.ElementType }[] = [
     { id: "board", label: c.tabs.board, icon: LayoutGrid },
     { id: "contacts", label: c.tabs.contacts, icon: Users },
@@ -498,11 +499,11 @@ function CrmSidebar({ tab, setTab, c, isFa, propertiesEnabled, ownersEnabled, vi
     // Real-estate industry-pack modules — hidden entirely (not greyed out)
     // unless isModuleEnabled() says so for this user, per the platform's
     // access-control rule: invisible by default, never a fail-open leak.
-    ...(propertiesEnabled ? [{ id: "properties" as CrmTab, label: isFa ? "ملک‌ها" : "Properties", icon: Building2 }] : []),
-    ...(ownersEnabled ? [{ id: "owners" as CrmTab, label: isFa ? "مالکین" : "Owners", icon: Users }] : []),
-    ...(viewingsEnabled ? [{ id: "viewings" as CrmTab, label: isFa ? "زمان‌بندی بازدید" : "Viewings", icon: CalendarDays }] : []),
-    ...(matchViewEnabled ? [{ id: "matches" as CrmTab, label: isFa ? "تطبیق خریدار↔ملک" : "Buyer Match", icon: Users }] : []),
-    ...(performanceReportEnabled ? [{ id: "performance" as CrmTab, label: isFa ? "گزارش عملکرد" : "Performance", icon: BarChart2 }] : []),
+    ...(propertiesEnabled ? [{ id: "properties" as CrmTab, label: tri(lang, "ملک‌ها", "Properties", "Immobilien"), icon: Building2 }] : []),
+    ...(ownersEnabled ? [{ id: "owners" as CrmTab, label: tri(lang, "مالکین", "Owners", "Eigentümer"), icon: Users }] : []),
+    ...(viewingsEnabled ? [{ id: "viewings" as CrmTab, label: tri(lang, "زمان‌بندی بازدید", "Viewings", "Besichtigungen"), icon: CalendarDays }] : []),
+    ...(matchViewEnabled ? [{ id: "matches" as CrmTab, label: tri(lang, "تطبیق خریدار↔ملک", "Buyer Match", "Käufer-Abgleich"), icon: Users }] : []),
+    ...(performanceReportEnabled ? [{ id: "performance" as CrmTab, label: tri(lang, "گزارش عملکرد", "Performance", "Leistung"), icon: BarChart2 }] : []),
   ];
 
   return (
@@ -593,7 +594,7 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose: () =
   );
 }
 
-function NewDealModal({ isFa, t, pipeline, onClose, onCreated }: { isFa: boolean; t: Translations["crm"]; pipeline: Pipeline; onClose: () => void; onCreated: () => void }) {
+function NewDealModal({ isFa, lang, t, pipeline, onClose, onCreated }: { isFa: boolean; lang: Lang; t: Translations["crm"]; pipeline: Pipeline; onClose: () => void; onCreated: () => void }) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactId, setContactId] = useState("");
   const [title, setTitle] = useState("");
@@ -652,7 +653,7 @@ function NewDealModal({ isFa, t, pipeline, onClose, onCreated }: { isFa: boolean
           <input value={value} onChange={(e) => setValue(e.target.value)} type="number" placeholder={t.newDealModal.valuePlaceholder}
             className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         </FormField>
-        <FormField icon={GitBranch} label={isFa ? "مرحله" : "Stage"}>
+        <FormField icon={GitBranch} label={tri(lang, "مرحله", "Stage", "Phase")}>
           <select value={stageId} onChange={(e) => setStageId(e.target.value)}
             className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
             {pipeline.stages.sort((a, b) => a.order - b.order).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -3890,7 +3891,7 @@ function OwnersPanel({ lang }: { lang: Lang }) {
                   {o.properties.map((p) => (
                     <div key={p.id} className="rounded-xl p-3 space-y-2" style={{ background: "var(--surface-2)" }}>
                       <div className="flex items-center justify-between">
-                        <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>{p.title} — {p.address}{p.city ? `، ${p.city}` : ""}</p>
+                        <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>{p.title} — {p.address}{p.city ? `${tri(lang, "،", ",", ",")} ${p.city}` : ""}</p>
                         {editing?.propertyId !== p.id && (
                           <button onClick={() => startEdit(o.id, p)} className="text-[11px]" style={{ color: "var(--primary)" }}>
                             {tri(lang, "ویرایش قرارداد", "Edit terms", "Bedingungen bearbeiten")}
@@ -4331,7 +4332,7 @@ function BuyerMatchPanel({ lang, leadMatcherAgentEnabled }: { lang: Lang; leadMa
                 <div className="space-y-1.5">
                   {r.matches.map((m) => (
                     <div key={m.id} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
-                      <span style={{ color: "var(--text-primary)" }}>{m.title} — {m.address}{m.city ? `، ${m.city}` : ""}</span>
+                      <span style={{ color: "var(--text-primary)" }}>{m.title} — {m.address}{m.city ? `${tri(lang, "،", ",", ",")} ${m.city}` : ""}</span>
                       <span style={{ color: "var(--primary)" }}>{fmtMoney(m.price)}</span>
                     </div>
                   ))}

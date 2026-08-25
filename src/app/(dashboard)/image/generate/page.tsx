@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import Script from "next/script";
-import { Image as ImageIcon, Wand2, Download, Loader2, Languages, Upload, X, Sparkles, Gift, Coins, Copy, Check, User, Package, Mountain, Palette, Briefcase, Wand } from "lucide-react";
+import { Image as ImageIcon, Wand2, Download, Loader2, Languages, Upload, X, Sparkles, Gift, Coins, Copy, Check, User, Package, Mountain, Palette, Briefcase, Wand, UserSquare2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTranslation, tri } from "@/lib/i18n";
+import CharacterCreationPanel from "@/components/image/CharacterCreationPanel";
 
 const RATIOS = ["1:1", "16:9", "9:16", "4:3"];
 
@@ -66,6 +67,7 @@ export default function ImageGeneratePage() {
   const [activeCategory, setActiveCategory] = useState("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  const [section, setSection] = useState<"generate" | "character">("generate");
   const [mode, setMode] = useState<"credits" | "puter">("credits");
   const [puterReady, setPuterReady] = useState(false);
   const [imageProviders, setImageProviders] = useState<{ id: string; name: string }[]>([]);
@@ -204,6 +206,31 @@ export default function ImageGeneratePage() {
         <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{s.title}</h1>
         <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{s.subtitle}</p>
       </div>
+
+      {/* Submenu: free-form generation vs the character-sheet builder */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setSection("generate")}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+          style={{ background: section === "generate" ? "var(--primary)" : "var(--surface-2)", color: section === "generate" ? "#fff" : "var(--text-secondary)" }}
+        >
+          <ImageIcon className="w-4 h-4" />
+          {tri(lang, "تولید تصویر", "Generate Image", "Bild erstellen")}
+        </button>
+        <button
+          onClick={() => setSection("character")}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+          style={{ background: section === "character" ? "var(--primary)" : "var(--surface-2)", color: section === "character" ? "#fff" : "var(--text-secondary)" }}
+        >
+          <UserSquare2 className="w-4 h-4" />
+          {tri(lang, "ساخت کاراکتر", "Character Creation", "Charaktererstellung")}
+        </button>
+      </div>
+
+      {section === "character" ? (
+        <CharacterCreationPanel lang={lang} imageProvider={imageProvider} />
+      ) : (
+      <>
 
       {/* Mode toggle: paid AiFekr credits vs free Puter */}
       <div className="grid grid-cols-2 gap-3">
@@ -545,6 +572,8 @@ export default function ImageGeneratePage() {
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );
