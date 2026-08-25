@@ -5,6 +5,8 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n";
 
 async function checkModuleAccess(userId: string, role: string, workspaceUserId: string) {
   const owner = await prisma.user.findUnique({ where: { id: workspaceUserId }, select: { industryPackId: true } });
@@ -15,13 +17,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
-  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
+  const lang = await getServerLang();
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
   if (!(await checkModuleAccess(user.id, user.role, ws.workspaceUserId))) {
-    return NextResponse.json({ error: "این ماژول برای شما فعال نیست" }, { status: 403 });
+    return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
   const existing = await prisma.propertyBooking.findFirst({ where: { id: params.id, userId: ws.workspaceUserId } });
-  if (!existing) return NextResponse.json({ error: "رزرو یافت نشد" }, { status: 404 });
+  if (!existing) return NextResponse.json({ error: tri(lang, "رزرو یافت نشد", "Booking not found", "Buchung nicht gefunden") }, { status: 404 });
 
   const body = await req.json();
   const { checkIn, checkOut, status, guestName, notes } = body;
@@ -37,7 +40,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   if ((checkInDate || checkOutDate) && nextStatus === "confirmed") {
     if (nextCheckOut <= nextCheckIn) {
-      return NextResponse.json({ error: "تاریخ خروج باید بعد از تاریخ ورود باشد" }, { status: 400 });
+      return NextResponse.json({ error: tri(lang, "تاریخ خروج باید بعد از تاریخ ورود باشد", "Check-out date must be after check-in date", "Das Check-out-Datum muss nach dem Check-in-Datum liegen") }, { status: 400 });
     }
     const conflict = await prisma.propertyBooking.findFirst({
       where: {
@@ -49,8 +52,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       },
     });
     if (conflict) {
+      const from = conflict.checkIn.toISOString().slice(0, 10);
+      const to = conflict.checkOut.toISOString().slice(0, 10);
       return NextResponse.json({
-        error: `این بازه با یک رزرو دیگر تداخل دارد (${conflict.checkIn.toISOString().slice(0, 10)} تا ${conflict.checkOut.toISOString().slice(0, 10)})`,
+        error: tri(lang, `این بازه با یک رزرو دیگر تداخل دارد (${from} تا ${to})`, `This range conflicts with another booking (${from} to ${to})`, `Dieser Zeitraum überschneidet sich mit einer anderen Buchung (${from} bis ${to})`),
       }, { status: 409 });
     }
   }
@@ -73,13 +78,14 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
-  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
+  const lang = await getServerLang();
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
   if (!(await checkModuleAccess(user.id, user.role, ws.workspaceUserId))) {
-    return NextResponse.json({ error: "این ماژول برای شما فعال نیست" }, { status: 403 });
+    return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
   const existing = await prisma.propertyBooking.findFirst({ where: { id: params.id, userId: ws.workspaceUserId } });
-  if (!existing) return NextResponse.json({ error: "رزرو یافت نشد" }, { status: 404 });
+  if (!existing) return NextResponse.json({ error: tri(lang, "رزرو یافت نشد", "Booking not found", "Buchung nicht gefunden") }, { status: 404 });
 
   await prisma.propertyBooking.delete({ where: { id: params.id } });
   return NextResponse.json({ success: true });

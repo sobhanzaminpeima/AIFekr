@@ -6,6 +6,8 @@ import { prisma } from "@/lib/db/prisma";
 import { uploadToStorage, getStorageKey, deleteFromStorage } from "@/lib/storage/r2";
 import { resolveCrmWorkspace } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n";
 
 async function checkPropertyDocsModuleAccess(userId: string, role: string, workspaceUserId: string) {
   const owner = await prisma.user.findUnique({ where: { id: workspaceUserId }, select: { industryPackId: true } });
@@ -26,6 +28,7 @@ export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
+  const lang = await getServerLang();
 
   const { searchParams } = new URL(req.url);
   const contactId = searchParams.get("contactId");
@@ -33,7 +36,7 @@ export async function GET(req: NextRequest) {
   const propertyId = searchParams.get("propertyId");
 
   if (propertyId && !(await checkPropertyDocsModuleAccess(user.id, user.role, ws.workspaceUserId))) {
-    return NextResponse.json({ error: "این ماژول برای شما فعال نیست" }, { status: 403 });
+    return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
   if (ws.isAgentRestricted) {
@@ -72,6 +75,7 @@ export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
+  const lang = await getServerLang();
 
   const form = await req.formData();
   const file = form.get("file");
@@ -82,34 +86,34 @@ export async function POST(req: NextRequest) {
   const name = (form.get("name") as string) || (file instanceof File ? file.name : "سند");
 
   if (!(file instanceof File)) {
-    return NextResponse.json({ error: "فایلی ارسال نشد" }, { status: 400 });
+    return NextResponse.json({ error: tri(lang, "فایلی ارسال نشد", "No file was sent", "Es wurde keine Datei gesendet") }, { status: 400 });
   }
   if (!ALLOWED_TYPES.has(file.type)) {
-    return NextResponse.json({ error: "نوع فایل پشتیبانی نمی‌شود (PDF، تصویر، Word یا Excel مجاز است)" }, { status: 400 });
+    return NextResponse.json({ error: tri(lang, "نوع فایل پشتیبانی نمی‌شود (PDF، تصویر، Word یا Excel مجاز است)", "File type not supported (PDF, image, Word, or Excel allowed)", "Dateityp wird nicht unterstützt (PDF, Bild, Word oder Excel erlaubt)") }, { status: 400 });
   }
   if (file.size > MAX_SIZE_BYTES) {
-    return NextResponse.json({ error: "حجم فایل نباید بیشتر از ۱۵ مگابایت باشد" }, { status: 400 });
+    return NextResponse.json({ error: tri(lang, "حجم فایل نباید بیشتر از ۱۵ مگابایت باشد", "File size must not exceed 15MB", "Dateigröße darf 15MB nicht überschreiten") }, { status: 400 });
   }
 
   if (propertyId && !(await checkPropertyDocsModuleAccess(user.id, user.role, ws.workspaceUserId))) {
-    return NextResponse.json({ error: "این ماژول برای شما فعال نیست" }, { status: 403 });
+    return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
   // A document must attach to something in this workspace — and, for an AGENT, to a record assigned to them.
   if (contactId) {
     const contact = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}) } });
-    if (!contact) return NextResponse.json({ error: "مخاطب یافت نشد" }, { status: 404 });
+    if (!contact) return NextResponse.json({ error: tri(lang, "مخاطب یافت نشد", "Contact not found", "Kontakt nicht gefunden") }, { status: 404 });
   }
   if (dealId) {
     const deal = await prisma.crmDeal.findFirst({ where: { id: dealId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { ownerId: ws.actingUserId } : {}) } });
-    if (!deal) return NextResponse.json({ error: "معامله یافت نشد" }, { status: 404 });
+    if (!deal) return NextResponse.json({ error: tri(lang, "معامله یافت نشد", "Deal not found", "Deal nicht gefunden") }, { status: 404 });
   }
   if (propertyId) {
     const property = await prisma.property.findFirst({ where: { id: propertyId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { crmContact: { assignedToId: ws.actingUserId } } : {}) } });
-    if (!property) return NextResponse.json({ error: "ملک یافت نشد" }, { status: 404 });
+    if (!property) return NextResponse.json({ error: tri(lang, "ملک یافت نشد", "Property not found", "Immobilie nicht gefunden") }, { status: 404 });
   }
   if (!contactId && !dealId && !propertyId) {
-    return NextResponse.json({ error: "سند باید به یک مخاطب، معامله یا ملک متصل باشد" }, { status: 400 });
+    return NextResponse.json({ error: tri(lang, "سند باید به یک مخاطب، معامله یا ملک متصل باشد", "The document must be linked to a contact, deal, or property", "Das Dokument muss mit einem Kontakt, Deal oder einer Immobilie verknüpft sein") }, { status: 400 });
   }
 
   const buf = Buffer.from(await file.arrayBuffer());
@@ -127,6 +131,7 @@ export async function DELETE(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
+  const lang = await getServerLang();
 
   const { id } = await req.json();
   const existing = await prisma.crmDocument.findFirst({
@@ -135,7 +140,7 @@ export async function DELETE(req: NextRequest) {
       ...(ws.isAgentRestricted ? { OR: [{ contact: { assignedToId: ws.actingUserId } }, { deal: { ownerId: ws.actingUserId } }, { property: { crmContact: { assignedToId: ws.actingUserId } } }] } : {}),
     },
   });
-  if (!existing) return NextResponse.json({ error: "پیدا نشد" }, { status: 404 });
+  if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
   await prisma.crmDocument.delete({ where: { id } });
   if (existing.storageKey) await deleteFromStorage(existing.storageKey).catch((err) => console.error("R2 delete failed (non-fatal, DB row already removed):", err));

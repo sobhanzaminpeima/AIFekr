@@ -5,6 +5,8 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n";
 
 const LISTING_TYPES = ["buy", "sell", "rent", "short_term_rent"];
 const CURRENCIES = ["IRT", "IRR", "USD", "GBP", "EUR"];
@@ -26,9 +28,10 @@ export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
-  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
+  const lang = await getServerLang();
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
   if (!(await checkPropertyModuleAccess(user.id, user.role, ws.workspaceUserId))) {
-    return NextResponse.json({ error: "این ماژول برای شما فعال نیست" }, { status: 403 });
+    return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
   const { searchParams } = new URL(req.url);
@@ -57,26 +60,27 @@ export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
-  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
+  const lang = await getServerLang();
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
   if (!(await checkPropertyModuleAccess(user.id, user.role, ws.workspaceUserId))) {
-    return NextResponse.json({ error: "این ماژول برای شما فعال نیست" }, { status: 403 });
+    return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
   const body = await req.json();
   const { title, listingType, propertyType, price, nightlyPrice, currency, bookingLink, address, city, bedrooms, bathrooms, areaSqm, description, images, crmContactId, crmDealId } = body;
 
-  if (!title?.trim()) return NextResponse.json({ error: "عنوان ملک الزامی است" }, { status: 400 });
-  if (!LISTING_TYPES.includes(listingType)) return NextResponse.json({ error: "نوع معامله نامعتبر است" }, { status: 400 });
-  if (!address?.trim()) return NextResponse.json({ error: "آدرس الزامی است" }, { status: 400 });
-  if (currency !== undefined && !CURRENCIES.includes(currency)) return NextResponse.json({ error: "واحد پولی نامعتبر است" }, { status: 400 });
+  if (!title?.trim()) return NextResponse.json({ error: tri(lang, "عنوان ملک الزامی است", "Property title is required", "Immobilientitel ist erforderlich") }, { status: 400 });
+  if (!LISTING_TYPES.includes(listingType)) return NextResponse.json({ error: tri(lang, "نوع معامله نامعتبر است", "Invalid listing type", "Ungültiger Angebotstyp") }, { status: 400 });
+  if (!address?.trim()) return NextResponse.json({ error: tri(lang, "آدرس الزامی است", "Address is required", "Adresse ist erforderlich") }, { status: 400 });
+  if (currency !== undefined && !CURRENCIES.includes(currency)) return NextResponse.json({ error: tri(lang, "واحد پولی نامعتبر است", "Invalid currency", "Ungültige Währung") }, { status: 400 });
 
   if (crmContactId) {
     const contact = await prisma.crmContact.findFirst({ where: { id: crmContactId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}) } });
-    if (!contact) return NextResponse.json({ error: "مالک/مخاطب یافت نشد" }, { status: 404 });
+    if (!contact) return NextResponse.json({ error: tri(lang, "مالک/مخاطب یافت نشد", "Owner/contact not found", "Eigentümer/Kontakt nicht gefunden") }, { status: 404 });
   }
   if (crmDealId) {
     const deal = await prisma.crmDeal.findFirst({ where: { id: crmDealId, userId: ws.workspaceUserId } });
-    if (!deal) return NextResponse.json({ error: "معامله یافت نشد" }, { status: 404 });
+    if (!deal) return NextResponse.json({ error: tri(lang, "معامله یافت نشد", "Deal not found", "Deal nicht gefunden") }, { status: 404 });
   }
 
   let resolvedBookingLink: string | undefined;
@@ -85,7 +89,7 @@ export async function POST(req: NextRequest) {
     try {
       resolvedBookingLink = new URL(bookingLink).toString();
     } catch {
-      bookingLinkWarning = "لینک پلتفرم رزرو معتبر به‌نظر نمی‌رسد — بعداً می‌توانید اصلاحش کنید";
+      bookingLinkWarning = tri(lang, "لینک پلتفرم رزرو معتبر به‌نظر نمی‌رسد — بعداً می‌توانید اصلاحش کنید", "The booking platform link doesn't look valid — you can fix it later", "Der Buchungsplattform-Link scheint ungültig zu sein — Sie können ihn später korrigieren");
     }
   }
 

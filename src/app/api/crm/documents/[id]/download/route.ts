@@ -6,6 +6,8 @@ import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace } from "@/lib/crm/workspace";
 import { getSignedDownloadUrl } from "@/lib/storage/r2";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n";
 
 /**
  * The only place a document's actual file link is ever handed to a client.
@@ -19,6 +21,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
+  const lang = await getServerLang();
 
   const document = await prisma.crmDocument.findFirst({
     where: {
@@ -29,12 +32,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         : {}),
     },
   });
-  if (!document) return NextResponse.json({ error: "پیدا نشد" }, { status: 404 });
+  if (!document) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
   if (document.propertyId) {
     const owner = await prisma.user.findUnique({ where: { id: ws.workspaceUserId }, select: { industryPackId: true } });
     const allowed = await isModuleEnabled({ id: user.id, role: user.role, industryPackId: owner?.industryPackId ?? null }, "crm.propertyDocuments");
-    if (!allowed) return NextResponse.json({ error: "این ماژول برای شما فعال نیست" }, { status: 403 });
+    if (!allowed) return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
   const url = document.storageKey ? await getSignedDownloadUrl(document.storageKey, 60) : document.fileUrl;

@@ -6,6 +6,8 @@ import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace } from "@/lib/crm/workspace";
 import { hasVoiceAccess } from "@/lib/voice/workspace";
 import { createOutboundCall, VapiNotConfiguredError } from "@/lib/voice/vapiClient";
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n";
 
 /**
  * Triggers an outbound call from one of the workspace owner's provisioned
@@ -19,20 +21,21 @@ export async function POST(req: NextRequest) {
   if (!user) return unauthorizedResponse();
 
   const ws = await resolveCrmWorkspace(user.id);
+  const lang = await getServerLang();
   const owner = await prisma.user.findUnique({ where: { id: ws.workspaceUserId }, select: { voicePlan: true, voicePlanExpiry: true } });
   if (!owner || !hasVoiceAccess(owner)) {
-    return NextResponse.json({ error: "افزونه Voice Agent برای این کسب‌وکار فعال نیست." }, { status: 402 });
+    return NextResponse.json({ error: tri(lang, "افزونه Voice Agent برای این کسب‌وکار فعال نیست.", "The Voice Agent add-on is not enabled for this business.", "Das Voice-Agent-Add-on ist für dieses Unternehmen nicht aktiviert.") }, { status: 402 });
   }
 
   const { contactId, agentId } = await req.json().catch(() => ({}));
-  if (!contactId) return NextResponse.json({ error: "شناسه مخاطب الزامی است" }, { status: 400 });
+  if (!contactId) return NextResponse.json({ error: tri(lang, "شناسه مخاطب الزامی است", "Contact ID is required", "Kontakt-ID ist erforderlich") }, { status: 400 });
 
   const contact = await prisma.crmContact.findUnique({ where: { id: contactId } });
   if (!contact || contact.userId !== ws.workspaceUserId) {
-    return NextResponse.json({ error: "مخاطب یافت نشد" }, { status: 404 });
+    return NextResponse.json({ error: tri(lang, "مخاطب یافت نشد", "Contact not found", "Kontakt nicht gefunden") }, { status: 404 });
   }
   if (!contact.phone) {
-    return NextResponse.json({ error: "این مخاطب شماره تلفن ثبت‌شده ندارد" }, { status: 400 });
+    return NextResponse.json({ error: tri(lang, "این مخاطب شماره تلفن ثبت‌شده ندارد", "This contact has no phone number on file", "Für diesen Kontakt ist keine Telefonnummer hinterlegt") }, { status: 400 });
   }
 
   const agent = agentId
@@ -43,10 +46,10 @@ export async function POST(req: NextRequest) {
       });
 
   if (!agent || agent.userId !== ws.workspaceUserId) {
-    return NextResponse.json({ error: "ایجنت صوتی نامعتبر است" }, { status: 400 });
+    return NextResponse.json({ error: tri(lang, "ایجنت صوتی نامعتبر است", "Invalid voice agent", "Ungültiger Voice Agent") }, { status: 400 });
   }
   if (!agent.vapiAssistantId || !agent.vapiPhoneNumberId) {
-    return NextResponse.json({ error: "ابتدا یک ایجنت صوتی را به شماره تلفن متصل کنید (تب ایجنت صوتی)." }, { status: 400 });
+    return NextResponse.json({ error: tri(lang, "ابتدا یک ایجنت صوتی را به شماره تلفن متصل کنید (تب ایجنت صوتی).", "First connect a voice agent to a phone number (Voice Agent tab).", "Verbinden Sie zuerst einen Voice Agent mit einer Telefonnummer (Tab Voice Agent).") }, { status: 400 });
   }
 
   try {
@@ -67,7 +70,7 @@ export async function POST(req: NextRequest) {
     if (e instanceof VapiNotConfiguredError) {
       return NextResponse.json({ error: e.message }, { status: 503 });
     }
-    const msg = e instanceof Error ? e.message : "خطای نامشخص در برقراری تماس";
+    const msg = e instanceof Error ? e.message : tri(lang, "خطای نامشخص در برقراری تماس", "Unknown error placing the call", "Unbekannter Fehler beim Anrufaufbau");
     return NextResponse.json({ error: msg }, { status: 502 });
   }
 }

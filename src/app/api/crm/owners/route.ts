@@ -5,6 +5,8 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n";
 
 async function checkOwnerModuleAccess(userId: string, role: string, workspaceUserId: string) {
   const owner = await prisma.user.findUnique({ where: { id: workspaceUserId }, select: { industryPackId: true } });
@@ -20,9 +22,10 @@ export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
-  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
+  const lang = await getServerLang();
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
   if (!(await checkOwnerModuleAccess(user.id, user.role, ws.workspaceUserId))) {
-    return NextResponse.json({ error: "این ماژول برای شما فعال نیست" }, { status: 403 });
+    return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
   const contacts = await prisma.crmContact.findMany({

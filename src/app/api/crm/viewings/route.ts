@@ -6,6 +6,8 @@ import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { suggestViewingSlot } from "@/lib/agents/viewingCoordinator";
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n";
 
 // Same conflict window the Voice Agent's phone-booking flow already uses
 // (src/app/api/webhooks/vapi/route.ts) — kept consistent rather than
@@ -21,9 +23,10 @@ export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
-  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
+  const lang = await getServerLang();
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
   if (!(await checkModuleAccess(user.id, user.role, ws.workspaceUserId, "crm.viewingScheduler"))) {
-    return NextResponse.json({ error: "این ماژول برای شما فعال نیست" }, { status: 403 });
+    return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
   const { searchParams } = new URL(req.url);
@@ -53,24 +56,25 @@ export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
-  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
+  const lang = await getServerLang();
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
   if (!(await checkModuleAccess(user.id, user.role, ws.workspaceUserId, "crm.viewingScheduler"))) {
-    return NextResponse.json({ error: "این ماژول برای شما فعال نیست" }, { status: 403 });
+    return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
   const body = await req.json();
   const { propertyId, contactId, assignedToId, scheduledAt, durationMin, autoSlot } = body;
 
-  if (!propertyId) return NextResponse.json({ error: "ملک الزامی است" }, { status: 400 });
+  if (!propertyId) return NextResponse.json({ error: tri(lang, "ملک الزامی است", "Property is required", "Immobilie ist erforderlich") }, { status: 400 });
   const requestedDate = new Date(scheduledAt);
-  if (!scheduledAt || isNaN(requestedDate.getTime())) return NextResponse.json({ error: "زمان بازدید نامعتبر است" }, { status: 400 });
+  if (!scheduledAt || isNaN(requestedDate.getTime())) return NextResponse.json({ error: tri(lang, "زمان بازدید نامعتبر است", "Invalid viewing time", "Ungültige Besichtigungszeit") }, { status: 400 });
 
   const property = await prisma.property.findFirst({ where: { id: propertyId, userId: ws.workspaceUserId } });
-  if (!property) return NextResponse.json({ error: "ملک یافت نشد" }, { status: 404 });
+  if (!property) return NextResponse.json({ error: tri(lang, "ملک یافت نشد", "Property not found", "Immobilie nicht gefunden") }, { status: 404 });
 
   if (contactId) {
     const contact = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId } });
-    if (!contact) return NextResponse.json({ error: "مخاطب یافت نشد" }, { status: 404 });
+    if (!contact) return NextResponse.json({ error: tri(lang, "مخاطب یافت نشد", "Contact not found", "Kontakt nicht gefunden") }, { status: 404 });
   }
 
   let scheduledDate = requestedDate;
@@ -84,11 +88,11 @@ export async function POST(req: NextRequest) {
     // guessing a time, per the "warn and wait for manual confirmation"
     // requirement.
     if (!(await isModuleEnabled({ id: user.id, role: user.role, industryPackId: (await prisma.user.findUnique({ where: { id: ws.workspaceUserId }, select: { industryPackId: true } }))?.industryPackId ?? null }, "agent.viewingCoordinator"))) {
-      return NextResponse.json({ error: "ماژول هماهنگ‌کننده بازدید برای شما فعال نیست" }, { status: 403 });
+      return NextResponse.json({ error: tri(lang, "ماژول هماهنگ‌کننده بازدید برای شما فعال نیست", "The Viewing Coordinator module is not enabled for you", "Das Modul Besichtigungskoordinator ist für Sie nicht aktiviert") }, { status: 403 });
     }
     const suggestion = await suggestViewingSlot(ws.workspaceUserId, assignedToId, requestedDate);
     if (!suggestion) {
-      return NextResponse.json({ error: "تقویم این کارشناس در این بازه کاملاً پر است — لطفاً زمان دیگری را دستی انتخاب کنید" }, { status: 409 });
+      return NextResponse.json({ error: tri(lang, "تقویم این کارشناس در این بازه کاملاً پر است — لطفاً زمان دیگری را دستی انتخاب کنید", "This agent's calendar is fully booked in this window — please pick another time manually", "Der Kalender dieses Maklers ist in diesem Zeitraum vollständig ausgebucht — bitte wählen Sie manuell eine andere Zeit") }, { status: 409 });
     }
     scheduledDate = suggestion.scheduledAt;
     autoRescheduled = suggestion.wasRescheduled;
@@ -109,7 +113,12 @@ export async function POST(req: NextRequest) {
     });
     if (conflict) {
       return NextResponse.json({
-        error: `این بازه زمانی برای این کارشناس قبلاً رزرو شده است (بازدید دیگری در ${conflict.scheduledAt.toLocaleString("fa-IR")} ثبت شده)`,
+        error: tri(
+          lang,
+          `این بازه زمانی برای این کارشناس قبلاً رزرو شده است (بازدید دیگری در ${conflict.scheduledAt.toLocaleString("fa-IR")} ثبت شده)`,
+          `This time slot is already booked for this agent (another viewing at ${conflict.scheduledAt.toLocaleString("en-US")})`,
+          `Dieser Zeitraum ist für diesen Makler bereits gebucht (eine weitere Besichtigung um ${conflict.scheduledAt.toLocaleString("de-DE")})`
+        ),
         conflict: { id: conflict.id, scheduledAt: conflict.scheduledAt },
       }, { status: 409 });
     }

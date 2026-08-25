@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace } from "@/lib/crm/workspace";
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n";
 
 function csvEscape(value: unknown): string {
   const s = value === null || value === undefined ? "" : String(value);
@@ -22,7 +24,8 @@ export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
-  if (ws.isAgentRestricted) return NextResponse.json({ error: "فقط مدیر یا مالک می‌تواند خروجی کامل بگیرد" }, { status: 403 });
+  const lang = await getServerLang();
+  if (ws.isAgentRestricted) return NextResponse.json({ error: tri(lang, "فقط مدیر یا مالک می‌تواند خروجی کامل بگیرد", "Only a manager or owner can take a full export", "Nur ein Manager oder Eigentümer kann einen vollständigen Export erstellen") }, { status: 403 });
 
   const type = req.nextUrl.searchParams.get("type") === "deals" ? "deals" : "contacts";
 

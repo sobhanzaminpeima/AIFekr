@@ -5,14 +5,17 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { DEFAULT_CONTRACT_TEMPLATES } from "@/lib/crm/defaultContractTemplates";
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n";
 
 /** Idempotent: only creates templates whose name isn't already present in this workspace, so clicking "restore defaults" repeatedly doesn't pile up duplicates. */
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
-  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
-  if (ws.isAgentRestricted) return NextResponse.json({ error: "فقط مدیر یا مالک می‌تواند قالب‌های پیش‌فرض را بازیابی کند" }, { status: 403 });
+  const lang = await getServerLang();
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
+  if (ws.isAgentRestricted) return NextResponse.json({ error: tri(lang, "فقط مدیر یا مالک می‌تواند قالب‌های پیش‌فرض را بازیابی کند", "Only a manager or owner can restore the default templates", "Nur ein Manager oder Eigentümer kann die Standardvorlagen wiederherstellen") }, { status: 403 });
 
   const existing = await prisma.crmContractTemplate.findMany({ where: { userId: ws.workspaceUserId }, select: { name: true } });
   const existingNames = new Set(existing.map((t) => t.name));

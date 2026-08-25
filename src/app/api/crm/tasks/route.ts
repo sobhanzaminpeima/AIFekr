@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace } from "@/lib/crm/workspace";
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -34,15 +36,16 @@ export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
+  const lang = await getServerLang();
 
   const { contactId, title, dueDate } = await req.json();
-  if (!title?.trim()) return NextResponse.json({ error: "عنوان تسک الزامی است" }, { status: 400 });
+  if (!title?.trim()) return NextResponse.json({ error: tri(lang, "عنوان تسک الزامی است", "Task title is required", "Aufgabentitel ist erforderlich") }, { status: 400 });
 
   if (contactId) {
     const contact = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}) } });
-    if (!contact) return NextResponse.json({ error: "مخاطب یافت نشد" }, { status: 404 });
+    if (!contact) return NextResponse.json({ error: tri(lang, "مخاطب یافت نشد", "Contact not found", "Kontakt nicht gefunden") }, { status: 404 });
   } else if (ws.isAgentRestricted) {
-    return NextResponse.json({ error: "تسک بدون مخاطب فقط برای مدیران قابل ساخت است" }, { status: 403 });
+    return NextResponse.json({ error: tri(lang, "تسک بدون مخاطب فقط برای مدیران قابل ساخت است", "A task with no contact can only be created by managers", "Eine Aufgabe ohne Kontakt kann nur von Managern erstellt werden") }, { status: 403 });
   }
 
   const task = await prisma.crmTask.create({
@@ -60,14 +63,15 @@ export async function PUT(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
+  const lang = await getServerLang();
 
   const { id, status, title, dueDate } = await req.json();
-  if (!id) return NextResponse.json({ error: "شناسه تسک الزامی است" }, { status: 400 });
+  if (!id) return NextResponse.json({ error: tri(lang, "شناسه تسک الزامی است", "Task id is required", "Aufgaben-ID ist erforderlich") }, { status: 400 });
 
   const existing = await prisma.crmTask.findFirst({
     where: { id, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { contact: { assignedToId: ws.actingUserId } } : {}) },
   });
-  if (!existing) return NextResponse.json({ error: "پیدا نشد" }, { status: 404 });
+  if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
   const data: Record<string, unknown> = {};
   if (status) data.status = status;

@@ -6,6 +6,8 @@ import { prisma } from "@/lib/db/prisma";
 import { createPipelineFromTemplate } from "@/lib/repositories/crmRepository";
 import { resolveCrmWorkspace } from "@/lib/crm/workspace";
 import { getCrmTemplate } from "@/lib/crm/industryTemplates";
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -40,7 +42,8 @@ export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
-  if (ws.isAgentRestricted) return NextResponse.json({ error: "فقط مدیر یا مالک می‌تواند پایپلاین بسازد" }, { status: 403 });
+  const lang = await getServerLang();
+  if (ws.isAgentRestricted) return NextResponse.json({ error: tri(lang, "فقط مدیر یا مالک می‌تواند پایپلاین بسازد", "Only a manager or owner can create a pipeline", "Nur ein Manager oder Inhaber kann eine Pipeline erstellen") }, { status: 403 });
 
   const { name, industrySlug } = await req.json().catch(() => ({}));
 

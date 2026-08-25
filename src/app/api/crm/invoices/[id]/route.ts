@@ -5,6 +5,8 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { computeInvoiceTotals, InvoiceItemInput } from "@/lib/repositories/crmInvoiceRepository";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n";
 
 const VALID_STATUSES = ["draft", "sent", "paid", "overdue", "cancelled"];
 
@@ -12,13 +14,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
-  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
+  const lang = await getServerLang();
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
   const invoice = await prisma.crmInvoice.findFirst({
     where: { id: params.id, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { contact: { assignedToId: ws.actingUserId } } : {}) },
     include: { items: true, contact: true, deal: { select: { id: true, title: true } } },
   });
-  if (!invoice) return NextResponse.json({ error: "پیدا نشد" }, { status: 404 });
+  if (!invoice) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
   return NextResponse.json({ invoice });
 }
 
@@ -26,27 +29,28 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
-  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
+  const lang = await getServerLang();
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
   const existing = await prisma.crmInvoice.findFirst({
     where: { id: params.id, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { contact: { assignedToId: ws.actingUserId } } : {}) },
     include: { items: true },
   });
-  if (!existing) return NextResponse.json({ error: "پیدا نشد" }, { status: 404 });
+  if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
   const body = await req.json();
   const { status, notes, dueDate, items, discount } = body as {
     status?: string; notes?: string; dueDate?: string | null; items?: InvoiceItemInput[]; discount?: number;
   };
-  if (status && !VALID_STATUSES.includes(status)) return NextResponse.json({ error: "وضعیت نامعتبر است" }, { status: 400 });
+  if (status && !VALID_STATUSES.includes(status)) return NextResponse.json({ error: tri(lang, "وضعیت نامعتبر است", "Invalid status", "Ungültiger Status") }, { status: 400 });
 
   let itemsUpdate: ReturnType<typeof computeInvoiceTotals> | null = null;
   if (items) {
-    if (!Array.isArray(items) || items.length === 0) return NextResponse.json({ error: "حداقل یک آیتم فاکتور الزامی است" }, { status: 400 });
+    if (!Array.isArray(items) || items.length === 0) return NextResponse.json({ error: tri(lang, "حداقل یک آیتم فاکتور الزامی است", "At least one invoice item is required", "Mindestens eine Rechnungsposition ist erforderlich") }, { status: 400 });
     try {
       itemsUpdate = computeInvoiceTotals(items);
     } catch (err) {
-      return NextResponse.json({ error: err instanceof Error ? err.message : "آیتم فاکتور نامعتبر است" }, { status: 400 });
+      return NextResponse.json({ error: err instanceof Error ? err.message : tri(lang, "آیتم فاکتور نامعتبر است", "Invalid invoice item", "Ungültige Rechnungsposition") }, { status: 400 });
     }
   }
 
@@ -106,7 +110,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
     return NextResponse.json({ invoice });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "خطا در ویرایش فاکتور" }, { status: 400 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : tri(lang, "خطا در ویرایش فاکتور", "Failed to update invoice", "Fehler beim Aktualisieren der Rechnung") }, { status: 400 });
   }
 }
 
@@ -114,12 +118,13 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
-  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
+  const lang = await getServerLang();
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
   const existing = await prisma.crmInvoice.findFirst({
     where: { id: params.id, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { contact: { assignedToId: ws.actingUserId } } : {}) },
   });
-  if (!existing) return NextResponse.json({ error: "پیدا نشد" }, { status: 404 });
+  if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
   await prisma.$transaction([
     prisma.crmInvoiceRevision.deleteMany({ where: { invoiceId: params.id } }),

@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace } from "@/lib/crm/workspace";
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -44,19 +46,20 @@ export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
+  const lang = await getServerLang();
 
   const { contactId, dealId, type, content } = await req.json();
-  if (!type || !content?.trim()) return NextResponse.json({ error: "نوع و متن فعالیت الزامی است" }, { status: 400 });
+  if (!type || !content?.trim()) return NextResponse.json({ error: tri(lang, "نوع و متن فعالیت الزامی است", "Activity type and content are required", "Aktivitätstyp und Inhalt sind erforderlich") }, { status: 400 });
 
   // Only attach to a contact/deal that's actually in this workspace — and, for an
   // AGENT, only one assigned to them.
   if (contactId) {
     const contact = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}) } });
-    if (!contact) return NextResponse.json({ error: "مخاطب یافت نشد" }, { status: 404 });
+    if (!contact) return NextResponse.json({ error: tri(lang, "مخاطب یافت نشد", "Contact not found", "Kontakt nicht gefunden") }, { status: 404 });
   }
   if (dealId) {
     const deal = await prisma.crmDeal.findFirst({ where: { id: dealId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { ownerId: ws.actingUserId } : {}) } });
-    if (!deal) return NextResponse.json({ error: "معامله یافت نشد" }, { status: 404 });
+    if (!deal) return NextResponse.json({ error: tri(lang, "معامله یافت نشد", "Deal not found", "Deal nicht gefunden") }, { status: 404 });
   }
 
   const activity = await prisma.crmActivity.create({

@@ -4,12 +4,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
-  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
+  const lang = await getServerLang();
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
   const { searchParams } = new URL(req.url);
   const contactId = searchParams.get("contactId");
@@ -47,19 +50,20 @@ export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
-  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
+  const lang = await getServerLang();
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
   const body = await req.json();
   const { name, contactId, dealId, status, startDate, endDate, description, realEstate } = body;
-  if (!name?.trim()) return NextResponse.json({ error: "نام پروژه الزامی است" }, { status: 400 });
+  if (!name?.trim()) return NextResponse.json({ error: tri(lang, "نام پروژه الزامی است", "Project name is required", "Projektname ist erforderlich") }, { status: 400 });
 
   if (contactId) {
     const contact = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}) } });
-    if (!contact) return NextResponse.json({ error: "مخاطب یافت نشد" }, { status: 404 });
+    if (!contact) return NextResponse.json({ error: tri(lang, "مخاطب یافت نشد", "Contact not found", "Kontakt nicht gefunden") }, { status: 404 });
   }
   if (dealId) {
     const deal = await prisma.crmDeal.findFirst({ where: { id: dealId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { ownerId: ws.actingUserId } : {}) } });
-    if (!deal) return NextResponse.json({ error: "معامله یافت نشد" }, { status: 404 });
+    if (!deal) return NextResponse.json({ error: tri(lang, "معامله یافت نشد", "Deal not found", "Deal nicht gefunden") }, { status: 404 });
   }
 
   // Real-estate industry-pack extra: attach a linked Property row instead of
@@ -69,7 +73,7 @@ export async function POST(req: NextRequest) {
   let dealType: string | undefined;
   if (realEstate?.dealType) {
     if (!PROJECT_LISTING_TYPES.includes(realEstate.dealType)) {
-      return NextResponse.json({ error: "نوع معامله نامعتبر است" }, { status: 400 });
+      return NextResponse.json({ error: tri(lang, "نوع معامله نامعتبر است", "Invalid listing type", "Ungültiger Angebotstyp") }, { status: 400 });
     }
     dealType = realEstate.dealType;
   }
@@ -82,7 +86,7 @@ export async function POST(req: NextRequest) {
     try {
       bookingLink = new URL(realEstate.bookingLink).toString();
     } catch {
-      bookingLinkWarning = "لینک پلتفرم رزرو معتبر به‌نظر نمی‌رسد — بعداً می‌توانید اصلاحش کنید";
+      bookingLinkWarning = tri(lang, "لینک پلتفرم رزرو معتبر به‌نظر نمی‌رسد — بعداً می‌توانید اصلاحش کنید", "The booking platform link doesn't look valid — you can fix it later", "Der Buchungsplattform-Link scheint ungültig zu sein — Sie können ihn später korrigieren");
     }
   }
 
