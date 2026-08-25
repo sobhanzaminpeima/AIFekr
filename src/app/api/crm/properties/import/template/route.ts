@@ -3,14 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { getServerLang } from "@/lib/i18n/server";
-import { toCsv } from "@/lib/utils/csv";
-
-// Column order and keys must exactly match what POST /api/crm/properties/import
-// expects — this is the single source of truth for both sides.
-export const IMPORT_COLUMNS = [
-  "title", "listingType", "propertyType", "price", "nightlyPrice",
-  "currency", "bookingLink", "address", "city", "bedrooms", "bathrooms", "areaSqm", "description",
-] as const;
+import { toCsv, PROPERTY_IMPORT_COLUMNS } from "@/lib/utils/csv";
 
 const HEADER_NOTE: Record<string, string> = {
   fa: "# listingType: buy | sell | rent | short_term_rent — propertyType: apartment | villa | land | commercial — currency: IRT | IRR | USD | GBP | EUR — nightlyPrice فقط برای short_term_rent لازم است",
@@ -38,7 +31,7 @@ export async function GET(req: NextRequest) {
   if (!user) return unauthorizedResponse();
   const lang = await getServerLang();
 
-  const csv = `${HEADER_NOTE[lang]}\r\n${toCsv([[...IMPORT_COLUMNS], ...SAMPLE_ROWS[lang]])}`;
+  const csv = `${HEADER_NOTE[lang]}\r\n${toCsv([[...PROPERTY_IMPORT_COLUMNS], ...SAMPLE_ROWS[lang]])}`;
   // Leading BOM so Excel opens UTF-8 (Persian/German text) correctly instead of mojibake.
   const body = "﻿" + csv;
 

@@ -9,6 +9,13 @@
  * parser for a bulk-import template this simple.
  */
 
+// Column order and keys the property bulk-import template/parser share —
+// single source of truth for both the template-generation and import routes.
+export const PROPERTY_IMPORT_COLUMNS = [
+  "title", "listingType", "propertyType", "price", "nightlyPrice",
+  "currency", "bookingLink", "address", "city", "bedrooms", "bathrooms", "areaSqm", "description",
+] as const;
+
 export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
