@@ -1,39 +1,23 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { randomBytes } from "crypto";
 import { requireAdmin, requireAuth, unauthorizedResponse, forbiddenResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth/password";
-import { findUserByEmail, findUserByPhone, findUserByReferralCode, createUser } from "@/lib/repositories/userRepository";
+import { findUserByEmail, findUserByPhone, createUser } from "@/lib/repositories/userRepository";
 import { generateTempPassword } from "@/lib/admin/invitePassword";
+import { generateUniqueReferralCode } from "@/lib/utils/referralCode";
 import { rateLimit } from "@/lib/utils/rateLimit";
 
 /**
- * Admin "Invite to AIfekr" tool — phase 2: activates a 7-day Pro trial +
- * (optionally) the full real-estate package for a new or existing user,
- * from the admin Users section. No card/UI yet (phase 3+) — this is the
- * activation endpoint + audit trail only.
+ * Admin "Invite to AIfekr" tool — activates a Pro trial + (optionally) the
+ * full real-estate package for a new or existing user.
  *
  * Entitlement is enforced through the SAME fields every plan-gated feature
  * already checks (plan/planExpiry, crmPlan, industryPackId) — trialPlan/
  * trialStartsAt/trialEndsAt/realEstatePackage are an audit record of *why*,
  * not a second entitlement system.
  */
-
-function generateReferralCode(): string {
-  return randomBytes(4).toString("hex");
-}
-
-async function uniqueReferralCode(): Promise<string> {
-  let code = generateReferralCode();
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const clash = await findUserByReferralCode(code);
-    if (!clash) break;
-    code = generateReferralCode();
-  }
-  return code;
-}
 
 export async function POST(req: NextRequest) {
   const admin = await requireAdmin(req);
@@ -79,7 +63,7 @@ export async function POST(req: NextRequest) {
     // this user has never had one, so it's stable from this point forward —
     // never a second/parallel code, never regenerated once it exists.
     let referralCode = existing.referralCode;
-    if (!referralCode) referralCode = await uniqueReferralCode();
+    if (!referralCode) referralCode = await generateUniqueReferralCode(existing.name);
 
     await prisma.user.update({
       where: { id: targetUserId },
@@ -110,7 +94,7 @@ export async function POST(req: NextRequest) {
 
     isNewUser = true;
     tempPassword = generateTempPassword(name.trim(), now);
-    const referralCode = await uniqueReferralCode();
+    const referralCode = await generateUniqueReferralCode(name);
 
     const created = await createUser({
       name: name.trim(),

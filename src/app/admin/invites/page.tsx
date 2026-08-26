@@ -123,6 +123,13 @@ function InvitePageInner() {
   const [generatingCard, setGeneratingCard] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const previewScale = 0.32; // 1080x1350 native -> a manageable on-screen preview size
+  const [savedCards, setSavedCards] = useState<{ id: string; language: CardLang; imageUrl: string; createdAt: string }[]>([]);
+
+  const loadSavedCards = useCallback(async (userId: string) => {
+    const res = await fetch(`/api/admin/invites/log-card?userId=${userId}`);
+    const data = await res.json();
+    setSavedCards(data.cards || []);
+  }, []);
 
   const loadUser = useCallback(async (userId: string) => {
     setLoadingUser(true);
@@ -132,12 +139,13 @@ function InvitePageInner() {
       if (!res.ok) throw new Error(data.error);
       setUser(data.user);
       setPassword(null);
+      loadSavedCards(userId);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "خطا در بارگذاری کاربر");
     } finally {
       setLoadingUser(false);
     }
-  }, []);
+  }, [loadSavedCards]);
 
   useEffect(() => {
     const userId = searchParams.get("userId");
@@ -210,8 +218,9 @@ function InvitePageInner() {
 
       await fetch("/api/admin/invites/log-card", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id, language: lang, inviteText }),
+        body: JSON.stringify({ userId: user.id, language: lang, inviteText, imageDataUrl: dataUrl }),
       }).catch(() => {});
+      loadSavedCards(user.id);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "خطا در ساخت کارت");
     } finally {
@@ -357,6 +366,22 @@ function InvitePageInner() {
             </button>
             {!password && <p className="text-xs text-center" style={{ color: "var(--text-muted)" }}>پسورد هنوز تولید نشده — روی کارت به‌صورت نقطه‌چین نمایش داده می‌شود.</p>}
           </div>
+
+          {/* Previously saved cards for this user — the PNG is uploaded to
+              R2 on every download, so an admin can come back later without
+              regenerating it. */}
+          {savedCards.length > 0 && (
+            <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+              <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>کارت‌های ذخیره‌شدهٔ قبلی</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {savedCards.map((c) => (
+                  <a key={c.id} href={c.imageUrl} target="_blank" rel="noreferrer" className="block rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+                    <img src={c.imageUrl} alt={c.language} className="w-full aspect-[4/5] object-cover" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

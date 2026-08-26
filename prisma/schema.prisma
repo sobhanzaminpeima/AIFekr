@@ -1809,6 +1809,9 @@ model InviteCard {
   userId      String
   language    String   // "fa" | "en" | "de"
   inviteText  String
+  /// The rendered PNG, uploaded to R2 storage — lets an admin revisit a
+  /// past card without regenerating it. Never a password/credential.
+  imageUrl    String?
   generatedBy String   // admin User.id
   createdAt   DateTime @default(now())
 

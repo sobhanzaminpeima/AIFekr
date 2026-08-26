@@ -3,14 +3,9 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { signToken, signRefreshToken } from "@/lib/auth/jwt";
-import { randomBytes } from "crypto";
 import { hashPassword } from "@/lib/auth/password";
 import { findUserByEmail, findUserByPhone, findUserByReferralCode, createUser } from "@/lib/repositories/userRepository";
-
-/** Short, URL-safe, human-shareable code — collisions are re-rolled by the caller. */
-function generateReferralCode(): string {
-  return randomBytes(4).toString("hex");
-}
+import { generateUniqueReferralCode } from "@/lib/utils/referralCode";
 
 export async function POST(req: NextRequest) {
   try {
@@ -47,14 +42,10 @@ export async function POST(req: NextRequest) {
       if (referrer) referredBy = referrer.id;
     }
 
-    // Every user gets their own referral code at signup, regenerating on
-    // the rare collision instead of failing registration outright.
-    let referralCode = generateReferralCode();
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const clash = await findUserByReferralCode(referralCode);
-      if (!clash) break;
-      referralCode = generateReferralCode();
-    }
+    // Every user gets their own referral code at signup — name-based when
+    // possible (e.g. "sobhan"), falling back to a random code on collision
+    // or when the name has no usable Latin characters.
+    const referralCode = await generateUniqueReferralCode(name);
 
     const user = await createUser({
       name: name.trim(),
