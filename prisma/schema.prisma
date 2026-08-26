@@ -56,6 +56,19 @@ model User {
   /// Null means "use the global default."
   commissionPercentOverride Int?
 
+  /// Admin "Invite to AIfekr" tool (src/app/admin/invites). A trial
+  /// activation ALSO sets the real plan/planExpiry fields above (those are
+  /// what every plan-gated feature actually checks) — these fields are the
+  /// audit trail of "this was a trial, granted by whom, for what package,"
+  /// distinct from a normal paid Pro subscription.
+  mustChangePassword Boolean   @default(false)
+  trialPlan          String?
+  trialStartsAt      DateTime?
+  trialEndsAt        DateTime?
+  realEstatePackage  Boolean   @default(false)
+  invitedByAdminId   String?
+  invitedAt          DateTime?
+
   conversations       Conversation[]
   projects            Project[]
   images              GeneratedImage[]
@@ -68,6 +81,7 @@ model User {
   otpCodes            OtpCode[]
   crmContacts         CrmContact[]
   crmContactsAssigned CrmContact[]         @relation("CrmContactAssignee")
+  inviteCards         InviteCard[]
   crmPipelines        CrmPipeline[]
   crmDealsOwned       CrmDeal[]            @relation("CrmDealOwnerUser")
   crmDealsAssigned    CrmDeal[]            @relation("CrmDealAssignee")
@@ -1783,4 +1797,39 @@ model VoiceAppointment {
 
   @@index([userId])
   @@index([agentId])
+}
+
+/// A rendered invite-card generation record (admin "Invite to AIfekr" tool).
+/// Never stores a referral code of its own — always reads User.referralCode
+/// at render time (the same single source of truth the user's own
+/// dashboard reads), and never stores the raw temporary password — only
+/// the language/text shown, for audit purposes.
+model InviteCard {
+  id          String   @id @default(cuid())
+  userId      String
+  language    String   // "fa" | "en" | "de"
+  inviteText  String
+  generatedBy String   // admin User.id
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Generic admin-action audit trail — who did what, to whom, when. Started
+/// for the "Invite to AIfekr" tool (trial activation, invite-card
+/// generation) but deliberately generic so other admin tools can log to it
+/// too rather than each inventing their own audit table.
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String   // admin User.id who performed the action
+  action    String   // e.g. "trial_activated" | "invite_card_generated"
+  targetId  String?  // e.g. the affected User.id
+  metadata  String?  // JSON-encoded extra detail
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([targetId])
+  @@index([action])
 }
