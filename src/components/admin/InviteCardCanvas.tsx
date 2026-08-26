@@ -32,10 +32,10 @@ export interface InviteCardProps {
 }
 
 const CARD_WIDTH = 1080;
-// Tall enough to comfortably fit a full multi-line invite message above the
-// credential box/link/footer without overlap — the flex spacer below still
-// absorbs any leftover space when the message is short.
-const CARD_HEIGHT = 1900;
+// Instagram 4:5 portrait ratio — was 1900 (too tall, left a large empty
+// block at the bottom for typical invite-text lengths). The flex spacer
+// still absorbs any leftover space when the message is short.
+const CARD_HEIGHT = 1350;
 
 const STRINGS: Record<CardLang, {
   title: string; subtitle: string; about: string; usernameLabel: string; passwordLabel: string; linkLabel: string;
