@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Sparkles, Search, Copy, Check, RefreshCw, ArrowRight } from "lucide-react";
+import { Sparkles, Search, Copy, Check, RefreshCw, ArrowRight, Download } from "lucide-react";
 import toast from "react-hot-toast";
+import { toPng } from "html-to-image";
+import InviteCardCanvas, { CARD_WIDTH, CARD_HEIGHT, type CardLang } from "@/components/admin/InviteCardCanvas";
 
 /**
- * Admin "Invite to AIfekr" tool — phase 3: user selection, credentials,
- * referral link, language + editable invite text. No graphic card yet
- * (phase 4+) — this page is the data/text side of the flow.
+ * Admin "Invite to AIfekr" tool — phase 4: adds the branded card preview +
+ * PNG export (phase 3 built the user/credentials/referral-link/text data
+ * side). Card visuals are placeholder brand for now (see
+ * InviteCardCanvas.tsx) — phase 5 swaps in the final logo/palette/fonts.
  *
  * The referral link is never generated here — it only ever displays
  * User.referralCode as returned by GET /api/admin/users/[id], the exact
@@ -118,6 +121,8 @@ function InvitePageInner() {
   const [editedByUser, setEditedByUser] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [generatingCard, setGeneratingCard] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const previewScale = 0.32; // 1080x1350 native -> a manageable on-screen preview size
 
   const loadUser = useCallback(async (userId: string) => {
     setLoadingUser(true);
@@ -189,6 +194,30 @@ function InvitePageInner() {
     if (editedByUser || !user) return;
     setInviteText(fillTemplate(lang, { name: user.name || username, username, password: password || "••••••••", referralLink, trialDays }));
   }, [lang, user, username, password, referralLink, trialDays, editedByUser]);
+
+  async function downloadCard() {
+    if (!cardRef.current || !user) return;
+    setGeneratingCard(true);
+    try {
+      // Fonts must be fully loaded before capture, or the exported PNG can
+      // render with the browser's fallback font instead of the real one.
+      await document.fonts.ready;
+      const dataUrl = await toPng(cardRef.current, { pixelRatio: 2, width: CARD_WIDTH, height: CARD_HEIGHT });
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `AIfekr-Invite-${username || user.id}-${lang}.png`;
+      a.click();
+
+      await fetch("/api/admin/invites/log-card", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id, language: lang, inviteText }),
+      }).catch(() => {});
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "خطا در ساخت کارت");
+    } finally {
+      setGeneratingCard(false);
+    }
+  }
 
   async function copy(label: string, value: string) {
     await navigator.clipboard.writeText(value);
@@ -304,8 +333,29 @@ function InvitePageInner() {
             </button>
           </div>
 
-          <div className="rounded-2xl p-4 text-xs text-center" style={{ background: "var(--surface-2)", border: "1px dashed var(--border)", color: "var(--text-muted)" }}>
-            کارت گرافیکی دعوت (خروجی PNG) در فاز بعدی اضافه می‌شود.
+          {/* Card preview + PNG export. The card itself always renders at
+              its real 1080x1350 size (InviteCardCanvas) — this wrapper just
+              visually shrinks it for on-screen preview via a CSS transform,
+              so html-to-image still captures full resolution. */}
+          <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+            <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>پیش‌نمایش کارت دعوت</h3>
+            <div style={{ width: CARD_WIDTH * previewScale, height: CARD_HEIGHT * previewScale, overflow: "hidden", borderRadius: 16, margin: "0 auto" }}>
+              <div style={{ width: CARD_WIDTH, height: CARD_HEIGHT, transform: `scale(${previewScale})`, transformOrigin: "top left" }}>
+                <InviteCardCanvas
+                  ref={cardRef}
+                  lang={lang as CardLang}
+                  name={user.name || username}
+                  username={username}
+                  password={password || "••••••••"}
+                  referralLink={referralLink}
+                  trialDays={trialDays}
+                />
+              </div>
+            </div>
+            <button onClick={downloadCard} disabled={generatingCard} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "linear-gradient(135deg, #F5821F, #F2701A)" }}>
+              {generatingCard ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} دانلود کارت (PNG)
+            </button>
+            {!password && <p className="text-xs text-center" style={{ color: "var(--text-muted)" }}>پسورد هنوز تولید نشده — روی کارت به‌صورت نقطه‌چین نمایش داده می‌شود.</p>}
           </div>
         </div>
       )}
