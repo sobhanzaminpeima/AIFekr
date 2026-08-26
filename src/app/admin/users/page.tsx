@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Filter, ChevronLeft, ChevronRight, MoreVertical, Ban, Coins, UserCheck, Trash2, Loader2, Repeat, Plus } from "lucide-react";
+import { Search, Filter, ChevronLeft, ChevronRight, MoreVertical, Ban, Coins, UserCheck, Trash2, Loader2, Repeat, Plus, Sparkles, Copy, Check, X } from "lucide-react";
 import { toJalali, formatNumber } from "@/lib/utils/jalali";
 import toast from "react-hot-toast";
 
@@ -40,6 +40,56 @@ export default function AdminUsersPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState({ name: "", email: "", phone: "", password: "", plan: "FREE" });
   const [addSaving, setAddSaving] = useState(false);
+
+  // "Invite to AIfekr" — phase 2: activation + result display only. The
+  // branded card / dedicated /admin/invites page is phase 3+; for now the
+  // activation result (temp password for a new user, referral link) is
+  // shown right here so the tool is actually usable end to end.
+  const [inviteTarget, setInviteTarget] = useState<{ userId: string | null; name: string } | null>(null);
+  const [inviteForm, setInviteForm] = useState({ name: "", email: "", phone: "", trialDays: 7, realEstatePackage: true });
+  const [inviteSaving, setInviteSaving] = useState(false);
+  const [inviteResult, setInviteResult] = useState<{ user: { id: string; name: string | null; email: string | null; phone: string | null; referralCode: string | null }; isNewUser: boolean; tempPassword: string | null; trialEndsAt: string } | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  function openInviteForExisting(user: User) {
+    setInviteTarget({ userId: user.id, name: user.name || user.email || user.phone || "" });
+    setInviteForm({ name: "", email: "", phone: "", trialDays: 7, realEstatePackage: true });
+    setActionUserId(null);
+  }
+
+  function openInviteForNew() {
+    setInviteTarget({ userId: null, name: "" });
+    setInviteForm({ name: "", email: "", phone: "", trialDays: 7, realEstatePackage: true });
+  }
+
+  async function activateInvite() {
+    if (!inviteTarget) return;
+    if (!inviteTarget.userId && !inviteForm.name.trim()) { toast.error("نام الزامی است"); return; }
+    setInviteSaving(true);
+    try {
+      const body = inviteTarget.userId
+        ? { userId: inviteTarget.userId, trialDays: inviteForm.trialDays, realEstatePackage: inviteForm.realEstatePackage }
+        : { name: inviteForm.name, email: inviteForm.email || undefined, phone: inviteForm.phone || undefined, trialDays: inviteForm.trialDays, realEstatePackage: inviteForm.realEstatePackage };
+      const res = await fetch("/api/admin/invites/activate-trial", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setInviteResult(data);
+      setInviteTarget(null);
+      fetchUsers();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "خطا در فعال‌سازی دعوت");
+    } finally {
+      setInviteSaving(false);
+    }
+  }
+
+  async function copyField(label: string, value: string) {
+    await navigator.clipboard.writeText(value);
+    setCopiedField(label);
+    setTimeout(() => setCopiedField(null), 1500);
+  }
 
   useEffect(() => {
     if (!actionUserId) return;
@@ -157,9 +207,14 @@ export default function AdminUsersPage() {
           <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>مدیریت کاربران</h1>
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{formatNumber(total)} کاربر</p>
         </div>
-        <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-          <Plus className="w-4 h-4" /> افزودن کاربر
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={openInviteForNew} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "linear-gradient(135deg, #F5821F, #F2701A)" }}>
+            <Sparkles className="w-4 h-4" /> دعوت جدید
+          </button>
+          <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
+            <Plus className="w-4 h-4" /> افزودن کاربر
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -241,6 +296,7 @@ export default function AdminUsersPage() {
                       </button>
                       {actionUserId === user.id && planMenuUserId !== user.id && (
                         <div className={`absolute left-0 z-50 w-44 rounded-xl overflow-hidden shadow-xl ${openUp ? "bottom-full mb-1" : "top-full mt-1"}`} style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                          <ActionItem icon={Sparkles} label="فعال‌سازی دعوت Pro" onClick={() => openInviteForExisting(user)} />
                           <ActionItem icon={user.isBlocked ? UserCheck : Ban} label={user.isBlocked ? "آزادسازی" : "مسدودسازی"} onClick={() => toggleBlock(user.id, user.isBlocked)} danger={!user.isBlocked} />
                           <ActionItem icon={Coins} label="افزایش اعتبار" onClick={() => addCredits(user.id)} />
                           <ActionItem icon={Repeat} label="تغییر پلن" onClick={() => setPlanMenuUserId(user.id)} />
@@ -342,6 +398,109 @@ export default function AdminUsersPage() {
           </div>
         </div>
       )}
+
+      {/* Invite-to-AIfekr: trial activation form */}
+      {inviteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}>
+          <div className="w-full max-w-md rounded-2xl p-6 space-y-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                <Sparkles className="w-4 h-4" style={{ color: "#F5821F" }} /> فعال‌سازی دعوت Pro
+              </h2>
+              <button onClick={() => setInviteTarget(null)}><X className="w-4 h-4" style={{ color: "var(--text-muted)" }} /></button>
+            </div>
+
+            {inviteTarget.userId ? (
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>برای کاربر: <strong>{inviteTarget.name}</strong></p>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>نام کاربر جدید</label>
+                  <input value={inviteForm.name} onChange={(e) => setInviteForm((p) => ({ ...p, name: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>ایمیل</label>
+                    <input value={inviteForm.email} onChange={(e) => setInviteForm((p) => ({ ...p, email: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>موبایل</label>
+                    <input value={inviteForm.phone} onChange={(e) => setInviteForm((p) => ({ ...p, phone: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>مدت تریال (روز)</label>
+                <input type="number" min={1} max={90} value={inviteForm.trialDays} onChange={(e) => setInviteForm((p) => ({ ...p, trialDays: Number(e.target.value) || 7 }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
+              <div className="flex items-end pb-2.5">
+                <label className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                  <input type="checkbox" checked={inviteForm.realEstatePackage} onChange={(e) => setInviteForm((p) => ({ ...p, realEstatePackage: e.target.checked }))} />
+                  پکیج املاک کامل
+                </label>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button onClick={activateInvite} disabled={inviteSaving} className="flex-1 py-2 rounded-xl font-semibold text-sm text-white disabled:opacity-50" style={{ background: "linear-gradient(135deg, #F5821F, #F2701A)" }}>
+                {inviteSaving ? "در حال فعال‌سازی..." : "فعال‌سازی"}
+              </button>
+              <button onClick={() => setInviteTarget(null)} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>انصراف</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invite-to-AIfekr: activation result (phase 3 will replace this with the branded card) */}
+      {inviteResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}>
+          <div className="w-full max-w-md rounded-2xl p-6 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid #F5821F44" }}>
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                <Sparkles className="w-4 h-4" style={{ color: "#F5821F" }} /> دعوت فعال شد
+              </h2>
+              <button onClick={() => setInviteResult(null)}><X className="w-4 h-4" style={{ color: "var(--text-muted)" }} /></button>
+            </div>
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              {inviteResult.user.name || inviteResult.user.email || inviteResult.user.phone} — Pro تا {new Date(inviteResult.trialEndsAt).toLocaleDateString("fa-IR")}
+            </p>
+            {inviteResult.tempPassword && (
+              <ResultField label="نام کاربری" value={inviteResult.user.email || inviteResult.user.phone || ""} copiedField={copiedField} onCopy={copyField} />
+            )}
+            {inviteResult.tempPassword && (
+              <ResultField label="پسورد موقت" value={inviteResult.tempPassword} copiedField={copiedField} onCopy={copyField} />
+            )}
+            {inviteResult.user.referralCode && (
+              <ResultField label="لینک رفرال" value={`${typeof window !== "undefined" ? window.location.origin : ""}/register?ref=${inviteResult.user.referralCode}`} copiedField={copiedField} onCopy={copyField} />
+            )}
+            {!inviteResult.tempPassword && (
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>این کاربر از قبل حساب داشت — پسورد موجودش تغییری نکرده.</p>
+            )}
+            <p className="text-xs pt-1" style={{ color: "var(--text-muted)" }}>کارت گرافیکی دعوت در فاز بعدی اضافه می‌شود.</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResultField({ label, value, copiedField, onCopy }: { label: string; value: string; copiedField: string | null; onCopy: (label: string, value: string) => void }) {
+  return (
+    <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl" style={{ background: "#1C1C1E", border: "1px solid #F5821F33" }}>
+      <div className="min-w-0">
+        <div className="text-xs" style={{ color: "var(--text-muted)" }}>{label}</div>
+        <div className="text-sm truncate" dir="ltr" style={{ color: "#fff" }}>{value}</div>
+      </div>
+      <button onClick={() => onCopy(label, value)} className="flex-shrink-0 p-1.5 rounded-lg" style={{ background: "var(--surface-2)" }}>
+        {copiedField === label ? <Check className="w-3.5 h-3.5" style={{ color: "#22c55e" }} /> : <Copy className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} />}
+      </button>
     </div>
   );
 }
