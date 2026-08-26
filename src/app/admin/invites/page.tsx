@@ -6,6 +6,7 @@ import { Sparkles, Search, Copy, Check, RefreshCw, ArrowRight, Download } from "
 import toast from "react-hot-toast";
 import { toPng } from "html-to-image";
 import InviteCardCanvas, { CARD_WIDTH, CARD_HEIGHT, type CardLang } from "@/components/admin/InviteCardCanvas";
+import { generateQrDataUrl } from "@/lib/utils/qrCode";
 
 /**
  * Admin "Invite to AIfekr" tool — phase 4: adds the branded card preview +
@@ -196,6 +197,12 @@ function InvitePageInner() {
     ? Math.round((new Date(user.trialEndsAt).getTime() - new Date(user.trialStartsAt).getTime()) / (24 * 60 * 60 * 1000))
     : 7;
 
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (!referralLink) { setQrCodeDataUrl(undefined); return; }
+    generateQrDataUrl(referralLink).then(setQrCodeDataUrl).catch(() => setQrCodeDataUrl(undefined));
+  }, [referralLink]);
+
   // Re-render the template whenever its inputs change, UNLESS the admin has
   // manually edited the textarea — never clobber their edits out from under them.
   useEffect(() => {
@@ -210,6 +217,12 @@ function InvitePageInner() {
       // Fonts must be fully loaded before capture, or the exported PNG can
       // render with the browser's fallback font instead of the real one.
       await document.fonts.ready;
+      // Guard against capturing before the QR effect has resolved (e.g. the
+      // admin clicks Download immediately after the page loads).
+      if (!qrCodeDataUrl && referralLink) {
+        await generateQrDataUrl(referralLink).then(setQrCodeDataUrl).catch(() => {});
+        await new Promise((r) => setTimeout(r, 50)); // let the <img> paint
+      }
       const dataUrl = await toPng(cardRef.current, { pixelRatio: 2, width: CARD_WIDTH, height: CARD_HEIGHT });
       const a = document.createElement("a");
       a.href = dataUrl;
@@ -358,6 +371,7 @@ function InvitePageInner() {
                   password={password || "••••••••"}
                   referralLink={referralLink}
                   trialDays={trialDays}
+                  qrCodeDataUrl={qrCodeDataUrl}
                 />
               </div>
             </div>

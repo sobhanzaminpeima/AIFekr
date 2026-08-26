@@ -1,11 +1,11 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
+import { randomBytes } from "crypto";
 import { requireAdmin, requireAuth, unauthorizedResponse, forbiddenResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth/password";
 import { findUserByEmail, findUserByPhone, createUser } from "@/lib/repositories/userRepository";
-import { generateTempPassword } from "@/lib/admin/invitePassword";
 import { generateUniqueReferralCode } from "@/lib/utils/referralCode";
 import { rateLimit } from "@/lib/utils/rateLimit";
 
@@ -17,6 +17,12 @@ import { rateLimit } from "@/lib/utils/rateLimit";
  * already checks (plan/planExpiry, crmPlan, industryPackId) — trialPlan/
  * trialStartsAt/trialEndsAt/realEstatePackage are an audit record of *why*,
  * not a second entitlement system.
+ *
+ * Password generation deliberately does NOT happen here for a new user —
+ * see the comment below where the account is created. It lives only in
+ * POST /api/admin/invites/reset-password, so there is never a moment where
+ * two different "real" temp passwords exist for the same account and an
+ * admin can't tell which one actually works.
  */
 
 export async function POST(req: NextRequest) {
@@ -52,7 +58,6 @@ export async function POST(req: NextRequest) {
 
   let targetUserId: string;
   let isNewUser = false;
-  let tempPassword: string | null = null;
 
   if (userId) {
     const existing = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, referralCode: true } });
@@ -93,14 +98,25 @@ export async function POST(req: NextRequest) {
     }
 
     isNewUser = true;
-    tempPassword = generateTempPassword(name.trim(), now);
+    // Deliberately NOT generateTempPassword() here — that's reserved for
+    // the one canonical place a communicable password is created
+    // (POST /api/admin/invites/reset-password, on the invite page's
+    // "Generate Password" button). If this endpoint also handed out a
+    // usable temp password, an admin who later clicks "Generate" on the
+    // invite page would silently invalidate a password they (or the
+    // customer) might already have seen/copied, with no way to tell which
+    // one is "the real one" — see reset-password/route.ts for the full
+    // rationale. This placeholder is a long random secret NEVER returned
+    // to the client or logged anywhere; the account simply can't log in
+    // with a password until the admin explicitly generates one.
+    const placeholderPassword = randomBytes(24).toString("hex");
     const referralCode = await generateUniqueReferralCode(name);
 
     const created = await createUser({
       name: name.trim(),
       email: email || undefined,
       phone: phone || undefined,
-      passwordHash: await hashPassword(tempPassword),
+      passwordHash: await hashPassword(placeholderPassword),
       credits: 200,
       plan: "PRO",
       planExpiry: trialEndsAt,
@@ -134,7 +150,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     user,
     isNewUser,
-    tempPassword, // only ever present for a newly-created user — never returned/regenerated for an existing one
     trialEndsAt,
   });
 }
