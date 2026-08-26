@@ -377,6 +377,7 @@ function InvitePageInner() {
                   referralLink={referralLink}
                   trialDays={trialDays}
                   qrCodeDataUrl={qrCodeDataUrl}
+                  inviteText={inviteText}
                 />
               </div>
             </div>
