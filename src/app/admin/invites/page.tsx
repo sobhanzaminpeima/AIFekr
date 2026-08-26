@@ -249,9 +249,14 @@ function InvitePageInner() {
 
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6" dir="ltr">
-      <button onClick={() => router.push("/admin/users")} className="flex items-center gap-1.5 text-sm" style={{ color: "var(--text-muted)" }}>
-        <ArrowRight className="w-4 h-4" /> بازگشت به کاربران
-      </button>
+      <div className="flex items-center justify-between">
+        <button onClick={() => router.push("/admin/users")} className="flex items-center gap-1.5 text-sm" style={{ color: "var(--text-muted)" }}>
+          <ArrowRight className="w-4 h-4" /> بازگشت به کاربران
+        </button>
+        <button onClick={() => router.push("/admin/invites/manage")} className="text-sm underline" style={{ color: "var(--text-muted)" }}>
+          مدیریت دعوتنامه‌ها
+        </button>
+      </div>
 
       <div className="flex items-center gap-3">
         <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(245,130,31,0.12)" }}>

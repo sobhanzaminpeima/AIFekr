@@ -204,6 +204,9 @@ export default function AdminUsersPage() {
           <button onClick={openInviteForNew} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "linear-gradient(135deg, #F5821F, #F2701A)" }}>
             <Sparkles className="w-4 h-4" /> دعوت جدید
           </button>
+          <button onClick={() => router.push("/admin/invites/manage")} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            مدیریت دعوتنامه‌ها
+          </button>
           <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
             <Plus className="w-4 h-4" /> افزودن کاربر
           </button>
