@@ -59,7 +59,7 @@ const FREELLMAPI_API_KEY = process.env.FREELLMAPI_API_KEY || "";
 function freeModel(id: string, name: string, model: string, strengths: string[]): Provider {
   return {
     id,
-    name: `${name} (رایگان)`,
+    name,
     provider: "freellmapi",
     model,
     baseURL: FREELLMAPI_BASE_URL,
