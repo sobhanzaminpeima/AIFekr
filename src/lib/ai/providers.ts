@@ -37,6 +37,49 @@ export interface Provider {
   creditCost: number;
 }
 
+// ─── FreeLLMAPI (self-hosted free-tier aggregator) ──────────────────────────
+// Self-hosted at http://127.0.0.1:3001 (Docker, localhost-only — never
+// exposed publicly) — aggregates free tiers from provider accounts the admin
+// has added keys for, behind one OpenAI-compatible endpoint.
+// https://github.com/tashfeenahmed/freellmapi
+//
+// IMPORTANT — only Mistral-family models are actually usable on this server
+// right now, despite Google/Groq/Cerebras keys also being configured:
+//   - Google (Gemini) is blocked at the network level from this VPS's IP
+//     (same known issue as the `gemini` provider above — bare 403s).
+//   - Groq/Cerebras models aren't unlocked on the free "monthly" catalog
+//     snapshot tier this install is on (paid $19/yr unlocks same-day access
+//     to new models) — they fail with "no usable key configured" even
+//     though a healthy key exists for the platform.
+// Re-verify with a real request (not just /v1/models' `available` flag,
+// which lies for both cases above) before adding any non-Mistral model here.
+const FREELLMAPI_BASE_URL = process.env.FREELLMAPI_BASE_URL || "http://127.0.0.1:3001/v1";
+const FREELLMAPI_API_KEY = process.env.FREELLMAPI_API_KEY || "";
+
+function freeModel(id: string, name: string, model: string, strengths: string[]): Provider {
+  return {
+    id,
+    name: `${name} (رایگان)`,
+    provider: "freellmapi",
+    model,
+    baseURL: FREELLMAPI_BASE_URL,
+    apiKey: FREELLMAPI_API_KEY,
+    strengths,
+    maxTokens: 4096,
+    maxOutputCeiling: 8192,
+    creditCost: 1,
+  };
+}
+
+const FREELLMAPI_PROVIDERS: Provider[] = [
+  freeModel("free-mistral-large-3", "Mistral Large 3", "mistral-large-3", ["general", "business", "reasoning", "complex"]),
+  freeModel("free-mistral-small-4", "Mistral Small 4", "mistral-small-4", ["general", "fast"]),
+  freeModel("free-magistral-small", "Magistral Small", "magistral-small", ["reasoning", "math"]),
+  freeModel("free-ministral-14b", "Ministral 14B", "ministral-14b", ["general", "fast"]),
+  freeModel("free-codestral", "Codestral", "codestral", ["code", "technical"]),
+  freeModel("free-devstral", "Devstral", "devstral", ["code", "technical"]),
+];
+
 // ─── Provider registry ──────────────────────────────────────────────────────
 export const PROVIDERS: Provider[] = [
   {
@@ -155,6 +198,7 @@ export const PROVIDERS: Provider[] = [
     maxTokens: 4096,
     creditCost: 1,
   },
+  ...FREELLMAPI_PROVIDERS,
 ];
 
 export function getProviderById(id: string): Provider | undefined {
