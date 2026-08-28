@@ -71,13 +71,22 @@ function freeModel(id: string, name: string, model: string, strengths: string[])
   };
 }
 
+// All 13 confirmed working with a real request as of 2026-08-28 — see
+// testall.sh results referenced in the deploy commit for this block.
 const FREELLMAPI_PROVIDERS: Provider[] = [
   freeModel("free-mistral-large-3", "Mistral Large 3", "mistral-large-3", ["general", "business", "reasoning", "complex"]),
+  freeModel("free-mistral-medium-3-5", "Mistral Medium 3.5", "mistral-medium-3.5", ["general", "business", "reasoning"]),
   freeModel("free-mistral-small-4", "Mistral Small 4", "mistral-small-4", ["general", "fast"]),
+  freeModel("free-magistral-medium", "Magistral Medium", "magistral-medium", ["reasoning", "math", "complex"]),
   freeModel("free-magistral-small", "Magistral Small", "magistral-small", ["reasoning", "math"]),
   freeModel("free-ministral-14b", "Ministral 14B", "ministral-14b", ["general", "fast"]),
+  freeModel("free-ministral-3-8b", "Ministral 3 8B", "ministral-3-8b", ["general", "fast"]),
   freeModel("free-codestral", "Codestral", "codestral", ["code", "technical"]),
   freeModel("free-devstral", "Devstral", "devstral", ["code", "technical"]),
+  freeModel("free-devstral-medium", "Devstral Medium", "devstral-medium", ["code", "technical"]),
+  freeModel("free-mistral-code", "Mistral Code", "mistral-code", ["code", "technical"]),
+  freeModel("free-mistral-code-agent", "Mistral Code Agent", "mistral-code-agent", ["code", "technical"]),
+  freeModel("free-mistral-vibe-cli", "Mistral Vibe CLI Fast", "mistral-vibe-cli-fast", ["code", "fast"]),
 ];
 
 // ─── Provider registry ──────────────────────────────────────────────────────
