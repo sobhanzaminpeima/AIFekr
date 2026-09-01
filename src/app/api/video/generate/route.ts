@@ -10,10 +10,15 @@ import { startCustomVideoJob } from "@/lib/ai/customVideoProvider";
 import { CREDIT_COSTS } from "@/lib/utils/credits";
 import { getAvailableCredits, deductCredits } from "@/lib/utils/teamCredits";
 import { getLimitsForPlan } from "@/lib/utils/planLimits";
+import { isFeatureEnabled, FEATURE_DISABLED_MESSAGE } from "@/lib/utils/featureToggles";
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
+
+  if (!(await isFeatureEnabled("video"))) {
+    return NextResponse.json({ error: FEATURE_DISABLED_MESSAGE.video }, { status: 503 });
+  }
 
   try {
     const { prompt, duration = 5, ratio = "16:9", style = "واقعی", sourceImageUrl, provider = "qwen" } = await req.json();

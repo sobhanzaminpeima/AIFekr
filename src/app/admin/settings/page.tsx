@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
-import { Settings, Save, Globe, Bell, Shield, Palette, DollarSign, FileText, RefreshCw } from "lucide-react";
+import { Settings, Save, Globe, Bell, Shield, Palette, DollarSign, FileText, RefreshCw, ToggleRight } from "lucide-react";
 import toast from "react-hot-toast";
 
 const SECTIONS = [
@@ -80,6 +80,14 @@ const SECTIONS = [
       { key: "enable_email_notifications", label: "اعلان ایمیل", type: "toggle", default: "true" },
       { key: "enable_sms", label: "اعلان SMS", type: "toggle", default: "false" },
       { key: "admin_notification_email", label: "ایمیل اعلان ادمین", type: "text", default: "admin@aifekr.com" },
+    ],
+  },
+  {
+    id: "features", label: "فعال/غیرفعال‌سازی امکانات", icon: ToggleRight,
+    fields: [
+      { key: "feature_image_enabled", label: "ساخت تصویر", type: "toggle", default: "true" },
+      { key: "feature_video_enabled", label: "ساخت ویدیو", type: "toggle", default: "true" },
+      { key: "feature_music_enabled", label: "ساخت موزیک", type: "toggle", default: "true" },
     ],
   },
   {
@@ -202,6 +210,11 @@ export default function AdminSettingsPage() {
               {section.id === "currency" && (
                 <p className="text-xs -mt-2" style={{ color: "var(--text-muted)" }}>
                   نرخ ریال همیشه دستی می‌ماند (نرخ واقعی بازار ایران در هیچ سرویس رایگانی موجود نیست)؛ یورو/پوند/درهم را می‌توانید از بازار جهانی به‌روز بگیرید.
+                </p>
+              )}
+              {section.id === "features" && (
+                <p className="text-xs -mt-2" style={{ color: "var(--text-muted)" }}>
+                  با غیرفعال کردن هرکدام، ساخت جدید از همون بخش برای همه کاربران بلافاصله (بعد از «ذخیره تنظیمات») مسدود می‌شود و پیام «موقتاً غیرفعال است» به کاربر نمایش داده می‌شود. محتوای قبلاً ساخته‌شده حذف نمی‌شود.
                 </p>
               )}
               {section.fields.map(f => (

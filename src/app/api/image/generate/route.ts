@@ -11,6 +11,7 @@ import * as openaiImage from "@/lib/ai/openaiImage";
 import { isCustomProviderModel } from "@/lib/ai/customProviders";
 import { generateCustomImage } from "@/lib/ai/customImageProvider";
 import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
+import { isFeatureEnabled, FEATURE_DISABLED_MESSAGE } from "@/lib/utils/featureToggles";
 
 // OpenAI (gpt-image) is preferred when configured — real credit was purchased
 // for it — with Qwen kept as the fallback path exactly as qwen.ts documents.
@@ -40,6 +41,10 @@ const OPENAI_IMAGE_MONTHLY_BUDGET_CAP = Number(process.env.OPENAI_IMAGE_MONTHLY_
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
+
+  if (!(await isFeatureEnabled("image"))) {
+    return NextResponse.json({ error: FEATURE_DISABLED_MESSAGE.image }, { status: 503 });
+  }
 
   try {
     const { prompt, style = "realistic", ratio = "1:1", quality = "standard", count = 1, sourceImageUrl, provider: requestedProvider, kind = "standard" } = await req.json();
