@@ -700,6 +700,7 @@ model CrmDeal {
   contracts  CrmContract[]
   dealProducts CrmDealProduct[]
   projects   CrmProject[]
+  commissionRecords AccountingCommissionRecord[]
   properties Property[]
 
   @@index([userId])
@@ -1595,6 +1596,11 @@ model Property {
   /// rental booking link/nightly price, below) live on this single unified
   /// Property row rather than a separate real-estate-only table.
   crmProjectId String?
+  /// Accounting module Phase B — the CrmContact (role: owner) this unit's
+  /// short-term-rental income/expenses/management fee are settled with via
+  /// AccountingOwnerStatement. Only meaningful for listingType
+  /// "short_term_rent"; null otherwise.
+  ownerContactId String?
   title        String
   /// "buy" | "sell" | "rent" | "short_term_rent"
   listingType  String
@@ -1654,6 +1660,7 @@ model Property {
   bookings     PropertyBooking[]
   documents    CrmDocument[]
   interests    PropertyInterest[]
+  ownerStatements AccountingOwnerStatement[]
 
   @@index([userId])
   @@index([agentId])
@@ -1938,4 +1945,150 @@ model AccountingJournalEntryLine {
 
   @@index([entryId])
   @@index([accountId])
+}
+
+/// ─── Accounting module Phase B ──────────────────────────────────────────
+/// Expenses/vendors/approval, agent commission + split, and short-term
+/// rental owner statements. Every economic event here posts through
+/// postJournalEntry() (see src/lib/accounting/ledger.ts) — nothing here
+/// writes AccountingJournalEntryLine directly.
+
+model AccountingVendor {
+  id              String   @id @default(cuid())
+  workspaceUserId String
+  name            String
+  phone           String?
+  email           String?
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  expenses AccountingExpense[]
+
+  @@index([workspaceUserId])
+}
+
+/// Covers both spec ۳.۳ concepts — a supplier bill and a standalone cash
+/// expense — as one model distinguished by `kind`, rather than two near-
+/// identical tables. `status` carries the approval workflow: an expense
+/// over the workspace's approval threshold sits at "pending_approval" until
+/// a manager approves it; only "approved" or "paid" expenses may post to
+/// the ledger.
+model AccountingExpense {
+  id              String    @id @default(cuid())
+  workspaceUserId String
+  vendorId        String?
+  /// "bill" | "cash_expense"
+  kind            String    @default("cash_expense")
+  /// AccountingAccount.code this expense books against, e.g. "5200" (Advertising).
+  accountCode     String
+  amount          Float
+  description     String
+  receiptUrl      String?
+  expenseDate     DateTime  @default(now())
+  dueDate         DateTime?
+  /// "pending_approval" | "approved" | "rejected" | "paid"
+  status          String    @default("approved")
+  approvedBy      String?
+  approvedAt      DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  vendor AccountingVendor? @relation(fields: [vendorId], references: [id])
+
+  @@index([workspaceUserId])
+  @@index([vendorId])
+}
+
+/// One row per won deal that earns commission. Split across multiple agents
+/// via AccountingCommissionSplit — see spec ۳.۴'s "Split Commission".
+model AccountingCommissionRecord {
+  id              String   @id @default(cuid())
+  workspaceUserId String
+  dealId          String
+  totalAmount     Float
+  createdAt       DateTime @default(now())
+
+  deal   CrmDeal                    @relation(fields: [dealId], references: [id])
+  splits AccountingCommissionSplit[]
+
+  @@index([workspaceUserId])
+  @@index([dealId])
+}
+
+model AccountingCommissionSplit {
+  id                   String    @id @default(cuid())
+  commissionRecordId   String
+  /// User.id of the agent this split is owed to.
+  agentUserId          String
+  percent              Float
+  amount               Float
+  /// "pending" | "paid"
+  status               String    @default("pending")
+  paidAt               DateTime?
+  createdAt            DateTime  @default(now())
+
+  commissionRecord AccountingCommissionRecord @relation(fields: [commissionRecordId], references: [id], onDelete: Cascade)
+
+  @@index([commissionRecordId])
+  @@index([agentUserId])
+}
+
+/// Per-property (or per-owner, when propertyId is null — the workspace
+/// default) management fee percentage taken from short-term rental net
+/// profit. A property-level row overrides the owner/workspace default.
+model AccountingManagementFeeRule {
+  id              String   @id @default(cuid())
+  workspaceUserId String
+  propertyId      String?  @unique
+  feePercent      Float    @default(20)
+  createdAt       DateTime @default(now())
+
+  @@index([workspaceUserId])
+}
+
+/// One statement per property per month — the Draft-and-Approve envelope
+/// around a batch of AccountingOwnerStatementEntry rows. Numbers are
+/// computed and frozen at generation time (not re-derived live), so an
+/// approved/sent statement never silently changes if entries are edited
+/// later — a correction means regenerating a new draft.
+model AccountingOwnerStatement {
+  id              String    @id @default(cuid())
+  workspaceUserId String
+  propertyId      String
+  /// First day of the statement's month, e.g. 2026-08-01T00:00:00Z.
+  month           DateTime
+  currency        String    @default("IRT")
+  incomeTotal     Float     @default(0)
+  expenseTotal    Float     @default(0)
+  netProfit       Float     @default(0)
+  managementFee   Float     @default(0)
+  ownerShare      Float     @default(0)
+  /// "draft" | "approved" | "sent"
+  status          String    @default("draft")
+  approvedBy      String?
+  approvedAt      DateTime?
+  sentAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  property Property                        @relation(fields: [propertyId], references: [id])
+  entries  AccountingOwnerStatementEntry[]
+
+  @@unique([propertyId, month])
+  @@index([workspaceUserId])
+}
+
+model AccountingOwnerStatementEntry {
+  id          String   @id @default(cuid())
+  statementId String
+  date        DateTime
+  description String
+  /// "guest_stay" | "maintenance" | "utilities" | "consumables" | "other"
+  category    String
+  income      Float    @default(0)
+  expense     Float    @default(0)
+  createdAt   DateTime @default(now())
+
+  statement AccountingOwnerStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+
+  @@index([statementId])
 }

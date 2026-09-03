@@ -1,0 +1,160 @@
+import { prisma } from "@/lib/db/prisma";
+import { postJournalEntry } from "./ledger";
+import { sendEmail } from "@/lib/email/resend";
+
+/**
+ * Short-term rental owner statements (spec ۳.۹) — one per property per
+ * month. Lifecycle is Draft-and-Approve, per the project's general rule for
+ * anything that goes out to a customer/owner: generate (draft, numbers
+ * frozen) → approve (posts the ledger entry) → send (emails the owner).
+ * Never auto-sends without the approve step.
+ */
+
+export interface OwnerStatementEntryInput {
+  date: Date;
+  description: string;
+  category: "guest_stay" | "maintenance" | "utilities" | "consumables" | "other";
+  income?: number;
+  expense?: number;
+}
+
+function monthStart(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+}
+
+/**
+ * Creates (or replaces, if still in draft) the statement for a property/month
+ * from a list of line items — computing income/expense totals and the
+ * net-profit / management-fee / owner-share three-row summary exactly per
+ * the spec's formulas. Numbers are frozen into the statement row at this
+ * point; editing entries after generation requires calling this again
+ * (only while status is still "draft" — an approved statement is immutable).
+ */
+export async function generateOwnerStatement(
+  workspaceUserId: string,
+  propertyId: string,
+  month: Date,
+  entries: OwnerStatementEntryInput[],
+  currency: string = "IRT"
+) {
+  const monthDate = monthStart(month);
+
+  const existing = await prisma.accountingOwnerStatement.findUnique({
+    where: { propertyId_month: { propertyId, month: monthDate } },
+  });
+  if (existing && existing.status !== "draft") {
+    throw new Error("This statement is already approved/sent — it cannot be regenerated. Create a correction manually if needed.");
+  }
+
+  const feeRule =
+    (await prisma.accountingManagementFeeRule.findUnique({ where: { propertyId } })) ||
+    (await prisma.accountingManagementFeeRule.findFirst({ where: { workspaceUserId, propertyId: null } }));
+  const feePercent = feeRule?.feePercent ?? 20;
+
+  const incomeTotal = entries.reduce((s, e) => s + (e.income || 0), 0);
+  const expenseTotal = entries.reduce((s, e) => s + (e.expense || 0), 0);
+  const netProfit = incomeTotal - expenseTotal;
+  const managementFee = Math.max(0, Math.round((netProfit * feePercent) / 100));
+  const ownerShare = netProfit - managementFee;
+
+  const data = {
+    workspaceUserId,
+    propertyId,
+    month: monthDate,
+    currency,
+    incomeTotal,
+    expenseTotal,
+    netProfit,
+    managementFee,
+    ownerShare,
+    status: "draft" as const,
+  };
+
+  if (existing) {
+    await prisma.accountingOwnerStatementEntry.deleteMany({ where: { statementId: existing.id } });
+    return prisma.accountingOwnerStatement.update({
+      where: { id: existing.id },
+      data: { ...data, entries: { create: entries.map((e) => ({ date: e.date, description: e.description, category: e.category, income: e.income || 0, expense: e.expense || 0 })) } },
+      include: { entries: true },
+    });
+  }
+
+  return prisma.accountingOwnerStatement.create({
+    data: { ...data, entries: { create: entries.map((e) => ({ date: e.date, description: e.description, category: e.category, income: e.income || 0, expense: e.expense || 0 })) } },
+    include: { entries: true },
+  });
+}
+
+/**
+ * Approves a draft statement and posts its ledger entry in one shot:
+ *   Debit  1000 (Cash)                        = netProfit (income − expenses, net cash actually collected)
+ *   Credit 4100 (Management Fee Revenue)      = managementFee
+ *   Credit 2200 (Owner Payable)                = ownerShare
+ * Balances exactly because ownerShare = netProfit − managementFee by
+ * construction (see generateOwnerStatement). Idempotent via sourceRef —
+ * approving twice is a no-op on the ledger.
+ */
+export async function approveOwnerStatement(statementId: string, approvedBy: string) {
+  const statement = await prisma.accountingOwnerStatement.findUniqueOrThrow({ where: { id: statementId } });
+  if (statement.status !== "draft") throw new Error("Only a draft statement can be approved");
+  if (statement.netProfit <= 0) {
+    // A loss month still gets approved (owner needs to see it), it just
+    // posts no ledger entry — there is nothing to distribute or take a fee from.
+    return prisma.accountingOwnerStatement.update({
+      where: { id: statementId },
+      data: { status: "approved", approvedBy, approvedAt: new Date() },
+    });
+  }
+
+  await postJournalEntry({
+    workspaceUserId: statement.workspaceUserId,
+    postedBy: approvedBy,
+    memo: `Owner statement ${statement.propertyId} ${statement.month.toISOString().slice(0, 7)}`,
+    sourceRef: `owner_statement:approved:${statement.id}`,
+    lines: [
+      { accountCode: "1000", debit: statement.netProfit },
+      { accountCode: "4100", credit: statement.managementFee },
+      { accountCode: "2200", credit: statement.ownerShare },
+    ].filter((l) => (l.debit || l.credit || 0) > 0),
+  });
+
+  return prisma.accountingOwnerStatement.update({
+    where: { id: statementId },
+    data: { status: "approved", approvedBy, approvedAt: new Date() },
+  });
+}
+
+/** Emails the owner an HTML summary of an approved statement. Never auto-called by approve — a separate explicit step. */
+export async function sendOwnerStatement(statementId: string, ownerEmail: string, ownerName: string, lang: "fa" | "en" | "de" = "fa") {
+  const statement = await prisma.accountingOwnerStatement.findUniqueOrThrow({
+    where: { id: statementId },
+    include: { entries: true, property: { select: { title: true } } },
+  });
+  if (statement.status !== "approved") throw new Error("Only an approved statement can be sent");
+
+  const monthLabel = statement.month.toLocaleDateString(lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US", { year: "numeric", month: "long" });
+  const rows = statement.entries
+    .map((e) => `<tr><td style="padding:6px;border-bottom:1px solid #eee;">${new Date(e.date).toLocaleDateString()}</td><td style="padding:6px;border-bottom:1px solid #eee;">${e.description}</td><td style="padding:6px;border-bottom:1px solid #eee;color:#16a34a;">${e.income ? e.income.toLocaleString() : ""}</td><td style="padding:6px;border-bottom:1px solid #eee;color:#dc2626;">${e.expense ? e.expense.toLocaleString() : ""}</td></tr>`)
+    .join("");
+
+  const subject = lang === "fa" ? `گزارش تسویه ${statement.property.title} — ${monthLabel}` : `Owner Statement — ${statement.property.title} — ${monthLabel}`;
+  const html = `
+    <div dir="${lang === "fa" ? "rtl" : "ltr"}" style="font-family:Tahoma,Arial;padding:24px;">
+      <h2>${statement.property.title} — ${monthLabel}</h2>
+      <p>${lang === "fa" ? "سلام" : "Hi"} ${ownerName},</p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+        <thead><tr><th style="text-align:right;padding:6px;">Date</th><th style="text-align:right;padding:6px;">Description</th><th style="text-align:right;padding:6px;">Income</th><th style="text-align:right;padding:6px;">Expense</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <table style="margin-top:16px;">
+        <tr><td style="padding:4px 12px;color:#666;">${lang === "fa" ? "سود خالص" : "Net Profit"}</td><td style="padding:4px 12px;font-weight:bold;">${statement.netProfit.toLocaleString()} ${statement.currency}</td></tr>
+        <tr><td style="padding:4px 12px;color:#666;">${lang === "fa" ? "کارمزد مدیریت" : "Management Fee"}</td><td style="padding:4px 12px;">${statement.managementFee.toLocaleString()} ${statement.currency}</td></tr>
+        <tr><td style="padding:4px 12px;color:#666;">${lang === "fa" ? "سهم مالک" : "Owner Share"}</td><td style="padding:4px 12px;font-weight:bold;color:#ea580c;">${statement.ownerShare.toLocaleString()} ${statement.currency}</td></tr>
+      </table>
+    </div>`;
+
+  const sent = await sendEmail(ownerEmail, subject, html);
+  if (!sent) throw new Error("Failed to send owner statement email");
+
+  return prisma.accountingOwnerStatement.update({ where: { id: statementId }, data: { status: "sent", sentAt: new Date() } });
+}
