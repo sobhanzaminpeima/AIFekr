@@ -7,6 +7,8 @@ import { computeInvoiceTotals, InvoiceItemInput } from "@/lib/repositories/crmIn
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n";
+import { postJournalEntry } from "@/lib/accounting/ledger";
+import { ensureDefaultChartOfAccounts } from "@/lib/accounting/chartOfAccounts";
 
 const VALID_STATUSES = ["draft", "sent", "paid", "overdue", "cancelled"];
 
@@ -58,9 +60,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     // Bumping CrmContact.totalSpent only happens on the draft->paid transition —
     // guarded inside the transaction so a repeated PUT with status:"paid" (or a
     // race between two requests) can't double-count the same invoice.
+    let becameSentForLedger = false;
+    let becamePaidForLedger = false;
+    let ledgerTotal = 0;
+
     const invoice = await prisma.$transaction(async (tx) => {
       const current = await tx.crmInvoice.findUniqueOrThrow({ where: { id: params.id }, include: { items: true } });
       const becamePaid = status === "paid" && current.status !== "paid";
+      const becameSent = status === "sent" && current.status === "draft";
 
       // Editing an already-finalized (not draft) invoice's amounts is allowed,
       // but the pre-edit state is snapshotted first — a customer who already
@@ -105,8 +112,50 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         });
       }
 
+      // Ledger posting happens after this transaction commits (postJournalEntry
+      // runs its own transaction — Prisma doesn't support nesting interactive
+      // transactions), guarded by sourceRef idempotency so a retry of this
+      // same PUT can never double-post.
+      becameSentForLedger = becameSent;
+      becamePaidForLedger = becamePaid;
+      ledgerTotal = total;
+
       return updated;
     });
+
+    // Best-effort: an invoice edit should never fail outright just because
+    // ledger posting hit an issue (e.g. a locked fiscal period) — the CRM
+    // invoice is already the source of truth for what the customer sees;
+    // the ledger gets a chance to catch up next time this route runs, since
+    // sourceRef makes a later retry safe. Log so a real problem doesn't go
+    // unnoticed, without blocking the invoice update itself.
+    if (becameSentForLedger || becamePaidForLedger) {
+      await ensureDefaultChartOfAccounts(ws.workspaceUserId).catch(() => {});
+    }
+    if (becameSentForLedger && ledgerTotal > 0) {
+      await postJournalEntry({
+        workspaceUserId: ws.workspaceUserId,
+        postedBy: "system",
+        memo: `Invoice ${invoice.invoiceNumber} issued`,
+        sourceRef: `invoice:sent:${params.id}`,
+        lines: [
+          { accountCode: "1200", debit: ledgerTotal },
+          { accountCode: "4000", credit: ledgerTotal },
+        ],
+      }).catch((e) => console.error("Ledger post (invoice sent) failed:", e));
+    }
+    if (becamePaidForLedger && ledgerTotal > 0) {
+      await postJournalEntry({
+        workspaceUserId: ws.workspaceUserId,
+        postedBy: "system",
+        memo: `Invoice ${invoice.invoiceNumber} paid`,
+        sourceRef: `invoice:paid:${params.id}`,
+        lines: [
+          { accountCode: "1000", debit: ledgerTotal },
+          { accountCode: "1200", credit: ledgerTotal },
+        ],
+      }).catch((e) => console.error("Ledger post (invoice paid) failed:", e));
+    }
 
     return NextResponse.json({ invoice });
   } catch (err) {

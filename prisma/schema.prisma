@@ -1836,3 +1836,106 @@ model AuditLog {
   @@index([targetId])
   @@index([action])
 }
+
+/// ─── Accounting module (Phase A: ledger core) ───────────────────────────
+/// Per accounting_master_prompt.md/accounting_module_spec.md, Phase A. Tenant
+/// isolation is application-level (workspaceUserId, matching
+/// resolveCrmWorkspace()'s pattern everywhere else in this codebase) rather
+/// than Postgres RLS — this codebase runs on SQLite, which has no RLS, and
+/// the user explicitly confirmed reusing the existing app-level pattern
+/// instead of the spec's Postgres-specific assumption. See src/lib/accounting/ledger.ts
+/// for the single enforced write path (postJournalEntry()) — nothing else
+/// may insert into AccountingJournalEntryLine directly.
+model AccountingAccount {
+  id              String   @id @default(cuid())
+  workspaceUserId String
+  code            String
+  name            String
+  nameEn          String?
+  nameDe          String?
+  /// "asset" | "liability" | "equity" | "revenue" | "expense"
+  type            String
+  parentId        String?
+  /// Seeded default-chart-of-accounts row — shown but not user-deletable.
+  isSystem        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  parent   AccountingAccount?           @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children AccountingAccount[]          @relation("AccountHierarchy")
+  lines    AccountingJournalEntryLine[]
+
+  @@unique([workspaceUserId, code])
+  @@index([workspaceUserId])
+}
+
+/// One row per financial period an admin can lock. Locking blocks new
+/// postings dated inside the range — enforced inside postJournalEntry(),
+/// the only write path, since SQLite has no deferred/cross-table constraint
+/// triggers capable of expressing "reject if any locked period covers this
+/// date" declaratively.
+model AccountingFiscalPeriod {
+  id              String    @id @default(cuid())
+  workspaceUserId String
+  startDate       DateTime
+  endDate         DateTime
+  isLocked        Boolean   @default(false)
+  lockedAt        DateTime?
+  lockedBy        String?
+  createdAt       DateTime  @default(now())
+
+  @@index([workspaceUserId])
+}
+
+/// A balanced double-entry posting. Immutable once created — see comment on
+/// reversesEntryId. Never updated/deleted; a correction always creates a new
+/// reversal entry (isReversed flips true on the original) plus a new
+/// corrected entry, both linked back for a full audit trail.
+model AccountingJournalEntry {
+  id              String   @id @default(cuid())
+  workspaceUserId String
+  entryDate       DateTime @default(now())
+  memo            String?
+  /// Idempotency + traceability key for auto-posted entries, e.g.
+  /// "invoice:sent:<invoiceId>" / "invoice:paid:<invoiceId>". A unique
+  /// constraint here is what makes automatic posting from a CRM event
+  /// idempotent — a retried event / duplicate webhook simply finds the
+  /// existing entry and no-ops instead of double-posting. Null for entries
+  /// entered manually by an accountant.
+  sourceRef       String?  @unique
+  reversesEntryId String?
+  isReversed      Boolean  @default(false)
+  /// User.id who posted it, or the literal string "system" for auto-posted
+  /// entries (invoice events, etc.) with no human actor.
+  postedBy        String
+  createdAt       DateTime @default(now())
+
+  lines         AccountingJournalEntryLine[]
+  reversesEntry AccountingJournalEntry?      @relation("Reversal", fields: [reversesEntryId], references: [id])
+  reversedBy    AccountingJournalEntry[]     @relation("Reversal")
+
+  @@index([workspaceUserId, entryDate])
+}
+
+/// One debit or credit leg of a journal entry. `debit`/`credit` are
+/// mutually exclusive per row (exactly one is > 0, the other is 0) —
+/// enforced by a CHECK constraint at the database level (see migration SQL)
+/// as well as in postJournalEntry(). The cross-row invariant "sum(debit) ==
+/// sum(credit) for a given entry" is a multi-row invariant SQLite's
+/// synchronous, non-deferrable triggers cannot express safely alongside a
+/// multi-row insert; that half of the balance guarantee is enforced solely
+/// by postJournalEntry() being the one and only write path — see its unit
+/// tests for the enforcement proof.
+model AccountingJournalEntryLine {
+  id        String  @id @default(cuid())
+  entryId   String
+  accountId String
+  debit     Float   @default(0)
+  credit    Float   @default(0)
+  memo      String?
+
+  entry   AccountingJournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account AccountingAccount      @relation(fields: [accountId], references: [id])
+
+  @@index([entryId])
+  @@index([accountId])
+}
