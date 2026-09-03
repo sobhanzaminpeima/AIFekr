@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { prisma } from "@/lib/db/prisma";
 import { verifyToken } from "@/lib/auth/jwt";
 import { getServerLang } from "@/lib/i18n/server";
@@ -8,6 +9,26 @@ import ActivateButton from "@/components/industry/ActivateButton";
 import { formatPackPriceSync, getFxRates } from "@/lib/utils/currency";
 
 export const dynamic = "force-dynamic";
+
+// Each pack gets its own title/description (was previously unreachable by
+// Google at all — this route lived under the auth-gated (dashboard) group,
+// which redirected every logged-out visitor, including crawlers, to
+// /login). Title includes both the pack name and "AiFekr" so the page can
+// rank for the pack's own keywords ("هوش مصنوعی برای رستوران") and for
+// brand-name searches.
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const pack = await prisma.industryPack.findUnique({ where: { slug: params.slug } });
+  if (!pack) return {};
+  const lang = await getServerLang();
+  const name = lang !== "fa" && pack.nameEn ? pack.nameEn : pack.name;
+  const description = lang !== "fa" && pack.valuePropositionEn ? pack.valuePropositionEn : pack.valueProposition;
+  const title = lang === "fa" ? `${name} | بسته هوش مصنوعی AiFekr` : `${name} | AiFekr AI Pack`;
+  return {
+    title,
+    description: description || undefined,
+    openGraph: { title, description: description || undefined },
+  };
+}
 
 const strings = {
   fa: {

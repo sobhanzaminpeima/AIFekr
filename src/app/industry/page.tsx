@@ -1,9 +1,20 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { prisma } from "@/lib/db/prisma";
 import { getServerLang } from "@/lib/i18n/server";
 import { formatPackPriceSync, getFxRates } from "@/lib/utils/currency";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getServerLang();
+  const title = lang === "fa" ? "بازار بسته‌های صنعتی هوش مصنوعی | AiFekr" : "AI Industry Packs Marketplace | AiFekr";
+  const description =
+    lang === "fa"
+      ? "تیم‌های عامل هوش مصنوعی اختصاصی برای هر صنعت — رستوران، مطب، املاک و بیشتر — آماده برای کار ۲۴/۷ با AiFekr."
+      : "Specialized AI agent teams for every industry — ready to work 24/7 with AiFekr.";
+  return { title, description, openGraph: { title, description } };
+}
 
 const strings = {
   fa: {
