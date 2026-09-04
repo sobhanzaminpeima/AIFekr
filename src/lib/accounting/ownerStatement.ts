@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { postJournalEntry } from "./ledger";
+import { postJournalEntry, reverseJournalEntry } from "./ledger";
 import { sendEmail } from "@/lib/email/resend";
 
 /**
@@ -43,7 +43,7 @@ export async function generateOwnerStatement(
     where: { propertyId_month: { propertyId, month: monthDate } },
   });
   if (existing && existing.status !== "draft") {
-    throw new Error("This statement is already approved/sent — it cannot be regenerated. Create a correction manually if needed.");
+    throw new Error("This statement is already approved/sent — reopen it first (reopenOwnerStatement) to correct and regenerate it.");
   }
 
   const feeRule =
@@ -157,4 +157,39 @@ export async function sendOwnerStatement(statementId: string, ownerEmail: string
   if (!sent) throw new Error("Failed to send owner statement email");
 
   return prisma.accountingOwnerStatement.update({ where: { id: statementId }, data: { status: "sent", sentAt: new Date() } });
+}
+
+/**
+ * Reopens an approved/sent statement for correction — the manual path
+ * generateOwnerStatement()'s own error message points to ("این گزارش قبلاً
+ * تأییدشده/ارسال‌شده — قابل بازتولید نیست. اگر نیاز است، یک اصلاح دستی ثبت
+ * کنید"), which never existed as real code until now. If the statement's
+ * ledger entry was posted (approve step), it is reversed first — the
+ * original posting is never mutated or deleted, only reversed, same
+ * immutability rule as every other correction in this module. The
+ * statement itself resets to "draft" (numbers un-frozen, approvedBy/
+ * approvedAt/sentAt cleared) so generateOwnerStatement() can recompute it
+ * -- e.g. after a management-fee-percent change -- exactly like a fresh
+ * draft. Always explicit and always audit-logged, same rule as fiscal
+ * period reopening.
+ */
+export async function reopenOwnerStatement(statementId: string, workspaceUserId: string, reopenedBy: string) {
+  const statement = await prisma.accountingOwnerStatement.findFirstOrThrow({ where: { id: statementId, workspaceUserId } });
+  if (statement.status === "draft") throw new Error("This statement is already a draft");
+
+  const postedEntry = await prisma.accountingJournalEntry.findUnique({ where: { sourceRef: `owner_statement:approved:${statement.id}` } });
+  if (postedEntry && !postedEntry.isReversed) {
+    await reverseJournalEntry(postedEntry.id, reopenedBy, `Reopened owner statement ${statement.id} for correction`);
+  }
+
+  const updated = await prisma.accountingOwnerStatement.update({
+    where: { id: statementId },
+    data: { status: "draft", approvedBy: null, approvedAt: null, sentAt: null },
+  });
+
+  await prisma.auditLog.create({
+    data: { actorId: reopenedBy, action: "owner_statement_reopened", targetId: statementId, metadata: JSON.stringify({ workspaceUserId, previousStatus: statement.status }) },
+  }).catch(() => {});
+
+  return updated;
 }

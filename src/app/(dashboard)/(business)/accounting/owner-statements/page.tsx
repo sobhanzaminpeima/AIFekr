@@ -200,7 +200,8 @@ export default function OwnerStatementsPage() {
     }
   }
 
-  async function statementAction(id: string, action: "approve" | "send") {
+  async function statementAction(id: string, action: "approve" | "send" | "reopen") {
+    if (action === "reopen" && !confirm("این گزارش قبلاً تأیید/ارسال شده. بازگشایی آن، سند ثبت‌شدهٔ آن در دفتر کل را برمی‌گرداند تا بتوانید دوباره بسازید. ادامه می‌دهید؟")) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/accounting/owner-statements/${id}`, {
@@ -209,7 +210,7 @@ export default function OwnerStatementsPage() {
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error);
-      toast.success(action === "approve" ? "گزارش تأیید شد" : "برای مالک ارسال شد");
+      toast.success(action === "approve" ? "گزارش تأیید شد" : action === "send" ? "برای مالک ارسال شد" : "گزارش بازگشایی شد — حالا می‌توانید دوباره بسازید");
       loadStatements(propertyId);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "خطا");
@@ -330,6 +331,11 @@ export default function OwnerStatementsPage() {
                         {s.status === "approved" && (
                           <button disabled={busy} onClick={() => statementAction(s.id, "send")} className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium" style={{ background: "#1baf7a", color: "#fff" }}>
                             <Send className="w-3.5 h-3.5" />ارسال به مالک
+                          </button>
+                        )}
+                        {(s.status === "approved" || s.status === "sent") && (
+                          <button disabled={busy} onClick={() => statementAction(s.id, "reopen")} className="text-xs px-2.5 py-1.5 rounded-lg font-medium" style={{ background: "var(--surface-1)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
+                            بازگشایی برای اصلاح
                           </button>
                         )}
                         <button onClick={() => openPrint(s.id)} className="p-1.5 rounded-lg" style={{ color: "var(--text-secondary)" }} title="چاپ گزارش"><Printer className="w-3.5 h-3.5" /></button>

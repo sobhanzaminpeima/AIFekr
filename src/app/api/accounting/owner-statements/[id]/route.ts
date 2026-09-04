@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
-import { approveOwnerStatement, sendOwnerStatement } from "@/lib/accounting/ownerStatement";
+import { approveOwnerStatement, sendOwnerStatement, reopenOwnerStatement } from "@/lib/accounting/ownerStatement";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -54,6 +54,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         return NextResponse.json({ error: tri(lang, "ایمیل مالک ثبت نشده است", "Owner has no email on file", "Für den Eigentümer ist keine E-Mail hinterlegt") }, { status: 400 });
       }
       const statement = await sendOwnerStatement(params.id, owner.email, owner.name, lang);
+      return NextResponse.json({ statement });
+    }
+    if (action === "reopen") {
+      const statement = await reopenOwnerStatement(params.id, ws.workspaceUserId, user.id);
       return NextResponse.json({ statement });
     }
     return NextResponse.json({ error: tri(lang, "عملیات نامعتبر است", "Invalid action", "Ungültige Aktion") }, { status: 400 });

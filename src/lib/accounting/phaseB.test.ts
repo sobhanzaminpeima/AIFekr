@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/db/prisma";
 import { payExpense, createExpense, approveExpense } from "./expenses";
 import { createCommissionRecord, payCommissionSplit } from "./commission";
-import { generateOwnerStatement, approveOwnerStatement } from "./ownerStatement";
+import { generateOwnerStatement, approveOwnerStatement, reopenOwnerStatement } from "./ownerStatement";
 import { getTrialBalance } from "./reports";
 
 // Integration tests against the real dev DB, same convention as ledger.test.ts.
@@ -146,5 +146,36 @@ describe("owner statement — three-row summary + ledger balance", () => {
     await expect(
       generateOwnerStatement(wsUser.id, approved!.propertyId, approved!.month, [{ date: new Date(), description: "x", category: "other", income: 1 }])
     ).rejects.toThrow();
+  });
+
+  it("reopen reverses the posted entry and allows a corrected regeneration (e.g. after a fee-% change)", async () => {
+    const approved = await prisma.accountingOwnerStatement.findFirstOrThrow({ where: { workspaceUserId: wsUser.id, status: "approved" } });
+    const originalEntry = await prisma.accountingJournalEntry.findUniqueOrThrow({ where: { sourceRef: `owner_statement:approved:${approved.id}` } });
+
+    const reopened = await reopenOwnerStatement(approved.id, wsUser.id, "manager-1");
+    expect(reopened.status).toBe("draft");
+    expect(reopened.approvedAt).toBeNull();
+
+    const stillThere = await prisma.accountingJournalEntry.findUniqueOrThrow({ where: { id: originalEntry.id } });
+    expect(stillThere.isReversed).toBe(true); // never deleted, only reversed
+
+    // Change the fee rule, then regenerate with the corrected percentage.
+    await prisma.accountingManagementFeeRule.update({ where: { propertyId: property.id }, data: { feePercent: 15 } });
+    const corrected = await generateOwnerStatement(wsUser.id, property.id, approved.month, [
+      { date: new Date("2026-08-05"), description: "Guest stay", category: "guest_stay", income: 1000000 },
+      { date: new Date("2026-08-10"), description: "Cleaning", category: "maintenance", expense: 100000 },
+      { date: new Date("2026-08-15"), description: "Utilities", category: "utilities", expense: 50000 },
+    ]);
+    expect(corrected.managementFee).toBe(127500); // 15% of 850000
+    expect(corrected.ownerShare).toBe(722500);
+
+    await approveOwnerStatement(corrected.id, "manager-1");
+    const tb = await getTrialBalance(wsUser.id);
+    const totalDebit = tb.reduce((s, r) => s + r.debitTotal, 0);
+    const totalCredit = tb.reduce((s, r) => s + r.creditTotal, 0);
+    expect(Math.abs(totalDebit - totalCredit)).toBeLessThan(0.01); // still balanced after reversal + re-post
+
+    await expect(reopenOwnerStatement(corrected.id, wsUser.id, "manager-1")).resolves.toBeTruthy(); // approved -> reopenable again
+    await expect(reopenOwnerStatement(corrected.id, wsUser.id, "manager-1")).rejects.toThrow(); // now draft -- can't reopen a draft
   });
 });
