@@ -2873,6 +2873,7 @@ const CURRENCY_OPTIONS: { value: string; fa?: true; symbol: string; label: Recor
   { value: "USD", symbol: "$", label: { fa: "دلار (USD)", en: "US Dollar (USD)", de: "US-Dollar (USD)" } },
   { value: "GBP", symbol: "£", label: { fa: "پوند (GBP)", en: "British Pound (GBP)", de: "Britisches Pfund (GBP)" } },
   { value: "EUR", symbol: "€", label: { fa: "یورو (EUR)", en: "Euro (EUR)", de: "Euro (EUR)" } },
+  { value: "TRY", symbol: "₺", label: { fa: "لیر ترکیه (TRY)", en: "Turkish Lira (TRY)", de: "Türkische Lira (TRY)" } },
 ];
 function defaultCurrencyForLang(lang: Lang): string {
   return lang === "fa" ? "IRT" : lang === "de" ? "EUR" : "USD";

@@ -32,7 +32,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const body = await req.json();
   const { title, propertyType, price, nightlyPrice, currency, bookingLink, address, city, bedrooms, bathrooms, areaSqm, description, images, status, crmContactId, crmDealId, representationStartDate, representationEndDate, agreedCommissionRate } = body;
-  if (currency !== undefined && !["IRT", "IRR", "USD", "GBP", "EUR"].includes(currency)) {
+  if (currency !== undefined && !["IRT", "IRR", "USD", "GBP", "EUR", "TRY"].includes(currency)) {
     return NextResponse.json({ error: tri(lang, "واحد پولی نامعتبر است", "Invalid currency", "Ungültige Währung") }, { status: 400 });
   }
 

@@ -10,7 +10,7 @@ import { tri } from "@/lib/i18n/tri";
 import { csvToObjects } from "@/lib/utils/csv";
 
 const LISTING_TYPES = ["buy", "sell", "rent", "short_term_rent"];
-const CURRENCIES = ["IRT", "IRR", "USD", "GBP", "EUR"];
+const CURRENCIES = ["IRT", "IRR", "USD", "GBP", "EUR", "TRY"];
 const MAX_ROWS = 500;
 
 interface RowError { row: number; error: string; }

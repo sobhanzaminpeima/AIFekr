@@ -9,7 +9,7 @@ import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
 const LISTING_TYPES = ["buy", "sell", "rent", "short_term_rent"];
-const CURRENCIES = ["IRT", "IRR", "USD", "GBP", "EUR"];
+const CURRENCIES = ["IRT", "IRR", "USD", "GBP", "EUR", "TRY"];
 
 function serialize(p: { price: bigint; nightlyPrice: bigint | null; [k: string]: unknown }) {
   return { ...p, price: Number(p.price), nightlyPrice: p.nightlyPrice != null ? Number(p.nightlyPrice) : null };
