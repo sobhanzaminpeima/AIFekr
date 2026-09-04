@@ -2880,9 +2880,16 @@ const CURRENCY_OPTIONS: { value: string; fa?: true; symbol: string; label: Recor
 function defaultCurrencyForLang(lang: Lang): string {
   return lang === "fa" ? "IRT" : lang === "de" ? "EUR" : "USD";
 }
-function fmtPrice(n: number, currency: string, lang: Lang): string {
+// Digit formatting follows the CURRENCY, never the viewer's own UI language
+// (`lang` param kept for API compatibility but no longer drives numerals) --
+// an Iranian admin looking at a Lira/Dollar/Pound amount owed to a non-
+// Iranian owner must see ordinary Western digits, exactly as that owner
+// will; a Toman/Rial amount stays in Persian digits regardless of which
+// language the admin's own UI is set to. Fixing this bug was requested
+// explicitly after testing a real multi-owner, multi-currency scenario.
+function fmtPrice(n: number, currency: string, _lang: Lang): string {
   const opt = CURRENCY_OPTIONS.find((c) => c.value === currency);
-  const formatted = new Intl.NumberFormat(lang === "fa" ? "fa-IR" : "en-US").format(n);
+  const formatted = new Intl.NumberFormat(opt?.fa ? "fa-IR" : "en-US").format(n);
   if (!opt) return formatted;
   return opt.fa ? `${formatted} ${opt.symbol}` : `${opt.symbol}${formatted}`;
 }

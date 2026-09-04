@@ -9,6 +9,7 @@ interface Property {
   id: string;
   title: string;
   listingType: string;
+  currency: string;
 }
 
 interface LineItem {
@@ -51,8 +52,14 @@ const STATUS_LABEL: Record<Statement["status"], { text: string; color: string; b
   sent: { text: "ارسال‌شده", color: "#1baf7a", bg: "rgba(27,175,122,0.12)" },
 };
 
-function fmt(n: number): string {
-  return Math.round(n).toLocaleString("fa-IR");
+// Digit formatting follows the statement's CURRENCY, never the admin's own
+// UI language -- a Persian-speaking admin looking at a Lira/Dollar/Pound
+// amount owed to a non-Iranian owner must see ordinary Western digits,
+// exactly as that owner will see them on the same PDF; a Toman/Rial amount
+// stays in Persian digits regardless of the admin's UI language.
+function fmt(n: number, currency?: string): string {
+  const isFaCurrency = currency === "IRT" || currency === "IRR";
+  return Math.round(n).toLocaleString(isFaCurrency ? "fa-IR" : "en-US");
 }
 
 function emptyLine(): LineItem {
@@ -69,6 +76,41 @@ export default function OwnerStatementsPage() {
   const [assisting, setAssisting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [printStatement, setPrintStatement] = useState<StatementDetail | null>(null);
+  const [feePercent, setFeePercent] = useState<string>("20");
+  const [feeSource, setFeeSource] = useState<"property" | "workspace_default" | "hardcoded_default">("hardcoded_default");
+  const [savingFee, setSavingFee] = useState(false);
+
+  const selectedProperty = properties.find((p) => p.id === propertyId);
+
+  const loadFeePercent = useCallback(async (pid: string) => {
+    if (!pid) return;
+    const res = await fetch(`/api/accounting/management-fee-rules?propertyId=${pid}`, { credentials: "include" });
+    const j = await res.json();
+    if (res.ok) { setFeePercent(String(j.feePercent)); setFeeSource(j.source); }
+  }, []);
+
+  useEffect(() => { loadFeePercent(propertyId); }, [propertyId, loadFeePercent]);
+
+  async function saveFeePercent() {
+    const value = Number(feePercent);
+    if (!propertyId) return toast.error("ابتدا یک واحد را انتخاب کنید");
+    if (isNaN(value) || value < 0 || value > 100) return toast.error("درصد کارمزد باید بین ۰ تا ۱۰۰ باشد");
+    setSavingFee(true);
+    try {
+      const res = await fetch("/api/accounting/management-fee-rules", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ propertyId, feePercent: value }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error);
+      toast.success("درصد کارمزد این واحد ذخیره شد");
+      setFeeSource("property");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "خطا در ذخیرهٔ درصد کارمزد");
+    } finally {
+      setSavingFee(false);
+    }
+  }
 
   async function openPrint(id: string) {
     try {
@@ -141,6 +183,7 @@ export default function OwnerStatementsPage() {
         method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           propertyId, month: `${month}-01`,
+          currency: selectedProperty?.currency || "IRT",
           entries: lines.map((l) => ({ date: l.date, description: l.description, category: l.category, income: Number(l.income) || 0, expense: Number(l.expense) || 0 })),
         }),
       });
@@ -198,6 +241,18 @@ export default function OwnerStatementsPage() {
           <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         </div>
 
+        {propertyId && (
+          <div className="flex items-center gap-2 mb-3 text-sm">
+            <span style={{ color: "var(--text-secondary)" }}>درصد کارمزد مدیریت این واحد:</span>
+            <input value={feePercent} onChange={(e) => setFeePercent(e.target.value)} type="number" min="0" max="100" className="w-20 px-2 py-1.5 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <span style={{ color: "var(--text-secondary)" }}>٪</span>
+            <button disabled={savingFee} onClick={saveFeePercent} className="text-xs px-2.5 py-1.5 rounded-lg font-medium" style={{ background: "var(--surface-2)", color: "var(--primary)" }}>ذخیره</button>
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+              {feeSource === "property" ? "(اختصاصی این واحد)" : feeSource === "workspace_default" ? "(پیش‌فرض کارگاه)" : "(پیش‌فرض سیستم — ۲۰٪)"}
+            </span>
+          </div>
+        )}
+
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -240,9 +295,9 @@ export default function OwnerStatementsPage() {
           </div>
           <div className="flex items-center justify-between mt-4 pt-3 text-sm" style={{ borderTop: "1px solid var(--border)" }}>
             <div className="flex gap-4">
-              <span style={{ color: "var(--text-secondary)" }}>جمع درآمد: <b style={{ color: "#1baf7a" }}>{fmt(incomeTotal)}</b></span>
-              <span style={{ color: "var(--text-secondary)" }}>جمع هزینه: <b style={{ color: "#e34948" }}>{fmt(expenseTotal)}</b></span>
-              <span style={{ color: "var(--text-secondary)" }}>سود خالص: <b style={{ color: "var(--text-primary)" }}>{fmt(incomeTotal - expenseTotal)}</b></span>
+              <span style={{ color: "var(--text-secondary)" }}>جمع درآمد: <b style={{ color: "#1baf7a" }}>{fmt(incomeTotal, selectedProperty?.currency)}</b></span>
+              <span style={{ color: "var(--text-secondary)" }}>جمع هزینه: <b style={{ color: "#e34948" }}>{fmt(expenseTotal, selectedProperty?.currency)}</b></span>
+              <span style={{ color: "var(--text-secondary)" }}>سود خالص: <b style={{ color: "var(--text-primary)" }}>{fmt(incomeTotal - expenseTotal, selectedProperty?.currency)}</b></span>
             </div>
             <button disabled={busy} onClick={createStatement} className="px-4 py-2 rounded-lg text-sm font-medium" style={{ background: "var(--primary)", color: "#fff" }}>ساخت گزارش تسویه</button>
           </div>
@@ -281,9 +336,9 @@ export default function OwnerStatementsPage() {
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-2 mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-                      <span>سود خالص: {fmt(s.netProfit)}</span>
-                      <span>کارمزد مدیریت: {fmt(s.managementFee)}</span>
-                      <span>سهم مالک: {fmt(s.ownerShare)}</span>
+                      <span>سود خالص: {fmt(s.netProfit, s.currency)}</span>
+                      <span>کارمزد مدیریت: {fmt(s.managementFee, s.currency)}</span>
+                      <span>سهم مالک: {fmt(s.ownerShare, s.currency)}</span>
                     </div>
                   </div>
                 );
@@ -318,17 +373,17 @@ function OwnerStatementPrintModal({ statement, onClose }: { statement: Statement
               <tr key={e.id} className="border-b">
                 <td className="py-1">{new Date(e.date).toLocaleDateString("fa-IR")}</td>
                 <td className="py-1">{e.description}</td>
-                <td className="py-1 text-left text-green-700">{e.income ? fmt(e.income) : ""}</td>
-                <td className="py-1 text-left text-red-700">{e.expense ? fmt(e.expense) : ""}</td>
+                <td className="py-1 text-left text-green-700">{e.income ? fmt(e.income, statement.currency) : ""}</td>
+                <td className="py-1 text-left text-red-700">{e.expense ? fmt(e.expense, statement.currency) : ""}</td>
               </tr>
             ))}
           </tbody>
         </table>
         <table className="w-full text-sm mt-4">
           <tbody>
-            <tr className="border-b"><td className="py-2 text-gray-500">سود خالص</td><td className="py-2 text-left font-bold">{fmt(statement.netProfit)} {statement.currency}</td></tr>
-            <tr className="border-b"><td className="py-2 text-gray-500">کارمزد مدیریت</td><td className="py-2 text-left">{fmt(statement.managementFee)} {statement.currency}</td></tr>
-            <tr><td className="py-2 font-bold">سهم مالک</td><td className="py-2 text-left font-bold" style={{ color: "#ea580c" }}>{fmt(statement.ownerShare)} {statement.currency}</td></tr>
+            <tr className="border-b"><td className="py-2 text-gray-500">سود خالص</td><td className="py-2 text-left font-bold">{fmt(statement.netProfit, statement.currency)} {statement.currency}</td></tr>
+            <tr className="border-b"><td className="py-2 text-gray-500">کارمزد مدیریت</td><td className="py-2 text-left">{fmt(statement.managementFee, statement.currency)} {statement.currency}</td></tr>
+            <tr><td className="py-2 font-bold">سهم مالک</td><td className="py-2 text-left font-bold" style={{ color: "#ea580c" }}>{fmt(statement.ownerShare, statement.currency)} {statement.currency}</td></tr>
           </tbody>
         </table>
       </div>
