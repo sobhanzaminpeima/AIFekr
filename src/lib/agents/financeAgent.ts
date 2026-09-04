@@ -277,6 +277,102 @@ export async function proposeExpenseCategorization(workspaceUserId: string, expe
   return proposal;
 }
 
+export interface SuggestedStatementLine {
+  date: string; // ISO date
+  description: string;
+  category: "guest_stay" | "maintenance" | "utilities" | "consumables" | "other";
+  income?: number;
+  expense?: number;
+  /** "booking" lines are computed deterministically from real PropertyBooking rows — never AI-invented. "ai_parsed" lines are extracted from the manager's own free-text notes and must be reviewed before use. */
+  source: "booking" | "ai_parsed";
+}
+
+function overlapNights(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date): number {
+  const start = aStart > bStart ? aStart : bStart;
+  const end = aEnd < bEnd ? aEnd : bEnd;
+  const ms = end.getTime() - start.getTime();
+  return ms > 0 ? Math.round(ms / (24 * 60 * 60 * 1000)) : 0;
+}
+
+/**
+ * Owner Statement Assistant (spec ۸ item ۵). Never writes anything itself —
+ * generateOwnerStatement() (Phase B) remains the only way an owner statement
+ * is actually created, and a human still reviews/edits the returned lines
+ * before calling it. Two sources of suggested lines:
+ *  - "booking": deterministically computed from this property's real
+ *    PropertyBooking rows overlapping the month (nights × nightlyPrice) —
+ *    no AI involved, so these numbers are exact, not estimated.
+ *  - "ai_parsed": only produced when the caller supplies free-text notes
+ *    (e.g. a caretaker's WhatsApp message about utilities/cleaning that
+ *    month) — the model extracts structured line items from that text
+ *    only, never inventing figures beyond what the note says.
+ */
+export async function suggestOwnerStatementLines(workspaceUserId: string, propertyId: string, month: Date, freeTextNotes?: string): Promise<SuggestedStatementLine[]> {
+  const property = await prisma.property.findFirst({ where: { id: propertyId, userId: workspaceUserId } });
+  if (!property) throw new Error("Property not found in this workspace");
+
+  const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
+  const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0, 23, 59, 59);
+  const nightlyPrice = property.nightlyPrice ? Number(property.nightlyPrice) : 0;
+
+  const bookings = await prisma.propertyBooking.findMany({
+    where: { propertyId, status: "confirmed", checkIn: { lte: monthEnd }, checkOut: { gte: monthStart } },
+    orderBy: { checkIn: "asc" },
+  });
+
+  const lines: SuggestedStatementLine[] = bookings.map((b) => {
+    const nights = overlapNights(b.checkIn, b.checkOut, monthStart, monthEnd);
+    return {
+      date: (b.checkIn > monthStart ? b.checkIn : monthStart).toISOString(),
+      description: `اقامت مهمان${b.guestName ? ` — ${b.guestName}` : ""} (${nights} شب)`,
+      category: "guest_stay",
+      income: nights * nightlyPrice,
+      source: "booking",
+    };
+  });
+
+  if (freeTextNotes && freeTextNotes.trim()) {
+    const prompt = `یادداشت آزاد مدیر ملک برای ماه ${monthStart.toISOString().slice(0, 7)}:\n"""${freeTextNotes}"""\n\nاین یادداشت را به یک آرایهٔ JSON از ردیف‌های هزینه/درآمد تبدیل کن. هر ردیف: {"date": "YYYY-MM-DD", "description": "...", "category": "maintenance"|"utilities"|"consumables"|"other"|"guest_stay", "income": عدد یا حذف, "expense": عدد یا حذف}. فقط از اعدادی استفاده کن که در متن آمده — هیچ عددی نساز. اگر تاریخ دقیق در متن نبود از ${monthStart.toISOString().slice(0, 10)} استفاده کن. فقط و فقط آرایهٔ JSON خام را برگردان، بدون هیچ توضیح اضافه.`;
+
+    let raw = "";
+    let usedProvider: Provider | null = null;
+    await routedStreamChat(
+      [{ role: "user", content: prompt }],
+      "تو یک دستیار استخراج داده‌های مالی از متن آزاد هستی. فقط JSON معتبر برمی‌گردانی.",
+      (t) => { raw += t; },
+      (p) => { usedProvider = p; },
+      undefined, undefined, 1024
+    );
+
+    try {
+      const jsonMatch = raw.match(/\[[\s\S]*\]/);
+      const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+      if (Array.isArray(parsed)) {
+        for (const row of parsed) {
+          if (!row || typeof row !== "object") continue;
+          const category = ["guest_stay", "maintenance", "utilities", "consumables", "other"].includes(row.category) ? row.category : "other";
+          lines.push({
+            date: row.date ? new Date(row.date).toISOString() : monthStart.toISOString(),
+            description: String(row.description || "").slice(0, 300),
+            category,
+            income: typeof row.income === "number" ? row.income : undefined,
+            expense: typeof row.expense === "number" ? row.expense : undefined,
+            source: "ai_parsed",
+          });
+        }
+      }
+    } catch {
+      // Malformed model output — the caller still gets the deterministic
+      // booking lines; ai_parsed lines are simply omitted rather than
+      // surfacing a raw parse error to the user.
+    }
+
+    await auditAi(workspaceUserId, "owner_statement_assist", (usedProvider as Provider | null)?.id || "unknown", { propertyId, month: monthStart.toISOString().slice(0, 7) });
+  }
+
+  return lines.sort((a, b) => a.date.localeCompare(b.date));
+}
+
 export async function listProposals(workspaceUserId: string, status?: string) {
   return prisma.accountingAiProposal.findMany({ where: { workspaceUserId, ...(status ? { status } : {}) }, orderBy: { createdAt: "desc" } });
 }

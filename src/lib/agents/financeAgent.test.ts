@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/db/prisma";
-import { proposeJournalEntry, approveProposal, rejectProposal, proposeExpenseCategorization, detectAnomalies } from "./financeAgent";
+import { proposeJournalEntry, approveProposal, rejectProposal, proposeExpenseCategorization, detectAnomalies, suggestOwnerStatementLines } from "./financeAgent";
 import { postJournalEntry } from "@/lib/accounting/ledger";
 import { createExpense } from "@/lib/accounting/expenses";
 
@@ -146,5 +146,42 @@ describe("detectAnomalies", () => {
     const alert = alerts.find((a) => a.accountCode === "5900");
     expect(alert).toBeDefined();
     expect(alert!.deviationPercent).toBeGreaterThan(50);
+  });
+});
+
+describe("suggestOwnerStatementLines — deterministic booking-derived income, no model call", () => {
+  it("computes exact income from nights-in-month × nightlyPrice, clipped to the month", async () => {
+    const property = await prisma.property.create({
+      data: { userId: wsUser.id, title: "Test Unit", listingType: "short_term_rent", propertyType: "apartment", price: 0, nightlyPrice: 1000000, address: "Test address" },
+    });
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    // A 5-night stay fully inside the month.
+    await prisma.propertyBooking.create({
+      data: { userId: wsUser.id, propertyId: property.id, guestName: "Ali", checkIn: new Date(monthStart.getTime() + 2 * 86400000), checkOut: new Date(monthStart.getTime() + 7 * 86400000), status: "confirmed" },
+    });
+    // A cancelled booking must be ignored entirely.
+    await prisma.propertyBooking.create({
+      data: { userId: wsUser.id, propertyId: property.id, guestName: "Cancelled Guest", checkIn: new Date(monthStart.getTime() + 10 * 86400000), checkOut: new Date(monthStart.getTime() + 12 * 86400000), status: "cancelled" },
+    });
+
+    const lines = await suggestOwnerStatementLines(wsUser.id, property.id, monthStart);
+    expect(lines).toHaveLength(1);
+    expect(lines[0].source).toBe("booking");
+    expect(lines[0].category).toBe("guest_stay");
+    expect(lines[0].income).toBe(5 * 1000000);
+
+    await prisma.propertyBooking.deleteMany({ where: { propertyId: property.id } });
+    await prisma.property.delete({ where: { id: property.id } });
+  });
+
+  it("rejects a property outside this workspace", async () => {
+    const otherWs = await prisma.user.create({ data: { name: "Other WS 2", email: `other-ws2-${Date.now()}@test.local`, passwordHash: "x" } });
+    const property = await prisma.property.create({
+      data: { userId: otherWs.id, title: "Foreign Unit", listingType: "short_term_rent", propertyType: "apartment", price: 0, address: "Test address" },
+    });
+    await expect(suggestOwnerStatementLines(wsUser.id, property.id, new Date())).rejects.toThrow();
+    await prisma.property.delete({ where: { id: property.id } });
+    await prisma.user.delete({ where: { id: otherWs.id } });
   });
 });
