@@ -2179,3 +2179,113 @@ model AccountingBudget {
   @@unique([workspaceUserId, accountCode, period])
   @@index([workspaceUserId])
 }
+
+// ---------------------------------------------------------------------------
+// Phase D — payroll, scheduled reports, external BI export (spec ۳.۵ / ۴).
+// ---------------------------------------------------------------------------
+
+/// One row per paid employee/agent in a workspace (spec ۳.۵ — simple payroll:
+/// base salary + commission + bonus/deductions). userId links to an app User
+/// (usually a TeamMember) so commission earned via AccountingCommissionSplit
+/// can be pulled in automatically; it is nullable because a workspace may pay
+/// someone (e.g. an assistant) who has no login of their own.
+model AccountingEmployee {
+  id              String    @id @default(cuid())
+  workspaceUserId String
+  userId          String?
+  name            String
+  baseSalary      Float     @default(0)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  payslips AccountingPayslip[]
+
+  @@index([workspaceUserId])
+  @@index([userId])
+}
+
+/// One payroll run per workspace/month. Lifecycle mirrors the rest of the
+/// module's Draft-and-Approve pattern: draft (payslips editable) → approved
+/// (numbers frozen) → paid (posts the aggregate ledger entry). Never posts to
+/// the ledger before "paid", and never re-editable once paid.
+model AccountingPayrollRun {
+  id              String    @id @default(cuid())
+  workspaceUserId String
+  /// First day of the paid month.
+  period          DateTime
+  /// "draft" | "approved" | "paid"
+  status          String    @default("draft")
+  createdAt       DateTime  @default(now())
+  approvedBy      String?
+  approvedAt      DateTime?
+  paidBy          String?
+  paidAt          DateTime?
+
+  payslips AccountingPayslip[]
+
+  @@unique([workspaceUserId, period])
+  @@index([workspaceUserId])
+}
+
+/// One line per employee within a payroll run. commissionTotal is pulled from
+/// AccountingCommissionSplit rows paid to this employee's userId during the
+/// run's period — never a second, independently-typed number.
+model AccountingPayslip {
+  id               String   @id @default(cuid())
+  payrollRunId     String
+  employeeId       String
+  baseSalary       Float
+  commissionTotal  Float    @default(0)
+  bonus            Float    @default(0)
+  deductions       Float    @default(0)
+  netPay           Float
+  createdAt        DateTime @default(now())
+
+  payrollRun AccountingPayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employee   AccountingEmployee   @relation(fields: [employeeId], references: [id])
+
+  @@unique([payrollRunId, employeeId])
+  @@index([payrollRunId])
+  @@index([employeeId])
+}
+
+/// Recurring emailed report config (spec ۴ "گزارش‌های زمان‌بندی‌شده"). Per the
+/// master prompt's explicit rule for this phase, a newly-created report never
+/// auto-emails: its first due run only generates a preview (firstRunPreview)
+/// and waits in "awaiting_approval" for a human to review the actual content
+/// before the recurring send is switched on permanently.
+model AccountingScheduledReport {
+  id               String    @id @default(cuid())
+  workspaceUserId  String
+  /// "weekly_summary" | "monthly_pl" | "monthly_vat"
+  reportType       String
+  /// "weekly" | "monthly"
+  frequency        String
+  recipientEmail   String
+  lang             String    @default("fa")
+  /// "pending_first_approval" | "awaiting_approval" | "active" | "paused"
+  status           String    @default("pending_first_approval")
+  /// Snapshot (subject+html) of the run currently awaiting human approval.
+  firstRunPreview  String?
+  lastRunAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([workspaceUserId])
+}
+
+/// A long-lived, revocable token for the external-BI read-only export API
+/// (spec ۴ "API برای اتصال BI خارجی"). Only the sha256 hash is stored — the
+/// raw token is shown to the user once, at creation, like any API-key pattern.
+model AccountingApiToken {
+  id              String    @id @default(cuid())
+  workspaceUserId String
+  label           String
+  tokenHash       String    @unique
+  createdAt       DateTime  @default(now())
+  lastUsedAt      DateTime?
+  revokedAt       DateTime?
+
+  @@index([workspaceUserId])
+}
