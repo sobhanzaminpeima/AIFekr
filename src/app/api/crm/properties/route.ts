@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 const LISTING_TYPES = ["buy", "sell", "rent", "short_term_rent"];
 const CURRENCIES = ["IRT", "IRR", "USD", "GBP", "EUR"];

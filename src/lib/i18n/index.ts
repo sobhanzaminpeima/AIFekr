@@ -41,9 +41,8 @@ export function useTranslation() {
 
 export { en, fa, de };
 
-/** Trilingual helper — returns the correct value for fa / en / de. */
-export function tri<T>(lang: Lang, fa: T, en: T, de: T): T {
-  if (lang === "fa") return fa;
-  if (lang === "de") return de;
-  return en;
-}
+/**
+ * Re-exported (not defined here) so server-side importers get the real
+ * function, not a client-reference proxy — see tri.ts's doc comment for why.
+ */
+export { tri } from "./tri";
