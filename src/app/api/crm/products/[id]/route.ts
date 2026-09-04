@@ -5,7 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 /** Product detail + the contacts who've had this product on an invoice — lets the UI answer "who bought this?" from a click. */
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {

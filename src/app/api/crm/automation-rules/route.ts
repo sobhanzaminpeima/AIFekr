@@ -5,7 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 const VALID_TRIGGERS = ["stale_deal", "no_activity_days"] as const;
 const VALID_ACTIONS = ["create_task"] as const;

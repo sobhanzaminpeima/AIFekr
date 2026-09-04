@@ -6,7 +6,7 @@ import { moveDealToStage } from "@/lib/repositories/crmRepository";
 import { resolveCrmWorkspace, dealAgentFilter } from "@/lib/crm/workspace";
 import { prisma } from "@/lib/db/prisma";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);

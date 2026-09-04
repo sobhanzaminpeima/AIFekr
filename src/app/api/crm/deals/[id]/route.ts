@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, dealAgentFilter } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 const EDITABLE_FIELDS = ["title", "value", "probability", "expectedCloseDate", "ownerId", "lostReason"] as const;
 // Section 1, item 5 — Contract & Commission. Row-level visibility ("relevant

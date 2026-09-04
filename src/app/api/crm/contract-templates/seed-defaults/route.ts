@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { DEFAULT_CONTRACT_TEMPLATES } from "@/lib/crm/defaultContractTemplates";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 /** Idempotent: only creates templates whose name isn't already present in this workspace, so clicking "restore defaults" repeatedly doesn't pile up duplicates. */
 export async function POST(req: NextRequest) {

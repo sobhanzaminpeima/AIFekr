@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { generateLeadMatcherDrafts } from "@/lib/agents/leadMatcher";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 
 export async function GET(req: NextRequest) {

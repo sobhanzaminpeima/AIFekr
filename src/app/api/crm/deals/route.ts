@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, dealAgentFilter } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);

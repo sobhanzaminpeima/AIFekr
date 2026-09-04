@@ -7,7 +7,7 @@ import { uploadToStorage, getStorageKey, deleteFromStorage } from "@/lib/storage
 import { resolveCrmWorkspace } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 async function checkPropertyDocsModuleAccess(userId: string, role: string, workspaceUserId: string) {
   const owner = await prisma.user.findUnique({ where: { id: workspaceUserId }, select: { industryPackId: true } });

@@ -7,7 +7,7 @@ import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 const MAX_SIZE_BYTES = 8 * 1024 * 1024; // 8MB — photos only, smaller than the 15MB document cap
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);

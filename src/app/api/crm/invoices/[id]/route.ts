@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { computeInvoiceTotals, InvoiceItemInput } from "@/lib/repositories/crmInvoiceRepository";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 import { postJournalEntry } from "@/lib/accounting/ledger";
 import { ensureDefaultChartOfAccounts } from "@/lib/accounting/chartOfAccounts";
 

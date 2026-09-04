@@ -7,7 +7,7 @@ import { createPipelineFromTemplate } from "@/lib/repositories/crmRepository";
 import { resolveCrmWorkspace } from "@/lib/crm/workspace";
 import { getCrmTemplate, crmIndustryTemplates, defaultCrmTemplate } from "@/lib/crm/industryTemplates";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 // Every pipeline/stage name across every template, keyed by the Persian
 // text — used to backfill nameEn/nameDe on rows created before this

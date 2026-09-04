@@ -5,7 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 /** Templates are tenant-editable (§2.2) — clause text and terms can be adjusted to match the tenant's own business policy. Editing a template never touches contracts already generated from it (CrmContract.content is a copy, not a live reference). */
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {

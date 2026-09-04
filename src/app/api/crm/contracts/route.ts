@@ -7,7 +7,7 @@ import { interpolateTemplate } from "@/lib/crm/contractTemplate";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { toJalali } from "@/lib/utils/jalali";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);

@@ -7,7 +7,7 @@ import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { generateListingCopy, type ListingCopyPlatform } from "@/lib/industry/realEstate/socialContentPack";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 const PLATFORMS: ListingCopyPlatform[] = ["instagram", "divar", "website"];
 

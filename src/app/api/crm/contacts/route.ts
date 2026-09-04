@@ -8,7 +8,7 @@ import { countUserContacts } from "@/lib/repositories/crmRepository";
 import { resolveCrmWorkspace, agentFilter } from "@/lib/crm/workspace";
 import { notify } from "@/lib/notifications/create";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);

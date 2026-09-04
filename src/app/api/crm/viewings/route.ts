@@ -7,7 +7,7 @@ import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { suggestViewingSlot } from "@/lib/agents/viewingCoordinator";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 // Same conflict window the Voice Agent's phone-booking flow already uses
 // (src/app/api/webhooks/vapi/route.ts) — kept consistent rather than

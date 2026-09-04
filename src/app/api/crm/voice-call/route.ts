@@ -7,7 +7,7 @@ import { resolveCrmWorkspace } from "@/lib/crm/workspace";
 import { hasVoiceAccess } from "@/lib/voice/workspace";
 import { createOutboundCall, VapiNotConfiguredError } from "@/lib/voice/vapiClient";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 /**
  * Triggers an outbound call from one of the workspace owner's provisioned
