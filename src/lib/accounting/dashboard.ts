@@ -40,8 +40,14 @@ export async function getDashboardData(workspaceUserId: string): Promise<Dashboa
       take: 10,
     }),
     prisma.property.findMany({ where: { userId: workspaceUserId, listingType: "short_term_rent" }, select: { id: true } }),
-    prisma.accountingOwnerStatement.findMany({ where: { workspaceUserId, status: "draft" }, select: { id: true, managementFee: true, month: true } }),
+    // Two distinct things, deliberately queried separately: "fee actually
+    // earned this month" only counts recognized (approved/sent) statements —
+    // a draft's numbers are provisional and could still change — while
+    // "pending review" is the draft count itself.
+    prisma.accountingOwnerStatement.findMany({ where: { workspaceUserId, status: { in: ["approved", "sent"] } }, select: { id: true, managementFee: true, month: true } }),
   ]);
+
+  const pendingStatementCount = await prisma.accountingOwnerStatement.count({ where: { workspaceUserId, status: "draft" } });
 
   const cashRow = trialBalance.find((r) => r.code === "1000");
   const receivableRow = trialBalance.find((r) => r.code === "1200");
@@ -74,7 +80,7 @@ export async function getDashboardData(workspaceUserId: string): Promise<Dashboa
     shortTermRental: {
       activeUnits: properties.length,
       monthManagementFeeTotal: thisMonthStatementFee,
-      pendingStatements: statements.length,
+      pendingStatements: pendingStatementCount,
     },
   };
 }
