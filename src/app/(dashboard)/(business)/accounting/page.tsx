@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Wallet, TrendingUp, TrendingDown, AlertCircle, Users, Home, ArrowUpRight } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, AlertCircle, Users, Home, ArrowUpRight, Sparkles } from "lucide-react";
 
 interface DashboardData {
   cashBalance: number;
@@ -190,6 +190,8 @@ export default function AccountingDashboardPage() {
         </div>
       </div>
 
+      <CashFlowNarrativeCard />
+
       {/* Pending commissions */}
       {data.pendingCommissions.length > 0 && (
         <div className="rounded-2xl p-5" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
@@ -210,6 +212,64 @@ export default function AccountingDashboardPage() {
         <Link href="/accounting/payroll" className="px-3 py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>حقوق و دستمزد</Link>
         <Link href="/accounting/automation" className="px-3 py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>گزارش‌های زمان‌بندی‌شده و BI</Link>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Spec ۸ item ۴ — a short AI-generated narrative over the (already
+ * computed, heuristic) cash-flow forecast. Streams via SSE like the Q&A
+ * endpoint; not generated on page load — the user asks for it explicitly,
+ * since every generation costs a model call.
+ */
+function CashFlowNarrativeCard() {
+  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function generate() {
+    setLoading(true);
+    setError(null);
+    setText("");
+    try {
+      const res = await fetch("/api/accounting/ai/cash-flow-narrative", { method: "POST", credentials: "include" });
+      if (!res.ok || !res.body) throw new Error("خطا در تولید خلاصه");
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6);
+          if (payload === "[DONE]") continue;
+          const parsed = JSON.parse(payload) as { text?: string; error?: string };
+          if (parsed.error) throw new Error(parsed.error);
+          if (parsed.text) setText((t) => t + parsed.text);
+        }
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "خطا در تولید خلاصه");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl p-5" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-sm font-semibold flex items-center gap-1.5" style={{ color: "var(--text-primary)" }}><Sparkles className="w-4 h-4" />خلاصهٔ هوشمند جریان نقدی</h2>
+        <button onClick={generate} disabled={loading} className="text-xs font-medium px-3 py-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>
+          {loading ? "در حال تولید..." : text ? "تولید دوباره" : "تولید خلاصه"}
+        </button>
+      </div>
+      {error && <p className="text-xs" style={{ color: "#e34948" }}>{error}</p>}
+      {text && <p className="text-sm leading-6" style={{ color: "var(--text-secondary)" }}>{text}</p>}
+      {!text && !loading && !error && <p className="text-xs" style={{ color: "var(--text-muted)" }}>بر اساس پیش‌بینی جریان نقدی ۳ ماه آینده، یک خلاصهٔ روایی کوتاه می‌سازد.</p>}
     </div>
   );
 }

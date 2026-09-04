@@ -105,6 +105,46 @@ export async function askFinanceAgent(workspaceUserId: string, question: string,
   return fullOutput;
 }
 
+const CASH_FLOW_SYSTEM: Record<"fa" | "en" | "de", string> = {
+  fa: `تو یک تحلیل‌گر مالی هستی که فقط بر اساس اعداد پیش‌بینی جریان نقدی زیر یک خلاصهٔ روایی کوتاه (۳ تا ۵ جمله) می‌نویسی.
+قوانین: هرگز عددی نساز که در داده‌ها نیامده؛ برای هر عدد مهم ماه مربوطه را ذکر کن؛ اگر روند نگران‌کننده است (کسری نقدینگی در یکی از ماه‌ها) صریح هشدار بده؛ این فقط یک پیش‌بینی هیوریستیک است، نه تضمین، این را در پایان یادآوری کن؛ کل متن را فقط و فقط به فارسی و کوتاه بنویس.`,
+  en: `You are a financial analyst writing a short (3-5 sentence) narrative summary based ONLY on the cash-flow forecast numbers below.
+Rules: never invent a number not present in the data; name the relevant month for every figure you cite; explicitly warn if any month shows a cash shortfall; note at the end that this is a heuristic forecast, not a guarantee; write only in English, concisely.`,
+  de: `Du bist ein Finanzanalyst und schreibst eine kurze (3–5 Sätze) narrative Zusammenfassung ausschließlich basierend auf den folgenden Cashflow-Prognosezahlen.
+Regeln: Erfinde niemals eine Zahl, die nicht in den Daten steht; nenne für jede genannte Zahl den zugehörigen Monat; warne ausdrücklich, falls ein Monat einen Liquiditätsengpass zeigt; weise am Ende darauf hin, dass dies eine heuristische Prognose ist, keine Garantie; schreibe nur auf Deutsch, prägnant.`,
+};
+
+/**
+ * Cash-flow narrative in the caller's language (spec ۸ item ۴ — "پیش‌بینی
+ * جریان نقدی و خلاصه‌ی روایی سه‌زبانه"). One narrative per call, in
+ * whichever of fa/en/de the caller is in — the same per-request i18n
+ * pattern as the rest of the app (getServerLang/tri), not three
+ * simultaneously-generated texts. Read-only, logged like every other agent
+ * answer.
+ */
+export async function generateCashFlowNarrative(workspaceUserId: string, lang: "fa" | "en" | "de", onChunk: (text: string) => void): Promise<string> {
+  const [forecast, trialBalance] = await Promise.all([getCashFlowForecast(workspaceUserId, 3), getTrialBalance(workspaceUserId)]);
+  const cashRow = trialBalance.find((r) => r.code === "1000");
+
+  const lines = forecast.map((f) => `- ${f.month}: expected inflow ${f.expectedInflow}, expected outflow ${f.expectedOutflow}, net ${f.expectedInflow - f.expectedOutflow}`).join("\n");
+  const prompt = `Current cash balance (account 1000): ${cashRow?.balance || 0}\n\n3-month forecast:\n${lines}`;
+
+  let fullOutput = "";
+  let usedProvider: Provider | null = null;
+  await routedStreamChat(
+    [{ role: "user", content: prompt }],
+    CASH_FLOW_SYSTEM[lang],
+    (text) => { fullOutput += text; onChunk(text); },
+    (provider) => { usedProvider = provider; },
+    undefined,
+    undefined,
+    1024
+  );
+
+  await auditAi(workspaceUserId, "cashflow_narrative", (usedProvider as Provider | null)?.id || "unknown", { lang });
+  return fullOutput;
+}
+
 export interface AnomalyAlert {
   accountCode: string;
   accountName: string;
