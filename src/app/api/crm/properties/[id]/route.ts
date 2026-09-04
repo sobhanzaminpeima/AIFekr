@@ -31,7 +31,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!existing) return NextResponse.json({ error: tri(lang, "ملک یافت نشد", "Property not found", "Immobilie nicht gefunden") }, { status: 404 });
 
   const body = await req.json();
-  const { title, propertyType, price, nightlyPrice, currency, bookingLink, address, city, bedrooms, bathrooms, areaSqm, description, images, status, crmContactId, crmDealId, representationStartDate, representationEndDate, agreedCommissionRate } = body;
+  const { title, propertyType, price, nightlyPrice, currency, bookingLink, address, city, bedrooms, bathrooms, areaSqm, description, images, status, crmContactId, crmDealId, ownerContactId, representationStartDate, representationEndDate, agreedCommissionRate } = body;
+
+  if (ownerContactId) {
+    const owner = await prisma.crmContact.findFirst({ where: { id: ownerContactId, userId: ws.workspaceUserId } });
+    if (!owner) return NextResponse.json({ error: tri(lang, "مالک/مخاطب یافت نشد", "Owner/contact not found", "Eigentümer/Kontakt nicht gefunden") }, { status: 404 });
+  }
   if (currency !== undefined && !["IRT", "IRR", "USD", "GBP", "EUR", "TRY"].includes(currency)) {
     return NextResponse.json({ error: tri(lang, "واحد پولی نامعتبر است", "Invalid currency", "Ungültige Währung") }, { status: 400 });
   }
@@ -70,6 +75,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       status: status || undefined,
       crmContactId: crmContactId !== undefined ? (crmContactId || null) : undefined,
       crmDealId: crmDealId !== undefined ? (crmDealId || null) : undefined,
+      ownerContactId: ownerContactId !== undefined ? (ownerContactId || null) : undefined,
       representationStartDate: representationStartDate !== undefined ? (representationStartDate ? new Date(representationStartDate) : null) : undefined,
       representationEndDate: representationEndDate !== undefined ? (representationEndDate ? new Date(representationEndDate) : null) : undefined,
       agreedCommissionRate: agreedCommissionRate !== undefined ? (agreedCommissionRate != null ? Number(agreedCommissionRate) : null) : undefined,

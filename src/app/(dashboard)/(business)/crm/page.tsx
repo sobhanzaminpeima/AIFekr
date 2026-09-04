@@ -53,6 +53,8 @@ interface PropertyRow {
   representationStartDate: string | null; representationEndDate: string | null; agreedCommissionRate: number | null;
   crmContact: { id: string; name: string; phone: string | null } | null;
   crmDeal: { id: string; title: string } | null;
+  /// Accounting module's rental-income owner (spec 3.9) — distinct from crmContact above. Only meaningful for listingType "short_term_rent".
+  ownerContactId: string | null;
 }
 
 interface OwnerRow {
@@ -2993,6 +2995,11 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
   const [areaSqm, setAreaSqm] = useState("");
   const [description, setDescription] = useState("");
   const [ownerContactId, setOwnerContactId] = useState("");
+  // Distinct from ownerContactId above (which is actually the CRM lead/
+  // buyer-seller link, sent as crmContactId) — this is Property.ownerContactId,
+  // the accounting module's rental-income owner (spec 3.9), only meaningful
+  // for short_term_rent and only ever settable from here until now.
+  const [rentalOwnerContactId, setRentalOwnerContactId] = useState("");
 
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ createdCount: number; totalRows: number; errors: { row: number; error: string }[] } | null>(null);
@@ -3031,7 +3038,7 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
   function resetForm() {
     setTitle(""); setListingType("sell"); setPropertyType("apartment"); setPrice(""); setNightlyPrice("");
     setCurrency(defaultCurrencyForLang(lang));
-    setBookingLink(""); setAddress(""); setCity(""); setBedrooms(""); setBathrooms(""); setAreaSqm(""); setDescription(""); setOwnerContactId("");
+    setBookingLink(""); setAddress(""); setCity(""); setBedrooms(""); setBathrooms(""); setAreaSqm(""); setDescription(""); setOwnerContactId(""); setRentalOwnerContactId("");
   }
 
   async function createProperty() {
@@ -3051,6 +3058,7 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
           bedrooms: bedrooms || undefined, bathrooms: bathrooms || undefined, areaSqm: areaSqm || undefined,
           description: description.trim() || undefined,
           crmContactId: ownerContactId || undefined,
+          ownerContactId: listingType === "short_term_rent" ? (rentalOwnerContactId || undefined) : undefined,
         }),
       });
       const data = await res.json();
@@ -3173,6 +3181,17 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
             <option value="">{tri(lang, "بدون مالک/مخاطب مشخص", "No owner/contact set", "Kein Eigentümer/Kontakt festgelegt")}</option>
             {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
+
+          {listingType === "short_term_rent" && (
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: "var(--text-muted)" }}>{tri(lang, "مالک اجاره کوتاه‌مدت (برای گزارش تسویه)", "Short-term rental owner (for owner statements)", "Eigentümer der Kurzzeitvermietung (für Eigentümerabrechnungen)")}</label>
+              <select value={rentalOwnerContactId} onChange={(e) => setRentalOwnerContactId(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                <option value="">{tri(lang, "بدون مالک تعیین‌شده", "No owner set", "Kein Eigentümer festgelegt")}</option>
+                {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+          )}
 
           <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder={tri(lang, "توضیحات", "Description", "Beschreibung")}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
@@ -3511,6 +3530,7 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
     description: property.description || "",
   });
   const [ownerContactId, setOwnerContactId] = useState(property.crmContact?.id || "");
+  const [rentalOwnerContactId, setRentalOwnerContactId] = useState(property.ownerContactId || "");
   const [showNewOwner, setShowNewOwner] = useState(false);
   const [newOwnerName, setNewOwnerName] = useState("");
   const [newOwnerPhone, setNewOwnerPhone] = useState("");
@@ -3608,6 +3628,15 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
     await fetch(`/api/crm/properties/${property.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ crmContactId: contactId || null }),
+    });
+    onChanged();
+  }
+
+  async function changeRentalOwner(contactId: string) {
+    setRentalOwnerContactId(contactId);
+    await fetch(`/api/crm/properties/${property.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ownerContactId: contactId || null }),
     });
     onChanged();
   }
@@ -3782,6 +3811,17 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
             </div>
           )}
         </div>
+
+        {property.listingType === "short_term_rent" && (
+          <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+            <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مالک اجاره کوتاه‌مدت (برای گزارش تسویه)", "Short-term rental owner (for owner statements)", "Eigentümer der Kurzzeitvermietung (für Eigentümerabrechnungen)")}</p>
+            <select value={rentalOwnerContactId} onChange={(e) => changeRentalOwner(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              <option value="">{tri(lang, "بدون مالک تعیین‌شده", "No owner set", "Kein Eigentümer festgelegt")}</option>
+              {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+        )}
 
         {/* Interested customers — buyers/tenants who want THIS property; distinct from the owner above. */}
         <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>

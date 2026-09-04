@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { title, listingType, propertyType, price, nightlyPrice, currency, bookingLink, address, city, bedrooms, bathrooms, areaSqm, description, images, crmContactId, crmDealId } = body;
+  const { title, listingType, propertyType, price, nightlyPrice, currency, bookingLink, address, city, bedrooms, bathrooms, areaSqm, description, images, crmContactId, crmDealId, ownerContactId } = body;
 
   if (!title?.trim()) return NextResponse.json({ error: tri(lang, "عنوان ملک الزامی است", "Property title is required", "Immobilientitel ist erforderlich") }, { status: 400 });
   if (!LISTING_TYPES.includes(listingType)) return NextResponse.json({ error: tri(lang, "نوع معامله نامعتبر است", "Invalid listing type", "Ungültiger Angebotstyp") }, { status: 400 });
@@ -81,6 +81,10 @@ export async function POST(req: NextRequest) {
   if (crmDealId) {
     const deal = await prisma.crmDeal.findFirst({ where: { id: crmDealId, userId: ws.workspaceUserId } });
     if (!deal) return NextResponse.json({ error: tri(lang, "معامله یافت نشد", "Deal not found", "Deal nicht gefunden") }, { status: 404 });
+  }
+  if (ownerContactId) {
+    const owner = await prisma.crmContact.findFirst({ where: { id: ownerContactId, userId: ws.workspaceUserId } });
+    if (!owner) return NextResponse.json({ error: tri(lang, "مالک/مخاطب یافت نشد", "Owner/contact not found", "Eigentümer/Kontakt nicht gefunden") }, { status: 404 });
   }
 
   let resolvedBookingLink: string | undefined;
@@ -112,6 +116,7 @@ export async function POST(req: NextRequest) {
       images: Array.isArray(images) ? JSON.stringify(images) : undefined,
       crmContactId: crmContactId || undefined,
       crmDealId: crmDealId || undefined,
+      ownerContactId: ownerContactId || undefined,
     },
   });
 
