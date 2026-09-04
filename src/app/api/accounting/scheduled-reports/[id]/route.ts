@@ -5,7 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { approveFirstRun, pauseScheduledReport, resumeScheduledReport, deleteScheduledReport } from "@/lib/accounting/scheduledReports";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 /** { action: "approve-first-run" | "pause" | "resume" } */
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {

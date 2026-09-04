@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { findMatchCandidates, confirmMatch, ignoreTransaction } from "@/lib/accounting/bankReconciliation";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 /** GET returns match candidates for this unmatched transaction. */
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {

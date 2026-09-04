@@ -5,7 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { approveProposal, rejectProposal } from "@/lib/agents/financeAgent";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 /**
  * { action: "approve" | "reject" } — the only place an AI proposal actually

@@ -5,7 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { updatePayslip } from "@/lib/accounting/payroll";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 /** Adjusts bonus/deductions on a payslip whose run is still a draft. */
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {

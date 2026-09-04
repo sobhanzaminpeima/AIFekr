@@ -5,7 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { runCustomReport } from "@/lib/accounting/reports";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 /** { accountCodes: string[], from, to } — accountCodes empty/omitted means all accounts. */
 export async function POST(req: NextRequest) {

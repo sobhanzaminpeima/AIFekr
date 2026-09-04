@@ -5,7 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { generateCashFlowNarrative } from "@/lib/agents/financeAgent";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 /** Streaming three-language cash-flow narrative (spec ۸ item ۴) — one language per call, following the caller's current UI language like the rest of the app. Read-only. */
 export async function POST(req: NextRequest) {

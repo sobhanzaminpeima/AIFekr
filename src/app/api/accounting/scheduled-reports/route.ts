@@ -5,7 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { createScheduledReport, listScheduledReports, ReportType, Frequency } from "@/lib/accounting/scheduledReports";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 const VALID_TYPES: ReportType[] = ["weekly_summary", "monthly_pl", "monthly_vat"];
 const VALID_FREQUENCIES: Frequency[] = ["weekly", "monthly"];

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { payCommissionSplit } from "@/lib/accounting/commission";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 /** Marks one agent's commission split paid — { action: "pay" }. */
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {

@@ -5,7 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { parseBankStatementCsv, importBankTransactions } from "@/lib/accounting/bankReconciliation";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 /** Accepts { bankAccountId, csv } — csv text with date,description,amount columns. */
 export async function POST(req: NextRequest) {

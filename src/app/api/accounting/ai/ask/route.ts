@@ -5,7 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { askFinanceAgent } from "@/lib/agents/financeAgent";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 /** Streaming Q&A over the ledger (spec ۸ item ۱) — same SSE shape as crm/agent/run. Read-only: never writes anything. */
 export async function POST(req: NextRequest) {
