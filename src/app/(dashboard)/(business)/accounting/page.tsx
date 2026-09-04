@@ -209,9 +209,14 @@ export default function AccountingDashboardPage() {
 
       <div className="flex flex-wrap gap-3 text-sm">
         <Link href="/crm?tab=invoices" className="px-3 py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>مدیریت فاکتورها</Link>
+        <Link href="/accounting/expenses" className="px-3 py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>هزینه‌ها و تأمین‌کنندگان</Link>
+        <Link href="/accounting/bank" className="px-3 py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>بانک و تطبیق</Link>
+        <Link href="/accounting/ledger-setup" className="px-3 py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>دفتر حساب‌ها، بودجه و مالیات</Link>
+        <Link href="/accounting/assistant" className="px-3 py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>دستیار هوشمند مالی</Link>
         <Link href="/accounting/payroll" className="px-3 py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>حقوق و دستمزد</Link>
         <Link href="/accounting/automation" className="px-3 py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>گزارش‌های زمان‌بندی‌شده و BI</Link>
         <Link href="/accounting/owner-statements" className="px-3 py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>گزارش تسویه مالک</Link>
+        <Link href="/accounting/close-period" className="px-3 py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>دوره‌های مالی و بستن حساب‌ها</Link>
       </div>
     </div>
   );

@@ -373,6 +373,67 @@ export async function suggestOwnerStatementLines(workspaceUserId: string, proper
   return lines.sort((a, b) => a.date.localeCompare(b.date));
 }
 
+export interface AuditCopilotFinding {
+  category: "unbalanced_ledger" | "pending_expense" | "unpaid_expense" | "pending_commission" | "draft_owner_statement" | "unmatched_bank_transaction" | "pending_ai_proposal";
+  count: number;
+  detail: string;
+}
+
+export interface AuditCopilotReport {
+  from: string;
+  to: string;
+  ledgerBalanced: boolean;
+  findings: AuditCopilotFinding[];
+  /** True only when every check below passed — informational, never used to auto-close anything. */
+  readyToClose: boolean;
+}
+
+/**
+ * Audit Copilot (spec ۸ item ۶) — a pre-close review, deliberately entirely
+ * deterministic (no model call): re-verifies the debit/credit invariant for
+ * the period from the raw ledger lines (never trusting that it must already
+ * hold), then surfaces every open item that closing the period would leave
+ * behind or orphan. Purely informational — it never locks the period itself;
+ * closeFiscalPeriod() is a separate, always-human-triggered call, same as
+ * every other Draft-and-Approve boundary in this module.
+ */
+export async function runAuditCopilot(workspaceUserId: string, from: Date, to: Date): Promise<AuditCopilotReport> {
+  const findings: AuditCopilotFinding[] = [];
+
+  const ledgerAgg = await prisma.accountingJournalEntryLine.aggregate({
+    where: { entry: { workspaceUserId, entryDate: { gte: from, lte: to } } },
+    _sum: { debit: true, credit: true },
+  });
+  const debitTotal = ledgerAgg._sum.debit || 0;
+  const creditTotal = ledgerAgg._sum.credit || 0;
+  const ledgerBalanced = Math.abs(debitTotal - creditTotal) < 0.01;
+  if (!ledgerBalanced) {
+    findings.push({ category: "unbalanced_ledger", count: 1, detail: `مجموع بدهکار (${debitTotal}) با مجموع بستانکار (${creditTotal}) برابر نیست` });
+  }
+
+  const pendingExpenses = await prisma.accountingExpense.count({ where: { workspaceUserId, status: "pending_approval", expenseDate: { gte: from, lte: to } } });
+  if (pendingExpenses > 0) findings.push({ category: "pending_expense", count: pendingExpenses, detail: `${pendingExpenses} هزینه در انتظار تأیید` });
+
+  const unpaidExpenses = await prisma.accountingExpense.count({ where: { workspaceUserId, status: "approved", expenseDate: { gte: from, lte: to } } });
+  if (unpaidExpenses > 0) findings.push({ category: "unpaid_expense", count: unpaidExpenses, detail: `${unpaidExpenses} هزینهٔ تأییدشده هنوز پرداخت نشده` });
+
+  const pendingCommissions = await prisma.accountingCommissionSplit.count({ where: { status: "pending", commissionRecord: { workspaceUserId, createdAt: { gte: from, lte: to } } } });
+  if (pendingCommissions > 0) findings.push({ category: "pending_commission", count: pendingCommissions, detail: `${pendingCommissions} سهم کمیسیون پرداخت‌نشده` });
+
+  const draftStatements = await prisma.accountingOwnerStatement.count({ where: { workspaceUserId, status: "draft", month: { gte: from, lte: to } } });
+  if (draftStatements > 0) findings.push({ category: "draft_owner_statement", count: draftStatements, detail: `${draftStatements} گزارش تسویه مالک هنوز پیش‌نویس است` });
+
+  const unmatchedBank = await prisma.accountingBankTransaction.count({ where: { workspaceUserId, status: "unmatched", date: { gte: from, lte: to } } });
+  if (unmatchedBank > 0) findings.push({ category: "unmatched_bank_transaction", count: unmatchedBank, detail: `${unmatchedBank} تراکنش بانکی تطبیق‌نشده` });
+
+  const pendingProposals = await prisma.accountingAiProposal.count({ where: { workspaceUserId, status: "pending" } });
+  if (pendingProposals > 0) findings.push({ category: "pending_ai_proposal", count: pendingProposals, detail: `${pendingProposals} پیشنهاد هوش مصنوعی هنوز بررسی نشده` });
+
+  await auditAi(workspaceUserId, "audit_copilot_run", "deterministic", { from: from.toISOString(), to: to.toISOString(), findingsCount: findings.length });
+
+  return { from: from.toISOString(), to: to.toISOString(), ledgerBalanced, findings, readyToClose: findings.length === 0 };
+}
+
 export async function listProposals(workspaceUserId: string, status?: string) {
   return prisma.accountingAiProposal.findMany({ where: { workspaceUserId, ...(status ? { status } : {}) }, orderBy: { createdAt: "desc" } });
 }

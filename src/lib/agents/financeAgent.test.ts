@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/db/prisma";
-import { proposeJournalEntry, approveProposal, rejectProposal, proposeExpenseCategorization, detectAnomalies, suggestOwnerStatementLines } from "./financeAgent";
+import { proposeJournalEntry, approveProposal, rejectProposal, proposeExpenseCategorization, detectAnomalies, suggestOwnerStatementLines, runAuditCopilot } from "./financeAgent";
 import { postJournalEntry } from "@/lib/accounting/ledger";
-import { createExpense } from "@/lib/accounting/expenses";
+import { createExpense, approveExpense } from "@/lib/accounting/expenses";
+import { createFiscalPeriod, closeFiscalPeriod, reopenFiscalPeriod } from "@/lib/accounting/fiscalPeriod";
 
 /**
  * These tests exercise the Draft-and-Approve boundary directly — never call
@@ -183,5 +184,72 @@ describe("suggestOwnerStatementLines — deterministic booking-derived income, n
     await expect(suggestOwnerStatementLines(wsUser.id, property.id, new Date())).rejects.toThrow();
     await prisma.property.delete({ where: { id: property.id } });
     await prisma.user.delete({ where: { id: otherWs.id } });
+  });
+});
+
+describe("runAuditCopilot — deterministic pre-close review, no model call", () => {
+  it("reports ready-to-close on a clean period with no open items", async () => {
+    const from = new Date(2020, 0, 1);
+    const to = new Date(2020, 0, 31, 23, 59, 59);
+    const report = await runAuditCopilot(wsUser.id, from, to);
+    expect(report.ledgerBalanced).toBe(true);
+    expect(report.findings).toHaveLength(0);
+    expect(report.readyToClose).toBe(true);
+  });
+
+  it("flags a pending (unapproved) expense in the period", async () => {
+    const from = new Date();
+    const to = new Date(from.getTime() + 1000);
+    // Above the default approval threshold -> stays "pending_approval".
+    const expense = await createExpense({ workspaceUserId: wsUser.id, accountCode: "5900", amount: 10_000_000, description: "Big unapproved expense" });
+    expect(expense.status).toBe("pending_approval");
+
+    const report = await runAuditCopilot(wsUser.id, from, to);
+    const finding = report.findings.find((f) => f.category === "pending_expense");
+    expect(finding).toBeDefined();
+    expect(finding!.count).toBeGreaterThanOrEqual(1);
+    expect(report.readyToClose).toBe(false);
+
+    await approveExpense(expense.id, "manager-1"); // clean up so later tests aren't polluted
+    await prisma.accountingExpense.delete({ where: { id: expense.id } });
+  });
+});
+
+describe("fiscal period lifecycle", () => {
+  it("close is human-triggered and audit-logged; reopen requires it be closed first", async () => {
+    const period = await createFiscalPeriod(wsUser.id, new Date(2019, 0, 1), new Date(2019, 0, 31));
+    expect(period.isLocked).toBe(false);
+
+    await expect(reopenFiscalPeriod(period.id, wsUser.id, "manager-1")).rejects.toThrow(); // not closed yet
+
+    const closed = await closeFiscalPeriod(period.id, wsUser.id, "manager-1");
+    expect(closed.isLocked).toBe(true);
+    expect(closed.lockedBy).toBe("manager-1");
+
+    await expect(closeFiscalPeriod(period.id, wsUser.id, "manager-1")).rejects.toThrow(); // already closed
+
+    const reopened = await reopenFiscalPeriod(period.id, wsUser.id, "manager-1");
+    expect(reopened.isLocked).toBe(false);
+
+    const log = await prisma.auditLog.findFirst({ where: { targetId: period.id, action: "fiscal_period_closed" } });
+    expect(log).not.toBeNull();
+
+    await prisma.accountingFiscalPeriod.delete({ where: { id: period.id } });
+  });
+
+  it("posting into a locked period is rejected by the ledger", async () => {
+    const period = await createFiscalPeriod(wsUser.id, new Date(2018, 5, 1), new Date(2018, 5, 30));
+    await closeFiscalPeriod(period.id, wsUser.id, "manager-1");
+
+    await expect(
+      postJournalEntry({
+        workspaceUserId: wsUser.id,
+        postedBy: "system",
+        entryDate: new Date(2018, 5, 15),
+        lines: [{ accountCode: "1000", debit: 100 }, { accountCode: "4000", credit: 100 }],
+      })
+    ).rejects.toThrow();
+
+    await prisma.accountingFiscalPeriod.delete({ where: { id: period.id } });
   });
 });
