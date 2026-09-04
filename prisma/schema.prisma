@@ -2289,3 +2289,34 @@ model AccountingApiToken {
 
   @@index([workspaceUserId])
 }
+
+// ---------------------------------------------------------------------------
+// Phase E — Finance AI Agent (spec ۸). Per the master prompt's explicit rule
+// for this phase: the agent has READ-ONLY access to financial data (via the
+// existing report functions — reports.ts/tax.ts/budget.ts — never raw SQL or
+// direct table writes); its only write path is this table, which always
+// starts "pending" and is never itself a ledger/expense mutation. A human
+// must call approveProposal() — which is the only code that actually posts
+// to the ledger or updates an expense — before anything the AI suggested
+// takes effect. Never bypass this table to let the agent write directly.
+model AccountingAiProposal {
+  id              String    @id @default(cuid())
+  workspaceUserId String
+  /// "journal_entry" | "expense_categorization"
+  type            String
+  /// JSON payload — shape depends on `type` (see financeAgent.ts).
+  payload         String
+  /// "pending" | "approved" | "rejected"
+  status          String    @default("pending")
+  /// The question/context that led to this proposal, for audit traceability.
+  sourceContext   String?
+  /// Provider id (e.g. "claude") that generated this proposal — required for
+  /// the audit_log's "source: ai_agent + model version" traceability rule.
+  modelUsed       String
+  createdAt       DateTime  @default(now())
+  reviewedBy      String?
+  reviewedAt      DateTime?
+
+  @@index([workspaceUserId])
+  @@index([status])
+}
