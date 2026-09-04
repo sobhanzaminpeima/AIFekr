@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Wallet, TrendingUp, TrendingDown, AlertCircle, Users, Home, ArrowUpRight, Sparkles } from "lucide-react";
+import { linkifyCitations } from "@/lib/accounting/linkifyCitations";
 
 interface DashboardData {
   cashBalance: number;
@@ -274,7 +275,7 @@ function CashFlowNarrativeCard() {
         </button>
       </div>
       {error && <p className="text-xs" style={{ color: "#e34948" }}>{error}</p>}
-      {text && <p className="text-sm leading-6" style={{ color: "var(--text-secondary)" }}>{text}</p>}
+      {text && <p className="text-sm leading-6" style={{ color: "var(--text-secondary)" }}>{linkifyCitations(text)}</p>}
       {!text && !loading && !error && <p className="text-xs" style={{ color: "var(--text-muted)" }}>بر اساس پیش‌بینی جریان نقدی ۳ ماه آینده، یک خلاصهٔ روایی کوتاه می‌سازد.</p>}
     </div>
   );

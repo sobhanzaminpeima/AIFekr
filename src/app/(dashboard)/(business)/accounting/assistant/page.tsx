@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ArrowRight, Sparkles, Send, AlertTriangle } from "lucide-react";
+import { linkifyCitations } from "@/lib/accounting/linkifyCitations";
 
 interface ChatMessage { role: "user" | "assistant"; text: string; }
 interface AnomalyAlert { accountCode: string; accountName: string; currentMonthAmount: number; trailingAverage: number; deviationPercent: number; }
@@ -111,7 +112,7 @@ export default function FinanceAssistantPage() {
           </div>
         ) : messages.map((m, i) => (
           <div key={i} className={`rounded-xl p-3 text-sm leading-6 ${m.role === "user" ? "mr-8" : "ml-8"}`} style={{ background: m.role === "user" ? "var(--primary)" : "var(--surface-2)", color: m.role === "user" ? "#fff" : "var(--text-primary)" }}>
-            {m.text || (loading && i === messages.length - 1 ? "..." : "")}
+            {m.text ? (m.role === "assistant" ? linkifyCitations(m.text) : m.text) : (loading && i === messages.length - 1 ? "..." : "")}
           </div>
         ))}
         <div ref={bottomRef} />

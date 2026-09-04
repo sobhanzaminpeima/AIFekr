@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { ArrowRight, UserPlus, Play, CheckCircle2, Wallet, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowRight, UserPlus, Play, CheckCircle2, Wallet, ChevronDown, ChevronUp, Printer } from "lucide-react";
 
 interface Employee {
   id: string;
@@ -54,6 +54,7 @@ export default function PayrollPage() {
   const [period, setPeriod] = useState(() => new Date().toISOString().slice(0, 7));
   const [expandedRun, setExpandedRun] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [printSlip, setPrintSlip] = useState<{ payslip: Payslip; period: string } | null>(null);
 
   const load = useCallback(async () => {
     const [empRes, runRes] = await Promise.all([
@@ -209,7 +210,7 @@ export default function PayrollPage() {
               {expanded && (
                 <div className="mt-4 space-y-3">
                   {run.payslips.map((p) => (
-                    <PayslipRow key={p.id} payslip={p} editable={run.status === "draft"} onSave={updatePayslip} />
+                    <PayslipRow key={p.id} payslip={p} editable={run.status === "draft"} onSave={updatePayslip} onPrint={() => setPrintSlip({ payslip: p, period: run.period })} />
                   ))}
                   <div className="flex gap-2 pt-2">
                     {run.status === "draft" && (
@@ -229,11 +230,40 @@ export default function PayrollPage() {
           );
         })}
       </div>
+
+      {printSlip && <PayslipPrintModal payslip={printSlip.payslip} period={printSlip.period} onClose={() => setPrintSlip(null)} />}
     </div>
   );
 }
 
-function PayslipRow({ payslip, editable, onSave }: { payslip: Payslip; editable: boolean; onSave: (id: string, bonus: number, deductions: number) => void }) {
+function PayslipPrintModal({ payslip, period, onClose }: { payslip: Payslip; period: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:p-0 print:static" style={{ background: "rgba(0,0,0,0.6)" }}>
+      <div className="print:hidden absolute top-4 left-4 flex gap-2">
+        <button onClick={() => window.print()} className="px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>چاپ / ذخیره PDF</button>
+        <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>بستن</button>
+      </div>
+      <div dir="rtl" className="w-full max-w-xl rounded-2xl p-8 space-y-4 max-h-[85vh] overflow-y-auto print:max-h-none print:overflow-visible print:shadow-none print:rounded-none" style={{ background: "#fff", color: "#111" }}>
+        <div className="flex items-center justify-between border-b pb-3">
+          <h2 className="text-lg font-bold">فیش حقوقی</h2>
+          <span className="text-xs">{monthLabel(period)}</span>
+        </div>
+        <div className="text-sm font-medium">{payslip.employee.name}</div>
+        <table className="w-full text-sm">
+          <tbody>
+            <tr className="border-b"><td className="py-2 text-gray-500">حقوق پایه</td><td className="py-2 text-left">{fmt(payslip.baseSalary)}</td></tr>
+            <tr className="border-b"><td className="py-2 text-gray-500">کمیسیون</td><td className="py-2 text-left">{fmt(payslip.commissionTotal)}</td></tr>
+            <tr className="border-b"><td className="py-2 text-gray-500">پاداش</td><td className="py-2 text-left">{fmt(payslip.bonus)}</td></tr>
+            <tr className="border-b"><td className="py-2 text-gray-500">کسورات</td><td className="py-2 text-left">-{fmt(payslip.deductions)}</td></tr>
+            <tr><td className="py-2 font-bold">خالص قابل‌پرداخت</td><td className="py-2 text-left font-bold">{fmt(payslip.netPay)} تومان</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function PayslipRow({ payslip, editable, onSave, onPrint }: { payslip: Payslip; editable: boolean; onSave: (id: string, bonus: number, deductions: number) => void; onPrint: () => void }) {
   const [bonus, setBonus] = useState(String(payslip.bonus));
   const [deductions, setDeductions] = useState(String(payslip.deductions));
 
@@ -241,7 +271,10 @@ function PayslipRow({ payslip, editable, onSave }: { payslip: Payslip; editable:
     <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
       <div className="flex items-center justify-between text-sm mb-2">
         <span className="font-medium" style={{ color: "var(--text-primary)" }}>{payslip.employee.name}</span>
-        <span style={{ color: "var(--text-primary)" }}>خالص: {fmt(payslip.netPay)}</span>
+        <div className="flex items-center gap-2">
+          <span style={{ color: "var(--text-primary)" }}>خالص: {fmt(payslip.netPay)}</span>
+          <button onClick={onPrint} className="p-1 rounded-md" style={{ color: "var(--text-secondary)" }} title="چاپ فیش حقوقی"><Printer className="w-3.5 h-3.5" /></button>
+        </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs" style={{ color: "var(--text-secondary)" }}>
         <div>پایه: {fmt(payslip.baseSalary)}</div>

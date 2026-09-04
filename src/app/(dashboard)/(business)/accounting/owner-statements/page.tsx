@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { ArrowRight, Sparkles, Plus, Trash2, Send, CheckCircle2, Home } from "lucide-react";
+import { ArrowRight, Sparkles, Plus, Trash2, Send, CheckCircle2, Home, Printer } from "lucide-react";
 
 interface Property {
   id: string;
@@ -31,6 +31,10 @@ interface Statement {
   ownerShare: number;
   currency: string;
   property: { title: string };
+}
+
+interface StatementDetail extends Statement {
+  entries: { id: string; date: string; description: string; category: LineItem["category"]; income: number; expense: number }[];
 }
 
 const CATEGORY_LABEL: Record<LineItem["category"], string> = {
@@ -64,6 +68,18 @@ export default function OwnerStatementsPage() {
   const [statements, setStatements] = useState<Statement[]>([]);
   const [assisting, setAssisting] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [printStatement, setPrintStatement] = useState<StatementDetail | null>(null);
+
+  async function openPrint(id: string) {
+    try {
+      const res = await fetch(`/api/accounting/owner-statements/${id}`, { credentials: "include" });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error);
+      setPrintStatement(j.statement);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "خطا در بارگذاری گزارش");
+    }
+  }
 
   useEffect(() => {
     fetch("/api/crm/properties?listingType=short_term_rent", { credentials: "include" })
@@ -261,6 +277,7 @@ export default function OwnerStatementsPage() {
                             <Send className="w-3.5 h-3.5" />ارسال به مالک
                           </button>
                         )}
+                        <button onClick={() => openPrint(s.id)} className="p-1.5 rounded-lg" style={{ color: "var(--text-secondary)" }} title="چاپ گزارش"><Printer className="w-3.5 h-3.5" /></button>
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-2 mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
@@ -275,6 +292,46 @@ export default function OwnerStatementsPage() {
           )}
         </div>
       )}
+
+      {printStatement && <OwnerStatementPrintModal statement={printStatement} onClose={() => setPrintStatement(null)} />}
+    </div>
+  );
+}
+
+function OwnerStatementPrintModal({ statement, onClose }: { statement: StatementDetail; onClose: () => void }) {
+  const monthLabel = new Date(statement.month).toLocaleDateString("fa-IR", { year: "numeric", month: "long" });
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:p-0 print:static" style={{ background: "rgba(0,0,0,0.6)" }}>
+      <div className="print:hidden absolute top-4 left-4 flex gap-2">
+        <button onClick={() => window.print()} className="px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>چاپ / ذخیره PDF</button>
+        <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>بستن</button>
+      </div>
+      <div dir="rtl" className="w-full max-w-2xl rounded-2xl p-8 space-y-4 max-h-[85vh] overflow-y-auto print:max-h-none print:overflow-visible print:shadow-none print:rounded-none" style={{ background: "#fff", color: "#111" }}>
+        <div className="border-b pb-3">
+          <h2 className="text-lg font-bold">{statement.property.title}</h2>
+          <span className="text-xs text-gray-500">{monthLabel}</span>
+        </div>
+        <table className="w-full text-xs">
+          <thead><tr className="border-b text-gray-500"><th className="text-right py-1">تاریخ</th><th className="text-right py-1">شرح</th><th className="text-left py-1">درآمد</th><th className="text-left py-1">هزینه</th></tr></thead>
+          <tbody>
+            {statement.entries.map((e) => (
+              <tr key={e.id} className="border-b">
+                <td className="py-1">{new Date(e.date).toLocaleDateString("fa-IR")}</td>
+                <td className="py-1">{e.description}</td>
+                <td className="py-1 text-left text-green-700">{e.income ? fmt(e.income) : ""}</td>
+                <td className="py-1 text-left text-red-700">{e.expense ? fmt(e.expense) : ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <table className="w-full text-sm mt-4">
+          <tbody>
+            <tr className="border-b"><td className="py-2 text-gray-500">سود خالص</td><td className="py-2 text-left font-bold">{fmt(statement.netProfit)} {statement.currency}</td></tr>
+            <tr className="border-b"><td className="py-2 text-gray-500">کارمزد مدیریت</td><td className="py-2 text-left">{fmt(statement.managementFee)} {statement.currency}</td></tr>
+            <tr><td className="py-2 font-bold">سهم مالک</td><td className="py-2 text-left font-bold" style={{ color: "#ea580c" }}>{fmt(statement.ownerShare)} {statement.currency}</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

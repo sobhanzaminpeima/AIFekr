@@ -135,10 +135,10 @@ export default function LedgerSetupPage() {
         <h2 className="text-sm font-semibold mb-3 flex items-center gap-1.5" style={{ color: "var(--text-primary)" }}><BookOpen className="w-4 h-4" />دفتر حساب‌ها ({accounts.length})</h2>
         <div className="max-h-64 overflow-auto space-y-1 mb-3">
           {accounts.map((a) => (
-            <div key={a.id} className="flex items-center justify-between text-sm py-1.5" style={{ borderBottom: "1px solid var(--border)" }}>
+            <Link key={a.id} href={`/accounting/accounts/${a.code}`} className="flex items-center justify-between text-sm py-1.5 hover:opacity-80" style={{ borderBottom: "1px solid var(--border)" }}>
               <span style={{ color: "var(--text-primary)" }}>{a.code} — {a.name}</span>
               <span className="text-xs" style={{ color: "var(--text-muted)" }}>{TYPE_LABEL[a.type] || a.type}{a.isSystem ? " · پیش‌فرض" : ""}</span>
-            </div>
+            </Link>
           ))}
         </div>
         <div className="flex flex-wrap gap-2">
