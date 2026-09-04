@@ -1982,6 +1982,9 @@ model AccountingExpense {
   /// AccountingAccount.code this expense books against, e.g. "5200" (Advertising).
   accountCode     String
   amount          Float
+  /// VAT/input tax paid on this expense, included in `amount` (not on top
+  /// of it) — used only for the Phase C VAT report's input-tax side.
+  taxAmount       Float     @default(0)
   description     String
   receiptUrl      String?
   expenseDate     DateTime  @default(now())
@@ -2091,4 +2094,88 @@ model AccountingOwnerStatementEntry {
   statement AccountingOwnerStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
 
   @@index([statementId])
+}
+
+/// ─── Accounting module Phase C ──────────────────────────────────────────
+/// Bank reconciliation, VAT reporting, and budgeting. Everything here is
+/// read/reconciliation tooling around the Phase A/B ledger — none of it
+/// posts new journal entries on its own (a matched bank transaction
+/// confirms money already recorded via an expense/invoice payment; it
+/// doesn't create new financial facts).
+
+model AccountingBankAccount {
+  id              String   @id @default(cuid())
+  workspaceUserId String
+  name            String
+  accountNumber   String?
+  currency        String   @default("IRT")
+  /// Balance before the earliest imported transaction — the anchor a
+  /// running balance is computed from, since Iran has no widespread Open
+  /// Banking API to pull a canonical starting balance from (spec ۳.۶).
+  openingBalance  Float    @default(0)
+  createdAt       DateTime @default(now())
+
+  transactions AccountingBankTransaction[]
+
+  @@index([workspaceUserId])
+}
+
+/// One row per imported bank statement line (CSV/Excel import, per spec —
+/// no xlsx dependency; reuses the dependency-free CSV parser already built
+/// for property import). Reconciliation links a transaction to the
+/// existing record that already explains it — it never creates a ledger
+/// entry itself.
+model AccountingBankTransaction {
+  id              String    @id @default(cuid())
+  workspaceUserId String
+  bankAccountId   String
+  date            DateTime
+  description     String
+  /// Positive = money in, negative = money out.
+  amount          Float
+  /// "unmatched" | "matched" | "ignored"
+  status          String    @default("unmatched")
+  /// "expense" | "invoice" — which table matchedId points into. Null until matched.
+  matchedType     String?
+  matchedId       String?
+  matchedAt       DateTime?
+  matchedBy       String?
+  createdAt       DateTime  @default(now())
+
+  bankAccount AccountingBankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceUserId])
+  @@index([bankAccountId])
+  @@index([status])
+}
+
+/// Configurable tax rates (spec ۳.۷) — Iran VAT, or a rate for an
+/// international customer under Paddle. Invoices already carry their own
+/// per-line taxRate (CrmInvoiceItem.taxRate); this is the named-rate
+/// picklist an admin manages, not a new tax engine.
+model AccountingTaxRate {
+  id              String   @id @default(cuid())
+  workspaceUserId String
+  name            String
+  ratePercent     Float
+  isDefault       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  @@index([workspaceUserId])
+}
+
+/// One row per account/period budget line (spec ۳.۸). Compared against
+/// actual ledger activity for Budget vs Actual — never a source of truth
+/// for real numbers itself.
+model AccountingBudget {
+  id              String   @id @default(cuid())
+  workspaceUserId String
+  accountCode     String
+  /// First day of the budgeted month.
+  period          DateTime
+  amount          Float
+  createdAt       DateTime @default(now())
+
+  @@unique([workspaceUserId, accountCode, period])
+  @@index([workspaceUserId])
 }

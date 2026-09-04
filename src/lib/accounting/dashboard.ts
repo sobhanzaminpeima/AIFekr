@@ -25,7 +25,7 @@ export async function getDashboardData(workspaceUserId: string): Promise<Dashboa
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [trialBalance, monthPL, invoices, commissionRecords, properties, statements] = await Promise.all([
+  const [trialBalance, monthPL, invoices, commissionRecords, properties, bankUnreconciledCount, statements] = await Promise.all([
     getTrialBalance(workspaceUserId),
     getProfitAndLoss(workspaceUserId, monthStart, now),
     prisma.crmInvoice.findMany({
@@ -40,6 +40,7 @@ export async function getDashboardData(workspaceUserId: string): Promise<Dashboa
       take: 10,
     }),
     prisma.property.findMany({ where: { userId: workspaceUserId, listingType: "short_term_rent" }, select: { id: true } }),
+    prisma.accountingBankTransaction.count({ where: { workspaceUserId, status: "unmatched" } }),
     // Two distinct things, deliberately queried separately: "fee actually
     // earned this month" only counts recognized (approved/sent) statements —
     // a draft's numbers are provisional and could still change — while
@@ -76,7 +77,7 @@ export async function getDashboardData(workspaceUserId: string): Promise<Dashboa
     expenseByCategory: monthPL.expenseByAccount,
     overdueInvoices: invoices.map((inv) => ({ id: inv.id, invoiceNumber: inv.invoiceNumber, total: inv.total, dueDate: inv.dueDate, contactName: inv.contact.name })),
     pendingCommissions: commissionRecords.map((s) => ({ id: s.id, dealTitle: s.commissionRecord.deal.title, agentUserId: s.agentUserId, amount: s.amount })),
-    bankUnreconciledCount: 0, // bank reconciliation lands in Phase C
+    bankUnreconciledCount,
     shortTermRental: {
       activeUnits: properties.length,
       monthManagementFeeTotal: thisMonthStatementFee,

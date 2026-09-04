@@ -87,3 +87,41 @@ export async function getProfitAndLoss(workspaceUserId: string, from: Date, to: 
 
   return { revenueTotal, expenseTotal, netProfit: revenueTotal - expenseTotal, revenueByAccount, expenseByAccount };
 }
+
+export interface CustomReportRow {
+  code: string;
+  name: string;
+  nameEn: string | null;
+  type: string;
+  debitTotal: number;
+  creditTotal: number;
+}
+
+/**
+ * Report Builder (spec ۳.۸/۴'s "Report Builder"), simplified: a caller picks
+ * account codes and a date range and gets totals back — the same "no
+ * cached/derivable numbers" query pattern as every other report here, just
+ * parameterized. There is no saved/named-report entity yet (a user re-runs
+ * the same filter rather than reopening a saved report) — a real
+ * simplification versus the spec's full "save as reusable report" feature,
+ * flagged rather than silently skipped.
+ */
+export async function runCustomReport(workspaceUserId: string, accountCodes: string[], from: Date, to: Date): Promise<CustomReportRow[]> {
+  const accounts = await prisma.accountingAccount.findMany({
+    where: { workspaceUserId, ...(accountCodes.length > 0 ? { code: { in: accountCodes } } : {}) },
+    orderBy: { code: "asc" },
+  });
+
+  const rows: CustomReportRow[] = [];
+  for (const account of accounts) {
+    const agg = await prisma.accountingJournalEntryLine.aggregate({
+      where: { accountId: account.id, entry: { entryDate: { gte: from, lte: to } } },
+      _sum: { debit: true, credit: true },
+    });
+    const debitTotal = agg._sum.debit || 0;
+    const creditTotal = agg._sum.credit || 0;
+    if (debitTotal === 0 && creditTotal === 0) continue;
+    rows.push({ code: account.code, name: account.name, nameEn: account.nameEn, type: account.type, debitTotal, creditTotal });
+  }
+  return rows;
+}

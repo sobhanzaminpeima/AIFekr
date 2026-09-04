@@ -176,6 +176,20 @@ export default function AccountingDashboardPage() {
         </div>
       </div>
 
+      {/* Bank reconciliation status */}
+      <div className="rounded-2xl p-5" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>وضعیت تطبیق بانکی</h2>
+          {data.bankUnreconciledCount > 0 ? (
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ background: "rgba(227,73,72,0.12)", color: "#e34948" }}>
+              {data.bankUnreconciledCount} تراکنش تطبیق‌نشده
+            </span>
+          ) : (
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ background: "rgba(27,175,122,0.12)", color: "#1baf7a" }}>همه تطبیق شده</span>
+          )}
+        </div>
+      </div>
+
       {/* Pending commissions */}
       {data.pendingCommissions.length > 0 && (
         <div className="rounded-2xl p-5" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
