@@ -11,6 +11,7 @@ const fa: Translations = {
     assistants: "دستیارها",
     businessDoctor: "دکتر کسب‌وکار",
     crm: "مدیریت مشتریان (CRM)",
+    accounting: "حسابداری",
     salesAgent: "ایجنت فروش",
     voiceAgent: "مرکز تماس هوش مصنوعی",
     ceoAdvisor: "مشاور مدیرعامل",

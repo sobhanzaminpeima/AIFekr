@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Sparkles, ArrowLeft, ArrowRight, HeartPulse, Briefcase, Handshake, Phone,
-  Crown, Search, Share2, Globe, Users,
+  Crown, Search, Share2, Globe, Users, Calculator,
 } from "lucide-react";
 import { useTranslation, tri, type Lang } from "@/lib/i18n";
 import { REAL_ESTATE_MODULES, type ModuleDefinition } from "@/lib/industry/moduleRegistry";
@@ -44,6 +44,11 @@ const GENERAL_AGENTS: GeneralAgent[] = [
     descriptionFa: "پایپلاین فروش، مخاطبین، اتوماسیون و دستیار تحلیل CRM.",
     descriptionEn: "Sales pipeline, contacts, automation, and the CRM analysis assistant.",
     descriptionDe: "Vertriebspipeline, Kontakte, Automatisierung und der CRM-Analyseassistent." },
+  { key: "accounting", icon: Calculator, href: "/accounting",
+    labelFa: "حسابداری", labelEn: "Accounting", labelDe: "Buchhaltung",
+    descriptionFa: "دفتر کل، فاکتور، هزینه، حقوق و دستمزد و گزارش‌های مالی — یکپارچه با CRM.",
+    descriptionEn: "General ledger, invoicing, expenses, payroll, and financial reports — integrated with CRM.",
+    descriptionDe: "Hauptbuch, Rechnungsstellung, Ausgaben, Gehaltsabrechnung und Finanzberichte — integriert mit CRM." },
   { key: "sales-agent", icon: Handshake, href: "/sales",
     labelFa: "ایجنت فروش", labelEn: "Sales Agent", labelDe: "Vertriebsagent",
     descriptionFa: "پیام‌های فروش و پیگیری مشتری را برایتان پیش‌نویس می‌کند.",

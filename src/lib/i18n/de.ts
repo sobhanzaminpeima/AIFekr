@@ -11,6 +11,7 @@ const de: Translations = {
     "assistants": "Assistenten",
     "businessDoctor": "Business Doctor",
     "crm": "CRM",
+    "accounting": "Buchhaltung",
     "salesAgent": "Sales Agent",
     "voiceAgent": "Sprachassistent (KI-Callcenter)",
     "ceoAdvisor": "CEO-Berater",

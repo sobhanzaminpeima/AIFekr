@@ -10,6 +10,7 @@ const en = {
     assistants: "Assistants",
     businessDoctor: "Business Doctor",
     crm: "CRM",
+    accounting: "Accounting",
     salesAgent: "Sales Agent",
     voiceAgent: "Voice Agent (AI Call Center)",
     ceoAdvisor: "CEO Advisor",
