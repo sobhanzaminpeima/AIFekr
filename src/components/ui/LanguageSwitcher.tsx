@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Globe } from "lucide-react";
 
 type Lang = "fa" | "en" | "de";
@@ -33,20 +34,46 @@ export default function LanguageSwitcher({ className = "", iconOnly = false, dro
   const [lang, setLangState] = useState<Lang>("fa");
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const [mounted, setMounted] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setLangState(getLang());
+    setMounted(true);
   }, []);
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      // The menu is portalled out of `rootRef`, so it has to be tested
+      // separately — otherwise every click on a language option would count
+      // as "outside" and close the menu before the option's own handler ran.
+      if (rootRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
+
+  // A menu anchored with viewport coordinates has to be portalled to <body>.
+  // Any ancestor with a transform, filter or backdrop-filter (the landing
+  // page's animated navbar has backdrop-filter; the dashboard's mobile drawer
+  // has transition-transform) becomes the containing block for
+  // position:fixed children, so the menu would be offset by that element's
+  // own origin and land off-screen — which is exactly how this button came
+  // to look like it "did nothing" when clicked.
+  useEffect(() => {
+    if (!open) return;
+    function reposition() { setOpen(false); }
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [open]);
 
   // Positioned with `fixed` + a clamped rect (instead of `absolute` anchored
   // to the button's own edge) so the menu can't get clipped off-screen when
@@ -82,9 +109,10 @@ export default function LanguageSwitcher({ className = "", iconOnly = false, dro
         )}
       </button>
 
-      {open && menuPos && (
+      {open && menuPos && mounted && createPortal(
         <div
-          className="fixed z-50 py-1 rounded-xl shadow-2xl"
+          ref={menuRef}
+          className="fixed z-[100] py-1 rounded-xl shadow-2xl"
           style={{
             background: "var(--surface-1)", border: "1px solid var(--border)",
             width: MENU_WIDTH,
@@ -108,7 +136,8 @@ export default function LanguageSwitcher({ className = "", iconOnly = false, dro
               <span>{opt.label}</span>
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
