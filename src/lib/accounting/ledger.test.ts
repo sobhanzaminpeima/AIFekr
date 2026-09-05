@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/db/prisma";
-import { postJournalEntry, UnbalancedEntryError, PeriodLockedError, UnknownAccountError } from "./ledger";
+import { postJournalEntry, reverseJournalEntry, UnbalancedEntryError, PeriodLockedError, UnknownAccountError } from "./ledger";
 import { getTrialBalance } from "./reports";
 
 // Integration tests against the real (dev) SQLite database — AccountingAccount
@@ -148,6 +148,45 @@ describe("postJournalEntry — fiscal period locking", () => {
     } finally {
       await prisma.accountingFiscalPeriod.delete({ where: { id: period.id } });
     }
+  });
+});
+
+describe("reverseJournalEntry — sourceRef reuse after reversal", () => {
+  it("frees the sourceRef so a corrected re-post actually posts a new entry (not the stale reversed one)", async () => {
+    const sourceRef = `test:reversible:${Date.now()}`;
+    const original = await postJournalEntry({
+      workspaceUserId: WS_A,
+      postedBy: "system",
+      sourceRef,
+      lines: [
+        { accountCode: "1000", debit: 200 },
+        { accountCode: "4000", credit: 200 },
+      ],
+    });
+
+    await reverseJournalEntry(original.id, "system", "correction");
+
+    const reversedOriginal = await prisma.accountingJournalEntry.findUniqueOrThrow({ where: { id: original.id } });
+    expect(reversedOriginal.isReversed).toBe(true);
+    expect(reversedOriginal.sourceRef).toBeNull();
+
+    // Re-post the corrected amount under the SAME sourceRef the original used.
+    const corrected = await postJournalEntry({
+      workspaceUserId: WS_A,
+      postedBy: "system",
+      sourceRef,
+      lines: [
+        { accountCode: "1000", debit: 150 },
+        { accountCode: "4000", credit: 150 },
+      ],
+    });
+
+    expect(corrected.id).not.toBe(original.id);
+
+    const trialBalance = await getTrialBalance(WS_A);
+    const cash = trialBalance.find((r) => r.code === "1000");
+    // Net effect on this account from this sequence: +200 (original) -200 (reversal) +150 (corrected) = +150.
+    expect(cash!.debitTotal - cash!.creditTotal).toBeGreaterThanOrEqual(150);
   });
 });
 

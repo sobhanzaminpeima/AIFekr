@@ -191,7 +191,12 @@ export async function reverseJournalEntry(entryId: string, postedBy: string, mem
   });
 
   await prisma.$transaction([
-    prisma.accountingJournalEntry.update({ where: { id: original.id }, data: { isReversed: true } }),
+    // sourceRef is cleared here so a later corrected re-post can reclaim the
+    // same idempotency key — postJournalEntry()'s sourceRef lookup would
+    // otherwise keep finding this reversed, dead entry and silently skip
+    // posting the correction (the bug this fixes: a reopened owner statement
+    // that gets regenerated and re-approved must actually post a new entry).
+    prisma.accountingJournalEntry.update({ where: { id: original.id }, data: { isReversed: true, sourceRef: null } }),
     prisma.accountingJournalEntry.update({ where: { id: reversal.id }, data: { reversesEntryId: original.id } }),
   ]);
 
