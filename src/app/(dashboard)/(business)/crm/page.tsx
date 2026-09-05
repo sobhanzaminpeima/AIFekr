@@ -12,6 +12,7 @@ import type { Translations } from "@/lib/i18n/en";
 import { toJalali } from "@/lib/utils/jalali";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import ReactMarkdown from "react-markdown";
+import { useCompanyLogo } from "@/lib/hooks/useCompanyLogo";
 
 interface Stage { id: string; name: string; nameEn: string | null; nameDe: string | null; order: number; isWon: boolean; isLost: boolean; }
 interface Pipeline { id: string; name: string; nameEn: string | null; nameDe: string | null; industrySlug: string | null; isDefault: boolean; stages: Stage[]; }
@@ -134,6 +135,8 @@ export default function CrmPage() {
   const [contactDetail, setContactDetail] = useState<ContactDetail | null>(null);
   const [error, setError] = useState("");
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [contactSearch, setContactSearch] = useState("");
+  const [contactStatusFilter, setContactStatusFilter] = useState("");
   const [crmPlan, setCrmPlan] = useState<string | null>(null);
   const [upgrading, setUpgrading] = useState(false);
   const [moduleAccess, setModuleAccess] = useState<Record<string, boolean>>({});
@@ -398,11 +401,30 @@ export default function CrmPage() {
               <Plus className="w-4 h-4" /> {c.contacts.newContact}
             </button>
           </div>
-          {contacts.length === 0 ? (
-            <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{c.empty.noContacts}</p>
-          ) : (
+          {contacts.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <input value={contactSearch} onChange={(e) => setContactSearch(e.target.value)}
+                placeholder={tri(lang, "جستجو (نام، تلفن، ایمیل یا شرکت)", "Search (name, phone, email, or company)", "Suche (Name, Telefon, E-Mail oder Firma)")}
+                className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <select value={contactStatusFilter} onChange={(e) => setContactStatusFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                <option value="">{tri(lang, "همه وضعیت‌ها", "All statuses", "Alle Status")}</option>
+                {Array.from(new Set(contacts.map((ct) => ct.status))).map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          )}
+          {(() => {
+            const filteredContacts = contacts.filter((ct) => {
+              if (contactStatusFilter && ct.status !== contactStatusFilter) return false;
+              const q = contactSearch.trim().toLowerCase();
+              if (!q) return true;
+              return ct.name.toLowerCase().includes(q) || (ct.phone || "").includes(q) || (ct.email || "").toLowerCase().includes(q) || (ct.company || "").toLowerCase().includes(q);
+            });
+            if (contacts.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{c.empty.noContacts}</p>;
+            if (filteredContacts.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "مخاطبی با این مشخصات پیدا نشد", "No contacts match your search", "Keine Kontakte entsprechen der Suche")}</p>;
+            return (
             <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-              {contacts.map((c, i) => (
+              {filteredContacts.map((c, i) => (
                 <button key={c.id} onClick={() => openContact(c.id)}
                   className="w-full flex items-center justify-between px-4 py-3 text-right transition-all hover:opacity-80"
                   style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
@@ -432,7 +454,8 @@ export default function CrmPage() {
                 </button>
               ))}
             </div>
-          )}
+            );
+          })()}
         </div>
       ) : tab === "automation" ? (
         <AutomationPanel isFa={isFa} t={c} rules={rules} onChanged={loadRules} />
@@ -1953,6 +1976,12 @@ function ProductsPanel({ isFa, t }: { isFa: boolean; t: Translations["crm"] }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [detailProduct, setDetailProduct] = useState<CrmProduct | null>(null);
+  const [search, setSearch] = useState("");
+  const filteredProducts = products.filter((p) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return p.name.toLowerCase().includes(q) || (p.sku || "").toLowerCase().includes(q);
+  });
 
   const load = useCallback(async () => {
     const res = await fetch("/api/crm/products");
@@ -2064,11 +2093,18 @@ function ProductsPanel({ isFa, t }: { isFa: boolean; t: Translations["crm"] }) {
         </div>
       )}
 
+      {products.length > 0 && (
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={isFa ? "جستجوی محصول (نام یا کد)" : "Search products (name or SKU)"}
+          className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+      )}
+
       {products.length === 0 ? (
         <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.products.empty}</p>
+      ) : filteredProducts.length === 0 ? (
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "محصولی با این مشخصات پیدا نشد" : "No products match your search"}</p>
       ) : (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-          {products.map((p, i) => (
+          {filteredProducts.map((p, i) => (
             <div key={p.id} className="flex items-center justify-between px-4 py-3" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined, opacity: p.isActive ? 1 : 0.5 }}>
               <button onClick={() => setDetailProduct(p)} className="flex items-center gap-3 flex-1 text-right">
                 <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ background: "var(--surface-2)" }}>
@@ -2163,6 +2199,8 @@ function InvoicesPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang;
   const [contactId, setContactId] = useState("");
   const [items, setItems] = useState<InvoiceItemRow[]>([{ description: "", quantity: 1, unitPrice: 0, taxRate: 0, lineTotal: 0 }]);
   const [discount, setDiscount] = useState("0");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
   const load = useCallback(async () => {
     const [invRes, prodRes] = await Promise.all([fetch("/api/crm/invoices"), fetch("/api/crm/products?activeOnly=1")]);
@@ -2277,11 +2315,32 @@ function InvoicesPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang;
         </div>
       )}
 
-      {invoices.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.invoices.empty}</p>
-      ) : (
+      {invoices.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={isFa ? "جستجو (شماره فاکتور یا نام مشتری)" : "Search (invoice number or customer)"}
+            className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{isFa ? "همه وضعیت‌ها" : "All statuses"}</option>
+            {Object.keys(INVOICE_STATUS_LABEL).map((val) => (
+              <option key={val} value={val}>{t.invoiceStatus[val as keyof typeof t.invoiceStatus] || val}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {(() => {
+        const filteredInvoices = invoices.filter((inv) => {
+          if (statusFilter && inv.status !== statusFilter) return false;
+          const q = search.trim().toLowerCase();
+          if (!q) return true;
+          return inv.invoiceNumber.toLowerCase().includes(q) || inv.contact.name.toLowerCase().includes(q);
+        });
+        if (invoices.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.invoices.empty}</p>;
+        if (filteredInvoices.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "فاکتوری با این مشخصات پیدا نشد" : "No invoices match your search"}</p>;
+        return (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-          {invoices.map((inv, i) => {
+          {filteredInvoices.map((inv, i) => {
             const st = INVOICE_STATUS_LABEL[inv.status] || INVOICE_STATUS_LABEL.draft;
             return (
               <div key={inv.id} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
@@ -2300,7 +2359,8 @@ function InvoicesPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang;
             );
           })}
         </div>
-      )}
+        );
+      })()}
 
       {printInvoice && <InvoicePrintModal isFa={isFa} lang={lang} t={t} invoice={printInvoice} onClose={() => setPrintInvoice(null)} />}
     </div>
@@ -2308,6 +2368,7 @@ function InvoicesPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang;
 }
 
 function InvoicePrintModal({ isFa, lang, t, invoice, onClose }: { isFa: boolean; lang: Lang; t: Translations["crm"]; invoice: CrmInvoiceRow; onClose: () => void }) {
+  const logoUrl = useCompanyLogo();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:p-0 print:static" style={{ background: "rgba(0,0,0,0.6)" }}>
       <div className="print:hidden absolute top-4 left-4 flex gap-2">
@@ -2316,6 +2377,7 @@ function InvoicePrintModal({ isFa, lang, t, invoice, onClose }: { isFa: boolean;
       </div>
       <div dir={isFa ? "rtl" : "ltr"} className="w-full max-w-xl rounded-2xl p-8 space-y-4 max-h-[85vh] overflow-y-auto print:max-h-none print:overflow-visible print:shadow-none print:rounded-none"
         style={{ background: "#fff", color: "#111" }}>
+        {logoUrl && <img src={logoUrl} alt="logo" className="h-10 object-contain" style={{ maxWidth: 160 }} />}
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">{t.invoices.print.invoiceTitle} {invoice.invoiceNumber}</h2>
           <span className="text-xs">{lang === "fa" ? toJalali(invoice.issueDate) : new Date(invoice.issueDate).toLocaleDateString(lang === "de" ? "de-DE" : "en-US")}</span>
@@ -2375,6 +2437,8 @@ function ContractsPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [restoringDefaults, setRestoringDefaults] = useState(false);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
   const [contactId, setContactId] = useState("");
   const [templateId, setTemplateId] = useState("");
@@ -2524,11 +2588,32 @@ function ContractsPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang
         </div>
       )}
 
-      {contracts.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.contracts.empty}</p>
-      ) : (
+      {contracts.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={isFa ? "جستجو (عنوان یا نام مشتری)" : "Search (title or customer)"}
+            className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{isFa ? "همه وضعیت‌ها" : "All statuses"}</option>
+            {Object.keys(CONTRACT_STATUS_LABEL).map((val) => (
+              <option key={val} value={val}>{t.contractStatus[val as keyof typeof t.contractStatus] || val}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {(() => {
+        const filteredContracts = contracts.filter((ct) => {
+          if (statusFilter && ct.status !== statusFilter) return false;
+          const q = search.trim().toLowerCase();
+          if (!q) return true;
+          return ct.title.toLowerCase().includes(q) || ct.contact.name.toLowerCase().includes(q);
+        });
+        if (contracts.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.contracts.empty}</p>;
+        if (filteredContracts.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "قراردادی با این مشخصات پیدا نشد" : "No contracts match your search"}</p>;
+        return (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-          {contracts.map((ct, i) => {
+          {filteredContracts.map((ct, i) => {
             const st = CONTRACT_STATUS_LABEL[ct.status] || CONTRACT_STATUS_LABEL.draft;
             return (
               <div key={ct.id} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
@@ -2547,7 +2632,8 @@ function ContractsPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang
             );
           })}
         </div>
-      )}
+        );
+      })()}
 
       {printContract && <ContractPrintModal isFa={isFa} t={t} contract={printContract} onClose={() => setPrintContract(null)} />}
       {editingContract && (
@@ -2561,6 +2647,7 @@ function ContractsPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang
 }
 
 function ContractPrintModal({ isFa, t, contract, onClose }: { isFa: boolean; t: Translations["crm"]; contract: CrmContractRow; onClose: () => void }) {
+  const logoUrl = useCompanyLogo();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:p-0 print:static" style={{ background: "rgba(0,0,0,0.6)" }}>
       <div className="print:hidden absolute top-4 left-4 flex gap-2">
@@ -2569,6 +2656,7 @@ function ContractPrintModal({ isFa, t, contract, onClose }: { isFa: boolean; t: 
       </div>
       <div dir={isFa ? "rtl" : "ltr"} className="w-full max-w-xl rounded-2xl p-8 space-y-4 max-h-[85vh] overflow-y-auto print:max-h-none print:overflow-visible print:shadow-none print:rounded-none whitespace-pre-wrap"
         style={{ background: "#fff", color: "#111" }}>
+        {logoUrl && <img src={logoUrl} alt="logo" className="h-10 object-contain" style={{ maxWidth: 160 }} />}
         <h2 className="text-lg font-bold">{contract.title}</h2>
         <p className="text-xs">{t.contracts.print.contact} {contract.contact.name}</p>
         <div className="text-sm leading-7">{contract.content}</div>
@@ -2670,6 +2758,8 @@ function ProjectsPanel({ isFa, lang, t, contacts, isRealEstate }: { isFa: boolea
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
   const [name, setName] = useState("");
   const [contactId, setContactId] = useState("");
@@ -2807,11 +2897,30 @@ function ProjectsPanel({ isFa, lang, t, contacts, isRealEstate }: { isFa: boolea
         </div>
       )}
 
-      {projects.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.projects.empty}</p>
-      ) : (
+      {projects.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={isFa ? "جستجو (نام پروژه یا مشتری)" : "Search (project name or customer)"}
+            className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{isFa ? "همه وضعیت‌ها" : "All statuses"}</option>
+            {Object.entries(t.projectStatus).map(([val, label]) => <option key={val} value={val}>{label}</option>)}
+          </select>
+        </div>
+      )}
+
+      {(() => {
+        const filteredProjects = projects.filter((p) => {
+          if (statusFilter && p.status !== statusFilter) return false;
+          const q = search.trim().toLowerCase();
+          if (!q) return true;
+          return p.name.toLowerCase().includes(q) || (p.contact?.name || "").toLowerCase().includes(q);
+        });
+        if (projects.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.projects.empty}</p>;
+        if (filteredProjects.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "پروژه‌ای با این مشخصات پیدا نشد" : "No projects match your search"}</p>;
+        return (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-          {projects.map((p, i) => {
+          {filteredProjects.map((p, i) => {
             const st = PROJECT_STATUS_LABEL[p.status] || PROJECT_STATUS_LABEL.active;
             return (
               <div key={p.id} onClick={() => setSelectedProjectId(p.id)} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2 cursor-pointer transition-colors hover:bg-white/[0.02]" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
@@ -2830,7 +2939,8 @@ function ProjectsPanel({ isFa, lang, t, contacts, isRealEstate }: { isFa: boolea
             );
           })}
         </div>
-      )}
+        );
+      })()}
 
       {selectedProjectId && (
         <ProjectDetailModal
@@ -2987,6 +3097,9 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
   const [selected, setSelected] = useState<PropertyRow | null>(null);
   const [calendarPropertyId, setCalendarPropertyId] = useState<string | null>(null);
   const [docsPropertyId, setDocsPropertyId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [listingTypeFilter, setListingTypeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
   const [title, setTitle] = useState("");
   const [listingType, setListingType] = useState("sell");
@@ -3210,11 +3323,36 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
         </div>
       )}
 
-      {properties.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز ملکی ثبت نشده است", "No properties yet", "Noch keine Immobilien")}</p>
-      ) : (
+      {properties.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجو (عنوان یا آدرس)", "Search (title or address)", "Suche (Titel oder Adresse)")}
+            className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <select value={listingTypeFilter} onChange={(e) => setListingTypeFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{tri(lang, "همه نوع‌ها", "All types", "Alle Typen")}</option>
+            {Object.entries(PROPERTY_LISTING_TYPE_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
+          </select>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{tri(lang, "همه وضعیت‌ها", "All statuses", "Alle Status")}</option>
+            {Object.entries(PROPERTY_STATUS_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
+          </select>
+        </div>
+      )}
+
+      {(() => {
+        const filteredProperties = properties.filter((p) => {
+          if (listingTypeFilter && p.listingType !== listingTypeFilter) return false;
+          if (statusFilter && p.status !== statusFilter) return false;
+          const q = search.trim().toLowerCase();
+          if (!q) return true;
+          return p.title.toLowerCase().includes(q) || p.address.toLowerCase().includes(q) || (p.city || "").toLowerCase().includes(q);
+        });
+        if (properties.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز ملکی ثبت نشده است", "No properties yet", "Noch keine Immobilien")}</p>;
+        if (filteredProperties.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "ملکی با این مشخصات پیدا نشد", "No properties match your search", "Keine Immobilien entsprechen der Suche")}</p>;
+        return (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-          {properties.map((p, i) => (
+          {filteredProperties.map((p, i) => (
             <div key={p.id} onClick={() => setSelected(p)} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2 cursor-pointer transition-colors hover:bg-white/[0.02]" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
               <div>
                 <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
@@ -3245,7 +3383,8 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
             </div>
           ))}
         </div>
-      )}
+        );
+      })()}
 
       {calendarPropertyId && (
         <OccupancyCalendarModal lang={lang} propertyId={calendarPropertyId} contacts={contacts} onClose={() => setCalendarPropertyId(null)} />
@@ -3960,6 +4099,12 @@ function OwnersPanel({ lang }: { lang: Lang }) {
   const [editing, setEditing] = useState<{ ownerId: string; propertyId: string } | null>(null);
   const [form, setForm] = useState({ representationStartDate: "", representationEndDate: "", agreedCommissionRate: "" });
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+  const filteredOwners = owners.filter((o) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return o.name.toLowerCase().includes(q) || (o.phone || "").includes(q) || (o.email || "").toLowerCase().includes(q);
+  });
 
   const load = useCallback(async () => {
     const res = await fetch("/api/crm/owners");
@@ -4002,13 +4147,19 @@ function OwnersPanel({ lang }: { lang: Lang }) {
 
   return (
     <div className="space-y-3">
+      {owners.length > 0 && (
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجوی مالک (نام، تلفن یا ایمیل)", "Search owners (name, phone, or email)", "Eigentümer suchen (Name, Telefon oder E-Mail)")}
+          className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+      )}
       {owners.length === 0 ? (
         <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>
           {tri(lang, "هنوز مالکی ثبت نشده — یک مخاطب را در فرم ثبت ملک به‌عنوان مالک انتخاب کنید", "No owners yet — link a contact as owner when creating a property", "Noch keine Eigentümer — verknüpfen Sie einen Kontakt beim Anlegen einer Immobilie")}
         </p>
+      ) : filteredOwners.length === 0 ? (
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "مالکی با این مشخصات پیدا نشد", "No owners match your search", "Keine Eigentümer entsprechen der Suche")}</p>
       ) : (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-          {owners.map((o, i) => (
+          {filteredOwners.map((o, i) => (
             <div key={o.id} style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
               <button onClick={() => setExpanded(expanded === o.id ? null : o.id)} className="w-full flex items-center justify-between px-4 py-3 text-right">
                 <div>

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { ArrowRight, UserPlus, Play, CheckCircle2, Wallet, ChevronDown, ChevronUp, Printer } from "lucide-react";
+import { useCompanyLogo } from "@/lib/hooks/useCompanyLogo";
 
 interface Employee {
   id: string;
@@ -237,6 +238,7 @@ export default function PayrollPage() {
 }
 
 function PayslipPrintModal({ payslip, period, onClose }: { payslip: Payslip; period: string; onClose: () => void }) {
+  const logoUrl = useCompanyLogo();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:p-0 print:static" style={{ background: "rgba(0,0,0,0.6)" }}>
       <div className="print:hidden absolute top-4 left-4 flex gap-2">
@@ -244,6 +246,7 @@ function PayslipPrintModal({ payslip, period, onClose }: { payslip: Payslip; per
         <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>بستن</button>
       </div>
       <div dir="rtl" className="w-full max-w-xl rounded-2xl p-8 space-y-4 max-h-[85vh] overflow-y-auto print:max-h-none print:overflow-visible print:shadow-none print:rounded-none" style={{ background: "#fff", color: "#111" }}>
+        {logoUrl && <img src={logoUrl} alt="logo" className="h-10 object-contain" style={{ maxWidth: 160 }} />}
         <div className="flex items-center justify-between border-b pb-3">
           <h2 className="text-lg font-bold">فیش حقوقی</h2>
           <span className="text-xs">{monthLabel(period)}</span>

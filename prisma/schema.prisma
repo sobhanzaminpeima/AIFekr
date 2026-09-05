@@ -1295,6 +1295,10 @@ model Company {
   categoryId     String?
   isActive       Boolean  @default(true)
   notes          String?
+  /// Company logo, uploaded once in Business Doctor and reused on every
+  /// invoice/contract (CRM) and payslip/owner-statement (accounting) print
+  /// output, so a business never has to re-upload its branding per document.
+  logoUrl        String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

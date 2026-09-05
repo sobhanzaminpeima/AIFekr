@@ -22,6 +22,10 @@ export interface BusinessProfile {
   foundedYear?: string;
   businessModel?: string;
   uniqueValue?: string;
+  /// Read-only here — set via POST /api/business-profile/logo, never accepted
+  /// through this route's own POST body (that body is the free-form wizard
+  /// profile, JSON-stuffed into Company.notes; logoUrl has its own column).
+  logoUrl?: string;
 }
 
 export async function GET(req: NextRequest) {
@@ -44,6 +48,7 @@ export async function GET(req: NextRequest) {
     size: company.size || undefined,
     revenue: company.revenue || undefined,
     ...extra,
+    logoUrl: company.logoUrl || undefined,
   };
 
   return NextResponse.json({ profile });

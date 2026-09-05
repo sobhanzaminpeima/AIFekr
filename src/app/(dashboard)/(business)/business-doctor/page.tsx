@@ -8,9 +8,11 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import Link from "next/link";
+import Image from "next/image";
 import ShareButton from "@/components/ui/ShareButton";
 import { trackFeature } from "@/lib/analytics";
 import { useTranslation } from "@/lib/i18n";
+import { Upload, X } from "lucide-react";
 
 interface BusinessProfile {
   name: string;
@@ -28,6 +30,7 @@ interface BusinessProfile {
   businessModel?: string;
   uniqueValue?: string;
   foundedYear?: string;
+  logoUrl?: string;
 }
 
 export default function BusinessDoctorPage() {
@@ -45,6 +48,10 @@ export default function BusinessDoctorPage() {
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [editMode, setEditMode] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoError, setLogoError] = useState("");
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<BusinessProfile>({
@@ -68,6 +75,7 @@ export default function BusinessDoctorPage() {
         if (d.profile) {
           setProfile(d.profile);
           setForm(d.profile);
+          setLogoUrl(d.profile.logoUrl || null);
         } else {
           setEditMode(true);
         }
@@ -84,6 +92,33 @@ export default function BusinessDoctorPage() {
 
   function updateForm(key: keyof BusinessProfile, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function uploadLogo(file: File) {
+    setLogoError("");
+    setLogoUploading(true);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch("/api/business-profile/logo", { method: "POST", body });
+      const data = await res.json();
+      if (!res.ok) { setLogoError(data.error || (isFa ? "خطا در آپلود لوگو" : "Failed to upload logo")); return; }
+      setLogoUrl(data.logoUrl);
+    } catch {
+      setLogoError(isFa ? "خطا در آپلود لوگو" : "Failed to upload logo");
+    } finally {
+      setLogoUploading(false);
+    }
+  }
+
+  async function removeLogo() {
+    setLogoUploading(true);
+    try {
+      await fetch("/api/business-profile/logo", { method: "DELETE" });
+      setLogoUrl(null);
+    } finally {
+      setLogoUploading(false);
+    }
   }
 
   async function saveProfile() {
@@ -182,6 +217,46 @@ export default function BusinessDoctorPage() {
             </div>
           )}
         </div>
+
+        {/* Company logo — used on invoice/contract (CRM) and payslip/owner-statement (accounting) print output */}
+        {profile && (
+          <div className="flex items-center gap-4 mb-6 p-4 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+            <div className="w-16 h-16 rounded-xl flex items-center justify-center overflow-hidden shrink-0" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+              {logoUrl ? (
+                <Image src={logoUrl} alt="logo" width={64} height={64} className="w-full h-full object-contain" unoptimized />
+              ) : (
+                <Building2 className="w-6 h-6" style={{ color: "var(--text-muted)" }} />
+              )}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium mb-1" style={{ color: "var(--text-primary)" }}>
+                {isFa ? "لوگوی کمپانی" : "Company logo"}
+              </p>
+              <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
+                {isFa ? "برای استفاده در خروجی فاکتور و قرارداد (CRM) و فیش حقوقی و گزارش تسویه (حسابداری)" : "Used on invoice/contract (CRM) and payslip/owner-statement (accounting) print output"}
+              </p>
+              <div className="flex items-center gap-2">
+                <input ref={logoInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/svg+xml" className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = ""; }} />
+                <button onClick={() => logoInputRef.current?.click()} disabled={logoUploading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50"
+                  style={{ background: "var(--surface-2)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
+                  <Upload className="w-3.5 h-3.5" />
+                  {logoUploading ? (isFa ? "در حال آپلود..." : "Uploading...") : logoUrl ? (isFa ? "تغییر لوگو" : "Change logo") : (isFa ? "آپلود لوگو" : "Upload logo")}
+                </button>
+                {logoUrl && (
+                  <button onClick={removeLogo} disabled={logoUploading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50"
+                    style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+                    <X className="w-3.5 h-3.5" />
+                    {isFa ? "حذف" : "Remove"}
+                  </button>
+                )}
+              </div>
+              {logoError && <p className="text-xs mt-1.5" style={{ color: "#ef4444" }}>{logoError}</p>}
+            </div>
+          </div>
+        )}
 
         {/* === EDIT / WIZARD MODE === */}
         {editMode && (
