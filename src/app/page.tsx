@@ -233,7 +233,10 @@ export default async function HomePage() {
     const payload = verifyToken(token);
     if (payload) {
       const { redirect } = await import("next/navigation");
-      redirect("/chat");
+      // Land on the business overview, not an empty chat box: the first thing
+      // a signed-in owner should see is the state of their business and what
+      // is overdue, not a blinking cursor.
+      redirect("/home");
     }
   }
 

@@ -27,6 +27,7 @@
      shade that stays the same hue but actually reads. */
   --pos: #1baf7a;
   --neg: #ea5a59;
+  --warn: #d99000;
   --success: #22c55e;
   --warning: #f59e0b;
   --danger: #ef4444;
@@ -47,6 +48,14 @@
   --text-muted: #6b6b75;
   --pos: #0d8257;
   --neg: #c62f2e;
+  --warn: #8a5600;
+  /* The brand orange is tuned for dark surfaces. On white it is only 3.56:1 —
+     failing as link/label text AND as a button fill under white text, both of
+     which appear all over the light theme. Light mode therefore uses the
+     palette's own --primary-dark, which reaches 5.18:1 in both roles. The
+     brand colour itself is unchanged; dark mode still renders #ea580c. */
+  --primary: #c2410c;
+  --primary-dark: #9a340a;
 }
 
 * {

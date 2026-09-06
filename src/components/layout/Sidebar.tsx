@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  MessageSquare, Image as ImageIcon, Video, Music, GalleryHorizontal, Mail,
+  LayoutDashboard, MessageSquare, Image as ImageIcon, Video, Music, GalleryHorizontal, Mail,
   ChevronDown, ChevronLeft, Settings, LogOut, Wallet, Crown,
   Briefcase, TrendingUp, ShoppingCart, Calculator, Salad,
   GraduationCap, Stethoscope, Languages, ChefHat, Dumbbell, Plane, Code2,
@@ -180,16 +180,16 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2 space-y-0.5 pb-2">
-        {/* General section */}
+        <NavItem icon={LayoutDashboard} label={tri(lang, "خانه", "Home", "Startseite")} href="/home" active={isActive("/home")} />
         <NavItem icon={MessageSquare} label={t.nav.chat} href="/chat" active={isActive("/chat")} />
-        <div style={{ borderTop: "1px solid var(--border)", margin: "6px 0" }} />
+
+        <NavSection label={tri(lang, "ساخت محتوا", "Create", "Erstellen")} />
         <NavItem icon={Sparkles} label={tri(lang, "ایجنت‌های من", "My Agents", "Meine Agenten")} href="/agents" active={isActive("/agents")} />
         <NavItem icon={ImageIcon} label={t.nav.image} href="/image/generate" active={isActive("/image")} />
         <NavItem icon={Video} label={t.nav.video} href="/video/generate" active={isActive("/video")} />
         <NavItem icon={Music} label={t.nav.music} href="/music/generate" active={isActive("/music")} />
         <NavItem icon={GalleryHorizontal} label={t.nav.gallery} href="/image/gallery" active={isActive("/image/gallery")} />
         <NavItem icon={Rocket} label={t.nav.startupBuilder} href="/startup/builder" active={isActive("/startup")} />
-        <div style={{ borderTop: "1px solid var(--border)", margin: "6px 0" }} />
 
         {/* Tools */}
         <button onClick={() => setToolsOpen(!toolsOpen)}
@@ -210,16 +210,14 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         {assistantsOpen && <div className="pr-4 space-y-0.5">{assistants.map((a) => <NavItem key={a.href} icon={a.icon} label={a.label} href={a.href} active={isActive(a.href)} small />)}</div>}
 
         {/* ── BUSINESS SECTION ─────────────────── */}
-        <div style={{ borderTop: "1px solid var(--border)", margin: "6px 0" }} />
-
         {hasPack ? (
           <>
-            {/* Business tools - user has pack */}
+            <NavSection label={tri(lang, "کسب‌وکار من", "My Business", "Mein Unternehmen")} />
             <button onClick={() => setBusinessOpen(!businessOpen)}
               className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium"
               style={{ color: "var(--text-secondary)" }}>
               <span className="flex items-center gap-2 min-w-0">
-                <Zap className="w-4 h-4 flex-shrink-0" style={{ color: "#ea580c" }} />
+                <Zap className="w-4 h-4 flex-shrink-0" style={{ color: "var(--primary)" }} />
                 <span className="truncate">{tri(lang, "ایجنت‌های هوش مصنوعی", "AI Agents", "KI-Agenten")}</span>
               </span>
               {businessOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
@@ -501,6 +499,21 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         </div>
       )}
     </aside>
+  );
+}
+
+/**
+ * A section label. The sidebar previously carried 21 destinations at one
+ * uniform 14px/500, with the only real heading being "History" — so "Music
+ * Generator" read with exactly the same weight as "Accounting" and "CRM".
+ * These headings give the list a spine: content tools vs. the systems a
+ * business actually runs on.
+ */
+function NavSection({ label }: { label: string }) {
+  return (
+    <div className="px-3 pt-3 pb-1 text-[11px] font-semibold tracking-wide select-none" style={{ color: "var(--text-muted)" }}>
+      {label}
+    </div>
   );
 }
 
