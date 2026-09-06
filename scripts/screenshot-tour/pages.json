@@ -1,0 +1,21 @@
+[
+  { "folder": "01-khane", "title": "خانه", "path": "/home" },
+  { "folder": "02-chat-hoosh-masnooi", "title": "چت هوش مصنوعی", "path": "/chat", "fullPage": false },
+  { "folder": "03-agent-haye-man", "title": "ایجنت‌های من", "path": "/agents" },
+  { "folder": "04-sakht-tasvir", "title": "ساخت تصویر", "path": "/image/generate" },
+  { "folder": "05-sakht-video", "title": "ساخت ویدیو", "path": "/video/generate" },
+  { "folder": "06-sakht-mozik", "title": "ساخت موزیک", "path": "/music/generate" },
+  { "folder": "07-sazande-startup", "title": "سازنده استارتاپ", "path": "/startup/builder" },
+  { "folder": "08-crm-modiriat-moshtarian", "title": "مدیریت مشتریان (CRM)", "path": "/crm" },
+  { "folder": "09-agent-forosh", "title": "ایجنت فروش", "path": "/sales" },
+  { "folder": "10-markaz-tamas-hoosh-masnooi", "title": "مرکز تماس هوش مصنوعی", "path": "/voice-agent" },
+  { "folder": "11-baste-haye-sanati", "title": "بسته‌های صنعتی", "path": "/industry" },
+  { "folder": "12-shabakehaye-ejtemaei", "title": "شبکه‌های اجتماعی", "path": "/social" },
+  { "folder": "13-faza-kar-seo", "title": "فضای کار سئو", "path": "/seo" },
+  { "folder": "14-tarah-website", "title": "طراح وبسایت", "path": "/website-designer" },
+  { "folder": "15-hesabdari", "title": "حسابداری", "path": "/accounting" },
+  { "folder": "16-moshaver-modiramel", "title": "مشاور مدیرعامل", "path": "/ceo" },
+  { "folder": "17-doctor-kasbokar", "title": "دکتر کسب‌وکار", "path": "/business-doctor" },
+  { "folder": "18-otagh-jalase", "title": "اتاق جلسه هوش مصنوعی", "path": "/meeting" },
+  { "folder": "19-daavat-etebar", "title": "دعوت کن، اعتبار بگیر", "path": "/referral" }
+]
