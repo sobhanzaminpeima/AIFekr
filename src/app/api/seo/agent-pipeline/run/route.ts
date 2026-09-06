@@ -6,12 +6,16 @@ import { prisma } from "@/lib/db/prisma";
 import { routedStreamChat } from "@/lib/ai/router";
 import {
   AgentKey, buildSystemPrompt, EDITOR_PASS_THRESHOLD, MAX_WRITER_RETRIES,
-  FA_TO_AGENT_KEY, extractEditorScore,
+  resolveCriticAgent, extractEditorScore,
 } from "@/lib/agents/contentPipeline";
 import { markdownToHtml } from "@/lib/utils/markdownToHtml";
 import { hasTavily, searchWeb, formatSearchResultsForPrompt } from "@/lib/search/tavily";
 import { rankByRelevance, embedForStorage } from "@/lib/rag/retrieve";
 import { looksLikeInjectionAttempt } from "@/lib/ai/promptSafety";
+import { getServerLang } from "@/lib/i18n/server";
+import type { Lang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n/tri";
+import { readPipelineField } from "@/lib/agents/contentPipelineLabels";
 
 interface PublishResult { status: "not_published" | "published" | "failed" | "held_for_review"; url: string | null; error: string | null }
 
@@ -54,7 +58,8 @@ async function runAgent(
   input: string,
   brandVoice: string | undefined,
   attempt: number,
-  send: (event: Record<string, unknown>) => void
+  send: (event: Record<string, unknown>) => void,
+  lang: Lang,
 ): Promise<string> {
   send({ type: "agentStart", agentKey: key, attempt });
 
@@ -87,7 +92,7 @@ async function runAgent(
     data: { runId, agentKey: key, attempt, input, status: "running" },
   });
 
-  const systemPrompt = buildSystemPrompt(key, brandVoice, lessons, crossTeamLessons);
+  const systemPrompt = buildSystemPrompt(key, brandVoice, lessons, crossTeamLessons, lang);
   let output = "";
 
   try {
@@ -126,18 +131,22 @@ export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
+  // The whole 8-agent chain used to be Persian-only with no language input at
+  // all, so an English or German user got a Persian article out of it.
+  const lang = await getServerLang();
+
   const body = await req.json();
   const { topic, brandVoice } = body as { topic?: string; brandVoice?: string };
-  if (!topic?.trim()) return NextResponse.json({ error: "موضوع الزامی است" }, { status: 400 });
+  if (!topic?.trim()) return NextResponse.json({ error: tri(lang, "موضوع الزامی است", "A topic is required", "Ein Thema ist erforderlich") }, { status: 400 });
   // Unbounded topic/brandVoice text flows into every one of the 8 agent prompts below —
   // without a cap, a pasted essay multiplies token cost 8x and risks context overflow
   // in later agents that already carry lessons + research + prior drafts.
   const MAX_INPUT_LEN = 2000;
   if (topic.length > MAX_INPUT_LEN) {
-    return NextResponse.json({ error: `موضوع نباید بیشتر از ${MAX_INPUT_LEN} کاراکتر باشد` }, { status: 400 });
+    return NextResponse.json({ error: tri(lang, `موضوع نباید بیشتر از ${MAX_INPUT_LEN} کاراکتر باشد`, `The topic must not exceed ${MAX_INPUT_LEN} characters`, `Das Thema darf ${MAX_INPUT_LEN} Zeichen nicht überschreiten`) }, { status: 400 });
   }
   if (brandVoice && brandVoice.length > MAX_INPUT_LEN) {
-    return NextResponse.json({ error: `لحن برند نباید بیشتر از ${MAX_INPUT_LEN} کاراکتر باشد` }, { status: 400 });
+    return NextResponse.json({ error: tri(lang, `لحن برند نباید بیشتر از ${MAX_INPUT_LEN} کاراکتر باشد`, `The brand voice must not exceed ${MAX_INPUT_LEN} characters`, `Die Markenstimme darf ${MAX_INPUT_LEN} Zeichen nicht überschreiten`) }, { status: 400 });
   }
 
   // Self-healing cleanup: if a previous run of this user's got orphaned mid-flight
@@ -169,43 +178,46 @@ export async function POST(req: NextRequest) {
       send({ type: "runId", id: run.id });
 
       try {
-        const ideas = await runAgent(user.id, run.id, "ideaFinder", `موضوع/صنعت کسب‌وکار: ${topic}`, brandVoice, 1, send);
-        const strategy = await runAgent(user.id, run.id, "strategist", ideas, brandVoice, 1, send);
+        const ideas = await runAgent(user.id, run.id, "ideaFinder", `${tri(lang, "موضوع/صنعت کسب‌وکار", "Business topic/industry", "Thema/Branche des Unternehmens")}: ${topic}`, brandVoice, 1, send, lang);
+        const strategy = await runAgent(user.id, run.id, "strategist", ideas, brandVoice, 1, send, lang);
 
-        const finalTitle = /عنوان نهایی\s*:\s*(.+)/.exec(strategy)?.[1]?.trim() || topic;
+        const finalTitle = readPipelineField(strategy, "finalTitle") || topic;
         const searchResults = hasTavily ? await searchWeb(`${finalTitle} ${topic}`) : null;
         const researcherInput = searchResults
-          ? `${strategy}\n\n--- نتایج جستجوی زندهٔ وب (استفاده کن، منابع را ذکر کن) ---\n${formatSearchResultsForPrompt(searchResults)}`
+          // The glue text between agents matters as much as the prompts: the
+          // researcher's own system prompt refers to this heading by name, so
+          // leaving it Persian while the prompt is German breaks the link.
+          ? `${strategy}\n\n--- ${tri(lang, "نتایج جستجوی زندهٔ وب (استفاده کن، منابع را ذکر کن)", "live web search results (use these, cite the sources)", "Live-Websuchergebnisse (nutze diese, nenne die Quellen)")} ---\n${formatSearchResultsForPrompt(searchResults)}`
           : strategy;
-        const research = await runAgent(user.id, run.id, "researcher", researcherInput, brandVoice, 1, send);
+        const research = await runAgent(user.id, run.id, "researcher", researcherInput, brandVoice, 1, send, lang);
 
         let draft = await runAgent(
           user.id, run.id, "writer",
-          `${strategy}\n\nفکت‌ها و سوالات متداول تحقیق‌شده:\n${research}`,
-          brandVoice, 1, send
+          `${strategy}\n\n${tri(lang, "فکت‌ها و سوالات متداول تحقیق‌شده", "Researched facts and FAQ", "Recherchierte Fakten und FAQ")}:\n${research}`,
+          brandVoice, 1, send, lang,
         );
 
         let editorOutput = "";
         let score = 0;
         let writerAttempt = 1;
         for (let round = 0; round <= MAX_WRITER_RETRIES; round++) {
-          editorOutput = await runAgent(user.id, run.id, "editor", draft, brandVoice, round + 1, send);
+          editorOutput = await runAgent(user.id, run.id, "editor", draft, brandVoice, round + 1, send, lang);
           score = extractEditorScore(editorOutput) ?? 0;
           if (score >= EDITOR_PASS_THRESHOLD || round === MAX_WRITER_RETRIES) break;
           writerAttempt += 1;
           draft = await runAgent(
             user.id, run.id, "writer",
-            `نسخهٔ قبلی مقاله:\n${draft}\n\nبازخورد ویراستار که باید اعمال کنی:\n${editorOutput}`,
-            brandVoice, writerAttempt, send
+            `${tri(lang, "نسخهٔ قبلی مقاله", "Previous version of the article", "Vorherige Fassung des Artikels")}:\n${draft}\n\n${tri(lang, "بازخورد ویراستار که باید اعمال کنی", "Editor feedback you must apply", "Redaktionelles Feedback, das du umsetzen musst")}:\n${editorOutput}`,
+            brandVoice, writerAttempt, send, lang,
           );
         }
 
-        const seoOutput = await runAgent(user.id, run.id, "seo", draft, brandVoice, 1, send);
-        const metaTitle = /عنوان سئو\s*:\s*(.+)/.exec(seoOutput)?.[1]?.trim() || topic;
-        const metaDescription = /توضیحات متا\s*:\s*(.+)/.exec(seoOutput)?.[1]?.trim() || "";
-        const slug = /اسلاگ\s*:\s*(.+)/.exec(seoOutput)?.[1]?.trim() || `post-${run.id}`;
-        const keywords = /کلمات کلیدی\s*:\s*(.+)/.exec(seoOutput)?.[1]?.trim() || "";
-        const titleLine = /عنوان نهایی\s*:\s*(.+)/.exec(strategy)?.[1]?.trim() || topic;
+        const seoOutput = await runAgent(user.id, run.id, "seo", draft, brandVoice, 1, send, lang);
+        const metaTitle = readPipelineField(seoOutput, "seoTitle") || topic;
+        const metaDescription = readPipelineField(seoOutput, "metaDescription") || "";
+        const slug = readPipelineField(seoOutput, "slug") || `post-${run.id}`;
+        const keywords = readPipelineField(seoOutput, "keywords") || "";
+        const titleLine = readPipelineField(strategy, "finalTitle") || topic;
 
         // From here on, the article itself (draft + seoOutput) is already
         // complete — publisher narration, external publish, and critic
@@ -214,7 +226,7 @@ export async function POST(req: NextRequest) {
         // instead of sharing the outer try/catch that marks the whole run
         // "failed" (and skips creating the ContentPost).
         try {
-          await runAgent(user.id, run.id, "publisher", `${draft}\n\n${seoOutput}`, brandVoice, 1, send);
+          await runAgent(user.id, run.id, "publisher", `${draft}\n\n${seoOutput}`, brandVoice, 1, send, lang);
         } catch (err) {
           console.warn("Publisher narration step failed (non-fatal):", err);
         }
@@ -228,7 +240,7 @@ export async function POST(req: NextRequest) {
         const suspicious = [topic, brandVoice, titleLine, draft, seoOutput]
           .some((text) => text && looksLikeInjectionAttempt(text));
         const publishResult: PublishResult = suspicious
-          ? { status: "held_for_review", url: null, error: "محتوا برای بازبینی نگه داشته شد — الگویی مشابه تلاش برای دستکاری خودکار در متن یا نتایج جستجو شناسایی شد. لطفاً پیش از انتشار، محتوا را بررسی کنید." }
+          ? { status: "held_for_review", url: null, error: tri(lang, "محتوا برای بازبینی نگه داشته شد — الگویی مشابه تلاش برای دستکاری خودکار در متن یا نتایج جستجو شناسایی شد. لطفاً پیش از انتشار، محتوا را بررسی کنید.", "Content held for review — a pattern resembling an attempted prompt injection was detected in the text or the search results. Please review it before publishing.", "Inhalt zur Prüfung zurückgehalten — im Text oder in den Suchergebnissen wurde ein Muster erkannt, das einem Manipulationsversuch ähnelt. Bitte prüfen Sie ihn vor der Veröffentlichung.") }
           : await publishToConnectedSite(user.id, titleLine, draft, slug, metaDescription);
 
         const post = await prisma.contentPost.create({
@@ -256,11 +268,14 @@ export async function POST(req: NextRequest) {
         send({ type: "runDone", runId: run.id, postId: post.id });
 
         try {
-          const critique = await runAgent(user.id, run.id, "critic", draft, brandVoice, 1, send);
+          const critique = await runAgent(user.id, run.id, "critic", draft, brandVoice, 1, send, lang);
           const lessonLines = critique.split("\n").filter((l) => l.includes(":"));
           for (const line of lessonLines) {
-            const [faLabel, ...rest] = line.split(":");
-            const agentKey = FA_TO_AGENT_KEY[faLabel.trim()];
+            const [label, ...rest] = line.split(":");
+            // The critic emits the agentKey now; the Persian display names it
+            // used to emit still resolve, so a run started before this change
+            // still attributes its lessons instead of dropping them.
+            const agentKey = resolveCriticAgent(label);
             const text = rest.join(":").trim();
             if (agentKey && text) {
               const embedding = await embedForStorage(text);
@@ -273,7 +288,7 @@ export async function POST(req: NextRequest) {
       } catch (err) {
         console.error("Agent pipeline error:", err);
         await prisma.contentPipelineRun.update({ where: { id: run.id }, data: { status: "failed" } }).catch(() => {});
-        send({ type: "error", message: "خطا در اجرای زنجیره agent ها. لطفاً دوباره تلاش کنید." });
+        send({ type: "error", message: tri(lang, "خطا در اجرای زنجیره agent ها. لطفاً دوباره تلاش کنید.", "The agent chain failed. Please try again.", "Die Agenten-Kette ist fehlgeschlagen. Bitte versuchen Sie es erneut.") });
       } finally {
         controller.close();
       }
