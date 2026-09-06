@@ -64,3 +64,6 @@ tsc-errors.txt
 
 # vendored OpenMontage tool (nested git repo, venv, node_modules, .env — not part of AIfekr app)
 /tools/openmontage/
+
+# CodeCortex local index (generated, machine-specific — regenerate with `cortex init .`)
+/.codecortex/
