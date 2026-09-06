@@ -48,7 +48,7 @@ export interface ProfitAndLossResult {
   expenseTotal: number;
   netProfit: number;
   revenueByAccount: { code: string; name: string; nameEn: string | null; amount: number }[];
-  expenseByAccount: { code: string; name: string; nameEn: string | null; amount: number }[];
+  expenseByAccount: { code: string; name: string; nameEn: string | null; nameDe: string | null; amount: number }[];
 }
 
 /** Basic P&L for [from, to] — revenue accounts' credit balance minus expense accounts' debit balance. */
@@ -79,7 +79,7 @@ export async function getProfitAndLoss(workspaceUserId: string, from: Date, to: 
     } else {
       const amount = debitTotal - creditTotal;
       if (amount !== 0) {
-        expenseByAccount.push({ code: account.code, name: account.name, nameEn: account.nameEn, amount });
+        expenseByAccount.push({ code: account.code, name: account.name, nameEn: account.nameEn, nameDe: account.nameDe, amount });
         expenseTotal += amount;
       }
     }

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { accountName } from "@/lib/accounting/accountName";
 import { getProfitAndLoss, getTrialBalance } from "./reports";
 import { getVatReport } from "./tax";
 import { sendEmail } from "@/lib/email/resend";
@@ -95,7 +96,7 @@ export async function renderReportContent(workspaceUserId: string, reportType: R
   const subjectLabel = reportType === "weekly_summary" ? (isFa ? "خلاصه هفتگی مالی" : "Weekly Financial Summary") : (isFa ? "صورت سود و زیان ماهانه" : "Monthly P&L");
   const subject = `${subjectLabel} — ${label}`;
   const rows = pl.expenseByAccount
-    .map((e) => `<tr><td style="padding:6px;border-bottom:1px solid #eee;">${isFa ? e.name : e.nameEn || e.name}</td><td style="padding:6px;border-bottom:1px solid #eee;">${e.amount.toLocaleString()}</td></tr>`)
+    .map((e) => `<tr><td style="padding:6px;border-bottom:1px solid #eee;">${accountName(e, lang)}</td><td style="padding:6px;border-bottom:1px solid #eee;">${e.amount.toLocaleString()}</td></tr>`)
     .join("");
   const html = `<div dir="${isFa ? "rtl" : "ltr"}" style="font-family:Tahoma,Arial;padding:24px;">
     <h2>${subject}</h2>

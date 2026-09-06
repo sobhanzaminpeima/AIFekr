@@ -6,6 +6,7 @@ import { Wallet, TrendingUp, TrendingDown, AlertCircle, Users, Home, ArrowUpRigh
 import { linkifyCitations } from "@/lib/accounting/linkifyCitations";
 import { tri } from "@/lib/i18n";
 import { useAccountingLocale } from "@/lib/accounting/useAccountingLocale";
+import { accountName } from "@/lib/accounting/accountName";
 
 interface DashboardData {
   cashBalance: number;
@@ -15,7 +16,7 @@ interface DashboardData {
   monthExpense: number;
   monthNetProfit: number;
   trend: { label: string; revenue: number; expense: number }[];
-  expenseByCategory: { code: string; name: string; nameEn: string | null; amount: number }[];
+  expenseByCategory: { code: string; name: string; nameEn: string | null; nameDe: string | null; amount: number }[];
   overdueInvoices: { id: string; invoiceNumber: string; total: number; dueDate: string | null; contactName: string }[];
   pendingCommissions: { id: string; dealTitle: string; agentUserId: string; amount: number }[];
   bankUnreconciledCount: number;
@@ -132,8 +133,9 @@ export default function AccountingDashboardPage() {
               {data.expenseByCategory.slice(0, 5).map((cat, i) => (
                 <div key={cat.code}>
                   <div className="flex items-center justify-between text-xs mb-1">
-                    {/* nameEn exists on the account row — use it once the reader isn't on Persian */}
-                    <span style={{ color: "var(--text-secondary)" }}>{lang === "fa" ? cat.name : (cat.nameEn || cat.name)}</span>
+                    {/* The account row carries nameEn and nameDe; German used to
+                        fall through to the English name because nameDe was never read. */}
+                    <span style={{ color: "var(--text-secondary)" }}>{accountName(cat, lang)}</span>
                     <span style={{ color: "var(--text-primary)" }}>{fmt(cat.amount)}</span>
                   </div>
                   <div className="h-2 rounded-full" style={{ background: "var(--surface-2)" }}>

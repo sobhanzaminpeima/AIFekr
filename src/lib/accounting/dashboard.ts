@@ -11,7 +11,7 @@ export interface DashboardData {
   monthNetProfit: number;
   /** Last 6 months, oldest first — for the revenue/expense trend chart. */
   trend: { label: string; revenue: number; expense: number }[];
-  expenseByCategory: { code: string; name: string; nameEn: string | null; amount: number }[];
+  expenseByCategory: { code: string; name: string; nameEn: string | null; nameDe: string | null; amount: number }[];
   overdueInvoices: { id: string; invoiceNumber: string; total: number; dueDate: Date | null; contactName: string }[];
   pendingCommissions: { id: string; dealTitle: string; agentUserId: string; amount: number }[];
   bankUnreconciledCount: number;
