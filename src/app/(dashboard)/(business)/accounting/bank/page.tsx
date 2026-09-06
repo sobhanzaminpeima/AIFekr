@@ -193,7 +193,7 @@ export default function BankPage() {
                     <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{new Date(t.date).toLocaleDateString(lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US")}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium" style={{ color: t.amount < 0 ? "#e34948" : "#1baf7a" }}>{fmt(t.amount)}</span>
+                    <span className="text-sm font-medium" style={{ color: t.amount < 0 ? "var(--neg)" : "var(--pos)" }}>{fmt(t.amount)}</span>
                     <button disabled={busy} onClick={() => getCandidates(t.id)} className="text-xs px-2.5 py-1 rounded-lg" style={{ background: "var(--surface-1)", color: "var(--text-secondary)" }}>{tri(lang, "یافتن تطبیق", "Find a match", "Abgleich suchen")}</button>
                     <button disabled={busy} onClick={() => ignoreTxn(t.id)} className="p-1.5 rounded-lg" style={{ color: "var(--text-muted)" }}><XCircle className="w-4 h-4" /></button>
                   </div>
@@ -226,7 +226,7 @@ export default function BankPage() {
             {resolved.map((t) => (
               <div key={t.id} className="flex items-center justify-between text-sm py-1.5" style={{ borderBottom: "1px solid var(--border)" }}>
                 <span style={{ color: "var(--text-secondary)" }}>{t.description}</span>
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: t.status === "matched" ? "rgba(27,175,122,0.12)" : "var(--surface-2)", color: t.status === "matched" ? "#1baf7a" : "var(--text-muted)" }}>
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: t.status === "matched" ? "rgba(27,175,122,0.12)" : "var(--surface-2)", color: t.status === "matched" ? "var(--pos)" : "var(--text-muted)" }}>
                   {t.status === "matched" ? tri(lang, "تطبیق‌شده", "Matched", "Abgeglichen") : tri(lang, "نادیده‌گرفته‌شده", "Ignored", "Ignoriert")}
                 </span>
               </div>

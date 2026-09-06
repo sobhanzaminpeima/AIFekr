@@ -37,7 +37,7 @@ interface PayrollRun {
 const STATUS_STYLE: Record<PayrollRun["status"], { color: string; bg: string }> = {
   draft: { color: "var(--text-secondary)", bg: "var(--surface-2)" },
   approved: { color: "#eda100", bg: "rgba(237,161,0,0.12)" },
-  paid: { color: "#1baf7a", bg: "rgba(27,175,122,0.12)" },
+  paid: { color: "var(--pos)", bg: "rgba(27,175,122,0.12)" },
 };
 
 function statusLabel(status: PayrollRun["status"], lang: Lang): string {
@@ -223,7 +223,7 @@ export default function PayrollPage() {
                       </button>
                     )}
                     {run.status === "approved" && (
-                      <button disabled={busy} onClick={() => runAction(run.id, "pay")} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium" style={{ background: "#1baf7a", color: "#fff" }}>
+                      <button disabled={busy} onClick={() => runAction(run.id, "pay")} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium" style={{ background: "var(--pos)", color: "#fff" }}>
                         <Wallet className="w-4 h-4" />{tri(lang, "ثبت پرداخت", "Record payment", "Zahlung erfassen")}
                       </button>
                     )}

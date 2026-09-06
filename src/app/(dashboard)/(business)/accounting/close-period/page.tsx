@@ -142,7 +142,7 @@ export default function ClosePeriodPage() {
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{fmtDate(p.startDate)} {tri(lang, "تا", "to", "bis")} {fmtDate(p.endDate)}</span>
                   {p.isLocked ? (
-                    <span className="text-xs font-medium px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: "rgba(27,175,122,0.12)", color: "#1baf7a" }}><Lock className="w-3 h-3" />{tri(lang, "بسته‌شده", "Closed", "Abgeschlossen")}</span>
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: "rgba(27,175,122,0.12)", color: "var(--pos)" }}><Lock className="w-3 h-3" />{tri(lang, "بسته‌شده", "Closed", "Abgeschlossen")}</span>
                   ) : (
                     <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{tri(lang, "باز", "Open", "Offen")}</span>
                   )}
@@ -159,7 +159,7 @@ export default function ClosePeriodPage() {
                     </button>
                   )}
                   {p.isLocked && (
-                    <button disabled={busy} onClick={() => periodAction(p.id, "reopen")} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium" style={{ background: "var(--surface-2)", color: "#e34948", border: "1px solid var(--border)" }}>
+                    <button disabled={busy} onClick={() => periodAction(p.id, "reopen")} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium" style={{ background: "var(--surface-2)", color: "var(--neg)", border: "1px solid var(--border)" }}>
                       <Unlock className="w-3.5 h-3.5" />{tri(lang, "باز", "Open", "Offen")}گشایی
                     </button>
                   )}
@@ -169,7 +169,7 @@ export default function ClosePeriodPage() {
               {report && (
                 <div className="mt-3 rounded-lg p-3" style={{ background: "var(--surface-2)" }}>
                   {report.readyToClose ? (
-                    <div className="flex items-center gap-1.5 text-sm" style={{ color: "#1baf7a" }}><CheckCircle2 className="w-4 h-4" />{tri(lang, "همه چیز تمیز است — این دوره آماده بستن است", "Everything is clean — this period is ready to close", "Alles sauber — diese Periode kann abgeschlossen werden")}</div>
+                    <div className="flex items-center gap-1.5 text-sm" style={{ color: "var(--pos)" }}><CheckCircle2 className="w-4 h-4" />{tri(lang, "همه چیز تمیز است — این دوره آماده بستن است", "Everything is clean — this period is ready to close", "Alles sauber — diese Periode kann abgeschlossen werden")}</div>
                   ) : (
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-1.5 text-sm font-medium" style={{ color: "#eda100" }}><AlertTriangle className="w-4 h-4" />{report.findings.length} {tri(lang, "مورد باز پیدا شد", "open items found", "offene Posten gefunden")}</div>

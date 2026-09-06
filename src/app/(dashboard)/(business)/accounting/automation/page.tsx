@@ -36,7 +36,7 @@ function reportTypeLabel(type: ScheduledReport["reportType"], lang: Lang): strin
 const STATUS_STYLE: Record<ScheduledReport["status"], { color: string; bg: string }> = {
   pending_first_approval: { color: "var(--text-secondary)", bg: "var(--surface-2)" },
   awaiting_approval: { color: "#eda100", bg: "rgba(237,161,0,0.12)" },
-  active: { color: "#1baf7a", bg: "rgba(27,175,122,0.12)" },
+  active: { color: "var(--pos)", bg: "rgba(27,175,122,0.12)" },
   paused: { color: "var(--text-muted)", bg: "var(--surface-2)" },
 };
 
@@ -207,7 +207,7 @@ export default function AccountingAutomationPage() {
                     {r.status === "paused" && (
                       <button disabled={busy} onClick={() => reportAction(r.id, "resume")} className="p-1.5 rounded-lg" style={{ background: "var(--surface-1)", color: "var(--text-secondary)" }} title={tri(lang, tri(lang, "از سرگیری", "Resume", "Fortsetzen"), "Resume", "Fortsetzen")}><Play className="w-4 h-4" /></button>
                     )}
-                    <button disabled={busy} onClick={() => deleteReport(r.id)} className="p-1.5 rounded-lg" style={{ background: "var(--surface-1)", color: "#e34948" }} title={tri(lang, tri(lang, "حذف", "Delete", "Löschen"), "Delete", "Löschen")}><Trash2 className="w-4 h-4" /></button>
+                    <button disabled={busy} onClick={() => deleteReport(r.id)} className="p-1.5 rounded-lg" style={{ background: "var(--surface-1)", color: "var(--neg)" }} title={tri(lang, tri(lang, "حذف", "Delete", "Löschen"), "Delete", "Löschen")}><Trash2 className="w-4 h-4" /></button>
                   </div>
                 </div>
 
@@ -267,7 +267,7 @@ export default function AccountingAutomationPage() {
                 <span style={{ color: "var(--text-primary)" }}>{t.label}</span>
                 <span className="text-xs ms-2" style={{ color: "var(--text-muted)" }}>{t.lastUsedAt ? `${tri(lang, "آخرین استفاده", "Last used", "Zuletzt verwendet")}: ${new Date(t.lastUsedAt).toLocaleDateString(lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US")}` : "هنوز استفاده نشده"}</span>
               </div>
-              <button disabled={busy} onClick={() => revokeToken(t.id)} className="text-xs px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "#e34948" }}>{tri(lang, "ابطال", "Revoke", "Widerrufen")}</button>
+              <button disabled={busy} onClick={() => revokeToken(t.id)} className="text-xs px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--neg)" }}>{tri(lang, "ابطال", "Revoke", "Widerrufen")}</button>
             </div>
           ))}
         </div>

@@ -172,7 +172,7 @@ export default function LedgerSetupPage() {
           ) : budgetRows.map((r) => (
             <div key={r.accountCode} className="flex items-center justify-between text-sm py-1.5" style={{ borderBottom: "1px solid var(--border)" }}>
               <span style={{ color: "var(--text-primary)" }}>{r.accountName}</span>
-              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{tri(lang, "بودجه", "Budget", "Budget")}: {fmt(r.budgeted)} — {tri(lang, "واقعی", "Actual", "Ist")}: {fmt(r.actual)} — {tri(lang, "انحراف", "Variance", "Abweichung")}: <span style={{ color: r.variance > 0 ? "#e34948" : "#1baf7a" }}>{Math.round(r.variancePercent)}٪</span></span>
+              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{tri(lang, "بودجه", "Budget", "Budget")}: {fmt(r.budgeted)} — {tri(lang, "واقعی", "Actual", "Ist")}: {fmt(r.actual)} — {tri(lang, "انحراف", "Variance", "Abweichung")}: <span style={{ color: r.variance > 0 ? "var(--neg)" : "var(--pos)" }}>{Math.round(r.variancePercent)}٪</span></span>
             </div>
           ))}
         </div>

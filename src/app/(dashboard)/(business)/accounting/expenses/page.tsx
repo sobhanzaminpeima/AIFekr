@@ -23,8 +23,8 @@ interface Expense {
 const STATUS_STYLE: Record<Expense["status"], { color: string; bg: string }> = {
   pending_approval: { color: "#eda100", bg: "rgba(237,161,0,0.12)" },
   approved: { color: "var(--text-secondary)", bg: "var(--surface-2)" },
-  rejected: { color: "#e34948", bg: "rgba(227,73,72,0.12)" },
-  paid: { color: "#1baf7a", bg: "rgba(27,175,122,0.12)" },
+  rejected: { color: "var(--neg)", bg: "rgba(227,73,72,0.12)" },
+  paid: { color: "var(--pos)", bg: "rgba(27,175,122,0.12)" },
 };
 
 function statusLabel(status: Expense["status"], lang: Lang): string {
@@ -243,12 +243,12 @@ export default function ExpensesPage() {
                   {e.status === "pending_approval" && (
                     <>
                       <button disabled={busy} onClick={() => askAiCategory(e.id)} className="p-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }} title={tri(lang, "پیشنهاد دسته‌بندی هوشمند", "Suggest a category with AI", "Kategorie per KI vorschlagen")}><Sparkles className="w-4 h-4" /></button>
-                      <button disabled={busy} onClick={() => expenseAction(e.id, "approve")} className="p-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "#1baf7a" }} title={tri(lang, "تأیید", "Approve", "Genehmigen")}><CheckCircle2 className="w-4 h-4" /></button>
-                      <button disabled={busy} onClick={() => expenseAction(e.id, "reject")} className="p-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "#e34948" }} title={tri(lang, "رد", "Reject", "Ablehnen")}><XCircle className="w-4 h-4" /></button>
+                      <button disabled={busy} onClick={() => expenseAction(e.id, "approve")} className="p-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--pos)" }} title={tri(lang, "تأیید", "Approve", "Genehmigen")}><CheckCircle2 className="w-4 h-4" /></button>
+                      <button disabled={busy} onClick={() => expenseAction(e.id, "reject")} className="p-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--neg)" }} title={tri(lang, "رد", "Reject", "Ablehnen")}><XCircle className="w-4 h-4" /></button>
                     </>
                   )}
                   {e.status === "approved" && (
-                    <button disabled={busy} onClick={() => expenseAction(e.id, "pay")} className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium" style={{ background: "#1baf7a", color: "#fff" }}>
+                    <button disabled={busy} onClick={() => expenseAction(e.id, "pay")} className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium" style={{ background: "var(--pos)", color: "#fff" }}>
                       <Wallet className="w-3.5 h-3.5" />{tri(lang, "ثبت پرداخت", "Record payment", "Zahlung erfassen")}
                     </button>
                   )}

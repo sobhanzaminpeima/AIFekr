@@ -25,7 +25,7 @@ interface DashboardData {
 // Reference categorical palette (dataviz skill) — fixed order, validated for
 // adjacent-pair CVD separation. Revenue = slot 1 (blue), Expense = slot 2
 // (orange), expense categories beyond that continue the same fixed order.
-const SERIES_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"];
+const SERIES_COLORS = ["#2a78d6", "#eb6834", "var(--pos)", "#eda100", "#e87ba4"];
 
 export default function AccountingDashboardPage() {
   const { lang, dir, fmtNum: fmt } = useAccountingLocale();
@@ -161,7 +161,7 @@ export default function AccountingDashboardPage() {
                     {/* logical margin (ms-*) so the gap flips with dir, unlike the old mr-2 */}
                     <span className="text-xs ms-2" style={{ color: "var(--text-muted)" }}>{inv.contactName}</span>
                   </div>
-                  <span className="text-xs font-medium" style={{ color: "#e34948" }}>{fmt(inv.total)}</span>
+                  <span className="text-xs font-medium" style={{ color: "var(--neg)" }}>{fmt(inv.total)}</span>
                 </div>
               ))}
             </div>
@@ -184,11 +184,11 @@ export default function AccountingDashboardPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "وضعیت تطبیق بانکی", "Bank reconciliation status", "Status des Bankabgleichs")}</h2>
           {data.bankUnreconciledCount > 0 ? (
-            <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ background: "rgba(227,73,72,0.12)", color: "#e34948" }}>
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ background: "rgba(227,73,72,0.12)", color: "var(--neg)" }}>
               {data.bankUnreconciledCount} {tri(lang, "تراکنش تطبیق‌نشده", "unreconciled transactions", "nicht abgeglichene Buchungen")}
             </span>
           ) : (
-            <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ background: "rgba(27,175,122,0.12)", color: "#1baf7a" }}>{tri(lang, "همه تطبیق شده", "All reconciled", "Alle abgeglichen")}</span>
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ background: "rgba(27,175,122,0.12)", color: "var(--pos)" }}>{tri(lang, "همه تطبیق شده", "All reconciled", "Alle abgeglichen")}</span>
           )}
         </div>
       </div>
@@ -282,7 +282,7 @@ function CashFlowNarrativeCard() {
           {loading ? tri(lang, "در حال تولید...", "Generating…", "Wird erstellt…") : text ? tri(lang, "تولید دوباره", "Regenerate", "Neu erstellen") : tri(lang, "تولید خلاصه", "Generate summary", "Zusammenfassung erstellen")}
         </button>
       </div>
-      {error && <p className="text-xs" style={{ color: "#e34948" }}>{error}</p>}
+      {error && <p className="text-xs" style={{ color: "var(--neg)" }}>{error}</p>}
       {text && <p className="text-sm leading-6" style={{ color: "var(--text-secondary)" }}>{linkifyCitations(text)}</p>}
       {!text && !loading && !error && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{tri(lang, "بر اساس پیش‌بینی جریان نقدی ۳ ماه آینده، یک خلاصهٔ روایی کوتاه می‌سازد.", "Writes a short narrative summary from the next 3 months' cash-flow forecast.", "Erstellt eine kurze Zusammenfassung aus der Cashflow-Prognose der nächsten 3 Monate.")}</p>}
     </div>
@@ -290,7 +290,7 @@ function CashFlowNarrativeCard() {
 }
 
 function KpiCard({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: string; tone?: "good" | "bad" }) {
-  const color = tone === "good" ? "#1baf7a" : tone === "bad" ? "#e34948" : "var(--text-primary)";
+  const color = tone === "good" ? "var(--pos)" : tone === "bad" ? "var(--neg)" : "var(--text-primary)";
   return (
     <div className="rounded-2xl p-3.5" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
       <div className="flex items-center gap-1.5 mb-1.5" style={{ color: "var(--text-muted)" }}>

@@ -16,7 +16,17 @@
   --border-hover: rgba(255, 255, 255, 0.15);
   --text-primary: #f5f5f5;
   --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
+  /* Was #71717a, which lands at 3.6:1 on --surface-1 and fails WCAG AA (4.5:1)
+     for the 12px labels this token is mostly used on — KPI captions, empty
+     states, table headers. #8a8a94 clears 5.09:1 on --surface-1 and 5.61:1 on
+     --surface-0 while staying clearly dimmer than --text-secondary. */
+  --text-muted: #8a8a94;
+  /* Positive/negative figures (money in vs. money out). These were literal
+     hexes tuned for the dark theme, so on a white background they dropped to
+     2.8:1 and 3.4:1 — below WCAG AA. Tokenised here so each theme gets a
+     shade that stays the same hue but actually reads. */
+  --pos: #1baf7a;
+  --neg: #ea5a59;
   --success: #22c55e;
   --warning: #f59e0b;
   --danger: #ef4444;
@@ -32,7 +42,11 @@
   --border-hover: rgba(0, 0, 0, 0.15);
   --text-primary: #111111;
   --text-secondary: #52525b;
-  --text-muted: #a1a1aa;
+  /* Light mode was worse than dark: #a1a1aa is only 2.56:1 on white. #6b6b75
+     clears 5.27:1 on --surface-1 and 4.83:1 on --surface-0. */
+  --text-muted: #6b6b75;
+  --pos: #0d8257;
+  --neg: #c62f2e;
 }
 
 * {

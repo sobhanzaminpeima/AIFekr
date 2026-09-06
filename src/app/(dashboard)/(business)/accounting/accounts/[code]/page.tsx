@@ -38,7 +38,7 @@ export default function AccountLedgerPage() {
   }, [code]);
 
   if (loading) return <div className="p-6 text-center" style={{ color: "var(--text-muted)" }}>{tri(lang, "در حال بارگذاری...", "Loading…", "Wird geladen…")}</div>;
-  if (error) return <div className="p-6 text-center text-sm" style={{ color: "#e34948" }}>{error}</div>;
+  if (error) return <div className="p-6 text-center text-sm" style={{ color: "var(--neg)" }}>{error}</div>;
   if (!account) return null;
 
   const debitTotal = lines.reduce((s, l) => s + l.debit, 0);
@@ -79,7 +79,7 @@ export default function AccountLedgerPage() {
                     <td className="py-2 text-xs" style={{ color: "var(--text-secondary)" }}>{new Date(l.entry.entryDate).toLocaleDateString(lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US")}</td>
                     <td className="py-2 text-xs" style={{ color: "var(--text-primary)" }}>
                       {l.memo || l.entry.memo || "—"}
-                      {l.entry.isReversed && <span className="mr-1.5 text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(227,73,72,0.12)", color: "#e34948" }}>{tri(lang, "برگشت‌خورده", "Reversed", "Storniert")}</span>}
+                      {l.entry.isReversed && <span className="mr-1.5 text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(227,73,72,0.12)", color: "var(--neg)" }}>{tri(lang, "برگشت‌خورده", "Reversed", "Storniert")}</span>}
                     </td>
                     <td className="py-2 text-xs text-left" style={{ color: l.debit ? "var(--text-primary)" : "var(--text-muted)" }}>{l.debit ? fmt(l.debit) : "—"}</td>
                     <td className="py-2 text-xs text-left" style={{ color: l.credit ? "var(--text-primary)" : "var(--text-muted)" }}>{l.credit ? fmt(l.credit) : "—"}</td>
