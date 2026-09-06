@@ -603,10 +603,20 @@ model CrmContact {
   notesList         CrmNote[]
   projects          CrmProject[]
   voiceCallLogs     VoiceCallLog[]
-  properties        Property[]
+  /// Sale/rent-side link (Property.crmContactId) — a contact IS an owner by
+  /// being linked here; see /api/crm/owners. Named explicitly because a
+  /// second, separate link (below) also points Property -> CrmContact.
+  properties        Property[]         @relation("PropertyCrmContact")
   viewings          PropertyViewing[]
   bookings          PropertyBooking[]
   propertyInterests PropertyInterest[]
+  /// Accounting module's rental-income owner (Property.ownerContactId) —
+  /// was a plain unrelated string column, which meant a contact who was
+  /// ONLY ever set as a rental owner (never the sale/rent crmContactId)
+  /// never appeared in /api/crm/owners at all, and never showed a name on
+  /// the owner-statements page. Named separately from `properties` above
+  /// since both are Property -> CrmContact links.
+  ownedRentalProperties Property[]      @relation("PropertyOwnerContact")
 
   @@index([userId])
   @@index([status])
@@ -1662,7 +1672,11 @@ model Property {
 
   user              User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
   agent             VoiceAgent?                @relation(fields: [agentId], references: [id], onDelete: SetNull)
-  crmContact        CrmContact?                @relation(fields: [crmContactId], references: [id], onDelete: SetNull)
+  crmContact        CrmContact?                @relation("PropertyCrmContact", fields: [crmContactId], references: [id], onDelete: SetNull)
+  /// The accounting module's rental-income owner (see ownerContactId doc
+  /// comment above) — now a real relation so it can be `include`d instead
+  /// of joined by hand.
+  ownerContact      CrmContact?                @relation("PropertyOwnerContact", fields: [ownerContactId], references: [id], onDelete: SetNull)
   crmDeal           CrmDeal?                   @relation(fields: [crmDealId], references: [id], onDelete: SetNull)
   crmProject        CrmProject?                @relation(fields: [crmProjectId], references: [id], onDelete: SetNull)
   appointments      VoiceAppointment[]
@@ -1676,6 +1690,7 @@ model Property {
   @@index([userId])
   @@index([agentId])
   @@index([crmContactId])
+  @@index([ownerContactId])
   @@index([crmDealId])
   @@index([crmProjectId])
   @@map("VoiceProperty")

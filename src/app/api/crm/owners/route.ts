@@ -13,11 +13,16 @@ async function checkOwnerModuleAccess(userId: string, role: string, workspaceUse
   return isModuleEnabled({ id: userId, role, industryPackId: owner?.industryPackId ?? null }, "crm.owner");
 }
 
-// "Owner" is not a stored role — a CrmContact IS an owner by being linked
-// via Property.crmContactId to >=1 property. This lists exactly those
-// contacts, each with their properties and the representation terms stored
-// on each Property row (see Property.representationStartDate/EndDate/
-// agreedCommissionRate).
+// "Owner" is not a stored role — a CrmContact IS an owner by being linked to
+// >=1 property, via EITHER of two separate links: Property.crmContactId
+// (the sale/rent-side owner-of-record) or Property.ownerContactId (the
+// accounting module's rental-income owner, set from the owner-statements
+// page). A contact set up only through the second path — the common case
+// for a short-term-rental owner who was never a CRM lead — used to be
+// invisible here entirely, because this query checked only the first
+// relation. Lists the union of both, each with their properties and the
+// representation terms stored on each Property row (see
+// Property.representationStartDate/EndDate/agreedCommissionRate).
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
@@ -28,29 +33,34 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
+  const propertySelect = {
+    id: true, title: true, status: true, listingType: true, address: true, city: true,
+    representationStartDate: true, representationEndDate: true, agreedCommissionRate: true,
+  } as const;
+
   const contacts = await prisma.crmContact.findMany({
     where: {
       userId: ws.workspaceUserId,
       ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}),
-      properties: { some: {} },
+      OR: [{ properties: { some: {} } }, { ownedRentalProperties: { some: {} } }],
     },
     select: {
       id: true, name: true, phone: true, email: true,
-      properties: {
-        select: {
-          id: true, title: true, status: true, listingType: true, address: true, city: true,
-          representationStartDate: true, representationEndDate: true, agreedCommissionRate: true,
-        },
-      },
+      properties: { select: propertySelect },
+      ownedRentalProperties: { select: propertySelect },
     },
     orderBy: { name: "asc" },
   });
 
-  const owners = contacts.map((c) => ({
-    id: c.id, name: c.name, phone: c.phone, email: c.email,
-    propertiesOwnedCount: c.properties.length,
-    properties: c.properties,
-  }));
+  const owners = contacts.map((c) => {
+    // A contact can be the sale-side owner of one unit and the rental-income
+    // owner of another (or, in principle, both for the same unit) — merge by
+    // property id so it appears once, not twice, in their property list.
+    const merged = new Map<string, (typeof c.properties)[number]>();
+    for (const p of [...c.properties, ...c.ownedRentalProperties]) merged.set(p.id, p);
+    const properties = Array.from(merged.values());
+    return { id: c.id, name: c.name, phone: c.phone, email: c.email, propertiesOwnedCount: properties.length, properties };
+  });
 
   return NextResponse.json({ owners });
 }

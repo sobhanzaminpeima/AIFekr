@@ -48,6 +48,11 @@ export async function GET(req: NextRequest) {
     include: {
       crmContact: { select: { id: true, name: true, phone: true } },
       crmDeal: { select: { id: true, title: true } },
+      // The owner-statements page used to show ownerContactId with no way to
+      // tell WHO that was — only the CRM.property (sale-side) contact was
+      // ever joined in. Now a real relation (see schema.prisma), so this is
+      // just another include.
+      ownerContact: { select: { id: true, name: true, phone: true, email: true } },
     },
     orderBy: { updatedAt: "desc" },
     take: 500,

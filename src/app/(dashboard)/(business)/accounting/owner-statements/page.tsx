@@ -16,6 +16,9 @@ interface Property {
   listingType: string;
   currency: string;
   ownerContactId: string | null;
+  /** Who ownerContactId actually is — was joined nowhere, so once set there
+      was no way to see whose statement this even was without leaving the page. */
+  ownerContact: { id: string; name: string; phone: string | null; email: string | null } | null;
 }
 
 interface ContactOption { id: string; name: string }
@@ -166,8 +169,11 @@ export default function OwnerStatementsPage() {
       .catch(() => {});
   }, []);
 
-  /** Links an existing contact to this property as its owner. */
-  async function assignOwner(contactId: string) {
+  /** Links an existing contact to this property as its owner. `name` lets the
+      caller update the visible owner name immediately, without waiting on a
+      refetch — the contact list and the property list are two separate
+      fetches, so the property row alone can't resolve the name it was just given. */
+  async function assignOwner(contactId: string, name: string) {
     if (!propertyId || !contactId) return;
     setSavingOwner(true);
     try {
@@ -177,7 +183,7 @@ export default function OwnerStatementsPage() {
       });
       const j = await parseJsonResponse(res, lang);
       if (!res.ok) throw new Error(j.error);
-      setProperties((prev) => prev.map((p) => (p.id === propertyId ? { ...p, ownerContactId: contactId } : p)));
+      setProperties((prev) => prev.map((p) => (p.id === propertyId ? { ...p, ownerContactId: contactId, ownerContact: { id: contactId, name, phone: null, email: null } } : p)));
       toast.success(tri(lang, "مالک ثبت شد", "Owner set", "Eigentümer festgelegt"));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : tri(lang, "خطا در ثبت مالک", "Could not set the owner", "Eigentümer konnte nicht gesetzt werden"));
@@ -199,7 +205,7 @@ export default function OwnerStatementsPage() {
       const created = j.contact;
       setContacts((prev) => [{ id: created.id, name: created.name }, ...prev]);
       setNewOwnerName("");
-      await assignOwner(created.id);
+      await assignOwner(created.id, created.name);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : tri(lang, "خطا در ساخت مخاطب", "Could not create the contact", "Kontakt konnte nicht erstellt werden"));
       setSavingOwner(false);
@@ -334,6 +340,21 @@ export default function OwnerStatementsPage() {
           <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         </div>
 
+        {/* Once an owner is set, say so — the page used to leave ownerContactId
+            entirely invisible: an admin could send a statement with no way to
+            confirm, at a glance, whose it was. */}
+        {selectedProperty?.ownerContact && (
+          <div className="flex items-center gap-2 text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
+            <span>{tri(lang, "مالک این واحد:", "This unit's owner:", "Eigentümer dieser Einheit:")}</span>
+            <span className="px-2 py-0.5 rounded-full font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>
+              {selectedProperty.ownerContact.name}
+            </span>
+            {(selectedProperty.ownerContact.phone || selectedProperty.ownerContact.email) && (
+              <span dir="ltr" style={{ color: "var(--text-muted)" }}>{selectedProperty.ownerContact.phone || selectedProperty.ownerContact.email}</span>
+            )}
+          </div>
+        )}
+
         {/* The statement cannot be sent without an owner. Rather than let the
             user discover that at the moment they press "send", offer the fix
             here — pick an existing contact, or create one in place. */}
@@ -351,7 +372,10 @@ export default function OwnerStatementsPage() {
               <select
                 defaultValue=""
                 disabled={savingOwner}
-                onChange={(e) => e.target.value && assignOwner(e.target.value)}
+                onChange={(e) => {
+                  const contact = contacts.find((c) => c.id === e.target.value);
+                  if (contact) assignOwner(contact.id, contact.name);
+                }}
                 className="px-3 py-2 rounded-lg text-sm flex-1 min-w-[170px] disabled:opacity-60"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
               >
