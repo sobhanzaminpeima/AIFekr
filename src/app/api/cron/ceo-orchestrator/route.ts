@@ -20,21 +20,18 @@ export async function GET(req: NextRequest) {
 
   const users = await prisma.user.findMany({
     where: { ceoAutoRunEnabled: true, isBlocked: false },
-    select: { id: true, email: true, name: true },
+    select: { id: true, email: true, name: true, ceoAutoRunLang: true },
   });
-
-  // There is no per-user language column yet, so the unattended run keeps the
-  // previous behaviour (Persian) rather than guessing. The interactive route
-  // at /api/ceo/orchestrator/run follows the reader's cookie and is fully
-  // trilingual. Finishing this path needs a `ceoAutoRunLang` column on User --
-  // the same shape AccountingScheduledReport.lang already uses for its cron --
-  // which is a schema change, so it is deliberately not done here.
-  const lang: Lang = "fa";
 
   const results: { userId: string; ok: boolean; error?: string }[] = [];
 
   for (const u of users) {
     try {
+      // Captured when the user switched auto-run on; defaults to "fa", which is
+      // exactly what every existing row was already getting.
+      const lang: Lang = (["fa", "en", "de"] as const).includes(u.ceoAutoRunLang as Lang)
+        ? (u.ceoAutoRunLang as Lang)
+        : "fa";
       let analysis = "";
       await runCeoAnalysis(u.id, lang, (text: string) => { analysis += text; });
       // The memory marker and its category lines are instructions to the next

@@ -37,6 +37,12 @@ model User {
   authProvider      String    @default("password")
   /// If true, the CEO orchestrator runs automatically once a day (via cron) and emails a digest — opt-in, off by default.
   ceoAutoRunEnabled Boolean   @default(false)
+  /// Language for the unattended daily CEO briefing. The cron has no request,
+  /// so it cannot read the `lang` cookie the interactive route uses — without
+  /// this column every scheduled briefing went out in Persian regardless of
+  /// the user's language. Captured from the UI language when auto-run is
+  /// switched on. Same pattern as AccountingScheduledReport.lang.
+  ceoAutoRunLang    String    @default("fa")
   /// Onboarding wizard completed
   onboardingDone    Boolean   @default(false)
   /// Referral system
