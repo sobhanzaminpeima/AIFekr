@@ -30,6 +30,9 @@ function monthStart(d: Date): Date {
  * point; editing entries after generation requires calling this again
  * (only while status is still "draft" — an approved statement is immutable).
  */
+/** Thrown when a statement is past draft. Callers translate this at the API edge. */
+export const STATEMENT_LOCKED = "OWNER_STATEMENT_LOCKED";
+
 export async function generateOwnerStatement(
   workspaceUserId: string,
   propertyId: string,
@@ -43,7 +46,10 @@ export async function generateOwnerStatement(
     where: { propertyId_month: { propertyId, month: monthDate } },
   });
   if (existing && existing.status !== "draft") {
-    throw new Error("This statement is already approved/sent — reopen it first (reopenOwnerStatement) to correct and regenerate it.");
+    // A machine code, not prose: this string used to surface verbatim to the
+    // user, in English, naming an internal function they cannot call. The API
+    // boundary turns it into a sentence in their language.
+    throw new Error(STATEMENT_LOCKED);
   }
 
   const feeRule =

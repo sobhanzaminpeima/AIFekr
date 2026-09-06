@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { ArrowRight, ArrowLeft, Send, Pause, Play, Trash2, Eye, KeyRound, Copy, Plus } from "lucide-react";
 import { tri, type Lang } from "@/lib/i18n";
 import { useAccountingLocale } from "@/lib/accounting/useAccountingLocale";
+import { REPORT_CURRENCIES } from "@/lib/accounting/reportingFx";
 import AccountingNav from "@/components/accounting/AccountingNav";
 
 interface ScheduledReport {
@@ -51,7 +52,7 @@ function scheduleStatusLabel(status: ScheduledReport["status"], lang: Lang): str
 }
 
 export default function AccountingAutomationPage() {
-  const { lang, dir, fmtNum: fmt, fmtDate, fmtMonth: monthLabel } = useAccountingLocale();
+  const { lang, dir, fmtNum: fmt, fmtDate } = useAccountingLocale();
   const [reports, setReports] = useState<ScheduledReport[]>([]);
   const [tokens, setTokens] = useState<BiToken[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +62,12 @@ export default function AccountingAutomationPage() {
   const [reportType, setReportType] = useState<ScheduledReport["reportType"]>("monthly_pl");
   const [frequency, setFrequency] = useState<ScheduledReport["frequency"]>("monthly");
   const [email, setEmail] = useState("");
+  // Report language and report currency are independent of each other AND of
+  // the UI language: a Persian admin can schedule an English report in EUR for
+  // an overseas owner. The backend already stored `lang`; the form never sent
+  // it, so in practice every report came out in the default language.
+  const [reportLang, setReportLang] = useState<Lang>(lang);
+  const [reportCurrency, setReportCurrency] = useState("");
 
   const [tokenLabel, setTokenLabel] = useState("");
   const [freshToken, setFreshToken] = useState<string | null>(null);
@@ -85,7 +92,7 @@ export default function AccountingAutomationPage() {
     try {
       const res = await fetch("/api/accounting/scheduled-reports", {
         method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reportType, frequency, recipientEmail: email }),
+        body: JSON.stringify({ reportType, frequency, recipientEmail: email, lang: reportLang, currency: reportCurrency || undefined }),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error);
@@ -238,7 +245,18 @@ export default function AccountingAutomationPage() {
             <option value="monthly">{tri(lang, "ماهانه", "Monthly", "Monatlich")}</option>
             <option value="weekly">{tri(lang, "هفتگی", "Weekly", "Wöchentlich")}</option>
           </select>
-          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={tri(lang, tri(lang, "ایمیل گیرنده", "Recipient email", "Empfänger-E-Mail"), "Recipient email", "Empfänger-E-Mail")} type="email" className="flex-1 min-w-[180px] px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <select value={reportLang} onChange={(e) => setReportLang(e.target.value as Lang)} className="px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="fa">{tri(lang, "گزارش به فارسی", "Report in Persian", "Bericht auf Persisch")}</option>
+            <option value="en">{tri(lang, "گزارش به انگلیسی", "Report in English", "Bericht auf Englisch")}</option>
+            <option value="de">{tri(lang, "گزارش به آلمانی", "Report in German", "Bericht auf Deutsch")}</option>
+          </select>
+          <select value={reportCurrency} onChange={(e) => setReportCurrency(e.target.value)} className="px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{tri(lang, "بدون تبدیل ارز", "No currency conversion", "Keine Währungsumrechnung")}</option>
+            {REPORT_CURRENCIES.map((c) => (
+              <option key={c} value={c}>{tri(lang, `همچنین به ${c}`, `Also show in ${c}`, `Zusätzlich in ${c}`)}</option>
+            ))}
+          </select>
+          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={tri(lang, "ایمیل گیرنده", "Recipient email", "Empfänger-E-Mail")} type="email" className="flex-1 min-w-[180px] px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <button disabled={busy} onClick={createReport} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium" style={{ background: "var(--primary)", color: "#fff" }}>
             <Plus className="w-4 h-4" />{tri(lang, "ساخت زمان‌بندی", "Create schedule", "Zeitplan erstellen")}
           </button>

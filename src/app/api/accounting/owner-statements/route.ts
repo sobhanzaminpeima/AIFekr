@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
-import { generateOwnerStatement } from "@/lib/accounting/ownerStatement";
+import { generateOwnerStatement, STATEMENT_LOCKED } from "@/lib/accounting/ownerStatement";
 import { ensureDefaultChartOfAccounts } from "@/lib/accounting/chartOfAccounts";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
@@ -56,6 +56,17 @@ export async function POST(req: NextRequest) {
     );
     return NextResponse.json({ statement });
   } catch (err) {
+    // The locked case is the common one and needs a sentence the user can act
+    // on — the reopen button is already on the same screen — rather than the
+    // internal message that used to reach them in English.
+    if (err instanceof Error && err.message === STATEMENT_LOCKED) {
+      return NextResponse.json({
+        error: tri(lang,
+          "این گزارش قبلاً تأیید یا ارسال شده و قفل است. برای اصلاح، اول با دکمهٔ «بازگشایی» بازش کنید و بعد دوباره بسازید.",
+          "This statement has already been approved or sent, so it is locked. To correct it, use the Reopen button first, then generate it again.",
+          "Diese Abrechnung wurde bereits genehmigt oder versendet und ist gesperrt. Öffnen Sie sie zur Korrektur zuerst über „Wieder öffnen“ und erstellen Sie sie dann neu."),
+      }, { status: 409 });
+    }
     return NextResponse.json({ error: err instanceof Error ? err.message : tri(lang, "خطا در ساخت گزارش تسویه", "Failed to generate owner statement", "Fehler beim Erstellen der Eigentümerabrechnung") }, { status: 400 });
   }
 }

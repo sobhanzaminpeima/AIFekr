@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { createScheduledReport, listScheduledReports, ReportType, Frequency } from "@/lib/accounting/scheduledReports";
+import { REPORT_CURRENCIES } from "@/lib/accounting/reportingFx";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -29,12 +30,16 @@ export async function POST(req: NextRequest) {
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
   if (ws.isAgentRestricted) return NextResponse.json({ error: tri(lang, "دسترسی ندارید", "Not authorized", "Nicht autorisiert") }, { status: 403 });
 
-  const { reportType, frequency, recipientEmail, lang: reportLang } = (await req.json()) as {
-    reportType?: string; frequency?: string; recipientEmail?: string; lang?: "fa" | "en" | "de";
+  const { reportType, frequency, recipientEmail, lang: reportLang, currency } = (await req.json()) as {
+    reportType?: string; frequency?: string; recipientEmail?: string; lang?: "fa" | "en" | "de"; currency?: string;
   };
   if (!reportType || !VALID_TYPES.includes(reportType as ReportType)) return NextResponse.json({ error: tri(lang, "نوع گزارش نامعتبر است", "Invalid report type", "Ungültiger Berichtstyp") }, { status: 400 });
   if (!frequency || !VALID_FREQUENCIES.includes(frequency as Frequency)) return NextResponse.json({ error: tri(lang, "دوره تناوب نامعتبر است", "Invalid frequency", "Ungültige Häufigkeit") }, { status: 400 });
   if (!recipientEmail) return NextResponse.json({ error: tri(lang, "ایمیل گیرنده الزامی است", "Recipient email is required", "Empfänger-E-Mail ist erforderlich") }, { status: 400 });
+  // An unknown code would silently produce no conversion later; reject it here instead.
+  if (currency && !(REPORT_CURRENCIES as readonly string[]).includes(currency)) {
+    return NextResponse.json({ error: tri(lang, "واحد پول نامعتبر است", "Invalid currency", "Ungültige Währung") }, { status: 400 });
+  }
 
   const report = await createScheduledReport({
     workspaceUserId: ws.workspaceUserId,
@@ -42,6 +47,7 @@ export async function POST(req: NextRequest) {
     frequency: frequency as Frequency,
     recipientEmail,
     lang: reportLang,
+    currency: currency || null,
   });
   return NextResponse.json({ report });
 }

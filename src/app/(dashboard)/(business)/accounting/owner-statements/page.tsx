@@ -8,6 +8,7 @@ import { useCompanyLogo } from "@/lib/hooks/useCompanyLogo";
 import { tri, type Lang } from "@/lib/i18n";
 import { useAccountingLocale } from "@/lib/accounting/useAccountingLocale";
 import AccountingNav from "@/components/accounting/AccountingNav";
+import { parseJsonResponse } from "@/lib/utils/fetchJson";
 
 interface Property {
   id: string;
@@ -104,9 +105,10 @@ export default function OwnerStatementsPage() {
   const loadFeePercent = useCallback(async (pid: string) => {
     if (!pid) return;
     const res = await fetch(`/api/accounting/management-fee-rules?propertyId=${pid}`, { credentials: "include" });
-    const j = await res.json();
+    const j = await parseJsonResponse(res, lang);
     if (res.ok) { setFeePercent(String(j.feePercent)); setFeeSource(j.source); }
-  }, []);
+    // `lang` is read for the error messages, so it belongs in the deps.
+  }, [lang]);
 
   useEffect(() => { loadFeePercent(propertyId); }, [propertyId, loadFeePercent]);
 
@@ -120,7 +122,7 @@ export default function OwnerStatementsPage() {
         method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ propertyId, feePercent: value }),
       });
-      const j = await res.json();
+      const j = await parseJsonResponse(res, lang);
       if (!res.ok) throw new Error(j.error);
       toast.success(tri(lang, "درصد کارمزد این واحد ذخیره شد", "Management fee saved for this unit", "Verwaltungsgebühr für diese Einheit gespeichert"));
       setFeeSource("property");
@@ -134,7 +136,7 @@ export default function OwnerStatementsPage() {
   async function openPrint(id: string) {
     try {
       const res = await fetch(`/api/accounting/owner-statements/${id}`, { credentials: "include" });
-      const j = await res.json();
+      const j = await parseJsonResponse(res, lang);
       if (!res.ok) throw new Error(j.error);
       setPrintStatement(j.statement);
     } catch (e) {
@@ -153,9 +155,10 @@ export default function OwnerStatementsPage() {
   const loadStatements = useCallback(async (pid: string) => {
     if (!pid) { setStatements([]); return; }
     const res = await fetch(`/api/accounting/owner-statements?propertyId=${pid}`, { credentials: "include" });
-    const j = await res.json();
+    const j = await parseJsonResponse(res, lang);
     if (res.ok) setStatements(j.statements);
-  }, []);
+    // `lang` is read for the error messages, so it belongs in the deps.
+  }, [lang]);
 
   useEffect(() => { loadStatements(propertyId); }, [propertyId, loadStatements]);
 
@@ -167,7 +170,7 @@ export default function OwnerStatementsPage() {
         method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ propertyId, month: `${month}-01`, notes: notes || undefined }),
       });
-      const j = await res.json();
+      const j = await parseJsonResponse(res, lang);
       if (!res.ok) throw new Error(j.error);
       const suggested: LineItem[] = j.lines.map((l: { date: string; description: string; category: LineItem["category"]; income?: number; expense?: number; source: string }) => ({
         date: l.date.slice(0, 10),
@@ -210,7 +213,7 @@ export default function OwnerStatementsPage() {
           entries: lines.map((l) => ({ date: l.date, description: l.description, category: l.category, income: Number(l.income) || 0, expense: Number(l.expense) || 0 })),
         }),
       });
-      const j = await res.json();
+      const j = await parseJsonResponse(res, lang);
       if (!res.ok) throw new Error(j.error);
       toast.success(tri(lang, "گزارش تسویه ساخته شد", "Statement created", "Abrechnung erstellt"));
       setLines([]);
@@ -234,7 +237,7 @@ export default function OwnerStatementsPage() {
         method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
       });
-      const j = await res.json();
+      const j = await parseJsonResponse(res, lang);
       if (!res.ok) throw new Error(j.error);
       toast.success(action === "approve" ? tri(lang, "گزارش تأیید شد", "Statement approved", "Abrechnung genehmigt") : action === "send" ? tri(lang, "برای مالک ارسال شد", "Sent to the owner", "An den Eigentümer gesendet") : tri(lang, "گزارش بازگشایی شد — حالا می‌توانید دوباره بسازید", "Statement reopened — you can regenerate it now", "Abrechnung wieder geöffnet — Sie können sie neu erstellen"));
       loadStatements(propertyId);

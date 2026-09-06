@@ -2282,6 +2282,11 @@ model AccountingScheduledReport {
   frequency       String
   recipientEmail  String
   lang            String    @default("fa")
+  /// Presentation currency for this report, independent of `lang` and of the
+  /// reader's UI language: a Persian admin can schedule an English report in
+  /// EUR. NULL means no conversion — amounts appear in the currency they were
+  /// recorded in, which is always what the report leads with anyway.
+  currency        String?
   /// "pending_first_approval" | "awaiting_approval" | "active" | "paused"
   status          String    @default("pending_first_approval")
   /// Snapshot (subject+html) of the run currently awaiting human approval.
