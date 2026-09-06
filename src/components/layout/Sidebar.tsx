@@ -30,6 +30,7 @@ interface SidebarProps {
 const planColors: Record<string, string> = { FREE: "#71717a", BASIC: "#3b82f6", PRO: "#ea580c", TEAM: "#8b5cf6" };
 const planNamesFA: Record<string, string> = { FREE: "رایگان", BASIC: "پایه", PRO: "حرفه‌ای", TEAM: "تیمی" };
 const planNamesEN: Record<string, string> = { FREE: "Free", BASIC: "Basic", PRO: "Pro", TEAM: "Team" };
+const planNamesDE: Record<string, string> = { FREE: "Kostenlos", BASIC: "Basis", PRO: "Pro", TEAM: "Team" };
 const PROJECT_COLORS = ["#ea580c", "#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ec4899", "#06b6d4", "#6b7280"];
 
 export default function Sidebar({ user, conversations = [], onNewChat }: SidebarProps) {
@@ -95,7 +96,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
 
   async function deleteConversation(convId: string) {
     setConvMenuOpen(null);
-    if (!confirm(lang === "en" ? "Delete this chat permanently? This can't be undone." : "این گفتگو برای همیشه حذف بشه؟ این عمل قابل بازگشت نیست.")) return;
+    if (!confirm(tri(lang, "این گفتگو برای همیشه حذف بشه؟ این عمل قابل بازگشت نیست.", "Delete this chat permanently? This can't be undone.", "Diesen Chat dauerhaft löschen? Das kann nicht rückgängig gemacht werden."))) return;
     try {
       await fetch(`/api/chat/history/${convId}`, { method: "DELETE" });
       loadProjects();
@@ -130,7 +131,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
   }
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
-  const planNames = lang === "en" ? planNamesEN : planNamesFA;
+  const planNames = lang === "fa" ? planNamesFA : lang === "de" ? planNamesDE : planNamesEN;
 
   const tools = [
     { icon: Briefcase, label: tri(lang, "ایده کسب‌وکار", "Business Ideas", "Geschäftsideen"), href: "/tools/business-ideas" },
@@ -161,7 +162,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
 
   return (
     <aside className="flex flex-col h-full w-[220px] flex-shrink-0"
-      style={{ background: "var(--surface-1)", borderLeft: lang === "en" ? "none" : "1px solid var(--border)", borderRight: lang === "en" ? "1px solid var(--border)" : "none" }}>
+      style={{ background: "var(--surface-1)", borderLeft: lang === "fa" ? "1px solid var(--border)" : "none", borderRight: lang === "fa" ? "none" : "1px solid var(--border)" }}>
 
       {/* Logo */}
       <div className="p-4 flex items-center gap-2" style={{ borderBottom: "1px solid var(--border)" }}>
@@ -174,7 +175,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         <button onClick={() => { onNewChat?.(); router.push("/chat"); router.refresh(); }} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium"
           style={{ background: "var(--primary)", color: "white" }}>
           <Plus className="w-4 h-4" />
-          {lang === "en" ? "New Chat" : "گفتگوی جدید"}
+          {tri(lang, "گفتگوی جدید", "New Chat", "Neuer Chat")}
         </button>
       </div>
 
@@ -219,7 +220,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
               style={{ color: "var(--text-secondary)" }}>
               <span className="flex items-center gap-2 min-w-0">
                 <Zap className="w-4 h-4 flex-shrink-0" style={{ color: "#ea580c" }} />
-                <span className="truncate">{lang === "en" ? "AI Agents" : "ایجنت‌های هوش مصنوعی"}</span>
+                <span className="truncate">{tri(lang, "ایجنت‌های هوش مصنوعی", "AI Agents", "KI-Agenten")}</span>
               </span>
               {businessOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
             </button>
@@ -246,8 +247,8 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             style={{ background: "linear-gradient(135deg, rgba(234,88,12,0.15), rgba(249,115,22,0.1))", border: "1px solid rgba(234,88,12,0.3)", color: "#ea580c" }}>
             <Zap className="w-4 h-4 flex-shrink-0" />
             <div className="text-right leading-tight">
-              <div className="font-semibold text-xs">{lang === "en" ? "Grow Your Business" : "رشد کسب‌وکارت"}</div>
-              <div className="text-xs opacity-70 mt-0.5">{lang === "en" ? "AI Agent Packs" : "بسته‌های ایجنت AI"}</div>
+              <div className="font-semibold text-xs">{tri(lang, "رشد کسب‌وکارت", "Grow Your Business", "Ihr Geschäft ausbauen")}</div>
+              <div className="text-xs opacity-70 mt-0.5">{tri(lang, "بسته‌های ایجنت AI", "AI Agent Packs", "KI-Agenten-Pakete")}</div>
             </div>
             <ArrowLeft className="w-3.5 h-3.5 flex-shrink-0 mr-auto" />
           </Link>
@@ -260,10 +261,10 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             className="flex items-center gap-2 text-sm font-medium"
             style={{ color: "var(--text-secondary)" }}>
             <FolderOpen className="w-4 h-4" />
-            {lang === "en" ? "Projects" : "پروژه‌ها"}
+            {tri(lang, "پروژه‌ها", "Projects", "Projekte")}
             {projectsOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
           </button>
-          <button onClick={() => setCreatingProject(true)} title={lang === "en" ? "New project" : "پروژه جدید"}
+          <button onClick={() => setCreatingProject(true)} title={tri(lang, "پروژه جدید", "New project", "Neues Projekt")}
             className="p-1 rounded-lg hover:bg-white/5 transition-colors" style={{ color: "var(--text-muted)" }}>
             <FolderPlus className="w-3.5 h-3.5" />
           </button>
@@ -273,7 +274,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
           <div className="mx-2 mb-1 p-2 rounded-xl" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
             <input autoFocus value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") createProject(); if (e.key === "Escape") setCreatingProject(false); }}
-              placeholder={lang === "en" ? "Project name..." : "نام پروژه..."}
+              placeholder={tri(lang, "نام پروژه...", "Project name…", "Projektname…")}
               className="w-full bg-transparent text-xs outline-none mb-2" style={{ color: "var(--text-primary)" }} />
             <div className="flex gap-1 mb-2">
               {PROJECT_COLORS.map((c) => (
@@ -323,15 +324,15 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
                       <button onClick={() => deleteProject(project.id)}
                         className="flex items-center gap-2 w-full px-3 py-2 text-xs text-red-400 hover:bg-white/5">
                         <Trash2 className="w-3 h-3" />
-                        {lang === "en" ? "Delete" : "حذف"}
+                        {tri(lang, "حذف", "Delete", "Löschen")}
                       </button>
                       <button onClick={() => {
-                        const newName = prompt(lang === "en" ? "New name:" : "نام جدید:", project.name);
+                        const newName = prompt(tri(lang, "نام جدید:", "New name:", "Neuer Name:"), project.name);
                         if (newName) fetch(`/api/projects/${project.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newName }) }).then(loadProjects);
                         setProjectMenuOpen(null);
                       }} className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-white/5" style={{ color: "var(--text-secondary)" }}>
                         <Settings className="w-3 h-3" />
-                        {lang === "en" ? "Rename" : "تغییر نام"}
+                        {tri(lang, "تغییر نام", "Rename", "Umbenennen")}
                       </button>
                     </div>
                   )}
@@ -343,7 +344,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
                     className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs w-full"
                     style={{ color: project.color, background: project.color + "15" }}>
                     <Plus className="w-3 h-3" />
-                    {lang === "en" ? "New chat in project" : "چت جدید در پروژه"}
+                    {tri(lang, "چت جدید در پروژه", "New chat in project", "Neuer Chat im Projekt")}
                   </Link>
                   {pConvs.slice(0, 8).map((c) => (
                     <div key={c.id} className="relative flex items-center group" data-dropdown-root>
@@ -351,7 +352,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
                         className="flex-1 flex items-center px-2 py-1.5 rounded-lg text-xs truncate min-w-0"
                         style={{ color: pathname === `/chat/${c.id}` ? project.color : "var(--text-secondary)", background: pathname === `/chat/${c.id}` ? project.color + "15" : "transparent" }}>
                         <MessageSquare className="w-3 h-3 ml-1.5 flex-shrink-0" style={{ color: project.color, opacity: 0.7 }} />
-                        <span className="truncate">{c.title || (lang === "en" ? "Untitled" : "بی‌نام")}</span>
+                        <span className="truncate">{c.title || tri(lang, "بی‌نام", "Untitled", "Ohne Titel")}</span>
                       </Link>
                       <button onClick={() => setConvMenuOpen(convMenuOpen === c.id ? null : c.id)}
                         className="opacity-0 group-hover:opacity-100 p-1 rounded flex-shrink-0"
@@ -365,13 +366,13 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
                             className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-white/5"
                             style={{ color: "var(--text-secondary)" }}>
                             <X className="w-3 h-3" />
-                            {lang === "en" ? "Remove from project" : "خارج از پروژه"}
+                            {tri(lang, "خارج از پروژه", "Remove from project", "Aus Projekt entfernen")}
                           </button>
                           <button onClick={() => deleteConversation(c.id)}
                             className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-white/5"
                             style={{ color: "#ef4444", borderTop: "1px solid var(--border)" }}>
                             <Trash2 className="w-3 h-3" />
-                            {lang === "en" ? "Delete chat" : "حذف گفتگو"}
+                            {tri(lang, "حذف گفتگو", "Delete chat", "Chat löschen")}
                           </button>
                         </div>
                       )}
@@ -379,7 +380,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
                   ))}
                   {pConvs.length === 0 && (
                     <p className="px-2 py-1 text-xs" style={{ color: "var(--text-muted)" }}>
-                      {lang === "en" ? "No chats yet" : "هنوز چتی ندارد"}
+                      {tri(lang, "هنوز چتی ندارد", "No chats yet", "Noch keine Chats")}
                     </p>
                   )}
                 </div>
@@ -402,7 +403,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
                   className="flex-1 flex items-center px-3 py-1.5 rounded-lg text-xs truncate min-w-0"
                   style={{ color: pathname === `/chat/${c.id}` ? "var(--primary)" : "var(--text-secondary)", background: pathname === `/chat/${c.id}` ? "rgba(234,88,12,0.1)" : "transparent" }}>
                   <MessageSquare className="w-3 h-3 ml-2 flex-shrink-0" />
-                  <span className="truncate">{c.title || (lang === "en" ? "Untitled Chat" : "گفتگوی بی‌نام")}</span>
+                  <span className="truncate">{c.title || tri(lang, "گفتگوی بی‌نام", "Untitled Chat", "Chat ohne Titel")}</span>
                 </Link>
                 <button
                   onClick={() => setConvMenuOpen(convMenuOpen === c.id ? null : c.id)}
@@ -414,11 +415,11 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
                   <div className="absolute left-0 top-8 z-50 rounded-xl shadow-xl overflow-hidden"
                     style={{ background: "var(--surface-2)", border: "1px solid var(--border)", minWidth: "160px" }}>
                     <div className="px-3 py-2 text-xs font-medium" style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
-                      {lang === "en" ? "Move to project" : "انتقال به پروژه"}
+                      {tri(lang, "انتقال به پروژه", "Move to project", "In Projekt verschieben")}
                     </div>
                     {projects.length === 0 && (
                       <div className="px-3 py-2 text-xs" style={{ color: "var(--text-muted)" }}>
-                        {lang === "en" ? "No projects yet" : "پروژه‌ای ندارید"}
+                        {tri(lang, "پروژه‌ای ندارید", "No projects yet", "Noch keine Projekte")}
                       </div>
                     )}
                     {projects.map((p) => (
@@ -433,13 +434,13 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
                       className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-white/5"
                       style={{ color: "#ef4444", borderTop: "1px solid var(--border)" }}>
                       <Trash2 className="w-3 h-3" />
-                      {lang === "en" ? "Delete chat" : "حذف گفتگو"}
+                      {tri(lang, "حذف گفتگو", "Delete chat", "Chat löschen")}
                     </button>
                     <button onClick={() => setConvMenuOpen(null)}
                       className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-white/5"
                       style={{ color: "var(--text-muted)", borderTop: "1px solid var(--border)" }}>
                       <X className="w-3 h-3" />
-                      {lang === "en" ? "Cancel" : "لغو"}
+                      {tri(lang, "لغو", "Cancel", "Abbrechen")}
                     </button>
                   </div>
                 )}
@@ -456,7 +457,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             <div className="flex items-center gap-2">
               <Wallet className="w-4 h-4" style={{ color: "var(--primary)" }} />
               <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-                {formatNumber(user.credits, lang)} {lang === "en" ? "credits" : "اعتبار"}
+                {formatNumber(user.credits, lang)} {tri(lang, "اعتبار", "credits", "Credits")}
               </span>
             </div>
             <span className="text-xs px-2 py-0.5 rounded-full font-medium"
@@ -467,7 +468,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
           {!hasPack && (
             <Link href="/industry" className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium"
               style={{ background: "rgba(234,88,12,0.15)", color: "var(--primary)", border: "1px solid rgba(234,88,12,0.3)" }}>
-              <Crown className="w-4 h-4" />{lang === "en" ? "Business Plans" : "بسته‌های کسب‌وکار"}
+              <Crown className="w-4 h-4" />{tri(lang, "بسته‌های کسب‌وکار", "Business Plans", "Business-Pakete")}
             </Link>
           )}
           {user.plan === "FREE" && !hasPack && (
@@ -478,7 +479,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
           )}
           <Link href="/referral" className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium"
             style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", border: "1px solid rgba(16,185,129,0.25)" }}>
-            <Gift className="w-4 h-4" />{lang === "en" ? "Invite & Earn" : "دعوت کن، اعتبار بگیر"}
+            <Gift className="w-4 h-4" />{tri(lang, "دعوت کن، اعتبار بگیر", "Invite & Earn", "Einladen & verdienen")}
           </Link>
           {/* JARVIS link temporarily disabled on the site per request — SSO route itself untouched. */}
           <div className="flex items-center justify-center gap-1.5">

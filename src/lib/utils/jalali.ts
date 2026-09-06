@@ -40,6 +40,12 @@ export function formatPrice(amount: number): string {
   return new Intl.NumberFormat("fa-IR").format(amount) + " تومان";
 }
 
+/**
+ * Persian is the only language here that uses Persian-Indic digits — German
+ * used to fall into the same branch as Persian and render "۹٬۹۹۹" to a German
+ * reader (this helper feeds ~40 call sites, so that leaked almost everywhere).
+ */
 export function formatNumber(n: number, lang?: string): string {
-  return new Intl.NumberFormat(lang === "en" ? "en-US" : "fa-IR").format(n);
+  const locale = lang === "en" ? "en-US" : lang === "de" ? "de-DE" : "fa-IR";
+  return new Intl.NumberFormat(locale).format(n);
 }
