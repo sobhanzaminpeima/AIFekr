@@ -1,5 +1,8 @@
 import ChatInterface from "@/components/chat/ChatInterface";
-import { tri } from "@/lib/i18n";
+// tri must come from "@/lib/i18n/tri", NOT "@/lib/i18n": the index is a
+// "use client" module, so a Server Component importing tri from it gets a
+// client-reference proxy instead of the function and crashes at render.
+import { tri } from "@/lib/i18n/tri";
 
 const ASSISTANT_CONFIGS: Record<string, { titleFa: string; titleEn: string; titleDe: string; promptFa: string; promptEn: string; promptDe: string }> = {
   teacher: {

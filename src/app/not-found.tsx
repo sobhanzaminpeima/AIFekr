@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { tri, type Lang } from "@/lib/i18n";
+// tri must come from "@/lib/i18n/tri", NOT "@/lib/i18n": the index is a
+// "use client" module, so a Server Component importing tri from it gets a
+// client-reference proxy instead of the function and crashes at render.
+import { tri } from "@/lib/i18n/tri";
+import type { Lang } from "@/lib/i18n";
 
 export default async function NotFound() {
   const cookieStore = await cookies();

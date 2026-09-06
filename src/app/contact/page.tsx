@@ -4,7 +4,10 @@ import { prisma } from "@/lib/db/prisma";
 import { Mail, Phone, MapPin, MessageCircle } from "lucide-react";
 import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+// tri must come from "@/lib/i18n/tri", NOT "@/lib/i18n": the index is a
+// "use client" module, so a Server Component importing tri from it gets a
+// client-reference proxy instead of the function and crashes at render.
+import { tri } from "@/lib/i18n/tri";
 
 export const dynamic = "force-dynamic";
 
