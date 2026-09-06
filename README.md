@@ -20,7 +20,9 @@
 
 ## Demo Accounts
 
-Live demo is running at **http://185.81.96.229:3000**
+Production runs at **https://aifekr.com** (VPS `194.59.171.82`).
+
+> The old demo box `185.81.96.229` is no longer the live environment — do not deploy there.
 
 ### Regular Users
 
