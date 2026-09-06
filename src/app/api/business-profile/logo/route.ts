@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
+import { uploadToStorage, getStorageKey, StorageNotConfiguredError } from "@/lib/storage/r2";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -43,7 +43,20 @@ export async function POST(req: NextRequest) {
   const buf = Buffer.from(await file.arrayBuffer());
   const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : file.type === "image/svg+xml" ? "svg" : "jpg";
   const key = getStorageKey(user.id, "image", `logo.${ext}`);
-  const url = await uploadToStorage(buf, key, file.type);
+
+  let url: string;
+  try {
+    url = await uploadToStorage(buf, key, file.type);
+  } catch (e) {
+    if (e instanceof StorageNotConfiguredError) {
+      console.error("logo upload rejected:", e.message);
+      return NextResponse.json({ error: tri(lang,
+        "فضای ذخیره‌سازی فایل هنوز پیکربندی نشده است — با پشتیبانی تماس بگیرید.",
+        "File storage is not configured yet — please contact support.",
+        "Der Dateispeicher ist noch nicht konfiguriert — bitte kontaktieren Sie den Support.") }, { status: 503 });
+    }
+    throw e;
+  }
 
   await prisma.company.update({ where: { userId: user.id }, data: { logoUrl: url } });
 

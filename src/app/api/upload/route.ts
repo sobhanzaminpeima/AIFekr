@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
-import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
+import { uploadToStorage, getStorageKey, StorageNotConfiguredError } from "@/lib/storage/r2";
 
 const MAX_SIZE_BYTES = 8 * 1024 * 1024; // 8MB
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -32,7 +32,14 @@ export async function POST(req: NextRequest) {
   const buf = Buffer.from(await file.arrayBuffer());
   const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
   const key = getStorageKey(user.id, "reference", `ref.${ext}`);
-  const url = await uploadToStorage(buf, key, file.type);
-
-  return NextResponse.json({ url });
+  try {
+    const url = await uploadToStorage(buf, key, file.type);
+    return NextResponse.json({ url });
+  } catch (e) {
+    if (e instanceof StorageNotConfiguredError) {
+      console.error("upload rejected:", e.message);
+      return NextResponse.json({ error: "فضای ذخیره‌سازی فایل پیکربندی نشده است" }, { status: 503 });
+    }
+    throw e;
+  }
 }

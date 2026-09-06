@@ -5,7 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
-import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
+import { uploadToStorage, getStorageKey, StorageNotConfiguredError } from "@/lib/storage/r2";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -48,7 +48,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const buf = Buffer.from(await file.arrayBuffer());
   const key = getStorageKey(ws.workspaceUserId, "image", file.name);
-  const url = await uploadToStorage(buf, key, file.type);
+  let url: string;
+  try {
+    url = await uploadToStorage(buf, key, file.type);
+  } catch (e) {
+    if (e instanceof StorageNotConfiguredError) {
+      console.error("property image upload rejected:", e.message);
+      return NextResponse.json({ error: tri(lang, "فضای ذخیره‌سازی تصویر پیکربندی نشده است", "Image storage is not configured", "Der Bildspeicher ist nicht konfiguriert") }, { status: 503 });
+    }
+    throw e;
+  }
 
   const images = parseImages(property.images);
   images.push(url);

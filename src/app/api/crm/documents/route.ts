@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { uploadToStorage, getStorageKey, deleteFromStorage } from "@/lib/storage/r2";
+import { uploadToStorage, getStorageKey, deleteFromStorage, StorageNotConfiguredError } from "@/lib/storage/r2";
 import { resolveCrmWorkspace } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { getServerLang } from "@/lib/i18n/server";
@@ -118,7 +118,16 @@ export async function POST(req: NextRequest) {
 
   const buf = Buffer.from(await file.arrayBuffer());
   const key = getStorageKey(ws.workspaceUserId, "document", file.name);
-  const fileUrl = await uploadToStorage(buf, key, file.type);
+  let fileUrl: string;
+  try {
+    fileUrl = await uploadToStorage(buf, key, file.type);
+  } catch (e) {
+    if (e instanceof StorageNotConfiguredError) {
+      console.error("document upload rejected:", e.message);
+      return NextResponse.json({ error: "فضای ذخیره‌سازی فایل پیکربندی نشده است" }, { status: 503 });
+    }
+    throw e;
+  }
 
   const document = await prisma.crmDocument.create({
     data: { userId: ws.workspaceUserId, contactId: contactId || undefined, dealId: dealId || undefined, propertyId: propertyId || undefined, name, type, fileUrl, storageKey: key },
