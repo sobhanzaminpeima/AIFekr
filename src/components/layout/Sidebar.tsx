@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, MessageSquare, Image as ImageIcon, Video, Music, GalleryHorizontal, Mail,
+  LayoutDashboard, MessageSquare, Image as ImageIcon, Video, Music, GalleryHorizontal,
   ChevronDown, ChevronLeft, Settings, LogOut, Wallet, Crown,
   Briefcase, TrendingUp, ShoppingCart, Calculator, Salad,
   GraduationCap, Stethoscope, Languages, ChefHat, Dumbbell, Plane, Code2,
@@ -16,7 +16,7 @@ import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
 import CurrencySelector from "@/components/ui/CurrencySelector";
 import NotificationBell from "@/components/layout/NotificationBell";
-import { useTranslation, tri } from "@/lib/i18n";
+import { useTranslation, tri, type Lang } from "@/lib/i18n";
 import { formatNumber } from "@/lib/utils/jalali";
 
 interface Project { id: string; name: string; color: string; icon: string; conversationCount: number; }
@@ -33,14 +33,82 @@ const planNamesEN: Record<string, string> = { FREE: "Free", BASIC: "Basic", PRO:
 const planNamesDE: Record<string, string> = { FREE: "Kostenlos", BASIC: "Basis", PRO: "Pro", TEAM: "Team" };
 const PROJECT_COLORS = ["#ea580c", "#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ec4899", "#06b6d4", "#6b7280"];
 
+/**
+ * The business area, grouped by DEPARTMENT rather than by kind of tool.
+ *
+ * It used to be eleven flat destinations under one "My Business" heading,
+ * ordered by which tool was built first — so an estate agent looking for
+ * today's leads had to read all eleven and guess. These are the same eleven
+ * destinations, nothing added or removed, arranged the way the work is
+ * actually divided in an agency.
+ *
+ * Each department carries a fixed colour so it stays recognisable wherever it
+ * appears. `items` takes the translation dictionary because these labels
+ * already exist there in all three languages — the department names are the
+ * only new strings, and they are written out inline below.
+ */
+const DEPARTMENTS: {
+  key: string;
+  color: string;
+  icon: React.ElementType;
+  label: (lang: Lang) => string;
+  items: (t: ReturnType<typeof useTranslation>["t"]) => { icon: React.ElementType; label: string; href: string }[];
+}[] = [
+  {
+    key: "sales",
+    color: "#ea580c",
+    icon: Handshake,
+    label: (lang) => tri(lang, "فروش و املاک", "Sales & property", "Vertrieb & Immobilien"),
+    items: (t) => [
+      { icon: Briefcase, label: t.nav.crm, href: "/crm" },
+      { icon: Handshake, label: t.nav.salesAgent, href: "/sales" },
+      { icon: Phone, label: t.nav.voiceAgent, href: "/voice-agent" },
+      { icon: Factory, label: t.nav.industryPacks, href: "/industry" },
+    ],
+  },
+  {
+    key: "marketing",
+    color: "#3b82f6",
+    icon: Share2,
+    label: (lang) => tri(lang, "مارکتینگ", "Marketing", "Marketing"),
+    items: (t) => [
+      { icon: Share2, label: t.nav.socialMedia, href: "/social" },
+      { icon: Search, label: t.nav.seoWorkspace, href: "/seo" },
+      { icon: Globe, label: t.nav.websiteDesigner, href: "/website-designer" },
+    ],
+  },
+  {
+    key: "finance",
+    color: "#1baf7a",
+    icon: Calculator,
+    label: (lang) => tri(lang, "مالی و حسابداری", "Finance & accounting", "Finanzen & Buchhaltung"),
+    items: (t) => [
+      { icon: Calculator, label: t.nav.accounting, href: "/accounting" },
+    ],
+  },
+  {
+    key: "strategy",
+    color: "#a855f7",
+    icon: Crown,
+    label: (lang) => tri(lang, "مشاورهٔ استراتژیک", "Strategy", "Strategie"),
+    items: (t) => [
+      { icon: Crown, label: t.nav.ceoAdvisor, href: "/ceo" },
+      { icon: HeartPulse, label: t.nav.businessDoctor, href: "/business-doctor" },
+      { icon: Users, label: t.nav.meetingRoom, href: "/meeting" },
+    ],
+  },
+];
+
 export default function Sidebar({ user, conversations = [], onNewChat }: SidebarProps) {
   const pathname = usePathname();
   const { t, lang } = useTranslation();
-  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-  const projectIdParam = searchParams?.get("project") || null;
   const [toolsOpen, setToolsOpen] = useState(false);
   const [assistantsOpen, setAssistantsOpen] = useState(false);
-  const [businessOpen, setBusinessOpen] = useState(true);
+  // Design Director phase 2 — the eleven business destinations are grouped into
+  // four departments. A department opens when the page you are on lives inside
+  // it, so you always see where you are without hunting; the rest stay closed
+  // so the list is four lines instead of eleven.
+  const [openDept, setOpenDept] = useState<string | null>(null);
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
@@ -213,30 +281,36 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         {hasPack ? (
           <>
             <NavSection label={tri(lang, "کسب‌وکار من", "My Business", "Mein Unternehmen")} />
-            <button onClick={() => setBusinessOpen(!businessOpen)}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium"
-              style={{ color: "var(--text-secondary)" }}>
-              <span className="flex items-center gap-2 min-w-0">
-                <Zap className="w-4 h-4 flex-shrink-0" style={{ color: "var(--primary)" }} />
-                <span className="truncate">{tri(lang, "ایجنت‌های هوش مصنوعی", "AI Agents", "KI-Agenten")}</span>
-              </span>
-              {businessOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-            </button>
-            {businessOpen && (
-              <div className="space-y-0.5">
-                <NavItem icon={HeartPulse} label={t.nav.businessDoctor} href="/business-doctor" active={isActive("/business-doctor")} />
-                <NavItem icon={Briefcase} label={t.nav.crm} href="/crm" active={isActive("/crm")} />
-                <NavItem icon={Calculator} label={t.nav.accounting} href="/accounting" active={isActive("/accounting")} />
-                <NavItem icon={Handshake} label={t.nav.salesAgent} href="/sales" active={isActive("/sales")} />
-                <NavItem icon={Phone} label={t.nav.voiceAgent} href="/voice-agent" active={isActive("/voice-agent")} />
-                <NavItem icon={Crown} label={t.nav.ceoAdvisor} href="/ceo" active={isActive("/ceo")} />
-                <NavItem icon={Search} label={t.nav.seoWorkspace} href="/seo" active={isActive("/seo")} />
-                <NavItem icon={Share2} label={t.nav.socialMedia} href="/social" active={isActive("/social")} />
-                <NavItem icon={Globe} label={t.nav.websiteDesigner} href="/website-designer" active={isActive("/website-designer")} />
-                <NavItem icon={Factory} label={t.nav.industryPacks} href="/industry" active={isActive("/industry")} />
-                <NavItem icon={Users} label={t.nav.meetingRoom} href="/meeting" active={isActive("/meeting")} />
-              </div>
-            )}
+            {DEPARTMENTS.map((dept) => {
+              const items = dept.items(t);
+              const hasCurrent = items.some((i) => isActive(i.href));
+              // Explicit open/closed wins; otherwise the department containing
+              // the current page is the one that is open.
+              const open = openDept === null ? hasCurrent : openDept === dept.key;
+              return (
+                <div key={dept.key}>
+                  <button
+                    onClick={() => setOpenDept(open ? "" : dept.key)}
+                    aria-expanded={open}
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium"
+                    style={{ color: hasCurrent ? "var(--text-primary)" : "var(--text-secondary)" }}
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <dept.icon className="w-4 h-4 flex-shrink-0" style={{ color: dept.color }} />
+                      <span className="truncate">{dept.label(lang)}</span>
+                    </span>
+                    {open ? <ChevronDown className="w-4 h-4 flex-shrink-0" /> : <ChevronLeft className="w-4 h-4 flex-shrink-0" />}
+                  </button>
+                  {open && (
+                    <div className="space-y-0.5">
+                      {items.map((i) => (
+                        <NavItem key={i.href} icon={i.icon} label={i.label} href={i.href} active={isActive(i.href)} small />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </>
         ) : (
           /* No pack - show CTA */
