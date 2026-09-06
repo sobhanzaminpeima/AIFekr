@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { generateWeeklyCalendar } from "@/lib/instagram";
+import type { Lang } from "@/lib/i18n";
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
@@ -11,7 +12,9 @@ export async function POST(req: NextRequest) {
   if (!businessName || !businessType) {
     return NextResponse.json({ error: "نام و نوع کسب‌وکار الزامی است" }, { status: 400 });
   }
-  const lang = language === "en" ? "en" : "fa";
+  // Keep German -- narrowing it to "fa" here was why German users got a
+  // Persian content calendar.
+  const lang: Lang = language === "en" || language === "de" ? language : "fa";
 
   try {
     const posts = await generateWeeklyCalendar(businessName, businessType, topic || "", lang);

@@ -29,7 +29,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const platform: ListingCopyPlatform = PLATFORMS.includes(platformParam as ListingCopyPlatform) ? (platformParam as ListingCopyPlatform) : "instagram";
 
   try {
-    const result = await generateListingCopy(ws.workspaceUserId, params.id, lang === "fa" ? "fa" : "en", platform);
+    const result = await generateListingCopy(ws.workspaceUserId, params.id, lang, platform);
     if (!result) return NextResponse.json({ error: tri(lang, "تولید متن آگهی ناموفق بود", "Failed to generate listing copy", "Erstellung des Anzeigentexts fehlgeschlagen") }, { status: 500 });
     return NextResponse.json(result);
   } catch (err) {

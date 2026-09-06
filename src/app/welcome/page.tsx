@@ -2,34 +2,43 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
+import { useTranslation } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
+import type { Lang } from "@/lib/i18n";
 
-const BUSINESS_TYPES = [
-  { id: "retail", label: "فروشگاه / خرده‌فروشی", emoji: "🛍️" },
-  { id: "services", label: "خدمات / مشاوره", emoji: "💼" },
-  { id: "restaurant", label: "رستوران / کافه", emoji: "☕" },
-  { id: "tech", label: "فناوری / نرم‌افزار", emoji: "💻" },
-  { id: "production", label: "تولید / صنعت", emoji: "🏭" },
-  { id: "other", label: "سایر", emoji: "✨" },
+// Onboarding is the very first screen a new account sees, and it was
+// Persian-only with a hardcoded dir="rtl" — an English or German signup was
+// asked three questions they could not read before reaching the product.
+
+const BUSINESS_TYPES: { id: string; emoji: string; label: Record<Lang, string> }[] = [
+  { id: "retail", emoji: "🛍️", label: { fa: "فروشگاه / خرده‌فروشی", en: "Shop / retail", de: "Laden / Einzelhandel" } },
+  { id: "services", emoji: "💼", label: { fa: "خدمات / مشاوره", en: "Services / consulting", de: "Dienstleistung / Beratung" } },
+  { id: "restaurant", emoji: "☕", label: { fa: "رستوران / کافه", en: "Restaurant / café", de: "Restaurant / Café" } },
+  { id: "tech", emoji: "💻", label: { fa: "فناوری / نرم‌افزار", en: "Technology / software", de: "Technologie / Software" } },
+  { id: "production", emoji: "🏭", label: { fa: "تولید / صنعت", en: "Manufacturing / industry", de: "Produktion / Industrie" } },
+  { id: "other", emoji: "✨", label: { fa: "سایر", en: "Something else", de: "Sonstiges" } },
 ];
 
-const GOALS = [
-  { id: "content", label: "تولید محتوا و مقاله", emoji: "✍️" },
-  { id: "analysis", label: "آنالیز و مشاوره کسب‌وکار", emoji: "📊" },
-  { id: "social", label: "مدیریت شبکه اجتماعی", emoji: "📱" },
-  { id: "startup", label: "ساخت استارتاپ / ایده", emoji: "🚀" },
-  { id: "chat", label: "دستیار هوشمند برای سوالات", emoji: "🤖" },
-  { id: "image", label: "تولید تصویر و ویدئو", emoji: "🎨" },
+const GOALS: { id: string; emoji: string; label: Record<Lang, string> }[] = [
+  { id: "content", emoji: "✍️", label: { fa: "تولید محتوا و مقاله", en: "Content and article writing", de: "Content- und Artikelerstellung" } },
+  { id: "analysis", emoji: "📊", label: { fa: "آنالیز و مشاوره کسب‌وکار", en: "Business analysis and advice", de: "Geschäftsanalyse und Beratung" } },
+  { id: "social", emoji: "📱", label: { fa: "مدیریت شبکه اجتماعی", en: "Social media management", de: "Social-Media-Management" } },
+  { id: "startup", emoji: "🚀", label: { fa: "ساخت استارتاپ / ایده", en: "Building a startup or idea", de: "Ein Startup oder eine Idee aufbauen" } },
+  { id: "chat", emoji: "🤖", label: { fa: "دستیار هوشمند برای سوالات", en: "A smart assistant for questions", de: "Ein intelligenter Assistent für Fragen" } },
+  { id: "image", emoji: "🎨", label: { fa: "تولید تصویر و ویدئو", en: "Image and video generation", de: "Bild- und Videoerstellung" } },
 ];
 
-const EXPERIENCES = [
-  { id: "none", label: "تازه‌کار — هرگز از AI استفاده نکردم" },
-  { id: "some", label: "کمی آشنا — ChatGPT را امتحان کردم" },
-  { id: "pro", label: "حرفه‌ای — به طور منظم از AI استفاده می‌کنم" },
+const EXPERIENCES: { id: string; label: Record<Lang, string> }[] = [
+  { id: "none", label: { fa: "تازه‌کار — هرگز از AI استفاده نکردم", en: "New to this — I have never used AI", de: "Neu dabei — ich habe noch nie KI genutzt" } },
+  { id: "some", label: { fa: "کمی آشنا — ChatGPT را امتحان کردم", en: "Somewhat familiar — I have tried ChatGPT", de: "Etwas vertraut — ich habe ChatGPT ausprobiert" } },
+  { id: "pro", label: { fa: "حرفه‌ای — به طور منظم از AI استفاده می‌کنم", en: "Experienced — I use AI regularly", de: "Erfahren — ich nutze KI regelmäßig" } },
 ];
 
 export default function WelcomePage() {
   const router = useRouter();
+  const { lang } = useTranslation();
+  const rtl = lang === "fa";
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({ businessType: "", goal: "", experience: "" });
   const [loading, setLoading] = useState(false);
@@ -43,22 +52,22 @@ export default function WelcomePage() {
       body: JSON.stringify(final),
     });
     const data = await res.json();
-    router.push(data.redirect || "/chat");
+    router.push(data.redirect || "/home");
   }
 
   const steps = [
     {
-      question: "کسب‌وکار شما در چه حوزه‌ایست؟",
+      question: tri(lang, "کسب‌وکار شما در چه حوزه‌ایست؟", "What field is your business in?", "In welcher Branche ist Ihr Unternehmen tätig?"),
       options: BUSINESS_TYPES,
       key: "businessType" as const,
     },
     {
-      question: "بیشتر می‌خواید از AiFekr برای چه کاری استفاده کنید؟",
+      question: tri(lang, "بیشتر می‌خواید از AiFekr برای چه کاری استفاده کنید؟", "What do you mainly want to use AiFekr for?", "Wofür möchten Sie AiFekr hauptsächlich nutzen?"),
       options: GOALS,
       key: "goal" as const,
     },
     {
-      question: "تجربه شما با هوش مصنوعی چقدر است؟",
+      question: tri(lang, "تجربه شما با هوش مصنوعی چقدر است؟", "How much experience do you have with AI?", "Wie viel Erfahrung haben Sie mit KI?"),
       options: EXPERIENCES,
       key: "experience" as const,
     },
@@ -78,7 +87,7 @@ export default function WelcomePage() {
 
   return (
     <div
-      dir="rtl"
+      dir={rtl ? "rtl" : "ltr"}
       style={{
         minHeight: "100vh", display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center",
@@ -122,29 +131,30 @@ export default function WelcomePage() {
                 padding: "14px 18px", borderRadius: 12, cursor: "pointer",
                 border: "1px solid rgba(255,255,255,0.1)",
                 background: "rgba(255,255,255,0.04)",
-                color: "#fff", fontSize: 15, fontWeight: 500, textAlign: "right",
+                color: "#fff", fontSize: 15, fontWeight: 500, textAlign: rtl ? "right" : "left",
                 transition: "all 0.15s",
               }}
               onMouseEnter={e => (e.currentTarget.style.background = "rgba(234,88,12,0.12)", e.currentTarget.style.borderColor = "rgba(234,88,12,0.4)")}
               onMouseLeave={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)", e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
             >
               {"emoji" in opt && <span style={{ fontSize: 20 }}>{opt.emoji}</span>}
-              {opt.label}
+              {opt.label[lang]}
             </button>
           ))}
         </div>
 
         {/* Skip */}
         <button
-          onClick={() => router.push("/chat")}
+          onClick={() => router.push("/home")}
           style={{ marginTop: 24, background: "none", border: "none", color: "rgba(255,255,255,0.35)", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
         >
-          <ArrowLeft size={13} /> رد کردن و ورود به داشبورد
+          {rtl ? <ArrowLeft size={13} /> : <ArrowRight size={13} />}{" "}
+          {tri(lang, "رد کردن و ورود به داشبورد", "Skip and go to the dashboard", "Überspringen und zum Dashboard")}
         </button>
       </div>
 
       <p style={{ marginTop: 24, color: "rgba(255,255,255,0.25)", fontSize: 12 }}>
-        این اطلاعات فقط برای راهنمایی بهتر استفاده می‌شود
+        {tri(lang, "این اطلاعات فقط برای راهنمایی بهتر استفاده می‌شود", "This is only used to guide you better", "Diese Angaben dienen nur einer besseren Beratung")}
       </p>
     </div>
   );

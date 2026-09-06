@@ -8,6 +8,16 @@
 // than accounts added as testers on the app.
 import { routedStreamChat } from "@/lib/ai/router";
 import { isCustomProviderModel, streamCustomProvider } from "@/lib/ai/customProviders";
+import { tri } from "@/lib/i18n/tri";
+import type { Lang } from "@/lib/i18n";
+
+/**
+ * Content-generation language. This used to be `"fa" | "en"`, which meant a
+ * German user's Instagram captions came back in Persian — the caller
+ * coerced anything that wasn't "en" to "fa". German is a first-class UI
+ * language, so it has to be representable here too.
+ */
+export type PromptLang = Lang;
 
 // This VPS's IP is blocked at the network level by api.instagram.com /
 // graph.instagram.com (same issue documented in src/lib/ai/providers.ts for
@@ -31,11 +41,17 @@ export interface GeneratedIgContent {
  * the unattended workflow cron (/api/cron/instagram-workflow) can call it
  * without a user session or HTTP round-trip.
  */
-export async function generateIgContent(businessName: string, businessType: string, topic: string, lang: "fa" | "en", model?: string): Promise<GeneratedIgContent> {
-  const systemPrompt = lang === "en"
-    ? "You are a professional social media strategist. Return ONLY a raw, valid JSON object — no explanation or markdown."
-    : "تو استراتژیست شبکه‌های اجتماعی حرفه‌ای هستی. فقط و فقط یک JSON خام و معتبر برگردان، بدون توضیح یا markdown اضافه.";
-  const userMessage = lang === "en"
+export async function generateIgContent(businessName: string, businessType: string, topic: string, lang: PromptLang, model?: string): Promise<GeneratedIgContent> {
+  const systemPrompt = tri(lang,
+    "تو استراتژیست شبکه‌های اجتماعی حرفه‌ای هستی. فقط و فقط یک JSON خام و معتبر برگردان، بدون توضیح یا markdown اضافه.",
+    "You are a professional social media strategist. Return ONLY a raw, valid JSON object — no explanation or markdown.",
+    "Du bist ein professioneller Social-Media-Stratege. Gib AUSSCHLIESSLICH ein rohes, gültiges JSON-Objekt zurück — keine Erklärung, kein Markdown. Schreibe alle Inhalte auf Deutsch.");
+  const userMessage = lang === "de"
+    ? `Erstelle einen ansprechenden, reichweitenstarken Instagram-Beitrag für das Unternehmen „${businessName}" (Branche: ${businessType})${topic ? ` zum Thema „${topic}"` : ""}.
+Die Ausgabe muss exakt diesem JSON-Format entsprechen:
+{"caption": "vollständige Bildunterschrift auf Deutsch mit passenden Emojis", "hashtags": ["#tag1", "#tag2", "#tag3", "#tag4", "#tag5"], "bestTime": "kurze Angabe zum besten Tag und zur besten Uhrzeit für die Veröffentlichung (z. B. Donnerstag um 20:00 Uhr)"}
+Gib immer genau 5 relevante, häufig gesuchte Hashtags an.`
+    : lang === "en"
     ? `Create an engaging, high-engagement Instagram post for the business "${businessName}" (type: ${businessType})${topic ? ` about "${topic}"` : ""}.
 Output must match exactly this JSON format:
 {"caption": "full caption with fitting emojis", "hashtags": ["#tag1", "#tag2", "#tag3", "#tag4", "#tag5"], "bestTime": "short description of the best day/time to post for page growth (e.g. Thursday at 8:00 PM)"}
@@ -66,11 +82,15 @@ export interface WeeklyCalendarPost {
 }
 
 /** Structured 7-day content calendar — one caption+hashtags per day, distinct from each other, not just the single-post generator repeated. */
-export async function generateWeeklyCalendar(businessName: string, businessType: string, topic: string, lang: "fa" | "en"): Promise<WeeklyCalendarPost[]> {
-  const systemPrompt = lang === "en"
-    ? "You are a professional social media content strategist. Return ONLY a raw, valid JSON array — no explanation or markdown."
-    : "تو استراتژیست محتوای شبکه‌های اجتماعی حرفه‌ای هستی. فقط و فقط یک آرایه JSON خام و معتبر برگردان، بدون توضیح یا markdown اضافه.";
-  const userMessage = lang === "en"
+export async function generateWeeklyCalendar(businessName: string, businessType: string, topic: string, lang: PromptLang): Promise<WeeklyCalendarPost[]> {
+  const systemPrompt = tri(lang,
+    "تو استراتژیست محتوای شبکه‌های اجتماعی حرفه‌ای هستی. فقط و فقط یک آرایه JSON خام و معتبر برگردان، بدون توضیح یا markdown اضافه.",
+    "You are a professional social media content strategist. Return ONLY a raw, valid JSON array — no explanation or markdown.",
+    "Du bist ein professioneller Social-Media-Content-Stratege. Gib AUSSCHLIESSLICH ein rohes, gültiges JSON-Array zurück — keine Erklärung, kein Markdown. Schreibe alle Inhalte auf Deutsch.");
+  const userMessage = lang === "de"
+    ? `Erstelle einen 7-Tage-Instagram-Content-Kalender für das Unternehmen „${businessName}" (Branche: ${businessType})${topic ? `, mit Schwerpunkt auf „${topic}"` : ""}. Jeder Tag muss einen wirklich eigenständigen Blickwinkel bzw. eine eigene Beitragsidee haben — keine Wiederholung derselben Bildunterschrift. Die Ausgabe muss exakt diesem JSON-Array-Format entsprechen (7 Einträge, dayOffset 0..6):
+[{"dayOffset": 0, "caption": "vollständige Bildunterschrift auf Deutsch mit passenden Emojis", "hashtags": ["#tag1", "#tag2", "#tag3", "#tag4", "#tag5"]}, ...]`
+    : lang === "en"
     ? `Create a 7-day Instagram content calendar for the business "${businessName}" (type: ${businessType})${topic ? `, focused on "${topic}"` : ""}. Each day must be a genuinely distinct angle/post idea — not repeats of the same caption. Output must match exactly this JSON array format (7 items, dayOffset 0..6):
 [{"dayOffset": 0, "caption": "full caption with fitting emojis", "hashtags": ["#tag1", "#tag2", "#tag3", "#tag4", "#tag5"]}, ...]`
     : `یک تقویم محتوایی ۷ روزه برای اینستاگرام کسب‌وکار «${businessName}» (نوع: ${businessType})${topic ? ` با محوریت «${topic}»` : ""} بساز. هر روز باید یک ایده/زاویه واقعاً متفاوت داشته باشد — نه تکرار همان کپشن. خروجی دقیقاً باید این فرمت آرایه JSON باشد (۷ آیتم، dayOffset از ۰ تا ۶):

@@ -60,7 +60,7 @@ export interface IndustrySocialContentPack {
    * record or any generation failure — caller falls back to the generic
    * businessName/businessType/topic flow.
    */
-  buildInstagramPost(userId: string, recordId: string, lang: "fa" | "en"): Promise<GeneratedSocialPost | null>;
+  buildInstagramPost(userId: string, recordId: string, lang: Lang): Promise<GeneratedSocialPost | null>;
 }
 
 const socialContentPacks = new Map<string, IndustrySocialContentPack>();

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { generateIgContent } from "@/lib/instagram";
 import { getSocialContentPack } from "@/lib/industry";
+import type { Lang } from "@/lib/i18n";
 
 // Structured counterpart to /api/social/generate — that one streams free
 // -form markdown; this returns strict JSON (caption, exactly 5 hashtags,
@@ -13,7 +14,9 @@ export async function POST(req: NextRequest) {
   if (!user) return unauthorizedResponse();
 
   const { businessName, businessType, topic, language, model, propertyId } = await req.json();
-  const lang = language === "en" ? "en" : "fa";
+  // German is a supported UI language, so it must survive this narrowing --
+  // it used to collapse to "fa", which meant German users got Persian captions.
+  const lang: Lang = language === "en" || language === "de" ? language : "fa";
 
   // Real-estate content pack — only ever engages when the caller explicitly
   // passes a propertyId they own (see src/lib/industry/realEstate/socialContentPack.ts).
