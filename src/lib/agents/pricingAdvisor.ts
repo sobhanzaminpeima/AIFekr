@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
 import { routedStreamChat } from "@/lib/ai/router";
 import type { Lang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n/tri";
+import { formatListingPrice, describeDetails } from "@/lib/industry/realEstate/listingFormat";
 
 /**
  * Section 2, item 5 — Pricing Advisor. Called out in the spec as the most
@@ -14,15 +16,11 @@ import type { Lang } from "@/lib/i18n/server";
  *   3. Always show reasoning, never just a number.
  */
 
-function promptLang(l: Lang): "fa" | "en" {
-  return l === "fa" ? "fa" : "en";
-}
-
 interface ComparableProperty {
-  title: string; price: bigint; areaSqm: number | null; bedrooms: number | null; city: string | null;
+  title: string; price: bigint; currency: string; areaSqm: number | null; bedrooms: number | null; city: string | null;
 }
 
-const SYSTEM = {
+const SYSTEM: Record<Lang, string> = {
   fa: `تو "مشاور قیمت‌گذاری" یک آژانس املاک هستی. فقط بر اساس داده‌های CRM داخلی همین آژانس (نه هیچ منبع بازار زنده یا خارجی) به کارشناس در مورد قیمت‌گذاری یک ملک مشاوره می‌دهی.
 قوانین سخت‌گیرانه:
 - هرگز ادعا نکن به داده بازار زنده یا خارجی دسترسی داری — فقط از ملک‌های مشابه ثبت‌شده در همین سیستم استفاده کن.
@@ -39,7 +37,16 @@ Strict rules:
 - Always explain the reasoning behind the suggested price range, never just a number.
 - Return output in exactly this JSON format, no extra explanation or markdown:
 {"priceRangeLow": number, "priceRangeHigh": number, "reasoning": "full reasoning in English", "dataLimitation": "limitation note (if data was thin) or empty string"}`,
-} as const;
+  de: `Du bist der „Preisberater" einer Immobilienagentur. Du berätst zur Preisgestaltung AUSSCHLIESSLICH auf Basis der internen CRM-Daten dieser Agentur (es gibt keine Live- oder externe Marktanbindung).
+Strikte Regeln:
+- Behaupte niemals, Zugang zu Live- oder externen Marktdaten zu haben — nutze nur vergleichbare Objekte, die bereits in diesem System erfasst sind.
+- Gibt es wenige Vergleichsobjekte (weniger als 3), benenne diese Einschränkung ausdrücklich in der Antwort.
+- Das ist nur ein Vorschlag, niemals eine endgültige Entscheidung — mache das in der Antwort deutlich.
+- Begründe die vorgeschlagene Preisspanne immer, gib niemals nur eine Zahl.
+- Übernimm die Währung exakt so, wie sie in der Eingabe steht; rechne niemals um.
+- Gib die Ausgabe exakt in diesem JSON-Format zurück, ohne zusätzliche Erklärung und ohne Markdown:
+{"priceRangeLow": Zahl, "priceRangeHigh": Zahl, "reasoning": "vollständige Begründung auf Deutsch", "dataLimitation": "Hinweis auf Datenlage (falls dünn) oder leerer String"}`,
+};
 
 export interface PricingAdvice {
   priceRangeLow: number;
@@ -50,8 +57,6 @@ export interface PricingAdvice {
 }
 
 export async function generatePricingAdvice(userId: string, propertyId: string, lang: Lang): Promise<PricingAdvice | null> {
-  const effectiveLang = promptLang(lang);
-
   const property = await prisma.property.findFirst({ where: { id: propertyId, userId } });
   if (!property) return null;
 
@@ -63,24 +68,29 @@ export async function generatePricingAdvice(userId: string, propertyId: string, 
       listingType: property.listingType,
       ...(property.city ? { city: property.city } : {}),
     },
-    select: { title: true, price: true, areaSqm: true, bedrooms: true, city: true },
+    select: { title: true, price: true, currency: true, areaSqm: true, bedrooms: true, city: true },
     take: 20,
   });
 
-  const comparableLines = comparables.map((c) =>
-    `- ${c.title}: ${Number(c.price).toLocaleString(effectiveLang === "fa" ? "fa-IR" : "en-US")}${c.areaSqm ? `, ${c.areaSqm}${effectiveLang === "fa" ? " متر" : " sqm"}` : ""}${c.bedrooms ? `, ${c.bedrooms}${effectiveLang === "fa" ? " خواب" : " bed"}` : ""}`
-  ).join("\n");
+  // Price and units go through the shared listing formatter so each comparable
+  // carries its own currency. They previously rendered as a bare fa-IR/en-US
+  // number with no currency at all, which invited the model to weigh a Lira
+  // listing against a Toman one as though they were the same scale.
+  const sep = tri(lang, "، ", ", ", ", ");
+  const comparableLines = comparables.map((c) => {
+    const details = describeDetails({ areaSqm: c.areaSqm, bedrooms: c.bedrooms }, lang);
+    return `- ${c.title}: ${formatListingPrice(c.price, c.currency, lang)}${details ? `${sep}${details}` : ""}`;
+  }).join("\n");
 
-  const targetLine = effectiveLang === "fa"
-    ? `ملک هدف: ${property.title} — ${property.propertyType} — ${property.address}${property.city ? `، ${property.city}` : ""}${property.areaSqm ? ` — ${property.areaSqm} متر` : ""}${property.bedrooms ? ` — ${property.bedrooms} خواب` : ""}`
-    : `Target property: ${property.title} — ${property.propertyType} — ${property.address}${property.city ? `, ${property.city}` : ""}${property.areaSqm ? ` — ${property.areaSqm} sqm` : ""}${property.bedrooms ? ` — ${property.bedrooms} bed` : ""}`;
+  const targetDetails = describeDetails({ areaSqm: property.areaSqm, bedrooms: property.bedrooms }, lang);
+  const targetLine = `${tri(lang, "ملک هدف", "Target property", "Zielobjekt")}: ${property.title} — ${property.propertyType} — ${property.address}${property.city ? `${sep}${property.city}` : ""}${targetDetails ? ` — ${targetDetails}` : ""} — ${formatListingPrice(property.price, property.currency, lang)}`;
 
   const user = comparables.length > 0
-    ? `${targetLine}\n\n${effectiveLang === "fa" ? "ملک‌های مشابه ثبت‌شده در این آژانس" : "Comparable properties on record at this agency"} (${comparables.length}):\n${comparableLines}`
-    : `${targetLine}\n\n${effectiveLang === "fa" ? "هیچ ملک مشابهی در سیستم این آژانس ثبت نشده است." : "No comparable properties exist in this agency's system."}`;
+    ? `${targetLine}\n\n${tri(lang, "ملک‌های مشابه ثبت‌شده در این آژانس", "Comparable properties on record at this agency", "Vergleichbare Objekte im Bestand dieser Agentur")} (${comparables.length}):\n${comparableLines}`
+    : `${targetLine}\n\n${tri(lang, "هیچ ملک مشابهی در سیستم این آژانس ثبت نشده است.", "No comparable properties exist in this agency's system.", "Im System dieser Agentur sind keine vergleichbaren Objekte erfasst.")}`;
 
   let raw = "";
-  await routedStreamChat([{ role: "user", content: user }], SYSTEM[effectiveLang], (chunk) => { raw += chunk; }, () => {}, undefined, undefined, 1024);
+  await routedStreamChat([{ role: "user", content: user }], SYSTEM[lang], (chunk) => { raw += chunk; }, () => {}, undefined, undefined, 1024);
 
   const match = raw.match(/\{[\s\S]*\}/);
   if (!match) return null;
@@ -90,7 +100,12 @@ export async function generatePricingAdvice(userId: string, propertyId: string, 
       priceRangeLow: Number(parsed.priceRangeLow) || 0,
       priceRangeHigh: Number(parsed.priceRangeHigh) || 0,
       reasoning: String(parsed.reasoning || ""),
-      dataLimitation: String(parsed.dataLimitation || (comparables.length < 3 ? (effectiveLang === "fa" ? "تعداد ملک‌های مشابه در سیستم کم است؛ این پیشنهاد قابلیت اطمینان محدودی دارد." : "Few comparable properties in the system; this suggestion has limited reliability.") : "")),
+      dataLimitation: String(parsed.dataLimitation || (comparables.length < 3
+        ? tri(lang,
+            "تعداد ملک‌های مشابه در سیستم کم است؛ این پیشنهاد قابلیت اطمینان محدودی دارد.",
+            "Few comparable properties in the system; this suggestion has limited reliability.",
+            "Es sind nur wenige vergleichbare Objekte im System erfasst; dieser Vorschlag ist entsprechend wenig belastbar.")
+        : "")),
       comparablesUsed: comparables.length,
     };
   } catch {

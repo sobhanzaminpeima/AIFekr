@@ -15,11 +15,20 @@ export const MEMORY_MARKER = "<<<MEMORY>>>";
 
 export const MEMORY_CATEGORIES = ["sales", "content", "seo", "social", "dev", "general"] as const;
 
-/** Parses the model's memory notes. Returns [] when the section is absent or malformed. */
-export function extractMemoryLines(output: string): { category: string; text: string }[] {
+/** The Sales Agent keeps its own tags — same protocol, different category set. */
+export const SALES_MEMORY_CATEGORIES = ["pipeline", "lead_source", "risk", "general"] as const;
+
+/**
+ * Parses the model's memory notes. Returns [] when the section is absent or
+ * malformed. `categories` defaults to the CEO's set.
+ */
+export function extractMemoryLines(
+  output: string,
+  categories: readonly string[] = MEMORY_CATEGORIES,
+): { category: string; text: string }[] {
   const idx = output.indexOf(MEMORY_MARKER);
   if (idx === -1) return [];
-  const pattern = new RegExp(`^\\[(${MEMORY_CATEGORIES.join("|")})\\]\\s*(.+)`);
+  const pattern = new RegExp(`^\\[(${categories.join("|")})\\]\\s*(.+)`);
   return output
     .slice(idx + MEMORY_MARKER.length)
     .split("\n")

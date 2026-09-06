@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { routedStreamChat } from "@/lib/ai/router";
 import type { Lang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n/tri";
 
 /**
  * Section 2, item 1 — Lead Matcher. Mirrors the exact shape of
@@ -14,10 +15,6 @@ import type { Lang } from "@/lib/i18n/server";
  * lead has no stored search criteria, fall back to a generic follow-up
  * with no property mention — never throw.
  */
-
-function promptLang(l: Lang): "fa" | "en" {
-  return l === "fa" ? "fa" : "en";
-}
 
 interface BuyerCriteria {
   propertyType?: string;
@@ -56,7 +53,7 @@ function findMatches(properties: MatchableProperty[], criteria: BuyerCriteria): 
   }).slice(0, 2);
 }
 
-const SYSTEM = {
+const SYSTEM: Record<Lang, string> = {
   fa: `تو "ایجنت تطبیق لید" یک آژانس املاک هستی. یک لیست از لیدهای CRM به تو داده شده، هرکدام با یک شناسه (ID).
 اگر زیر یک لید، یک یا چند ملک منطبق (با عنوان، قیمت و آدرس) آمده باشد، پیام را طوری بنویس که طبیعی به یکی/دوتای آن‌ها اشاره کند.
 اگر هیچ ملکی زیر یک لید نیامده، پیام را کاملاً عمومی و دوستانه بنویس — به هیچ ملک خاصی اشاره نکن و فرض نکن نیاز او چیست.
@@ -71,7 +68,14 @@ Never invent property details not given in the input. Never propose a price, dis
 The message must be short (max 2 sentences), ready-to-send, in English — these are drafts a human agent must review and send.
 Return output in exactly this format — one line per lead, no extra explanation:
 ID:<exact id> :: <message text>`,
-} as const;
+  de: `Du bist der „Lead-Matcher"-Agent einer Immobilienagentur. Du erhältst eine Liste von CRM-Leads, jeweils mit einer ID.
+Erscheinen unter einem Lead ein oder mehrere passende Objekte (Titel, Preis, Adresse), formuliere die Nachricht so, dass sie ein oder zwei davon natürlich erwähnt.
+Erscheint unter einem Lead kein Objekt, schreibe eine vollständig allgemeine, freundliche Nachricht — erwähne kein bestimmtes Objekt und unterstelle nicht, was die Person sucht.
+Erfinde niemals Objektdetails, die nicht in der Eingabe stehen. Schlage niemals einen Preis, Rabatt oder eine finanzielle bzw. vertragliche Zusage vor.
+Die Nachricht muss kurz (höchstens 2 Sätze), versandfertig und auf Deutsch sein — das sind Entwürfe, die ein Mensch prüfen und versenden muss.
+Gib die Ausgabe exakt in diesem Format zurück — eine Zeile pro Lead, ohne zusätzliche Erklärung:
+ID:<exakte id> :: <Nachrichtentext>`,
+};
 
 export interface LeadMatchDraft {
   contactId: string;
@@ -83,8 +87,6 @@ export interface LeadMatchDraft {
 }
 
 export async function generateLeadMatcherDrafts(userId: string, lang: Lang): Promise<LeadMatchDraft[]> {
-  const effectiveLang = promptLang(lang);
-
   const leads = await prisma.crmContact.findMany({
     where: { userId, status: { in: ["lead", "contacted"] } },
     orderBy: { updatedAt: "desc" },
@@ -107,7 +109,7 @@ export async function generateLeadMatcherDrafts(userId: string, lang: Lang): Pro
     console.error("Lead Matcher: property lookup failed, falling back to generic follow-ups:", err);
   }
 
-  const label = effectiveLang === "en" ? { name: "name" } : { name: "نام" };
+  const label = { name: tri(lang, "نام", "name", "Name") };
   const leadMatches = new Map<string, MatchableProperty[]>();
 
   const promptLines = leads.map((l) => {
@@ -124,7 +126,7 @@ export async function generateLeadMatcherDrafts(userId: string, lang: Lang): Pro
   let output = "";
   await routedStreamChat(
     [{ role: "user", content: prompt }],
-    SYSTEM[effectiveLang],
+    SYSTEM[lang],
     (text) => { output += text; },
     () => {},
     undefined,

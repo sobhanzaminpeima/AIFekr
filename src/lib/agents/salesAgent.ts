@@ -4,18 +4,14 @@ import { buildCrmSnapshot, CrmSnapshot } from "@/lib/agents/crmSnapshot";
 import { embedForStorage } from "@/lib/rag/retrieve";
 import { wrapUntrustedContent, looksLikeInjectionAttempt } from "@/lib/ai/promptSafety";
 import type { Lang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n/tri";
+import { MEMORY_MARKER, extractMemoryLines, SALES_MEMORY_CATEGORIES } from "@/lib/agents/ceoMemoryFormat";
 
 function sanitizeFreeText(text: string): string {
   return looksLikeInjectionAttempt(text) ? "[invalid content removed]" : text;
 }
 
-// German has no dedicated sales prompt yet — fall back to English, same
-// convention used by the CEO/Meeting routes for the de.ts placeholder locale.
-function promptLang(l: Lang): "fa" | "en" {
-  return l === "fa" ? "fa" : "en";
-}
-
-const SECTION_HEADERS = {
+const SECTION_HEADERS: Record<Lang, Record<"forecast"|"atRisk"|"objections"|"battlecard"|"coaching"|"actions", string>> = {
   fa: {
     forecast: "۱. پیش‌بینی فروش",
     atRisk: "۲. معاملات در خطر",
@@ -23,7 +19,6 @@ const SECTION_HEADERS = {
     battlecard: "۴. Battlecard رقابتی",
     coaching: "۵. کوچینگ فروش",
     actions: "۶. Action Items",
-    memory: "نکاتی برای حافظهٔ آینده",
   },
   en: {
     forecast: "1. Sales Forecast",
@@ -32,11 +27,18 @@ const SECTION_HEADERS = {
     battlecard: "4. Competitive Battlecard",
     coaching: "5. Sales Coaching",
     actions: "6. Action Items",
-    memory: "Notes for future memory",
   },
-} as const;
+  de: {
+    forecast: "1. Umsatzprognose",
+    atRisk: "2. Gefährdete Deals",
+    objections: "3. Leitfaden zur Einwandbehandlung",
+    battlecard: "4. Wettbewerbs-Battlecard",
+    coaching: "5. Vertriebs-Coaching",
+    actions: "6. Action Items",
+  },
+};
 
-function buildSystem(lang: "fa" | "en", industry: string | null) {
+function buildSystem(lang: Lang, industry: string | null) {
   const h = SECTION_HEADERS[lang];
   if (lang === "en") {
     return `You are a senior Sales Manager with 15 years of experience, reviewing a business's real CRM pipeline data.
@@ -62,12 +64,49 @@ Respond in exactly this Markdown structure:
 (2-3 concrete coaching tips to improve this pipeline's conversion rate.)
 
 ## ${h.actions}
-1. [priority: high/medium/low] ...
-2. ...
-3. ...
+1. [priority: high] ...
+2. [priority: medium] ...
+3. [priority: low] ...
+Write the "[priority: ...]" tag in English exactly like that, with high/medium/low, even though the rest of the line is prose. It is read by software.
 
-## ${h.memory}
-(2-4 short, actionable notes to remember for future Sales Agent runs — one per line, each prefixed exactly with [pipeline], [lead_source], [risk], or [general])`;
+${MEMORY_MARKER}
+(2-4 short, actionable notes to remember for future Sales Agent runs — one per line, each prefixed exactly with [pipeline], [lead_source], [risk], or [general])
+Emit the ${MEMORY_MARKER} line verbatim; do not translate it.`;
+  }
+
+  if (lang === "de") {
+    return `Du bist eine Vertriebsleiterin mit 15 Jahren Erfahrung und prüfst die reale CRM-Pipeline eines Unternehmens.
+Die Daten, die du erhältst, sind vorberechnet und korrekt (Pipeline-Wert, Gewinnrate, liegengebliebene Deals, beste Lead-Quelle) — erfinde niemals eine Zahl, die nicht in der Eingabe stand.
+Fehlen Daten zu einem Abschnitt oder sind sie leer, schreibe kurz „keine Daten verfügbar" oder lasse den Teil weg.
+Schreibe die gesamte Ausgabe in flüssigem Deutsch.
+Beträge tragen die Währung, in der sie übergeben wurden — wechsle sie nie und erfinde keinen Umrechnungskurs.
+${industry ? `Die Branche des Unternehmens ist: ${industry} — richte Einwandbehandlung und Battlecard auf diese Branche aus.` : ""}
+
+Antworte exakt in dieser Markdown-Struktur:
+## ${h.forecast}
+(Schätze aus offenem Pipeline-Wert, Gewinnrate und durchschnittlicher Verkaufsdauer den wahrscheinlich abgeschlossenen Umsatz dieses Monats/Quartals. Nenne dein Konfidenzniveau.)
+
+## ${h.atRisk}
+(Schlage für jeden wichtigen liegengebliebenen Deal eine konkrete, kurze nächste Aktion vor.)
+
+## ${h.objections}
+(Nenne die 3-5 häufigsten Einwände von Käuferinnen und Käufern in dieser Branche, jeweils mit einer kurzen, direkt verwendbaren Entgegnung.)
+
+## ${h.battlecard}
+(Nenne auf Basis der Branche wahrscheinliche Argumentationslinien der Wettbewerber und wie sich dieses Unternehmen dagegen positionieren sollte. Liegen keine Wettbewerbsinfos vor, gib allgemeine branchenübliche Positionierungshinweise.)
+
+## ${h.coaching}
+(2-3 konkrete Coaching-Hinweise, um die Abschlussquote dieser Pipeline zu verbessern.)
+
+## ${h.actions}
+1. [priority: high] ...
+2. [priority: medium] ...
+3. [priority: low] ...
+Schreibe den Marker „[priority: ...]" exakt so auf Englisch mit high/medium/low, auch wenn der Rest der Zeile Deutsch ist. Er wird von Software ausgelesen.
+
+${MEMORY_MARKER}
+(2-4 kurze, umsetzbare Notizen für künftige Läufe des Vertriebs-Agenten — je eine pro Zeile, jeweils exakt mit [pipeline], [lead_source], [risk] oder [general] vorangestellt)
+Gib die Zeile ${MEMORY_MARKER} wortwörtlich aus; übersetze sie nicht.`;
   }
 
   return `تو یک مدیر فروش ارشد با ۱۵ سال تجربه هستی که Pipeline فروش واقعی یک کسب‌وکار را بررسی می‌کنی.
@@ -93,67 +132,60 @@ ${industry ? `صنعت این کسب‌وکار: ${industry} — راهنمای 
 (۲ تا ۳ نکتهٔ عملی برای بهبود نرخ تبدیل این Pipeline)
 
 ## ${h.actions}
-۱. [اولویت: بالا/متوسط/پایین] ...
-۲. ...
-۳. ...
+۱. [priority: high] ...
+۲. [priority: medium] ...
+۳. [priority: low] ...
+برچسب «[priority: ...]» را عیناً به همین شکل انگلیسی با high/medium/low بنویس، حتی اگر بقیهٔ خط فارسی است. این برچسب را نرم‌افزار می‌خواند.
 
-## ${h.memory}
-(۲ تا ۴ نکتهٔ کوتاه و عملی که باید در اجراهای بعدی ایجنت فروش به یاد داشته باشی — هر نکته در یک خط، با پیشوند دقیقاً به این شکل: [pipeline]، [lead_source]، [risk]، یا [general])`;
+${MEMORY_MARKER}
+(۲ تا ۴ نکتهٔ کوتاه و عملی که باید در اجراهای بعدی ایجنت فروش به یاد داشته باشی — هر نکته در یک خط، با پیشوند دقیقاً به این شکل: [pipeline]، [lead_source]، [risk]، یا [general])
+خطِ ${MEMORY_MARKER} را عیناً و بدون تغییر بنویس؛ ترجمه‌اش نکن.`;
 }
 
-function buildPrompt(snapshot: CrmSnapshot, industry: string | null, lang: "fa" | "en", memories: { category: string; text: string }[]): string {
+function buildPrompt(snapshot: CrmSnapshot, industry: string | null, lang: Lang, memories: { category: string; text: string }[]): string {
   const memoryLines = memories.map((m) => `[${m.category}] ${m.text}`).join("\n");
+  const numLocale = tri(lang, "fa-IR", "en-US", "de-DE");
+  const noData = tri(lang, "داده‌ای موجود نیست", "No data available", "Keine Daten verfügbar");
 
-  if (lang === "en") {
-    const staleLines = snapshot.staleDeals
-      .map((d) => `- ${sanitizeFreeText(d.title)} (contact: ${sanitizeFreeText(d.contactName)}, ${d.daysSinceUpdate} days inactive, value: ${d.value.toLocaleString("en-US")})`)
-      .join("\n") || "No stale deals";
-    const sourceLines = snapshot.leadSources
-      .map((s) => `- ${s.source}: ${s.total} contacts, ${s.conversionRate}% converted to customer`)
-      .join("\n") || "No data available";
-
-    return `Real sales pipeline data:
-
-**Open pipeline value:** $${snapshot.pipelineValueOpen.toLocaleString("en-US")} (${snapshot.totalDealsOpen} open deals)
-**Win rate (last 90 days):** ${snapshot.winRate !== null ? `${snapshot.winRate}%` : "No data available"}
-**Average sales cycle:** ${snapshot.avgSalesCycleDays !== null ? `${snapshot.avgSalesCycleDays} days` : "No data available"}
-**Total contacts:** ${snapshot.totalContacts}
-
-**Stale deals (no activity for 7+ days):**
-${wrapUntrustedContent("Deal title and contact name — entered by the user or a lead", staleLines)}
-
-**Lead sources and conversion rate:**
-${sourceLines}
-
-${memoryLines ? `**Shared memory from previous Sales Agent runs:**\n${memoryLines}` : ""}`;
-  }
+  const L = tri(lang,
+    { header: "داده‌های واقعی Pipeline فروش", open: "ارزش Pipeline باز", deals: "معاملهٔ باز", win: "نرخ برد (۹۰ روز اخیر)", cycle: "میانگین زمان بستن معامله", days: "روز", contacts: "تعداد کل مخاطبین", staleH: "معاملات راکد (بدون فعالیت ۷+ روز)", sourcesH: "منابع لید و نرخ تبدیل", memH: "حافظهٔ مشترک از اجراهای قبلی ایجنت فروش", contact: "مخاطب", inactive: "روز بدون فعالیت", value: "ارزش", noStale: "هیچ معاملهٔ راکدی نیست", contactsWord: "مخاطب", converted: "تبدیل به مشتری", untrusted: "عنوان معامله و نام مخاطب — وارد‌شده توسط کاربر یا لید" },
+    { header: "Real sales pipeline data", open: "Open pipeline value", deals: "open deals", win: "Win rate (last 90 days)", cycle: "Average sales cycle", days: "days", contacts: "Total contacts", staleH: "Stale deals (no activity for 7+ days)", sourcesH: "Lead sources and conversion rate", memH: "Shared memory from previous Sales Agent runs", contact: "contact", inactive: "days inactive", value: "value", noStale: "No stale deals", contactsWord: "contacts", converted: "converted to customer", untrusted: "Deal title and contact name — entered by the user or a lead" },
+    { header: "Reale Vertriebs-Pipeline-Daten", open: "Offener Pipeline-Wert", deals: "offene Deals", win: "Gewinnrate (letzte 90 Tage)", cycle: "Durchschnittliche Verkaufsdauer", days: "Tage", contacts: "Kontakte gesamt", staleH: "Liegengebliebene Deals (7+ Tage ohne Aktivität)", sourcesH: "Lead-Quellen und Conversion-Rate", memH: "Gemeinsames Gedächtnis früherer Läufe des Vertriebs-Agenten", contact: "Kontakt", inactive: "Tage ohne Aktivität", value: "Wert", noStale: "Keine liegengebliebenen Deals", contactsWord: "Kontakte", converted: "zu Kunden konvertiert", untrusted: "Deal-Titel und Kontaktname — von Nutzer oder Lead eingegeben" });
 
   const staleLines = snapshot.staleDeals
-    .map((d) => `- ${sanitizeFreeText(d.title)} (مخاطب: ${sanitizeFreeText(d.contactName)}, ${d.daysSinceUpdate} روز بدون فعالیت, ارزش: ${d.value.toLocaleString("fa-IR")})`)
-    .join("\n") || "هیچ معاملهٔ راکدی نیست";
+    .map((d) => `- ${sanitizeFreeText(d.title)} (${L.contact}: ${sanitizeFreeText(d.contactName)}, ${d.daysSinceUpdate} ${L.inactive}, ${L.value}: ${d.value.toLocaleString(numLocale)})`)
+    .join("\n") || L.noStale;
   const sourceLines = snapshot.leadSources
-    .map((s) => `- ${s.source}: ${s.total} مخاطب، ${s.conversionRate}% تبدیل به مشتری`)
-    .join("\n") || "داده‌ای موجود نیست";
+    .map((s) => `- ${s.source}: ${s.total} ${L.contactsWord}, ${s.conversionRate}% ${L.converted}`)
+    .join("\n") || noData;
 
-  return `داده‌های واقعی Pipeline فروش:
+  // No currency symbol. The English branch used to print a literal "$" and the
+  // Persian one a bare fa-IR number: pipelineValueOpen and each deal value are
+  // sums over deals priced in whatever currency each was created with, so any
+  // single symbol is a claim the data does not support.
+  const unitNote = tri(lang,
+    "(واحد پولی این ارقام مشخص نیست — هیچ واحدی به آن‌ها نسبت نده)",
+    "(the currency of these figures is unspecified — do not attach a unit to them)",
+    "(die Währung dieser Zahlen ist nicht spezifiziert — ordne ihnen keine Einheit zu)");
 
-**ارزش Pipeline باز:** ${snapshot.pipelineValueOpen.toLocaleString("fa-IR")} (${snapshot.totalDealsOpen} معاملهٔ باز)
-**نرخ برد (۹۰ روز اخیر):** ${snapshot.winRate !== null ? `${snapshot.winRate}%` : "داده‌ای موجود نیست"}
-**میانگین زمان بستن معامله:** ${snapshot.avgSalesCycleDays !== null ? `${snapshot.avgSalesCycleDays} روز` : "داده‌ای موجود نیست"}
-**تعداد کل مخاطبین:** ${snapshot.totalContacts}
+  return `${L.header}:
 
-**معاملات راکد (بدون فعالیت ۷+ روز):**
-${wrapUntrustedContent("عنوان معامله و نام مخاطب — وارد‌شده توسط کاربر یا لید", staleLines)}
+**${L.open}:** ${snapshot.pipelineValueOpen.toLocaleString(numLocale)} ${unitNote} (${snapshot.totalDealsOpen} ${L.deals})
+**${L.win}:** ${snapshot.winRate !== null ? `${snapshot.winRate}%` : noData}
+**${L.cycle}:** ${snapshot.avgSalesCycleDays !== null ? `${snapshot.avgSalesCycleDays} ${L.days}` : noData}
+**${L.contacts}:** ${snapshot.totalContacts}
 
-**منابع لید و نرخ تبدیل:**
+**${L.staleH}:**
+${wrapUntrustedContent(L.untrusted, staleLines)}
+
+**${L.sourcesH}:**
 ${sourceLines}
 
-${memoryLines ? `**حافظهٔ مشترک از اجراهای قبلی ایجنت فروش:**\n${memoryLines}` : ""}`;
+${memoryLines ? `**${L.memH}:**\n${memoryLines}` : ""}`;
 }
 
 /** Runs one Sales Agent analysis pass: forecast, at-risk deals, objection handling, competitive battlecard, coaching, and action items — built from the same CRM snapshot as crmAgent, but sales-manager framed and bilingual. Persists memory/tasks the same way runCrmAnalysis does. */
 export async function runSalesAnalysis(userId: string, lang: Lang, onChunk: (text: string) => void): Promise<string> {
-  const effectiveLang = promptLang(lang);
   const [snapshot, company, priorInsights] = await Promise.all([
     buildCrmSnapshot(userId),
     prisma.company.findUnique({ where: { userId }, select: { industry: true } }),
@@ -165,8 +197,8 @@ export async function runSalesAnalysis(userId: string, lang: Lang, onChunk: (tex
     }),
   ]);
 
-  const prompt = buildPrompt(snapshot, company?.industry || null, effectiveLang, priorInsights);
-  const system = buildSystem(effectiveLang, company?.industry || null);
+  const prompt = buildPrompt(snapshot, company?.industry || null, lang, priorInsights);
+  const system = buildSystem(lang, company?.industry || null);
 
   let fullOutput = "";
   await routedStreamChat(
@@ -179,27 +211,25 @@ export async function runSalesAnalysis(userId: string, lang: Lang, onChunk: (tex
     4096
   );
 
-  const h = SECTION_HEADERS[effectiveLang];
-  const memRegex = new RegExp(`## ${h.memory.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*([\\s\\S]*)`);
-  const memSection = memRegex.exec(fullOutput)?.[1] || "";
-  const memLines = memSection.split("\n").map((l) => l.trim()).filter((l) => /^\[(pipeline|lead_source|risk|general)\]/.test(l));
-  for (const line of memLines) {
-    const m = /^\[(\w+)\]\s*(.+)/.exec(line);
-    if (m) {
-      const embedding = await embedForStorage(m[2].trim());
-      await prisma.crmInsight.create({ data: { userId, category: "sales", text: m[2].trim(), embedding } });
-    }
+  // Both parsers below used to key on the *translated* section heading and, for
+  // priority, on a translated word ("high" / "بالا"). That works for two hand-
+  // maintained languages and fails silently the moment a third is added: no
+  // error, just an agent that quietly stops recording memory and stops creating
+  // tasks. Both now key on untranslated machine tokens the prompt pins down.
+  for (const { text } of extractMemoryLines(fullOutput, SALES_MEMORY_CATEGORIES)) {
+    const embedding = await embedForStorage(text);
+    await prisma.crmInsight.create({ data: { userId, category: "sales", text, embedding } });
   }
 
+  const h = SECTION_HEADERS[lang];
   const actionRegex = new RegExp(`## ${h.actions.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*([\\s\\S]*?)(?=\\n## |$)`);
   const actionSection = actionRegex.exec(fullOutput)?.[1] || "";
-  const priorityWord = effectiveLang === "en" ? "high" : "بالا";
   const highPriorityLines = actionSection
     .split("\n")
     .map((l) => l.trim())
-    .filter((l) => new RegExp(`^[\\d۰-۹]*\\.\\s*\\[(priority:|اولویت:)\\s*${priorityWord}\\]`, "i").test(l));
+    .filter((l) => /^[\d۰-۹]*\.\s*\[priority:\s*high\]/i.test(l));
   for (const line of highPriorityLines) {
-    const title = line.replace(/^[\d۰-۹]*\.\s*\[(priority:|اولویت:)\s*\S+\]\s*/i, "").trim();
+    const title = line.replace(/^[\d۰-۹]*\.\s*\[priority:\s*\S+\]\s*/i, "").trim();
     if (!title) continue;
     const alreadyExists = await prisma.crmTask.findFirst({ where: { userId, title, status: "pending" } });
     if (alreadyExists) continue;

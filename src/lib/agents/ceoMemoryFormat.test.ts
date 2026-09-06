@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MEMORY_MARKER, extractMemoryLines, stripMemorySection } from "./ceoMemoryFormat";
+import { MEMORY_MARKER, SALES_MEMORY_CATEGORIES, extractMemoryLines, stripMemorySection } from "./ceoMemoryFormat";
 
 // The old parser matched the Persian Markdown heading "## نکاتی برای حافظهٔ آینده".
 // Once the orchestrator became trilingual that heading was translated, so the
@@ -62,5 +62,36 @@ describe("stripMemorySection", () => {
 
   it("leaves output without a marker untouched apart from trailing space", () => {
     expect(stripMemorySection("## Summary\nAll good.\n")).toBe("## Summary\nAll good.");
+  });
+});
+
+describe("category sets", () => {
+  // The Sales Agent reuses this protocol with its own tags. Its parser used to
+  // key on a translated Markdown heading AND a translated priority word, so
+  // adding German would have silently stopped both memory writes and the
+  // CrmTask rows it creates from high-priority actions.
+  const SALES_OUT = `## 1. Umsatzprognose
+Gut.
+
+${MEMORY_MARKER}
+[pipeline] Deals über 30 Tage schließen selten.
+[lead_source] Empfehlungen konvertieren am besten.`;
+
+  it("reads the sales tags when asked for them", () => {
+    expect(extractMemoryLines(SALES_OUT, SALES_MEMORY_CATEGORIES)).toEqual([
+      { category: "pipeline", text: "Deals über 30 Tage schließen selten." },
+      { category: "lead_source", text: "Empfehlungen konvertieren am besten." },
+    ]);
+  });
+
+  it("does not pick up sales tags under the default CEO set", () => {
+    expect(extractMemoryLines(SALES_OUT)).toEqual([]);
+  });
+
+  it("still accepts [general], which both sets share", () => {
+    const out = `${MEMORY_MARKER}
+[general] Watch cash flow.`;
+    expect(extractMemoryLines(out, SALES_MEMORY_CATEGORIES)).toEqual([{ category: "general", text: "Watch cash flow." }]);
+    expect(extractMemoryLines(out)).toEqual([{ category: "general", text: "Watch cash flow." }]);
   });
 });
