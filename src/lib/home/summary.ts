@@ -32,6 +32,21 @@ export interface AttentionItem {
   weight: number;
 }
 
+/**
+ * One thing an AI agent actually did — never a placeholder, never a "your team
+ * is standing by" message. If nothing ran, the array is empty and the page
+ * omits the section entirely (Phase 5, proposal 3).
+ */
+export interface TeamActivityItem {
+  id: string;
+  /** Which teammate did it — used for the icon, not shown raw. */
+  agent: "ceo" | "content";
+  title: string;
+  detail: string;
+  href: string;
+  at: Date;
+}
+
 export interface HomeSummary {
   stats: {
     activeDeals: number;
@@ -43,6 +58,8 @@ export interface HomeSummary {
     upcomingViewings: number;
   };
   attention: AttentionItem[];
+  /** What the AI team actually did in the last 7 days. Empty when it did nothing. */
+  teamActivity: TeamActivityItem[];
   /** True when the workspace has essentially no data yet — the page shows a getting-started state instead. */
   isEmptyWorkspace: boolean;
 }
@@ -58,6 +75,7 @@ export async function getHomeSummary(workspaceUserId: string, lang: Lang): Promi
   const [
     openDeals, newLeads, overdueInvoices, overdueTasks,
     draftStatements, unreconciledCount, upcomingViewings, paidThisMonth, contactCount,
+    ceoNotes, contentRuns,
   ] = await Promise.all([
     prisma.crmDeal.findMany({
       where: { userId: workspaceUserId, status: "open" },
@@ -85,6 +103,25 @@ export async function getHomeSummary(workspaceUserId: string, lang: Lang): Promi
       _sum: { total: true },
     }),
     prisma.crmContact.count({ where: { userId: workspaceUserId } }),
+    // Phase 5, proposal 3 -- the dashboard showed data conditions but never
+    // said what the AI team had done, so the "your team works for you" promise
+    // on /ai-team had no counterpart anywhere in the product. Both reads are
+    // of work that already happened; nothing here is generated for display.
+    prisma.businessMemory.findMany({
+      where: { userId: workspaceUserId, source: "ceo", createdAt: { gte: weekAgo } },
+      orderBy: { createdAt: "desc" },
+      take: 3,
+      select: { id: true, text: true, category: true, createdAt: true },
+    }),
+    prisma.contentPipelineRun.findMany({
+      where: { userId: workspaceUserId, status: "done", updatedAt: { gte: weekAgo } },
+      orderBy: { updatedAt: "desc" },
+      take: 3,
+      select: {
+        id: true, topic: true, updatedAt: true,
+        steps: { where: { agentKey: "editor" }, orderBy: { createdAt: "desc" }, take: 1, select: { score: true } },
+      },
+    }),
   ]);
 
   const attention: AttentionItem[] = [];
@@ -147,6 +184,32 @@ export async function getHomeSummary(workspaceUserId: string, lang: Lang): Promi
 
   const overdueTotal = overdueInvoices.reduce((s, i) => s + i.total, 0);
 
+  const teamActivity: TeamActivityItem[] = [
+    ...ceoNotes.map((n) => ({
+      id: `ceo:${n.id}`,
+      agent: "ceo" as const,
+      title: tri(lang, "مدیرعامل هوش مصنوعی کسب‌وکار را بررسی کرد", "Your AI CEO reviewed the business", "Ihr KI-CEO hat das Unternehmen geprüft"),
+      // The note itself is the evidence -- shown verbatim rather than summarised,
+      // so the card can never claim something the agent did not actually write.
+      detail: n.text,
+      href: "/ceo/orchestrator",
+      at: n.createdAt,
+    })),
+    ...contentRuns.map((r) => {
+      const score = r.steps[0]?.score;
+      return {
+        id: `content:${r.id}`,
+        agent: "content" as const,
+        title: tri(lang, "تیم محتوا یک مقاله را کامل کرد", "The content team finished an article", "Das Content-Team hat einen Artikel fertiggestellt"),
+        detail: score != null
+          ? tri(lang, `«${r.topic}» — امتیاز ویراستار: ${score}/100`, `"${r.topic}" — editor score: ${score}/100`, `„${r.topic}" — Redaktionsbewertung: ${score}/100`)
+          : r.topic,
+        href: "/seo/agent-pipeline",
+        at: r.updatedAt,
+      };
+    }),
+  ].sort((a, b) => b.at.getTime() - a.at.getTime()).slice(0, 5);
+
   return {
     stats: {
       activeDeals: openDeals.length,
@@ -158,6 +221,7 @@ export async function getHomeSummary(workspaceUserId: string, lang: Lang): Promi
       upcomingViewings,
     },
     attention: attention.slice(0, 8),
+    teamActivity,
     isEmptyWorkspace: contactCount === 0 && openDeals.length === 0,
   };
 }

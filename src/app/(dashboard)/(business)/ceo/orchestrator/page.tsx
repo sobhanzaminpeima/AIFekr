@@ -11,6 +11,7 @@ import {
 import ReactMarkdown from "react-markdown";
 import { useTranslation } from "@/lib/i18n";
 import { formatNumber, toJalali } from "@/lib/utils/jalali";
+import { stripMemorySection } from "@/lib/agents/ceoMemoryFormat";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -556,7 +557,9 @@ export default function AiBosPage() {
             </button>
             {analysis && (
               <div className="prose prose-sm max-w-none mt-5 pt-5 text-sm" style={{ color: "var(--text-primary)", borderTop: "1px solid var(--border)" }}>
-                <ReactMarkdown>{analysis}</ReactMarkdown>
+                {/* The memory notes are instructions the CEO writes to its own
+                    future runs, not part of the briefing -- never render them. */}
+                <ReactMarkdown>{stripMemorySection(analysis)}</ReactMarkdown>
               </div>
             )}
           </div>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   AlertTriangle, AlertCircle, Info, CheckCircle2, ArrowUpRight,
   Briefcase, Users, Receipt, CalendarDays, Wallet, Sparkles,
+  Brain, PenLine,
 } from "lucide-react";
 import { useTranslation, tri, type Lang } from "@/lib/i18n";
 import { formatNumber } from "@/lib/utils/jalali";
@@ -28,7 +29,17 @@ interface HomeSummary {
     upcomingViewings: number;
   };
   attention: AttentionItem[];
+  teamActivity: TeamActivityItem[];
   isEmptyWorkspace: boolean;
+}
+
+interface TeamActivityItem {
+  id: string;
+  agent: "ceo" | "content";
+  title: string;
+  detail: string;
+  href: string;
+  at: string;
 }
 
 /**
@@ -169,7 +180,41 @@ export default function HomePage() {
               </div>
             )}
           </div>
+
         </>
+      )}
+
+      {/* What the AI team actually did. Rendered only when it did something --
+          no "your team is standing by" filler, per the no-fake-data rule. */}
+      {data.teamActivity.length > 0 && (
+        <div className="rounded-2xl p-5" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <h2 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+            <Sparkles className="w-4 h-4" style={{ color: "var(--primary)" }} />
+            {tri(lang, "تیم شما این هفته چه کرد", "What your team did this week", "Was Ihr Team diese Woche getan hat")}
+          </h2>
+          <div className="flex flex-col gap-2">
+            {data.teamActivity.map((item) => {
+              const Icon = item.agent === "ceo" ? Brain : PenLine;
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  className="flex items-start gap-3 rounded-xl p-3 transition-colors"
+                  style={{ background: "var(--surface-2)" }}
+                >
+                  <span className="mt-0.5 rounded-lg p-1.5 flex-shrink-0" style={{ background: "var(--surface-1)", color: "var(--primary)" }}>
+                    <Icon className="w-4 h-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium" style={{ color: "var(--text-primary)" }}>{item.title}</span>
+                    <span className="block text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{item.detail}</span>
+                  </span>
+                  <ArrowUpRight className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "var(--text-muted)" }} />
+                </Link>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       <div className="flex flex-wrap gap-3 text-sm">

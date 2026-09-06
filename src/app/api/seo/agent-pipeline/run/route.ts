@@ -71,11 +71,23 @@ async function runAgent(
   const relevantLessons = await rankByRelevance(lessonCandidates, input, 5);
   const lessons = relevantLessons.map((r) => r.text);
 
+  // Phase 5, proposal 2 -- the other half of the shared memory. The CEO records
+  // business-wide findings tagged [content]/[seo]; until now the content team
+  // never saw them. Capped at 2 (against 5 of the agent's own) so second-hand
+  // direction stays context and does not dominate the prompt or its token cost.
+  const ceoCandidates = await prisma.businessMemory.findMany({
+    where: { userId, category: { in: ["content", "seo"] } },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    select: { text: true, embedding: true, createdAt: true },
+  });
+  const crossTeamLessons = (await rankByRelevance(ceoCandidates, input, 2)).map((r) => r.text);
+
   const step = await prisma.contentPipelineStep.create({
     data: { runId, agentKey: key, attempt, input, status: "running" },
   });
 
-  const systemPrompt = buildSystemPrompt(key, brandVoice, lessons);
+  const systemPrompt = buildSystemPrompt(key, brandVoice, lessons, crossTeamLessons);
   let output = "";
 
   try {
