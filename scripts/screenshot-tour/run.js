@@ -70,23 +70,50 @@ async function findSubTabs(page) {
     return { selector: '[role="tablist"] [role="tab"]', labels: labels.filter(Boolean) };
   }
 
-  // Heuristic fallback: buttons inside <main>, short text, at least 3 of them,
-  // all within ~80px vertical band of each other (a tab row).
-  const candidates = await page.locator("main button").all();
+  // Heuristic fallback: this app uses several different tab patterns --
+  // plain buttons in a HORIZONTAL row for route-based sub-pages (e.g.
+  // Accounting's own nav bar), and plain buttons in a VERTICAL list for
+  // client-state tabs (e.g. CRM's own left-hand Pipeline/Contacts/... list,
+  // md:w-full stacked buttons rather than a top row). Collect both tags,
+  // short text, at least 3 of them, then check for a same-Y band (row) OR a
+  // same-X band (column) -- whichever exists.
+  const candidates = await page.locator("main button, main a").all();
   const withBox = [];
-  for (const c of candidates.slice(0, 40)) {
+  for (const c of candidates.slice(0, 60)) {
     const text = (await c.textContent() || "").trim();
     if (!text || text.length > 24) continue;
     const box = await c.boundingBox().catch(() => null);
     if (!box) continue;
-    withBox.push({ text, y: box.y });
+    withBox.push({ text, x: box.x, y: box.y });
   }
   if (withBox.length < 3) return null;
-  withBox.sort((a, b) => a.y - b.y);
-  const bandY = withBox[0].y;
-  const band = withBox.filter((w) => Math.abs(w.y - bandY) < 12);
-  if (band.length < 3) return null;
-  return { selector: "main button", labels: band.map((b) => b.text) };
+
+  // Anchoring the band to whichever element happens to sort first (smallest
+  // x or y) breaks the moment an unrelated outlier -- e.g. a search box at
+  // x=16 -- sorts ahead of the real 15-item tab column sitting at x=234.
+  // Instead, find whichever single element has the most OTHER elements
+  // within 12px of it on that axis, and band around that one.
+  function largestBand(items, axis) {
+    let best = null;
+    for (const anchor of items) {
+      const band = items.filter((w) => Math.abs(w[axis] - anchor[axis]) < 12);
+      if (!best || band.length > best.length) best = band;
+    }
+    return best || [];
+  }
+
+  // Prefer whichever axis actually clusters more items -- a page can have
+  // both a 3-button header row (New/Export-style actions) AND a 15-item
+  // sidebar tab column; the column is the more useful "real" tab list, so
+  // pick by size, not by checking rows first.
+  const rowBand = largestBand(withBox, "y");
+  const colBand = largestBand(withBox, "x");
+  const winner = colBand.length > rowBand.length ? colBand : rowBand;
+  // Cap it: a long results list or table column sharing a left margin would
+  // otherwise read as "20 tabs" and burn 20 screenshots on one page.
+  if (winner.length >= 3) return { selector: "main button, main a", labels: winner.slice(0, 16).map((b) => b.text) };
+
+  return null;
 }
 
 function slugify(text) {
@@ -101,13 +128,24 @@ async function login(context) {
   log("Logging in as", EMAIL ? EMAIL.replace(/(.{2}).+(@.+)/, "$1***$2") : "(no email set)");
   await page.goto(`${BASE_URL}/login`, { waitUntil: "networkidle" });
 
-  const emailInput = page.locator('input[type="email"], input[name="email"]').first();
+  // The login page defaults to a phone/OTP tab, with a separate email/password
+  // tab -- and none of its buttons carry type="submit" (they're plain
+  // <button onClick=...>, not a <form>), so neither can be found by type.
+  // Click the email tab by its label (fa/en/de all have distinct strings),
+  // then the submit button by its own label -- matched by any of the three
+  // languages, since which one is default isn't guaranteed.
+  const emailTab = page.getByRole("button", { name: /^(ایمیل|Email|E-Mail)$/ }).first();
+  if (await emailTab.isVisible({ timeout: 5000 }).catch(() => false)) await emailTab.click();
+
+  const emailInput = page.locator('input[type="email"]').first();
   const passInput = page.locator('input[type="password"]').first();
   await emailInput.fill(EMAIL, { timeout: 10000 });
   await passInput.fill(PASSWORD, { timeout: 10000 });
+
+  const submitBtn = page.getByRole("button", { name: /^(ورود|Sign in|Anmelden)$/ }).first();
   await Promise.all([
     page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 20000 }).catch(() => null),
-    page.locator('button[type="submit"]').first().click(),
+    submitBtn.click({ timeout: 10000 }),
   ]);
   await page.waitForTimeout(1500);
 
@@ -127,9 +165,17 @@ async function shootPage(context, def, manifest, errors, reviewFlags) {
   const url = `${BASE_URL}${def.path}`;
 
   try {
-    const resp = await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
+    // "networkidle" never fires on a page with an open websocket or
+    // background polling (CRM, Social both timed out here) -- "load" plus a
+    // fixed settle delay is more robust across a mixed app like this one.
+    const resp = await page.goto(url, { waitUntil: "load", timeout: 30000 });
     if (resp && resp.status() >= 400) throw new Error(`HTTP ${resp.status()}`);
-    await page.waitForTimeout(1500);
+    // Some pages (CRM in particular) render their own internal tab list only
+    // after a client-side module-access fetch resolves -- 2.5s wasn't enough
+    // for that to land before the sub-tab scan ran, so every page silently
+    // fell back to a single "dashboard" shot. 4s covers it without adding
+    // much to a 19-page run.
+    await page.waitForTimeout(4000);
     await dismissOverlays(page);
 
     const shots = [];
@@ -143,10 +189,18 @@ async function shootPage(context, def, manifest, errors, reviewFlags) {
 
     for (const shot of shots) {
       if (shot.index != null) {
-        const els = await page.locator(subTabs.selector).all();
-        if (els[shot.index]) {
-          await els[shot.index].click({ timeout: 5000 }).catch(() => {});
-          await page.waitForTimeout(1200);
+        // Re-locate by exact label text on the CURRENT page rather than by
+        // index into a fixed element list: a route-based tab (Accounting's
+        // own nav) navigates to a whole new page, which invalidates any
+        // earlier-captured element handles and can reorder/regenerate the
+        // underlying elements entirely.
+        const target = page.locator("main button, main a").filter({ hasText: shot.label }).first();
+        if (await target.count()) {
+          await Promise.all([
+            page.waitForLoadState("load", { timeout: 15000 }).catch(() => {}),
+            target.click({ timeout: 5000 }).catch(() => {}),
+          ]);
+          await page.waitForTimeout(1800);
           await dismissOverlays(page);
         }
       }
