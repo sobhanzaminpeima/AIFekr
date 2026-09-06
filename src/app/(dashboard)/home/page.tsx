@@ -143,6 +143,39 @@ export default function HomePage() {
         </div>
       ) : (
         <>
+          {/* B, moved first per feedback: the status figures lead, same as glancing
+              at a status board on the way into the office — before what needs
+              attention or what the team did. Still omitted entirely when empty. */}
+          {data.meaningfulStats.length > 0 && (
+            <section>
+              <h2 className="text-xs font-semibold mb-2.5 px-1" style={{ color: "var(--text-muted)" }}>
+                {tri(lang, "وضعیت کسب‌وکار", "Business at a glance", "Geschäft auf einen Blick")}
+              </h2>
+              <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
+                {data.meaningfulStats.map((key) => {
+                  const m = statMeta[key];
+                  const Icon = m.icon;
+                  return (
+                    <Link key={key} href={m.href}
+                      className="rounded-xl p-3.5 flex flex-col gap-1 transition-colors"
+                      style={{
+                        background: "var(--surface-1)",
+                        border: `1px solid ${m.alarm ? "rgba(234,90,89,0.35)" : "var(--border)"}`,
+                      }}>
+                      <span className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
+                        <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+                        {m.label}
+                      </span>
+                      <span className="text-lg font-bold" style={{ color: m.alarm ? "var(--neg)" : "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
+                        {m.value}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
           {/* ── A: what needs you, first, because that is why the app was opened ── */}
           <section className="rounded-2xl p-5" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
@@ -231,36 +264,6 @@ export default function HomePage() {
             </section>
           )}
 
-          {/* ── B: the figures, but only those that currently mean something ───── */}
-          {data.meaningfulStats.length > 0 && (
-            <section>
-              <h2 className="text-xs font-semibold mb-2.5 px-1" style={{ color: "var(--text-muted)" }}>
-                {tri(lang, "وضعیت کسب‌وکار", "Business at a glance", "Geschäft auf einen Blick")}
-              </h2>
-              <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
-                {data.meaningfulStats.map((key) => {
-                  const m = statMeta[key];
-                  const Icon = m.icon;
-                  return (
-                    <Link key={key} href={m.href}
-                      className="rounded-xl p-3.5 flex flex-col gap-1 transition-colors"
-                      style={{
-                        background: "var(--surface-1)",
-                        border: `1px solid ${m.alarm ? "rgba(234,90,89,0.35)" : "var(--border)"}`,
-                      }}>
-                      <span className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
-                        <Icon className="w-3.5 h-3.5 flex-shrink-0" />
-                        {m.label}
-                      </span>
-                      <span className="text-lg font-bold" style={{ color: m.alarm ? "var(--neg)" : "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
-                        {m.value}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
-            </section>
-          )}
         </>
       )}
     </div>

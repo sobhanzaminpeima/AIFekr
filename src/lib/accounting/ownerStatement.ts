@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { postJournalEntry, reverseJournalEntry } from "./ledger";
 import { sendEmail } from "@/lib/email/resend";
+import { randomBytes } from "node:crypto";
 
 /**
  * Short-term rental owner statements (spec ۳.۹) — one per property per
@@ -130,7 +131,18 @@ export async function approveOwnerStatement(statementId: string, approvedBy: str
   });
 }
 
-/** Emails the owner an HTML summary of an approved statement. Never auto-called by approve — a separate explicit step. */
+/**
+ * Emails the owner an HTML summary of an approved statement, WITH a link to a
+ * page they can reopen any time without a platform account.
+ *
+ * Before this, "send to owner" was email-only: the figures lived in the email
+ * body and nowhere else, so the owner had no page to return to, forward, or
+ * open on a phone without searching their inbox. `shareToken` is generated
+ * once on first send (or reused on a resend) and never changes, so the same
+ * link keeps working for corrections made through reopenOwnerStatement.
+ *
+ * Never auto-called by approve — a separate explicit step.
+ */
 export async function sendOwnerStatement(statementId: string, ownerEmail: string, ownerName: string, lang: "fa" | "en" | "de" = "fa") {
   const statement = await prisma.accountingOwnerStatement.findUniqueOrThrow({
     where: { id: statementId },
@@ -138,31 +150,48 @@ export async function sendOwnerStatement(statementId: string, ownerEmail: string
   });
   if (statement.status !== "approved") throw new Error("Only an approved statement can be sent");
 
-  const monthLabel = statement.month.toLocaleDateString(lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US", { year: "numeric", month: "long" });
+  const shareToken = statement.shareToken || randomBytes(20).toString("hex");
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://aifekr.com";
+  const shareUrl = `${appUrl}/o/${shareToken}`;
+
+  const numLocale = lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US";
+  const monthLabel = statement.month.toLocaleDateString(numLocale, { year: "numeric", month: "long" });
   const rows = statement.entries
-    .map((e) => `<tr><td style="padding:6px;border-bottom:1px solid #eee;">${new Date(e.date).toLocaleDateString()}</td><td style="padding:6px;border-bottom:1px solid #eee;">${e.description}</td><td style="padding:6px;border-bottom:1px solid #eee;color:#16a34a;">${e.income ? e.income.toLocaleString() : ""}</td><td style="padding:6px;border-bottom:1px solid #eee;color:#dc2626;">${e.expense ? e.expense.toLocaleString() : ""}</td></tr>`)
+    .map((e) => `<tr><td style="padding:6px;border-bottom:1px solid #eee;">${new Date(e.date).toLocaleDateString(numLocale)}</td><td style="padding:6px;border-bottom:1px solid #eee;">${e.description}</td><td style="padding:6px;border-bottom:1px solid #eee;color:#16a34a;">${e.income ? e.income.toLocaleString(numLocale) : ""}</td><td style="padding:6px;border-bottom:1px solid #eee;color:#dc2626;">${e.expense ? e.expense.toLocaleString(numLocale) : ""}</td></tr>`)
     .join("");
 
-  const subject = lang === "fa" ? `گزارش تسویه ${statement.property.title} — ${monthLabel}` : `Owner Statement — ${statement.property.title} — ${monthLabel}`;
+  const L = lang === "fa"
+    ? { subject: `گزارش تسویه ${statement.property.title} — ${monthLabel}`, hi: "سلام", date: "تاریخ", desc: "توضیح", income: "درآمد", expense: "هزینه", net: "سود خالص", fee: "کارمزد مدیریت", share: "سهم مالک", cta: "مشاهدهٔ آنلاین گزارش" }
+    : lang === "de"
+    ? { subject: `Eigentümerabrechnung ${statement.property.title} — ${monthLabel}`, hi: "Hallo", date: "Datum", desc: "Beschreibung", income: "Einnahmen", expense: "Ausgaben", net: "Nettogewinn", fee: "Verwaltungsgebühr", share: "Anteil des Eigentümers", cta: "Abrechnung online ansehen" }
+    : { subject: `Owner Statement — ${statement.property.title} — ${monthLabel}`, hi: "Hi", date: "Date", desc: "Description", income: "Income", expense: "Expense", net: "Net Profit", fee: "Management Fee", share: "Owner Share", cta: "View the statement online" };
+
+  const dir = lang === "fa" ? "rtl" : "ltr";
   const html = `
-    <div dir="${lang === "fa" ? "rtl" : "ltr"}" style="font-family:Tahoma,Arial;padding:24px;">
+    <div dir="${dir}" style="font-family:Tahoma,Arial;padding:24px;">
       <h2>${statement.property.title} — ${monthLabel}</h2>
-      <p>${lang === "fa" ? "سلام" : "Hi"} ${ownerName},</p>
+      <p>${L.hi} ${ownerName},</p>
       <table style="width:100%;border-collapse:collapse;margin:16px 0;">
-        <thead><tr><th style="text-align:right;padding:6px;">Date</th><th style="text-align:right;padding:6px;">Description</th><th style="text-align:right;padding:6px;">Income</th><th style="text-align:right;padding:6px;">Expense</th></tr></thead>
+        <thead><tr><th style="text-align:${dir === "rtl" ? "right" : "left"};padding:6px;">${L.date}</th><th style="text-align:${dir === "rtl" ? "right" : "left"};padding:6px;">${L.desc}</th><th style="text-align:${dir === "rtl" ? "right" : "left"};padding:6px;">${L.income}</th><th style="text-align:${dir === "rtl" ? "right" : "left"};padding:6px;">${L.expense}</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
       <table style="margin-top:16px;">
-        <tr><td style="padding:4px 12px;color:#666;">${lang === "fa" ? "سود خالص" : "Net Profit"}</td><td style="padding:4px 12px;font-weight:bold;">${statement.netProfit.toLocaleString()} ${statement.currency}</td></tr>
-        <tr><td style="padding:4px 12px;color:#666;">${lang === "fa" ? "کارمزد مدیریت" : "Management Fee"}</td><td style="padding:4px 12px;">${statement.managementFee.toLocaleString()} ${statement.currency}</td></tr>
-        <tr><td style="padding:4px 12px;color:#666;">${lang === "fa" ? "سهم مالک" : "Owner Share"}</td><td style="padding:4px 12px;font-weight:bold;color:#ea580c;">${statement.ownerShare.toLocaleString()} ${statement.currency}</td></tr>
+        <tr><td style="padding:4px 12px;color:#666;">${L.net}</td><td style="padding:4px 12px;font-weight:bold;">${statement.netProfit.toLocaleString(numLocale)} ${statement.currency}</td></tr>
+        <tr><td style="padding:4px 12px;color:#666;">${L.fee}</td><td style="padding:4px 12px;">${statement.managementFee.toLocaleString(numLocale)} ${statement.currency}</td></tr>
+        <tr><td style="padding:4px 12px;color:#666;">${L.share}</td><td style="padding:4px 12px;font-weight:bold;color:#ea580c;">${statement.ownerShare.toLocaleString(numLocale)} ${statement.currency}</td></tr>
       </table>
+      <p style="margin-top:24px;">
+        <a href="${shareUrl}" style="display:inline-block;padding:12px 24px;background:#ea580c;color:#fff;border-radius:8px;text-decoration:none;">${L.cta}</a>
+      </p>
     </div>`;
 
-  const sent = await sendEmail(ownerEmail, subject, html);
+  const sent = await sendEmail(ownerEmail, L.subject, html);
   if (!sent) throw new Error("Failed to send owner statement email");
 
-  return prisma.accountingOwnerStatement.update({ where: { id: statementId }, data: { status: "sent", sentAt: new Date() } });
+  return prisma.accountingOwnerStatement.update({
+    where: { id: statementId },
+    data: { status: "sent", sentAt: new Date(), shareToken },
+  });
 }
 
 /**

@@ -2090,6 +2090,11 @@ model AccountingOwnerStatement {
   approvedAt      DateTime?
   sentAt          DateTime?
   createdAt       DateTime  @default(now())
+  /// Lets the owner open this one statement without a platform account —
+  /// "send to owner" used to be email-only, with no page the owner could
+  /// return to or forward. Set once, on first send; unique so the token
+  /// space cannot collide across workspaces.
+  shareToken      String?   @unique
 
   property Property                        @relation(fields: [propertyId], references: [id])
   entries  AccountingOwnerStatementEntry[]
