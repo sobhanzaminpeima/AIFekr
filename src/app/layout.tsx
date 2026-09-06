@@ -3,12 +3,36 @@ import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import { cookies } from "next/headers";
 
+type Lang = "fa" | "en" | "de";
+
+/**
+ * Both this file's readers used to be written as `value === "en" ? "en" : "fa"`,
+ * from back when the platform had two languages. German fell into the "fa"
+ * branch, so every German visitor got `<html lang="fa" dir="rtl">` — a
+ * right-to-left document with left-to-right text, plus a Persian <title>.
+ */
+function readLang(value: string | undefined): Lang {
+  return value === "en" || value === "de" ? value : "fa";
+}
+
+const TITLE: Record<Lang, string> = {
+  fa: "هوشمند AI — پلتفرم هوش مصنوعی",
+  en: "AiFekr — AI Platform",
+  de: "AiFekr — KI-Plattform",
+};
+
+const DESCRIPTION: Record<Lang, string> = {
+  fa: "پلتفرم هوش مصنوعی — چت، تصویر، ویدیو، موسیقی و ابزارهای هوشمند کسب‌وکار",
+  en: "AI Platform — Chat, Image, Video, Music & Smart Business Tools",
+  de: "KI-Plattform — Chat, Bild, Video, Musik und intelligente Business-Tools",
+};
+
 export async function generateMetadata(): Promise<Metadata> {
   const cookieStore = await cookies();
-  const lang = (cookieStore.get("lang")?.value === "en") ? "en" : "fa";
+  const lang = readLang(cookieStore.get("lang")?.value);
   return {
-    title: lang === "en" ? "AiFekr — AI Platform" : "هوشمند AI — پلتفرم هوش مصنوعی",
-    description: "AI Platform — Chat, Image, Video, Music & Smart Business Tools",
+    title: TITLE[lang],
+    description: DESCRIPTION[lang],
     manifest: "/manifest.json",
     appleWebApp: {
       capable: true,
@@ -35,8 +59,8 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
-  const lang = (cookieStore.get("lang")?.value === "en") ? "en" : "fa";
-  const dir = lang === "en" ? "ltr" : "rtl";
+  const lang = readLang(cookieStore.get("lang")?.value);
+  const dir = lang === "fa" ? "rtl" : "ltr";
   const theme = (cookieStore.get("theme")?.value === "light") ? "light" : "dark";
 
   return (

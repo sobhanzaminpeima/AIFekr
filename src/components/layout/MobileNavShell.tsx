@@ -9,25 +9,25 @@ import NotificationBell from "@/components/layout/NotificationBell";
 
 export default function MobileNavShell({
   sidebar, children, lang,
-}: { sidebar: React.ReactNode; children: React.ReactNode; lang: "fa" | "en" }) {
+}: { sidebar: React.ReactNode; children: React.ReactNode; lang: "fa" | "en" | "de" }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const isChatPage = pathname === "/chat" || pathname?.startsWith("/chat/");
-  const dir = lang === "en" ? "ltr" : "rtl";
+  // Persian is the only RTL language here — anything else reads left-to-right.
+  const dir = lang === "fa" ? "rtl" : "ltr";
 
-  const bottomItems = lang === "en"
-    ? [
-        { icon: MessageSquare, label: "Chat", href: "/chat" },
-        { icon: Sparkles, label: "Agents", href: "/industry" },
-        { icon: ImageIcon, label: "Create", href: "/image/generate" },
-        { icon: User, label: "Settings", href: "/settings" },
-      ]
-    : [
-        { icon: MessageSquare, label: "چت", href: "/chat" },
-        { icon: Sparkles, label: "ایجنت‌ها", href: "/industry" },
-        { icon: ImageIcon, label: "ساخت", href: "/image/generate" },
-        { icon: User, label: "تنظیمات", href: "/settings" },
-      ];
+  const LABELS = {
+    fa: { chat: "چت", agents: "ایجنت‌ها", create: "ساخت", settings: "تنظیمات" },
+    en: { chat: "Chat", agents: "Agents", create: "Create", settings: "Settings" },
+    de: { chat: "Chat", agents: "Agenten", create: "Erstellen", settings: "Einstellungen" },
+  }[lang];
+
+  const bottomItems = [
+    { icon: MessageSquare, label: LABELS.chat, href: "/chat" },
+    { icon: Sparkles, label: LABELS.agents, href: "/industry" },
+    { icon: ImageIcon, label: LABELS.create, href: "/image/generate" },
+    { icon: User, label: LABELS.settings, href: "/settings" },
+  ];
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 

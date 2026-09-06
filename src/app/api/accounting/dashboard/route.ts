@@ -16,6 +16,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
   }
 
-  const data = await getDashboardData(ws.workspaceUserId);
+  const data = await getDashboardData(ws.workspaceUserId, lang);
   return NextResponse.json(data);
 }

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { getTrialBalance, getProfitAndLoss } from "./reports";
+import type { Lang } from "@/lib/i18n";
 
 export interface DashboardData {
   cashBalance: number;
@@ -21,7 +22,13 @@ export interface DashboardData {
   };
 }
 
-export async function getDashboardData(workspaceUserId: string): Promise<DashboardData> {
+/**
+ * `lang` only affects the trend chart's month labels, which are baked here
+ * rather than on the client. Without it an English or German reader got
+ * Jalali month names ("فروردین") on the x-axis of an otherwise translated
+ * dashboard.
+ */
+export async function getDashboardData(workspaceUserId: string, lang: Lang = "fa"): Promise<DashboardData> {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -59,7 +66,8 @@ export async function getDashboardData(workspaceUserId: string): Promise<Dashboa
     const from = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const to = i === 0 ? now : new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
     const pl = await getProfitAndLoss(workspaceUserId, from, to);
-    trend.push({ label: from.toLocaleDateString("fa-IR", { month: "short" }), revenue: pl.revenueTotal, expense: pl.expenseTotal });
+    const monthLocale = lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US";
+    trend.push({ label: from.toLocaleDateString(monthLocale, { month: "short" }), revenue: pl.revenueTotal, expense: pl.expenseTotal });
   }
 
   const thisMonthStatementFee = statements

@@ -15,7 +15,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const payload = verifyToken(token);
   if (!payload) redirect("/login");
 
-  const lang = (cookieStore.get("lang")?.value === "en") ? "en" : "fa";
+  // Three languages, not two — a German reader used to fall into the "fa"
+  // branch here and get the whole dashboard shell in RTL.
+  const cookieLang = cookieStore.get("lang")?.value;
+  const lang: "fa" | "en" | "de" = cookieLang === "en" || cookieLang === "de" ? cookieLang : "fa";
 
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
