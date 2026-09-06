@@ -137,11 +137,16 @@ export default function OwnerStatementPage({ params }: { params: { token: string
           </div>
         </div>
 
-        <p className="text-[11px] text-center pt-2" style={{ color: "var(--text-muted)", borderTop: "1px solid var(--border)" }}>
-          {tri(lang, "این گزارش توسط آژانس ملک ارسال شده و فقط با این لینک قابل مشاهده است.",
-            "This statement was sent by the property agency and is viewable only with this link.",
-            "Diese Abrechnung wurde von der Immobilienagentur gesendet und ist nur über diesen Link einsehbar.")}
-        </p>
+        <div className="text-center pt-2 space-y-1.5" style={{ borderTop: "1px solid var(--border)" }}>
+          <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+            {tri(lang, "این گزارش توسط آژانس ملک ارسال شده و فقط با این لینک قابل مشاهده است.",
+              "This statement was sent by the property agency and is viewable only with this link.",
+              "Diese Abrechnung wurde von der Immobilienagentur gesendet und ist nur über diesen Link einsehbar.")}
+          </p>
+          <a href="/owner/login" className="text-[11px] font-medium underline" style={{ color: "var(--primary)" }}>
+            {tri(lang, "ورود به پنل مالک برای دیدن همهٔ گزارش‌ها", "Open the owner portal to see every statement", "Zum Eigentümerportal für alle Abrechnungen")}
+          </a>
+        </div>
       </div>
     </div>
   );

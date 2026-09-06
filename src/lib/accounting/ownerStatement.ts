@@ -161,10 +161,10 @@ export async function sendOwnerStatement(statementId: string, ownerEmail: string
     .join("");
 
   const L = lang === "fa"
-    ? { subject: `گزارش تسویه ${statement.property.title} — ${monthLabel}`, hi: "سلام", date: "تاریخ", desc: "توضیح", income: "درآمد", expense: "هزینه", net: "سود خالص", fee: "کارمزد مدیریت", share: "سهم مالک", cta: "مشاهدهٔ آنلاین گزارش" }
+    ? { subject: `گزارش تسویه ${statement.property.title} — ${monthLabel}`, hi: "سلام", date: "تاریخ", desc: "توضیح", income: "درآمد", expense: "هزینه", net: "سود خالص", fee: "کارمزد مدیریت", share: "سهم مالک", cta: "مشاهدهٔ آنلاین گزارش", loginCta: "ورود به پنل مالک برای دیدن همهٔ گزارش‌ها" }
     : lang === "de"
-    ? { subject: `Eigentümerabrechnung ${statement.property.title} — ${monthLabel}`, hi: "Hallo", date: "Datum", desc: "Beschreibung", income: "Einnahmen", expense: "Ausgaben", net: "Nettogewinn", fee: "Verwaltungsgebühr", share: "Anteil des Eigentümers", cta: "Abrechnung online ansehen" }
-    : { subject: `Owner Statement — ${statement.property.title} — ${monthLabel}`, hi: "Hi", date: "Date", desc: "Description", income: "Income", expense: "Expense", net: "Net Profit", fee: "Management Fee", share: "Owner Share", cta: "View the statement online" };
+    ? { subject: `Eigentümerabrechnung ${statement.property.title} — ${monthLabel}`, hi: "Hallo", date: "Datum", desc: "Beschreibung", income: "Einnahmen", expense: "Ausgaben", net: "Nettogewinn", fee: "Verwaltungsgebühr", share: "Anteil des Eigentümers", cta: "Abrechnung online ansehen", loginCta: "Zum Eigentümerportal für alle Abrechnungen" }
+    : { subject: `Owner Statement — ${statement.property.title} — ${monthLabel}`, hi: "Hi", date: "Date", desc: "Description", income: "Income", expense: "Expense", net: "Net Profit", fee: "Management Fee", share: "Owner Share", cta: "View the statement online", loginCta: "Open the owner portal to see every statement" };
 
   const dir = lang === "fa" ? "rtl" : "ltr";
   const html = `
@@ -182,6 +182,9 @@ export async function sendOwnerStatement(statementId: string, ownerEmail: string
       </table>
       <p style="margin-top:24px;">
         <a href="${shareUrl}" style="display:inline-block;padding:12px 24px;background:#ea580c;color:#fff;border-radius:8px;text-decoration:none;">${L.cta}</a>
+      </p>
+      <p style="margin-top:12px;">
+        <a href="${appUrl}/owner/login" style="color:#ea580c;font-size:13px;text-decoration:underline;">${L.loginCta}</a>
       </p>
     </div>`;
 
