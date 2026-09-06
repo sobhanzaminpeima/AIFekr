@@ -34,6 +34,9 @@ interface AuditReport {
 export default function ClosePeriodPage() {
   const { lang, dir, fmtNum: fmt, fmtDate, fmtMonth: monthLabel } = useAccountingLocale();
   const [periods, setPeriods] = useState<FiscalPeriod[]>([]);
+  // "no periods yet" and "still fetching" are different answers -- showing the
+  // former while the request is in flight reads as a wrong empty state.
+  const [loading, setLoading] = useState(true);
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [busy, setBusy] = useState(false);
@@ -44,6 +47,7 @@ export default function ClosePeriodPage() {
     const res = await fetch("/api/accounting/fiscal-periods", { credentials: "include" });
     const j = await res.json();
     if (res.ok) setPeriods(j.periods);
+    setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -126,7 +130,9 @@ export default function ClosePeriodPage() {
       </div>
 
       <div className="space-y-3">
-        {periods.length === 0 ? (
+        {loading ? (
+          <div className="rounded-2xl p-8 text-center text-sm" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>{tri(lang, "در حال بارگذاری...", "Loading…", "Wird geladen…")}</div>
+        ) : periods.length === 0 ? (
           <div className="rounded-2xl p-8 text-center text-sm" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>{tri(lang, "هنوز دوره مالی‌ای ساخته نشده", "No fiscal periods created yet", "Noch keine Geschäftsperioden erstellt")}</div>
         ) : periods.map((p) => {
           const report = reports[p.id];

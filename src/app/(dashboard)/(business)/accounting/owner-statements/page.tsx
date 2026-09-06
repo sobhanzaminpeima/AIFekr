@@ -82,6 +82,10 @@ function emptyLine(): LineItem {
 export default function OwnerStatementsPage() {
   const { lang, dir, fmtMonth } = useAccountingLocale();
   const [properties, setProperties] = useState<Property[]>([]);
+  // Without this the dropdown looks identical while loading and when the
+  // workspace genuinely has no short-term rental units — which is how this
+  // page came to say "select a unit first" with nothing to select.
+  const [propertiesLoading, setPropertiesLoading] = useState(true);
   const [propertyId, setPropertyId] = useState("");
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [notes, setNotes] = useState("");
@@ -141,7 +145,8 @@ export default function OwnerStatementsPage() {
     fetch("/api/crm/properties?listingType=short_term_rent", { credentials: "include" })
       .then((r) => r.json())
       .then((d) => setProperties(d.properties || []))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setPropertiesLoading(false));
   }, []);
 
   const loadStatements = useCallback(async (pid: string) => {
@@ -256,12 +261,34 @@ export default function OwnerStatementsPage() {
       {/* Property + month picker */}
       <div className="rounded-2xl p-5" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
         <div className="flex flex-wrap gap-2 items-center mb-3">
-          <select value={propertyId} onChange={(e) => setPropertyId(e.target.value)} className="px-3 py-2 rounded-lg text-sm flex-1 min-w-[180px]" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{tri(lang, "انتخاب واحد اجاره کوتاه‌مدت", "Select a short-term rental unit", "Kurzzeitmiet-Einheit auswählen")}</option>
+          <select value={propertyId} onChange={(e) => setPropertyId(e.target.value)} disabled={propertiesLoading || properties.length === 0}
+            className="px-3 py-2 rounded-lg text-sm flex-1 min-w-[180px] disabled:opacity-60" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">
+              {propertiesLoading
+                ? tri(lang, "در حال بارگذاری واحدها...", "Loading units…", "Einheiten werden geladen…")
+                : properties.length === 0
+                ? tri(lang, "هیچ واحد اجاره کوتاه‌مدتی ثبت نشده", "No short-term rental units yet", "Noch keine Kurzzeitmiet-Einheiten")
+                : tri(lang, "انتخاب واحد اجاره کوتاه‌مدت", "Select a short-term rental unit", "Kurzzeitmiet-Einheit auswählen")}
+            </option>
             {properties.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
           </select>
           <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         </div>
+
+        {/* A statement needs a short-term rental unit with an owner attached.
+            Saying so (with the link) beats an empty dropdown the reader has to
+            reverse-engineer. */}
+        {!propertiesLoading && properties.length === 0 && (
+          <div className="rounded-xl p-4 text-sm mb-3" style={{ background: "var(--surface-2)", border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
+            <p className="mb-2">{tri(lang,
+              "برای ساخت گزارش تسویه، اول باید یک ملک با نوع «اجاره کوتاه‌مدت» ثبت کنید و مالکش را مشخص کنید.",
+              "To build an owner statement you first need a property with listing type \"short-term rental\", with its owner set.",
+              "Für eine Eigentümerabrechnung brauchen Sie zuerst eine Immobilie vom Typ „Kurzzeitvermietung\" mit hinterlegtem Eigentümer.")}</p>
+            <Link href="/crm?tab=properties" className="text-xs font-medium" style={{ color: "var(--primary)" }}>
+              {tri(lang, "رفتن به بخش ملک‌ها ←", "Go to Properties →", "Zu den Immobilien →")}
+            </Link>
+          </div>
+        )}
 
         {propertyId && (
           <div className="flex items-center gap-2 mb-3 text-sm">
