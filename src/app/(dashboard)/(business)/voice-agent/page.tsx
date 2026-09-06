@@ -635,18 +635,7 @@ function PropertiesTab({
           <div key={p.id} className="p-5 rounded-2xl space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             <div className="flex items-start justify-between">
               <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{p.title}</p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/p/${p.id}`);
-                    toast.success(tri(lang, "لینک اشتراک‌گذاری کپی شد", "Share link copied", "Link kopiert"));
-                  }}
-                  title={tri(lang, "کپی لینک اشتراک‌گذاری", "Copy share link", "Link kopieren")}
-                >
-                  <Share2 className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} />
-                </button>
-                <button onClick={() => onDelete(p.id)}><Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} /></button>
-              </div>
+              <button onClick={() => onDelete(p.id)}><Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} /></button>
             </div>
             <p className="text-xs flex items-center gap-1" style={{ color: "var(--text-secondary)" }}><MapPin className="w-3.5 h-3.5" /> {p.address}{p.city ? `، ${p.city}` : ""}</p>
             <p className="text-sm font-semibold" style={{ color: "#f59e0b" }}>{fmtMoney(p.price)} {tri(lang, "تومان", "IRT", "IRR")}</p>
@@ -655,6 +644,33 @@ function PropertiesTab({
               <span className="px-2 py-0.5 rounded-full" style={{ background: "var(--surface-2)" }}>{p.status}</span>
               {p.bedrooms != null && <span>{p.bedrooms} {tri(lang, "خواب", "bed", "Zi.")}</span>}
               {p.areaSqm != null && <span>{p.areaSqm} m²</span>}
+            </div>
+            {/* Was a tiny unlabeled icon — the user reported not being able to
+                find the share link at all. Now a full-width labeled button
+                showing the actual path, plus a direct "open" action. */}
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/p/${p.id}`);
+                  toast.success(tri(lang, "لینک اشتراک‌گذاری کپی شد", "Share link copied", "Link kopiert"));
+                }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium"
+                style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                {tri(lang, "کپی لینک اشتراک‌گذاری", "Copy share link", "Link kopieren")}
+                <span dir="ltr" className="opacity-60">/p/{p.id.slice(0, 8)}…</span>
+              </button>
+              <a
+                href={`/p/${p.id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="px-2.5 py-1.5 rounded-lg text-xs font-medium"
+                style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
+                title={tri(lang, "مشاهدهٔ صفحهٔ عمومی", "Open public page", "Öffentliche Seite öffnen")}
+              >
+                {tri(lang, "مشاهده", "Open", "Öffnen")}
+              </a>
             </div>
           </div>
         ))}
