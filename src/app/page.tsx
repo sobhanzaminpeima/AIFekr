@@ -264,7 +264,11 @@ export default async function HomePage() {
     // package editor), not JSON — parse accordingly, with a JSON fallback
     // in case any row was ever entered as a JSON array.
     let features: string[] = [];
-    const raw = (lang === "en" && p.featuresEn ? p.featuresEn : p.features)?.trim() || "";
+    // German is not "en", so this used to hand a German visitor the PERSIAN
+    // feature list on the highest-traffic page on the site. There is no
+    // featuresDe column yet, so German gets the English list -- which is what
+    // the plan NAME on the next line already does.
+    const raw = (lang !== "fa" && p.featuresEn ? p.featuresEn : p.features)?.trim() || "";
     if (raw.startsWith("[")) {
       try { features = JSON.parse(raw); } catch {}
     } else if (raw) {

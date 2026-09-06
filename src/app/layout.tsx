@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import { cookies } from "next/headers";
+import { LangProvider } from "@/lib/i18n/LangProvider";
 
 type Lang = "fa" | "en" | "de";
 
@@ -66,7 +67,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={lang} dir={dir} data-theme={theme}>
       <body className="antialiased">
-        {children}
+        <LangProvider lang={lang}>{children}</LangProvider>
         <Toaster
           position="top-center"
           toastOptions={{

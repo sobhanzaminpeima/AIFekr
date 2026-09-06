@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import en from "./en";
 import fa from "./fa";
 import de from "./de";
+import { useServerLang } from "./LangProvider";
 
 export type Lang = "fa" | "en" | "de";
 
@@ -29,9 +30,16 @@ export function setLang(lang: Lang) {
 const TRANSLATIONS: Record<Lang, typeof en> = { en, fa, de: de as typeof en };
 
 export function useTranslation() {
-  const [lang, setLangState] = useState<Lang>("fa");
+  // Seeded from the server's own reading of the `lang` cookie, so the first
+  // render already matches the reader. It used to start at "fa" unconditionally
+  // and correct itself in the effect below, which meant the server HTML — and
+  // the browser's first paint — was Persian for every English and German user.
+  const serverLang = useServerLang();
+  const [lang, setLangState] = useState<Lang>(serverLang ?? "fa");
 
   useEffect(() => {
+    // Still runs: it picks up a language switch made after mount, and covers
+    // any tree that has no provider above it.
     setLangState(getLang());
   }, []);
 
