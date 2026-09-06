@@ -17,6 +17,7 @@ import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
 import CurrencySelector from "@/components/ui/CurrencySelector";
 import NotificationBell from "@/components/layout/NotificationBell";
 import { useTranslation, tri, type Lang } from "@/lib/i18n";
+import { DEPARTMENTS as TEAM_DEPARTMENTS } from "@/lib/team/identity";
 import { formatNumber } from "@/lib/utils/jalali";
 
 interface Project { id: string; name: string; color: string; icon: string; conversationCount: number; }
@@ -50,15 +51,17 @@ const PROJECT_COLORS = ["#ea580c", "#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "
 const DEPARTMENTS: {
   key: string;
   color: string;
+  tint: string;
   icon: React.ElementType;
   label: (lang: Lang) => string;
   items: (t: ReturnType<typeof useTranslation>["t"]) => { icon: React.ElementType; label: string; href: string }[];
 }[] = [
   {
     key: "sales",
-    color: "#ea580c",
+    color: TEAM_DEPARTMENTS.sales.color,
+    tint: TEAM_DEPARTMENTS.sales.tint,
     icon: Handshake,
-    label: (lang) => tri(lang, "فروش و املاک", "Sales & property", "Vertrieb & Immobilien"),
+    label: TEAM_DEPARTMENTS.sales.label,
     items: (t) => [
       { icon: Briefcase, label: t.nav.crm, href: "/crm" },
       { icon: Handshake, label: t.nav.salesAgent, href: "/sales" },
@@ -68,9 +71,10 @@ const DEPARTMENTS: {
   },
   {
     key: "marketing",
-    color: "#3b82f6",
+    color: TEAM_DEPARTMENTS.marketing.color,
+    tint: TEAM_DEPARTMENTS.marketing.tint,
     icon: Share2,
-    label: (lang) => tri(lang, "مارکتینگ", "Marketing", "Marketing"),
+    label: TEAM_DEPARTMENTS.marketing.label,
     items: (t) => [
       { icon: Share2, label: t.nav.socialMedia, href: "/social" },
       { icon: Search, label: t.nav.seoWorkspace, href: "/seo" },
@@ -79,18 +83,20 @@ const DEPARTMENTS: {
   },
   {
     key: "finance",
-    color: "#1baf7a",
+    color: TEAM_DEPARTMENTS.finance.color,
+    tint: TEAM_DEPARTMENTS.finance.tint,
     icon: Calculator,
-    label: (lang) => tri(lang, "مالی و حسابداری", "Finance & accounting", "Finanzen & Buchhaltung"),
+    label: TEAM_DEPARTMENTS.finance.label,
     items: (t) => [
       { icon: Calculator, label: t.nav.accounting, href: "/accounting" },
     ],
   },
   {
     key: "strategy",
-    color: "#a855f7",
+    color: TEAM_DEPARTMENTS.strategy.color,
+    tint: TEAM_DEPARTMENTS.strategy.tint,
     icon: Crown,
-    label: (lang) => tri(lang, "مشاورهٔ استراتژیک", "Strategy", "Strategie"),
+    label: TEAM_DEPARTMENTS.strategy.label,
     items: (t) => [
       { icon: Crown, label: t.nav.ceoAdvisor, href: "/ceo" },
       { icon: HeartPulse, label: t.nav.businessDoctor, href: "/business-doctor" },
@@ -292,19 +298,35 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
                   <button
                     onClick={() => setOpenDept(open ? "" : dept.key)}
                     aria-expanded={open}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium"
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-colors"
                     style={{ color: hasCurrent ? "var(--text-primary)" : "var(--text-secondary)" }}
                   >
-                    <span className="flex items-center gap-2 min-w-0">
-                      <dept.icon className="w-4 h-4 flex-shrink-0" style={{ color: dept.color }} />
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      {/* A tinted tile rather than a bare icon: it gives the
+                          department a consistent mark that the home page reuses
+                          on the same team's activity rows. */}
+                      <span
+                        className="w-6 h-6 rounded-lg grid place-items-center flex-shrink-0 transition-colors"
+                        style={{ background: open || hasCurrent ? dept.tint : "var(--surface-2)" }}
+                      >
+                        <dept.icon className="w-3.5 h-3.5" style={{ color: dept.color }} />
+                      </span>
                       <span className="truncate">{dept.label(lang)}</span>
                     </span>
-                    {open ? <ChevronDown className="w-4 h-4 flex-shrink-0" /> : <ChevronLeft className="w-4 h-4 flex-shrink-0" />}
+                    <ChevronDown
+                      className="w-3.5 h-3.5 flex-shrink-0 transition-transform"
+                      style={{ transform: open ? "none" : "rotate(-90deg)", color: "var(--text-muted)" }}
+                    />
                   </button>
                   {open && (
-                    <div className="space-y-0.5">
+                    /* A guide line down the group ties the children to their
+                       heading, so an open department reads as one block. */
+                    <div
+                      className="space-y-0.5 ms-[23px] ps-2"
+                      style={{ borderInlineStart: `1px solid ${dept.tint}` }}
+                    >
                       {items.map((i) => (
-                        <NavItem key={i.href} icon={i.icon} label={i.label} href={i.href} active={isActive(i.href)} small />
+                        <NavItem key={i.href} icon={i.icon} label={i.label} href={i.href} active={isActive(i.href)} accent={dept.color} small />
                       ))}
                     </div>
                   )}
@@ -584,18 +606,44 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
  * business actually runs on.
  */
 function NavSection({ label }: { label: string }) {
+  // A hairline beside the label separates groups without spending a whole
+  // divider row on it — the list stays dense but stops reading as one long run.
   return (
-    <div className="px-3 pt-3 pb-1 text-[11px] font-semibold tracking-wide select-none" style={{ color: "var(--text-muted)" }}>
-      {label}
+    <div className="flex items-center gap-2 px-3 pt-4 pb-1.5 select-none">
+      <span className="text-[10px] font-semibold tracking-[0.08em] uppercase whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
+        {label}
+      </span>
+      <span className="h-px flex-1" style={{ background: "var(--border)" }} />
     </div>
   );
 }
 
-function NavItem({ icon: Icon, label, href, active, small = false }: { icon: React.ElementType; label: string; href: string; active: boolean; small?: boolean }) {
+function NavItem({ icon: Icon, label, href, active, small = false, accent }: {
+  icon: React.ElementType; label: string; href: string; active: boolean; small?: boolean;
+  /** Department colour — sub-items inherit their department's hue so the group stays readable when open. */
+  accent?: string;
+}) {
+  const hue = accent || "var(--primary)";
   return (
-    <Link href={href} className={`flex items-center gap-2 px-3 rounded-xl text-sm font-medium transition-all ${small ? "py-1.5" : "py-2"}`}
-      style={{ background: active ? "rgba(234,88,12,0.12)" : "transparent", color: active ? "var(--primary)" : "var(--text-secondary)" }}>
-      <Icon className={small ? "w-3.5 h-3.5" : "w-4 h-4"} />
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={`group relative flex items-center gap-2.5 rounded-xl text-sm font-medium transition-colors ${small ? "py-1.5 ps-4 pe-3" : "py-2 px-3"}`}
+      style={{
+        background: active ? "var(--surface-2)" : "transparent",
+        color: active ? "var(--text-primary)" : "var(--text-secondary)",
+      }}
+    >
+      {/* A rail on the inline-start edge reads as "you are here" at a glance and
+          works in both directions, which a left-only border would not. */}
+      {active && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-inline-start-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-full"
+          style={{ background: hue, insetInlineStart: 0 }}
+        />
+      )}
+      <Icon className={`flex-shrink-0 ${small ? "w-3.5 h-3.5" : "w-4 h-4"}`} style={{ color: active ? hue : "currentColor" }} />
       <span className="truncate">{label}</span>
     </Link>
   );

@@ -15,7 +15,10 @@ interface Property {
   title: string;
   listingType: string;
   currency: string;
+  ownerContactId: string | null;
 }
+
+interface ContactOption { id: string; name: string }
 
 interface LineItem {
   date: string;
@@ -99,6 +102,12 @@ export default function OwnerStatementsPage() {
   const [feePercent, setFeePercent] = useState<string>("20");
   const [feeSource, setFeeSource] = useState<"property" | "workspace_default" | "hardcoded_default">("hardcoded_default");
   const [savingFee, setSavingFee] = useState(false);
+  // "This property has no owner contact set" used to be a dead end: the only
+  // place to set it was the CRM property form, and only for short-term rentals.
+  // The owner can be chosen — or created — right here, where the error appears.
+  const [contacts, setContacts] = useState<ContactOption[]>([]);
+  const [newOwnerName, setNewOwnerName] = useState("");
+  const [savingOwner, setSavingOwner] = useState(false);
 
   const selectedProperty = properties.find((p) => p.id === propertyId);
 
@@ -150,7 +159,52 @@ export default function OwnerStatementsPage() {
       .then((d) => setProperties(d.properties || []))
       .catch(() => {})
       .finally(() => setPropertiesLoading(false));
+    // Contacts feed the owner picker below.
+    fetch("/api/crm/contacts", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setContacts((d.contacts || []).map((c: ContactOption) => ({ id: c.id, name: c.name }))))
+      .catch(() => {});
   }, []);
+
+  /** Links an existing contact to this property as its owner. */
+  async function assignOwner(contactId: string) {
+    if (!propertyId || !contactId) return;
+    setSavingOwner(true);
+    try {
+      const res = await fetch(`/api/crm/properties/${propertyId}`, {
+        method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ownerContactId: contactId }),
+      });
+      const j = await parseJsonResponse(res, lang);
+      if (!res.ok) throw new Error(j.error);
+      setProperties((prev) => prev.map((p) => (p.id === propertyId ? { ...p, ownerContactId: contactId } : p)));
+      toast.success(tri(lang, "مالک ثبت شد", "Owner set", "Eigentümer festgelegt"));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : tri(lang, "خطا در ثبت مالک", "Could not set the owner", "Eigentümer konnte nicht gesetzt werden"));
+    } finally { setSavingOwner(false); }
+  }
+
+  /** Creates a contact and immediately makes it this property's owner. */
+  async function createAndAssignOwner() {
+    const name = newOwnerName.trim();
+    if (!name) return toast.error(tri(lang, "نام مالک را وارد کنید", "Enter the owner's name", "Namen des Eigentümers eingeben"));
+    setSavingOwner(true);
+    try {
+      const res = await fetch("/api/crm/contacts", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, status: "customer" }),
+      });
+      const j = await parseJsonResponse(res, lang);
+      if (!res.ok) throw new Error(j.error);
+      const created = j.contact;
+      setContacts((prev) => [{ id: created.id, name: created.name }, ...prev]);
+      setNewOwnerName("");
+      await assignOwner(created.id);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : tri(lang, "خطا در ساخت مخاطب", "Could not create the contact", "Kontakt konnte nicht erstellt werden"));
+      setSavingOwner(false);
+    }
+  }
 
   const loadStatements = useCallback(async (pid: string) => {
     if (!pid) { setStatements([]); return; }
@@ -279,6 +333,50 @@ export default function OwnerStatementsPage() {
           </select>
           <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         </div>
+
+        {/* The statement cannot be sent without an owner. Rather than let the
+            user discover that at the moment they press "send", offer the fix
+            here — pick an existing contact, or create one in place. */}
+        {selectedProperty && !selectedProperty.ownerContactId && (
+          <div className="rounded-xl p-4 mb-3" style={{ background: "rgba(217,144,0,0.10)", border: "1px solid rgba(217,144,0,0.35)" }}>
+            <p className="text-sm font-medium mb-1" style={{ color: "var(--warn)" }}>
+              {tri(lang, "این واحد هنوز مالک ثبت‌شده ندارد", "This unit has no owner yet", "Diese Einheit hat noch keinen Eigentümer")}
+            </p>
+            <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
+              {tri(lang, "گزارش تسویه بدون مالک قابل ارسال نیست. یک مخاطب را انتخاب کنید یا همین‌جا بسازید.",
+                "A statement cannot be sent without one. Pick a contact, or create one here.",
+                "Ohne Eigentümer kann keine Abrechnung versendet werden. Wählen Sie einen Kontakt oder legen Sie hier einen an.")}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                defaultValue=""
+                disabled={savingOwner}
+                onChange={(e) => e.target.value && assignOwner(e.target.value)}
+                className="px-3 py-2 rounded-lg text-sm flex-1 min-w-[170px] disabled:opacity-60"
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+              >
+                <option value="">{tri(lang, "انتخاب از مخاطبین", "Choose an existing contact", "Vorhandenen Kontakt wählen")}</option>
+                {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>{tri(lang, "یا", "or", "oder")}</span>
+              <input
+                value={newOwnerName}
+                onChange={(e) => setNewOwnerName(e.target.value)}
+                placeholder={tri(lang, "نام مالک جدید", "New owner's name", "Name des neuen Eigentümers")}
+                className="px-3 py-2 rounded-lg text-sm flex-1 min-w-[150px]"
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+              />
+              <button
+                disabled={savingOwner || !newOwnerName.trim()}
+                onClick={createAndAssignOwner}
+                className="px-3 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50 whitespace-nowrap"
+                style={{ background: "var(--primary)" }}
+              >
+                {savingOwner ? tri(lang, "در حال ثبت...", "Saving…", "Wird gespeichert…") : tri(lang, "ساخت و ثبت مالک", "Create and set owner", "Anlegen und zuweisen")}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* A statement needs a short-term rental unit with an owner attached.
             Saying so (with the link) beats an empty dropdown the reader has to

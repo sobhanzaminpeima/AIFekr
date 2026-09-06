@@ -40,7 +40,7 @@ export interface AttentionItem {
 export interface TeamActivityItem {
   id: string;
   /** Which teammate did it — used for the icon, not shown raw. */
-  agent: "ceo" | "content";
+  agent: import("@/lib/team/identity").TeammateKey;
   title: string;
   detail: string;
   href: string;
@@ -60,6 +60,12 @@ export interface HomeSummary {
   attention: AttentionItem[];
   /** What the AI team actually did in the last 7 days. Empty when it did nothing. */
   teamActivity: TeamActivityItem[];
+  /**
+   * Which stats carry real information right now. A brand-new workspace showing
+   * a row of zeros is the worst possible first impression, so the page renders
+   * only the tiles named here and drops the row entirely when none qualify.
+   */
+  meaningfulStats: ("activeDeals" | "pipelineValue" | "newLeadsThisWeek" | "overdueInvoiceCount" | "monthRevenue" | "upcomingViewings")[];
   /** True when the workspace has essentially no data yet — the page shows a getting-started state instead. */
   isEmptyWorkspace: boolean;
 }
@@ -222,6 +228,16 @@ export async function getHomeSummary(workspaceUserId: string, lang: Lang): Promi
     },
     attention: attention.slice(0, 8),
     teamActivity,
+    // A zero overdue-invoice count IS information (it means "you are clear"),
+    // but only once the workspace has invoices at all — otherwise it is noise.
+    meaningfulStats: ([
+      openDeals.length > 0 && "activeDeals",
+      openDeals.length > 0 && "pipelineValue",
+      newLeads > 0 && "newLeadsThisWeek",
+      overdueInvoices.length > 0 && "overdueInvoiceCount",
+      (paidThisMonth._sum.total ?? 0) > 0 && "monthRevenue",
+      upcomingViewings > 0 && "upcomingViewings",
+    ].filter(Boolean) as HomeSummary["meaningfulStats"]),
     isEmptyWorkspace: contactCount === 0 && openDeals.length === 0,
   };
 }
