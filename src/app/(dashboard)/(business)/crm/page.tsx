@@ -357,7 +357,11 @@ export default function CrmPage() {
                     const dealId = e.dataTransfer.getData("dealId");
                     if (dealId) moveDeal(dealId, stage.id);
                   }}
-                  className="flex-shrink-0 w-64 rounded-2xl p-3 space-y-2"
+                  // A stage with 35 deals used to stretch the board to ~3800px and
+                  // drag every empty column to that same height, because flex
+                  // children stretch to the tallest sibling. The column is now a
+                  // bounded flex column: header fixed, card list scrolls inside it.
+                  className="flex-shrink-0 w-64 rounded-2xl p-3 flex flex-col gap-2 max-h-full"
                   style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
                   <div className="flex items-center justify-between px-1">
                     <div className="flex items-center gap-1.5">
@@ -370,7 +374,7 @@ export default function CrmPage() {
                   {stageTotal > 0 && (
                     <p className="text-[10px] px-1" style={{ color: "var(--text-muted)" }}>{fmtMoney(stageTotal)} {c.board.currency}</p>
                   )}
-                  <div className="space-y-2 min-h-[40px]">
+                  <div className="space-y-2 min-h-[40px] overflow-y-auto flex-1 -mx-1 px-1" style={{ scrollbarWidth: "thin" }}>
                     {stageDeals.map((deal) => (
                       <div key={deal.id}
                         draggable
@@ -619,7 +623,15 @@ function BoardScrollRow({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="relative">
-      <div ref={scrollRef} className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "thin" }}>
+      {/* The board is bounded to the viewport so a busy stage scrolls inside its
+          own column instead of stretching the board — and every other column
+          with it — to several thousand pixels. `items-stretch` keeps the empty
+          columns full height so they stay valid drop targets. */}
+      <div
+        ref={scrollRef}
+        className="flex items-stretch gap-3 overflow-x-auto pb-2"
+        style={{ scrollbarWidth: "thin", maxHeight: "calc(100vh - 300px)", minHeight: 320 }}
+      >
         {children}
       </div>
       {showStartFade && (
