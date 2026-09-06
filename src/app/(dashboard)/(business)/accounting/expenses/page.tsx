@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { ArrowRight, ArrowLeft, Plus, CheckCircle2, XCircle, Wallet, Building2, Sparkles } from "lucide-react";
 import { tri, type Lang } from "@/lib/i18n";
 import { useAccountingLocale } from "@/lib/accounting/useAccountingLocale";
+import AccountingNav from "@/components/accounting/AccountingNav";
 
 interface Account { code: string; name: string; type: string; }
 interface Vendor { id: string; name: string; phone: string | null; email: string | null; }
@@ -18,7 +19,10 @@ interface Expense {
   status: "pending_approval" | "approved" | "rejected" | "paid";
   expenseDate: string;
   vendor: Vendor | null;
+  property: { id: string; title: string } | null;
 }
+
+interface PropertyOption { id: string; title: string }
 
 const STATUS_STYLE: Record<Expense["status"], { color: string; bg: string }> = {
   pending_approval: { color: "#eda100", bg: "rgba(237,161,0,0.12)" },
@@ -48,6 +52,11 @@ export default function ExpensesPage() {
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [vendorId, setVendorId] = useState("");
+  // Attaching a cost to a unit is what makes "what has this property cost me?"
+  // answerable, and what lets an owner statement pull its expense lines instead
+  // of having them retyped every month.
+  const [propertyId, setPropertyId] = useState("");
+  const [properties, setProperties] = useState<PropertyOption[]>([]);
 
   const [proposals, setProposals] = useState<Record<string, { id: string; suggestedAccountCode: string; reasoning: string }>>({});
 
@@ -55,14 +64,17 @@ export default function ExpensesPage() {
   const [showVendorForm, setShowVendorForm] = useState(false);
 
   const load = useCallback(async () => {
-    const [accRes, venRes, expRes] = await Promise.all([
+    const [accRes, venRes, expRes, propRes] = await Promise.all([
       fetch("/api/accounting/accounts", { credentials: "include" }),
       fetch("/api/accounting/vendors", { credentials: "include" }),
       fetch("/api/accounting/expenses", { credentials: "include" }),
+      fetch("/api/crm/properties", { credentials: "include" }),
     ]);
     const accJson = await accRes.json();
     const venJson = await venRes.json();
     const expJson = await expRes.json();
+    const propJson = await propRes.json().catch(() => ({ properties: [] }));
+    if (propRes.ok) setProperties((propJson.properties || []).map((x: PropertyOption) => ({ id: x.id, title: x.title })));
     if (accRes.ok) setAccounts(accJson.accounts.filter((a: Account) => a.type === "expense"));
     if (venRes.ok) setVendors(venJson.vendors);
     if (expRes.ok) setExpenses(expJson.expenses);
@@ -79,7 +91,7 @@ export default function ExpensesPage() {
     try {
       const res = await fetch("/api/accounting/expenses", {
         method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountCode, amount: Number(amount), description, vendorId: vendorId || undefined }),
+        body: JSON.stringify({ accountCode, amount: Number(amount), description, vendorId: vendorId || undefined, propertyId: propertyId || undefined }),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error);
@@ -174,6 +186,7 @@ export default function ExpensesPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6" dir={dir}>
+      <AccountingNav />
       <div className="flex items-center gap-2">
         <Link href="/accounting" className="p-1.5 rounded-lg" style={{ color: "var(--text-secondary)" }}>{dir === "rtl" ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}</Link>
         <div>
@@ -215,6 +228,10 @@ export default function ExpensesPage() {
             <option value="">{tri(lang, "تأمین‌کننده (اختیاری)", "Vendor (optional)", "Lieferant (optional)")}</option>
             {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
           </select>
+          <select value={propertyId} onChange={(e) => setPropertyId(e.target.value)} className="px-3 py-2 rounded-lg text-sm max-w-[220px]" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{tri(lang, "بدون ملک — هزینهٔ دفتر", "No property — agency cost", "Kein Objekt — Agenturkosten")}</option>
+            {properties.map((pr) => <option key={pr.id} value={pr.id}>{pr.title}</option>)}
+          </select>
           <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder={tri(lang, "مبلغ (تومان)", "Amount (Toman)", "Betrag (Toman)")} type="number" className="w-36 px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder={tri(lang, "توضیحات", "Description", "Beschreibung")} className="flex-1 min-w-[160px] px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <button disabled={busy} onClick={addExpense} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium" style={{ background: "var(--primary)", color: "#fff" }}>
@@ -236,6 +253,12 @@ export default function ExpensesPage() {
                 <div>
                   <div className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{e.description}</div>
                   <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{tri(lang, "حساب", "Account", "Konto")} {e.accountCode} {e.vendor ? `— ${e.vendor.name}` : ""}</div>
+                  {e.property && (
+                    <div className="inline-flex items-center gap-1 text-[11px] mt-1 px-2 py-0.5 rounded-full" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                      <Building2 className="w-3 h-3 flex-shrink-0" />
+                      {e.property.title}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{fmt(e.amount)}</span>

@@ -8,55 +8,55 @@ datasource db {
 }
 
 model User {
-  id                String    @id @default(cuid())
-  email             String?   @unique
-  phone             String?   @unique
-  passwordHash      String?
-  name              String?
-  avatar            String?
-  role              String    @default("USER")
-  plan              String    @default("FREE")
-  credits           Int       @default(100)
-  planExpiry        DateTime?
+  id                        String    @id @default(cuid())
+  email                     String?   @unique
+  phone                     String?   @unique
+  passwordHash              String?
+  name                      String?
+  avatar                    String?
+  role                      String    @default("USER")
+  plan                      String    @default("FREE")
+  credits                   Int       @default(100)
+  planExpiry                DateTime?
   /// Voice Agent add-on tier, purchased and billed separately from `plan` —
   /// same pattern as crmPlan. "NONE" | "ACTIVE".
-  voicePlan         String    @default("NONE")
-  voicePlanExpiry   DateTime?
+  voicePlan                 String    @default("NONE")
+  voicePlanExpiry           DateTime?
   /// CRM add-on tier, purchased and billed separately from `plan` (the AI-usage
   /// tier) — buying CRM must never overwrite a user's AI plan. "NONE" | "SOLO" | "TEAM".
-  crmPlan           String    @default("NONE")
-  crmPlanExpiry     DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  lastLoginAt       DateTime?
-  isBlocked         Boolean   @default(false)
-  industryPackId    String?
+  crmPlan                   String    @default("NONE")
+  crmPlanExpiry             DateTime?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+  lastLoginAt               DateTime?
+  isBlocked                 Boolean   @default(false)
+  industryPackId            String?
   /// Google OAuth subject id — set when the user signs in with Google
-  googleId          String?   @unique
+  googleId                  String?   @unique
   /// How this account authenticates: "password" | "google"
-  authProvider      String    @default("password")
+  authProvider              String    @default("password")
   /// If true, the CEO orchestrator runs automatically once a day (via cron) and emails a digest — opt-in, off by default.
-  ceoAutoRunEnabled Boolean   @default(false)
+  ceoAutoRunEnabled         Boolean   @default(false)
   /// Language for the unattended daily CEO briefing. The cron has no request,
   /// so it cannot read the `lang` cookie the interactive route uses — without
   /// this column every scheduled briefing went out in Persian regardless of
   /// the user's language. Captured from the UI language when auto-run is
   /// switched on. Same pattern as AccountingScheduledReport.lang.
-  ceoAutoRunLang    String    @default("fa")
+  ceoAutoRunLang            String    @default("fa")
   /// Onboarding wizard completed
-  onboardingDone    Boolean   @default(false)
+  onboardingDone            Boolean   @default(false)
   /// Referral system
-  referralCode      String?   @unique
-  referredBy        String?
+  referralCode              String?   @unique
+  referredBy                String?
   /// True once the referral signup bonus has been granted to both this user and their referrer — prevents double-granting on plan renewals.
-  referralRewarded  Boolean   @default(false)
+  referralRewarded          Boolean   @default(false)
   /// Affiliate wallet balance in Toman — earned as a configurable % commission
   /// (see SiteSetting key "referral_commission_percent", src/lib/utils/referralWallet.ts)
   /// whenever a user this account referred makes a purchase. Never moved by
   /// automated code beyond the transactions in WalletTransaction — cash
   /// payouts always go through a WalletPayoutRequest an admin resolves
   /// manually after actually sending the money outside this app.
-  walletBalance     Int       @default(0)
+  walletBalance             Int       @default(0)
   /// Per-user referral commission override, in percent (0-100) — takes
   /// priority over the global `referral_commission_percent` site setting.
   /// Null means "use the global default."
@@ -75,60 +75,60 @@ model User {
   invitedByAdminId   String?
   invitedAt          DateTime?
 
-  conversations       Conversation[]
-  projects            Project[]
-  images              GeneratedImage[]
-  videos              GeneratedVideo[]
-  musics              GeneratedMusic[]
-  payments            Payment[]
-  walletTransactions  WalletTransaction[]
-  walletPayoutRequests WalletPayoutRequest[]
-  usageLogs           UsageLog[]
-  otpCodes            OtpCode[]
-  crmContacts         CrmContact[]
-  crmContactsAssigned CrmContact[]         @relation("CrmContactAssignee")
-  inviteCards         InviteCard[]
-  crmPipelines        CrmPipeline[]
-  crmDealsOwned       CrmDeal[]            @relation("CrmDealOwnerUser")
-  crmDealsAssigned    CrmDeal[]            @relation("CrmDealAssignee")
-  propertyViewingsAssigned PropertyViewing[] @relation("PropertyViewingAssignee")
-  crmDocuments        CrmDocument[]
-  crmAutomationRules  CrmAutomationRule[]
-  crmActivities       CrmActivity[]
-  crmTasks            CrmTask[]
-  crmInsights         CrmInsight[]
-  crmProducts         CrmProduct[]
-  crmInvoices         CrmInvoice[]
-  crmContracts        CrmContract[]
-  crmContractTemplates CrmContractTemplate[]
-  crmNotes            CrmNote[]
-  crmProjects         CrmProject[]
-  businessAnalyses    BusinessAnalysis[]
-  socialPosts         SocialPost[]
-  generatedWebsites   GeneratedWebsite[]
-  industryPack        IndustryPack?        @relation(fields: [industryPackId], references: [id])
-  company             Company?
-  ownedTeam           Team?                @relation("TeamOwner")
-  teamMembership      TeamMember?
-  seoConnection       SeoConnection?
-  gscConnection       GscConnection?
-  instagramConn       InstagramConnection?
-  scheduledPosts      ScheduledPost[]
-  pipelineRuns        ContentPipelineRun[]
-  agentLessons        ContentAgentLesson[]
-  contentPosts        ContentPost[]
-  businessMemories    BusinessMemory[]
-  startupProjects     StartupProject[]
-  startupInquiries    StartupInquiry[]
-  ceoTasks            CeoTask[]
-  boardroomSessions   BoardroomSession[]
-  voiceAgents         VoiceAgent[]
-  voiceProperties     Property[]
-  moduleOverrides     UserModuleOverride[]
-  voiceCallLogs       VoiceCallLog[]
-  voiceAppointments   VoiceAppointment[]
-  voiceKnowledgeBase  VoiceKnowledgeBase[]
-  notifications       Notification[]
+  conversations            Conversation[]
+  projects                 Project[]
+  images                   GeneratedImage[]
+  videos                   GeneratedVideo[]
+  musics                   GeneratedMusic[]
+  payments                 Payment[]
+  walletTransactions       WalletTransaction[]
+  walletPayoutRequests     WalletPayoutRequest[]
+  usageLogs                UsageLog[]
+  otpCodes                 OtpCode[]
+  crmContacts              CrmContact[]
+  crmContactsAssigned      CrmContact[]          @relation("CrmContactAssignee")
+  inviteCards              InviteCard[]
+  crmPipelines             CrmPipeline[]
+  crmDealsOwned            CrmDeal[]             @relation("CrmDealOwnerUser")
+  crmDealsAssigned         CrmDeal[]             @relation("CrmDealAssignee")
+  propertyViewingsAssigned PropertyViewing[]     @relation("PropertyViewingAssignee")
+  crmDocuments             CrmDocument[]
+  crmAutomationRules       CrmAutomationRule[]
+  crmActivities            CrmActivity[]
+  crmTasks                 CrmTask[]
+  crmInsights              CrmInsight[]
+  crmProducts              CrmProduct[]
+  crmInvoices              CrmInvoice[]
+  crmContracts             CrmContract[]
+  crmContractTemplates     CrmContractTemplate[]
+  crmNotes                 CrmNote[]
+  crmProjects              CrmProject[]
+  businessAnalyses         BusinessAnalysis[]
+  socialPosts              SocialPost[]
+  generatedWebsites        GeneratedWebsite[]
+  industryPack             IndustryPack?         @relation(fields: [industryPackId], references: [id])
+  company                  Company?
+  ownedTeam                Team?                 @relation("TeamOwner")
+  teamMembership           TeamMember?
+  seoConnection            SeoConnection?
+  gscConnection            GscConnection?
+  instagramConn            InstagramConnection?
+  scheduledPosts           ScheduledPost[]
+  pipelineRuns             ContentPipelineRun[]
+  agentLessons             ContentAgentLesson[]
+  contentPosts             ContentPost[]
+  businessMemories         BusinessMemory[]
+  startupProjects          StartupProject[]
+  startupInquiries         StartupInquiry[]
+  ceoTasks                 CeoTask[]
+  boardroomSessions        BoardroomSession[]
+  voiceAgents              VoiceAgent[]
+  voiceProperties          Property[]
+  moduleOverrides          UserModuleOverride[]
+  voiceCallLogs            VoiceCallLog[]
+  voiceAppointments        VoiceAppointment[]
+  voiceKnowledgeBase       VoiceKnowledgeBase[]
+  notifications            Notification[]
 
   @@index([industryPackId])
 }
@@ -139,14 +139,14 @@ model User {
 /// post published/failed, etc). `type` is kept an open string (not an enum)
 /// so new notification kinds can be added without a migration.
 model Notification {
-  id        String    @id @default(cuid())
+  id        String   @id @default(cuid())
   userId    String
   type      String
   title     String
   body      String?
   link      String?
-  isRead    Boolean   @default(false)
-  createdAt DateTime  @default(now())
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -330,21 +330,21 @@ model GeneratedMusic {
 }
 
 model Payment {
-  id        String   @id @default(cuid())
-  userId    String
-  amount    Int
-  plan      String
-  status    String   @default("PENDING")
-  gateway   String   @default("zarinpal")
-  refId     String?
-  authority String?  @unique
-  createdAt DateTime @default(now())
+  id                  String   @id @default(cuid())
+  userId              String
+  amount              Int
+  plan                String
+  status              String   @default("PENDING")
+  gateway             String   @default("zarinpal")
+  refId               String?
+  authority           String?  @unique
+  createdAt           DateTime @default(now())
   /// Toman amount of the affiliate-wallet discount already subtracted from
   /// `amount` for this checkout (0 = no wallet used). Deliberately NOT
   /// deducted from the wallet at creation time — only at payment success
   /// (see payment/verify and webhooks/nowpayments) — so an abandoned or
   /// failed checkout never loses the user real wallet money for nothing.
-  walletDiscountToman Int @default(0)
+  walletDiscountToman Int      @default(0)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -356,19 +356,19 @@ model Payment {
 /// than trusted blindly. Amount is signed Toman (positive = credit, negative
 /// = debit).
 model WalletTransaction {
-  id                String   @id @default(cuid())
-  userId            String
+  id               String   @id @default(cuid())
+  userId           String
   /// commission | redeem_at_checkout | payout_request | payout_rejected_refund
-  type              String
-  amount            Int
+  type             String
+  amount           Int
   /// The purchase that generated a commission entry, or that a redeem
   /// discount was applied to — null for payout entries.
-  relatedPaymentId  String?
+  relatedPaymentId String?
   /// The referred user whose purchase generated a commission entry.
-  relatedUserId     String?
-  payoutRequestId   String?
-  note              String?
-  createdAt         DateTime @default(now())
+  relatedUserId    String?
+  payoutRequestId  String?
+  note             String?
+  createdAt        DateTime @default(now())
 
   user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   payoutRequest WalletPayoutRequest? @relation(fields: [payoutRequestId], references: [id], onDelete: SetNull)
@@ -384,21 +384,21 @@ model WalletTransaction {
 /// manually); this row is only ever marked "paid" after that already
 /// happened, never used to trigger a transfer itself.
 model WalletPayoutRequest {
-  id              String    @id @default(cuid())
-  userId          String
-  amount          Int
+  id             String    @id @default(cuid())
+  userId         String
+  amount         Int
   /// iran_sheba | iran_card | intl_card | paypal
-  method          String
-  sheba           String?
-  cardNumber      String?
-  cardHolderName  String?
-  paypalEmail     String?
+  method         String
+  sheba          String?
+  cardNumber     String?
+  cardHolderName String?
+  paypalEmail    String?
   /// pending | paid | rejected
-  status          String    @default("pending")
-  adminNote       String?
-  createdAt       DateTime  @default(now())
-  resolvedAt      DateTime?
-  resolvedById    String?
+  status         String    @default("pending")
+  adminNote      String?
+  createdAt      DateTime  @default(now())
+  resolvedAt     DateTime?
+  resolvedById   String?
 
   user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions WalletTransaction[]
@@ -414,10 +414,10 @@ model WalletPayoutRequest {
 /// real estate — any part of the app needing a country/city picker (the
 /// Property city field today) can reuse this instead of free text.
 model Country {
-  id     String @id @default(cuid())
+  id     String  @id @default(cuid())
   /// ISO 3166-1 alpha-2 where one exists; 'CY-N' for Northern Cyprus,
   /// which has no official ISO code.
-  iso2   String @unique
+  iso2   String  @unique
   name   String
   nameFa String?
   nameDe String?
@@ -509,11 +509,11 @@ model SiteSetting {
 /// third priority behind platform-admin bypass and a per-customer UserModuleOverride).
 /// moduleKey values come from the static catalog in src/lib/industry/moduleRegistry.ts.
 model IndustryModuleFlag {
-  id             String       @id @default(cuid())
+  id             String   @id @default(cuid())
   industryPackId String
   moduleKey      String
-  enabled        Boolean      @default(true)
-  updatedAt      DateTime     @updatedAt
+  enabled        Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
 
   industryPack IndustryPack @relation(fields: [industryPackId], references: [id], onDelete: Cascade)
 
@@ -561,51 +561,51 @@ model Prompt {
 }
 
 model CrmContact {
-  id           String    @id @default(cuid())
-  userId       String?
+  id            String    @id @default(cuid())
+  userId        String?
   /// Team member responsible for this contact — separate from userId (the
   /// workspace owner) so a team's leads/deals can be split across members.
-  assignedToId String?
-  name         String
-  phone        String?
-  email        String?
-  whatsapp     String?
-  telegram     String?
-  company      String?
-  status       String    @default("lead")
-  source       String    @default("organic")
+  assignedToId  String?
+  name          String
+  phone         String?
+  email         String?
+  whatsapp      String?
+  telegram      String?
+  company       String?
+  status        String    @default("lead")
+  source        String    @default("organic")
   /// Source-specific detail as a JSON string (e.g. the Instagram conversation
   /// link, or the referring Contact's id) — shape varies by source, so this
   /// stays a free-form JSON blob rather than a rigid column set. Set once at
   /// capture time; createdAt already serves as "first captured at" since this
   /// row is never copied/recreated when a lead becomes a customer (§2.1 model).
   sourceDetails String?
-  plan         String?
-  totalSpent   Int       @default(0)
-  notes        String?
-  tags         String?
+  plan          String?
+  totalSpent    Int       @default(0)
+  notes         String?
+  tags          String?
   /// Industry-specific fields (e.g. property type, budget) as a JSON string —
   /// same pattern as Company.notes, avoids a table-per-industry design.
-  customFields String?
-  lastContact  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  customFields  String?
+  lastContact   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   user       User? @relation(fields: [userId], references: [id])
   assignedTo User? @relation("CrmContactAssignee", fields: [assignedToId], references: [id])
 
-  deals      CrmDeal[]
-  activities CrmActivity[]
-  tasks      CrmTask[]
-  documents  CrmDocument[]
-  invoices   CrmInvoice[]
-  contracts  CrmContract[]
-  notesList  CrmNote[]
-  projects   CrmProject[]
-  voiceCallLogs VoiceCallLog[]
-  properties Property[]
-  viewings   PropertyViewing[]
-  bookings   PropertyBooking[]
+  deals             CrmDeal[]
+  activities        CrmActivity[]
+  tasks             CrmTask[]
+  documents         CrmDocument[]
+  invoices          CrmInvoice[]
+  contracts         CrmContract[]
+  notesList         CrmNote[]
+  projects          CrmProject[]
+  voiceCallLogs     VoiceCallLog[]
+  properties        Property[]
+  viewings          PropertyViewing[]
+  bookings          PropertyBooking[]
   propertyInterests PropertyInterest[]
 
   @@index([userId])
@@ -660,23 +660,23 @@ model CrmStage {
 }
 
 model CrmDeal {
-  id                String    @id @default(cuid())
+  id                      String    @id @default(cuid())
   /// Workspace owner (whose plan/credits this deal counts against) —
   /// distinct from ownerId, the team member actually working the deal.
-  userId            String
-  ownerId           String?
-  contactId         String
-  pipelineId        String
-  stageId           String
-  title             String
-  value             Float     @default(0)
-  probability       Int       @default(50)
-  expectedCloseDate DateTime?
+  userId                  String
+  ownerId                 String?
+  contactId               String
+  pipelineId              String
+  stageId                 String
+  title                   String
+  value                   Float     @default(0)
+  probability             Int       @default(50)
+  expectedCloseDate       DateTime?
   /// Industry-specific fields (e.g. propertyType, area) as a JSON string.
-  customFields      String?
-  status            String    @default("open") // open | won | lost
-  wonAt             DateTime?
-  lostReason        String?
+  customFields            String?
+  status                  String    @default("open") // open | won | lost
+  wonAt                   DateTime?
+  lostReason              String?
   /// Section 1, item 5 — Contract & Commission. Deliberately kept on the
   /// existing CrmDeal row (deal date = wonAt, final amount = value already
   /// above) rather than a new table — this is closing-time financial data
@@ -692,22 +692,22 @@ model CrmDeal {
   commissionAmount        Float?
   /// unpaid | partial | paid
   commissionPaymentStatus String    @default("unpaid")
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
-  user       User          @relation("CrmDealOwnerUser", fields: [userId], references: [id])
-  assignedTo User?         @relation("CrmDealAssignee", fields: [ownerId], references: [id])
-  contact    CrmContact    @relation(fields: [contactId], references: [id])
-  pipeline   CrmPipeline   @relation(fields: [pipelineId], references: [id])
-  stage      CrmStage      @relation(fields: [stageId], references: [id])
-  activities CrmActivity[]
-  documents  CrmDocument[]
-  invoices   CrmInvoice[]
-  contracts  CrmContract[]
-  dealProducts CrmDealProduct[]
-  projects   CrmProject[]
+  user              User                         @relation("CrmDealOwnerUser", fields: [userId], references: [id])
+  assignedTo        User?                        @relation("CrmDealAssignee", fields: [ownerId], references: [id])
+  contact           CrmContact                   @relation(fields: [contactId], references: [id])
+  pipeline          CrmPipeline                  @relation(fields: [pipelineId], references: [id])
+  stage             CrmStage                     @relation(fields: [stageId], references: [id])
+  activities        CrmActivity[]
+  documents         CrmDocument[]
+  invoices          CrmInvoice[]
+  contracts         CrmContract[]
+  dealProducts      CrmDealProduct[]
+  projects          CrmProject[]
   commissionRecords AccountingCommissionRecord[]
-  properties Property[]
+  properties        Property[]
 
   @@index([userId])
   @@index([contactId])
@@ -896,13 +896,13 @@ model CrmInvoice {
 }
 
 model CrmInvoiceItem {
-  id          String @id @default(cuid())
+  id          String  @id @default(cuid())
   invoiceId   String
   productId   String?
   description String
-  quantity    Float  @default(1)
+  quantity    Float   @default(1)
   unitPrice   Float
-  taxRate     Float  @default(0)
+  taxRate     Float   @default(0)
   lineTotal   Float
 
   invoice CrmInvoice  @relation(fields: [invoiceId], references: [id])
@@ -1027,29 +1027,29 @@ model CrmProject {
 /// stored on User.plan (currently BASIC | PRO | TEAM — FREE has no row
 /// here since it isn't purchasable).
 model Package {
-  id         String   @id @default(cuid())
-  planCode   String   @unique
-  name       String
-  nameEn     String
+  id           String   @id @default(cuid())
+  planCode     String   @unique
+  name         String
+  nameEn       String
   /// Price in Rial (IRR). toman = price/10. Used for ZarinPal (Iran).
-  price      Int
+  price        Int
   /// Price in USD cents (e.g. 1900 = $19.00). Null means Iran-only plan.
-  priceUsd   Int?
+  priceUsd     Int?
   /// Market segment: "IR" (Iran only) | "INTL" (international only) | "BOTH"
-  market     String   @default("IR")
-  duration   Int      @default(30)
-  credits    Int
-  features   String
-  featuresEn String?
-  isActive   Boolean  @default(true)
-  isFeatured Boolean  @default(false)
-  color      String   @default("#ea580c")
-  sortOrder  Int      @default(0)
+  market       String   @default("IR")
+  duration     Int      @default(30)
+  credits      Int
+  features     String
+  featuresEn   String?
+  isActive     Boolean  @default(true)
+  isFeatured   Boolean  @default(false)
+  color        String   @default("#ea580c")
+  sortOrder    Int      @default(0)
   /// Seat count included for CRM_TEAM-type packages (null for non-CRM or
   /// solo packages). Enforced against Team.maxSeats when this package is purchased.
   crmSeatLimit Int?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model LlmModel {
@@ -1148,25 +1148,25 @@ model InstagramFollowerSnapshot {
 /// separate OpenReply-fa app (own Postgres/Redis) since OAuth + tokens for
 /// this account are already handled by InstagramConnection above.
 model InstagramCommentCampaign {
-  id                  String   @id @default(cuid())
-  userId              String
+  id                 String   @id @default(cuid())
+  userId             String
   /// Comma/Persian-comma separated — any one matching the comment text triggers the campaign.
-  keyword             String
-  postId              String?
+  keyword            String
+  postId             String?
   /// Supports the {username} token, replaced with the commenter's handle at send time.
-  dmMessage           String
-  publicReplyMessage  String?
+  dmMessage          String
+  publicReplyMessage String?
   /// JSON array of up to 2 {id,label,url,clicks} — sent as tracked short links appended to dmMessage.
-  links               String?
+  links              String?
   /// When on, the real dmMessage is withheld behind a "did you follow?" button
   /// in the DM — Meta gives no API to check an arbitrary commenter's follow
   /// status, so this is a self-reported confirm via a postback button instead.
-  followGateEnabled   Boolean  @default(false)
-  followGatePrompt    String?
-  isActive            Boolean  @default(true)
-  triggerCount        Int      @default(0)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  followGateEnabled  Boolean  @default(false)
+  followGatePrompt   String?
+  isActive           Boolean  @default(true)
+  triggerCount       Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@index([userId])
 }
@@ -1182,12 +1182,12 @@ model InstagramCommentReplyLog {
   /// count be a single indexed query instead of a join through the campaign.
   userId            String?
   commentId         String   @unique
-  commenterId        String
+  commenterId       String
   commenterUsername String?
   /// "sent" | "skipped" | "failed" | "awaiting_follow" (follow-gated campaign, waiting on the postback button click)
-  status             String
-  error              String?
-  createdAt          DateTime @default(now())
+  status            String
+  error             String?
+  createdAt         DateTime @default(now())
 
   @@index([campaignId])
   @@index([userId, createdAt])
@@ -1232,46 +1232,46 @@ model SeoConnection {
 }
 
 model GscConnection {
-  id           String    @id @default(cuid())
-  userId       String    @unique
+  id           String   @id @default(cuid())
+  userId       String   @unique
   refreshToken String
   siteUrl      String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model IndustryPack {
-  id               String    @id @default(cuid())
-  slug             String    @unique
-  name             String
-  nameEn           String?
-  emoji            String
-  tagline          String
-  taglineEn        String?
-  valueProposition String
+  id                 String               @id @default(cuid())
+  slug               String               @unique
+  name               String
+  nameEn             String?
+  emoji              String
+  tagline            String
+  taglineEn          String?
+  valueProposition   String
   valuePropositionEn String?
-  targetCustomers  String
-  targetCustomersEn String?
-  painPoints       String
-  painPointsEn     String?
-  agents           String
-  agentsEn         String?
-  outcomes         String
-  outcomesEn       String?
-  kpis             String
-  kpisEn           String?
-  tier             String    @default("professional")
-  price            Int       @default(299)
-  color            String
-  gradientFrom     String
-  gradientTo       String
-  isActive         Boolean   @default(true)
-  sortOrder        Int       @default(0)
-  users            User[]
-  companies        Company[]
-  moduleFlags      IndustryModuleFlag[]
+  targetCustomers    String
+  targetCustomersEn  String?
+  painPoints         String
+  painPointsEn       String?
+  agents             String
+  agentsEn           String?
+  outcomes           String
+  outcomesEn         String?
+  kpis               String
+  kpisEn             String?
+  tier               String               @default("professional")
+  price              Int                  @default(299)
+  color              String
+  gradientFrom       String
+  gradientTo         String
+  isActive           Boolean              @default(true)
+  sortOrder          Int                  @default(0)
+  users              User[]
+  companies          Company[]
+  moduleFlags        IndustryModuleFlag[]
 }
 
 model BusinessCategory {
@@ -1590,62 +1590,62 @@ model VoiceKnowledgeBase {
 /// (e.g. a future VehicleRecord for a car dealership would follow the same
 /// shape: its own table, optional FKs into CRM, zero changes to CRM core).
 model Property {
-  id           String   @id @default(cuid())
-  userId       String
-  agentId      String?
+  id                      String    @id @default(cuid())
+  userId                  String
+  agentId                 String?
   /// Optional link to the CRM lead interested in / associated with this
   /// property (a contact may be linked to several properties they're
   /// browsing). Nullable — a property can exist with no CRM contact yet.
-  crmContactId String?
+  crmContactId            String?
   /// Optional link to the specific deal this property is being sold/rented
   /// through — set once a contact's interest turns into an active deal.
-  crmDealId    String?
+  crmDealId               String?
   /// Optional link to a CRM Project (the general post-sale/ongoing-work
   /// tracker) — set for the real-estate industry pack's "پروژه‌های ملکی"
   /// feature, so a project's transaction-type-specific fields (short-term
   /// rental booking link/nightly price, below) live on this single unified
   /// Property row rather than a separate real-estate-only table.
-  crmProjectId String?
+  crmProjectId            String?
   /// Accounting module Phase B — the CrmContact (role: owner) this unit's
   /// short-term-rental income/expenses/management fee are settled with via
   /// AccountingOwnerStatement. Only meaningful for listingType
   /// "short_term_rent"; null otherwise.
-  ownerContactId String?
-  title        String
+  ownerContactId          String?
+  title                   String
   /// "buy" | "sell" | "rent" | "short_term_rent"
-  listingType  String
-  propertyType String   @default("apartment")
+  listingType             String
+  propertyType            String    @default("apartment")
   /// Price in Toman. For listingType "short_term_rent" this is unused —
   /// nightlyPrice is the relevant figure instead.
   /// BigInt, not Int — Toman real-estate prices routinely exceed 2.1B (Int32 max).
-  price        BigInt
+  price                   BigInt
   /// Per-night price in Toman — only meaningful when listingType is
   /// "short_term_rent". BigInt for the same overflow reason as price.
-  nightlyPrice BigInt?
+  nightlyPrice            BigInt?
   /// Booking-platform listing URL for short-term rentals — deliberately
   /// generic ("booking platform link"), not Airbnb-specific, so Booking.com
   /// or a future in-house booking page can be added later without a schema
   /// change. Not validated as a strict URL at the DB layer — malformed
   /// values are a warning in the UI, not a save-blocking error, since an
   /// agent may want to create the project before the listing link exists.
-  bookingLink  String?
-  address      String
-  city         String?
-  bedrooms     Int?
-  bathrooms    Int?
-  areaSqm      Int?
-  description  String?
+  bookingLink             String?
+  address                 String
+  city                    String?
+  bedrooms                Int?
+  bathrooms               Int?
+  areaSqm                 Int?
+  description             String?
   /// JSON array of image URLs (uploaded via the same R2 storage used by
   /// CrmDocument). Nullable — a property can exist with no photos yet.
-  images       String?
+  images                  String?
   /// IRT (Toman) | IRR (Rial) | USD | GBP | EUR — price/nightlyPrice are
   /// stored in this currency's smallest common display unit (Toman/Rial
   /// for IRT/IRR, cents-free whole units for USD/GBP/EUR — this platform
   /// doesn't handle sub-unit precision anywhere else either). Defaults to
   /// IRT since every existing row was priced in Toman before this field
   /// existed.
-  currency     String   @default("IRT")
-  status       String   @default("available") // available | pending | sold | rented
+  currency                String    @default("IRT")
+  status                  String    @default("available") // available | pending | sold | rented
   /// Owner-representation terms (Section 1, item 2) — deliberately kept on
   /// Property rather than on CrmContact, since a single owner contact can
   /// have different representation dates/commission per listing. "Owner"
@@ -1657,20 +1657,21 @@ model Property {
   /// meaning 2.5%) — distinct from CrmDeal's eventual closing commission
   /// (item 5), which is the actual amount once a deal closes.
   agreedCommissionRate    Float?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
-  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  agent        VoiceAgent?        @relation(fields: [agentId], references: [id], onDelete: SetNull)
-  crmContact   CrmContact?        @relation(fields: [crmContactId], references: [id], onDelete: SetNull)
-  crmDeal      CrmDeal?           @relation(fields: [crmDealId], references: [id], onDelete: SetNull)
-  crmProject   CrmProject?        @relation(fields: [crmProjectId], references: [id], onDelete: SetNull)
-  appointments VoiceAppointment[]
-  viewings     PropertyViewing[]
-  bookings     PropertyBooking[]
-  documents    CrmDocument[]
-  interests    PropertyInterest[]
-  ownerStatements AccountingOwnerStatement[]
+  user              User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent             VoiceAgent?                @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  crmContact        CrmContact?                @relation(fields: [crmContactId], references: [id], onDelete: SetNull)
+  crmDeal           CrmDeal?                   @relation(fields: [crmDealId], references: [id], onDelete: SetNull)
+  crmProject        CrmProject?                @relation(fields: [crmProjectId], references: [id], onDelete: SetNull)
+  appointments      VoiceAppointment[]
+  viewings          PropertyViewing[]
+  bookings          PropertyBooking[]
+  documents         CrmDocument[]
+  interests         PropertyInterest[]
+  ownerStatements   AccountingOwnerStatement[]
+  AccountingExpense AccountingExpense[]
 
   @@index([userId])
   @@index([agentId])
@@ -1686,28 +1687,28 @@ model Property {
 /// calls and has a required agentId). assignedToId is a human CRM team
 /// member's userId — nullable until someone is assigned.
 model PropertyViewing {
-  id           String    @id @default(cuid())
+  id             String   @id @default(cuid())
   /// Workspace owner's id (ws.workspaceUserId), same scoping convention as
   /// every other CRM model — never the raw session user id.
-  userId       String
-  propertyId   String
+  userId         String
+  propertyId     String
   /// The buyer/lead attending the viewing — optional so a slot can be
   /// blocked out before a specific contact is confirmed.
-  contactId    String?
+  contactId      String?
   /// Human team member conducting the viewing — optional until assigned;
   /// double-booking is only checked once this is set (see api/crm/viewings).
-  assignedToId String?
-  scheduledAt  DateTime
-  durationMin  Int       @default(30)
+  assignedToId   String?
+  scheduledAt    DateTime
+  durationMin    Int      @default(30)
   /// scheduled | completed | cancelled | no_show
-  status       String    @default("scheduled")
+  status         String   @default("scheduled")
   /// Post-viewing feedback captured from the buyer or the agent — required
   /// by the master spec ("post-viewing feedback capture"), free text since
   /// the shape of useful feedback varies too much for a fixed schema.
-  feedback     String?
+  feedback       String?
   feedbackRating Int?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   property   Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   contact    CrmContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
@@ -1807,10 +1808,10 @@ model VoiceAppointment {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  agent    VoiceAgent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  property Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-  callLog  VoiceCallLog?  @relation(fields: [callLogId], references: [id], onDelete: SetNull)
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent    VoiceAgent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  property Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  callLog  VoiceCallLog? @relation(fields: [callLogId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([agentId])
@@ -1824,12 +1825,12 @@ model VoiceAppointment {
 model InviteCard {
   id          String   @id @default(cuid())
   userId      String
-  language    String   // "fa" | "en" | "de"
+  language    String // "fa" | "en" | "de"
   inviteText  String
   /// The rendered PNG, uploaded to R2 storage — lets an admin revisit a
   /// past card without regenerating it. Never a password/credential.
   imageUrl    String?
-  generatedBy String   // admin User.id
+  generatedBy String // admin User.id
   createdAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1843,10 +1844,10 @@ model InviteCard {
 /// too rather than each inventing their own audit table.
 model AuditLog {
   id        String   @id @default(cuid())
-  actorId   String   // admin User.id who performed the action
-  action    String   // e.g. "trial_activated" | "invite_card_generated"
-  targetId  String?  // e.g. the affected User.id
-  metadata  String?  // JSON-encoded extra detail
+  actorId   String // admin User.id who performed the action
+  action    String // e.g. "trial_activated" | "invite_card_generated"
+  targetId  String? // e.g. the affected User.id
+  metadata  String? // JSON-encoded extra detail
   createdAt DateTime @default(now())
 
   @@index([actorId])
@@ -1999,6 +2000,12 @@ model AccountingExpense {
   receiptUrl      String?
   expenseDate     DateTime  @default(now())
   dueDate         DateTime?
+  /// Which property this cost belongs to — the electricity bill or the cleaning
+  /// supplies for one specific unit. Nullable on purpose: office rent or a
+  /// software subscription belongs to the agency, not to any single property.
+  /// Without it there was no way to answer "what has this unit cost me?", and
+  /// owner statements had their expense lines retyped by hand every month.
+  propertyId      String?
   /// "pending_approval" | "approved" | "rejected" | "paid"
   status          String    @default("approved")
   approvedBy      String?
@@ -2006,7 +2013,8 @@ model AccountingExpense {
   paidAt          DateTime?
   createdAt       DateTime  @default(now())
 
-  vendor AccountingVendor? @relation(fields: [vendorId], references: [id])
+  vendor   AccountingVendor? @relation(fields: [vendorId], references: [id])
+  property Property?         @relation(fields: [propertyId], references: [id])
 
   @@index([workspaceUserId])
   @@index([vendorId])
@@ -2021,7 +2029,7 @@ model AccountingCommissionRecord {
   totalAmount     Float
   createdAt       DateTime @default(now())
 
-  deal   CrmDeal                    @relation(fields: [dealId], references: [id])
+  deal   CrmDeal                     @relation(fields: [dealId], references: [id])
   splits AccountingCommissionSplit[]
 
   @@index([workspaceUserId])
@@ -2029,16 +2037,16 @@ model AccountingCommissionRecord {
 }
 
 model AccountingCommissionSplit {
-  id                   String    @id @default(cuid())
-  commissionRecordId   String
+  id                 String    @id @default(cuid())
+  commissionRecordId String
   /// User.id of the agent this split is owed to.
-  agentUserId          String
-  percent              Float
-  amount               Float
+  agentUserId        String
+  percent            Float
+  amount             Float
   /// "pending" | "paid"
-  status               String    @default("pending")
-  paidAt               DateTime?
-  createdAt            DateTime  @default(now())
+  status             String    @default("pending")
+  paidAt             DateTime?
+  createdAt          DateTime  @default(now())
 
   commissionRecord AccountingCommissionRecord @relation(fields: [commissionRecordId], references: [id], onDelete: Cascade)
 
@@ -2200,14 +2208,14 @@ model AccountingBudget {
 /// can be pulled in automatically; it is nullable because a workspace may pay
 /// someone (e.g. an assistant) who has no login of their own.
 model AccountingEmployee {
-  id              String    @id @default(cuid())
+  id              String   @id @default(cuid())
   workspaceUserId String
   userId          String?
   name            String
-  baseSalary      Float     @default(0)
-  isActive        Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  baseSalary      Float    @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   payslips AccountingPayslip[]
 
@@ -2242,15 +2250,15 @@ model AccountingPayrollRun {
 /// AccountingCommissionSplit rows paid to this employee's userId during the
 /// run's period — never a second, independently-typed number.
 model AccountingPayslip {
-  id               String   @id @default(cuid())
-  payrollRunId     String
-  employeeId       String
-  baseSalary       Float
-  commissionTotal  Float    @default(0)
-  bonus            Float    @default(0)
-  deductions       Float    @default(0)
-  netPay           Float
-  createdAt        DateTime @default(now())
+  id              String   @id @default(cuid())
+  payrollRunId    String
+  employeeId      String
+  baseSalary      Float
+  commissionTotal Float    @default(0)
+  bonus           Float    @default(0)
+  deductions      Float    @default(0)
+  netPay          Float
+  createdAt       DateTime @default(now())
 
   payrollRun AccountingPayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
   employee   AccountingEmployee   @relation(fields: [employeeId], references: [id])
@@ -2266,21 +2274,21 @@ model AccountingPayslip {
 /// and waits in "awaiting_approval" for a human to review the actual content
 /// before the recurring send is switched on permanently.
 model AccountingScheduledReport {
-  id               String    @id @default(cuid())
-  workspaceUserId  String
+  id              String    @id @default(cuid())
+  workspaceUserId String
   /// "weekly_summary" | "monthly_pl" | "monthly_vat"
-  reportType       String
+  reportType      String
   /// "weekly" | "monthly"
-  frequency        String
-  recipientEmail   String
-  lang             String    @default("fa")
+  frequency       String
+  recipientEmail  String
+  lang            String    @default("fa")
   /// "pending_first_approval" | "awaiting_approval" | "active" | "paused"
-  status           String    @default("pending_first_approval")
+  status          String    @default("pending_first_approval")
   /// Snapshot (subject+html) of the run currently awaiting human approval.
-  firstRunPreview  String?
-  lastRunAt        DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  firstRunPreview String?
+  lastRunAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([workspaceUserId])
 }

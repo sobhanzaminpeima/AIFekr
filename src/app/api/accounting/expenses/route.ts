@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   const status = req.nextUrl.searchParams.get("status") || undefined;
   const expenses = await prisma.accountingExpense.findMany({
     where: { workspaceUserId: ws.workspaceUserId, ...(status ? { status } : {}) },
-    include: { vendor: true },
+    include: { vendor: true, property: { select: { id: true, title: true } } },
     orderBy: { expenseDate: "desc" },
   });
   return NextResponse.json({ expenses });
@@ -34,8 +34,8 @@ export async function POST(req: NextRequest) {
   if (ws.isAgentRestricted) return NextResponse.json({ error: tri(lang, "دسترسی ندارید", "Not authorized", "Nicht autorisiert") }, { status: 403 });
 
   const body = await req.json();
-  const { vendorId, kind, accountCode, amount, description, receiptUrl, expenseDate, dueDate } = body as {
-    vendorId?: string; kind?: "bill" | "cash_expense"; accountCode?: string; amount?: number; description?: string; receiptUrl?: string; expenseDate?: string; dueDate?: string;
+  const { vendorId, propertyId, kind, accountCode, amount, description, receiptUrl, expenseDate, dueDate } = body as {
+    vendorId?: string; propertyId?: string; kind?: "bill" | "cash_expense"; accountCode?: string; amount?: number; description?: string; receiptUrl?: string; expenseDate?: string; dueDate?: string;
   };
   if (!accountCode || typeof amount !== "number" || amount <= 0 || !description?.trim()) {
     return NextResponse.json({ error: tri(lang, "کد حساب، مبلغ و توضیحات الزامی است", "Account code, amount, and description are required", "Kontocode, Betrag und Beschreibung sind erforderlich") }, { status: 400 });
@@ -43,9 +43,24 @@ export async function POST(req: NextRequest) {
 
   try {
     await ensureDefaultChartOfAccounts(ws.workspaceUserId);
+    // A property may only be attached if it belongs to this workspace —
+    // otherwise a crafted request could file a cost against someone else's unit.
+    let ownedPropertyId: string | undefined;
+    if (propertyId) {
+      const owned = await prisma.property.findFirst({
+        where: { id: propertyId, userId: ws.workspaceUserId },
+        select: { id: true },
+      });
+      if (!owned) {
+        return NextResponse.json({ error: tri(lang, "ملک انتخاب‌شده پیدا نشد", "Selected property not found", "Ausgewähltes Objekt nicht gefunden") }, { status: 400 });
+      }
+      ownedPropertyId = owned.id;
+    }
+
     const expense = await createExpense({
       workspaceUserId: ws.workspaceUserId,
       vendorId,
+      propertyId: ownedPropertyId,
       kind,
       accountCode,
       amount,

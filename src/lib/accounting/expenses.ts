@@ -17,6 +17,8 @@ const DEFAULT_APPROVAL_THRESHOLD = 5_000_000; // Toman
 export interface CreateExpenseInput {
   workspaceUserId: string;
   vendorId?: string;
+  /** The unit this cost belongs to. Omitted for agency-level costs like office rent. */
+  propertyId?: string;
   kind?: "bill" | "cash_expense";
   accountCode: string;
   amount: number;
@@ -35,6 +37,7 @@ export async function createExpense(input: CreateExpenseInput) {
     data: {
       workspaceUserId: input.workspaceUserId,
       vendorId: input.vendorId,
+      propertyId: input.propertyId,
       kind: input.kind || "cash_expense",
       accountCode: input.accountCode,
       amount: input.amount,

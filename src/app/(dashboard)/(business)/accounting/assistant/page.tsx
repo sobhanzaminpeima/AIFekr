@@ -6,6 +6,7 @@ import { ArrowRight, ArrowLeft, Sparkles, Send, AlertTriangle } from "lucide-rea
 import { tri, type Lang } from "@/lib/i18n";
 import { useAccountingLocale } from "@/lib/accounting/useAccountingLocale";
 import { linkifyCitations } from "@/lib/accounting/linkifyCitations";
+import AccountingNav from "@/components/accounting/AccountingNav";
 
 interface ChatMessage { role: "user" | "assistant"; text: string; }
 interface AnomalyAlert { accountCode: string; accountName: string; currentMonthAmount: number; trailingAverage: number; deviationPercent: number; }
@@ -82,6 +83,7 @@ export default function FinanceAssistantPage() {
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-4 flex flex-col" dir={dir} style={{ minHeight: "80vh" }}>
+      <AccountingNav />
       <div className="flex items-center gap-2">
         <Link href="/accounting" className="p-1.5 rounded-lg" style={{ color: "var(--text-secondary)" }}>{dir === "rtl" ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}</Link>
         <div>

@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { ArrowRight, ArrowLeft, ShieldCheck, Lock, Unlock, Plus, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { tri, type Lang } from "@/lib/i18n";
 import { useAccountingLocale } from "@/lib/accounting/useAccountingLocale";
+import AccountingNav from "@/components/accounting/AccountingNav";
 
 interface FiscalPeriod {
   id: string;
@@ -109,6 +110,7 @@ export default function ClosePeriodPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6" dir={dir}>
+      <AccountingNav />
       <div className="flex items-center gap-2">
         <Link href="/accounting" className="p-1.5 rounded-lg" style={{ color: "var(--text-secondary)" }}>{dir === "rtl" ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}</Link>
         <div>

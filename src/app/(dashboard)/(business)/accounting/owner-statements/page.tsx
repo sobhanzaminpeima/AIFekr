@@ -7,6 +7,7 @@ import { ArrowRight, ArrowLeft, Sparkles, Plus, Trash2, Send, CheckCircle2, Home
 import { useCompanyLogo } from "@/lib/hooks/useCompanyLogo";
 import { tri, type Lang } from "@/lib/i18n";
 import { useAccountingLocale } from "@/lib/accounting/useAccountingLocale";
+import AccountingNav from "@/components/accounting/AccountingNav";
 
 interface Property {
   id: string;
@@ -249,6 +250,7 @@ export default function OwnerStatementsPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6" dir={dir}>
+      <AccountingNav />
       <div className="flex items-center gap-2">
         {/* the back chevron must point the way "back" actually is in this direction */}
         <Link href="/accounting" className="p-1.5 rounded-lg" style={{ color: "var(--text-secondary)" }}>{dir === "rtl" ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}</Link>

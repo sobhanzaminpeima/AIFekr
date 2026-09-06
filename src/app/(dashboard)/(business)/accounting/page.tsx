@@ -7,6 +7,7 @@ import { linkifyCitations } from "@/lib/accounting/linkifyCitations";
 import { tri } from "@/lib/i18n";
 import { useAccountingLocale } from "@/lib/accounting/useAccountingLocale";
 import { accountName } from "@/lib/accounting/accountName";
+import AccountingNav from "@/components/accounting/AccountingNav";
 
 interface DashboardData {
   cashBalance: number;
@@ -62,6 +63,7 @@ export default function AccountingDashboardPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6" dir={dir}>
+      <AccountingNav />
       <div>
         <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "داشبورد حسابداری", "Accounting Dashboard", "Buchhaltungs-Dashboard")}</h1>
         <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>{tri(lang, "وضعیت مالی کسب‌وکار شما در یک نگاه", "Your business finances at a glance", "Ihre Geschäftsfinanzen auf einen Blick")}</p>
@@ -212,20 +214,13 @@ export default function AccountingDashboardPage() {
         </div>
       )}
 
+      {/* The nine accounting sections moved to <AccountingNav /> at the top of
+          every page. Invoices stay here because they live in CRM, not in the
+          accounting module, so they do not belong in that nav. */}
       <div className="flex flex-wrap gap-3 text-sm">
-        {[
-          { href: "/crm?tab=invoices", label: tri(lang, "مدیریت فاکتورها", "Manage invoices", "Rechnungen verwalten") },
-          { href: "/accounting/expenses", label: tri(lang, "هزینه‌ها و تأمین‌کنندگان", "Expenses & vendors", "Ausgaben & Lieferanten") },
-          { href: "/accounting/bank", label: tri(lang, "بانک و تطبیق", "Bank & reconciliation", "Bank & Abgleich") },
-          { href: "/accounting/ledger-setup", label: tri(lang, "دفتر حساب‌ها، بودجه و مالیات", "Chart of accounts, budget & tax", "Kontenplan, Budget & Steuern") },
-          { href: "/accounting/assistant", label: tri(lang, "دستیار هوشمند مالی", "AI finance assistant", "KI-Finanzassistent") },
-          { href: "/accounting/payroll", label: tri(lang, "حقوق و دستمزد", "Payroll", "Gehaltsabrechnung") },
-          { href: "/accounting/automation", label: tri(lang, "گزارش‌های زمان‌بندی‌شده و BI", "Scheduled reports & BI", "Geplante Berichte & BI") },
-          { href: "/accounting/owner-statements", label: tri(lang, "گزارش تسویه مالک", "Owner statements", "Eigentümerabrechnungen") },
-          { href: "/accounting/close-period", label: tri(lang, "دوره‌های مالی و بستن حساب‌ها", "Fiscal periods & closing", "Geschäftsperioden & Abschluss") },
-        ].map((l) => (
-          <Link key={l.href} href={l.href} className="px-3 py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{l.label}</Link>
-        ))}
+        <Link href="/crm?tab=invoices" className="px-3 py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+          {tri(lang, "مدیریت فاکتورها", "Manage invoices", "Rechnungen verwalten")}
+        </Link>
       </div>
     </div>
   );
