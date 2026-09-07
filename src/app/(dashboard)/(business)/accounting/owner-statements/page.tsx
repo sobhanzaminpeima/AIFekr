@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { ArrowRight, ArrowLeft, Sparkles, Plus, Trash2, Send, CheckCircle2, Home, Printer } from "lucide-react";
+import { ArrowRight, ArrowLeft, Sparkles, Plus, Trash2, Send, CheckCircle2, Home, Printer, Share2 } from "lucide-react";
 import { useCompanyLogo } from "@/lib/hooks/useCompanyLogo";
 import { tri, type Lang } from "@/lib/i18n";
 import { useAccountingLocale } from "@/lib/accounting/useAccountingLocale";
@@ -42,6 +42,10 @@ interface Statement {
   managementFee: number;
   ownerShare: number;
   currency: string;
+  /** Set once a statement is sent -- powers the /o/[token] page the owner
+      opens. Was never surfaced anywhere in this UI, so the only way to find
+      a sent statement's link was to open the actual email that went out. */
+  shareToken?: string | null;
   property: { title: string };
 }
 
@@ -598,6 +602,21 @@ export default function OwnerStatementsPage() {
                         {(s.status === "approved" || s.status === "sent") && (
                           <button disabled={busy} onClick={() => statementAction(s.id, "reopen")} className="text-xs px-2.5 py-1.5 rounded-lg font-medium" style={{ background: "var(--surface-1)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
                             {tri(lang, "بازگشایی برای اصلاح", "Reopen to correct", "Zur Korrektur wieder öffnen")}
+                          </button>
+                        )}
+                        {s.status === "sent" && s.shareToken && (
+                          // This is the answer to "where do I find the owner's
+                          // portal link?" -- it only ever existed inside the
+                          // email that was sent, with no way to get it back.
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${window.location.origin}/o/${s.shareToken}`);
+                              toast.success(tri(lang, "لینک مالک کپی شد", "Owner link copied", "Eigentümer-Link kopiert"));
+                            }}
+                            className="p-1.5 rounded-lg" style={{ color: "var(--text-secondary)" }}
+                            title={tri(lang, "کپی لینک صفحهٔ مالک", "Copy the owner's page link", "Link zur Eigentümerseite kopieren")}
+                          >
+                            <Share2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                         <button onClick={() => openPrint(s.id)} className="p-1.5 rounded-lg" style={{ color: "var(--text-secondary)" }} title={tri(lang, "چاپ گزارش", "Print statement", "Abrechnung drucken")}><Printer className="w-3.5 h-3.5" /></button>
