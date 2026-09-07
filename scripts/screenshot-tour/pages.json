@@ -1,5 +1,5 @@
 [
-  { "folder": "01-khane", "title": "خانه", "path": "/home" },
+  { "folder": "01-khane", "title": "خانه", "path": "/home", "skipSubTabs": true },
   { "folder": "02-chat-hoosh-masnooi", "title": "چت هوش مصنوعی", "path": "/chat", "fullPage": false },
   { "folder": "03-agent-haye-man", "title": "ایجنت‌های من", "path": "/agents" },
   { "folder": "04-sakht-tasvir", "title": "ساخت تصویر", "path": "/image/generate" },

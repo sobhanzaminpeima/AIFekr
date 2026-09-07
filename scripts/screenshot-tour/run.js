@@ -21,6 +21,10 @@ const archiver = require("archiver");
 const BASE_URL = process.env.AIFEKR_BASE_URL || "https://aifekr.com";
 const EMAIL = process.env.AIFEKR_EMAIL;
 const PASSWORD = process.env.AIFEKR_PASSWORD;
+// The platform's UI language, independent of the admin account's own saved
+// preference -- promo-video source material needs to be in the platform's
+// primary language regardless of which language this admin last browsed in.
+const LANG = process.env.AIFEKR_LANG || "en";
 const OUT_DIR = path.join(__dirname, "aifekr-screenshots");
 const STORAGE_STATE_PATH = path.join(__dirname, ".auth-state.json");
 const PAGES = require("./pages.json");
@@ -176,6 +180,13 @@ async function shootPage(context, def, manifest, errors, reviewFlags) {
     // fell back to a single "dashboard" shot. 4s covers it without adding
     // much to a 19-page run.
     await page.waitForTimeout(4000);
+    // A slow client-side fetch (e.g. the home dashboard's summary call) can
+    // still be showing a loading spinner at this point -- give it a few more
+    // seconds rather than screenshot mid-spin.
+    await page.waitForFunction(
+      () => !document.querySelector('[class*="animate-spin"]'),
+      { timeout: 6000 }
+    ).catch(() => {});
     await dismissOverlays(page);
 
     const shots = [];
@@ -255,6 +266,9 @@ async function main() {
 
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+  // Set before login so even the login page itself renders in this language.
+  const urlObj = new URL(BASE_URL);
+  await context.addCookies([{ name: "lang", value: LANG, domain: urlObj.hostname, path: "/" }]);
 
   await login(context);
 
