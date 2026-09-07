@@ -47,6 +47,13 @@ function unverifiedUserId(req: NextRequest): string | null {
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  // Only public landing routes get a locale header. API rate limits below are unchanged.
+  if (["/fa", "/en", "/de"].includes(pathname)) {
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set("x-aifekr-landing-locale", pathname.slice(1));
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
+
   const rule = RULES.find((r) => pathname.startsWith(r.prefix));
   if (!rule) return NextResponse.next();
 
@@ -68,5 +75,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: "/api/:path*",
+  matcher: ["/api/:path*", "/fa", "/en", "/de"],
 };

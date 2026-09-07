@@ -5,11 +5,13 @@ import "./globals.css";
 import "@/styles/foundation.css";
 import UiProvider from "@/components/ui/UiProvider";
 import { Toaster } from "react-hot-toast";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { isLandingLocale } from "@/lib/i18n/landing";
 
 export async function generateMetadata(): Promise<Metadata> {
   const cookieStore = await cookies();
-  const lang = (cookieStore.get("lang")?.value === "en") ? "en" : "fa";
+  const landingLocale = headers().get("x-aifekr-landing-locale");
+  const lang = isLandingLocale(landingLocale) ? landingLocale : cookieStore.get("lang")?.value === "en" ? "en" : "fa";
   return {
     title: lang === "en" ? "AiFekr — AI Platform" : "هوشمند AI — پلتفرم هوش مصنوعی",
     description: "AI Platform — Chat, Image, Video, Music & Smart Business Tools",
@@ -38,8 +40,9 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
-  const lang = (cookieStore.get("lang")?.value === "en") ? "en" : "fa";
-  const dir = lang === "en" ? "ltr" : "rtl";
+  const landingLocale = headers().get("x-aifekr-landing-locale");
+  const lang = isLandingLocale(landingLocale) ? landingLocale : cookieStore.get("lang")?.value === "en" ? "en" : "fa";
+  const dir = lang === "fa" ? "rtl" : "ltr";
   const theme = (cookieStore.get("theme")?.value === "light") ? "light" : "dark";
 
   return (
