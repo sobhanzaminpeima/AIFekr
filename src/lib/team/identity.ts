@@ -31,7 +31,13 @@ export const DEPARTMENTS: Record<DepartmentKey, Department> = {
     key: "sales",
     color: "#ea580c",
     tint: "rgba(234,88,12,0.16)",
-    label: (l) => tri(l, "فروش و املاک", "Sales & property", "Vertrieb & Immobilien"),
+    // Was "Sales & property" -- read as "this department, and CRM inside
+    // it, is only for real-estate businesses." CRM/Sales Agent/Voice Agent
+    // are industry-agnostic (gated by crmPlan, not by industry pack); only
+    // the specific Properties/Owners tabs inside CRM and the Industry Packs
+    // entry are real-estate-specific. The department name shouldn't imply
+    // otherwise.
+    label: (l) => tri(l, "فروش و مشتریان", "Sales & customers", "Vertrieb & Kunden"),
   },
   marketing: {
     key: "marketing",

@@ -268,6 +268,41 @@ export default function AccountingAutomationPage() {
         <h2 className="text-sm font-semibold mb-1 flex items-center gap-1.5" style={{ color: "var(--text-primary)" }}><KeyRound className="w-4 h-4" />{tri(lang, "توکن‌های API برای اتصال BI خارجی", "API tokens for external BI connections", "API-Token für externe BI-Anbindungen")}</h2>
         <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>{tri(lang, "فقط‌خواندنی — یک ابزار BI خارجی می‌تواند با این توکن گزارش‌های تجمیعی را بخواند، هرگز چیزی ننویسد.", "Read-only — an external BI tool can read aggregated reports with this token, never write anything.", "Nur Lesezugriff — ein externes BI-Tool kann damit aggregierte Berichte lesen, aber nichts schreiben.")}</p>
 
+        {/* This used to just describe the concept and hand over a token with
+            no address to send it to — a non-developer had a secret and
+            nothing to do with it. Now the actual address a tool like Power
+            BI or Excel needs is spelled out, in the form those tools expect. */}
+        <div className="rounded-lg p-3 mb-3 text-xs space-y-1.5" style={{ background: "var(--surface-2)" }}>
+          <p style={{ color: "var(--text-secondary)" }}>{tri(lang, "برای اتصال:", "To connect:", "So verbinden Sie:")}</p>
+          <p style={{ color: "var(--text-muted)" }}>
+            1. {tri(lang, "یک توکن بسازید (پایین همین بخش)", "Create a token (bottom of this section)", "Erstellen Sie einen Token (unten in diesem Abschnitt)")}
+          </p>
+          <p style={{ color: "var(--text-muted)" }}>
+            2. {tri(lang, "این آدرس را در ابزار BI خود (مثلاً Power BI → Get Data → Web) وارد کنید:",
+              "Enter this address in your BI tool (e.g. Power BI → Get Data → Web):",
+              "Geben Sie diese Adresse in Ihrem BI-Tool ein (z. B. Power BI → Daten abrufen → Web):")}
+          </p>
+          <div className="flex items-center gap-2">
+            <code dir="ltr" className="flex-1 px-2 py-1.5 rounded-md break-all" style={{ background: "var(--surface-1)", color: "var(--text-primary)" }}>
+              {typeof window !== "undefined" ? window.location.origin : "https://aifekr.com"}/api/bi/accounting?from=2026-01-01&amp;to=2026-01-31
+            </code>
+            <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/api/bi/accounting?from=2026-01-01&to=2026-01-31`); toast.success(tri(lang, "کپی شد", "Copied", "Kopiert")); }} className="p-1.5 rounded-lg flex-shrink-0" style={{ background: "var(--surface-1)" }}><Copy className="w-4 h-4" /></button>
+          </div>
+          <p style={{ color: "var(--text-muted)" }}>
+            3. {tri(lang, "با هدر HTTP زیر (توکن خودتان را جای TOKEN بگذارید):",
+              "With this HTTP header (put your own token where it says TOKEN):",
+              "Mit diesem HTTP-Header (setzen Sie Ihren eigenen Token anstelle von TOKEN ein):")}
+          </p>
+          <code dir="ltr" className="block px-2 py-1.5 rounded-md" style={{ background: "var(--surface-1)", color: "var(--text-primary)" }}>
+            Authorization: Bearer TOKEN
+          </code>
+          <p style={{ color: "var(--text-muted)" }}>
+            {tri(lang, "پاسخ JSON است — یک جدول از تراکنش‌های دفتر کل در بازه انتخاب‌شده. تاریخ‌ها (from/to) در آدرس قابل تغییرند.",
+              "The response is JSON — a table of ledger transactions for the selected period. The from/to dates in the address can be changed.",
+              "Die Antwort ist JSON — eine Tabelle der Hauptbuchtransaktionen für den gewählten Zeitraum. Die from/to-Daten in der Adresse können geändert werden.")}
+          </p>
+        </div>
+
         {freshToken && (
           <div className="rounded-lg p-3 mb-3 text-xs" style={{ background: "rgba(237,161,0,0.1)", border: "1px solid rgba(237,161,0,0.3)" }}>
             <p className="mb-2" style={{ color: "var(--text-primary)" }}>{tri(lang, "این توکن فقط همین یک‌بار نمایش داده می‌شود — همین حالا ذخیره کنید:", "This token is shown only once — save it now:", "Dieser Token wird nur einmal angezeigt — speichern Sie ihn jetzt:")}</p>
@@ -285,7 +320,7 @@ export default function AccountingAutomationPage() {
             <div key={t.id} className="flex items-center justify-between text-sm py-1.5" style={{ borderBottom: "1px solid var(--border)" }}>
               <div>
                 <span style={{ color: "var(--text-primary)" }}>{t.label}</span>
-                <span className="text-xs ms-2" style={{ color: "var(--text-muted)" }}>{t.lastUsedAt ? `${tri(lang, "آخرین استفاده", "Last used", "Zuletzt verwendet")}: ${new Date(t.lastUsedAt).toLocaleDateString(lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US")}` : "هنوز استفاده نشده"}</span>
+                <span className="text-xs ms-2" style={{ color: "var(--text-muted)" }}>{t.lastUsedAt ? `${tri(lang, "آخرین استفاده", "Last used", "Zuletzt verwendet")}: ${new Date(t.lastUsedAt).toLocaleDateString(lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US")}` : tri(lang, "هنوز استفاده نشده", "Not used yet", "Noch nicht verwendet")}</span>
               </div>
               <button disabled={busy} onClick={() => revokeToken(t.id)} className="text-xs px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--neg)" }}>{tri(lang, "ابطال", "Revoke", "Widerrufen")}</button>
             </div>

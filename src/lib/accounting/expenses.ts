@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/db/prisma";
 import { postJournalEntry } from "./ledger";
+import { getFxSnapshot, convert } from "./reportingFx";
+
+/** Machine code, not prose -- translated at the API boundary, same pattern as ownerStatement.ts's STATEMENT_LOCKED. */
+export const FX_RATE_UNAVAILABLE = "EXPENSE_FX_RATE_UNAVAILABLE";
 
 /**
  * Bills and cash expenses (spec ۳.۳). An expense above the workspace's
@@ -22,6 +26,8 @@ export interface CreateExpenseInput {
   kind?: "bill" | "cash_expense";
   accountCode: string;
   amount: number;
+  /** Currency `amount` was actually paid in. Defaults to IRT. */
+  currency?: string;
   description: string;
   receiptUrl?: string;
   expenseDate?: Date;
@@ -41,6 +47,7 @@ export async function createExpense(input: CreateExpenseInput) {
       kind: input.kind || "cash_expense",
       accountCode: input.accountCode,
       amount: input.amount,
+      currency: input.currency || "IRT",
       description: input.description,
       receiptUrl: input.receiptUrl,
       expenseDate: input.expenseDate || new Date(),
@@ -68,19 +75,40 @@ export async function rejectExpense(expenseId: string, rejectedBy: string) {
   });
 }
 
-/** Marks an approved expense paid and posts Debit <accountCode> / Credit Cash to the ledger. Idempotent via sourceRef. */
+/**
+ * Marks an approved expense paid and posts Debit <accountCode> / Credit Cash
+ * to the ledger. Idempotent via sourceRef.
+ *
+ * The ledger itself has always been single-currency (Toman) — every posting
+ * anywhere in this module assumes that. So a non-Toman expense (e.g. 3,000
+ * TRY paid at a shop for one unit) is converted to IRT at the day's rate
+ * ONLY for this posting; `expense.amount`/`expense.currency` on the row
+ * itself are never touched, so "what did this actually cost in TRY" stays
+ * answerable. If no rate is available, this refuses to post rather than
+ * guess — same rule as every other conversion in this module (reportingFx.ts).
+ */
 export async function payExpense(expenseId: string, paidBy: string) {
   const expense = await prisma.accountingExpense.findUniqueOrThrow({ where: { id: expenseId } });
   if (expense.status !== "approved") throw new Error("Only an approved expense can be paid");
 
+  let ledgerAmount = expense.amount;
+  let memo = `Expense: ${expense.description}`;
+  if (expense.currency !== "IRT") {
+    const snap = await getFxSnapshot();
+    const converted = snap ? convert(expense.amount, expense.currency, "IRT", snap) : null;
+    if (!converted) throw new Error(FX_RATE_UNAVAILABLE);
+    ledgerAmount = Math.round(converted.value);
+    memo += ` (${expense.amount.toLocaleString("en-US")} ${expense.currency} at ${converted.rate.toFixed(2)})`;
+  }
+
   await postJournalEntry({
     workspaceUserId: expense.workspaceUserId,
     postedBy: paidBy,
-    memo: `Expense: ${expense.description}`,
+    memo,
     sourceRef: `expense:paid:${expense.id}`,
     lines: [
-      { accountCode: expense.accountCode, debit: expense.amount },
-      { accountCode: "1000", credit: expense.amount },
+      { accountCode: expense.accountCode, debit: ledgerAmount },
+      { accountCode: "1000", credit: ledgerAmount },
     ],
   });
 

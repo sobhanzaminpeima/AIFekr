@@ -110,7 +110,18 @@ export default function OwnerStatementsPage() {
   // The owner can be chosen — or created — right here, where the error appears.
   const [contacts, setContacts] = useState<ContactOption[]>([]);
   const [newOwnerName, setNewOwnerName] = useState("");
+  const [newOwnerEmail, setNewOwnerEmail] = useState("");
   const [savingOwner, setSavingOwner] = useState(false);
+  // For an owner who already exists but has no email -- without one they can
+  // never receive the statement email or the owner-portal login link, and
+  // there was no way to add it without leaving this page for CRM > Contacts.
+  const [editingOwnerEmail, setEditingOwnerEmail] = useState(false);
+  const [ownerEmailDraft, setOwnerEmailDraft] = useState("");
+  // The emailed statement used to always go out in the admin's OWN UI
+  // language -- an admin working in Persian had no way to send an English
+  // copy to a non-Iranian owner. Defaults to the admin's language, but is
+  // independently choosable per send.
+  const [sendLang, setSendLang] = useState<"fa" | "en" | "de">(lang);
 
   const selectedProperty = properties.find((p) => p.id === propertyId);
 
@@ -173,7 +184,7 @@ export default function OwnerStatementsPage() {
       caller update the visible owner name immediately, without waiting on a
       refetch — the contact list and the property list are two separate
       fetches, so the property row alone can't resolve the name it was just given. */
-  async function assignOwner(contactId: string, name: string) {
+  async function assignOwner(contactId: string, name: string, email: string | null = null) {
     if (!propertyId || !contactId) return;
     setSavingOwner(true);
     try {
@@ -183,7 +194,7 @@ export default function OwnerStatementsPage() {
       });
       const j = await parseJsonResponse(res, lang);
       if (!res.ok) throw new Error(j.error);
-      setProperties((prev) => prev.map((p) => (p.id === propertyId ? { ...p, ownerContactId: contactId, ownerContact: { id: contactId, name, phone: null, email: null } } : p)));
+      setProperties((prev) => prev.map((p) => (p.id === propertyId ? { ...p, ownerContactId: contactId, ownerContact: { id: contactId, name, phone: null, email } } : p)));
       toast.success(tri(lang, "مالک ثبت شد", "Owner set", "Eigentümer festgelegt"));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : tri(lang, "خطا در ثبت مالک", "Could not set the owner", "Eigentümer konnte nicht gesetzt werden"));
@@ -198,16 +209,40 @@ export default function OwnerStatementsPage() {
     try {
       const res = await fetch("/api/crm/contacts", {
         method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, status: "customer" }),
+        body: JSON.stringify({ name, email: newOwnerEmail.trim() || undefined, status: "customer" }),
       });
       const j = await parseJsonResponse(res, lang);
       if (!res.ok) throw new Error(j.error);
       const created = j.contact;
       setContacts((prev) => [{ id: created.id, name: created.name }, ...prev]);
-      setNewOwnerName("");
-      await assignOwner(created.id, created.name);
+      setNewOwnerName(""); setNewOwnerEmail("");
+      await assignOwner(created.id, created.name, created.email || null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : tri(lang, "خطا در ساخت مخاطب", "Could not create the contact", "Kontakt konnte nicht erstellt werden"));
+      setSavingOwner(false);
+    }
+  }
+
+  /** Sets or corrects the owner's email right where it's needed -- an owner
+      created without one can never sign in to the owner portal or receive a
+      statement email otherwise. */
+  async function saveOwnerEmail() {
+    if (!selectedProperty?.ownerContact) return;
+    const email = ownerEmailDraft.trim();
+    setSavingOwner(true);
+    try {
+      const res = await fetch(`/api/crm/contacts/${selectedProperty.ownerContact.id}`, {
+        method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email || null }),
+      });
+      const j = await parseJsonResponse(res, lang);
+      if (!res.ok) throw new Error(j.error);
+      setProperties((prev) => prev.map((p) => (p.id === propertyId && p.ownerContact ? { ...p, ownerContact: { ...p.ownerContact, email: email || null } } : p)));
+      setEditingOwnerEmail(false);
+      toast.success(tri(lang, "ایمیل ذخیره شد", "Email saved", "E-Mail gespeichert"));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : tri(lang, "خطا در ذخیرهٔ ایمیل", "Could not save the email", "E-Mail konnte nicht gespeichert werden"));
+    } finally {
       setSavingOwner(false);
     }
   }
@@ -295,7 +330,7 @@ export default function OwnerStatementsPage() {
     try {
       const res = await fetch(`/api/accounting/owner-statements/${id}`, {
         method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, ...(action === "send" ? { emailLang: sendLang } : {}) }),
       });
       const j = await parseJsonResponse(res, lang);
       if (!res.ok) throw new Error(j.error);
@@ -344,13 +379,35 @@ export default function OwnerStatementsPage() {
             entirely invisible: an admin could send a statement with no way to
             confirm, at a glance, whose it was. */}
         {selectedProperty?.ownerContact && (
-          <div className="flex items-center gap-2 text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
+          <div className="flex flex-wrap items-center gap-2 text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
             <span>{tri(lang, "مالک این واحد:", "This unit's owner:", "Eigentümer dieser Einheit:")}</span>
             <span className="px-2 py-0.5 rounded-full font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>
               {selectedProperty.ownerContact.name}
             </span>
-            {(selectedProperty.ownerContact.phone || selectedProperty.ownerContact.email) && (
-              <span dir="ltr" style={{ color: "var(--text-muted)" }}>{selectedProperty.ownerContact.phone || selectedProperty.ownerContact.email}</span>
+            {selectedProperty.ownerContact.phone && (
+              <span dir="ltr" style={{ color: "var(--text-muted)" }}>{selectedProperty.ownerContact.phone}</span>
+            )}
+            {editingOwnerEmail ? (
+              <span className="flex items-center gap-1.5">
+                <input
+                  type="email" autoFocus dir="ltr" value={ownerEmailDraft} onChange={(e) => setOwnerEmailDraft(e.target.value)}
+                  placeholder="owner@example.com"
+                  className="px-2 py-1 rounded-lg text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+                />
+                <button onClick={saveOwnerEmail} disabled={savingOwner} className="text-xs font-medium" style={{ color: "var(--primary)" }}>{tri(lang, "ذخیره", "Save", "Speichern")}</button>
+                <button onClick={() => setEditingOwnerEmail(false)} className="text-xs" style={{ color: "var(--text-muted)" }}>{tri(lang, "لغو", "Cancel", "Abbrechen")}</button>
+              </span>
+            ) : selectedProperty.ownerContact.email ? (
+              <button onClick={() => { setOwnerEmailDraft(selectedProperty.ownerContact!.email || ""); setEditingOwnerEmail(true); }} dir="ltr" className="hover:underline" style={{ color: "var(--text-muted)" }} title={tri(lang, "ویرایش ایمیل", "Edit email", "E-Mail bearbeiten")}>
+                {selectedProperty.ownerContact.email}
+              </button>
+            ) : (
+              // This is the answer to "where do I enter the owner's email so
+              // they can log in and see their report?" -- previously nowhere
+              // on this page, and the owner-creation flow below never asked for one.
+              <button onClick={() => { setOwnerEmailDraft(""); setEditingOwnerEmail(true); }} className="px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(217,144,0,0.12)", color: "var(--warn)" }}>
+                {tri(lang, "+ افزودن ایمیل (لازم برای ورود مالک به پنل)", "+ Add email (needed for owner portal login)", "+ E-Mail hinzufügen (für Portal-Login nötig)")}
+              </button>
             )}
           </div>
         )}
@@ -388,6 +445,14 @@ export default function OwnerStatementsPage() {
                 onChange={(e) => setNewOwnerName(e.target.value)}
                 placeholder={tri(lang, "نام مالک جدید", "New owner's name", "Name des neuen Eigentümers")}
                 className="px-3 py-2 rounded-lg text-sm flex-1 min-w-[150px]"
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+              />
+              <input
+                type="email" dir="ltr"
+                value={newOwnerEmail}
+                onChange={(e) => setNewOwnerEmail(e.target.value)}
+                placeholder={tri(lang, "ایمیل (برای ورود به پنل مالک)", "Email (for owner portal login)", "E-Mail (für Portal-Login)")}
+                className="px-3 py-2 rounded-lg text-sm flex-1 min-w-[170px]"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
               />
               <button
@@ -514,9 +579,21 @@ export default function OwnerStatementsPage() {
                           </button>
                         )}
                         {s.status === "approved" && (
-                          <button disabled={busy} onClick={() => statementAction(s.id, "send")} className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium" style={{ background: "var(--pos)", color: "#fff" }}>
-                            <Send className="w-3.5 h-3.5" />{tri(lang, "ارسال به مالک", "Send to owner", "An Eigentümer senden")}
-                          </button>
+                          <>
+                            <select
+                              value={sendLang}
+                              onChange={(e) => setSendLang(e.target.value as "fa" | "en" | "de")}
+                              title={tri(lang, "زبان ایمیل و گزارش ارسالی", "Language of the sent email/statement", "Sprache der gesendeten E-Mail/Abrechnung")}
+                              className="text-xs px-2 py-1.5 rounded-lg outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
+                            >
+                              <option value="fa">فارسی</option>
+                              <option value="en">English</option>
+                              <option value="de">Deutsch</option>
+                            </select>
+                            <button disabled={busy} onClick={() => statementAction(s.id, "send")} className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium" style={{ background: "var(--pos)", color: "#fff" }}>
+                              <Send className="w-3.5 h-3.5" />{tri(lang, "ارسال به مالک", "Send to owner", "An Eigentümer senden")}
+                            </button>
+                          </>
                         )}
                         {(s.status === "approved" || s.status === "sent") && (
                           <button disabled={busy} onClick={() => statementAction(s.id, "reopen")} className="text-xs px-2.5 py-1.5 rounded-lg font-medium" style={{ background: "var(--surface-1)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
@@ -545,17 +622,35 @@ export default function OwnerStatementsPage() {
 }
 
 function OwnerStatementPrintModal({ statement, onClose }: { statement: StatementDetail; onClose: () => void }) {
-  const { lang, dir, fmtMonth, fmtDate } = useAccountingLocale();
-  // The printed sheet goes to the OWNER, so its dates/digits follow the
-  // statement's own currency (see useAccountingLocale) rather than whoever
-  // happens to be printing it.
-  const monthLabel = fmtMonth(statement.month, statement.currency);
+  const { lang: uiLang } = useAccountingLocale();
+  // The printed sheet goes to the OWNER, not the admin -- so its language
+  // needs to be choosable independently of whatever UI language the admin
+  // happens to be working in. Defaults to the admin's own language, printed
+  // digits/dates follow this choice + the statement's currency, same rule as
+  // useAccountingLocale but parameterised instead of locked to the app-wide language.
+  const [printLang, setPrintLang] = useState<Lang>(uiLang);
+  const dir = printLang === "fa" ? "rtl" : "ltr";
+  const IRANIAN = statement.currency === "IRT" || statement.currency === "IRR";
+  const locale = printLang === "fa" && IRANIAN ? "fa-IR" : printLang === "de" ? "de-DE" : "en-US";
+  const fmtDate = (d: string | Date) => new Date(d).toLocaleDateString(locale);
+  const fmtAmt = (n: number) => Math.round(n).toLocaleString(locale);
+  const monthLabel = new Date(statement.month).toLocaleDateString(locale, { year: "numeric", month: "long" });
   const logoUrl = useCompanyLogo();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:p-0 print:static" style={{ background: "rgba(0,0,0,0.6)" }}>
-      <div className="print:hidden absolute top-4 left-4 flex gap-2">
-        <button onClick={() => window.print()} className="px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>{tri(lang, "چاپ / ذخیره PDF", "Print / Save PDF", "Drucken / Als PDF speichern")}</button>
-        <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>{tri(lang, "بستن", "Close", "Schließen")}</button>
+      <div className="print:hidden absolute top-4 left-4 flex items-center gap-2">
+        <select
+          value={printLang}
+          onChange={(e) => setPrintLang(e.target.value as Lang)}
+          title={tri(uiLang, "زبان خروجی چاپ/PDF", "Language of the printed/PDF output", "Sprache des Ausdrucks/PDF")}
+          className="text-sm px-2 py-2 rounded-xl outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+        >
+          <option value="fa">فارسی</option>
+          <option value="en">English</option>
+          <option value="de">Deutsch</option>
+        </select>
+        <button onClick={() => window.print()} className="px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>{tri(uiLang, "چاپ / ذخیره PDF", "Print / Save PDF", "Drucken / Als PDF speichern")}</button>
+        <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>{tri(uiLang, "بستن", "Close", "Schließen")}</button>
       </div>
       <div dir={dir} className="w-full max-w-2xl rounded-2xl p-8 space-y-4 max-h-[85vh] overflow-y-auto print:max-h-none print:overflow-visible print:shadow-none print:rounded-none" style={{ background: "#fff", color: "#111" }}>
         {logoUrl && <img src={logoUrl} alt="logo" className="h-10 object-contain" style={{ maxWidth: 160 }} />}
@@ -564,23 +659,23 @@ function OwnerStatementPrintModal({ statement, onClose }: { statement: Statement
           <span className="text-xs text-gray-500">{monthLabel}</span>
         </div>
         <table className="w-full text-xs">
-          <thead><tr className="border-b text-gray-500"><th className="text-start py-1">{tri(lang, "تاریخ", "Date", "Datum")}</th><th className="text-start py-1">{tri(lang, "شرح", "Description", "Beschreibung")}</th><th className="text-end py-1">{tri(lang, "درآمد", "Income", "Einnahmen")}</th><th className="text-end py-1">{tri(lang, "هزینه", "Expense", "Ausgabe")}</th></tr></thead>
+          <thead><tr className="border-b text-gray-500"><th className="text-start py-1">{tri(printLang, "تاریخ", "Date", "Datum")}</th><th className="text-start py-1">{tri(printLang, "شرح", "Description", "Beschreibung")}</th><th className="text-end py-1">{tri(printLang, "درآمد", "Income", "Einnahmen")}</th><th className="text-end py-1">{tri(printLang, "هزینه", "Expense", "Ausgabe")}</th></tr></thead>
           <tbody>
             {statement.entries.map((e) => (
               <tr key={e.id} className="border-b">
-                <td className="py-1">{fmtDate(e.date, statement.currency)}</td>
+                <td className="py-1">{fmtDate(e.date)}</td>
                 <td className="py-1">{e.description}</td>
-                <td className="py-1 text-end text-green-700">{e.income ? fmt(e.income, statement.currency) : ""}</td>
-                <td className="py-1 text-end text-red-700">{e.expense ? fmt(e.expense, statement.currency) : ""}</td>
+                <td className="py-1 text-end text-green-700">{e.income ? fmtAmt(e.income) : ""}</td>
+                <td className="py-1 text-end text-red-700">{e.expense ? fmtAmt(e.expense) : ""}</td>
               </tr>
             ))}
           </tbody>
         </table>
         <table className="w-full text-sm mt-4">
           <tbody>
-            <tr className="border-b"><td className="py-2 text-gray-500">{tri(lang, "سود خالص", "Net profit", "Nettogewinn")}</td><td className="py-2 text-end font-bold">{fmt(statement.netProfit, statement.currency)} {statement.currency}</td></tr>
-            <tr className="border-b"><td className="py-2 text-gray-500">{tri(lang, "کارمزد مدیریت", "Management fee", "Verwaltungsgebühr")}</td><td className="py-2 text-end">{fmt(statement.managementFee, statement.currency)} {statement.currency}</td></tr>
-            <tr><td className="py-2 font-bold">{tri(lang, "سهم مالک", "Owner share", "Eigentümeranteil")}</td><td className="py-2 text-end font-bold" style={{ color: "#ea580c" }}>{fmt(statement.ownerShare, statement.currency)} {statement.currency}</td></tr>
+            <tr className="border-b"><td className="py-2 text-gray-500">{tri(printLang, "سود خالص", "Net profit", "Nettogewinn")}</td><td className="py-2 text-end font-bold">{fmtAmt(statement.netProfit)} {statement.currency}</td></tr>
+            <tr className="border-b"><td className="py-2 text-gray-500">{tri(printLang, "کارمزد مدیریت", "Management fee", "Verwaltungsgebühr")}</td><td className="py-2 text-end">{fmtAmt(statement.managementFee)} {statement.currency}</td></tr>
+            <tr><td className="py-2 font-bold">{tri(printLang, "سهم مالک", "Owner share", "Eigentümeranteil")}</td><td className="py-2 text-end font-bold" style={{ color: "#ea580c" }}>{fmtAmt(statement.ownerShare)} {statement.currency}</td></tr>
           </tbody>
         </table>
       </div>

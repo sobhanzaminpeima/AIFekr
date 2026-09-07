@@ -15,6 +15,7 @@ interface Expense {
   vendorId: string | null;
   accountCode: string;
   amount: number;
+  currency: string;
   description: string;
   status: "pending_approval" | "approved" | "rejected" | "paid";
   expenseDate: string;
@@ -22,7 +23,9 @@ interface Expense {
   property: { id: string; title: string } | null;
 }
 
-interface PropertyOption { id: string; title: string }
+interface PropertyOption { id: string; title: string; currency: string }
+
+const CURRENCIES = ["IRT", "IRR", "USD", "EUR", "GBP", "TRY"] as const;
 
 const STATUS_STYLE: Record<Expense["status"], { color: string; bg: string }> = {
   pending_approval: { color: "#eda100", bg: "rgba(237,161,0,0.12)" },
@@ -50,6 +53,11 @@ export default function ExpensesPage() {
 
   const [accountCode, setAccountCode] = useState("");
   const [amount, setAmount] = useState("");
+  // Used to default to IRT no matter what the property/workspace actually
+  // dealt in -- a unit priced in TRY had its cleaning-supplies run recorded
+  // as if it were Toman. Now follows the selected property's own currency,
+  // still overridable (an agency-level cost like office rent has no property).
+  const [currency, setCurrency] = useState("IRT");
   const [description, setDescription] = useState("");
   const [vendorId, setVendorId] = useState("");
   // Attaching a cost to a unit is what makes "what has this property cost me?"
@@ -74,7 +82,7 @@ export default function ExpensesPage() {
     const venJson = await venRes.json();
     const expJson = await expRes.json();
     const propJson = await propRes.json().catch(() => ({ properties: [] }));
-    if (propRes.ok) setProperties((propJson.properties || []).map((x: PropertyOption) => ({ id: x.id, title: x.title })));
+    if (propRes.ok) setProperties((propJson.properties || []).map((x: PropertyOption) => ({ id: x.id, title: x.title, currency: x.currency || "IRT" })));
     if (accRes.ok) setAccounts(accJson.accounts.filter((a: Account) => a.type === "expense"));
     if (venRes.ok) setVendors(venJson.vendors);
     if (expRes.ok) setExpenses(expJson.expenses);
@@ -91,7 +99,7 @@ export default function ExpensesPage() {
     try {
       const res = await fetch("/api/accounting/expenses", {
         method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountCode, amount: Number(amount), description, vendorId: vendorId || undefined, propertyId: propertyId || undefined }),
+        body: JSON.stringify({ accountCode, amount: Number(amount), currency, description, vendorId: vendorId || undefined, propertyId: propertyId || undefined }),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error);
@@ -228,11 +236,23 @@ export default function ExpensesPage() {
             <option value="">{tri(lang, "تأمین‌کننده (اختیاری)", "Vendor (optional)", "Lieferant (optional)")}</option>
             {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
           </select>
-          <select value={propertyId} onChange={(e) => setPropertyId(e.target.value)} className="px-3 py-2 rounded-lg text-sm max-w-[220px]" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+          <select
+            value={propertyId}
+            onChange={(e) => {
+              setPropertyId(e.target.value);
+              // Selecting a unit priced in TRY should default this expense to
+              // TRY too, not silently stay on whatever currency was last used.
+              const match = properties.find((pr) => pr.id === e.target.value);
+              setCurrency(match ? match.currency : "IRT");
+            }}
+            className="px-3 py-2 rounded-lg text-sm max-w-[220px]" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
             <option value="">{tri(lang, "بدون ملک — هزینهٔ دفتر", "No property — agency cost", "Kein Objekt — Agenturkosten")}</option>
             {properties.map((pr) => <option key={pr.id} value={pr.id}>{pr.title}</option>)}
           </select>
-          <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder={tri(lang, "مبلغ (تومان)", "Amount (Toman)", "Betrag (Toman)")} type="number" className="w-36 px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder={tri(lang, "مبلغ", "Amount", "Betrag")} type="number" className="w-28 px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="px-2 py-2 rounded-lg text-sm w-24" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
           <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder={tri(lang, "توضیحات", "Description", "Beschreibung")} className="flex-1 min-w-[160px] px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <button disabled={busy} onClick={addExpense} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium" style={{ background: "var(--primary)", color: "#fff" }}>
             <Plus className="w-4 h-4" />{tri(lang, "ثبت", "Record", "Erfassen")}
@@ -261,7 +281,7 @@ export default function ExpensesPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{fmt(e.amount)}</span>
+                  <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{fmt(e.amount, e.currency)} {e.currency !== "IRT" && e.currency}</span>
                   <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: st.bg, color: st.color }}>{statusLabel(e.status, lang)}</span>
                   {e.status === "pending_approval" && (
                     <>

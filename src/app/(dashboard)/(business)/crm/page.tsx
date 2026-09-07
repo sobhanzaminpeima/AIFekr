@@ -5,8 +5,9 @@ import {
   Briefcase, Plus, X, Phone, Mail, Building2, Loader2, ChevronDown,
   Users, LayoutGrid, Clock, CheckCircle2, Circle, Zap, FileText, FileDown, Trash2, Upload, Sparkles, CalendarDays,
   Package, Receipt, FileSignature, Pin, Printer, FolderKanban, PhoneCall,
-  MessageCircle, Send, BarChart2, Check, DollarSign, Tag, GitBranch, User,
+  MessageCircle, Send, BarChart2, Check, DollarSign, Tag, GitBranch, User, Share2,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import { useTranslation, tri, type Lang } from "@/lib/i18n";
 import type { Translations } from "@/lib/i18n/en";
 import { toJalali } from "@/lib/utils/jalali";
@@ -120,6 +121,11 @@ export default function CrmPage() {
   });
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [loading, setLoading] = useState(true);
+  // Clicking a property under an owner (Owners tab) used to do nothing --
+  // the property list and its detail modal live inside PropertiesPanel's own
+  // state, so opening one from a different tab means switching tab AND
+  // telling PropertiesPanel which id to open once its own list has loaded.
+  const [openPropertyId, setOpenPropertyId] = useState<string | null>(null);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -476,9 +482,10 @@ export default function CrmPage() {
       ) : tab === "contracts" ? (
         <ContractsPanel isFa={isFa} lang={lang} t={c} contacts={contacts} />
       ) : tab === "properties" && propertiesEnabled ? (
-        <PropertiesPanel isFa={isFa} lang={lang} contacts={contacts} shortTermCalendarEnabled={shortTermCalendarEnabled} propertyDocumentsEnabled={propertyDocumentsEnabled} listingCopywriterEnabled={listingCopywriterEnabled} pricingAdvisorEnabled={pricingAdvisorEnabled} />
+        <PropertiesPanel isFa={isFa} lang={lang} contacts={contacts} shortTermCalendarEnabled={shortTermCalendarEnabled} propertyDocumentsEnabled={propertyDocumentsEnabled} listingCopywriterEnabled={listingCopywriterEnabled} pricingAdvisorEnabled={pricingAdvisorEnabled}
+          openPropertyId={openPropertyId} onOpenPropertyHandled={() => setOpenPropertyId(null)} />
       ) : tab === "owners" && ownersEnabled ? (
-        <OwnersPanel lang={lang} />
+        <OwnersPanel lang={lang} onOpenProperty={(id) => { setTab("properties"); setOpenPropertyId(id); }} />
       ) : tab === "viewings" && viewingsEnabled ? (
         <ViewingsPanel lang={lang} teamMembers={teamMembers} viewingCoordinatorEnabled={viewingCoordinatorEnabled} />
       ) : tab === "matches" && matchViewEnabled ? (
@@ -3100,13 +3107,24 @@ function CountryCityPicker({ lang, cityValue, onCityChange }: { lang: Lang; city
   );
 }
 
-function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, propertyDocumentsEnabled, listingCopywriterEnabled, pricingAdvisorEnabled }: { isFa: boolean; lang: Lang; contacts: Contact[]; shortTermCalendarEnabled: boolean; propertyDocumentsEnabled: boolean; listingCopywriterEnabled: boolean; pricingAdvisorEnabled: boolean }) {
+function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, propertyDocumentsEnabled, listingCopywriterEnabled, pricingAdvisorEnabled, openPropertyId, onOpenPropertyHandled }: { isFa: boolean; lang: Lang; contacts: Contact[]; shortTermCalendarEnabled: boolean; propertyDocumentsEnabled: boolean; listingCopywriterEnabled: boolean; pricingAdvisorEnabled: boolean; openPropertyId?: string | null; onOpenPropertyHandled?: () => void }) {
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<PropertyRow | null>(null);
+
+  // Deep-link from the Owners tab: once this property is in the loaded list,
+  // open its detail modal exactly as if the row itself had been clicked.
+  useEffect(() => {
+    if (!openPropertyId) return;
+    const match = properties.find((p) => p.id === openPropertyId);
+    if (match) {
+      setSelected(match);
+      onOpenPropertyHandled?.();
+    }
+  }, [openPropertyId, properties, onOpenPropertyHandled]);
   const [calendarPropertyId, setCalendarPropertyId] = useState<string | null>(null);
   const [docsPropertyId, setDocsPropertyId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -3390,6 +3408,15 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
                     <FileText className="w-4 h-4" style={{ color: "var(--primary)" }} />
                   </button>
                 )}
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/p/${p.id}`);
+                    toast.success(tri(lang, "لینک اشتراک‌گذاری کپی شد", "Share link copied", "Link kopiert"));
+                  }}
+                  title={tri(lang, "کپی لینک اشتراک‌گذاری عمومی", "Copy public share link", "Öffentlichen Link kopieren")}
+                >
+                  <Share2 className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
+                </button>
                 <button onClick={() => deleteProperty(p.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
               </div>
             </div>
@@ -4104,7 +4131,7 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
 }
 
 /** Section 1, item 2 — Owner Management. "Owner" is derived, not a stored role: a CrmContact shows up here purely because it's linked via Property.crmContactId to >=1 property. Representation terms are edited per-property (same PATCH endpoint as PropertiesPanel), gated separately behind crm.owner. */
-function OwnersPanel({ lang }: { lang: Lang }) {
+function OwnersPanel({ lang, onOpenProperty }: { lang: Lang; onOpenProperty: (id: string) => void }) {
   const [owners, setOwners] = useState<OwnerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -4187,7 +4214,9 @@ function OwnersPanel({ lang }: { lang: Lang }) {
                   {o.properties.map((p) => (
                     <div key={p.id} className="rounded-xl p-3 space-y-2" style={{ background: "var(--surface-2)" }}>
                       <div className="flex items-center justify-between">
-                        <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>{p.title} — {p.address}{p.city ? `${tri(lang, "،", ",", ",")} ${p.city}` : ""}</p>
+                        <button onClick={() => onOpenProperty(p.id)} className="text-xs font-medium text-start hover:underline" style={{ color: "var(--text-primary)" }}>
+                          {p.title} — {p.address}{p.city ? `${tri(lang, "،", ",", ",")} ${p.city}` : ""}
+                        </button>
                         {editing?.propertyId !== p.id && (
                           <button onClick={() => startEdit(o.id, p)} className="text-[11px]" style={{ color: "var(--primary)" }}>
                             {tri(lang, "ویرایش قرارداد", "Edit terms", "Bedingungen bearbeiten")}

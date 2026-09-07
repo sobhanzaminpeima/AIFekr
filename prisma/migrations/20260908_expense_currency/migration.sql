@@ -1,0 +1,1 @@
+ALTER TABLE "AccountingExpense" ADD COLUMN "currency" TEXT NOT NULL DEFAULT 'IRT';

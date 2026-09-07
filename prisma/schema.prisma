@@ -2008,6 +2008,13 @@ model AccountingExpense {
   /// AccountingAccount.code this expense books against, e.g. "5200" (Advertising).
   accountCode     String
   amount          Float
+  /// Currency `amount` was actually entered in -- IRT/IRR/USD/EUR/GBP/TRY.
+  /// Defaults to IRT since every row before this column existed really was
+  /// Toman (the UI never offered anything else). A non-IRT/IRR expense is
+  /// converted to IRT at the day's rate ONLY when posted to the ledger (see
+  /// payExpense) -- this column always keeps the amount as actually spent,
+  /// e.g. the 3,000 TRY actually paid at a Turkish shop for one unit.
+  currency        String    @default("IRT")
   /// VAT/input tax paid on this expense, included in `amount` (not on top
   /// of it) — used only for the Phase C VAT report's input-tax side.
   taxAmount       Float     @default(0)

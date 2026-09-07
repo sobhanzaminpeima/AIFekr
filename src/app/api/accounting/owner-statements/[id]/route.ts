@@ -38,7 +38,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   });
   if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
-  const { action } = (await req.json()) as { action?: string };
+  const { action, emailLang } = (await req.json()) as { action?: string; emailLang?: "fa" | "en" | "de" };
 
   try {
     if (action === "approve") {
@@ -53,7 +53,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       if (!owner?.email) {
         return NextResponse.json({ error: tri(lang, "ایمیل مالک ثبت نشده است", "Owner has no email on file", "Für den Eigentümer ist keine E-Mail hinterlegt") }, { status: 400 });
       }
-      const statement = await sendOwnerStatement(params.id, owner.email, owner.name, lang);
+      // The sent email/statement's language is chosen independently of the
+      // admin's own UI language (emailLang) -- an admin working in Persian
+      // can still send an English copy to a non-Iranian owner. Falls back to
+      // the admin's own language if the caller doesn't specify one.
+      const statement = await sendOwnerStatement(params.id, owner.email, owner.name, emailLang || lang);
       return NextResponse.json({ statement });
     }
     if (action === "reopen") {

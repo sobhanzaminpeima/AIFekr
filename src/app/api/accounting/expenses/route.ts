@@ -34,8 +34,8 @@ export async function POST(req: NextRequest) {
   if (ws.isAgentRestricted) return NextResponse.json({ error: tri(lang, "دسترسی ندارید", "Not authorized", "Nicht autorisiert") }, { status: 403 });
 
   const body = await req.json();
-  const { vendorId, propertyId, kind, accountCode, amount, description, receiptUrl, expenseDate, dueDate } = body as {
-    vendorId?: string; propertyId?: string; kind?: "bill" | "cash_expense"; accountCode?: string; amount?: number; description?: string; receiptUrl?: string; expenseDate?: string; dueDate?: string;
+  const { vendorId, propertyId, kind, accountCode, amount, currency, description, receiptUrl, expenseDate, dueDate } = body as {
+    vendorId?: string; propertyId?: string; kind?: "bill" | "cash_expense"; accountCode?: string; amount?: number; currency?: string; description?: string; receiptUrl?: string; expenseDate?: string; dueDate?: string;
   };
   if (!accountCode || typeof amount !== "number" || amount <= 0 || !description?.trim()) {
     return NextResponse.json({ error: tri(lang, "کد حساب، مبلغ و توضیحات الزامی است", "Account code, amount, and description are required", "Kontocode, Betrag und Beschreibung sind erforderlich") }, { status: 400 });
@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
       kind,
       accountCode,
       amount,
+      currency,
       description: description.trim(),
       receiptUrl,
       expenseDate: expenseDate ? new Date(expenseDate) : undefined,

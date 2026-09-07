@@ -13,11 +13,18 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       // shown to the agent's own client in the wrong currency entirely.
       id: true, title: true, listingType: true, propertyType: true, price: true, nightlyPrice: true, currency: true,
       address: true, city: true, bedrooms: true, bathrooms: true, areaSqm: true, description: true, status: true,
+      images: true,
     },
   });
   if (!property) return NextResponse.json({ error: "ملک یافت نشد" }, { status: 404 });
 
+  let images: string[] = [];
+  try { images = property.images ? JSON.parse(property.images) : []; } catch { images = []; }
+
   return NextResponse.json({
-    property: { ...property, price: Number(property.price), nightlyPrice: property.nightlyPrice != null ? Number(property.nightlyPrice) : null },
+    property: {
+      ...property, images,
+      price: Number(property.price), nightlyPrice: property.nightlyPrice != null ? Number(property.nightlyPrice) : null,
+    },
   });
 }
