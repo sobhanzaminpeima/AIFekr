@@ -176,7 +176,11 @@ function infoPanelSvg(brief: CharacterBrief, palette: [string, string, string], 
 
 function materialsPanelSvg(brief: CharacterBrief, palette: [string, string, string], width: number, height: number): string {
   const [primary, secondary, accent] = [brief.primaryColor || palette[0], brief.secondaryColor || palette[1], brief.accentColor || palette[2]];
-  const wardrobeLines = wrapLines(resolveWardrobe(brief), 36);
+  // maxChars is derived from the actual panel width rather than a flat
+  // guess, so a wide custom wardrobe description can't run past the card's
+  // right edge regardless of how this panel gets resized elsewhere.
+  const wardrobeMaxChars = Math.max(18, Math.floor((width - 60) / 8.2));
+  const wardrobeLines = wrapLines(resolveWardrobe(brief), wardrobeMaxChars);
   return `
   <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
     <rect width="${width}" height="${height}" fill="#0c0c10"/>
@@ -213,11 +217,18 @@ export async function generateCharacterBoard(brief: CharacterBrief, referenceIma
   const TOP_H = 560;
   const BOTTOM_H = CANVAS_H - TOP_H;
 
+  // `position: "attention"` lets sharp crop toward the actual busiest/most
+  // detailed region of the source (the faces) instead of a fixed center
+  // crop -- gpt-image sometimes renders a plain dark strip along one edge
+  // of a panel (e.g. a title-card-style band above a casting sheet), and a
+  // center crop kept that strip visible as an odd dark band in the final board.
+  const cropToContent = { fit: "cover" as const, position: sharp.strategy.attention };
+
   const [infoPng, turnaroundResized, portraitsResized, expressionsResized, materialsPng] = await Promise.all([
     sharp(Buffer.from(infoPanelSvg(brief, palette, LEFT_W, CANVAS_H))).png().toBuffer(),
-    sharp(turnaroundBuf).resize(MID_W, TOP_H, { fit: "cover" }).toBuffer(),
-    sharp(portraitsBuf).resize(RIGHT_W, TOP_H, { fit: "cover" }).toBuffer(),
-    sharp(expressionsBuf).resize(MID_W, BOTTOM_H, { fit: "cover" }).toBuffer(),
+    sharp(turnaroundBuf).resize(MID_W, TOP_H, cropToContent).toBuffer(),
+    sharp(portraitsBuf).resize(RIGHT_W, TOP_H, cropToContent).toBuffer(),
+    sharp(expressionsBuf).resize(MID_W, BOTTOM_H, cropToContent).toBuffer(),
     sharp(Buffer.from(materialsPanelSvg(brief, palette, RIGHT_W, BOTTOM_H))).png().toBuffer(),
   ]);
 
