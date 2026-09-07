@@ -143,7 +143,10 @@ export default function OwnerStatementPage({ params }: { params: { token: string
               "This statement was sent by the property agency and is viewable only with this link.",
               "Diese Abrechnung wurde von der Immobilienagentur gesendet und ist nur über diesen Link einsehbar.")}
           </p>
-          <a href="/owner/login" className="text-[11px] font-medium underline" style={{ color: "var(--primary)" }}>
+          {/* Signs the owner straight in using THIS statement's own token as
+              proof of identity -- no reason to make them email themselves a
+              second login link when they're already holding a valid one. */}
+          <a href={`/api/owner/session-from-share?token=${params.token}`} className="text-[11px] font-medium underline" style={{ color: "var(--primary)" }}>
             {tri(lang, "ورود به پنل مالک برای دیدن همهٔ گزارش‌ها", "Open the owner portal to see every statement", "Zum Eigentümerportal für alle Abrechnungen")}
           </a>
         </div>

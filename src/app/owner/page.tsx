@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Loader2, LogOut, FileText } from "lucide-react";
+import { Building2, Loader2, LogOut, FileText, Sparkles, ArrowUpRight } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { tri } from "@/lib/i18n/tri";
 import { formatListingPrice } from "@/lib/industry/realEstate/listingFormat";
@@ -100,6 +100,33 @@ export default function OwnerDashboardPage() {
             {tri(lang, "خروج", "Sign out", "Abmelden")}
           </button>
         </div>
+
+        {/* This owner is looking at their OWN agency's numbers, powered by
+            AiFekr behind the scenes -- a natural moment to mention that they
+            could run their own portfolio/agency on the same platform,
+            without pretending to be their agency's tool. */}
+        <a
+          href="https://aifekr.com/register"
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center justify-between gap-3 rounded-2xl p-4 transition-opacity hover:opacity-90"
+          style={{ background: "linear-gradient(135deg, rgba(234,88,12,0.14), rgba(234,88,12,0.05))", border: "1px solid rgba(234,88,12,0.3)" }}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="rounded-xl p-2 flex-shrink-0" style={{ background: "rgba(234,88,12,0.18)", color: "var(--primary)" }}>
+              <Sparkles className="w-4 h-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                {tri(lang, "این گزارش با پلتفرم AiFekr ساخته شده", "This statement was built with AiFekr", "Diese Abrechnung wurde mit AiFekr erstellt")}
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                {tri(lang, "برای مدیریت ملک‌ها یا کسب‌وکار خودتان، رایگان شروع کنید", "Managing properties or a business of your own? Start free", "Verwalten Sie eigene Immobilien oder ein eigenes Unternehmen? Kostenlos starten")}
+              </p>
+            </div>
+          </div>
+          <ArrowUpRight className="w-4 h-4 flex-shrink-0" style={{ color: "var(--primary)" }} />
+        </a>
 
         {properties.length === 0 || statements.length === 0 ? (
           <div className="text-center py-16 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>

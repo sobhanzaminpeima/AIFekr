@@ -184,7 +184,7 @@ export async function sendOwnerStatement(statementId: string, ownerEmail: string
         <a href="${shareUrl}" style="display:inline-block;padding:12px 24px;background:#ea580c;color:#fff;border-radius:8px;text-decoration:none;">${L.cta}</a>
       </p>
       <p style="margin-top:12px;">
-        <a href="${appUrl}/owner/login" style="color:#ea580c;font-size:13px;text-decoration:underline;">${L.loginCta}</a>
+        <a href="${appUrl}/api/owner/session-from-share?token=${shareToken}" style="color:#ea580c;font-size:13px;text-decoration:underline;">${L.loginCta}</a>
       </p>
     </div>`;
 
