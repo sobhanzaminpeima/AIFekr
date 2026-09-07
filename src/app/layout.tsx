@@ -1,5 +1,9 @@
 import type { Metadata, Viewport } from "next";
+import "@/styles/fonts.css";
+import "@/styles/tokens.css";
 import "./globals.css";
+import "@/styles/foundation.css";
+import UiProvider from "@/components/ui/UiProvider";
 import { Toaster } from "react-hot-toast";
 import { cookies } from "next/headers";
 
@@ -28,7 +32,6 @@ export async function generateMetadata(): Promise<Metadata> {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
   viewportFit: "cover",
   themeColor: "#0a0a0f",
 };
@@ -42,19 +45,21 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={lang} dir={dir} data-theme={theme}>
       <body className="antialiased">
-        {children}
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            style: {
-              background: "#1a1a1a",
-              color: "#f5f5f5",
-              border: "1px solid rgba(255,255,255,0.08)",
-              fontFamily: "Vazirmatn, sans-serif",
-              direction: dir,
-            },
-          }}
-        />
+        <UiProvider>
+          {children}
+          <Toaster
+            position="top-center"
+            toastOptions={{
+              style: {
+                background: "var(--surface-1)",
+                color: "var(--text-primary)",
+                border: "1px solid var(--border)",
+                fontFamily: "var(--font-body)",
+                direction: dir,
+              },
+            }}
+          />
+        </UiProvider>
       </body>
     </html>
   );
