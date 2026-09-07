@@ -2,6 +2,7 @@
 // OPENAI_API_KEY is configured; src/lib/ai/qwen.ts remains as the fallback
 // path (same "hasX" + dev-placeholder pattern used there) so this is a
 // swap, not a rewrite of the calling route.
+import sharp from "sharp";
 
 const hasOpenAIImage = !!(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.length > 10);
 
@@ -77,14 +78,23 @@ async function callOpenAIGenerate(promptText: string, count: number, size: strin
 async function callOpenAIEdit(promptText: string, referenceImageUrl: string, count: number, size: string): Promise<string[]> {
   const refRes = await fetch(referenceImageUrl);
   if (!refRes.ok) throw new Error(`Could not fetch reference image: HTTP ${refRes.status}`);
-  const refBuf = Buffer.from(await refRes.arrayBuffer());
+  const rawBuf = Buffer.from(await refRes.arrayBuffer());
+  // `new Blob([buf])` with no explicit type defaults to "" -> serialized as
+  // application/octet-stream, which OpenAI's edit endpoint flatly rejects
+  // ("unsupported mimetype") regardless of what the bytes actually are.
+  // Re-encoding through sharp both fixes the declared type AND normalizes
+  // whatever format the source (an upload, R2, or -- here -- our own
+  // gpt-image data: URI output) happened to be in to a format OpenAI
+  // accepts, rather than trusting an upstream Content-Type that may not
+  // even be set.
+  const refBuf = await sharp(rawBuf).png().toBuffer();
 
   const form = new FormData();
   form.append("model", IMAGE_MODEL);
   form.append("prompt", promptText);
   form.append("n", String(count));
   form.append("size", size);
-  form.append("image", new Blob([refBuf]), "reference.png");
+  form.append("image", new Blob([new Uint8Array(refBuf)], { type: "image/png" }), "reference.png");
 
   const res = await fetch("https://api.openai.com/v1/images/edits", {
     method: "POST",
