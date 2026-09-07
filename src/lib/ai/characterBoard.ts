@@ -97,9 +97,15 @@ export function buildPanelPrompts(brief: CharacterBrief): PanelPrompts {
   const wardrobe = resolveWardrobe(brief);
   const identity = baseIdentityLine(brief, wardrobe);
   return {
-    turnaround: `${identity}, full-body character turnaround reference sheet, four views arranged left to right in one image: front view, three-quarter view, side view, back view, consistent pose baseline and studio lighting, neutral gray studio background, fashion production reference sheet aesthetic, 8K detail`,
-    portraits: `${identity}, a 2x2 grid of four distinct cinematic portrait studies of the same person, varying angle and framing (close-up, medium shot, profile, over-the-shoulder), consistent identity across all four, editorial studio lighting, ${GENRE_LABEL[brief.genre]} mood, museum-quality photography`,
-    expressions: `${identity}, facial expression reference sheet, four close-up headshots arranged left to right, same camera angle and lighting across all four, four different expressions: neutral, soft smile, focused, reassuring, consistent identity and framing, casting-sheet aesthetic`,
+    turnaround: `${identity}, full-body character turnaround, four views arranged left to right in a single row: front view, three-quarter view, side view, back view, consistent pose baseline and studio lighting, neutral gray studio background, the four views fill the entire frame edge to edge with no gaps, no title text, no labels, no empty space, 8K detail`,
+    portraits: `${identity}, a 2x2 grid of four distinct cinematic portrait studies of the same person, varying angle and framing (close-up, medium shot, profile, over-the-shoulder), consistent identity across all four, editorial studio lighting, ${GENRE_LABEL[brief.genre]} mood, museum-quality photography, the four portraits fill the entire frame edge to edge with no gaps, no title text, no labels, no empty space`,
+    // "casting-sheet aesthetic" reliably made gpt-image add a dark title/
+    // label band above the row of faces, which then showed up as an odd
+    // black bar in the composited board (cropping couldn't remove it --
+    // the source and target aspect ratios are too close for that). The
+    // explicit "fill the frame edge to edge" + "no title text, no borders,
+    // no empty space" clause is what actually stops it.
+    expressions: `${identity}, four close-up headshots of the same person's face arranged in a single horizontal row, same camera angle and lighting across all four, four different expressions: neutral, soft smile, focused, reassuring, consistent identity and framing, the four headshots fill the entire frame edge to edge with no gaps, no borders, no title text, no labels, no empty space`,
   };
 }
 
