@@ -72,8 +72,17 @@ export async function POST(req: NextRequest) {
   try {
     const { buffer } = await generateCharacterBoard(brief, referenceImageUrl);
 
-    const key = getStorageKey(user.id, "image", "character-board.png");
-    const url = await uploadToStorage(buffer, key, "image/png");
+    // Same fallback the main /api/image/generate route already applies to
+    // every upload: storage being unconfigured shouldn't throw away a
+    // generation that already cost real API calls and credits -- fall back
+    // to a data: URI so the user still gets their board.
+    let url: string;
+    try {
+      const key = getStorageKey(user.id, "image", "character-board.png");
+      url = await uploadToStorage(buffer, key, "image/png");
+    } catch {
+      url = `data:image/png;base64,${buffer.toString("base64")}`;
+    }
 
     await deductCredits(user.id, creditCost);
 
