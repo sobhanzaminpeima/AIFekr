@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Mail, Loader2, CheckCircle2 } from "lucide-react";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, type Lang } from "@/lib/i18n";
 import { tri } from "@/lib/i18n/tri";
 
 /**
@@ -17,6 +17,11 @@ export default function OwnerLoginPage() {
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  // The owner may not read the same language this page happens to be
+  // showing in (e.g. a non-Iranian owner landing here via a browser set to
+  // Persian) -- so the language the EMAIL goes out in is its own explicit
+  // choice, not silently inherited from the page's own UI language.
+  const [emailLang, setEmailLang] = useState<Lang>(lang);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -26,13 +31,19 @@ export default function OwnerLoginPage() {
       await fetch("/api/owner/request-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), lang }),
+        body: JSON.stringify({ email: email.trim(), lang: emailLang }),
       });
       setSent(true);
     } finally {
       setSending(false);
     }
   }
+
+  const LANG_OPTIONS: { value: Lang; label: string }[] = [
+    { value: "fa", label: "فارسی" },
+    { value: "en", label: "English" },
+    { value: "de", label: "Deutsch" },
+  ];
 
   return (
     <div dir={dir} className="min-h-screen flex items-center justify-center px-4" style={{ background: "var(--surface-0)" }}>
@@ -71,6 +82,30 @@ export default function OwnerLoginPage() {
                 style={{ color: "var(--text-primary)" }}
               />
             </div>
+
+            <div>
+              <label className="block text-xs mb-1.5" style={{ color: "var(--text-muted)" }}>
+                {tri(lang, "زبان ایمیل", "Email language", "Sprache der E-Mail")}
+              </label>
+              <div className="flex gap-1.5">
+                {LANG_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setEmailLang(opt.value)}
+                    className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    style={{
+                      background: emailLang === opt.value ? "var(--primary)" : "var(--surface-2)",
+                      color: emailLang === opt.value ? "white" : "var(--text-secondary)",
+                      border: "1px solid var(--border)",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <button
               type="submit"
               disabled={sending}
