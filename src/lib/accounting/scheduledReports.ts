@@ -52,13 +52,19 @@ export async function listScheduledReports(workspaceUserId: string) {
 
 export async function pauseScheduledReport(id: string, workspaceUserId: string) {
   const report = await prisma.accountingScheduledReport.findFirstOrThrow({ where: { id, workspaceUserId } });
-  if (report.status !== "active") throw new Error("Only an active schedule can be paused");
+  // Same class of bug as approveFirstRun's error below: hardcoded English,
+  // passed straight to the client as err.message regardless of UI language.
+  if (report.status !== "active") {
+    throw new Error(tri(report.lang as "fa" | "en" | "de", "فقط زمان‌بندی فعال قابل توقف است", "Only an active schedule can be paused", "Nur ein aktiver Zeitplan kann pausiert werden"));
+  }
   return prisma.accountingScheduledReport.update({ where: { id }, data: { status: "paused" } });
 }
 
 export async function resumeScheduledReport(id: string, workspaceUserId: string) {
   const report = await prisma.accountingScheduledReport.findFirstOrThrow({ where: { id, workspaceUserId } });
-  if (report.status !== "paused") throw new Error("Only a paused schedule can be resumed");
+  if (report.status !== "paused") {
+    throw new Error(tri(report.lang as "fa" | "en" | "de", "فقط زمان‌بندی متوقف‌شده قابل ازسرگیری است", "Only a paused schedule can be resumed", "Nur ein pausierter Zeitplan kann fortgesetzt werden"));
+  }
   return prisma.accountingScheduledReport.update({ where: { id }, data: { status: "active" } });
 }
 
@@ -201,11 +207,22 @@ export async function runDueScheduledReports(now: Date = new Date()): Promise<{ 
 export async function approveFirstRun(id: string, workspaceUserId: string) {
   const report = await prisma.accountingScheduledReport.findFirstOrThrow({ where: { id, workspaceUserId } });
   if (report.status !== "awaiting_approval" || !report.firstRunPreview) {
-    throw new Error("This schedule has no pending preview to approve");
+    throw new Error(tri(report.lang as "fa" | "en" | "de", "این زمان‌بندی پیش‌نمایشی برای تأیید ندارد", "This schedule has no pending preview to approve", "Für diesen Zeitplan gibt es keine ausstehende Vorschau zur Genehmigung"));
   }
   const content = JSON.parse(report.firstRunPreview) as { subject: string; html: string };
   const ok = await sendEmail(report.recipientEmail, content.subject, content.html);
-  if (!ok) throw new Error("Failed to send the approved report email");
+  // Was a hardcoded English Error(), which the API route's `err.message`
+  // passed straight to the client regardless of UI language -- a Persian/
+  // German user approving a report saw this line in English. `lang` is
+  // already loaded on this row for exactly this kind of message.
+  if (!ok) {
+    throw new Error(tri(
+      report.lang as "fa" | "en" | "de",
+      "ارسال ایمیل گزارش تأییدشده ناموفق بود — تنظیمات ایمیل سرور را بررسی کنید",
+      "Failed to send the approved report email — check the server's email configuration",
+      "Der E-Mail-Versand des genehmigten Berichts ist fehlgeschlagen — prüfen Sie die E-Mail-Konfiguration des Servers"
+    ));
+  }
 
   return prisma.accountingScheduledReport.update({
     where: { id },
