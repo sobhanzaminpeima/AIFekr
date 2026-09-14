@@ -59,12 +59,22 @@ function buildPrompt(profile: Record<string, string>, question: string, crm: Awa
   // — wrap it as reference data so it can't be used to override SYSTEM_PROMPT.
   const profileSection = hasProfile ? wrapUntrustedContent("اطلاعات کسب‌وکار کاربر", profileText) : "";
 
+  // The instruction below used to be an unconditional "answer using the
+  // business info above". When the user's own question described a DIFFERENT
+  // business -- e.g. "analyse a hypothetical 3-person real-estate agency" on an
+  // account whose saved profile is a software company -- the model blended the
+  // two and produced advice about a business that doesn't exist
+  // (QA 2026-09-15, U07). The stored profile is context, not the subject: the
+  // question decides which business is being analysed.
   return `${profileSection}
 
 ## سوال/درخواست کاربر:
 ${question}
 
-${hasProfile ? "لطفاً با توجه به اطلاعات کسب‌وکار بالا، پاسخ دقیق و شخصی‌سازی شده بدهید." : ""}`;
+${hasProfile ? `راهنمای استفاده از اطلاعات بالا:
+- اگر سؤال کاربر خودش یک کسب‌وکار یا سناریوی مشخص را توصیف می‌کند (مثلاً «یک آژانس فرضی با ۳ کارمند»)، تحلیل را فقط دربارهٔ همان بنویس و اطلاعات پروفایل ذخیره‌شدهٔ بالا را وارد پاسخ نکن.
+- فقط وقتی سؤال به کسب‌وکار خودِ کاربر اشاره دارد یا کسب‌وکار مشخصی را نام نمی‌برد، از اطلاعات بالا برای شخصی‌سازی پاسخ استفاده کن.
+- هرگز دو کسب‌وکار را با هم ترکیب نکن. اگر معلوم نیست سؤال دربارهٔ کدام است، اول همین را بپرس.` : ""}`;
 }
 
 export async function POST(req: NextRequest) {

@@ -60,6 +60,7 @@ interface HomeSummary {
   teamActivity: TeamActivityItem[];
   meaningfulStats: StatKey[];
   isEmptyWorkspace: boolean;
+  industryPack: { name: string; nameEn: string | null; emoji: string } | null;
 }
 
 /**
@@ -104,12 +105,28 @@ export default function HomePage() {
   if (!data) return null;
 
   const nf = (n: number) => formatNumber(Math.round(n), lang);
-  const statMeta: Record<StatKey, { icon: React.ElementType; label: string; value: string; href: string; alarm?: boolean }> = {
+
+  /**
+   * Money figures (pipeline value, monthly revenue) run to ten digits in Toman.
+   * At full length they overflowed their stat card and were clipped at the
+   * screen edge on a 390px viewport (QA 2026-09-15, U09). Shortened above a
+   * million; the exact figure stays available via `title` on the element.
+   */
+  const compact = (n: number): string => {
+    const v = Math.round(n);
+    if (Math.abs(v) < 1_000_000) return formatNumber(v, lang);
+    const billions = v / 1_000_000_000;
+    if (Math.abs(billions) >= 1) {
+      return `${formatNumber(Math.round(billions * 10) / 10, lang)} ${tri(lang, "میلیارد", "B", "Mrd.")}`;
+    }
+    return `${formatNumber(Math.round(v / 100_000) / 10, lang)} ${tri(lang, "میلیون", "M", "Mio.")}`;
+  };
+  const statMeta: Record<StatKey, { icon: React.ElementType; label: string; value: string; exact?: string; href: string; alarm?: boolean }> = {
     activeDeals: { icon: Briefcase, label: tri(lang, "معاملهٔ باز", "Open deals", "Offene Deals"), value: nf(data.stats.activeDeals), href: "/crm" },
-    pipelineValue: { icon: TrendingUp, label: tri(lang, "ارزش پایپلاین", "Pipeline value", "Pipeline-Wert"), value: nf(data.stats.pipelineValue), href: "/crm" },
+    pipelineValue: { icon: TrendingUp, label: tri(lang, "ارزش پایپلاین", "Pipeline value", "Pipeline-Wert"), value: compact(data.stats.pipelineValue), exact: nf(data.stats.pipelineValue), href: "/crm" },
     newLeadsThisWeek: { icon: Users, label: tri(lang, "لید جدید این هفته", "New leads this week", "Neue Leads diese Woche"), value: nf(data.stats.newLeadsThisWeek), href: "/crm" },
     overdueInvoiceCount: { icon: Receipt, label: tri(lang, "فاکتور معوق", "Overdue invoices", "Überfällige Rechnungen"), value: nf(data.stats.overdueInvoiceCount), href: "/crm?tab=invoices", alarm: true },
-    monthRevenue: { icon: Wallet, label: tri(lang, "درآمد این ماه", "Revenue this month", "Umsatz diesen Monat"), value: nf(data.stats.monthRevenue), href: "/accounting" },
+    monthRevenue: { icon: Wallet, label: tri(lang, "درآمد این ماه", "Revenue this month", "Umsatz diesen Monat"), value: compact(data.stats.monthRevenue), exact: nf(data.stats.monthRevenue), href: "/accounting" },
     upcomingViewings: { icon: CalendarDays, label: tri(lang, "بازدید پیش رو", "Upcoming viewings", "Anstehende Besichtigungen"), value: nf(data.stats.upcomingViewings), href: "/crm" },
   };
 
@@ -125,6 +142,22 @@ export default function HomePage() {
             "Wie Ihr Geschäft steht und was heute Ihre Aufmerksamkeit braucht")}
         </p>
       </div>
+
+      {/* Which pack is active, spelled out -- a customer who just bought
+          "real estate" had no confirmation anywhere on this page that the
+          purchase actually enabled anything, beyond modules quietly
+          appearing in the sidebar. */}
+      {data.industryPack && (
+        <div className="flex items-center gap-2.5 rounded-xl px-4 py-2.5" style={{ background: "rgba(234,88,12,0.1)", border: "1px solid rgba(234,88,12,0.25)" }}>
+          <span className="text-lg flex-shrink-0" aria-hidden="true">{data.industryPack.emoji}</span>
+          <p className="text-sm" style={{ color: "var(--text-primary)" }}>
+            {tri(lang,
+              `ماژول‌های ${data.industryPack.name} برای شما فعال است`,
+              `Your ${data.industryPack.nameEn || data.industryPack.name} modules are active`,
+              `Ihre ${data.industryPack.nameEn || data.industryPack.name}-Module sind aktiv`)}
+          </p>
+        </div>
+      )}
 
       {data.isEmptyWorkspace && data.teamActivity.length === 0 ? (
         <div className="rounded-2xl p-8 text-center" style={{ background: "var(--surface-1)", border: "1px dashed var(--border)" }}>
@@ -166,7 +199,11 @@ export default function HomePage() {
                         <Icon className="w-3.5 h-3.5 flex-shrink-0" />
                         {m.label}
                       </span>
-                      <span className="text-lg font-bold" style={{ color: m.alarm ? "var(--neg)" : "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
+                      {/* min-w-0 + truncate so a long figure can never push past
+                          the card on a narrow screen; `title` keeps the exact
+                          value reachable when it has been shortened. */}
+                      <span className="text-lg font-bold min-w-0 truncate" title={m.exact}
+                        style={{ color: m.alarm ? "var(--neg)" : "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
                         {m.value}
                       </span>
                     </Link>

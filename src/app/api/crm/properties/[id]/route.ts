@@ -75,7 +75,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       status: status || undefined,
       crmContactId: crmContactId !== undefined ? (crmContactId || null) : undefined,
       crmDealId: crmDealId !== undefined ? (crmDealId || null) : undefined,
-      ownerContactId: ownerContactId !== undefined ? (ownerContactId || null) : undefined,
+      // Mirrors the create route: on a short-term rental, setting the CRM
+      // owner link also sets the settlement owner the accounting module reads,
+      // unless one was set explicitly. Without this, linking the owner in CRM
+      // after the property already existed still left Accounting asking for
+      // the owner from scratch (QA 2026-09-15, U02). Only fills an empty
+      // ownerContactId -- it never overwrites an owner already chosen there.
+      ownerContactId:
+        ownerContactId !== undefined
+          ? ownerContactId || null
+          : crmContactId && existing.listingType === "short_term_rent" && !existing.ownerContactId
+            ? crmContactId
+            : undefined,
       representationStartDate: representationStartDate !== undefined ? (representationStartDate ? new Date(representationStartDate) : null) : undefined,
       representationEndDate: representationEndDate !== undefined ? (representationEndDate ? new Date(representationEndDate) : null) : undefined,
       agreedCommissionRate: agreedCommissionRate !== undefined ? (agreedCommissionRate != null ? Number(agreedCommissionRate) : null) : undefined,

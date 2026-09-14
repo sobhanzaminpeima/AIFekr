@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  Briefcase, Plus, X, Phone, Mail, Building2, Loader2, ChevronDown,
+  Briefcase, Plus, X, Phone, Mail, Building2, Loader2, ChevronDown, ChevronUp,
   Users, LayoutGrid, Clock, CheckCircle2, Circle, Zap, FileText, FileDown, Trash2, Upload, Sparkles, CalendarDays,
   Package, Receipt, FileSignature, Pin, Printer, FolderKanban, PhoneCall,
   MessageCircle, Send, BarChart2, Check, DollarSign, Tag, GitBranch, User, Share2,
@@ -10,6 +10,7 @@ import {
 import toast from "react-hot-toast";
 import { useTranslation, tri, type Lang } from "@/lib/i18n";
 import type { Translations } from "@/lib/i18n/en";
+import { downscaleImage } from "@/lib/image/downscaleImage";
 import { toJalali } from "@/lib/utils/jalali";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import ReactMarkdown from "react-markdown";
@@ -38,7 +39,7 @@ interface Contact {
 }
 interface TeamMember { id: string; name: string; email: string; }
 interface Activity { id: string; type: string; content: string; createdAt: string; }
-interface Task { id: string; title: string; status: string; dueDate: string | null; }
+interface Task { id: string; title: string; status: string; dueDate: string | null; draftMessage?: string | null; }
 interface ContactDetail extends Contact {
   deals: Deal[]; activities: Activity[]; tasks: Task[];
 }
@@ -470,7 +471,7 @@ export default function CrmPage() {
       ) : tab === "automation" ? (
         <AutomationPanel isFa={isFa} t={c} rules={rules} onChanged={loadRules} />
       ) : tab === "agent" ? (
-        <CrmAgentPanel isFa={isFa} t={c} />
+        <CrmAgentPanel isFa={isFa} lang={lang} t={c} />
       ) : tab === "calendar" ? (
         <CalendarPanel isFa={isFa} lang={lang} t={c} />
       ) : tab === "analytics" ? (
@@ -1284,10 +1285,31 @@ function ContactDetailModal({ isFa, lang, t, contact, teamMembers, onClose, onCh
         <div>
           <div className="space-y-1.5 mb-2">
             {contact.tasks.map((tk) => (
-              <button key={tk.id} onClick={() => toggleTask(tk.id, tk.status)} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-right" style={{ background: "var(--surface-2)" }}>
-                {tk.status === "done" ? <CheckCircle2 className="w-3.5 h-3.5" style={{ color: "#22c55e" }} /> : <Circle className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} />}
-                <span style={{ color: tk.status === "done" ? "var(--text-muted)" : "var(--text-primary)", textDecoration: tk.status === "done" ? "line-through" : "none" }}>{tk.title}</span>
-              </button>
+              <div key={tk.id} className="rounded-xl" style={{ background: "var(--surface-2)" }}>
+                <button onClick={() => toggleTask(tk.id, tk.status)} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-right">
+                  {tk.status === "done" ? <CheckCircle2 className="w-3.5 h-3.5" style={{ color: "#22c55e" }} /> : <Circle className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} />}
+                  <span style={{ color: tk.status === "done" ? "var(--text-muted)" : "var(--text-primary)", textDecoration: tk.status === "done" ? "line-through" : "none" }}>{tk.title}</span>
+                </button>
+                {/* AI-drafted follow-up message (e.g. after a viewing with no
+                    feedback) -- shown for review, never sent automatically.
+                    Copy is the only action here since there's no outbound
+                    messaging channel wired up yet; the owner pastes it into
+                    WhatsApp/SMS/wherever they actually message this contact. */}
+                {tk.draftMessage && (
+                  <div className="px-3 pb-2.5">
+                    <p className="text-[11px] leading-5 p-2 rounded-lg whitespace-pre-wrap" style={{ background: "var(--surface-1)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
+                      {tk.draftMessage}
+                    </p>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(tk.draftMessage!); toast.success(tri(lang, "کپی شد", "Copied", "Kopiert")); }}
+                      className="mt-1.5 text-[11px] font-medium px-2 py-1 rounded-lg"
+                      style={{ background: "rgba(234,88,12,0.12)", color: "var(--primary)" }}
+                    >
+                      {tri(lang, "کپی پیام", "Copy message", "Nachricht kopieren")}
+                    </button>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
           <div className="flex gap-2">
@@ -1552,12 +1574,16 @@ function AutomationPanel({ isFa, t, rules, onChanged }: { isFa: boolean; t: Tran
 }
 
 interface CrmInsightRow { id: string; category: string; text: string; createdAt: string; }
+interface CrmRunRow { id: string; content: string; createdAt: string; }
 
-function CrmAgentPanel({ isFa, t }: { isFa: boolean; t: Translations["crm"] }) {
+function CrmAgentPanel({ isFa, lang, t }: { isFa: boolean; lang: Lang; t: Translations["crm"] }) {
   const [running, setRunning] = useState(false);
   const [analysis, setAnalysis] = useState("");
   const [insights, setInsights] = useState<CrmInsightRow[]>([]);
   const [loadingInsights, setLoadingInsights] = useState(true);
+  const [runs, setRuns] = useState<CrmRunRow[]>([]);
+  const [loadingRuns, setLoadingRuns] = useState(true);
+  const [openRunId, setOpenRunId] = useState<string | null>(null);
 
   const loadInsights = useCallback(async () => {
     const res = await fetch("/api/crm/agent/insights");
@@ -1566,7 +1592,19 @@ function CrmAgentPanel({ isFa, t }: { isFa: boolean; t: Translations["crm"] }) {
     setLoadingInsights(false);
   }, []);
 
-  useEffect(() => { loadInsights(); }, [loadInsights]);
+  const loadRuns = useCallback(async () => {
+    const res = await fetch("/api/crm/agent/runs");
+    const data = await res.json();
+    setRuns(data.runs || []);
+    setLoadingRuns(false);
+  }, []);
+
+  useEffect(() => { loadInsights(); loadRuns(); }, [loadInsights, loadRuns]);
+
+  function formatRunDate(iso: string): string {
+    const d = new Date(iso);
+    return d.toLocaleString(isFa ? "fa-IR" : lang === "de" ? "de-DE" : "en-US", { dateStyle: "medium", timeStyle: "short" });
+  }
 
   async function runAgent() {
     setRunning(true);
@@ -1596,6 +1634,7 @@ function CrmAgentPanel({ isFa, t }: { isFa: boolean; t: Translations["crm"] }) {
     } finally {
       setRunning(false);
       loadInsights();
+      loadRuns();
     }
   }
 
@@ -1622,6 +1661,45 @@ function CrmAgentPanel({ isFa, t }: { isFa: boolean; t: Translations["crm"] }) {
           <ReactMarkdown>{analysis.split(/## نکاتی برای حافظهٔ آینده/)[0].trim()}</ReactMarkdown>
         </div>
       )}
+
+      {/* Dated history of past analysis runs -- previously each run's report
+          was shown once and lost on refresh, with no way to compare this
+          week's read on the pipeline against last week's. */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+          {tri(lang, "تاریخچه‌ی تحلیل‌ها", "Analysis history", "Analyseverlauf")}
+        </h3>
+        {loadingRuns ? (
+          <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--text-muted)" }} />
+        ) : runs.length === 0 ? (
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            {tri(lang, "هنوز تحلیلی ذخیره نشده", "No analysis saved yet", "Noch keine Analyse gespeichert")}
+          </p>
+        ) : (
+          <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+            {runs.map((r, i) => (
+              <div key={r.id} style={{ borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+                <button
+                  onClick={() => setOpenRunId(openRunId === r.id ? null : r.id)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 text-xs"
+                  style={{ background: "var(--surface-1)", color: "var(--text-primary)" }}
+                >
+                  <span className="flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
+                    <CalendarDays className="w-3.5 h-3.5" />
+                    {formatRunDate(r.createdAt)}
+                  </span>
+                  {openRunId === r.id ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+                {openRunId === r.id && (
+                  <div className="px-4 pb-3 prose prose-invert prose-sm max-w-none leading-6" style={{ background: "var(--surface-1)", color: "var(--text-primary)" }}>
+                    <ReactMarkdown>{r.content}</ReactMarkdown>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="space-y-2">
         <h3 className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>{t.agent.savedNotesTitle}</h3>
@@ -2015,7 +2093,7 @@ function ProductsPanel({ isFa, t }: { isFa: boolean; t: Translations["crm"] }) {
     setUploading(true);
     try {
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", await downscaleImage(file));
       const res = await fetch("/api/upload", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -3017,6 +3095,12 @@ function defaultCurrencyForLang(lang: Lang): string {
 // language the admin's own UI is set to. Fixing this bug was requested
 // explicitly after testing a real multi-owner, multi-currency scenario.
 function fmtPrice(n: number, currency: string, _lang: Lang): string {
+  // Property.price is a non-nullable BigInt, so a listing saved with the price
+  // field left blank stores 0 -- and 0 was being rendered as a real price
+  // ("۰ تومان"), which reads as "this property is free" rather than "no price
+  // set yet" (QA 2026-09-15, U11). An actually-free listing isn't a thing in
+  // this product, so 0 always means "not specified".
+  if (!n) return "—";
   const opt = CURRENCY_OPTIONS.find((c) => c.value === currency);
   const formatted = new Intl.NumberFormat(opt?.fa ? "fa-IR" : "en-US").format(n);
   if (!opt) return formatted;
@@ -3852,7 +3936,7 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
     setUploadingImage(true);
     try {
       const form2 = new FormData();
-      form2.append("file", file);
+      form2.append("file", await downscaleImage(file));
       const res = await fetch(`/api/crm/properties/${property.id}/images`, { method: "POST", body: form2 });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);

@@ -9,6 +9,13 @@ import { isCustomProviderModel, streamCustomProvider } from "@/lib/ai/customProv
 import { CREDIT_COSTS } from "@/lib/utils/credits";
 import { getAvailableCredits, deductCredits } from "@/lib/utils/teamCredits";
 import { rateLimit } from "@/lib/utils/rateLimit";
+import { getServerLang } from "@/lib/i18n/server";
+import { buildWorkspaceContext } from "@/lib/orchestrator/isolation";
+import { orchestrateTurn, buildComposerMessages, composerInstruction, type OrchestrationResult } from "@/lib/orchestrator/run";
+import { parseRoutingState, serializeRoutingState } from "@/lib/orchestrator/routing";
+import { callPlanner } from "@/lib/orchestrator/planner";
+import { buildProductKnowledgeBlock } from "@/lib/orchestrator/kb/productContext";
+import { logError } from "@/lib/logging/errorLog";
 
 const SUGGESTIONS_INSTRUCTION = `
 
@@ -130,7 +137,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "اعتبار کافی ندارید. لطفاً اعتبار خود را شارژ کنید" }, { status: 402 });
     }
 
-    const systemStr = systemPrompt || SYSTEM_PROMPTS[expertMode as string] || SYSTEM_PROMPTS.default;
+    const lang = await getServerLang();
+
+    // Ground answers about AIFekr itself in the real knowledge base instead of
+    // whatever the model happens to believe. No-ops (returns "") for every
+    // message that isn't a question about the platform -- see productContext.ts.
+    const baseSystemStr =
+      (systemPrompt || SYSTEM_PROMPTS[expertMode as string] || SYSTEM_PROMPTS.default) +
+      (await buildProductKnowledgeBlock(message, lang));
 
     // Find or create conversation
     let convId = conversationId;
@@ -150,11 +164,46 @@ export async function POST(req: NextRequest) {
       data: { conversationId: convId, role: "user", content: message },
     });
 
+    // ─── full_mode orchestration pre-pass ──────────────────────────────────
+    // Additive by design: when the message doesn't resolve to one of the
+    // enabled business domains, `orchestrateTurn` returns handled:false and
+    // everything below runs exactly as it did before this existed. A failure
+    // anywhere in here degrades to ordinary chat rather than erroring the
+    // user's turn — a broken orchestrator must not break the main chat.
+    let orchestration: OrchestrationResult | null = null;
+    try {
+      const ctx = await buildWorkspaceContext({ id: user.id, plan: user.plan, voicePlan: user.voicePlan }, lang);
+      const conv = await prisma.conversation.findUnique({ where: { id: convId }, select: { routingState: true } });
+      const result = await orchestrateTurn({
+        message,
+        ctx,
+        state: parseRoutingState(conv?.routingState),
+        conversationId: convId,
+        callPlanner,
+      });
+      if (result.handled) {
+        orchestration = result;
+        await prisma.conversation.update({
+          where: { id: convId },
+          data: { routingState: serializeRoutingState(result.nextState) },
+        });
+      }
+    } catch (err) {
+      console.error("Orchestration pre-pass failed — answering as ordinary chat:", err);
+      orchestration = null;
+    }
+
     // Build message history for the API
-    const apiMessages = [
-      ...history.slice(-10),
-      { role: "user" as const, content: message },
-    ];
+    const apiMessages = orchestration
+      ? buildComposerMessages(history.slice(-10), message, orchestration.contextBlock, orchestration.rejectionBlock)
+      : [...history.slice(-10), { role: "user" as const, content: message }];
+
+    // When real account data is in play the composing model gets the extra
+    // grounding rules appended (answer only from the data, never invent a
+    // figure, don't claim a staged action already happened).
+    const systemStr = orchestration
+      ? `${baseSystemStr}\n\n${composerInstruction(lang, orchestration.sourceCapabilities, orchestration.pendingActions.length > 0)}`
+      : baseSystemStr;
 
     let assistantContent = "";
     let selectedProvider: Provider | null = null;
@@ -249,13 +298,30 @@ export async function POST(req: NextRequest) {
           } catch (bookkeepingErr) {
             // Logged for manual reconciliation — the user already has their
             // answer, so we still send [DONE] below rather than an error.
-            console.error("Chat post-generation bookkeeping failed (message save/credit deduct/usage log):", bookkeepingErr);
+            // Persisted too: a silent credit/message-save failure is exactly
+            // the class of bug the admin error log exists to surface.
+            await logError({ source: "/api/chat (bookkeeping)", error: bookkeepingErr, userId: user.id });
+          }
+
+          // Orchestrator extras, sent once the answer is complete. Actions
+          // carry only their stored id — the client fetches the card text from
+          // the server, so what the user is asked to confirm comes from the
+          // validated arguments and not from anything the model wrote.
+          if (orchestration && (orchestration.pendingActions.length > 0 || orchestration.sourceCapabilities.length > 0)) {
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  actions: orchestration.pendingActions.map((a) => ({ id: a.id, summary: a.summary, expiresAt: a.expiresAt })),
+                  dataSources: orchestration.sourceCapabilities,
+                })}\n\n`
+              )
+            );
           }
 
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();
         } catch (err) {
-          console.error("Stream error:", err);
+          await logError({ source: "/api/chat (stream)", error: err, userId: user.id });
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "خطا در دریافت پاسخ" })}\n\n`));
           controller.close();
         }
@@ -271,7 +337,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err) {
-    console.error("Chat API error:", err);
+    await logError({ source: "/api/chat", error: err, userId: user.id });
     return NextResponse.json({ error: "خطای سرور" }, { status: 500 });
   }
 }

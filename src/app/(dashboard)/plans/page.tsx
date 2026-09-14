@@ -10,6 +10,7 @@ import {
 import toast from "react-hot-toast";
 import { useSearchParams } from "next/navigation";
 import { useTranslation, tri } from "@/lib/i18n";
+import { IR_PLAN_CODES, USD_PLAN_CODES } from "@/lib/plans/catalog";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type Market = "IR" | "INTL";
@@ -56,8 +57,9 @@ const FEATURE_ROWS = [
   ]},
 ];
 
-const IR_PLAN_CODES  = ["FREE", "ECHO", "PLUS", "PRO", "ALPHA"];
-const USD_PLAN_CODES = ["FREE", "STARTER_USD", "PLUS_USD", "PRO_USD", "ULTRA_USD"];
+// Moved to lib/plans/catalog so the public landing page selects the same plans
+// this page sells -- it used to pick "first 3 active by sortOrder" on its own
+// and advertised a different, cheaper, legacy set (QA 2026-09-15, U04).
 
 const FREE_IR: ApiPackage  = { planCode: "FREE", name: "رایگان", nameEn: "Free", price: 0, priceUsd: 0, market: "IR",   duration: 30, credits: 100, isFeatured: false, color: "#71717a", features: "۲۰ چت در روز\n۳ تصویر در روز\nمدل‌های پایه" };
 const FREE_USD: ApiPackage = { planCode: "FREE", name: "Free",   nameEn: "Free", price: 0, priceUsd: 0, market: "INTL", duration: 30, credits: 100, isFeatured: false, color: "#71717a", features: "20 chats per day\n3 images per day\nBasic models" };

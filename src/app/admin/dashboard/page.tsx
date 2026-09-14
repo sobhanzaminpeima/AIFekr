@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Users, DollarSign, Bot, TrendingUp, TrendingDown, Loader2, RefreshCw } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { formatPrice, formatNumber, toJalaliShort } from "@/lib/utils/jalali";
+import { PLAN_NAMES_FA } from "@/lib/utils/credits";
 
 interface Stats {
   totalUsers: number;
@@ -22,12 +23,10 @@ const PLAN_COLORS: Record<string, string> = {
   TEAM: "#8b5cf6",
 };
 
-const PLAN_NAMES: Record<string, string> = {
-  FREE: "رایگان",
-  BASIC: "پایه",
-  PRO: "حرفه‌ای",
-  TEAM: "تیمی",
-};
+// Stale local copy: it listed only FREE/BASIC/PRO/TEAM, so users on the plans
+// actually sold today (ECHO, PLUS, ALPHA, the *_USD codes) charted as a blank
+// label. PLAN_NAMES_FA in lib/utils/credits.ts is the canonical list.
+const PLAN_NAMES = PLAN_NAMES_FA;
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);

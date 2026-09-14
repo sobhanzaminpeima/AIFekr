@@ -4,6 +4,29 @@ import { prisma } from "@/lib/db/prisma";
 import { MessageSquare, User, Clock, Trash2 } from "lucide-react";
 import { toJalali } from "@/lib/utils/jalali";
 
+/**
+ * Conversation.model holds whatever was REQUESTED — a concrete model id, or
+ * "auto" when the router picks. This column used to read
+ *   model.includes("haiku") ? "Haiku" : model.includes("sonnet") ? "Sonnet" : "Opus"
+ * so every conversation that wasn't Claude Haiku/Sonnet — "auto", GPT-5,
+ * Groq, Gemini, any custom provider — was labelled "Opus" in the admin panel
+ * (QA 2026-09-15, A04). Show the stored value instead, tidied where the id is
+ * recognisable, and never fall back to naming a specific model.
+ *
+ * Note this is still the requested model. Which model actually answered is
+ * recorded per-request on UsageLog.model (see /api/chat), which is what
+ * /admin/logs and /admin/usage report against.
+ */
+function modelLabel(model: string): string {
+  if (!model || model === "auto") return "خودکار";
+  const m = model.toLowerCase();
+  if (m.includes("haiku")) return "Haiku";
+  if (m.includes("sonnet")) return "Sonnet";
+  if (m.includes("opus")) return "Opus";
+  if (m.startsWith("custom:")) return `سفارشی · ${model.slice("custom:".length)}`;
+  return model;
+}
+
 export default async function ChatsPage({
   searchParams,
 }: {
@@ -84,7 +107,7 @@ export default async function ChatsPage({
                 </td>
                 <td className="px-4 py-3">
                   <span className="px-2 py-0.5 rounded-full text-xs" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
-                    {c.model.includes("haiku") ? "Haiku" : c.model.includes("sonnet") ? "Sonnet" : "Opus"}
+                    {modelLabel(c.model)}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-center" style={{ color: "var(--text-secondary)" }}>{c._count.messages}</td>

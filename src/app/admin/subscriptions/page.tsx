@@ -2,9 +2,12 @@ export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/db/prisma";
 import { toJalali } from "@/lib/utils/jalali";
+import { PLAN_NAMES_FA } from "@/lib/utils/credits";
 import Link from "next/link";
 
-const PLAN_NAMES: Record<string, string> = { FREE: "رایگان", BASIC: "پایه", PRO: "حرفه‌ای", TEAM: "تیمی" };
+// Was a stale local copy missing ECHO/PLUS/ALPHA and the *_USD codes — see the
+// same note in admin/dashboard. Falls back to the raw code at the call site.
+const PLAN_NAMES = PLAN_NAMES_FA;
 const PLAN_COLORS: Record<string, string> = { FREE: "#71717a", BASIC: "#3b82f6", PRO: "#ea580c", TEAM: "#8b5cf6" };
 
 function daysLeft(date: Date | null): number {

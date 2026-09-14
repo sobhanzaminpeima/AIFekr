@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, Filter, ChevronLeft, ChevronRight, MoreVertical, Ban, Coins, UserCheck, Trash2, Loader2, Repeat, Plus, Sparkles, X } from "lucide-react";
 import { toJalali, formatNumber } from "@/lib/utils/jalali";
 import toast from "react-hot-toast";
+import { COUNTRIES } from "@/lib/constants/countries";
 
 interface User {
   id: string;
@@ -22,9 +23,24 @@ interface User {
 const PLAN_BADGE: Record<string, { label: string; color: string }> = {
   FREE: { label: "رایگان", color: "#71717a" },
   BASIC: { label: "پایه", color: "#3b82f6" },
+  ECHO: { label: "اکو", color: "#0ea5e9" },
+  PLUS: { label: "پلاس", color: "#6366f1" },
   PRO: { label: "حرفه‌ای", color: "#ea580c" },
+  ALPHA: { label: "آلفا", color: "#a855f7" },
   TEAM: { label: "تیمی", color: "#8b5cf6" },
 };
+
+/**
+ * PLAN_BADGE only listed FREE/BASIC/PRO/TEAM while the Package table actually
+ * sells ECHO, PLUS, ALPHA and the *_USD codes too. Every read was a bare
+ * `PLAN_BADGE[user.plan]` followed by `badge.color`, so a single user on any
+ * of those plans threw "Cannot read properties of undefined" and blanked the
+ * whole admin user list (found while fixing QA 2026-09-15, A05). Unknown codes
+ * now render as themselves rather than crashing the page.
+ */
+function planBadge(plan: string): { label: string; color: string } {
+  return PLAN_BADGE[plan] || { label: plan || "—", color: "#71717a" };
+}
 
 export default function AdminUsersPage() {
   const router = useRouter();
@@ -38,7 +54,7 @@ export default function AdminUsersPage() {
   const [actionUserId, setActionUserId] = useState<string | null>(null);
   const [planMenuUserId, setPlanMenuUserId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [addForm, setAddForm] = useState({ name: "", email: "", phone: "", password: "", plan: "FREE" });
+  const [addForm, setAddForm] = useState({ firstName: "", lastName: "", country: "", email: "", phone: "", password: "", plan: "FREE" });
   const [addSaving, setAddSaving] = useState(false);
 
   // "Invite to AIfekr" — activates the trial here, then hands off to the
@@ -117,7 +133,7 @@ export default function AdminUsersPage() {
   }, [page, search, planFilter]);
 
   async function addUser() {
-    if (!addForm.name.trim()) return toast.error("نام الزامی است");
+    if (!addForm.firstName.trim()) return toast.error("نام الزامی است");
     if (!addForm.email && !addForm.phone) return toast.error("ایمیل یا موبایل الزامی است");
     if (addForm.password.length < 6) return toast.error("رمز عبور حداقل ۶ کاراکتر باشد");
     setAddSaving(true);
@@ -134,7 +150,7 @@ export default function AdminUsersPage() {
       }
       toast.success("کاربر ایجاد شد");
       setShowAdd(false);
-      setAddForm({ name: "", email: "", phone: "", password: "", plan: "FREE" });
+      setAddForm({ firstName: "", lastName: "", country: "", email: "", phone: "", password: "", plan: "FREE" });
       fetchUsers();
     } finally {
       setAddSaving(false);
@@ -178,7 +194,7 @@ export default function AdminUsersPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ plan }),
     });
-    toast.success(`پلن به «${PLAN_BADGE[plan].label}» تغییر کرد`);
+    toast.success(`پلن به «${planBadge(plan).label}» تغییر کرد`);
     fetchUsers();
     setPlanMenuUserId(null);
     setActionUserId(null);
@@ -259,7 +275,7 @@ export default function AdminUsersPage() {
             </thead>
             <tbody>
               {users.map((user, idx) => {
-                const badge = PLAN_BADGE[user.plan];
+                const badge = planBadge(user.plan);
                 const openUp = idx >= users.length - 3;
                 return (
                   <tr key={user.id} style={{ borderBottom: "1px solid var(--border)" }} className="hover:bg-white/2 transition-colors">
@@ -301,15 +317,19 @@ export default function AdminUsersPage() {
                       )}
                       {actionUserId === user.id && planMenuUserId === user.id && (
                         <div className={`absolute left-0 z-50 w-44 rounded-xl overflow-hidden shadow-xl ${openUp ? "bottom-full mb-1" : "top-full mt-1"}`} style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                          {/* Says "AI plan" explicitly: this menu writes User.plan only.
+                              The CRM and Voice add-ons are separately-billed plans
+                              (User.crmPlan / User.voicePlan) and are NOT changed here —
+                              the unlabelled "تغییر پلن" made that ambiguous (QA A05). */}
                           <div className="px-3 py-2 text-xs font-medium" style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
-                            انتخاب پلن جدید
+                            پلن هوش مصنوعی (افزونه‌های CRM/Voice جداگانه‌اند)
                           </div>
                           {Object.keys(PLAN_BADGE).map((p) => (
                             <button key={p} onClick={() => changePlan(user.id, p)}
                               disabled={p === user.plan}
                               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-right transition-all hover:bg-white/5 disabled:opacity-40"
-                              style={{ color: PLAN_BADGE[p].color }}>
-                              {PLAN_BADGE[p].label}{p === user.plan ? " (فعلی)" : ""}
+                              style={{ color: planBadge(p).color }}>
+                              {planBadge(p).label}{p === user.plan ? " (فعلی)" : ""}
                             </button>
                           ))}
                           <ActionItem icon={ChevronRight} label="بازگشت" onClick={() => setPlanMenuUserId(null)} />
@@ -356,10 +376,25 @@ export default function AdminUsersPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}>
           <div className="w-full max-w-md rounded-2xl p-6 space-y-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>افزودن کاربر جدید</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>نام</label>
+                <input value={addForm.firstName} onChange={(e) => setAddForm((p) => ({ ...p, firstName: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>نام خانوادگی</label>
+                <input value={addForm.lastName} onChange={(e) => setAddForm((p) => ({ ...p, lastName: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
+            </div>
             <div>
-              <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>نام</label>
-              <input value={addForm.name} onChange={(e) => setAddForm((p) => ({ ...p, name: e.target.value }))}
-                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>کشور</label>
+              <select value={addForm.country} onChange={(e) => setAddForm((p) => ({ ...p, country: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                <option value="">—</option>
+                {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.fa}</option>)}
+              </select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

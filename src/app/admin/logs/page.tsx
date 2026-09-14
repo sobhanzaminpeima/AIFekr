@@ -17,6 +17,17 @@ interface LogEntry {
   metadata: string | null;
 }
 
+interface ErrorEntry {
+  id: string;
+  level: string;
+  source: string;
+  message: string;
+  stack: string | null;
+  userId: string | null;
+  requestId: string | null;
+  createdAt: string;
+}
+
 export default function AdminLogsPage() {
   const [tab, setTab] = useState<Tab>("api");
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -44,6 +55,24 @@ export default function AdminLogsPage() {
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
+
+  const [errors, setErrors] = useState<ErrorEntry[]>([]);
+  const [errorsLoading, setErrorsLoading] = useState(false);
+  const [errorsFailed, setErrorsFailed] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  // Loaded only when the tab is opened -- no reason to query error history on
+  // every visit to the API-log tab.
+  useEffect(() => {
+    if (tab !== "errors") return;
+    setErrorsLoading(true);
+    setErrorsFailed(false);
+    fetch("/api/admin/logs/errors")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((d) => setErrors(d.errors || []))
+      .catch(() => setErrorsFailed(true))
+      .finally(() => setErrorsLoading(false));
+  }, [tab]);
 
   return (
     <div className="p-6 space-y-6">
@@ -112,9 +141,56 @@ export default function AdminLogsPage() {
               </tbody>
             </table>
           )
-        ) : (
+        ) : errorsLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />
+          </div>
+        ) : errorsFailed ? (
+          <div className="text-center py-16 text-sm" style={{ color: "var(--danger)" }}>
+            خطا در دریافت گزارش خطاها. لطفاً دوباره تلاش کنید.
+          </div>
+        ) : errors.length === 0 ? (
           <div className="text-center py-16 text-sm" style={{ color: "var(--text-secondary)" }}>
-            سیستم ثبت خطا (Error Logging) هنوز پیاده‌سازی نشده است — این بخش نیاز به تصمیم مالک محصول دارد.
+            هیچ خطایی ثبت نشده است.
+          </div>
+        ) : (
+          <div>
+            {errors.map((e) => (
+              <div key={e.id} className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
+                <button
+                  onClick={() => setExpanded(expanded === e.id ? null : e.id)}
+                  className="w-full flex items-start gap-3 text-right"
+                >
+                  <span
+                    className="px-2 py-0.5 rounded-full text-[11px] flex-shrink-0 mt-0.5"
+                    style={
+                      e.level === "warn"
+                        ? { background: "rgba(245,158,11,0.12)", color: "#f59e0b" }
+                        : { background: "rgba(239,68,68,0.12)", color: "var(--danger)" }
+                    }
+                  >
+                    {e.level === "warn" ? "هشدار" : "خطا"}
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm truncate" style={{ color: "var(--text-primary)" }}>{e.message}</span>
+                    <span className="block text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                      {e.source} · {toJalali(e.createdAt)}
+                      {e.requestId ? ` · req ${e.requestId}` : ""}
+                      {e.userId ? ` · user ${e.userId}` : ""}
+                    </span>
+                  </span>
+                </button>
+                {expanded === e.id && e.stack && (
+                  <pre
+                    className="mt-2 p-3 rounded-xl text-[11px] overflow-x-auto whitespace-pre-wrap"
+                    dir="ltr"
+                    style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
+                  >
+                    {e.stack}
+                  </pre>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>

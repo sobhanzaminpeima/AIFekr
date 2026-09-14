@@ -31,9 +31,18 @@ export async function POST(req: NextRequest) {
         planCode: body.planCode,
         name: body.name, nameEn: body.nameEn || body.name,
         price: Number(body.price) || 0,
+        // priceUsd/market/featuresEn exist on the model and drive the whole
+        // international side of /plans, but this route never read them -- so an
+        // international package could not be created or priced from the admin
+        // panel at all, and its card rendered as "free" (QA 2026-09-15, A03).
+        // Null, not 0: null means "Iran-only plan" per the schema, while 0
+        // would advertise a genuinely free USD plan.
+        priceUsd: body.priceUsd === "" || body.priceUsd == null ? null : Number(body.priceUsd),
+        market: body.market || "IR",
         duration: Number(body.duration) || 30,
         credits: Number(body.credits) || 1000,
         features: body.features || "",
+        featuresEn: body.featuresEn || null,
         color: body.color || "#ea580c",
         isActive: body.isActive ?? true,
         isFeatured: body.isFeatured ?? false,
@@ -58,9 +67,13 @@ export async function PUT(req: NextRequest) {
       data: {
         name: data.name, nameEn: data.nameEn,
         price: Number(data.price),
+        // See the POST handler's note -- same three fields were unwritable here.
+        priceUsd: data.priceUsd === "" || data.priceUsd == null ? null : Number(data.priceUsd),
+        market: data.market || "IR",
         duration: Number(data.duration),
         credits: Number(data.credits),
         features: data.features,
+        featuresEn: data.featuresEn || null,
         color: data.color,
         isActive: data.isActive,
         isFeatured: data.isFeatured,

@@ -72,9 +72,13 @@ export default function PricingSection({
                   <span className="text-3xl font-bold text-white">
                     {p.price > 0 ? Math.round(p.price / 10).toLocaleString("fa-IR") : freeLabel}
                   </span>
+                  {/* `perMonth` already carries the unit and separator
+                      ("تومان/ماه", "/mo", "/Monat"), so prefixing another
+                      "تومان /" here rendered "۱۴۹٬۰۰۰ تومان / تومان/ماه" —
+                      and "$9 / /mo" in the branch below. */}
                   {p.price > 0 && (
                     <span className="text-sm mr-1" style={{ color: "rgba(255,255,255,0.5)" }}>
-                      {" "}تومان / {perMonth}
+                      {" "}{perMonth}
                     </span>
                   )}
                 </>
@@ -85,7 +89,7 @@ export default function PricingSection({
                   </span>
                   {p.priceUsd && p.priceUsd > 0 && (
                     <span className="text-sm ml-1" style={{ color: "rgba(255,255,255,0.5)" }}>
-                      {" "}/ {perMonth}
+                      {" "}{perMonth}
                     </span>
                   )}
                 </>

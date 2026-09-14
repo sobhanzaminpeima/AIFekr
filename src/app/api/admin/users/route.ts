@@ -24,9 +24,17 @@ export async function GET(req: NextRequest) {
   const where: Record<string, unknown> = {};
 
   if (search) {
+    // No `mode: "insensitive"` here -- this project is on SQLite, whose Prisma
+    // provider rejects that argument outright ("Unknown argument `mode`"), so
+    // every search threw a 500 and admin user search silently did nothing.
+    // The `where` object is typed as Record<string, unknown>, which is why
+    // TypeScript never caught it. SQLite's LIKE is already case-insensitive
+    // for ASCII (so emails and Latin names still match either case), and
+    // Persian has no case distinction at all -- same behaviour, minus the
+    // crash. See the same note in src/app/api/owner/request-link/route.ts.
     where.OR = [
-      { name: { contains: search, mode: "insensitive" } },
-      { email: { contains: search, mode: "insensitive" } },
+      { name: { contains: search } },
+      { email: { contains: search } },
       { phone: { contains: search } },
     ];
   }
@@ -69,9 +77,13 @@ export async function POST(req: NextRequest) {
     return user ? forbiddenResponse() : unauthorizedResponse();
   }
 
-  const { name, email, phone, password, plan, credits } = await req.json();
+  const { name, firstName, lastName, country, email, phone, password, plan, credits } = await req.json();
 
-  if (!name?.trim()) return NextResponse.json({ error: "نام الزامی است" }, { status: 400 });
+  const composedName = firstName?.trim()
+    ? `${firstName.trim()}${lastName?.trim() ? ` ${lastName.trim()}` : ""}`
+    : name?.trim();
+
+  if (!composedName) return NextResponse.json({ error: "نام الزامی است" }, { status: 400 });
   if (!email && !phone) return NextResponse.json({ error: "ایمیل یا موبایل الزامی است" }, { status: 400 });
   if (!password || password.length < 6) return NextResponse.json({ error: "رمز عبور حداقل ۶ کاراکتر باشد" }, { status: 400 });
 
@@ -86,7 +98,10 @@ export async function POST(req: NextRequest) {
 
   const referralCode = randomBytes(4).toString("hex");
   const user = await createUser({
-    name: name.trim(),
+    name: composedName,
+    firstName: firstName?.trim() || undefined,
+    lastName: lastName?.trim() || undefined,
+    country: typeof country === "string" && country.trim() ? country.trim().toUpperCase().slice(0, 10) : undefined,
     email: email || undefined,
     phone: phone || undefined,
     passwordHash: await hashPassword(password),

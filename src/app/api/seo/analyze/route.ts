@@ -2,6 +2,26 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { routedStreamChat } from "@/lib/ai/router";
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n/tri";
+import type { Lang } from "@/lib/i18n";
+
+/**
+ * Every prompt below branches only on `lang === "fa"`, so German fell into the
+ * English branch -- and neither branch ever told the model which language to
+ * ANSWER in. A German user got German keywords with Persian explanations
+ * around them (QA 2026-09-15, U08). Appended to every system prompt here for
+ * the same reason the support assistant names its language outright: an
+ * unstated output language is one the model picks from context.
+ */
+function outputLanguageRule(lang: Lang): string {
+  return tri(
+    lang,
+    "\n\nکل پاسخت را فقط و فقط به زبان فارسی بنویس.",
+    "\n\nWrite your ENTIRE answer in English only.",
+    "\n\nSchreibe deine GESAMTE Antwort ausschließlich auf Deutsch — auch die Erklärungen, Tabellenüberschriften und Begründungen, nicht nur die Keywords."
+  );
+}
 
 async function crawlUrl(url: string) {
   try {
@@ -33,7 +53,10 @@ export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const { tool, keyword, content, url, targetKeyword, language } = await req.json();
-  const lang = language || "fa";
+  // Fall back to the UI language the request actually carries, not a hardcoded
+  // "fa" -- an en/de user whose client omitted `language` was served Persian.
+  const uiLang = await getServerLang();
+  const lang: Lang = language === "fa" || language === "en" || language === "de" ? language : uiLang;
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -43,19 +66,24 @@ export async function POST(req: NextRequest) {
       let userMessage = "";
 
       if (tool === "url" && url) {
-        send(lang === "fa" ? "در حال بارگذاری وبسایت...\n" : "Loading website...\n");
+        send(tri(lang, "در حال بارگذاری وبسایت...\n", "Loading website...\n", "Website wird geladen...\n"));
         const data = await crawlUrl(url);
         if (!data) {
-          send(lang === "fa" ? "❌ خطا در بارگذاری URL.\n" : "❌ Failed to load URL.\n");
+          send(tri(lang, "❌ خطا در بارگذاری URL.\n", "❌ Failed to load URL.\n", "❌ URL konnte nicht geladen werden.\n"));
           controller.enqueue(encoder.encode("data: [DONE]\n\n")); controller.close(); return;
         }
-        send(lang === "fa" ? "✅ وبسایت بارگذاری شد. در حال تحلیل سئو...\n\n---\n\n" : "✅ Website loaded. Analyzing SEO...\n\n---\n\n");
+        send(tri(lang, "✅ وبسایت بارگذاری شد. در حال تحلیل سئو...\n\n---\n\n", "✅ Website loaded. Analyzing SEO...\n\n---\n\n", "✅ Website geladen. SEO-Analyse läuft...\n\n---\n\n"));
         systemPrompt = lang === "fa" ? "تو متخصص سئو حرفه‌ای با ۱۰+ سال تجربه هستی. گزارش جامع، دقیق و عملی سئو ارائه می‌دهی. پاسخ کامل و حرفه‌ای بده." : "You are a professional SEO specialist. Provide comprehensive, accurate and actionable SEO reports.";
         userMessage = lang === "fa"
           ? `تحلیل کامل سئو برای: **${url}**\n\nداده‌های سایت:\n- Title: ${data.title || "❌ ندارد"} (${data.title.length} کاراکتر)\n- Meta Desc: ${data.metaDesc || "❌ ندارد"} (${data.metaDesc.length} کاراکتر)\n- H1: ${data.h1.join(" / ") || "❌ ندارد"}\n- H2: ${data.h2.slice(0,5).join(", ") || "❌ ندارد"}\n- تصاویر: ${data.images} (${data.imagesWithAlt} با alt)\n- لینک‌ها: ${data.links}\n- کلمات: ~${data.wordCount}\n- Canonical: ${data.canonical || "❌ ندارد"}\n- OG Tags: ${data.ogTitle ? "✅" : "❌"}\n- Schema.org: ${data.hasSchema ? "✅" : "❌"}\n${targetKeyword ? `- کلمه کلیدی هدف: ${targetKeyword}` : ""}\n\nگزارش جامع شامل:\n1. امتیاز کلی سئو (از ۱۰۰)\n2. مشکلات بحرانی 🔴\n3. مشکلات متوسط 🟡\n4. نقاط قوت ✅\n5. ۳ Title پیشنهادی (حداکثر ۶۰ کاراکتر)\n6. ۲ Meta Description پیشنهادی (حداکثر ۱۶۰ کاراکتر)\n7. ۱۰ کلمه کلیدی پیشنهادی\n8. برنامه عملی بهبود (۵ اقدام اولویت‌دار)`
           : `Full SEO analysis for: **${url}**\nData: Title(${data.title.length}c), MetaDesc(${data.metaDesc.length}c), H1:${data.h1.length}, Images:${data.images}(${data.imagesWithAlt} alt), Links:${data.links}, Words:${data.wordCount}, Schema:${data.hasSchema}\nProvide: Score/100, Critical issues, Medium issues, Strengths, 3 Title suggestions, 2 Meta descriptions, 10 keywords, Action plan`;
       } else if (tool === "keyword") {
-        systemPrompt = lang === "fa" ? "متخصص تحقیق کلمات کلیدی برای بازار ایران هستی." : "Keyword research specialist for Persian/Iranian market.";
+        // Market framing follows the language: a German user researching German
+        // keywords was being told the specialist works the Iranian market.
+        systemPrompt = tri(lang,
+          "متخصص تحقیق کلمات کلیدی برای بازار ایران هستی.",
+          "You are a keyword research specialist.",
+          "Du bist Spezialist für Keyword-Recherche im deutschsprachigen Markt.");
         userMessage = lang === "fa" ? `تحقیق کلمات کلیدی برای: **"${keyword}"**\n\n۱. ۲۰ کلمه کلیدی مرتبط با جدول (رقابت، حجم جستجو، نیت کاربر)\n۲. ۵ long-tail با رقابت کم\n۳. ۳ کلمه LSI\n۴. سوالات کاربران (People Also Ask)\n۵. استراتژی کلی` : `Keyword research for "${keyword}": 20 related keywords table, 5 long-tail, 3 LSI, People Also Ask, strategy`;
       } else if (tool === "content") {
         systemPrompt = lang === "fa" ? "متخصص بهینه‌سازی محتوا برای سئو هستی." : "Content SEO optimization specialist.";
@@ -66,10 +94,10 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        await routedStreamChat([{ role: "user", content: userMessage }], systemPrompt, (chunk) => send(chunk), (_p) => {});
+        await routedStreamChat([{ role: "user", content: userMessage }], systemPrompt + outputLanguageRule(lang), (chunk) => send(chunk), (_p) => {});
       } catch (e) {
         const msg = e instanceof Error ? e.message : "خطا";
-        send(`\n\n❌ ${lang === "fa" ? "خطا در ارتباط با AI: " : "AI error: "}${msg}`);
+        send(`\n\n❌ ${tri(lang, "خطا در ارتباط با AI: ", "AI error: ", "KI-Fehler: ")}${msg}`);
       }
       controller.enqueue(encoder.encode("data: [DONE]\n\n"));
       controller.close();

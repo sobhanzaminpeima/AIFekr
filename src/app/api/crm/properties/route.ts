@@ -46,7 +46,9 @@ export async function GET(req: NextRequest) {
       ...(ws.isAgentRestricted ? { crmContact: { assignedToId: ws.actingUserId } } : {}),
     },
     include: {
-      crmContact: { select: { id: true, name: true, phone: true } },
+      // email included on crmContact too, so it can stand in for ownerContact
+      // on a short-term rental that predates the create/PATCH bridge below.
+      crmContact: { select: { id: true, name: true, phone: true, email: true } },
       crmDeal: { select: { id: true, title: true } },
       // The owner-statements page used to show ownerContactId with no way to
       // tell WHO that was — only the CRM.property (sale-side) contact was
@@ -58,7 +60,21 @@ export async function GET(req: NextRequest) {
     take: 500,
   });
 
-  return NextResponse.json({ properties: properties.map(serialize) });
+  return NextResponse.json({
+    properties: properties.map((p) => {
+      // Short-term rentals created before ownerContactId was bridged to
+      // crmContactId (see the POST/PATCH handlers) have an owner linked in CRM
+      // but none in Accounting, so owner statements asked for the owner again
+      // from scratch (QA 2026-09-15, U02). Presenting the CRM contact as the
+      // owner here fixes those existing rows without a data migration; the
+      // stored ownerContactId is left untouched and still wins when set.
+      const bridged =
+        p.listingType === "short_term_rent" && !p.ownerContact && p.crmContact
+          ? { ...p, ownerContactId: p.crmContact.id, ownerContact: p.crmContact }
+          : p;
+      return serialize(bridged);
+    }),
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -121,7 +137,15 @@ export async function POST(req: NextRequest) {
       images: Array.isArray(images) ? JSON.stringify(images) : undefined,
       crmContactId: crmContactId || undefined,
       crmDealId: crmDealId || undefined,
-      ownerContactId: ownerContactId || undefined,
+      // For a short-term rental, the contact picked in the form's "مالک/Owner"
+      // field IS the person the accounting module settles with -- but that
+      // field writes crmContactId, while owner statements read
+      // ownerContactId. Two DB fields behind one UI concept meant an agent who
+      // had already linked the owner in CRM was asked to find-or-create that
+      // same contact (and re-enter their email) again in Accounting, and could
+      // silently pick the wrong one (QA 2026-09-15, U02). An explicit
+      // ownerContactId still wins; this only fills the gap when none was given.
+      ownerContactId: ownerContactId || (listingType === "short_term_rent" ? crmContactId || undefined : undefined),
     },
   });
 

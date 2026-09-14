@@ -5,12 +5,19 @@ import { Package, Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Star, Check, Loa
 import toast from "react-hot-toast";
 
 type Pkg = {
-  id: string; planCode: string; name: string; nameEn: string; price: number; duration: number;
+  id: string; planCode: string; name: string; nameEn: string; price: number; priceUsd: number | null;
+  market: string; duration: number;
   credits: number; isActive: boolean; isFeatured: boolean; color: string;
-  features: string; sortOrder: number;
+  features: string; featuresEn: string | null; sortOrder: number;
 };
 
-const EMPTY_FORM = { planCode: "", name: "", nameEn: "", price: 0, duration: 30, credits: 1000, color: "#ea580c", features: "", sortOrder: 0 };
+const EMPTY_FORM = { planCode: "", name: "", nameEn: "", price: 0, priceUsd: "" as number | "", market: "IR", duration: 30, credits: 1000, color: "#ea580c", features: "", featuresEn: "", sortOrder: 0 };
+
+const MARKETS = [
+  { value: "IR", label: "ایران (ریال)" },
+  { value: "INTL", label: "بین‌المللی (دلار)" },
+  { value: "BOTH", label: "هر دو" },
+];
 
 export default function PackagesPage() {
   const [packages, setPackages] = useState<Pkg[]>([]);
@@ -35,7 +42,12 @@ export default function PackagesPage() {
 
   function openEdit(p: Pkg) {
     setEditing(p);
-    setForm({ planCode: p.planCode, name: p.name, nameEn: p.nameEn, price: p.price, duration: p.duration, credits: p.credits, color: p.color, features: p.features, sortOrder: p.sortOrder });
+    setForm({
+      planCode: p.planCode, name: p.name, nameEn: p.nameEn,
+      price: p.price, priceUsd: p.priceUsd ?? "", market: p.market || "IR",
+      duration: p.duration, credits: p.credits, color: p.color,
+      features: p.features, featuresEn: p.featuresEn ?? "", sortOrder: p.sortOrder,
+    });
     setShowForm(true);
   }
   function openAdd() { setEditing(null); setForm(EMPTY_FORM); setShowForm(true); }
@@ -106,10 +118,22 @@ export default function PackagesPage() {
                   </div>
                   <div className={`w-2 h-2 rounded-full mt-1 ${p.isActive ? "bg-green-500" : "bg-red-500"}`} />
                 </div>
+                {/* An INTL package has price (Rial) = 0 and only priceUsd set. Showing
+                    just the Rial figure labelled it "رایگان" — it looked like a free
+                    plan in the admin panel (QA 2026-09-15, A03). Show whichever
+                    price(s) the package actually carries. */}
                 <div className="text-2xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>
-                  {p.price === 0 ? "رایگان" : (p.price / 10).toLocaleString("fa-IR") + " ت"}
+                  {p.price === 0 && p.priceUsd == null
+                    ? "رایگان"
+                    : [
+                        p.price > 0 ? (p.price / 10).toLocaleString("fa-IR") + " ت" : null,
+                        p.priceUsd != null ? "$" + (p.priceUsd / 100).toLocaleString("en-US") : null,
+                      ].filter(Boolean).join(" · ")}
                 </div>
-                {p.price > 0 && <div className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>{p.duration} روز · {p.credits.toLocaleString("fa-IR")} اعتبار</div>}
+                <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>
+                  بازار: {MARKETS.find(m => m.value === (p.market || "IR"))?.label || p.market}
+                </div>
+                {(p.price > 0 || p.priceUsd != null) && <div className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>{p.duration} روز · {p.credits.toLocaleString("fa-IR")} اعتبار</div>}
                 <ul className="space-y-1 mb-4">
                   {p.features.split("\n").filter(Boolean).map((f, i) => (
                     <li key={i} className="flex items-start gap-1.5 text-xs">
@@ -164,6 +188,22 @@ export default function PackagesPage() {
                 </div>
               ))}
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>قیمت دلاری (سنت — مثلاً ۱۹۰۰ = ‎$19)</label>
+                <input type="number" value={form.priceUsd}
+                  placeholder="خالی = فقط ایران"
+                  onChange={e => setForm(p => ({ ...p, priceUsd: e.target.value === "" ? "" : Number(e.target.value) }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>بازار</label>
+                <select value={form.market} onChange={e => setForm(p => ({ ...p, market: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                  {MARKETS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select>
+              </div>
+            </div>
             <div>
               <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>رنگ</label>
               <div className="flex gap-2 flex-wrap">
@@ -175,8 +215,13 @@ export default function PackagesPage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>امکانات (هر خط یک امکان)</label>
+              <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>امکانات — فارسی (هر خط یک امکان)</label>
               <textarea value={form.features} onChange={e => setForm(p => ({ ...p, features: e.target.value }))} rows={5}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+            <div>
+              <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>امکانات — انگلیسی (برای نمایش در زبان en/de؛ خالی = همان فارسی)</label>
+              <textarea value={form.featuresEn} onChange={e => setForm(p => ({ ...p, featuresEn: e.target.value }))} rows={5}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div className="flex gap-3 pt-2">

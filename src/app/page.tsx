@@ -25,6 +25,7 @@ import FaqSection from "@/components/landing/FaqSection";
 import AiTeamTeaser from "@/components/landing/AiTeamTeaser";
 import StartupBuilderTeaser from "@/components/landing/StartupBuilderTeaser";
 import { getFxRates } from "@/lib/utils/currency";
+import { planCodesForLang, sortByPlanLadder } from "@/lib/plans/catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -257,7 +258,14 @@ export default async function HomePage() {
 
   let packages: { planCode: string; name: string; nameEn: string; price: number; priceUsd: number | null; credits: number; features: string; featuresEn: string | null; isFeatured: boolean; color: string }[] = [];
   try {
-    packages = await prisma.package.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, take: 3 });
+    // Same plan codes /plans sells, for the same market — see lib/plans/catalog.
+    // Previously "first 3 active by sortOrder" with no market filter, which
+    // advertised the legacy BASIC/PRO/TEAM rows here while /plans sold
+    // ECHO/PLUS/ALPHA, and rendered Rial-only plans as "Free" to international
+    // visitors (their priceUsd is null).
+    const codes = planCodesForLang(lang);
+    const active = await prisma.package.findMany({ where: { isActive: true, planCode: { in: codes } } });
+    packages = sortByPlanLadder(active, codes).slice(0, 3);
   } catch {}
   const pricingPlans = packages.map((p) => {
     // Package.features is stored as plain newline-separated text (see admin

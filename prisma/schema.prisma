@@ -13,6 +13,26 @@ model User {
   phone                     String?   @unique
   passwordHash              String?
   name                      String?
+  /// Split out from `name` so registration/admin can collect them separately.
+  /// `name` stays in sync (firstName + " " + lastName) so every existing
+  /// caller that reads `user.name` keeps working unchanged.
+  firstName                 String?
+  lastName                  String?
+  /// ISO 3166-1 alpha-2 country code (e.g. "IR", "DE", "US") — collected at
+  /// registration and editable from the admin panel.
+  country                   String?
+  /// "fa" | "en" | "de" — chosen at registration. The `lang` cookie is the
+  /// live, changeable-anytime preference (LanguageSwitcher), but it's just a
+  /// browser cookie: gone on a new device/browser or if cleared. This column
+  /// is what login uses to re-set that cookie, so the choice actually
+  /// survives across logins instead of silently reverting to the site default.
+  language                  String?
+  /// User's preferred display currency for fixed-amount displays (referral
+  /// wallet, etc.) outside the accounting module, which already has its own
+  /// per-property currency. Null means "derive from UI language" (existing
+  /// behavior, unchanged for anyone who hasn't picked one explicitly).
+  /// "IRT" | "USD" | "EUR".
+  currency                  String?
   avatar                    String?
   role                      String    @default("USER")
   plan                      String    @default("FREE")
@@ -97,6 +117,11 @@ model User {
   crmActivities            CrmActivity[]
   crmTasks                 CrmTask[]
   crmInsights              CrmInsight[]
+  crmAnalysisRuns          CrmAnalysisRun[]
+  leadForms                LeadForm[]
+  leadSources              LeadSource[]
+  socialBrandProfile       SocialBrandProfile?
+  socialCompetitors        SocialCompetitor[]
   crmProducts              CrmProduct[]
   crmInvoices              CrmInvoice[]
   crmContracts             CrmContract[]
@@ -245,6 +270,13 @@ model Conversation {
   title     String?
   tool      String?
   model     String   @default("claude-haiku-4-5-20251001")
+  /// Bounded JSON state the /chat orchestrator carries between turns: the
+  /// last business domain discussed, plus a short LRU of entity ids it
+  /// surfaced (see src/lib/orchestrator/routing.ts). Bounded on purpose so
+  /// token cost stays flat as a conversation grows. Ids here are never
+  /// trusted on the way back in — every tool re-validates them against the
+  /// workspace before use.
+  routingState String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   projectId String?
@@ -349,6 +381,26 @@ model Payment {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+/// Admin-configurable one-off credit top-up tiers (buy N credits for X Toman,
+/// independent of any subscription plan/duration) -- purchased through the
+/// same Zarinpal flow as plans, dispatched via the "CREDITS_<tierId>" prefix
+/// on Payment.plan, same pattern as the CRM and VOICE add-on prefixes.
+model CreditPricingTier {
+  id              String   @id @default(cuid())
+  creditsAmount   Int
+  priceToman      Int
+  /// Display-only, computed from priceToman vs. the platform's base
+  /// per-credit rate -- stored so it doesn't drift if that base rate changes
+  /// after the tier was set up.
+  discountPercent Int      @default(0)
+  /// "best_value" | "most_discount" | null -- which highlight ribbon, if any.
+  badge           String?
+  sortOrder       Int      @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 /// Audit ledger for User.walletBalance — every balance change is one row
@@ -498,10 +550,49 @@ model UsageLog {
   @@index([createdAt])
 }
 
+/// Server-side error events, for /admin/logs. That page's "errors" tab used to
+/// say the feature wasn't implemented, which left no way to see what was
+/// actually failing in production beyond SSHing to read pm2 logs.
+/// Deliberately NOT a relation to User: an error is worth keeping after the
+/// account that hit it is deleted, and `userId` is often null anyway
+/// (unauthenticated requests, cron jobs).
+model ErrorLog {
+  id        String   @id @default(cuid())
+  /// "error" | "warn" -- severity, so the tab can show real failures first.
+  level     String   @default("error")
+  /// Where it happened, e.g. "/api/chat" or "cron:instagram-analytics".
+  source    String
+  message   String
+  /// Truncated before storage -- see logError() in src/lib/logging/errorLog.ts.
+  stack     String?
+  /// Correlates a report with the user's session when one is known.
+  userId    String?
+  /// Correlates with the browser/network trace for a single request.
+  requestId String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([level, createdAt])
+}
+
 model SiteSetting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+/// Daily visit count for a public, no-login page (currently just
+/// /share/1980s). One row per page per calendar day, incremented on every
+/// page load -- enough for "how many people opened this link" without the
+/// cost/complexity of a full analytics pipeline for a single page.
+model PublicPageVisit {
+  id    String   @id @default(cuid())
+  page  String
+  date  DateTime
+  count Int      @default(0)
+
+  @@unique([page, date])
+  @@index([page])
 }
 
 /// Pack-level default for one gateable module/agent (see src/lib/industry/moduleAccess.ts
@@ -551,6 +642,11 @@ model Prompt {
   toolType     String   @default("chat")
   /// Reference thumbnail shown in the picker UI — image/video prompts only.
   thumbnailUrl String?
+  /// Short usage tip shown in the prompt detail view (e.g. "upload a clear
+  /// front-facing photo" or, for a couple prompt, "upload a photo of the
+  /// two of you together") -- nullable so existing rows stay valid.
+  guideFa      String?
+  guideEn      String?
   isActive     Boolean  @default(true)
   sortOrder    Int      @default(0)
   usedCount    Int      @default(0)
@@ -809,6 +905,10 @@ model CrmTask {
   status        String    @default("pending") // pending | done | overdue
   /// True for tasks the CRM Agent generated automatically (Phase 2+), vs. user-created.
   autoGenerated Boolean   @default(false)
+  /// AI-drafted outbound message text (e.g. a post-viewing follow-up) for the
+  /// owner to review and send themselves -- Draft-and-Approve, never sent
+  /// automatically. Null for a plain internal reminder task.
+  draftMessage  String?
   createdAt     DateTime  @default(now())
 
   user    User        @relation(fields: [userId], references: [id])
@@ -832,6 +932,24 @@ model CrmInsight {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
+}
+
+/// A full CRM Agent pipeline-analysis run, dated. Before this model, only the
+/// short "future memory" fragments the agent extracts for itself
+/// (CrmInsight) were persisted -- the actual full report a user reads was
+/// shown once and discarded, with no way to look back at last week's
+/// analysis or see how the read on the pipeline changed over time.
+model CrmAnalysisRun {
+  id        String   @id @default(cuid())
+  userId    String
+  /// The full markdown report, memory-notes section already stripped (that
+  /// section is for the next run's prompt, not a human reader).
+  content   String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
 }
 
 /// A company's product/service catalog — attached to deals (CrmDealProduct)
@@ -1187,14 +1305,21 @@ model InstagramCommentCampaign {
 /// times the same event is redelivered).
 model InstagramCommentReplyLog {
   id                String   @id @default(cuid())
-  campaignId        String
+  /// Null for status "no_match" — a comment that reached the webhook but
+  /// matched no campaign. Recorded so the health watchdog can tell
+  /// "no comments arrived" (fine) apart from "comments arrived and nothing
+  /// was sent" (broken), which is exactly the distinction that let
+  /// comment→DM sit dead for a month unnoticed.
+  campaignId        String?
   /// Denormalized from the campaign's owner — lets the per-hour rate-limit
   /// count be a single indexed query instead of a join through the campaign.
   userId            String?
   commentId         String   @unique
   commenterId       String
   commenterUsername String?
-  /// "sent" | "skipped" | "failed" | "awaiting_follow" (follow-gated campaign, waiting on the postback button click)
+  /// "sent" | "sent_public_fallback" (DM blocked pending instagram_manage_messages
+  /// App Review — delivered as a public reply instead) | "skipped" | "failed" |
+  /// "no_match" | "awaiting_follow" (follow-gated campaign, waiting on the postback button click)
   status            String
   error             String?
   createdAt         DateTime @default(now())
@@ -1220,6 +1345,13 @@ model ScheduledPost {
   status       String   @default("PENDING") // PENDING | PUBLISHED | FAILED
   igMediaId    String?
   errorMessage String?
+  /// Rule-based content-quality score (0-100) at generation time, plus the
+  /// fixes suggested then — kept so a post's predicted score can later be
+  /// compared against its real reach/engagement and the rules tuned against
+  /// this account's own history rather than generic advice.
+  qualityScore Int?
+  /// JSON array of the quality findings shown to the owner before scheduling.
+  qualityNotes String?
   createdAt    DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1257,21 +1389,33 @@ model IndustryPack {
   slug               String               @unique
   name               String
   nameEn             String?
+  /// German content, same nullable-fallback convention as the *En fields --
+  /// added when German coverage was found missing platform-wide (this model
+  /// had no German columns at all, so a German visitor silently fell back
+  /// to English or Persian depending on the render site).
+  nameDe             String?
   emoji              String
   tagline            String
   taglineEn          String?
+  taglineDe          String?
   valueProposition   String
   valuePropositionEn String?
+  valuePropositionDe String?
   targetCustomers    String
   targetCustomersEn  String?
+  targetCustomersDe  String?
   painPoints         String
   painPointsEn       String?
+  painPointsDe       String?
   agents             String
   agentsEn           String?
+  agentsDe           String?
   outcomes           String
   outcomesEn         String?
+  outcomesDe         String?
   kpis               String
   kpisEn             String?
+  kpisDe             String?
   tier               String               @default("professional")
   price              Int                  @default(299)
   color              String
@@ -2369,4 +2513,267 @@ model AccountingAiProposal {
 
   @@index([workspaceUserId])
   @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Lead Generation module — a TENANT-FACING product feature, not lead-gen for
+// AIFekr itself. Any registered company (workspace = userId) builds its own
+// branded lead-capture form, shares the public /f/<slug> link or embeds it on
+// its own site, and every submission lands in THAT company's CRM as a
+// CrmContact (status "lead", source "lead_form"). Fixed field set (name /
+// phone / email / company / message); the tenant only chooses which to show
+// and which are required (`fields` JSON). No external API keys involved —
+// Meta Lead Ads / Google connectors, when added later, become extra rows
+// beside this, per-tenant.
+model LeadForm {
+  id             String   @id @default(cuid())
+  userId         String
+  /// Public URL segment: /f/<slug>. Globally unique, slugified from title + short random suffix.
+  slug           String   @unique
+  title          String
+  titleEn        String?
+  titleDe        String?
+  description    String?
+  descriptionEn  String?
+  descriptionDe  String?
+  /// JSON: { name: {show,required}, phone: {...}, email, company, message }.
+  /// Only these five fixed keys are ever honoured server-side.
+  fields         String   @default("{}")
+  accentColor    String   @default("#ea580c")
+  logoUrl        String?
+  submitLabel    String?
+  successMessage String?
+  /// Optional URL to send the visitor to after a successful submit.
+  redirectUrl    String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user        User                 @relation(fields: [userId], references: [id])
+  submissions LeadFormSubmission[]
+
+  @@index([userId])
+}
+
+model LeadFormSubmission {
+  id          String   @id @default(cuid())
+  formId      String
+  /// The CrmContact this submission created (null only if contact creation failed).
+  contactId   String?
+  /// JSON of the raw submitted values, kept verbatim for audit / re-processing.
+  data        String
+  /// Rule-based 0-100 lead score at capture time (see lib/leadgen/score.ts).
+  score       Int      @default(0)
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  /// SHA-256 of visitor IP + a server salt — for per-IP throttling and
+  /// dedupe without storing the raw address.
+  ipHash      String?
+  createdAt   DateTime @default(now())
+
+  form LeadForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId, createdAt])
+}
+
+// A tenant's connection to an external lead channel. One row per connected
+// Meta Page, one row per tenant for Google Ads (whose leads arrive by
+// webhook and need no stored token). Meta's page token is long-lived (~60d)
+// and refreshed opportunistically; `status` flips to "error" with
+// `lastError` set when a Graph call fails so the UI can prompt a reconnect.
+model LeadSource {
+  id            String    @id @default(cuid())
+  userId        String
+  /// "meta" | "google"
+  provider      String
+  /// Meta: the Facebook Page id. Google: "default" (one per tenant).
+  externalId    String
+  name          String
+  /// Meta: long-lived Page access token. Google: null (webhook carries the data).
+  accessToken   String?
+  tokenExpiry   DateTime?
+  /// Google: per-tenant secret the incoming webhook must present. Meta: null.
+  webhookKey    String?
+  /// "active" | "error" | "disconnected"
+  status        String    @default("active")
+  lastError     String?
+  lastLeadAt    DateTime?
+  leadsImported Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, provider, externalId])
+  @@index([userId])
+  @@index([provider, externalId])
+}
+
+// ---------------------------------------------------------------------------
+// Social media growth layer (Phase A2). The Social module used to be blind to
+// the rest of AIFekr — brand name was retyped into an empty form every
+// session while Business Doctor already held the tenant's target customers,
+// competitors and unique value. These tables give the module a memory of who
+// the business is, and an official (business_discovery, never scraping) view
+// of comparable pages.
+
+/// One row per tenant: how this business positions its own Instagram page.
+/// Seeded as a draft from Company + Company.notes on first load so the owner
+/// edits a pre-filled form instead of starting from blank.
+model SocialBrandProfile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  pageType       String?
+  specialty      String?
+  audience       String?
+  tone           String?
+  /// JSON array of 3-5 content pillars.
+  contentPillars String?
+  /// Hard "never post this" list. Also appended to when the owner rejects a
+  /// competitor-derived suggestion as off-brand, so the next one is better.
+  avoidTopics    String?
+  positioning    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// A comparable public Instagram business/creator account the tenant wants
+/// benchmarked. Data comes from Meta's business_discovery edge only.
+model SocialCompetitor {
+  id        String   @id @default(cuid())
+  userId    String
+  /// Instagram handle without the @.
+  username  String
+  label     String?
+  /// "manual" | "suggested"
+  source    String   @default("manual")
+  isActive  Boolean  @default(true)
+  /// Last discovery error (e.g. private account, not a business account).
+  lastError String?
+  createdAt DateTime @default(now())
+
+  user      User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snapshots SocialCompetitorSnapshot[]
+
+  @@unique([userId, username])
+  @@index([userId])
+}
+
+/// Point-in-time capture of a competitor, so their growth is comparable to
+/// the tenant's own InstagramFollowerSnapshot series.
+model SocialCompetitorSnapshot {
+  id             String   @id @default(cuid())
+  competitorId   String
+  takenAt        DateTime @default(now())
+  followersCount Int
+  mediaCount     Int
+  /// JSON array of posts at capture time (caption, likes, comments, type,
+  /// timestamp, permalink) — business_discovery returns no insights metrics
+  /// for other accounts, so engagement is inferred from likes+comments only.
+  topPosts       String
+
+  competitor SocialCompetitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+
+  @@index([competitorId, takenAt])
+}
+
+/// ─── Knowledge base (floating support assistant, `support_mode`) ───────────
+/// Platform documentation the support assistant answers from. Deliberately
+/// NOT tenant data: there is one shared doc-set for the whole platform, no
+/// userId column, and nothing user-submitted is ever ingested — that last
+/// point is what stops retrieval from becoming a prompt-injection vector.
+///
+/// Authored as trilingual markdown in `docs/knowledge-base/<slug>.md` and
+/// synced into these tables by POST /api/admin/kb/sync, so editing a doc and
+/// re-syncing costs one admin click rather than a redeploy, and only the
+/// chunks whose text actually changed get re-embedded (see KbChunk.hash).
+model KbDocument {
+  id    String @id @default(cuid())
+  /// Matches the markdown filename and `Capability.docSlug` in src/lib/orchestrator/registry.ts.
+  slug  String
+  /// "fa" | "en" | "de" — one row per language block of the source file.
+  lang  String
+  title String
+  /// Capability key this document describes, when it describes exactly one.
+  /// Null for cross-cutting docs (navigation, troubleshooting, account).
+  capabilityKey String?
+  /// SHA-256 of this language block's raw source, so an unchanged block is skipped entirely.
+  hash      String
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  chunks KbChunk[]
+
+  @@unique([slug, lang])
+}
+
+/// One retrievable passage — a single `###` section of a document. Chunking on
+/// headings rather than a fixed character window keeps each chunk a complete
+/// thought ("How to use it", "Common problems"), which is what makes a short
+/// grounded answer possible.
+model KbChunk {
+  id         String @id @default(cuid())
+  documentId String
+  /// Position within the document, for stable ordering and citation.
+  ordinal    Int
+  /// The `###` heading this chunk came from — shown as the citation label.
+  heading    String
+  text       String
+  /// SHA-256 of `text`. On sync, a chunk whose hash is unchanged keeps its
+  /// existing embedding instead of spending another Cohere call.
+  hash       String
+  /// JSON-stringified embedding vector, same convention as BusinessMemory.embedding
+  /// — null when embedding generation failed or hasn't run yet, in which case
+  /// retrieval falls back to keyword scoring rather than returning nothing.
+  embedding  String?
+
+  document KbDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, ordinal])
+}
+
+/// ─── Orchestrator write-path audit + confirmation record (full_mode) ───────
+/// One row per COMMIT-tier tool call the /chat orchestrator proposes.
+///
+/// This is the mechanism that makes "the chat can act on my business" safe:
+/// a COMMIT tool never executes in the turn that proposes it. The server
+/// validates the arguments, stores them here as PENDING, and streams only
+/// this row's id to the client. The confirmation card the user sees is
+/// rendered from THESE stored arguments — never from the model's own prose —
+/// so a model that describes one action while requesting another cannot make
+/// the card lie. Executing requires a second, explicit request naming this id.
+///
+/// It doubles as the audit trail for "what did the AI actually do on my
+/// account", which AuditLog does not cover for chat-initiated writes.
+model OrchestratorAction {
+  id             String  @id @default(cuid())
+  conversationId String
+  /// The workspace the action operates in — the CRM workspace owner, not
+  /// necessarily the session user (see src/lib/crm/workspace.ts).
+  workspaceUserId String
+  /// The logged-in user who asked for it. Kept separately from
+  /// workspaceUserId so a team member's action is attributable to them.
+  actingUserId   String
+  /// Tool key from src/lib/orchestrator/tools — e.g. "crm.updateDealStage".
+  toolKey        String
+  /// JSON of the validated arguments. The confirmation card and the
+  /// execution both read from here, never from model text.
+  argsJson       String
+  /// Short human-readable summary built server-side at propose time, for the card.
+  summary        String
+  /// PENDING | EXECUTED | REJECTED | EXPIRED | FAILED
+  status         String   @default("PENDING")
+  /// JSON result or error text once executed.
+  resultJson     String?
+  /// PENDING actions past this point are refused — a stale confirmation
+  /// button in an old tab must not fire a write hours later.
+  expiresAt      DateTime
+  confirmedAt    DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([conversationId])
+  @@index([workspaceUserId, status])
 }
