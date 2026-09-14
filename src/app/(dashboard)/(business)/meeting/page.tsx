@@ -5,6 +5,7 @@ import { Users, Play, Copy, Check, Crown, Megaphone, DollarSign, Search, Handsha
 import ReactMarkdown from "react-markdown";
 import type { LucideIcon } from "lucide-react";
 import { useTranslation, tri } from "@/lib/i18n";
+import LongRunIndicator from "@/components/ui/LongRunIndicator";
 
 interface Agent { key: string; nameFa: string; nameEn: string; nameDe: string; Icon: LucideIcon; color: string; }
 
@@ -37,17 +38,29 @@ export default function MeetingPage() {
     );
   }
 
+  // Cancel control for a multi-advisor run that routinely takes a minute
+  // (QA 2026-09-15: no cancel/retry during long AI waits). State, not a ref,
+  // so it works with only the hooks this page already imports.
+  const [abortCtl, setAbortCtl] = useState<AbortController | null>(null);
+  function cancelMeeting() {
+    abortCtl?.abort();
+  }
+
   async function startMeeting() {
     if (!topic || selectedAgents.length < 2) return;
     setLoading(true);
     setTranscript("");
     setStarted(true);
 
+    const controller = new AbortController();
+    setAbortCtl(controller);
+
     try {
       const res = await fetch("/api/meeting/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic, agents: selectedAgents }),
+        signal: controller.signal,
       });
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
@@ -64,8 +77,11 @@ export default function MeetingPage() {
           } catch {}
         }
       }
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+    } catch (err) {
+      // A user cancel isn't a failure — keep the partial transcript as is.
+      if ((err as Error)?.name !== "AbortError") console.error(err);
+    }
+    finally { setLoading(false); setAbortCtl(null); }
   }
 
   return (
@@ -174,18 +190,16 @@ export default function MeetingPage() {
             </div>
             <div className="p-6">
               {loading && !transcript && (
-                <div className="flex items-center gap-3 py-8 justify-center">
-                  <span className="w-5 h-5 border-2 border-orange-500/30 border-t-orange-500 rounded-full animate-spin" />
-                  <span className="text-sm" style={{ color: "var(--text-secondary)" }}>{t.meeting.inProgress}</span>
+                <div className="py-6">
+                  <LongRunIndicator lang={lang} expectedSeconds={60} onCancel={cancelMeeting} />
                 </div>
               )}
               <div className="prose prose-invert max-w-none text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
                 <ReactMarkdown>{transcript}</ReactMarkdown>
               </div>
               {loading && transcript && (
-                <div className="flex items-center gap-2 mt-4">
-                  <span className="w-4 h-4 border-2 border-orange-500/30 border-t-orange-500 rounded-full animate-spin" />
-                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>{t.meeting.continuing}</span>
+                <div className="mt-4">
+                  <LongRunIndicator lang={lang} expectedSeconds={60} onCancel={cancelMeeting} receivedAny />
                 </div>
               )}
             </div>

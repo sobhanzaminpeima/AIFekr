@@ -249,7 +249,18 @@ export async function POST(req: NextRequest) {
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({ provider: provider.name })}\n\n`));
               },
               model,
-              ({ partial }) => {
+              ({ from, partial }) => {
+                // Recorded as a warning so fallbacks are measurable in the
+                // admin error log — the QA report's fix-order step 7 asked for
+                // fallback behaviour to be measured, and until now a provider
+                // silently failing over left no trace outside pm2 stdout.
+                // Fire-and-forget: this callback is synchronous.
+                void logError({
+                  source: "/api/chat (provider fallback)",
+                  error: new Error(`${from.name} failed${partial ? " mid-response" : ""}; falling back to the next provider`),
+                  level: "warn",
+                  userId: user.id,
+                });
                 // Previous provider failed mid-response — discard whatever it
                 // already streamed so the next provider's answer isn't
                 // concatenated onto a half-finished one.
@@ -321,8 +332,12 @@ export async function POST(req: NextRequest) {
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();
         } catch (err) {
-          await logError({ source: "/api/chat (stream)", error: err, userId: user.id });
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "خطا در دریافت پاسخ" })}\n\n`));
+          // The report's fix-order step 1 asked that a failure be traceable by
+          // request ID. The same short id goes into the admin error log and the
+          // user's error message, so a screenshot of the error finds the log row.
+          const requestId = globalThis.crypto.randomUUID().slice(0, 8);
+          await logError({ source: "/api/chat (stream)", error: err, userId: user.id, requestId });
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: `خطا در دریافت پاسخ (کد پیگیری: ${requestId})`, requestId })}\n\n`));
           controller.close();
         }
       },
@@ -337,7 +352,8 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err) {
-    await logError({ source: "/api/chat", error: err, userId: user.id });
-    return NextResponse.json({ error: "خطای سرور" }, { status: 500 });
+    const requestId = globalThis.crypto.randomUUID().slice(0, 8);
+    await logError({ source: "/api/chat", error: err, userId: user.id, requestId });
+    return NextResponse.json({ error: `خطای سرور (کد پیگیری: ${requestId})`, requestId }, { status: 500 });
   }
 }

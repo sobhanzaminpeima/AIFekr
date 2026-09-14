@@ -57,6 +57,36 @@ const FEATURE_ROWS = [
   ]},
 ];
 
+// German for the comparison table. FEATURE_ROWS carries only fa/en labels and
+// the render passed labelEn for German, so a German user read the whole table
+// in English (QA 2026-09-15 scored Plans language 1/5). Keyed by labelEn so the
+// row data above stays untouched.
+const FEATURE_LABEL_DE: Record<string, string> = {
+  "Messages per day / 3h": "Nachrichten pro Tag / 3 Std.",
+  "Basic models": "Basismodelle",
+  "Advanced models": "Erweiterte Modelle",
+  "Pro models": "Pro-Modelle",
+  "Web search": "Websuche",
+  "File upload": "Datei-Upload",
+  "Deep Research": "Deep Research",
+  "Images": "Bilder",
+  "Midjourney": "Midjourney",
+  "Music generation (Suno)": "Musikgenerierung (Suno)",
+  "Videos per week": "Videos pro Woche",
+  "Video models (Veo, Kling)": "Videomodelle (Veo, Kling)",
+  "AI website builder": "KI-Website-Builder",
+  "Ad-free": "Werbefrei",
+  "Faster responses": "Schnellere Antworten",
+  "Early access": "Früher Zugang",
+  "VIP support": "VIP-Support",
+};
+
+/** Translates the English cell strings ("20/day", "Unlimited") for German. */
+function cellForLang(val: boolean | string, lang: string): boolean | string {
+  if (typeof val !== "string" || lang !== "de") return val;
+  return val.replace("Unlimited", "Unbegrenzt").replace("/day", "/Tag").replace("/3h", "/3 Std.");
+}
+
 // Moved to lib/plans/catalog so the public landing page selects the same plans
 // this page sells -- it used to pick "first 3 active by sortOrder" on its own
 // and advertised a different, cheaper, legacy set (QA 2026-09-15, U04).
@@ -141,6 +171,7 @@ export default function PlansPage() {
   const [showTable, setShowTable]       = useState(false);
   const [openFaq, setOpenFaq]           = useState<number | null>(null);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [currentPlan, setCurrentPlan]   = useState<string | null>(null);
   const [useWallet, setUseWallet]       = useState(false);
   const searchParams                    = useSearchParams();
   const langInitialized                 = useRef(false);
@@ -171,6 +202,16 @@ export default function PlansPage() {
     fetch("/api/wallet/me")
       .then(r => r.json())
       .then((d: { walletBalance?: number }) => setWalletBalance(d.walletBalance || 0))
+      .catch(() => {});
+  }, []);
+
+  // The "Active" badge used to be hardcoded onto the Free card, so a paying
+  // user saw "Active" on Free and "Buy" on the plan they were actually
+  // subscribed to (QA 2026-09-15, U03). Read the account's real plan instead.
+  useEffect(() => {
+    fetch("/api/user/profile", { credentials: "include" })
+      .then(r => r.json())
+      .then((d: { user?: { plan?: string } }) => setCurrentPlan(d.user?.plan ?? null))
       .catch(() => {});
   }, []);
 
@@ -349,6 +390,9 @@ export default function PlansPage() {
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4">
         {plans.map((plan) => {
           const isFree   = plan.planCode === "FREE";
+          // A signed-in account with no paid plan reads as FREE; until the
+          // profile has loaded, nothing is marked active rather than guessing.
+          const isCurrent = currentPlan !== null && (currentPlan === plan.planCode || (isFree && currentPlan === "FREE"));
           const price    = isIr ? plan.price : (plan.priceUsd ?? 0);
           const priceStr = isFree ? s.free
             : isIr ? `${fmtToman(price, period === "annual")} تومان`
@@ -398,22 +442,26 @@ export default function PlansPage() {
                 ))}
               </ul>
 
+              {/* "Active" now marks the plan the account is actually on. A FREE
+                  account still lands on the Free card, which is why this used to
+                  look correct while being wrong for every paying user. */}
               <button
                 onClick={() => handleBuy(plan.planCode)}
-                disabled={!!loading || isFree}
+                disabled={!!loading || isCurrent}
                 className="w-full py-2 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
                 style={{
-                  background: isFree ? "var(--surface-2)" : plan.isFeatured ? plan.color : `${plan.color}25`,
-                  color: isFree ? "var(--text-muted)" : plan.isFeatured ? "white" : plan.color,
-                  border: isFree ? "1px solid var(--border)" : "none",
+                  background: isCurrent ? "var(--surface-2)" : plan.isFeatured ? plan.color : `${plan.color}25`,
+                  color: isCurrent ? "var(--text-muted)" : plan.isFeatured ? "white" : plan.color,
+                  border: isCurrent ? "1px solid var(--border)" : "none",
                 }}>
                 {loading === plan.planCode
                   ? <><Loader2 className="w-4 h-4 animate-spin" /> {s.redirecting}</>
-                  : isFree ? s.active
+                  : isCurrent ? s.active
+                  : isFree ? s.free
                   : <><Zap className="w-3.5 h-3.5" /> {s.buy}</>
                 }
               </button>
-              {!isFree && (
+              {!isFree && !isCurrent && (
                 <button
                   onClick={() => handleBuy(plan.planCode, "usdt_trc20")}
                   disabled={!!loading}
@@ -469,12 +517,12 @@ export default function PlansPage() {
                     {section.rows.map((row, ri) => (
                       <tr key={row.labelFa} style={{ background: ri % 2 === 0 ? "var(--surface-1)" : "var(--surface-0)" }}>
                         <td className={`px-4 py-2.5 ${isFa ? "text-right" : "text-left"}`}>
-                          <div style={{ color: "var(--text-primary)" }}>{tri(lang, row.labelFa, row.labelEn, row.labelEn)}</div>
+                          <div style={{ color: "var(--text-primary)" }}>{tri(lang, row.labelFa, row.labelEn, FEATURE_LABEL_DE[row.labelEn] || row.labelEn)}</div>
                           {row.subtitle && <div className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>{row.subtitle}</div>}
                         </td>
                         {(isIr ? row.ir : row.en).map((val, ci) => (
                           <td key={ci} className="text-center px-3 py-2.5">
-                            <CellVal val={val} />
+                            <CellVal val={cellForLang(val, lang)} />
                           </td>
                         ))}
                       </tr>
@@ -485,6 +533,52 @@ export default function PlansPage() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* ── How pricing fits together ──
+          QA 2026-09-15: subscription, industry pack, CRM/Voice add-ons and credit
+          top-ups were each sold on their own screen with nothing explaining how
+          they combine, or what "unlimited" actually meant. One plain summary. */}
+      <div className="rounded-2xl p-5 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <h2 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+          {tri(lang, "قیمت‌گذاری چطور کار می‌کند؟", "How pricing works", "So funktionieren die Preise")}
+        </h2>
+        <ul className="space-y-2 text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+          <li>
+            <b style={{ color: "var(--text-primary)" }}>{tri(lang, "۱. پلن اشتراک", "1. Subscription plan", "1. Abo-Plan")}</b>{" — "}
+            {tri(lang,
+              "دسترسی به مدل‌های هوش مصنوعی (چت، تصویر، ویدیو، موزیک) و سقف استفادهٔ ماهانه را تعیین می‌کند.",
+              "Sets which AI models you can use (chat, image, video, music) and your monthly usage limits.",
+              "Legt fest, welche KI-Modelle Sie nutzen können (Chat, Bild, Video, Musik), und Ihre monatlichen Limits.")}
+          </li>
+          <li>
+            <b style={{ color: "var(--text-primary)" }}>{tri(lang, "۲. افزونه‌ها", "2. Add-ons", "2. Add-ons")}</b>{" — "}
+            {tri(lang,
+              "CRM (مشتریان، حسابداری، فاکتور، قرارداد) و Voice Agent (پاسخ‌گوی تلفنی) جدا از پلن اشتراک و مستقل از آن خریداری می‌شوند.",
+              "CRM (contacts, accounting, invoices, contracts) and Voice Agent (phone assistant) are bought separately from, and independently of, your subscription.",
+              "CRM (Kontakte, Buchhaltung, Rechnungen, Verträge) und Voice Agent (Telefonassistent) werden getrennt vom Abo gekauft.")}
+          </li>
+          <li>
+            <b style={{ color: "var(--text-primary)" }}>{tri(lang, "۳. بستهٔ صنفی", "3. Industry pack", "3. Branchenpaket")}</b>{" — "}
+            {tri(lang,
+              "هزینهٔ اضافه ندارد؛ فقط بخش‌های مرتبط با صنف شما (مثلاً املاک) را جلو می‌آورد.",
+              "Costs nothing extra — it only brings forward the sections relevant to your industry (e.g. real estate).",
+              "Kostet nichts extra — es rückt nur die für Ihre Branche relevanten Bereiche nach vorn (z. B. Immobilien).")}
+          </li>
+          <li>
+            <b style={{ color: "var(--text-primary)" }}>{tri(lang, "۴. کردیت", "4. Credits", "4. Guthaben")}</b>{" — "}
+            {tri(lang,
+              "هر اجرای هوش مصنوعی کردیت مصرف می‌کند و فقط بعد از موفقیت کسر می‌شود. اگر تمام شد، بدون تغییر پلن از صفحهٔ «کردیت» شارژ کنید. سابقهٔ مصرف همان‌جا قابل مشاهده است.",
+              "Every AI run uses credits, deducted only on success. If you run out, top up from the Credits page without changing plan — your full usage history is there too.",
+              "Jede KI-Ausführung verbraucht Guthaben, abgebucht nur bei Erfolg. Aufladen jederzeit auf der Guthaben-Seite ohne Planwechsel — dort steht auch Ihr Verbrauchsverlauf.")}
+          </li>
+        </ul>
+        <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+          {tri(lang,
+            "«نامحدود» یعنی سقف روزانه/ماهانه‌ای برای آن قابلیت وجود ندارد، ولی استفاده تابع سیاست مصرف منصفانه است و هر اجرا همچنان کردیت مصرف می‌کند.",
+            "\"Unlimited\" means that feature has no daily/monthly cap, but use is subject to a fair-use policy and each run still consumes credits.",
+            "„Unbegrenzt“ bedeutet kein Tages-/Monatslimit für diese Funktion; die Nutzung unterliegt jedoch einer Fair-Use-Richtlinie, und jede Ausführung verbraucht weiterhin Guthaben.")}
+        </p>
       </div>
 
       {/* ── Business plans ── */}
@@ -547,8 +641,12 @@ export default function PlansPage() {
                   ))}
                 </ul>
 
+                {/* Was mailto:, which does nothing on a device with no mail app
+                    configured and leaves no record of the inquiry (QA 2026-09-15:
+                    business plans had no visible self-serve path). The contact
+                    page is a real form, carrying which plan was chosen. */}
                 <a
-                  href="mailto:support@aifekr.com"
+                  href={`/contact?subject=business-plan&plan=${encodeURIComponent(biz.name)}`}
                   className="w-full py-2.5 rounded-xl text-sm font-semibold text-center transition-all block"
                   style={{
                     background: (biz as any).popular ? biz.color : `${biz.color}20`,

@@ -6,13 +6,16 @@ import { useState, useEffect, useRef } from "react";
 import { Video, Wand2, Loader2, CheckCircle, AlertCircle, Download, Play, Pause, Upload, X, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTranslation, tri } from "@/lib/i18n";
+import { downscaleImage } from "@/lib/image/downscaleImage";
 
 interface PromptTemplate {
   id: string;
   title: string;
   titleEn: string | null;
+  titleDe?: string | null;
   content: string;
   contentEn: string | null;
+  contentDe?: string | null;
 }
 
 const RATIOS = ["16:9", "9:16", "1:1"];
@@ -69,8 +72,9 @@ export default function VideoGeneratePage() {
     if (!file) return;
     setUploading(true);
     try {
+      const compressed = await downscaleImage(file);
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", compressed);
       const res = await fetch("/api/upload", { method: "POST", body: form });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -85,7 +89,9 @@ export default function VideoGeneratePage() {
   }
 
   function pickTemplate(tpl: PromptTemplate) {
-    setPrompt(tpl.content);
+    // Same language fallback as the chat templates: German, then English, then
+    // Persian — a German/English user used to get the Persian prompt text.
+    setPrompt((lang === "de" && tpl.contentDe) || (lang !== "fa" && tpl.contentEn) || tpl.content);
     setShowTemplates(false);
     fetch("/api/prompts", {
       method: "POST",

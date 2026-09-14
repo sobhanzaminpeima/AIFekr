@@ -5,6 +5,7 @@ import { Crown, Send, TrendingUp, DollarSign, Swords, Users, Package, AlertTrian
 import ReactMarkdown from "react-markdown";
 import Link from "next/link";
 import { useTranslation } from "@/lib/i18n";
+import LongRunIndicator from "@/components/ui/LongRunIndicator";
 
 const CATEGORIES = [
   { key: "growth", icon: TrendingUp, color: "#10b981" },
@@ -29,10 +30,17 @@ export default function CEOPage() {
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  // Lets the user stop a long run instead of waiting it out or resending
+  // (QA 2026-09-15: no cancel/retry control during long AI waits).
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  function cancelRun() {
+    abortRef.current?.abort();
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -46,12 +54,16 @@ export default function CEOPage() {
     let aiContent = "";
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const history = messages.slice(-8).map((m) => ({ role: m.role, content: m.content }));
       const res = await fetch("/api/ceo/question", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question, category: selectedCategory, conversationId, history, lang }),
+        signal: controller.signal,
       });
 
       const reader = res.body!.getReader();
@@ -76,9 +88,20 @@ export default function CEOPage() {
         }
       }
     } catch (err) {
-      console.error(err);
+      if ((err as Error)?.name === "AbortError") {
+        // Keep whatever had streamed; only label an empty bubble, so the
+        // cancelled turn doesn't sit there as a blank reply.
+        const cancelled = ({ fa: "(لغو شد)", en: "(Cancelled)", de: "(Abgebrochen)" } as Record<string, string>)[lang] || "(Cancelled)";
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          return last?.role === "assistant" && !last.content ? [...prev.slice(0, -1), { role: "assistant", content: cancelled }] : prev;
+        });
+      } else {
+        console.error(err);
+      }
     } finally {
       setLoading(false);
+      abortRef.current = null;
     }
   }
 
@@ -190,6 +213,10 @@ export default function CEOPage() {
               </div>
             </div>
           ))}
+          {loading && (
+            <LongRunIndicator lang={lang} expectedSeconds={30} onCancel={cancelRun}
+              receivedAny={!!messages[messages.length - 1]?.content} />
+          )}
           <div ref={bottomRef} />
         </div>
 

@@ -2,19 +2,25 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect, useCallback } from "react";
-import { HelpCircle, Plus, Edit2, Trash2, ToggleLeft, ToggleRight, RefreshCw } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { HelpCircle, Plus, Edit2, Trash2, ToggleLeft, ToggleRight, RefreshCw, Upload, Loader2, X } from "lucide-react";
 import toast from "react-hot-toast";
+import { downscaleImage } from "@/lib/image/downscaleImage";
 
 interface Prompt {
   id: string;
   title: string;
   titleEn: string | null;
+  titleDe: string | null;
   content: string;
   contentEn: string | null;
+  contentDe: string | null;
   category: string;
   toolType: string;
   thumbnailUrl: string | null;
+  guideFa: string | null;
+  guideEn: string | null;
+  guideDe: string | null;
   isActive: boolean;
   sortOrder: number;
   usedCount: number;
@@ -28,7 +34,7 @@ const TOOL_TYPES = [
 
 const CATEGORIES = ["عمومی", "کسب‌وکار", "آموزش", "سلامت", "فناوری", "هنر و خلاقیت", "سفر", "مالی"];
 
-const EMPTY_FORM = { title: "", titleEn: "", content: "", contentEn: "", category: "عمومی", toolType: "chat" };
+const EMPTY_FORM = { title: "", titleEn: "", titleDe: "", content: "", contentEn: "", contentDe: "", category: "عمومی", toolType: "chat", thumbnailUrl: "", guideFa: "", guideEn: "", guideDe: "" };
 
 export default function PromptsPage() {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
@@ -37,6 +43,27 @@ export default function PromptsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Prompt | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleThumbnailUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const body = new FormData();
+      body.append("file", await downscaleImage(file));
+      const res = await fetch("/api/upload", { method: "POST", credentials: "include", body });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setForm((p) => ({ ...p, thumbnailUrl: data.url }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "خطا در آپلود تصویر");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,7 +83,12 @@ export default function PromptsPage() {
   function openAdd() { setEditing(null); setForm({ ...EMPTY_FORM, toolType: toolFilter }); setShowForm(true); }
   function openEdit(p: Prompt) {
     setEditing(p);
-    setForm({ title: p.title, titleEn: p.titleEn || "", content: p.content, contentEn: p.contentEn || "", category: p.category, toolType: p.toolType });
+    setForm({
+      title: p.title, titleEn: p.titleEn || "", titleDe: p.titleDe || "",
+      content: p.content, contentEn: p.contentEn || "", contentDe: p.contentDe || "",
+      category: p.category, toolType: p.toolType, thumbnailUrl: p.thumbnailUrl || "",
+      guideFa: p.guideFa || "", guideEn: p.guideEn || "", guideDe: p.guideDe || "",
+    });
     setShowForm(true);
   }
 
@@ -118,7 +150,7 @@ export default function PromptsPage() {
             پرامپت‌های آماده
           </h1>
           <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>
-            مدیریت پرامپت‌های پیش‌فرض چت، تولید تصویر و تولید ویدیو — دوزبانه (فارسی/انگلیسی)
+            مدیریت پرامپت‌های پیش‌فرض چت، تولید تصویر و تولید ویدیو — سه‌زبانه (فارسی/انگلیسی/آلمانی)
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -213,6 +245,11 @@ export default function PromptsPage() {
               <input dir="ltr" value={form.titleEn} onChange={(e) => setForm((p) => ({ ...p, titleEn: e.target.value }))} placeholder="Short, clear title"
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
+            <div>
+              <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>Titel (Deutsch) — خالی = همان انگلیسی</label>
+              <input dir="ltr" value={form.titleDe} onChange={(e) => setForm((p) => ({ ...p, titleDe: e.target.value }))} placeholder="Kurzer, klarer Titel"
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
 
             <div>
               <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>محتوای پرامپت (فارسی)</label>
@@ -222,6 +259,58 @@ export default function PromptsPage() {
             <div>
               <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>Prompt Content (English)</label>
               <textarea dir="ltr" value={form.contentEn} onChange={(e) => setForm((p) => ({ ...p, contentEn: e.target.value }))} rows={3}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+            <div>
+              <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>Prompt-Inhalt (Deutsch) — خالی = همان انگلیسی</label>
+              <textarea dir="ltr" value={form.contentDe} onChange={(e) => setForm((p) => ({ ...p, contentDe: e.target.value }))} rows={3}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+
+            <div>
+              <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>تصویر پیش‌نمایش</label>
+              <div className="flex items-center gap-3">
+                {form.thumbnailUrl ? (
+                  <div className="relative flex-shrink-0">
+                    <img src={form.thumbnailUrl} alt="" className="w-16 h-16 object-cover rounded-xl" style={{ border: "1px solid var(--border)" }} />
+                    <button onClick={() => setForm((p) => ({ ...p, thumbnailUrl: "" }))} className="absolute -top-1.5 -left-1.5 p-0.5 rounded-full bg-black/70 text-white">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="w-16 h-16 rounded-xl flex items-center justify-center flex-shrink-0 disabled:opacity-50"
+                    style={{ background: "var(--surface-2)", border: "1px dashed var(--border)" }}
+                  >
+                    {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" style={{ color: "var(--text-muted)" }} />}
+                  </button>
+                )}
+                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleThumbnailUpload} className="hidden" />
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  همان عکس نمونه‌ای که در گالری «پرامپت‌های آماده» و صفحه‌ی عمومی نشان داده می‌شود.
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>راهنمای استفاده (فارسی)</label>
+              <textarea value={form.guideFa} onChange={(e) => setForm((p) => ({ ...p, guideFa: e.target.value }))} rows={2}
+                placeholder="مثلاً: یک عکس واضح از صورت خودتان آپلود کنید — این پرامپت هویت شما را حفظ می‌کند و..."
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                این متن به کاربر نشان داده می‌شود؛ خود پرامپت (بالا) هرگز به کاربر نمایش داده نمی‌شود.
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>Usage Guide (English)</label>
+              <textarea dir="ltr" value={form.guideEn} onChange={(e) => setForm((p) => ({ ...p, guideEn: e.target.value }))} rows={2}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+            <div>
+              <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>Nutzungshinweis (Deutsch) — خالی = همان انگلیسی</label>
+              <textarea dir="ltr" value={form.guideDe} onChange={(e) => setForm((p) => ({ ...p, guideDe: e.target.value }))} rows={2}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
 

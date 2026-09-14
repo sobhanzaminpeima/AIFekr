@@ -477,7 +477,7 @@ export default function CrmPage() {
       ) : tab === "analytics" ? (
         <AnalyticsPanel isFa={isFa} lang={lang} t={c} pipelines={pipelines} onOpenContact={(id) => { setTab("contacts"); openContact(id); }} />
       ) : tab === "products" ? (
-        <ProductsPanel isFa={isFa} t={c} />
+        <ProductsPanel isFa={isFa} lang={lang} t={c} />
       ) : tab === "invoices" ? (
         <InvoicesPanel isFa={isFa} lang={lang} t={c} contacts={contacts} />
       ) : tab === "contracts" ? (
@@ -488,7 +488,7 @@ export default function CrmPage() {
       ) : tab === "owners" && ownersEnabled ? (
         <OwnersPanel lang={lang} onOpenProperty={(id) => { setTab("properties"); setOpenPropertyId(id); }} />
       ) : tab === "viewings" && viewingsEnabled ? (
-        <ViewingsPanel lang={lang} teamMembers={teamMembers} viewingCoordinatorEnabled={viewingCoordinatorEnabled} />
+        <ViewingsPanel lang={lang} contacts={contacts} teamMembers={teamMembers} viewingCoordinatorEnabled={viewingCoordinatorEnabled} />
       ) : tab === "matches" && matchViewEnabled ? (
         <BuyerMatchPanel lang={lang} leadMatcherAgentEnabled={leadMatcherAgentEnabled} />
       ) : tab === "performance" && performanceReportEnabled ? (
@@ -1722,8 +1722,17 @@ function CrmAgentPanel({ isFa, lang, t }: { isFa: boolean; lang: Lang; t: Transl
   );
 }
 
-interface CalendarItem { id: string; date: string; label: string; type: "task" | "deal"; }
+interface CalendarItem { id: string; date: string; label: string; type: "task" | "deal" | "viewing"; who?: string | null; }
 
+/**
+ * Shared team calendar. QA 2026-09-15 listed "no shared team calendar" as a
+ * missing feature: this panel showed only pending tasks and deal close dates,
+ * so the one thing a real-estate team actually schedules together — property
+ * viewings, and which agent is on each — was invisible here and only reachable
+ * one list at a time under Viewings. Viewings now appear alongside, labelled
+ * with the assigned agent and the visitor, for the whole workspace (an AGENT
+ * still sees only their own, enforced server-side by /api/crm/viewings).
+ */
 function CalendarPanel({ isFa, lang, t }: { isFa: boolean; lang: Lang; t: Translations["crm"] }) {
   const [items, setItems] = useState<CalendarItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1732,17 +1741,27 @@ function CalendarPanel({ isFa, lang, t }: { isFa: boolean; lang: Lang; t: Transl
     Promise.all([
       fetch("/api/crm/tasks?status=pending").then((r) => r.json()),
       fetch("/api/crm/deals?status=open").then((r) => r.json()),
-    ]).then(([taskData, dealData]) => {
+      // 403 when the viewing-scheduler module isn't enabled for this workspace
+      // — that just means no viewings to show, not a failure of the calendar.
+      fetch("/api/crm/viewings?status=scheduled").then((r) => (r.ok ? r.json() : { viewings: [] })).catch(() => ({ viewings: [] })),
+    ]).then(([taskData, dealData, viewingData]) => {
       const taskItems: CalendarItem[] = (taskData.tasks || [])
         .filter((t: Task) => t.dueDate)
         .map((t: Task) => ({ id: `task-${t.id}`, date: t.dueDate as string, label: t.title, type: "task" as const }));
       const dealItems: CalendarItem[] = (dealData.deals || [])
         .filter((d: Deal) => d.expectedCloseDate)
         .map((d: Deal) => ({ id: `deal-${d.id}`, date: d.expectedCloseDate as string, label: `${d.title} — ${d.contact?.name || ""}`, type: "deal" as const }));
-      setItems([...taskItems, ...dealItems].sort((a, b) => a.date.localeCompare(b.date)));
+      const viewingItems: CalendarItem[] = (viewingData.viewings || []).map((v: ViewingRow) => ({
+        id: `viewing-${v.id}`,
+        date: v.scheduledAt,
+        label: `${tri(lang, "بازدید", "Viewing", "Besichtigung")}: ${v.property.title}${v.contact ? ` — ${v.contact.name}` : ""} · ${new Date(v.scheduledAt).toLocaleTimeString(lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US", { hour: "2-digit", minute: "2-digit" })}`,
+        type: "viewing" as const,
+        who: v.assignedTo?.name ?? null,
+      }));
+      setItems([...taskItems, ...dealItems, ...viewingItems].sort((a, b) => a.date.localeCompare(b.date)));
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, []);
+  }, [lang]);
 
   if (loading) return <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />;
   if (items.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.calendar.empty}</p>;
@@ -1761,8 +1780,17 @@ function CalendarPanel({ isFa, lang, t }: { isFa: boolean; lang: Lang; t: Transl
           <div className="space-y-1.5">
             {dayItems.map((item) => (
               <div key={item.id} className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
-                {item.type === "task" ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} /> : <Briefcase className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--primary)" }} />}
-                <span style={{ color: "var(--text-primary)" }}>{item.label}</span>
+                {item.type === "task"
+                  ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
+                  : item.type === "viewing"
+                    ? <CalendarDays className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#3b82f6" }} />
+                    : <Briefcase className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--primary)" }} />}
+                <span className="flex-1 min-w-0" style={{ color: "var(--text-primary)" }}>{item.label}</span>
+                {item.who && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] flex-shrink-0" style={{ background: "var(--surface-1)", color: "var(--text-secondary)" }}>
+                    {item.who}
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -2065,7 +2093,7 @@ interface ProductFormState {
 
 const EMPTY_PRODUCT_FORM: ProductFormState = { name: "", sku: "", description: "", price: "", unit: "", taxRate: "0", imageUrl: "" };
 
-function ProductsPanel({ isFa, t }: { isFa: boolean; t: Translations["crm"] }) {
+function ProductsPanel({ isFa, lang, t }: { isFa: boolean; lang: Lang; t: Translations["crm"] }) {
   const [products, setProducts] = useState<CrmProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState<ProductFormState | null>(null);
@@ -2191,14 +2219,14 @@ function ProductsPanel({ isFa, t }: { isFa: boolean; t: Translations["crm"] }) {
       )}
 
       {products.length > 0 && (
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={isFa ? "جستجوی محصول (نام یا کد)" : "Search products (name or SKU)"}
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجوی محصول (نام یا کد)", "Search products (name or SKU)", "Produkte suchen (Name oder SKU)")}
           className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
       )}
 
       {products.length === 0 ? (
         <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.products.empty}</p>
       ) : filteredProducts.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "محصولی با این مشخصات پیدا نشد" : "No products match your search"}</p>
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "محصولی با این مشخصات پیدا نشد", "No products match your search", "Keine Produkte gefunden")}</p>
       ) : (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           {filteredProducts.map((p, i) => (
@@ -2414,11 +2442,11 @@ function InvoicesPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang;
 
       {invoices.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={isFa ? "جستجو (شماره فاکتور یا نام مشتری)" : "Search (invoice number or customer)"}
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجو (شماره فاکتور یا نام مشتری)", "Search (invoice number or customer)", "Suchen (Rechnungsnummer oder Kunde)")}
             className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
             className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{isFa ? "همه وضعیت‌ها" : "All statuses"}</option>
+            <option value="">{tri(lang, "همه وضعیت‌ها", "All statuses", "Alle Status")}</option>
             {Object.keys(INVOICE_STATUS_LABEL).map((val) => (
               <option key={val} value={val}>{t.invoiceStatus[val as keyof typeof t.invoiceStatus] || val}</option>
             ))}
@@ -2434,7 +2462,7 @@ function InvoicesPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang;
           return inv.invoiceNumber.toLowerCase().includes(q) || inv.contact.name.toLowerCase().includes(q);
         });
         if (invoices.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.invoices.empty}</p>;
-        if (filteredInvoices.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "فاکتوری با این مشخصات پیدا نشد" : "No invoices match your search"}</p>;
+        if (filteredInvoices.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "فاکتوری با این مشخصات پیدا نشد", "No invoices match your search", "Keine Rechnungen gefunden")}</p>;
         return (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           {filteredInvoices.map((inv, i) => {
@@ -2687,11 +2715,11 @@ function ContractsPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang
 
       {contracts.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={isFa ? "جستجو (عنوان یا نام مشتری)" : "Search (title or customer)"}
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجو (عنوان یا نام مشتری)", "Search (title or customer)", "Suchen (Titel oder Kunde)")}
             className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
             className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{isFa ? "همه وضعیت‌ها" : "All statuses"}</option>
+            <option value="">{tri(lang, "همه وضعیت‌ها", "All statuses", "Alle Status")}</option>
             {Object.keys(CONTRACT_STATUS_LABEL).map((val) => (
               <option key={val} value={val}>{t.contractStatus[val as keyof typeof t.contractStatus] || val}</option>
             ))}
@@ -2707,7 +2735,7 @@ function ContractsPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang
           return ct.title.toLowerCase().includes(q) || ct.contact.name.toLowerCase().includes(q);
         });
         if (contracts.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.contracts.empty}</p>;
-        if (filteredContracts.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "قراردادی با این مشخصات پیدا نشد" : "No contracts match your search"}</p>;
+        if (filteredContracts.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "قراردادی با این مشخصات پیدا نشد", "No contracts match your search", "Keine Verträge gefunden")}</p>;
         return (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           {filteredContracts.map((ct, i) => {
@@ -2840,11 +2868,13 @@ const PROJECT_LISTING_TYPE_LABEL: Record<string, { fa: string; en: string; de: s
   short_term_rent: { fa: "اجاره روزانه", en: "Short-term rental", de: "Kurzzeitvermietung" },
 };
 
-const PROJECT_STATUS_LABEL: Record<string, { fa: string; en: string; color: string }> = {
-  active: { fa: "در حال انجام", en: "Active", color: "#3b82f6" },
-  on_hold: { fa: "متوقف‌شده", en: "On Hold", color: "#f59e0b" },
-  completed: { fa: "تکمیل‌شده", en: "Completed", color: "#22c55e" },
-  cancelled: { fa: "لغوشده", en: "Cancelled", color: "var(--text-muted)" },
+// `de` filled in: the render site read `(st as any).de || st.en`, so a German
+// user saw English status chips throughout Projects (QA 2026-09-15, U12).
+const PROJECT_STATUS_LABEL: Record<string, { fa: string; en: string; de: string; color: string }> = {
+  active: { fa: "در حال انجام", en: "Active", de: "Aktiv", color: "#3b82f6" },
+  on_hold: { fa: "متوقف‌شده", en: "On Hold", de: "Pausiert", color: "#f59e0b" },
+  completed: { fa: "تکمیل‌شده", en: "Completed", de: "Abgeschlossen", color: "#22c55e" },
+  cancelled: { fa: "لغوشده", en: "Cancelled", de: "Storniert", color: "var(--text-muted)" },
 };
 
 /** Generic post-sale/ongoing-work tracking — usable by any vertical (a construction job, a real-estate closing's paperwork, a service engagement), not tied to one industry's schema. */
@@ -2996,11 +3026,11 @@ function ProjectsPanel({ isFa, lang, t, contacts, isRealEstate }: { isFa: boolea
 
       {projects.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={isFa ? "جستجو (نام پروژه یا مشتری)" : "Search (project name or customer)"}
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجو (نام پروژه یا مشتری)", "Search (project name or customer)", "Suchen (Projektname oder Kunde)")}
             className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
             className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{isFa ? "همه وضعیت‌ها" : "All statuses"}</option>
+            <option value="">{tri(lang, "همه وضعیت‌ها", "All statuses", "Alle Status")}</option>
             {Object.entries(t.projectStatus).map(([val, label]) => <option key={val} value={val}>{label}</option>)}
           </select>
         </div>
@@ -3014,7 +3044,7 @@ function ProjectsPanel({ isFa, lang, t, contacts, isRealEstate }: { isFa: boolea
           return p.name.toLowerCase().includes(q) || (p.contact?.name || "").toLowerCase().includes(q);
         });
         if (projects.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.projects.empty}</p>;
-        if (filteredProjects.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "پروژه‌ای با این مشخصات پیدا نشد" : "No projects match your search"}</p>;
+        if (filteredProjects.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "پروژه‌ای با این مشخصات پیدا نشد", "No projects match your search", "Keine Projekte gefunden")}</p>;
         return (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           {filteredProjects.map((p, i) => {
@@ -3214,6 +3244,14 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
   const [search, setSearch] = useState("");
   const [listingTypeFilter, setListingTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  // Property comparison (QA 2026-09-15 missing feature): tick up to 3 listings
+  // and see them side by side, instead of opening each detail modal in turn.
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [showCompare, setShowCompare] = useState(false);
+  const MAX_COMPARE = 3;
+  function toggleCompare(id: string) {
+    setCompareIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : prev.length >= MAX_COMPARE ? prev : [...prev, id]));
+  }
 
   const [title, setTitle] = useState("");
   const [listingType, setListingType] = useState("sell");
@@ -3454,6 +3492,76 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
         </div>
       )}
 
+      {compareIds.length > 0 && (
+        <div className="flex items-center justify-between gap-2 rounded-xl px-4 py-2.5 flex-wrap" style={{ background: "rgba(234,88,12,0.08)", border: "1px solid rgba(234,88,12,0.25)" }}>
+          <span className="text-xs" style={{ color: "var(--text-primary)" }}>
+            {tri(lang, `${compareIds.length} ملک برای مقایسه انتخاب شده`, `${compareIds.length} selected for comparison`, `${compareIds.length} zum Vergleich ausgewählt`)}
+          </span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setCompareIds([])} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+              {tri(lang, "پاک کردن", "Clear", "Leeren")}
+            </button>
+            <button onClick={() => setShowCompare(true)} disabled={compareIds.length < 2}
+              className="text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-50" style={{ background: "var(--primary)" }}
+              title={compareIds.length < 2 ? tri(lang, "حداقل دو ملک انتخاب کنید", "Select at least two", "Mindestens zwei auswählen") : undefined}>
+              {tri(lang, "مقایسه", "Compare", "Vergleichen")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showCompare && (() => {
+        const chosen = compareIds.map((id) => properties.find((p) => p.id === id)).filter((p): p is PropertyRow => !!p);
+        const priceOf = (p: PropertyRow) => p.listingType === "short_term_rent"
+          ? (p.nightlyPrice ? `${fmtPrice(p.nightlyPrice, p.currency, lang)} ${tri(lang, "/ شب", "/ night", "/ Nacht")}` : "—")
+          : fmtPrice(p.price, p.currency, lang);
+        const perSqm = (p: PropertyRow) => p.listingType !== "short_term_rent" && p.price && p.areaSqm
+          ? fmtPrice(Math.round(p.price / p.areaSqm), p.currency, lang) : "—";
+        const rows: { label: string; cell: (p: PropertyRow) => React.ReactNode }[] = [
+          { label: tri(lang, "نوع معامله", "Listing type", "Angebotsart"), cell: (p) => PROPERTY_LISTING_TYPE_LABEL[p.listingType]?.[lang] || p.listingType },
+          { label: tri(lang, "قیمت", "Price", "Preis"), cell: priceOf },
+          { label: tri(lang, "متراژ", "Area", "Fläche"), cell: (p) => (p.areaSqm ? `${p.areaSqm} ${tri(lang, "متر", "sqm", "m²")}` : "—") },
+          { label: tri(lang, "قیمت هر متر", "Price per sqm", "Preis pro m²"), cell: perSqm },
+          { label: tri(lang, "اتاق خواب", "Bedrooms", "Schlafzimmer"), cell: (p) => p.bedrooms ?? "—" },
+          { label: tri(lang, "سرویس", "Bathrooms", "Badezimmer"), cell: (p) => p.bathrooms ?? "—" },
+          { label: tri(lang, "موقعیت", "Location", "Lage"), cell: (p) => `${p.address}${p.city ? `، ${p.city}` : ""}` },
+          { label: tri(lang, "وضعیت", "Status", "Status"), cell: (p) => PROPERTY_STATUS_LABEL[p.status]?.[lang] || p.status },
+          { label: tri(lang, "مالک / مخاطب", "Owner / contact", "Eigentümer / Kontakt"), cell: (p) => p.crmContact?.name || "—" },
+        ];
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }} onClick={() => setShowCompare(false)}>
+            <div className="w-full max-w-4xl rounded-2xl p-5 max-h-[85vh] overflow-y-auto" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }} onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مقایسهٔ املاک", "Property comparison", "Immobilienvergleich")}</h3>
+                <button onClick={() => setShowCompare(false)}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs min-w-[520px]">
+                  <thead>
+                    <tr style={{ background: "var(--surface-2)" }}>
+                      <th className="px-3 py-2 text-start font-medium" style={{ color: "var(--text-muted)" }} />
+                      {chosen.map((p) => (
+                        <th key={p.id} className="px-3 py-2 text-start font-semibold" style={{ color: "var(--text-primary)" }}>{p.title}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r, i) => (
+                      <tr key={r.label} style={{ background: i % 2 === 0 ? "var(--surface-1)" : "var(--surface-0)" }}>
+                        <td className="px-3 py-2 font-medium whitespace-nowrap" style={{ color: "var(--text-muted)" }}>{r.label}</td>
+                        {chosen.map((p) => (
+                          <td key={p.id} className="px-3 py-2" style={{ color: "var(--text-primary)" }}>{r.cell(p)}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {(() => {
         const filteredProperties = properties.filter((p) => {
           if (listingTypeFilter && p.listingType !== listingTypeFilter) return false;
@@ -3478,6 +3586,14 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
                 </p>
               </div>
               <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                <label className="flex items-center gap-1 text-[10px] cursor-pointer" style={{ color: "var(--text-muted)" }}
+                  title={tri(lang, `حداکثر ${MAX_COMPARE} ملک برای مقایسه`, `Compare up to ${MAX_COMPARE} properties`, `Bis zu ${MAX_COMPARE} Immobilien vergleichen`)}>
+                  <input type="checkbox" className="w-3.5 h-3.5 accent-orange-500"
+                    checked={compareIds.includes(p.id)}
+                    disabled={!compareIds.includes(p.id) && compareIds.length >= MAX_COMPARE}
+                    onChange={() => toggleCompare(p.id)} />
+                  {tri(lang, "مقایسه", "Compare", "Vergleich")}
+                </label>
                 <select value={p.status} onChange={(e) => setStatus(p.id, e.target.value)}
                   className="text-[10px] px-2 py-1 rounded-full font-medium outline-none" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "none" }}>
                   {Object.entries(PROPERTY_STATUS_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
@@ -4344,7 +4460,7 @@ function OwnersPanel({ lang, onOpenProperty }: { lang: Lang; onOpenProperty: (id
 }
 
 /** Section 1, item 4 — Viewing Scheduler. A real calendar slot per PropertyViewing row (not a text field), server-side double-booking check per assigned team member (src/app/api/crm/viewings). Post-viewing feedback capture built in. */
-function ViewingsPanel({ lang, teamMembers, viewingCoordinatorEnabled }: { lang: Lang; teamMembers: TeamMember[]; viewingCoordinatorEnabled: boolean }) {
+function ViewingsPanel({ lang, contacts, teamMembers, viewingCoordinatorEnabled }: { lang: Lang; contacts: Contact[]; teamMembers: TeamMember[]; viewingCoordinatorEnabled: boolean }) {
   const [viewings, setViewings] = useState<ViewingRow[]>([]);
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -4464,6 +4580,17 @@ function ViewingsPanel({ lang, teamMembers, viewingCoordinatorEnabled }: { lang:
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
             <option value="">{tri(lang, "انتخاب ملک", "Select property", "Immobilie auswählen")}</option>
             {properties.map((p) => <option key={p.id} value={p.id}>{p.title} — {p.address}</option>)}
+          </select>
+          {/* The visitor. PropertyViewing.contactId and the POST body already
+              carried it — only this picker was missing, so a booked viewing had
+              no one attached to it and post-viewing follow-up had nobody to
+              follow up with (QA 2026-09-15, missing features / CRM-Viewings).
+              Optional, matching the schema: a slot can be blocked out before the
+              buyer is confirmed. */}
+          <select value={contactId} onChange={(e) => setContactId(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{tri(lang, "بازدیدکننده / مشتری (اختیاری)", "Visitor / customer (optional)", "Besucher / Kunde (optional)")}</option>
+            {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
@@ -4875,6 +5002,81 @@ function PerformanceReportPanel({ lang, agencyManagerEnabled }: { lang: Lang; ag
           ))}
         </div>
       )}
+
+      <CommissionSplitsByAgent lang={lang} agents={report} />
+    </div>
+  );
+}
+
+/**
+ * Per-agent commission split report. QA 2026-09-15 listed "no per-agent
+ * commission split report" as a missing feature. The data already existed —
+ * AccountingCommissionSplit rows recorded when a deal's commission is split
+ * between agents — but it was only visible deal-by-deal as "pending
+ * commissions" on the Accounting dashboard, never totalled per agent or shown
+ * where the team's performance lives. Paid vs still-owed is what an agency
+ * owner reconciles at month end, so that's the breakdown.
+ */
+function CommissionSplitsByAgent({ lang, agents }: { lang: Lang; agents: PerformanceRow[] }) {
+  const [rows, setRows] = useState<{ agentUserId: string; count: number; total: number; paid: number; pending: number }[] | null>(null);
+
+  useEffect(() => {
+    fetch("/api/accounting/commissions")
+      // 402 without the CRM add-on: nothing to show, not an error to surface.
+      .then((r) => (r.ok ? r.json() : { records: [] }))
+      .then((d: { records?: { splits: { agentUserId: string; amount: number; status: string }[] }[] }) => {
+        const byAgent = new Map<string, { agentUserId: string; count: number; total: number; paid: number; pending: number }>();
+        for (const rec of d.records || []) {
+          for (const s of rec.splits) {
+            const row = byAgent.get(s.agentUserId) || { agentUserId: s.agentUserId, count: 0, total: 0, paid: 0, pending: 0 };
+            row.count += 1;
+            row.total += s.amount;
+            if (s.status === "paid") row.paid += s.amount; else row.pending += s.amount;
+            byAgent.set(s.agentUserId, row);
+          }
+        }
+        setRows(Array.from(byAgent.values()).sort((a, b) => b.total - a.total));
+      })
+      .catch(() => setRows([]));
+  }, []);
+
+  if (!rows || rows.length === 0) return null;
+  const nameOf = (id: string) => agents.find((a) => a.agentId === id)?.agentName || tri(lang, "مشاور", "Agent", "Makler");
+
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+      <div className="px-4 py-3 flex items-center justify-between" style={{ background: "var(--surface-1)", borderBottom: "1px solid var(--border)" }}>
+        <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          {tri(lang, "تسهیم کمیسیون به تفکیک مشاور", "Commission splits by agent", "Provisionsaufteilung nach Makler")}
+        </p>
+        <a href="/accounting" className="text-xs" style={{ color: "var(--primary)" }}>
+          {tri(lang, "حسابداری ←", "Accounting →", "Buchhaltung →")}
+        </a>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs min-w-[480px]">
+          <thead>
+            <tr style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+              <th className="px-4 py-2 text-start font-medium">{tri(lang, "مشاور", "Agent", "Makler")}</th>
+              <th className="px-4 py-2 text-center font-medium">{tri(lang, "تعداد سهم", "Splits", "Anteile")}</th>
+              <th className="px-4 py-2 text-center font-medium">{tri(lang, "کل", "Total", "Gesamt")}</th>
+              <th className="px-4 py-2 text-center font-medium">{tri(lang, "پرداخت‌شده", "Paid", "Bezahlt")}</th>
+              <th className="px-4 py-2 text-center font-medium">{tri(lang, "مانده", "Owed", "Offen")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={r.agentUserId} style={{ background: i % 2 === 0 ? "var(--surface-1)" : "var(--surface-0)" }}>
+                <td className="px-4 py-2" style={{ color: "var(--text-primary)" }}>{nameOf(r.agentUserId)}</td>
+                <td className="px-4 py-2 text-center" style={{ color: "var(--text-secondary)" }}>{r.count}</td>
+                <td className="px-4 py-2 text-center font-semibold" style={{ color: "var(--text-primary)" }}>{fmtMoney(r.total)}</td>
+                <td className="px-4 py-2 text-center" style={{ color: "#22c55e" }}>{fmtMoney(r.paid)}</td>
+                <td className="px-4 py-2 text-center" style={{ color: r.pending > 0 ? "#f59e0b" : "var(--text-muted)" }}>{fmtMoney(r.pending)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -4932,7 +5134,7 @@ function ProjectDetailModal({ isFa, lang, t, project, onClose, onChanged }: { is
 
       <div className="flex items-center justify-between mb-3">
         <span className="text-[11px] px-2 py-1 rounded-full font-medium" style={{ background: "var(--surface-2)", color: st.color }}>
-          {lang === "fa" ? st.fa : lang === "de" ? (st as any).de || st.en : st.en}
+          {tri(lang, st.fa, st.en, st.de)}
         </span>
         {!editing ? (
           <button onClick={() => setEditing(true)} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>

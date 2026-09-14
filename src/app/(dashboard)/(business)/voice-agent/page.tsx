@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTranslation, tri, type Lang } from "@/lib/i18n";
+import { parseJsonResponse } from "@/lib/utils/fetchJson";
 
 interface VoiceAgent {
   id: string; name: string; focus: string; vertical: string; businessType?: string | null; systemPrompt: string; voiceId: string | null;
@@ -173,7 +174,10 @@ export default function VoiceAgentPage() {
     setError("");
     try {
       const res = await fetch(`/api/voice-agent/agents/${id}/provision`, { method: "POST" });
-      const data = await res.json();
+      // parseJsonResponse, not res.json(): provisioning calls Vapi and can
+      // outlast the gateway timeout, which answers with an HTML error page —
+      // res.json() then threw "Unexpected token '<'" at the user (QA U01).
+      const data = await parseJsonResponse(res, lang);
       if (!res.ok) throw new Error(data.error || tri(lang, "خطا در اتصال به Vapi", "Failed to connect to Vapi", "Verbindung zu Vapi fehlgeschlagen"));
       loadAgents();
     } catch (e) {
@@ -193,7 +197,7 @@ export default function VoiceAgentPage() {
     setShowNewProperty(false);
     loadProperties();
     if (data.matchedLeads?.length) {
-      const names = data.matchedLeads.map((l: { contactName: string }) => l.contactName).join("، ");
+      const names = data.matchedLeads.map((l: { contactName: string }) => l.contactName).join(lang === "fa" ? "، " : ", ");
       toast.success(tri(lang,
         `${data.matchedLeads.length} لید قدیمی با پروفایل مشابه پیدا شد — پیشنهاد می‌شود اطلاع‌رسانی کنید: ${names}`,
         `Found ${data.matchedLeads.length} past lead(s) with a matching profile — consider notifying them: ${names}`,
@@ -637,7 +641,7 @@ function PropertiesTab({
               <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{p.title}</p>
               <button onClick={() => onDelete(p.id)}><Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} /></button>
             </div>
-            <p className="text-xs flex items-center gap-1" style={{ color: "var(--text-secondary)" }}><MapPin className="w-3.5 h-3.5" /> {p.address}{p.city ? `، ${p.city}` : ""}</p>
+            <p className="text-xs flex items-center gap-1" style={{ color: "var(--text-secondary)" }}><MapPin className="w-3.5 h-3.5" /> {p.address}{p.city ? `${lang === "fa" ? "، " : ", "}${p.city}` : ""}</p>
             <p className="text-sm font-semibold" style={{ color: "#f59e0b" }}>{fmtMoney(p.price)} {tri(lang, "تومان", "IRT", "IRR")}</p>
             <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
               <span className="px-2 py-0.5 rounded-full" style={{ background: "var(--surface-2)" }}>{p.listingType}</span>

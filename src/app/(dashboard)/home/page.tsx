@@ -60,7 +60,7 @@ interface HomeSummary {
   teamActivity: TeamActivityItem[];
   meaningfulStats: StatKey[];
   isEmptyWorkspace: boolean;
-  industryPack: { name: string; nameEn: string | null; emoji: string } | null;
+  industryPack: { name: string; nameEn: string | null; emoji: string; slug: string } | null;
 }
 
 /**
@@ -157,6 +157,32 @@ export default function HomePage() {
               `Ihre ${data.industryPack.nameEn || data.industryPack.name}-Module sind aktiv`)}
           </p>
         </div>
+      )}
+
+      {/* Industry start actions. QA 2026-09-15 found a small agency faced every
+          general module at once, making the first session long; it suggested a
+          start page built around the industry's three core daily jobs. Shown
+          only for packs with a defined set — nothing is hidden for anyone. */}
+      {data.industryPack?.slug === "real-estate" && (
+        <section>
+          <h2 className="text-xs font-semibold mb-2.5 px-1" style={{ color: "var(--text-muted)" }}>
+            {tri(lang, "سه کار اصلی روزانه", "Your three core daily jobs", "Ihre drei Kernaufgaben am Tag")}
+          </h2>
+          <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+            {[
+              { href: "/crm?tab=properties", icon: Briefcase, label: tri(lang, "ثبت یا به‌روزرسانی ملک", "Add or update a property", "Immobilie anlegen oder aktualisieren") },
+              { href: "/crm?tab=viewings", icon: CalendarDays, label: tri(lang, "زمان‌بندی بازدید", "Schedule a viewing", "Besichtigung planen") },
+              { href: "/accounting/owner-statements", icon: Wallet, label: tri(lang, "صورت‌حساب مالک", "Owner statement", "Eigentümerabrechnung") },
+            ].map((a) => (
+              <Link key={a.href} href={a.href}
+                className="rounded-xl p-3.5 flex items-center gap-2.5 transition-colors"
+                style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+                <a.icon className="w-4 h-4 flex-shrink-0" style={{ color: "var(--primary)" }} />
+                <span className="text-sm" style={{ color: "var(--text-primary)" }}>{a.label}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
 
       {data.isEmptyWorkspace && data.teamActivity.length === 0 ? (

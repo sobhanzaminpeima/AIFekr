@@ -637,6 +637,13 @@ model Prompt {
   content      String
   /// English prompt text — same fallback rule as titleEn.
   contentEn    String?
+  /// German title/text/guide. Before these existed every consumer did
+  /// `lang !== "fa" ? En : Fa`, so German users always got the English prompt
+  /// and the admin editor had no way to write a German one (QA 2026-09-15,
+  /// Admin/Prompts). Nullable, falling back to the English field, then Persian.
+  titleDe      String?
+  contentDe    String?
+  guideDe      String?
   category     String   @default("general")
   /// Which tool this ready-made prompt is for: "chat" | "image" | "video"
   toolType     String   @default("chat")

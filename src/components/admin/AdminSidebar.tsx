@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, CreditCard, DollarSign, Bot, Wrench,
   Activity, Settings, LogOut, Sparkles, Shield, MessageSquare,
   HelpCircle, Package, UserCog, Database, Cpu, Contact,
-  ChevronDown, Factory, Building2, Tag, Clock, Globe, Coins, Rocket, BarChart2, Phone, ToggleRight, Wallet,
+  ChevronDown, Factory, Building2, Tag, Globe, Coins, Rocket, BarChart2, Phone, ToggleRight, Wallet, Link2, Magnet,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -32,6 +32,7 @@ const navGroups = [
       { icon: MessageSquare, label: "مدیریت چت‌ها", href: "/admin/chats" },
       { icon: Globe, label: "وبسایت‌های تولیدشده", href: "/admin/generated-websites" },
       { icon: HelpCircle, label: "سوالات آماده", href: "/admin/prompts" },
+      { icon: Link2, label: "لینک عمومی دهه ۸۰", href: "/admin/public-share" },
       { icon: Rocket, label: "استعلام استارتاپ", href: "/admin/startup-inquiries" },
     ],
   },
@@ -50,14 +51,18 @@ const navGroups = [
       { icon: Factory, label: "بسته‌های صنعتی", href: "/admin/industry-packs" },
       { icon: ToggleRight, label: "مدیریت دسترسی ماژول‌ها", href: "/admin/module-access" },
       { icon: Building2, label: "شرکت‌ها", href: "/admin/companies" },
+      { icon: Magnet, label: "اتصال‌های Meta Lead", href: "/admin/lead-connectors" },
       { icon: Tag, label: "دسته‌بندی‌ها", href: "/admin/categories" },
-      { icon: Clock, label: "مدیریت انقضا", href: "/admin/subscriptions" },
+      // "مدیریت انقضا" used to sit here pointing at /admin/subscriptions — the
+      // same page as "اشتراک‌ها" under مالی و اشتراک, so two differently-named
+      // menu items opened one screen (QA 2026-09-15). Kept only under finance.
     ],
   },
   {
     label: "مالی و اشتراک",
     items: [
       { icon: Package, label: "مدیریت پکیج", href: "/admin/packages" },
+      { icon: Coins, label: "تعرفه‌های کردیت", href: "/admin/credit-tiers" },
       { icon: CreditCard, label: "اشتراک‌ها", href: "/admin/subscriptions" },
       { icon: DollarSign, label: "مدیریت مالی", href: "/admin/financial" },
       { icon: Wallet, label: "افیلیت مارکتینگ", href: "/admin/affiliate" },

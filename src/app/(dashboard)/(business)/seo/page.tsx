@@ -573,7 +573,7 @@ export default function SEOPage() {
                 return (
                   <div key={group.id} style={{ borderBottom: "1px solid var(--border)" }}>
                     <button onClick={() => toggleGroup(group.id)} className="w-full flex items-center justify-between px-5 py-3" style={{ background: "var(--surface-2)" }}>
-                      <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, group.titleFa, group.titleEn, group.titleEn)}</span>
+                      <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, group.titleFa, group.titleEn, group.titleDe || group.titleEn)}</span>
                       <div className="flex items-center gap-2">
                         {failCount > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444" }}>{failCount}</span>}
                         {warnCount > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(234,179,8,0.15)", color: "#eab308" }}>{warnCount}</span>}

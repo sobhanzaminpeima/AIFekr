@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { title, titleEn, content, contentEn, category, toolType, thumbnailUrl, sortOrder } = body;
+  const { title, titleEn, titleDe, content, contentEn, contentDe, category, toolType, thumbnailUrl, guideFa, guideEn, guideDe, sortOrder } = body;
   if (!title?.trim() || !content?.trim()) {
     return NextResponse.json({ error: "عنوان و محتوا الزامی است" }, { status: 400 });
   }
@@ -38,11 +38,16 @@ export async function POST(req: NextRequest) {
     data: {
       title: title.trim(),
       titleEn: titleEn?.trim() || null,
+      titleDe: titleDe?.trim() || null,
       content: content.trim(),
       contentEn: contentEn?.trim() || null,
+      contentDe: contentDe?.trim() || null,
       category: category || "general",
       toolType: toolType || "chat",
       thumbnailUrl: thumbnailUrl || null,
+      guideFa: guideFa?.trim() || null,
+      guideEn: guideEn?.trim() || null,
+      guideDe: guideDe?.trim() || null,
       sortOrder: sortOrder ?? 0,
     },
   });
@@ -58,7 +63,7 @@ export async function PUT(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "id الزامی است" }, { status: 400 });
 
   const data: Record<string, unknown> = {};
-  for (const key of ["title", "titleEn", "content", "contentEn", "category", "toolType", "thumbnailUrl", "sortOrder", "isActive"]) {
+  for (const key of ["title", "titleEn", "titleDe", "content", "contentEn", "contentDe", "category", "toolType", "thumbnailUrl", "guideFa", "guideEn", "guideDe", "sortOrder", "isActive"]) {
     if (key in rest) data[key] = rest[key];
   }
 

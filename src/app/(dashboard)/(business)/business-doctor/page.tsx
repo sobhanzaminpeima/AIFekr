@@ -11,7 +11,8 @@ import Link from "next/link";
 import Image from "next/image";
 import ShareButton from "@/components/ui/ShareButton";
 import { trackFeature } from "@/lib/analytics";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
+import LongRunIndicator from "@/components/ui/LongRunIndicator";
 import { Upload, X } from "lucide-react";
 
 interface BusinessProfile {
@@ -67,6 +68,9 @@ export default function BusinessDoctorPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [showQuickAnalysis, setShowQuickAnalysis] = useState(false);
   const resultRef = useRef<HTMLDivElement>(null);
+  // Cancel control for a long analysis (QA 2026-09-15: long AI waits had no
+  // stage, time estimate, or cancel — users resent and paid twice).
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     fetch("/api/business-profile")
@@ -102,10 +106,10 @@ export default function BusinessDoctorPage() {
       body.append("file", file);
       const res = await fetch("/api/business-profile/logo", { method: "POST", body });
       const data = await res.json();
-      if (!res.ok) { setLogoError(data.error || (isFa ? "خطا در آپلود لوگو" : "Failed to upload logo")); return; }
+      if (!res.ok) { setLogoError(data.error || tri(lang, "خطا در آپلود لوگو", "Failed to upload logo", "Logo konnte nicht hochgeladen werden")); return; }
       setLogoUrl(data.logoUrl);
     } catch {
-      setLogoError(isFa ? "خطا در آپلود لوگو" : "Failed to upload logo");
+      setLogoError(tri(lang, "خطا در آپلود لوگو", "Failed to upload logo", "Logo konnte nicht hochgeladen werden"));
     } finally {
       setLogoUploading(false);
     }
@@ -147,11 +151,15 @@ export default function BusinessDoctorPage() {
     setAnalysisId(null);
     trackFeature("business_doctor");
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const res = await fetch("/api/business-doctor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: finalQ }),
+        signal: controller.signal,
       });
 
       const reader = res.body!.getReader();
@@ -170,8 +178,11 @@ export default function BusinessDoctorPage() {
           } catch (e) { if (e instanceof SyntaxError) continue; throw e; }
         }
       }
-    } catch (e) { console.error(e); }
-    finally { setAnalyzing(false); }
+    } catch (e) {
+      // A user cancel keeps any partial analysis and isn't logged as a failure.
+      if ((e as Error)?.name !== "AbortError") console.error(e);
+    }
+    finally { setAnalyzing(false); abortRef.current = null; }
   }
 
   const QUICK_QUESTIONS = s.quickQuestions;
@@ -233,12 +244,18 @@ export default function BusinessDoctorPage() {
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium mb-1" style={{ color: "var(--text-primary)" }}>
-                {isFa ? "لوگوی کمپانی" : "Company logo"}
+                {tri(lang, "لوگوی کمپانی", "Company logo", "Firmenlogo")}
               </p>
               <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
                 {profile
-                  ? (isFa ? "برای استفاده در خروجی فاکتور و قرارداد (CRM) و فیش حقوقی و گزارش تسویه (حسابداری)" : "Used on invoice/contract (CRM) and payslip/owner-statement (accounting) print output")
-                  : (isFa ? "ابتدا پروفایل کسب‌وکار را تکمیل کنید تا بتوانید لوگو آپلود کنید" : "Complete your business profile below first, then you can upload a logo")}
+                  ? tri(lang,
+                      "برای استفاده در خروجی فاکتور و قرارداد (CRM) و فیش حقوقی و گزارش تسویه (حسابداری)",
+                      "Used on invoice/contract (CRM) and payslip/owner-statement (accounting) print output",
+                      "Wird auf Rechnung/Vertrag (CRM) sowie Lohnabrechnung/Eigentümerabrechnung (Buchhaltung) gedruckt")
+                  : tri(lang,
+                      "ابتدا پروفایل کسب‌وکار را تکمیل کنید تا بتوانید لوگو آپلود کنید",
+                      "Complete your business profile below first, then you can upload a logo",
+                      "Vervollständigen Sie zuerst Ihr Unternehmensprofil, dann können Sie ein Logo hochladen")}
               </p>
               <div className="flex items-center gap-2">
                 <input ref={logoInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/svg+xml" className="hidden"
@@ -247,14 +264,18 @@ export default function BusinessDoctorPage() {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50"
                   style={{ background: "var(--surface-2)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
                   <Upload className="w-3.5 h-3.5" />
-                  {logoUploading ? (isFa ? "در حال آپلود..." : "Uploading...") : logoUrl ? (isFa ? "تغییر لوگو" : "Change logo") : (isFa ? "آپلود لوگو" : "Upload logo")}
+                  {logoUploading
+                    ? tri(lang, "در حال آپلود...", "Uploading...", "Wird hochgeladen...")
+                    : logoUrl
+                      ? tri(lang, "تغییر لوگو", "Change logo", "Logo ändern")
+                      : tri(lang, "آپلود لوگو", "Upload logo", "Logo hochladen")}
                 </button>
                 {logoUrl && (
                   <button onClick={removeLogo} disabled={logoUploading}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50"
                     style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
                     <X className="w-3.5 h-3.5" />
-                    {isFa ? "حذف" : "Remove"}
+                    {tri(lang, "حذف", "Remove", "Entfernen")}
                   </button>
                 )}
               </div>
@@ -555,8 +576,12 @@ export default function BusinessDoctorPage() {
                 <div className="flex items-center gap-2 mb-4">
                   <Stethoscope className="w-5 h-5" style={{ color: "var(--primary)" }} />
                   <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>{s.analysisTitle}</h2>
-                  {analyzing && <span className="w-4 h-4 border-2 border-orange-500/30 border-t-orange-500 rounded-full animate-spin" />}
                 </div>
+                {analyzing && (
+                  <div className="mb-4">
+                    <LongRunIndicator lang={lang} expectedSeconds={45} onCancel={() => abortRef.current?.abort()} receivedAny={!!result} />
+                  </div>
+                )}
                 <div className="prose prose-invert max-w-none text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
                   <ReactMarkdown>{result}</ReactMarkdown>
                 </div>
