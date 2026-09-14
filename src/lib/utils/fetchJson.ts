@@ -18,6 +18,22 @@ import type { Lang } from "@/lib/i18n";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function parseJsonResponse<T = any>(res: Response, lang: Lang): Promise<T> {
   const contentType = res.headers.get("content-type") || "";
+
+  // 401/403 are localized here unconditionally, even when the body IS valid
+  // JSON -- most API routes build their error string via `unauthorizedResponse()`
+  // / `forbiddenResponse()` in src/lib/auth/middleware.ts, which default to
+  // Persian for the ~370 call sites that don't pass the caller's language.
+  // Overriding on the client, where the real UI language is always known,
+  // fixed a real bug: a German- or English-UI user whose access token
+  // expired saw the hardcoded Persian "احراز هویت الزامی است" instead of a
+  // message in their own language.
+  if (res.status === 401 || res.status === 403) {
+    throw new Error(tri(lang,
+      "نشست شما منقضی شده است. دوباره وارد شوید.",
+      "Your session has expired. Please sign in again.",
+      "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an."));
+  }
+
   if (!contentType.includes("application/json")) {
     // 5xx from a gateway means the app itself did not answer.
     if (res.status >= 500) {
@@ -25,12 +41,6 @@ export async function parseJsonResponse<T = any>(res: Response, lang: Lang): Pro
         "سرور در دسترس نبود. چند لحظه بعد دوباره تلاش کنید.",
         "The server was unavailable. Please try again in a moment.",
         "Der Server war nicht erreichbar. Bitte versuchen Sie es gleich erneut."));
-    }
-    if (res.status === 401 || res.status === 403) {
-      throw new Error(tri(lang,
-        "نشست شما منقضی شده است. دوباره وارد شوید.",
-        "Your session has expired. Please sign in again.",
-        "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an."));
     }
     throw new Error(tri(lang,
       `پاسخ غیرمنتظره از سرور (کد ${res.status}).`,

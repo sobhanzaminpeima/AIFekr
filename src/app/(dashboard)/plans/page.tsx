@@ -62,16 +62,25 @@ const USD_PLAN_CODES = ["FREE", "STARTER_USD", "PLUS_USD", "PRO_USD", "ULTRA_USD
 const FREE_IR: ApiPackage  = { planCode: "FREE", name: "رایگان", nameEn: "Free", price: 0, priceUsd: 0, market: "IR",   duration: 30, credits: 100, isFeatured: false, color: "#71717a", features: "۲۰ چت در روز\n۳ تصویر در روز\nمدل‌های پایه" };
 const FREE_USD: ApiPackage = { planCode: "FREE", name: "Free",   nameEn: "Free", price: 0, priceUsd: 0, market: "INTL", duration: 30, credits: 100, isFeatured: false, color: "#71717a", features: "20 chats per day\n3 images per day\nBasic models" };
 
+// Business-plan pricing, revised — the previous numbers had no stated logic and
+// undercut the per-seat economics of the individual plans they claim to bundle
+// (a "5-seat team, all Plus features" tier priced barely above one Plus seat).
+// New ladder: each tier's price is anchored to (real per-seat AI usage cost at
+// that tier's feature level) × seats, then a volume discount that widens with
+// team size (~15% at 5 seats, ~30% at 20) -- the standard SaaS shape where
+// bigger teams get a lower per-seat rate, not a flat multiple. Numbers are a
+// starting proposal, easy to retune from the admin panel once real usage data
+// from actual business customers comes in.
 const BIZ_PLANS_IR = [
-  { name: "تیم کوچک", desc: "تا ۵ کاربر", price: 4990000, color: "#6366f1", features: ["همه امکانات پلاس", "داشبورد مدیریت تیم", "اعتبار مشترک", "API اختصاصی", "گزارش مصرف"] },
-  { name: "تیم متوسط", desc: "تا ۲۰ کاربر", price: 14990000, color: "#ea580c", features: ["همه امکانات پرو", "داشبورد پیشرفته تیم", "AI-BOS اختصاصی", "SSO / SAML", "مدیر اکانت اختصاصی"], popular: true },
-  { name: "سازمانی", desc: "بدون محدودیت", price: null, color: "#8b5cf6", features: ["همه امکانات الفا", "استقرار اختصاصی", "SLA اختصاصی", "یکپارچه‌سازی سفارشی", "پشتیبانی ۲۴/۷"] },
+  { name: "تیم کوچک", desc: "تا ۵ کاربر", price: 39000000, color: "#6366f1", features: ["همه امکانات پلاس برای هر عضو", "داشبورد مدیریت تیم", "استخر اعتبار مشترک", "API اختصاصی", "گزارش مصرف تیم"] },
+  { name: "تیم متوسط", desc: "تا ۲۰ کاربر", price: 119000000, color: "#ea580c", features: ["همه امکانات پرو برای هر عضو", "داشبورد پیشرفته تیم", "AI-BOS اختصاصی", "SSO / SAML", "مدیر اکانت اختصاصی"], popular: true },
+  { name: "سازمانی", desc: "بدون محدودیت", price: null, color: "#8b5cf6", features: ["همه امکانات الفا برای هر عضو", "استقرار اختصاصی", "SLA اختصاصی", "یکپارچه‌سازی سفارشی", "پشتیبانی ۲۴/۷"] },
 ];
 
 const BIZ_PLANS_USD = [
-  { name: "Startup", desc: "Up to 5 users", priceUsd: 29900, color: "#6366f1", features: ["All Plus features", "Team dashboard", "Shared credits", "Dedicated API", "Usage reports"] },
-  { name: "Growth", desc: "Up to 20 users", priceUsd: 59900, color: "#ea580c", features: ["All Pro features", "Advanced team dashboard", "AI-BOS included", "SSO / SAML", "Dedicated account manager"], popular: true },
-  { name: "Enterprise", desc: "Unlimited", priceUsd: null, color: "#8b5cf6", features: ["All Ultra features", "Custom deployment", "Custom SLA", "Custom integrations", "24/7 support"] },
+  { name: "Startup", desc: "Up to 5 users", priceUsd: 14900, color: "#6366f1", features: ["All Plus features per seat", "Team dashboard", "Shared credit pool", "Dedicated API", "Team usage reports"] },
+  { name: "Growth", desc: "Up to 20 users", priceUsd: 44900, color: "#ea580c", features: ["All Pro features per seat", "Advanced team dashboard", "AI-BOS included", "SSO / SAML", "Dedicated account manager"], popular: true },
+  { name: "Enterprise", desc: "Unlimited", priceUsd: null, color: "#8b5cf6", features: ["All Ultra features per seat", "Custom deployment", "Custom SLA", "Custom integrations", "24/7 support"] },
 ];
 
 const FAQ_IR = [

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "./jwt";
 import { prisma } from "@/lib/db/prisma";
+import type { Lang } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 export async function requireAuth(req: NextRequest) {
   const token = req.cookies.get("token")?.value;
@@ -25,6 +27,10 @@ export async function requireAuth(req: NextRequest) {
       crmPlanExpiry: true,
       voicePlan: true,
       voicePlanExpiry: true,
+      // User's preferred display currency (see prisma schema for details) --
+      // on the shared auth user object so any route can read it without a
+      // separate query, the same way plan/credits already work.
+      currency: true,
     },
   });
 
@@ -51,10 +57,15 @@ export async function requireAdmin(req: NextRequest) {
   return user;
 }
 
-export function unauthorizedResponse() {
-  return NextResponse.json({ error: "احراز هویت الزامی است" }, { status: 401 });
+// `lang` is optional and defaults to Persian so the ~370 existing call sites
+// across the API (which mostly can't cheaply await getServerLang() just for
+// an error string) keep working unchanged. Callers on a user-facing path
+// where the wrong language would actually be seen (e.g. a client-side fetch
+// wrapper that shows `error` verbatim) should pass the real lang instead.
+export function unauthorizedResponse(lang: Lang = "fa") {
+  return NextResponse.json({ error: tri(lang, "احراز هویت الزامی است", "Authentication required", "Authentifizierung erforderlich") }, { status: 401 });
 }
 
-export function forbiddenResponse() {
-  return NextResponse.json({ error: "دسترسی غیرمجاز" }, { status: 403 });
+export function forbiddenResponse(lang: Lang = "fa") {
+  return NextResponse.json({ error: tri(lang, "دسترسی غیرمجاز", "Access denied", "Zugriff verweigert") }, { status: 403 });
 }

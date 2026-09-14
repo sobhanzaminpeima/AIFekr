@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     const secure = process.env.NODE_ENV === "production";
     const response = NextResponse.json({ success: true, user: { id: user.id, name: user.name, role: user.role } });
 
-    response.cookies.set("token", token, { httpOnly: true, secure, sameSite: "lax", maxAge: 15 * 60 });
+    response.cookies.set("token", token, { httpOnly: true, secure, sameSite: "lax", maxAge: 7 * 24 * 60 * 60 });
     response.cookies.set("refresh_token", refreshToken, { httpOnly: true, secure, sameSite: "lax", maxAge: 30 * 24 * 60 * 60 });
 
     return response;

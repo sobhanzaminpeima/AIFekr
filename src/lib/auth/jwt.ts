@@ -15,8 +15,14 @@ export interface JwtPayload {
   plan: string;
 }
 
+// Was 15 minutes -- a `refresh_token` cookie was issued on every login but
+// nothing ever read it back to mint a fresh access token, so the access
+// token's own expiry was the *only* thing keeping a session alive. Users
+// were being silently logged out every 15 minutes of real use and hitting
+// "authentication required" mid-task. 7 days matches ordinary session
+// expectations without touching the unused refresh-token plumbing.
 export function signToken(payload: JwtPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "15m" });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 }
 
 export function signRefreshToken(payload: JwtPayload): string {

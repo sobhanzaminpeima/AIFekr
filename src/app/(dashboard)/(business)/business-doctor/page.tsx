@@ -218,9 +218,12 @@ export default function BusinessDoctorPage() {
           )}
         </div>
 
-        {/* Company logo — used on invoice/contract (CRM) and payslip/owner-statement (accounting) print output */}
-        {profile && (
-          <div className="flex items-center gap-4 mb-6 p-4 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        {/* Company logo — used on invoice/contract (CRM) and payslip/owner-statement (accounting) print output.
+            Always rendered, even before a profile exists: the upload endpoint needs a saved
+            Company row (created only once the profile form below is submitted), so a brand-new
+            user used to have this entire block hidden with no explanation -- it looked like the
+            feature simply wasn't there. Now it's always visible and explains itself instead. */}
+        <div className="flex items-center gap-4 mb-6 p-4 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             <div className="w-16 h-16 rounded-xl flex items-center justify-center overflow-hidden shrink-0" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
               {logoUrl ? (
                 <Image src={logoUrl} alt="logo" width={64} height={64} className="w-full h-full object-contain" unoptimized />
@@ -233,12 +236,14 @@ export default function BusinessDoctorPage() {
                 {isFa ? "لوگوی کمپانی" : "Company logo"}
               </p>
               <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
-                {isFa ? "برای استفاده در خروجی فاکتور و قرارداد (CRM) و فیش حقوقی و گزارش تسویه (حسابداری)" : "Used on invoice/contract (CRM) and payslip/owner-statement (accounting) print output"}
+                {profile
+                  ? (isFa ? "برای استفاده در خروجی فاکتور و قرارداد (CRM) و فیش حقوقی و گزارش تسویه (حسابداری)" : "Used on invoice/contract (CRM) and payslip/owner-statement (accounting) print output")
+                  : (isFa ? "ابتدا پروفایل کسب‌وکار را تکمیل کنید تا بتوانید لوگو آپلود کنید" : "Complete your business profile below first, then you can upload a logo")}
               </p>
               <div className="flex items-center gap-2">
                 <input ref={logoInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/svg+xml" className="hidden"
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = ""; }} />
-                <button onClick={() => logoInputRef.current?.click()} disabled={logoUploading}
+                <button onClick={() => logoInputRef.current?.click()} disabled={logoUploading || !profile}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50"
                   style={{ background: "var(--surface-2)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
                   <Upload className="w-3.5 h-3.5" />
@@ -256,7 +261,6 @@ export default function BusinessDoctorPage() {
               {logoError && <p className="text-xs mt-1.5" style={{ color: "#ef4444" }}>{logoError}</p>}
             </div>
           </div>
-        )}
 
         {/* === EDIT / WIZARD MODE === */}
         {editMode && (
