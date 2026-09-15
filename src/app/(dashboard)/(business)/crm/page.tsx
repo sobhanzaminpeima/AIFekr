@@ -245,7 +245,7 @@ export default function CrmPage() {
       await loadPipelines();
       setSelectedPipelineId(data.pipeline.id);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : tri(lang, "خطا", "Error", "Fehler"));
+      setError(e instanceof Error ? e.message : tri(lang, "خطا", "Error", "Fehler", "Hata"));
     } finally {
       setCreatingPipeline(false);
     }
@@ -415,11 +415,11 @@ export default function CrmPage() {
           {contacts.length > 0 && (
             <div className="flex flex-wrap gap-2">
               <input value={contactSearch} onChange={(e) => setContactSearch(e.target.value)}
-                placeholder={tri(lang, "جستجو (نام، تلفن، ایمیل یا شرکت)", "Search (name, phone, email, or company)", "Suche (Name, Telefon, E-Mail oder Firma)")}
+                placeholder={tri(lang, "جستجو (نام، تلفن، ایمیل یا شرکت)", "Search (name, phone, email, or company)", "Suche (Name, Telefon, E-Mail oder Firma)", "Ara (isim, telefon, e-posta veya şirket)")}
                 className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
               <select value={contactStatusFilter} onChange={(e) => setContactStatusFilter(e.target.value)}
                 className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                <option value="">{tri(lang, "همه وضعیت‌ها", "All statuses", "Alle Status")}</option>
+                <option value="">{tri(lang, "همه وضعیت‌ها", "All statuses", "Alle Status", "Tüm durumlar")}</option>
                 {Array.from(new Set(contacts.map((ct) => ct.status))).map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
@@ -432,7 +432,7 @@ export default function CrmPage() {
               return ct.name.toLowerCase().includes(q) || (ct.phone || "").includes(q) || (ct.email || "").toLowerCase().includes(q) || (ct.company || "").toLowerCase().includes(q);
             });
             if (contacts.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{c.empty.noContacts}</p>;
-            if (filteredContacts.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "مخاطبی با این مشخصات پیدا نشد", "No contacts match your search", "Keine Kontakte entsprechen der Suche")}</p>;
+            if (filteredContacts.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "مخاطبی با این مشخصات پیدا نشد", "No contacts match your search", "Keine Kontakte entsprechen der Suche", "Aramanızla eşleşen kişi yok")}</p>;
             return (
             <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
               {filteredContacts.map((c, i) => (
@@ -451,12 +451,12 @@ export default function CrmPage() {
                   <div className="flex items-center gap-1.5">
                     {propertiesEnabled && !!c._count?.properties && (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: "rgba(234,88,12,0.12)", color: "var(--primary)" }}>
-                        {tri(lang, `مالک ${c._count.properties} ملک`, `Owner of ${c._count.properties}`, `Eigentümer von ${c._count.properties}`)}
+                        {tri(lang, `مالک ${c._count.properties} ملک`, `Owner of ${c._count.properties}`, `Eigentümer von ${c._count.properties}`, `${c._count.properties} mülkün sahibi`)}
                       </span>
                     )}
                     {propertiesEnabled && !!c._count?.propertyInterests && (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>
-                        {tri(lang, `علاقه‌مند به ${c._count.propertyInterests} ملک`, `Interested in ${c._count.propertyInterests}`, `Interessiert an ${c._count.propertyInterests}`)}
+                        {tri(lang, `علاقه‌مند به ${c._count.propertyInterests} ملک`, `Interested in ${c._count.propertyInterests}`, `Interessiert an ${c._count.propertyInterests}`, `${c._count.propertyInterests} mülkle ilgileniyor`)}
                       </span>
                     )}
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-medium"
@@ -565,11 +565,11 @@ function CrmSidebar({ tab, setTab, c, isFa, lang, propertiesEnabled, ownersEnabl
     // Real-estate industry-pack modules — hidden entirely (not greyed out)
     // unless isModuleEnabled() says so for this user, per the platform's
     // access-control rule: invisible by default, never a fail-open leak.
-    ...(propertiesEnabled ? [{ id: "properties" as CrmTab, label: tri(lang, "ملک‌ها", "Properties", "Immobilien"), icon: Building2 }] : []),
-    ...(ownersEnabled ? [{ id: "owners" as CrmTab, label: tri(lang, "مالکین", "Owners", "Eigentümer"), icon: Users }] : []),
-    ...(viewingsEnabled ? [{ id: "viewings" as CrmTab, label: tri(lang, "زمان‌بندی بازدید", "Viewings", "Besichtigungen"), icon: CalendarDays }] : []),
-    ...(matchViewEnabled ? [{ id: "matches" as CrmTab, label: tri(lang, "تطبیق خریدار↔ملک", "Buyer Match", "Käufer-Abgleich"), icon: Users }] : []),
-    ...(performanceReportEnabled ? [{ id: "performance" as CrmTab, label: tri(lang, "گزارش عملکرد", "Performance", "Leistung"), icon: BarChart2 }] : []),
+    ...(propertiesEnabled ? [{ id: "properties" as CrmTab, label: tri(lang, "ملک‌ها", "Properties", "Immobilien", "Mülkler"), icon: Building2 }] : []),
+    ...(ownersEnabled ? [{ id: "owners" as CrmTab, label: tri(lang, "مالکین", "Owners", "Eigentümer", "Mülk sahipleri"), icon: Users }] : []),
+    ...(viewingsEnabled ? [{ id: "viewings" as CrmTab, label: tri(lang, "زمان‌بندی بازدید", "Viewings", "Besichtigungen", "Görüntülemeler"), icon: CalendarDays }] : []),
+    ...(matchViewEnabled ? [{ id: "matches" as CrmTab, label: tri(lang, "تطبیق خریدار↔ملک", "Buyer Match", "Käufer-Abgleich", "Alıcı Eşleştirme"), icon: Users }] : []),
+    ...(performanceReportEnabled ? [{ id: "performance" as CrmTab, label: tri(lang, "گزارش عملکرد", "Performance", "Leistung", "Performans"), icon: BarChart2 }] : []),
   ];
 
   return (
@@ -727,7 +727,7 @@ function NewDealModal({ isFa, lang, t, pipeline, onClose, onCreated }: { isFa: b
           <input value={value} onChange={(e) => setValue(e.target.value)} type="number" placeholder={t.newDealModal.valuePlaceholder}
             className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         </FormField>
-        <FormField icon={GitBranch} label={tri(lang, "مرحله", "Stage", "Phase")}>
+        <FormField icon={GitBranch} label={tri(lang, "مرحله", "Stage", "Phase", "Aşama")}>
           <select value={stageId} onChange={(e) => setStageId(e.target.value)}
             className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
             {pipeline.stages.sort((a, b) => a.order - b.order).map((s) => <option key={s.id} value={s.id}>{localizedName(s, lang)}</option>)}
@@ -794,7 +794,7 @@ function NewContactModal({ isFa, lang, t, propertiesEnabled, onClose, onCreated 
 
   async function submit() {
     if (!name.trim()) { setError(t.newContactModal.errorNameRequired); return; }
-    if (propertyRole && !relatedPropertyId) { setError(tri(lang, "یک ملک را انتخاب کنید", "Select a property", "Wählen Sie eine Immobilie")); return; }
+    if (propertyRole && !relatedPropertyId) { setError(tri(lang, "یک ملک را انتخاب کنید", "Select a property", "Wählen Sie eine Immobilie", "Bir mülk seçin")); return; }
     setSaving(true);
     setError("");
     try {
@@ -858,18 +858,18 @@ function NewContactModal({ isFa, lang, t, propertiesEnabled, onClose, onCreated 
         {propertiesEnabled && (
           <div className="pt-1" style={{ borderTop: "1px solid var(--border)" }}>
             <p className="text-xs font-semibold mb-1.5 mt-2" style={{ color: "var(--text-primary)" }}>
-              {tri(lang, "ارتباط با ملک (اختیاری)", "Property relation (optional)", "Immobilienbezug (optional)")}
+              {tri(lang, "ارتباط با ملک (اختیاری)", "Property relation (optional)", "Immobilienbezug (optional)", "Mülk ilişkisi (isteğe bağlı)")}
             </p>
             <select value={propertyRole} onChange={(e) => { setPropertyRole(e.target.value as typeof propertyRole); setRelatedPropertyId(""); }}
               className="w-full px-3 py-2.5 rounded-xl text-sm outline-none mb-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-              <option value="">{tri(lang, "بدون ارتباط", "No relation", "Keine Zuordnung")}</option>
-              <option value="owner">{tri(lang, "مالک ملک", "Property owner", "Immobilieneigentümer")}</option>
-              <option value="interested">{tri(lang, "مشتری علاقه‌مند به ملک", "Interested buyer/tenant", "Interessierter Käufer/Mieter")}</option>
+              <option value="">{tri(lang, "بدون ارتباط", "No relation", "Keine Zuordnung", "İlişki yok")}</option>
+              <option value="owner">{tri(lang, "مالک ملک", "Property owner", "Immobilieneigentümer", "Mülk sahibi")}</option>
+              <option value="interested">{tri(lang, "مشتری علاقه‌مند به ملک", "Interested buyer/tenant", "Interessierter Käufer/Mieter", "İlgilenen alıcı/kiracı")}</option>
             </select>
             {propertyRole && (
               <select value={relatedPropertyId} onChange={(e) => setRelatedPropertyId(e.target.value)}
                 className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                <option value="">{tri(lang, "انتخاب ملک...", "Select property...", "Immobilie wählen...")}</option>
+                <option value="">{tri(lang, "انتخاب ملک...", "Select property...", "Immobilie wählen...", "Mülk seçin...")}</option>
                 {properties.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
               </select>
             )}
@@ -958,13 +958,13 @@ function DealDetailModal({ isFa, lang, t, dealId, deal, pipelines, teamMembers, 
 
       {deal && (
         <div className="grid grid-cols-2 gap-2 text-sm mb-4">
-          <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "ارزش: ", "Value: ", "Wert: ")}</span><span style={{ color: "var(--text-primary)" }}>{fmtMoney(deal.value)}</span></div>
-          <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "مرحله: ", "Stage: ", "Phase: ")}</span><span style={{ color: "var(--text-primary)" }}>{stage ? localizedName(stage, lang) : "—"}</span></div>
-          <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "پایپ‌لاین: ", "Pipeline: ", "Pipeline: ")}</span><span style={{ color: "var(--text-primary)" }}>{pipeline ? localizedName(pipeline, lang) : "—"}</span></div>
-          <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "وضعیت: ", "Status: ", "Status: ")}</span><span style={{ color: "var(--text-primary)" }}>{deal.status}</span></div>
-          <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "مخاطب: ", "Contact: ", "Kontakt: ")}</span><span style={{ color: "var(--text-primary)" }}>{deal.contact.name}{deal.contact.phone ? ` — ${deal.contact.phone}` : ""}</span></div>
+          <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "ارزش: ", "Value: ", "Wert: ", "Değer: ")}</span><span style={{ color: "var(--text-primary)" }}>{fmtMoney(deal.value)}</span></div>
+          <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "مرحله: ", "Stage: ", "Phase: ", "Aşama: ")}</span><span style={{ color: "var(--text-primary)" }}>{stage ? localizedName(stage, lang) : "—"}</span></div>
+          <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "پایپ‌لاین: ", "Pipeline: ", "Pipeline: ", "Pipeline: ")}</span><span style={{ color: "var(--text-primary)" }}>{pipeline ? localizedName(pipeline, lang) : "—"}</span></div>
+          <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "وضعیت: ", "Status: ", "Status: ", "Durum: ")}</span><span style={{ color: "var(--text-primary)" }}>{deal.status}</span></div>
+          <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "مخاطب: ", "Contact: ", "Kontakt: ", "Kişi: ")}</span><span style={{ color: "var(--text-primary)" }}>{deal.contact.name}{deal.contact.phone ? ` — ${deal.contact.phone}` : ""}</span></div>
           {deal.expectedCloseDate && (
-            <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "تاریخ تخمینی بستن: ", "Expected close: ", "Erwarteter Abschluss: ")}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(deal.expectedCloseDate)}</span></div>
+            <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "تاریخ تخمینی بستن: ", "Expected close: ", "Erwarteter Abschluss: ", "Beklenen kapanış: ")}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(deal.expectedCloseDate)}</span></div>
           )}
         </div>
       )}
@@ -972,26 +972,26 @@ function DealDetailModal({ isFa, lang, t, dealId, deal, pipelines, teamMembers, 
       {/* Section 1, item 5 — Contract & Commission. Row-level visibility (relevant agent + manager only) already comes from dealAgentFilter() server-side; this UI section is additionally hidden entirely when the module is off. Deal date reuses deal.wonAt, final amount reuses deal.value — no duplicate fields. */}
       {deal && commissionEnabled && (
         <div className="rounded-2xl p-3 mb-4 space-y-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
-          <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "قرارداد و کمیسیون", "Contract & Commission", "Vertrag & Provision")}</p>
+          <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "قرارداد و کمیسیون", "Contract & Commission", "Vertrag & Provision", "Sözleşme ve Komisyon")}</p>
           {deal.wonAt && (
-            <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "تاریخ معامله: ", "Deal date: ", "Abschlussdatum: ")}{toJalali(deal.wonAt)}</p>
+            <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "تاریخ معامله: ", "Deal date: ", "Abschlussdatum: ", "Anlaşma tarihi: ")}{toJalali(deal.wonAt)}</p>
           )}
           <div className="grid grid-cols-2 gap-2">
             <input value={commissionRate} onChange={(e) => setCommissionRate(e.target.value)} type="number" step="0.1"
-              placeholder={tri(lang, "کمیسیون %", "Commission %", "Provision %")}
+              placeholder={tri(lang, "کمیسیون %", "Commission %", "Provision %", "Komisyon %")}
               className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             <input value={commissionAmount} onChange={(e) => setCommissionAmount(e.target.value)} type="number"
-              placeholder={tri(lang, "مبلغ کمیسیون (تومان)", "Commission amount (Toman)", "Provisionsbetrag (Toman)")}
+              placeholder={tri(lang, "مبلغ کمیسیون (تومان)", "Commission amount (Toman)", "Provisionsbetrag (Toman)", "Komisyon tutarı (Toman)")}
               className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           </div>
           <select value={commissionPaymentStatus} onChange={(e) => setCommissionPaymentStatus(e.target.value)}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="unpaid">{tri(lang, "پرداخت‌نشده", "Unpaid", "Unbezahlt")}</option>
-            <option value="partial">{tri(lang, "پرداخت جزئی", "Partially paid", "Teilweise bezahlt")}</option>
-            <option value="paid">{tri(lang, "پرداخت‌شده", "Paid", "Bezahlt")}</option>
+            <option value="unpaid">{tri(lang, "پرداخت‌نشده", "Unpaid", "Unbezahlt", "Ödenmedi")}</option>
+            <option value="partial">{tri(lang, "پرداخت جزئی", "Partially paid", "Teilweise bezahlt", "Kısmen ödendi")}</option>
+            <option value="paid">{tri(lang, "پرداخت‌شده", "Paid", "Bezahlt", "Ödendi")}</option>
           </select>
           <button onClick={saveCommission} disabled={savingCommission} className="w-full py-1.5 rounded-xl text-xs font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-            {savingCommission ? "..." : tri(lang, "ذخیره کمیسیون", "Save commission", "Provision speichern")}
+            {savingCommission ? "..." : tri(lang, "ذخیره کمیسیون", "Save commission", "Provision speichern", "Komisyonu kaydet")}
           </button>
         </div>
       )}
@@ -1098,10 +1098,10 @@ function ContactDetailModal({ isFa, lang, t, contact, teamMembers, onClose, onCh
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contactId: contact.id }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || tri(lang, "خطا در برقراری تماس", "Failed to start call", "Fehler beim Anruf"));
+      if (!res.ok) throw new Error(data.error || tri(lang, "خطا در برقراری تماس", "Failed to start call", "Fehler beim Anruf", "Arama başlatılamadı"));
       onChanged();
     } catch (e) {
-      alert(e instanceof Error ? e.message : tri(lang, "خطا", "Error", "Fehler"));
+      alert(e instanceof Error ? e.message : tri(lang, "خطا", "Error", "Fehler", "Hata"));
     } finally {
       setCallingViaVoice(false);
     }
@@ -1235,8 +1235,8 @@ function ContactDetailModal({ isFa, lang, t, contact, teamMembers, onClose, onCh
           {editing ? (
             <div className="grid grid-cols-2 gap-3">
               {([
-                ["name", tri(lang, "نام", "Name", "Name")], ["phone", tri(lang, "تلفن", "Phone", "Telefon")], ["email", tri(lang, "ایمیل", "Email", "E-Mail")],
-                ["whatsapp", "WhatsApp"], ["telegram", "Telegram"], ["company", tri(lang, "شرکت", "Company", "Unternehmen")],
+                ["name", tri(lang, "نام", "Name", "Name", "İsim")], ["phone", tri(lang, "تلفن", "Phone", "Telefon", "Telefon")], ["email", tri(lang, "ایمیل", "Email", "E-Mail", "E-posta")],
+                ["whatsapp", "WhatsApp"], ["telegram", "Telegram"], ["company", tri(lang, "شرکت", "Company", "Unternehmen", "Şirket")],
               ] as const).map(([key, label]) => (
                 <div key={key}>
                   <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{label}</label>
@@ -1247,12 +1247,12 @@ function ContactDetailModal({ isFa, lang, t, contact, teamMembers, onClose, onCh
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "نام: ", "Name: ", "Name: ")}</span><span style={{ color: "var(--text-primary)" }}>{contact.name}</span></div>
-              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "تلفن: ", "Phone: ", "Telefon: ")}</span><span style={{ color: "var(--text-primary)" }}>{contact.phone || "—"}</span></div>
-              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "ایمیل: ", "Email: ", "E-Mail: ")}</span><span style={{ color: "var(--text-primary)" }}>{contact.email || "—"}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "نام: ", "Name: ", "Name: ", "İsim: ")}</span><span style={{ color: "var(--text-primary)" }}>{contact.name}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "تلفن: ", "Phone: ", "Telefon: ", "Telefon: ")}</span><span style={{ color: "var(--text-primary)" }}>{contact.phone || "—"}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "ایمیل: ", "Email: ", "E-Mail: ", "E-posta: ")}</span><span style={{ color: "var(--text-primary)" }}>{contact.email || "—"}</span></div>
               <div><span style={{ color: "var(--text-muted)" }}>WhatsApp: </span><span style={{ color: "var(--text-primary)" }}>{contact.whatsapp || "—"}</span></div>
               <div><span style={{ color: "var(--text-muted)" }}>Telegram: </span><span style={{ color: "var(--text-primary)" }}>{contact.telegram || "—"}</span></div>
-              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "شرکت: ", "Company: ", "Unternehmen: ")}</span><span style={{ color: "var(--text-primary)" }}>{contact.company || "—"}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "شرکت: ", "Company: ", "Unternehmen: ", "Şirket: ")}</span><span style={{ color: "var(--text-primary)" }}>{contact.company || "—"}</span></div>
             </div>
           )}
 
@@ -1301,11 +1301,11 @@ function ContactDetailModal({ isFa, lang, t, contact, teamMembers, onClose, onCh
                       {tk.draftMessage}
                     </p>
                     <button
-                      onClick={() => { navigator.clipboard.writeText(tk.draftMessage!); toast.success(tri(lang, "کپی شد", "Copied", "Kopiert")); }}
+                      onClick={() => { navigator.clipboard.writeText(tk.draftMessage!); toast.success(tri(lang, "کپی شد", "Copied", "Kopiert", "Kopyalandı")); }}
                       className="mt-1.5 text-[11px] font-medium px-2 py-1 rounded-lg"
                       style={{ background: "rgba(234,88,12,0.12)", color: "var(--primary)" }}
                     >
-                      {tri(lang, "کپی پیام", "Copy message", "Nachricht kopieren")}
+                      {tri(lang, "کپی پیام", "Copy message", "Nachricht kopieren", "Mesajı kopyala")}
                     </button>
                   </div>
                 )}
@@ -1667,13 +1667,13 @@ function CrmAgentPanel({ isFa, lang, t }: { isFa: boolean; lang: Lang; t: Transl
           week's read on the pipeline against last week's. */}
       <div className="space-y-2">
         <h3 className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
-          {tri(lang, "تاریخچه‌ی تحلیل‌ها", "Analysis history", "Analyseverlauf")}
+          {tri(lang, "تاریخچه‌ی تحلیل‌ها", "Analysis history", "Analyseverlauf", "Analiz geçmişi")}
         </h3>
         {loadingRuns ? (
           <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--text-muted)" }} />
         ) : runs.length === 0 ? (
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            {tri(lang, "هنوز تحلیلی ذخیره نشده", "No analysis saved yet", "Noch keine Analyse gespeichert")}
+            {tri(lang, "هنوز تحلیلی ذخیره نشده", "No analysis saved yet", "Noch keine Analyse gespeichert", "Henüz kaydedilmiş analiz yok")}
           </p>
         ) : (
           <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
@@ -1754,7 +1754,7 @@ function CalendarPanel({ isFa, lang, t }: { isFa: boolean; lang: Lang; t: Transl
       const viewingItems: CalendarItem[] = (viewingData.viewings || []).map((v: ViewingRow) => ({
         id: `viewing-${v.id}`,
         date: v.scheduledAt,
-        label: `${tri(lang, "بازدید", "Viewing", "Besichtigung")}: ${v.property.title}${v.contact ? ` — ${v.contact.name}` : ""} · ${new Date(v.scheduledAt).toLocaleTimeString(lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US", { hour: "2-digit", minute: "2-digit" })}`,
+        label: `${tri(lang, "بازدید", "Viewing", "Besichtigung", "Görüntüleme")}: ${v.property.title}${v.contact ? ` — ${v.contact.name}` : ""} · ${new Date(v.scheduledAt).toLocaleTimeString(lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US", { hour: "2-digit", minute: "2-digit" })}`,
         type: "viewing" as const,
         who: v.assignedTo?.name ?? null,
       }));
@@ -2054,7 +2054,7 @@ function VoiceCallAnalyticsPanel({ isFa, lang, t, onOpenContact }: { isFa: boole
                   {call.contactName || call.callerPhone || tv.unknownCaller}
                 </p>
                 <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                  {call.callerPhone} · {new Date(call.createdAt).toLocaleString(tri(lang, "fa-IR", "en-US", "de-DE"))}
+                  {call.callerPhone} · {new Date(call.createdAt).toLocaleString(tri(lang, "fa-IR", "en-US", "de-DE", "tr-TR"))}
                 </p>
               </div>
             </div>
@@ -2219,14 +2219,14 @@ function ProductsPanel({ isFa, lang, t }: { isFa: boolean; lang: Lang; t: Transl
       )}
 
       {products.length > 0 && (
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجوی محصول (نام یا کد)", "Search products (name or SKU)", "Produkte suchen (Name oder SKU)")}
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجوی محصول (نام یا کد)", "Search products (name or SKU)", "Produkte suchen (Name oder SKU)", "Ürün ara (isim veya SKU)")}
           className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
       )}
 
       {products.length === 0 ? (
         <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.products.empty}</p>
       ) : filteredProducts.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "محصولی با این مشخصات پیدا نشد", "No products match your search", "Keine Produkte gefunden")}</p>
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "محصولی با این مشخصات پیدا نشد", "No products match your search", "Keine Produkte gefunden", "Aramanızla eşleşen ürün yok")}</p>
       ) : (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           {filteredProducts.map((p, i) => (
@@ -2442,11 +2442,11 @@ function InvoicesPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang;
 
       {invoices.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجو (شماره فاکتور یا نام مشتری)", "Search (invoice number or customer)", "Suchen (Rechnungsnummer oder Kunde)")}
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجو (شماره فاکتور یا نام مشتری)", "Search (invoice number or customer)", "Suchen (Rechnungsnummer oder Kunde)", "Ara (fatura no veya müşteri)")}
             className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
             className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{tri(lang, "همه وضعیت‌ها", "All statuses", "Alle Status")}</option>
+            <option value="">{tri(lang, "همه وضعیت‌ها", "All statuses", "Alle Status", "Tüm durumlar")}</option>
             {Object.keys(INVOICE_STATUS_LABEL).map((val) => (
               <option key={val} value={val}>{t.invoiceStatus[val as keyof typeof t.invoiceStatus] || val}</option>
             ))}
@@ -2462,7 +2462,7 @@ function InvoicesPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang;
           return inv.invoiceNumber.toLowerCase().includes(q) || inv.contact.name.toLowerCase().includes(q);
         });
         if (invoices.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.invoices.empty}</p>;
-        if (filteredInvoices.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "فاکتوری با این مشخصات پیدا نشد", "No invoices match your search", "Keine Rechnungen gefunden")}</p>;
+        if (filteredInvoices.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "فاکتوری با این مشخصات پیدا نشد", "No invoices match your search", "Keine Rechnungen gefunden", "Aramanızla eşleşen fatura yok")}</p>;
         return (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           {filteredInvoices.map((inv, i) => {
@@ -2715,11 +2715,11 @@ function ContractsPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang
 
       {contracts.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجو (عنوان یا نام مشتری)", "Search (title or customer)", "Suchen (Titel oder Kunde)")}
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجو (عنوان یا نام مشتری)", "Search (title or customer)", "Suchen (Titel oder Kunde)", "Ara (başlık veya müşteri)")}
             className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
             className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{tri(lang, "همه وضعیت‌ها", "All statuses", "Alle Status")}</option>
+            <option value="">{tri(lang, "همه وضعیت‌ها", "All statuses", "Alle Status", "Tüm durumlar")}</option>
             {Object.keys(CONTRACT_STATUS_LABEL).map((val) => (
               <option key={val} value={val}>{t.contractStatus[val as keyof typeof t.contractStatus] || val}</option>
             ))}
@@ -2735,7 +2735,7 @@ function ContractsPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang
           return ct.title.toLowerCase().includes(q) || ct.contact.name.toLowerCase().includes(q);
         });
         if (contracts.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.contracts.empty}</p>;
-        if (filteredContracts.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "قراردادی با این مشخصات پیدا نشد", "No contracts match your search", "Keine Verträge gefunden")}</p>;
+        if (filteredContracts.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "قراردادی با این مشخصات پیدا نشد", "No contracts match your search", "Keine Verträge gefunden", "Aramanızla eşleşen sözleşme yok")}</p>;
         return (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           {filteredContracts.map((ct, i) => {
@@ -2981,7 +2981,7 @@ function ProjectsPanel({ isFa, lang, t, contacts, isRealEstate }: { isFa: boolea
             <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
               <select value={dealType} onChange={(e) => setDealType(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                <option value="">{tri(lang, "نوع معامله (اختیاری)", "Deal type (optional)", "Geschäftsart (optional)")}</option>
+                <option value="">{tri(lang, "نوع معامله (اختیاری)", "Deal type (optional)", "Geschäftsart (optional)", "İşlem türü (isteğe bağlı)")}</option>
                 {Object.entries(PROJECT_LISTING_TYPE_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
               </select>
 
@@ -2990,26 +2990,26 @@ function ProjectsPanel({ isFa, lang, t, contacts, isRealEstate }: { isFa: boolea
                   <div className="grid grid-cols-2 gap-2">
                     <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                      <option value="apartment">{tri(lang, "آپارتمان", "Apartment", "Wohnung")}</option>
-                      <option value="villa">{tri(lang, "ویلا", "Villa", "Villa")}</option>
-                      <option value="land">{tri(lang, "زمین", "Land", "Grundstück")}</option>
-                      <option value="commercial">{tri(lang, "تجاری", "Commercial", "Gewerbe")}</option>
+                      <option value="apartment">{tri(lang, "آپارتمان", "Apartment", "Wohnung", "Daire")}</option>
+                      <option value="villa">{tri(lang, "ویلا", "Villa", "Villa", "Villa")}</option>
+                      <option value="land">{tri(lang, "زمین", "Land", "Grundstück", "Arsa")}</option>
+                      <option value="commercial">{tri(lang, "تجاری", "Commercial", "Gewerbe", "Ticari")}</option>
                     </select>
-                    <input value={reCity} onChange={(e) => setReCity(e.target.value)} placeholder={tri(lang, "شهر", "City", "Stadt")}
+                    <input value={reCity} onChange={(e) => setReCity(e.target.value)} placeholder={tri(lang, "شهر", "City", "Stadt", "Şehir")}
                       className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                   </div>
-                  <input value={reAddress} onChange={(e) => setReAddress(e.target.value)} placeholder={tri(lang, "آدرس", "Address", "Adresse")}
+                  <input value={reAddress} onChange={(e) => setReAddress(e.target.value)} placeholder={tri(lang, "آدرس", "Address", "Adresse", "Adres")}
                     className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
 
                   {dealType === "short_term_rent" ? (
                     <>
-                      <input value={nightlyPrice} onChange={(e) => setNightlyPrice(e.target.value)} type="number" placeholder={tri(lang, "قیمت هر شب (تومان)", "Price per night (Toman)", "Preis pro Nacht (Toman)")}
+                      <input value={nightlyPrice} onChange={(e) => setNightlyPrice(e.target.value)} type="number" placeholder={tri(lang, "قیمت هر شب (تومان)", "Price per night (Toman)", "Preis pro Nacht (Toman)", "Gecelik fiyat (Toman)")}
                         className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-                      <input value={bookingLink} onChange={(e) => setBookingLink(e.target.value)} placeholder={tri(lang, "لینک پلتفرم رزرو (Airbnb، Booking.com و...)", "Booking platform link (Airbnb, Booking.com, ...)", "Buchungsplattform-Link (Airbnb, Booking.com, ...)")}
+                      <input value={bookingLink} onChange={(e) => setBookingLink(e.target.value)} placeholder={tri(lang, "لینک پلتفرم رزرو (Airbnb، Booking.com و...)", "Booking platform link (Airbnb, Booking.com, ...)", "Buchungsplattform-Link (Airbnb, Booking.com, ...)", "Rezervasyon platformu linki (Airbnb, Booking.com, ...)")}
                         className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                     </>
                   ) : (
-                    <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" placeholder={tri(lang, "قیمت کل (تومان)", "Total price (Toman)", "Gesamtpreis (Toman)")}
+                    <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" placeholder={tri(lang, "قیمت کل (تومان)", "Total price (Toman)", "Gesamtpreis (Toman)", "Toplam fiyat (Toman)")}
                       className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                   )}
                 </>
@@ -3026,11 +3026,11 @@ function ProjectsPanel({ isFa, lang, t, contacts, isRealEstate }: { isFa: boolea
 
       {projects.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجو (نام پروژه یا مشتری)", "Search (project name or customer)", "Suchen (Projektname oder Kunde)")}
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجو (نام پروژه یا مشتری)", "Search (project name or customer)", "Suchen (Projektname oder Kunde)", "Ara (proje adı veya müşteri)")}
             className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
             className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{tri(lang, "همه وضعیت‌ها", "All statuses", "Alle Status")}</option>
+            <option value="">{tri(lang, "همه وضعیت‌ها", "All statuses", "Alle Status", "Tüm durumlar")}</option>
             {Object.entries(t.projectStatus).map(([val, label]) => <option key={val} value={val}>{label}</option>)}
           </select>
         </div>
@@ -3044,7 +3044,7 @@ function ProjectsPanel({ isFa, lang, t, contacts, isRealEstate }: { isFa: boolea
           return p.name.toLowerCase().includes(q) || (p.contact?.name || "").toLowerCase().includes(q);
         });
         if (projects.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.projects.empty}</p>;
-        if (filteredProjects.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "پروژه‌ای با این مشخصات پیدا نشد", "No projects match your search", "Keine Projekte gefunden")}</p>;
+        if (filteredProjects.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "پروژه‌ای با این مشخصات پیدا نشد", "No projects match your search", "Keine Projekte gefunden", "Aramanızla eşleşen proje yok")}</p>;
         return (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           {filteredProjects.map((p, i) => {
@@ -3190,7 +3190,7 @@ function CountryCityPicker({ lang, cityValue, onCityChange }: { lang: Lang; city
         <input
           list={countryListId}
           value={countryQuery}
-          placeholder={tri(lang, "جستجوی کشور...", "Search country...", "Land suchen...")}
+          placeholder={tri(lang, "جستجوی کشور...", "Search country...", "Land suchen...", "Ülke ara...")}
           onChange={(e) => {
             const val = e.target.value;
             setCountryQuery(val);
@@ -3209,7 +3209,7 @@ function CountryCityPicker({ lang, cityValue, onCityChange }: { lang: Lang; city
           list={cityListId}
           value={cityValue}
           disabled={!countryId}
-          placeholder={!countryId ? tri(lang, "ابتدا کشور را انتخاب کنید", "Select a country first", "Zuerst Land wählen") : loadingCities ? tri(lang, "در حال بارگذاری...", "Loading...", "Wird geladen...") : tri(lang, "جستجوی شهر...", "Search city...", "Stadt suchen...")}
+          placeholder={!countryId ? tri(lang, "ابتدا کشور را انتخاب کنید", "Select a country first", "Zuerst Land wählen", "Önce bir ülke seçin") : loadingCities ? tri(lang, "در حال بارگذاری...", "Loading...", "Wird geladen...", "Yükleniyor...") : tri(lang, "جستجوی شهر...", "Search city...", "Stadt suchen...", "Şehir ara...")}
           onChange={(e) => onCityChange(e.target.value)}
           className="w-full px-3 py-2 rounded-xl text-sm outline-none disabled:opacity-50" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
         />
@@ -3300,7 +3300,7 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
       setImportResult(data);
       load();
     } catch (err: unknown) {
-      setImportResult({ createdCount: 0, totalRows: 0, errors: [{ row: 0, error: err instanceof Error ? err.message : tri(lang, "خطا در وارد کردن فایل", "Failed to import file", "Fehler beim Importieren der Datei") }] });
+      setImportResult({ createdCount: 0, totalRows: 0, errors: [{ row: 0, error: err instanceof Error ? err.message : tri(lang, "خطا در وارد کردن فایل", "Failed to import file", "Fehler beim Importieren der Datei", "Dosya içe aktarılamadı") }] });
     } finally {
       setImporting(false);
       if (importInputRef.current) importInputRef.current.value = "";
@@ -3314,8 +3314,8 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
   }
 
   async function createProperty() {
-    if (!title.trim()) { setError(tri(lang, "عنوان ملک الزامی است", "Property title is required", "Immobilientitel ist erforderlich")); return; }
-    if (!address.trim()) { setError(tri(lang, "آدرس الزامی است", "Address is required", "Adresse ist erforderlich")); return; }
+    if (!title.trim()) { setError(tri(lang, "عنوان ملک الزامی است", "Property title is required", "Immobilientitel ist erforderlich", "Mülk başlığı gereklidir")); return; }
+    if (!address.trim()) { setError(tri(lang, "آدرس الزامی است", "Address is required", "Adresse ist erforderlich", "Adres gereklidir")); return; }
     setSaving(true);
     setError("");
     try {
@@ -3340,7 +3340,7 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
       resetForm();
       load();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : tri(lang, "خطا در ذخیره ملک", "Failed to save property", "Fehler beim Speichern der Immobilie"));
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در ذخیره ملک", "Failed to save property", "Fehler beim Speichern der Immobilie", "Mülk kaydedilemedi"));
     } finally {
       setSaving(false);
     }
@@ -3364,17 +3364,17 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
       <div className="flex justify-end items-center gap-2 flex-wrap">
         <a href="/api/crm/properties/import/template" download
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
-          <FileDown className="w-3.5 h-3.5" /> {tri(lang, "دانلود نمونه اکسل", "Download sample template", "Beispielvorlage herunterladen")}
+          <FileDown className="w-3.5 h-3.5" /> {tri(lang, "دانلود نمونه اکسل", "Download sample template", "Beispielvorlage herunterladen", "Örnek şablonu indir")}
         </a>
         <button onClick={() => importInputRef.current?.click()} disabled={importing}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium disabled:opacity-50" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
           {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-          {tri(lang, "وارد کردن از فایل", "Import from file", "Aus Datei importieren")}
+          {tri(lang, "وارد کردن از فایل", "Import from file", "Aus Datei importieren", "Dosyadan içe aktar")}
         </button>
         <input ref={importInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleImportFile} />
         <button onClick={() => setShowNew((v) => !v)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-          <Plus className="w-4 h-4" /> {tri(lang, "ملک جدید", "New property", "Neue Immobilie")}
+          <Plus className="w-4 h-4" /> {tri(lang, "ملک جدید", "New property", "Neue Immobilie", "Yeni mülk")}
         </button>
       </div>
 
@@ -3382,17 +3382,14 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
         <div className="rounded-2xl p-4 space-y-2 text-sm" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <div className="flex items-center justify-between">
             <p style={{ color: importResult.createdCount > 0 ? "#22c55e" : "var(--text-primary)" }}>
-              {tri(lang,
-                `${importResult.createdCount} از ${importResult.totalRows} ردیف با موفقیت وارد شد`,
-                `${importResult.createdCount} of ${importResult.totalRows} rows imported successfully`,
-                `${importResult.createdCount} von ${importResult.totalRows} Zeilen erfolgreich importiert`)}
+              {tri(lang, `${importResult.createdCount} از ${importResult.totalRows} ردیف با موفقیت وارد شد`, `${importResult.createdCount} of ${importResult.totalRows} rows imported successfully`, `${importResult.createdCount} von ${importResult.totalRows} Zeilen erfolgreich importiert`, `${importResult.totalRows} satırdan ${importResult.createdCount} tanesi başarıyla içe aktarıldı`)}
             </p>
             <button onClick={() => setImportResult(null)} style={{ color: "var(--text-muted)" }}><X className="w-4 h-4" /></button>
           </div>
           {importResult.errors.length > 0 && (
             <ul className="text-xs space-y-1" style={{ color: "#ef4444" }}>
               {importResult.errors.slice(0, 20).map((e, i) => (
-                <li key={i}>{e.row > 0 ? tri(lang, `ردیف ${e.row}: `, `Row ${e.row}: `, `Zeile ${e.row}: `) : ""}{e.error}</li>
+                <li key={i}>{e.row > 0 ? tri(lang, `ردیف ${e.row}: `, `Row ${e.row}: `, `Zeile ${e.row}: `, `Satır ${e.row}: `) : ""}{e.error}</li>
               ))}
             </ul>
           )}
@@ -3401,7 +3398,7 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
 
       {showNew && (
         <div className="rounded-2xl p-4 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tri(lang, "عنوان ملک", "Property title", "Immobilientitel")}
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tri(lang, "عنوان ملک", "Property title", "Immobilientitel", "Mülk başlığı")}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <div className="grid grid-cols-2 gap-2">
             <select value={listingType} onChange={(e) => setListingType(e.target.value)}
@@ -3413,24 +3410,24 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
               {Object.entries(PROPERTY_TYPE_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
             </select>
           </div>
-          <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={tri(lang, "آدرس", "Address", "Adresse")}
+          <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={tri(lang, "آدرس", "Address", "Adresse", "Adres")}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <CountryCityPicker lang={lang} cityValue={city} onCityChange={setCity} />
 
           {listingType === "short_term_rent" ? (
             <div className="grid grid-cols-2 gap-2">
-              <input value={nightlyPrice} onChange={(e) => setNightlyPrice(e.target.value)} type="number" placeholder={tri(lang, "قیمت هر شب", "Price per night", "Preis pro Nacht")}
+              <input value={nightlyPrice} onChange={(e) => setNightlyPrice(e.target.value)} type="number" placeholder={tri(lang, "قیمت هر شب", "Price per night", "Preis pro Nacht", "Gecelik fiyat")}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
               <select value={currency} onChange={(e) => setCurrency(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
                 {CURRENCY_OPTIONS.map((c) => <option key={c.value} value={c.value}>{c.label[lang]}</option>)}
               </select>
-              <input value={bookingLink} onChange={(e) => setBookingLink(e.target.value)} placeholder={tri(lang, "لینک Airbnb یا پلتفرم رزرو", "Airbnb or booking platform link", "Airbnb- oder Buchungsplattform-Link")}
+              <input value={bookingLink} onChange={(e) => setBookingLink(e.target.value)} placeholder={tri(lang, "لینک Airbnb یا پلتفرم رزرو", "Airbnb or booking platform link", "Airbnb- oder Buchungsplattform-Link", "Airbnb veya rezervasyon platformu linki")}
                 className="col-span-2 w-full px-3 py-2 rounded-xl text-sm outline-none" dir="ltr" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2">
-              <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" placeholder={tri(lang, "قیمت کل", "Total price", "Gesamtpreis")}
+              <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" placeholder={tri(lang, "قیمت کل", "Total price", "Gesamtpreis", "Toplam fiyat")}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
               <select value={currency} onChange={(e) => setCurrency(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
@@ -3440,53 +3437,53 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
           )}
 
           <div className="grid grid-cols-3 gap-2">
-            <input value={bedrooms} onChange={(e) => setBedrooms(e.target.value)} type="number" placeholder={tri(lang, "خواب", "Bedrooms", "Schlafzimmer")}
+            <input value={bedrooms} onChange={(e) => setBedrooms(e.target.value)} type="number" placeholder={tri(lang, "خواب", "Bedrooms", "Schlafzimmer", "Yatak odası")}
               className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-            <input value={bathrooms} onChange={(e) => setBathrooms(e.target.value)} type="number" placeholder={tri(lang, "سرویس", "Bathrooms", "Badezimmer")}
+            <input value={bathrooms} onChange={(e) => setBathrooms(e.target.value)} type="number" placeholder={tri(lang, "سرویس", "Bathrooms", "Badezimmer", "Banyo")}
               className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-            <input value={areaSqm} onChange={(e) => setAreaSqm(e.target.value)} type="number" placeholder={tri(lang, "متراژ", "Area (sqm)", "Fläche (qm)")}
+            <input value={areaSqm} onChange={(e) => setAreaSqm(e.target.value)} type="number" placeholder={tri(lang, "متراژ", "Area (sqm)", "Fläche (qm)", "Alan (m²)")}
               className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           </div>
 
           <select value={ownerContactId} onChange={(e) => setOwnerContactId(e.target.value)}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{tri(lang, "بدون مالک/مخاطب مشخص", "No owner/contact set", "Kein Eigentümer/Kontakt festgelegt")}</option>
+            <option value="">{tri(lang, "بدون مالک/مخاطب مشخص", "No owner/contact set", "Kein Eigentümer/Kontakt festgelegt", "Sahip/kişi belirlenmemiş")}</option>
             {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
 
           {listingType === "short_term_rent" && (
             <div>
-              <label className="text-xs mb-1 block" style={{ color: "var(--text-muted)" }}>{tri(lang, "مالک اجاره کوتاه‌مدت (برای گزارش تسویه)", "Short-term rental owner (for owner statements)", "Eigentümer der Kurzzeitvermietung (für Eigentümerabrechnungen)")}</label>
+              <label className="text-xs mb-1 block" style={{ color: "var(--text-muted)" }}>{tri(lang, "مالک اجاره کوتاه‌مدت (برای گزارش تسویه)", "Short-term rental owner (for owner statements)", "Eigentümer der Kurzzeitvermietung (für Eigentümerabrechnungen)", "Kısa dönem kiralama sahibi (mülk sahibi ekstreleri için)")}</label>
               <select value={rentalOwnerContactId} onChange={(e) => setRentalOwnerContactId(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                <option value="">{tri(lang, "بدون مالک تعیین‌شده", "No owner set", "Kein Eigentümer festgelegt")}</option>
+                <option value="">{tri(lang, "بدون مالک تعیین‌شده", "No owner set", "Kein Eigentümer festgelegt", "Sahip belirlenmemiş")}</option>
                 {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
           )}
 
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder={tri(lang, "توضیحات", "Description", "Beschreibung")}
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder={tri(lang, "توضیحات", "Description", "Beschreibung", "Açıklama")}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
 
           {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
           <button onClick={createProperty} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : tri(lang, "ذخیره ملک", "Save property", "Immobilie speichern")}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : tri(lang, "ذخیره ملک", "Save property", "Immobilie speichern", "Mülkü kaydet")}
           </button>
         </div>
       )}
 
       {properties.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجو (عنوان یا آدرس)", "Search (title or address)", "Suche (Titel oder Adresse)")}
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجو (عنوان یا آدرس)", "Search (title or address)", "Suche (Titel oder Adresse)", "Ara (başlık veya adres)")}
             className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <select value={listingTypeFilter} onChange={(e) => setListingTypeFilter(e.target.value)}
             className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{tri(lang, "همه نوع‌ها", "All types", "Alle Typen")}</option>
+            <option value="">{tri(lang, "همه نوع‌ها", "All types", "Alle Typen", "Tüm türler")}</option>
             {Object.entries(PROPERTY_LISTING_TYPE_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
           </select>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
             className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{tri(lang, "همه وضعیت‌ها", "All statuses", "Alle Status")}</option>
+            <option value="">{tri(lang, "همه وضعیت‌ها", "All statuses", "Alle Status", "Tüm durumlar")}</option>
             {Object.entries(PROPERTY_STATUS_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
           </select>
         </div>
@@ -3495,16 +3492,16 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
       {compareIds.length > 0 && (
         <div className="flex items-center justify-between gap-2 rounded-xl px-4 py-2.5 flex-wrap" style={{ background: "rgba(234,88,12,0.08)", border: "1px solid rgba(234,88,12,0.25)" }}>
           <span className="text-xs" style={{ color: "var(--text-primary)" }}>
-            {tri(lang, `${compareIds.length} ملک برای مقایسه انتخاب شده`, `${compareIds.length} selected for comparison`, `${compareIds.length} zum Vergleich ausgewählt`)}
+            {tri(lang, `${compareIds.length} ملک برای مقایسه انتخاب شده`, `${compareIds.length} selected for comparison`, `${compareIds.length} zum Vergleich ausgewählt`, `Karşılaştırma için ${compareIds.length} seçildi`)}
           </span>
           <div className="flex items-center gap-2">
             <button onClick={() => setCompareIds([])} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-              {tri(lang, "پاک کردن", "Clear", "Leeren")}
+              {tri(lang, "پاک کردن", "Clear", "Leeren", "Temizle")}
             </button>
             <button onClick={() => setShowCompare(true)} disabled={compareIds.length < 2}
               className="text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-50" style={{ background: "var(--primary)" }}
-              title={compareIds.length < 2 ? tri(lang, "حداقل دو ملک انتخاب کنید", "Select at least two", "Mindestens zwei auswählen") : undefined}>
-              {tri(lang, "مقایسه", "Compare", "Vergleichen")}
+              title={compareIds.length < 2 ? tri(lang, "حداقل دو ملک انتخاب کنید", "Select at least two", "Mindestens zwei auswählen", "En az iki tane seçin") : undefined}>
+              {tri(lang, "مقایسه", "Compare", "Vergleichen", "Karşılaştır")}
             </button>
           </div>
         </div>
@@ -3513,26 +3510,26 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
       {showCompare && (() => {
         const chosen = compareIds.map((id) => properties.find((p) => p.id === id)).filter((p): p is PropertyRow => !!p);
         const priceOf = (p: PropertyRow) => p.listingType === "short_term_rent"
-          ? (p.nightlyPrice ? `${fmtPrice(p.nightlyPrice, p.currency, lang)} ${tri(lang, "/ شب", "/ night", "/ Nacht")}` : "—")
+          ? (p.nightlyPrice ? `${fmtPrice(p.nightlyPrice, p.currency, lang)} ${tri(lang, "/ شب", "/ night", "/ Nacht", "/ gece")}` : "—")
           : fmtPrice(p.price, p.currency, lang);
         const perSqm = (p: PropertyRow) => p.listingType !== "short_term_rent" && p.price && p.areaSqm
           ? fmtPrice(Math.round(p.price / p.areaSqm), p.currency, lang) : "—";
         const rows: { label: string; cell: (p: PropertyRow) => React.ReactNode }[] = [
-          { label: tri(lang, "نوع معامله", "Listing type", "Angebotsart"), cell: (p) => PROPERTY_LISTING_TYPE_LABEL[p.listingType]?.[lang] || p.listingType },
-          { label: tri(lang, "قیمت", "Price", "Preis"), cell: priceOf },
-          { label: tri(lang, "متراژ", "Area", "Fläche"), cell: (p) => (p.areaSqm ? `${p.areaSqm} ${tri(lang, "متر", "sqm", "m²")}` : "—") },
-          { label: tri(lang, "قیمت هر متر", "Price per sqm", "Preis pro m²"), cell: perSqm },
-          { label: tri(lang, "اتاق خواب", "Bedrooms", "Schlafzimmer"), cell: (p) => p.bedrooms ?? "—" },
-          { label: tri(lang, "سرویس", "Bathrooms", "Badezimmer"), cell: (p) => p.bathrooms ?? "—" },
-          { label: tri(lang, "موقعیت", "Location", "Lage"), cell: (p) => `${p.address}${p.city ? `، ${p.city}` : ""}` },
-          { label: tri(lang, "وضعیت", "Status", "Status"), cell: (p) => PROPERTY_STATUS_LABEL[p.status]?.[lang] || p.status },
-          { label: tri(lang, "مالک / مخاطب", "Owner / contact", "Eigentümer / Kontakt"), cell: (p) => p.crmContact?.name || "—" },
+          { label: tri(lang, "نوع معامله", "Listing type", "Angebotsart", "İlan türü"), cell: (p) => PROPERTY_LISTING_TYPE_LABEL[p.listingType]?.[lang] || p.listingType },
+          { label: tri(lang, "قیمت", "Price", "Preis", "Fiyat"), cell: priceOf },
+          { label: tri(lang, "متراژ", "Area", "Fläche", "Alan"), cell: (p) => (p.areaSqm ? `${p.areaSqm} ${tri(lang, "متر", "sqm", "m²", "m²")}` : "—") },
+          { label: tri(lang, "قیمت هر متر", "Price per sqm", "Preis pro m²", "m² başına fiyat"), cell: perSqm },
+          { label: tri(lang, "اتاق خواب", "Bedrooms", "Schlafzimmer", "Yatak odası"), cell: (p) => p.bedrooms ?? "—" },
+          { label: tri(lang, "سرویس", "Bathrooms", "Badezimmer", "Banyo"), cell: (p) => p.bathrooms ?? "—" },
+          { label: tri(lang, "موقعیت", "Location", "Lage", "Konum"), cell: (p) => `${p.address}${p.city ? `، ${p.city}` : ""}` },
+          { label: tri(lang, "وضعیت", "Status", "Status", "Durum"), cell: (p) => PROPERTY_STATUS_LABEL[p.status]?.[lang] || p.status },
+          { label: tri(lang, "مالک / مخاطب", "Owner / contact", "Eigentümer / Kontakt", "Sahip / kişi"), cell: (p) => p.crmContact?.name || "—" },
         ];
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }} onClick={() => setShowCompare(false)}>
             <div className="w-full max-w-4xl rounded-2xl p-5 max-h-[85vh] overflow-y-auto" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مقایسهٔ املاک", "Property comparison", "Immobilienvergleich")}</h3>
+                <h3 className="font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مقایسهٔ املاک", "Property comparison", "Immobilienvergleich", "Mülk karşılaştırması")}</h3>
                 <button onClick={() => setShowCompare(false)}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
               </div>
               <div className="overflow-x-auto">
@@ -3570,8 +3567,8 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
           if (!q) return true;
           return p.title.toLowerCase().includes(q) || p.address.toLowerCase().includes(q) || (p.city || "").toLowerCase().includes(q);
         });
-        if (properties.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز ملکی ثبت نشده است", "No properties yet", "Noch keine Immobilien")}</p>;
-        if (filteredProperties.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "ملکی با این مشخصات پیدا نشد", "No properties match your search", "Keine Immobilien entsprechen der Suche")}</p>;
+        if (properties.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز ملکی ثبت نشده است", "No properties yet", "Noch keine Immobilien", "Henüz mülk yok")}</p>;
+        if (filteredProperties.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "ملکی با این مشخصات پیدا نشد", "No properties match your search", "Keine Immobilien entsprechen der Suche", "Aramanızla eşleşen mülk yok")}</p>;
         return (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           {filteredProperties.map((p, i) => (
@@ -3582,38 +3579,38 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
                   {p.crmContact ? ` · ${p.crmContact.name}` : ""}
                 </p>
                 <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                  {p.address}{p.city ? `، ${p.city}` : ""} · {p.listingType === "short_term_rent" ? (p.nightlyPrice ? `${fmtPrice(p.nightlyPrice, p.currency, lang)} ${tri(lang, "شب", "/night", "/Nacht")}` : "—") : fmtPrice(p.price, p.currency, lang)}
+                  {p.address}{p.city ? `، ${p.city}` : ""} · {p.listingType === "short_term_rent" ? (p.nightlyPrice ? `${fmtPrice(p.nightlyPrice, p.currency, lang)} ${tri(lang, "شب", "/night", "/Nacht", "/gece")}` : "—") : fmtPrice(p.price, p.currency, lang)}
                 </p>
               </div>
               <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                 <label className="flex items-center gap-1 text-[10px] cursor-pointer" style={{ color: "var(--text-muted)" }}
-                  title={tri(lang, `حداکثر ${MAX_COMPARE} ملک برای مقایسه`, `Compare up to ${MAX_COMPARE} properties`, `Bis zu ${MAX_COMPARE} Immobilien vergleichen`)}>
+                  title={tri(lang, `حداکثر ${MAX_COMPARE} ملک برای مقایسه`, `Compare up to ${MAX_COMPARE} properties`, `Bis zu ${MAX_COMPARE} Immobilien vergleichen`, `En fazla ${MAX_COMPARE} mülkü karşılaştırın`)}>
                   <input type="checkbox" className="w-3.5 h-3.5 accent-orange-500"
                     checked={compareIds.includes(p.id)}
                     disabled={!compareIds.includes(p.id) && compareIds.length >= MAX_COMPARE}
                     onChange={() => toggleCompare(p.id)} />
-                  {tri(lang, "مقایسه", "Compare", "Vergleich")}
+                  {tri(lang, "مقایسه", "Compare", "Vergleich", "Karşılaştır")}
                 </label>
                 <select value={p.status} onChange={(e) => setStatus(p.id, e.target.value)}
                   className="text-[10px] px-2 py-1 rounded-full font-medium outline-none" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "none" }}>
                   {Object.entries(PROPERTY_STATUS_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
                 </select>
                 {p.listingType === "short_term_rent" && shortTermCalendarEnabled && (
-                  <button onClick={() => setCalendarPropertyId(p.id)} title={tri(lang, "تقویم اشغال", "Occupancy calendar", "Belegungskalender")}>
+                  <button onClick={() => setCalendarPropertyId(p.id)} title={tri(lang, "تقویم اشغال", "Occupancy calendar", "Belegungskalender", "Doluluk takvimi")}>
                     <CalendarDays className="w-4 h-4" style={{ color: "var(--primary)" }} />
                   </button>
                 )}
                 {propertyDocumentsEnabled && (
-                  <button onClick={() => setDocsPropertyId(p.id)} title={tri(lang, "اسناد ملک", "Property documents", "Immobiliendokumente")}>
+                  <button onClick={() => setDocsPropertyId(p.id)} title={tri(lang, "اسناد ملک", "Property documents", "Immobiliendokumente", "Mülk belgeleri")}>
                     <FileText className="w-4 h-4" style={{ color: "var(--primary)" }} />
                   </button>
                 )}
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(`${window.location.origin}/p/${p.id}`);
-                    toast.success(tri(lang, "لینک اشتراک‌گذاری کپی شد", "Share link copied", "Link kopiert"));
+                    toast.success(tri(lang, "لینک اشتراک‌گذاری کپی شد", "Share link copied", "Link kopiert", "Paylaşım linki kopyalandı"));
                   }}
-                  title={tri(lang, "کپی لینک اشتراک‌گذاری عمومی", "Copy public share link", "Öffentlichen Link kopieren")}
+                  title={tri(lang, "کپی لینک اشتراک‌گذاری عمومی", "Copy public share link", "Öffentlichen Link kopieren", "Herkese açık paylaşım linkini kopyala")}
                 >
                   <Share2 className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
                 </button>
@@ -3664,7 +3661,7 @@ function OccupancyCalendarModal({ lang, propertyId, contacts, onClose }: { lang:
   useEffect(() => { load(); }, [load]);
 
   async function addBooking() {
-    if (!checkIn || !checkOut) { setError(tri(lang, "تاریخ ورود و خروج الزامی است", "Check-in and check-out are required", "An- und Abreise erforderlich")); return; }
+    if (!checkIn || !checkOut) { setError(tri(lang, "تاریخ ورود و خروج الزامی است", "Check-in and check-out are required", "An- und Abreise erforderlich", "Giriş ve çıkış tarihleri gereklidir")); return; }
     setSaving(true);
     setError("");
     try {
@@ -3677,7 +3674,7 @@ function OccupancyCalendarModal({ lang, propertyId, contacts, onClose }: { lang:
       setCheckIn(""); setCheckOut(""); setGuestName(""); setContactId("");
       load();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : tri(lang, "خطا در ثبت رزرو", "Failed to save booking", "Fehler beim Speichern der Buchung"));
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در ثبت رزرو", "Failed to save booking", "Fehler beim Speichern der Buchung", "Rezervasyon kaydedilemedi"));
     } finally {
       setSaving(false);
     }
@@ -3692,13 +3689,13 @@ function OccupancyCalendarModal({ lang, propertyId, contacts, onClose }: { lang:
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }}>
       <div className="w-full max-w-lg rounded-2xl p-5 space-y-3 max-h-[85vh] overflow-y-auto" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "تقویم اشغال", "Occupancy calendar", "Belegungskalender")}</h3>
+          <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "تقویم اشغال", "Occupancy calendar", "Belegungskalender", "Doluluk takvimi")}</h3>
           <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
         </div>
 
         {bookingLink && (
           <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-            {tri(lang, "لینک پلتفرم رزرو (بررسی دستی — سینک آنی خودکار موجود نیست): ", "Booking platform link (manual check — no instant auto-sync available): ", "Buchungsplattform-Link (manuelle Prüfung — keine sofortige Auto-Synchronisierung): ")}
+            {tri(lang, "لینک پلتفرم رزرو (بررسی دستی — سینک آنی خودکار موجود نیست): ", "Booking platform link (manual check — no instant auto-sync available): ", "Buchungsplattform-Link (manuelle Prüfung — keine sofortige Auto-Synchronisierung): ", "Rezervasyon platformu linki (manuel kontrol — anlık otomatik senkronizasyon yok): ")}
             <a href={bookingLink} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>{bookingLink}</a>
           </p>
         )}
@@ -3706,33 +3703,33 @@ function OccupancyCalendarModal({ lang, propertyId, contacts, onClose }: { lang:
         <div className="rounded-xl p-3 space-y-2" style={{ background: "var(--surface-2)" }}>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>{tri(lang, "ورود", "Check-in", "Anreise")}</label>
+              <label className="block text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>{tri(lang, "ورود", "Check-in", "Anreise", "Giriş")}</label>
               <input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)}
                 className="w-full px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div>
-              <label className="block text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>{tri(lang, "خروج", "Check-out", "Abreise")}</label>
+              <label className="block text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>{tri(lang, "خروج", "Check-out", "Abreise", "Çıkış")}</label>
               <input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)}
                 className="w-full px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
           </div>
-          <input value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder={tri(lang, "نام مهمان (اختیاری)", "Guest name (optional)", "Gastname (optional)")}
+          <input value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder={tri(lang, "نام مهمان (اختیاری)", "Guest name (optional)", "Gastname (optional)", "Misafir adı (isteğe bağlı)")}
             className="w-full px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <select value={contactId} onChange={(e) => setContactId(e.target.value)}
             className="w-full px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{tri(lang, "بدون لینک به مخاطب", "No linked contact", "Kein verknüpfter Kontakt")}</option>
+            <option value="">{tri(lang, "بدون لینک به مخاطب", "No linked contact", "Kein verknüpfter Kontakt", "Bağlı kişi yok")}</option>
             {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           {error && <p className="text-[11px]" style={{ color: "#ef4444" }}>{error}</p>}
           <button onClick={addBooking} disabled={saving} className="w-full py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-            {saving ? "..." : tri(lang, "ثبت رزرو", "Add booking", "Buchung hinzufügen")}
+            {saving ? "..." : tri(lang, "ثبت رزرو", "Add booking", "Buchung hinzufügen", "Rezervasyon ekle")}
           </button>
         </div>
 
         {loading ? (
           <Loader2 className="w-5 h-5 animate-spin mx-auto" style={{ color: "var(--primary)" }} />
         ) : bookings.filter((b) => b.status === "confirmed").length === 0 ? (
-          <p className="text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز رزروی ثبت نشده است", "No bookings yet", "Noch keine Buchungen")}</p>
+          <p className="text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز رزروی ثبت نشده است", "No bookings yet", "Noch keine Buchungen", "Henüz rezervasyon yok")}</p>
         ) : (
           <div className="space-y-1.5">
             {bookings.filter((b) => b.status === "confirmed").map((b) => (
@@ -3741,7 +3738,7 @@ function OccupancyCalendarModal({ lang, propertyId, contacts, onClose }: { lang:
                   {b.checkIn.slice(0, 10)} → {b.checkOut.slice(0, 10)}{b.guestName ? ` · ${b.guestName}` : b.contact ? ` · ${b.contact.name}` : ""}
                 </span>
                 <button onClick={() => cancelBooking(b.id)} className="text-[11px]" style={{ color: "#ef4444" }}>
-                  {tri(lang, "لغو", "Cancel", "Stornieren")}
+                  {tri(lang, "لغو", "Cancel", "Stornieren", "İptal")}
                 </button>
               </div>
             ))}
@@ -3794,7 +3791,7 @@ function PropertyDocsModal({ lang, propertyId, onClose }: { lang: Lang; property
       if (!res.ok) throw new Error(data.error);
       load();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : tri(lang, "خطا در آپلود فایل", "Upload failed", "Upload fehlgeschlagen"));
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در آپلود فایل", "Upload failed", "Upload fehlgeschlagen", "Yükleme başarısız oldu"));
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -3810,7 +3807,7 @@ function PropertyDocsModal({ lang, propertyId, onClose }: { lang: Lang; property
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }}>
       <div className="w-full max-w-lg rounded-2xl p-5 space-y-3 max-h-[85vh] overflow-y-auto" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "اسناد ملک", "Property documents", "Immobiliendokumente")}</h3>
+          <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "اسناد ملک", "Property documents", "Immobiliendokumente", "Mülk belgeleri")}</h3>
           <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
         </div>
 
@@ -3821,7 +3818,7 @@ function PropertyDocsModal({ lang, propertyId, onClose }: { lang: Lang; property
           </select>
           <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" onChange={handleFileSelect} disabled={uploading}
             className="w-full text-xs" style={{ color: "var(--text-secondary)" }} />
-          <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "PDF، تصویر، Word یا Excel — حداکثر ۱۵ مگابایت", "PDF, image, Word, or Excel — max 15MB", "PDF, Bild, Word oder Excel — max. 15MB")}</p>
+          <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "PDF، تصویر، Word یا Excel — حداکثر ۱۵ مگابایت", "PDF, image, Word, or Excel — max 15MB", "PDF, Bild, Word oder Excel — max. 15MB", "PDF, resim, Word veya Excel — en fazla 15MB")}</p>
           {uploading && <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--primary)" }} />}
           {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
         </div>
@@ -3829,7 +3826,7 @@ function PropertyDocsModal({ lang, propertyId, onClose }: { lang: Lang; property
         {loading ? (
           <Loader2 className="w-5 h-5 animate-spin mx-auto" style={{ color: "var(--primary)" }} />
         ) : documents.length === 0 ? (
-          <p className="text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز سندی آپلود نشده است", "No documents uploaded yet", "Noch keine Dokumente hochgeladen")}</p>
+          <p className="text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز سندی آپلود نشده است", "No documents uploaded yet", "Noch keine Dokumente hochgeladen", "Henüz belge yüklenmedi")}</p>
         ) : (
           <div className="space-y-1.5">
             {documents.map((d) => (
@@ -3864,7 +3861,7 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
       if (!res.ok) throw new Error(data.error);
       setPricingAdvice(data);
     } catch (err: unknown) {
-      setAdviceError(err instanceof Error ? err.message : tri(lang, "خطا در تولید پیشنهاد قیمت", "Failed to generate pricing advice", "Fehler bei der Preisempfehlung"));
+      setAdviceError(err instanceof Error ? err.message : tri(lang, "خطا در تولید پیشنهاد قیمت", "Failed to generate pricing advice", "Fehler bei der Preisempfehlung", "Fiyatlandırma önerisi oluşturulamadı"));
     } finally {
       setGeneratingAdvice(false);
     }
@@ -3885,7 +3882,7 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
       if (!res.ok) throw new Error(data.error);
       setCopyResult(data);
     } catch (err: unknown) {
-      setCopyError(err instanceof Error ? err.message : tri(lang, "خطا در تولید متن آگهی", "Failed to generate listing copy", "Fehler beim Erstellen des Anzeigentexts"));
+      setCopyError(err instanceof Error ? err.message : tri(lang, "خطا در تولید متن آگهی", "Failed to generate listing copy", "Fehler beim Erstellen des Anzeigentexts", "İlan metni oluşturulamadı"));
     } finally {
       setGeneratingCopy(false);
     }
@@ -3963,7 +3960,7 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
       setShowRegisterInterest(false);
       setInterestContactId(""); setInterestNewName(""); setInterestNewPhone(""); setInterestNote("");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : tri(lang, "خطا در ثبت مشتری", "Failed to register customer", "Fehler beim Registrieren des Kunden"));
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در ثبت مشتری", "Failed to register customer", "Fehler beim Registrieren des Kunden", "Müşteri kaydedilemedi"));
     } finally {
       setSavingInterest(false);
     }
@@ -4002,7 +3999,7 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
       setEditing(false);
       onChanged();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : tri(lang, "خطا در ذخیره", "Failed to save", "Fehler beim Speichern"));
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در ذخیره", "Failed to save", "Fehler beim Speichern", "Kaydedilemedi"));
     } finally {
       setSaving(false);
     }
@@ -4040,7 +4037,7 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
       setShowNewOwner(false);
       setNewOwnerName(""); setNewOwnerPhone("");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : tri(lang, "خطا در ایجاد مالک", "Failed to create owner", "Fehler beim Anlegen des Eigentümers"));
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در ایجاد مالک", "Failed to create owner", "Fehler beim Anlegen des Eigentümers", "Sahip oluşturulamadı"));
     } finally {
       setSavingOwner(false);
     }
@@ -4058,7 +4055,7 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
       if (!res.ok) throw new Error(data.error);
       setImages(data.images || []);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : tri(lang, "خطا در آپلود عکس", "Failed to upload photo", "Fehler beim Hochladen des Fotos"));
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در آپلود عکس", "Failed to upload photo", "Fehler beim Hochladen des Fotos", "Fotoğraf yüklenemedi"));
     } finally {
       setUploadingImage(false);
       if (imageInputRef.current) imageInputRef.current.value = "";
@@ -4080,7 +4077,7 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
           <h3 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>{property.title}</h3>
           <div className="flex items-center gap-2">
             <button onClick={() => setEditing((v) => !v)} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-              {editing ? tri(lang, "انصراف", "Cancel", "Abbrechen") : tri(lang, "ویرایش", "Edit", "Bearbeiten")}
+              {editing ? tri(lang, "انصراف", "Cancel", "Abbrechen", "İptal") : tri(lang, "ویرایش", "Edit", "Bearbeiten", "Düzenle")}
             </button>
             <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
           </div>
@@ -4088,7 +4085,7 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
 
         {/* Photo gallery */}
         <div>
-          <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{tri(lang, "تصاویر ملک", "Property photos", "Immobilienfotos")}</p>
+          <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{tri(lang, "تصاویر ملک", "Property photos", "Immobilienfotos", "Mülk fotoğrafları")}</p>
           <div className="flex flex-wrap gap-2 mb-2">
             {images.map((url) => (
               <div key={url} className="relative w-20 h-20 rounded-xl overflow-hidden group" style={{ background: "var(--surface-2)" }}>
@@ -4102,21 +4099,21 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
               <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageSelect} disabled={uploadingImage} className="hidden" />
             </label>
           </div>
-          <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "JPEG، PNG یا WebP — حداکثر ۸ مگابایت", "JPEG, PNG, or WebP — max 8MB", "JPEG, PNG oder WebP — max. 8MB")}</p>
+          <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "JPEG، PNG یا WebP — حداکثر ۸ مگابایت", "JPEG, PNG, or WebP — max 8MB", "JPEG, PNG oder WebP — max. 8MB", "JPEG, PNG veya WebP — en fazla 8MB")}</p>
         </div>
 
         {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
 
         {editing ? (
           <div className="space-y-2">
-            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={tri(lang, "عنوان", "Title", "Titel")}
+            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={tri(lang, "عنوان", "Title", "Titel", "Başlık")}
               className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             <div className="grid grid-cols-2 gap-2">
               {property.listingType === "short_term_rent" ? (
-                <input value={form.nightlyPrice} onChange={(e) => setForm({ ...form, nightlyPrice: e.target.value })} type="number" placeholder={tri(lang, "قیمت هر شب", "Price per night", "Preis pro Nacht")}
+                <input value={form.nightlyPrice} onChange={(e) => setForm({ ...form, nightlyPrice: e.target.value })} type="number" placeholder={tri(lang, "قیمت هر شب", "Price per night", "Preis pro Nacht", "Gecelik fiyat")}
                   className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
               ) : (
-                <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} type="number" placeholder={tri(lang, "قیمت کل", "Total price", "Gesamtpreis")}
+                <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} type="number" placeholder={tri(lang, "قیمت کل", "Total price", "Gesamtpreis", "Toplam fiyat")}
                   className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
               )}
               <select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}
@@ -4125,72 +4122,72 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
               </select>
             </div>
             {property.listingType === "short_term_rent" && (
-              <input value={form.bookingLink} onChange={(e) => setForm({ ...form, bookingLink: e.target.value })} placeholder={tri(lang, "لینک Airbnb یا پلتفرم رزرو", "Airbnb or booking platform link", "Airbnb- oder Buchungsplattform-Link")} dir="ltr"
+              <input value={form.bookingLink} onChange={(e) => setForm({ ...form, bookingLink: e.target.value })} placeholder={tri(lang, "لینک Airbnb یا پلتفرم رزرو", "Airbnb or booking platform link", "Airbnb- oder Buchungsplattform-Link", "Airbnb veya rezervasyon platformu linki")} dir="ltr"
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             )}
-            <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder={tri(lang, "آدرس", "Address", "Adresse")}
+            <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder={tri(lang, "آدرس", "Address", "Adresse", "Adres")}
               className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             <CountryCityPicker lang={lang} cityValue={form.city} onCityChange={(city) => setForm({ ...form, city })} />
             <div className="grid grid-cols-3 gap-2">
-              <input value={form.bedrooms} onChange={(e) => setForm({ ...form, bedrooms: e.target.value })} type="number" placeholder={tri(lang, "خواب", "Bedrooms", "Schlafzimmer")}
+              <input value={form.bedrooms} onChange={(e) => setForm({ ...form, bedrooms: e.target.value })} type="number" placeholder={tri(lang, "خواب", "Bedrooms", "Schlafzimmer", "Yatak odası")}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-              <input value={form.bathrooms} onChange={(e) => setForm({ ...form, bathrooms: e.target.value })} type="number" placeholder={tri(lang, "سرویس", "Bathrooms", "Badezimmer")}
+              <input value={form.bathrooms} onChange={(e) => setForm({ ...form, bathrooms: e.target.value })} type="number" placeholder={tri(lang, "سرویس", "Bathrooms", "Badezimmer", "Banyo")}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-              <input value={form.areaSqm} onChange={(e) => setForm({ ...form, areaSqm: e.target.value })} type="number" placeholder={tri(lang, "متراژ", "Area (sqm)", "Fläche (qm)")}
+              <input value={form.areaSqm} onChange={(e) => setForm({ ...form, areaSqm: e.target.value })} type="number" placeholder={tri(lang, "متراژ", "Area (sqm)", "Fläche (qm)", "Alan (m²)")}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
-            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} placeholder={tri(lang, "توضیحات", "Description", "Beschreibung")}
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} placeholder={tri(lang, "توضیحات", "Description", "Beschreibung", "Açıklama")}
               className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             <button onClick={saveEdit} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-              {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : tri(lang, "ذخیره تغییرات", "Save changes", "Änderungen speichern")}
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : tri(lang, "ذخیره تغییرات", "Save changes", "Änderungen speichern", "Değişiklikleri kaydet")}
             </button>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2 text-sm">
-            <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "نوع معامله: ", "Deal type: ", "Geschäftsart: ")}</span><span style={{ color: "var(--text-primary)" }}>{PROPERTY_LISTING_TYPE_LABEL[property.listingType]?.[lang] || property.listingType}</span></div>
-            <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "نوع ملک: ", "Property type: ", "Immobilientyp: ")}</span><span style={{ color: "var(--text-primary)" }}>{PROPERTY_TYPE_LABEL[property.propertyType]?.[lang] || property.propertyType}</span></div>
-            <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "قیمت: ", "Price: ", "Preis: ")}</span><span style={{ color: "var(--text-primary)" }}>{property.listingType === "short_term_rent" ? (property.nightlyPrice ? `${fmtPrice(property.nightlyPrice, property.currency, lang)} / ${tri(lang, "شب", "night", "Nacht")}` : "—") : fmtPrice(property.price, property.currency, lang)}</span></div>
+            <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "نوع معامله: ", "Deal type: ", "Geschäftsart: ", "İşlem türü: ")}</span><span style={{ color: "var(--text-primary)" }}>{PROPERTY_LISTING_TYPE_LABEL[property.listingType]?.[lang] || property.listingType}</span></div>
+            <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "نوع ملک: ", "Property type: ", "Immobilientyp: ", "Mülk türü: ")}</span><span style={{ color: "var(--text-primary)" }}>{PROPERTY_TYPE_LABEL[property.propertyType]?.[lang] || property.propertyType}</span></div>
+            <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "قیمت: ", "Price: ", "Preis: ", "Fiyat: ")}</span><span style={{ color: "var(--text-primary)" }}>{property.listingType === "short_term_rent" ? (property.nightlyPrice ? `${fmtPrice(property.nightlyPrice, property.currency, lang)} / ${tri(lang, "شب", "night", "Nacht", "gece")}` : "—") : fmtPrice(property.price, property.currency, lang)}</span></div>
             {property.listingType === "short_term_rent" && property.bookingLink && (
-              <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "لینک رزرو: ", "Booking link: ", "Buchungslink: ")}</span><a href={property.bookingLink} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>{property.bookingLink}</a></div>
+              <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "لینک رزرو: ", "Booking link: ", "Buchungslink: ", "Rezervasyon linki: ")}</span><a href={property.bookingLink} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>{property.bookingLink}</a></div>
             )}
-            <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "آدرس: ", "Address: ", "Adresse: ")}</span><span style={{ color: "var(--text-primary)" }}>{property.address}{property.city ? `، ${property.city}` : ""}</span></div>
+            <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "آدرس: ", "Address: ", "Adresse: ", "Adres: ")}</span><span style={{ color: "var(--text-primary)" }}>{property.address}{property.city ? `، ${property.city}` : ""}</span></div>
             {(property.bedrooms != null || property.bathrooms != null || property.areaSqm != null) && (
-              <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "مشخصات: ", "Details: ", "Details: ")}</span><span style={{ color: "var(--text-primary)" }}>{[property.bedrooms != null ? tri(lang, `${property.bedrooms} خواب`, `${property.bedrooms} bed`, `${property.bedrooms} Schlafz.`) : null, property.bathrooms != null ? tri(lang, `${property.bathrooms} سرویس`, `${property.bathrooms} bath`, `${property.bathrooms} Bad`) : null, property.areaSqm != null ? tri(lang, `${property.areaSqm} متر`, `${property.areaSqm} sqm`, `${property.areaSqm} qm`) : null].filter(Boolean).join(" · ")}</span></div>
+              <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "مشخصات: ", "Details: ", "Details: ", "Detaylar: ")}</span><span style={{ color: "var(--text-primary)" }}>{[property.bedrooms != null ? tri(lang, `${property.bedrooms} خواب`, `${property.bedrooms} bed`, `${property.bedrooms} Schlafz.`, `${property.bedrooms} yatak odası`) : null, property.bathrooms != null ? tri(lang, `${property.bathrooms} سرویس`, `${property.bathrooms} bath`, `${property.bathrooms} Bad`, `${property.bathrooms} banyo`) : null, property.areaSqm != null ? tri(lang, `${property.areaSqm} متر`, `${property.areaSqm} sqm`, `${property.areaSqm} qm`, `${property.areaSqm} m²`) : null].filter(Boolean).join(" · ")}</span></div>
             )}
             {property.description && (
-              <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "توضیحات: ", "Description: ", "Beschreibung: ")}</span><span style={{ color: "var(--text-primary)" }}>{property.description}</span></div>
+              <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "توضیحات: ", "Description: ", "Beschreibung: ", "Açıklama: ")}</span><span style={{ color: "var(--text-primary)" }}>{property.description}</span></div>
             )}
           </div>
         )}
 
         {/* Owner section — pick existing, or create+assign a new one inline. */}
         <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
-          <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مالک", "Owner", "Eigentümer")}</p>
+          <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مالک", "Owner", "Eigentümer", "Sahip")}</p>
           {!showNewOwner ? (
             <div className="flex items-center gap-2">
               <select value={ownerContactId} onChange={(e) => changeOwner(e.target.value)}
                 className="flex-1 px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                <option value="">{tri(lang, "بدون مالک", "No owner", "Kein Eigentümer")}</option>
+                <option value="">{tri(lang, "بدون مالک", "No owner", "Kein Eigentümer", "Sahip yok")}</option>
                 {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
               <button onClick={() => setShowNewOwner(true)} className="text-xs px-3 py-2 rounded-xl whitespace-nowrap" style={{ background: "var(--surface-2)", color: "var(--primary)" }}>
-                {tri(lang, "+ مالک جدید", "+ New owner", "+ Neuer Eigentümer")}
+                {tri(lang, "+ مالک جدید", "+ New owner", "+ Neuer Eigentümer", "+ Yeni sahip")}
               </button>
             </div>
           ) : (
             <div className="space-y-2">
               <div className="grid grid-cols-2 gap-2">
-                <input value={newOwnerName} onChange={(e) => setNewOwnerName(e.target.value)} placeholder={tri(lang, "نام مالک", "Owner name", "Name des Eigentümers")}
+                <input value={newOwnerName} onChange={(e) => setNewOwnerName(e.target.value)} placeholder={tri(lang, "نام مالک", "Owner name", "Name des Eigentümers", "Sahip adı")}
                   className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-                <input value={newOwnerPhone} onChange={(e) => setNewOwnerPhone(e.target.value)} placeholder={tri(lang, "شماره تماس (اختیاری)", "Phone (optional)", "Telefon (optional)")}
+                <input value={newOwnerPhone} onChange={(e) => setNewOwnerPhone(e.target.value)} placeholder={tri(lang, "شماره تماس (اختیاری)", "Phone (optional)", "Telefon (optional)", "Telefon (isteğe bağlı)")}
                   className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
               </div>
               <div className="flex gap-2">
                 <button onClick={createOwnerAndAssign} disabled={savingOwner || !newOwnerName.trim()} className="flex-1 py-2 rounded-xl text-xs font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-                  {savingOwner ? "..." : tri(lang, "ایجاد و انتساب مالک", "Create & assign owner", "Erstellen & zuweisen")}
+                  {savingOwner ? "..." : tri(lang, "ایجاد و انتساب مالک", "Create & assign owner", "Erstellen & zuweisen", "Sahip oluştur ve ata")}
                 </button>
                 <button onClick={() => setShowNewOwner(false)} className="flex-1 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-                  {tri(lang, "لغو", "Cancel", "Abbrechen")}
+                  {tri(lang, "لغو", "Cancel", "Abbrechen", "İptal")}
                 </button>
               </div>
             </div>
@@ -4199,10 +4196,10 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
 
         {property.listingType === "short_term_rent" && (
           <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
-            <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مالک اجاره کوتاه‌مدت (برای گزارش تسویه)", "Short-term rental owner (for owner statements)", "Eigentümer der Kurzzeitvermietung (für Eigentümerabrechnungen)")}</p>
+            <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مالک اجاره کوتاه‌مدت (برای گزارش تسویه)", "Short-term rental owner (for owner statements)", "Eigentümer der Kurzzeitvermietung (für Eigentümerabrechnungen)", "Kısa dönem kiralama sahibi (mülk sahibi ekstreleri için)")}</p>
             <select value={rentalOwnerContactId} onChange={(e) => changeRentalOwner(e.target.value)}
               className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-              <option value="">{tri(lang, "بدون مالک تعیین‌شده", "No owner set", "Kein Eigentümer festgelegt")}</option>
+              <option value="">{tri(lang, "بدون مالک تعیین‌شده", "No owner set", "Kein Eigentümer festgelegt", "Sahip belirlenmemiş")}</option>
               {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
@@ -4211,9 +4208,9 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
         {/* Interested customers — buyers/tenants who want THIS property; distinct from the owner above. */}
         <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مشتریان علاقه‌مند به این ملک", "Customers interested in this property", "Interessierte Kunden")}</p>
+            <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مشتریان علاقه‌مند به این ملک", "Customers interested in this property", "Interessierte Kunden", "Bu mülkle ilgilenen müşteriler")}</p>
             <button onClick={() => setShowRegisterInterest((v) => !v)} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--primary)" }}>
-              {tri(lang, "+ ثبت مشتری", "+ Register customer", "+ Kunde registrieren")}
+              {tri(lang, "+ ثبت مشتری", "+ Register customer", "+ Kunde registrieren", "+ Müşteri kaydet")}
             </button>
           </div>
 
@@ -4221,25 +4218,25 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
             <div className="rounded-xl p-3 space-y-2" style={{ background: "var(--surface-2)" }}>
               <select value={interestContactId} onChange={(e) => setInterestContactId(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                <option value="">{tri(lang, "مشتری جدید (نام را زیر وارد کنید)", "New customer (enter name below)", "Neuer Kunde (Namen unten eingeben)")}</option>
+                <option value="">{tri(lang, "مشتری جدید (نام را زیر وارد کنید)", "New customer (enter name below)", "Neuer Kunde (Namen unten eingeben)", "Yeni müşteri (aşağıya isim girin)")}</option>
                 {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
               {!interestContactId && (
                 <div className="grid grid-cols-2 gap-2">
-                  <input value={interestNewName} onChange={(e) => setInterestNewName(e.target.value)} placeholder={tri(lang, "نام مشتری", "Customer name", "Kundenname")}
+                  <input value={interestNewName} onChange={(e) => setInterestNewName(e.target.value)} placeholder={tri(lang, "نام مشتری", "Customer name", "Kundenname", "Müşteri adı")}
                     className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-                  <input value={interestNewPhone} onChange={(e) => setInterestNewPhone(e.target.value)} placeholder={tri(lang, "شماره تماس (اختیاری)", "Phone (optional)", "Telefon (optional)")}
+                  <input value={interestNewPhone} onChange={(e) => setInterestNewPhone(e.target.value)} placeholder={tri(lang, "شماره تماس (اختیاری)", "Phone (optional)", "Telefon (optional)", "Telefon (isteğe bağlı)")}
                     className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                 </div>
               )}
-              <input value={interestNote} onChange={(e) => setInterestNote(e.target.value)} placeholder={tri(lang, "یادداشت (اختیاری)", "Note (optional)", "Notiz (optional)")}
+              <input value={interestNote} onChange={(e) => setInterestNote(e.target.value)} placeholder={tri(lang, "یادداشت (اختیاری)", "Note (optional)", "Notiz (optional)", "Not (isteğe bağlı)")}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
               <div className="flex gap-2">
                 <button onClick={registerInterest} disabled={savingInterest || (!interestContactId && !interestNewName.trim())} className="flex-1 py-2 rounded-xl text-xs font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-                  {savingInterest ? "..." : tri(lang, "ثبت", "Register", "Registrieren")}
+                  {savingInterest ? "..." : tri(lang, "ثبت", "Register", "Registrieren", "Kaydet")}
                 </button>
                 <button onClick={() => setShowRegisterInterest(false)} className="flex-1 py-2 rounded-xl text-xs" style={{ background: "var(--surface-1)", color: "var(--text-secondary)" }}>
-                  {tri(lang, "لغو", "Cancel", "Abbrechen")}
+                  {tri(lang, "لغو", "Cancel", "Abbrechen", "İptal")}
                 </button>
               </div>
             </div>
@@ -4248,7 +4245,7 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
           {loadingInterests ? (
             <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--primary)" }} />
           ) : interests.length === 0 ? (
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز مشتری‌ای ثبت نشده است", "No customers registered yet", "Noch keine Kunden registriert")}</p>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز مشتری‌ای ثبت نشده است", "No customers registered yet", "Noch keine Kunden registriert", "Henüz kayıtlı müşteri yok")}</p>
           ) : (
             <div className="space-y-1.5">
               {interests.map((i) => (
@@ -4268,18 +4265,18 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
         {/* Section 2, item 2 — Listing Copywriter agent. AI only ever produces a draft here; the agent copies it to actually post/publish, nothing is auto-published. */}
         {listingCopywriterEnabled && (
           <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
-            <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "متن آگهی (چندپلتفرمی)", "Listing copy (multi-platform)", "Anzeigentext (mehrere Plattformen)")}</p>
+            <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "متن آگهی (چندپلتفرمی)", "Listing copy (multi-platform)", "Anzeigentext (mehrere Plattformen)", "İlan metni (çoklu platform)")}</p>
             <div className="flex items-center gap-2">
               {(["instagram", "divar", "website"] as const).map((p) => (
                 <button key={p} onClick={() => { setCopyPlatform(p); setCopyResult(null); }}
                   className="text-xs px-3 py-1.5 rounded-lg"
                   style={{ background: copyPlatform === p ? "var(--primary)" : "var(--surface-2)", color: copyPlatform === p ? "#fff" : "var(--text-secondary)" }}>
-                  {p === "instagram" ? "Instagram" : p === "divar" ? "دیوار" : tri(lang, "وبسایت", "Website", "Website")}
+                  {p === "instagram" ? "Instagram" : p === "divar" ? "دیوار" : tri(lang, "وبسایت", "Website", "Website", "Web sitesi")}
                 </button>
               ))}
               <button onClick={generateCopy} disabled={generatingCopy} className="text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-50 flex items-center gap-1.5" style={{ background: "var(--primary)" }}>
                 {generatingCopy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                {tri(lang, "تولید", "Generate", "Generieren")}
+                {tri(lang, "تولید", "Generate", "Generieren", "Oluştur")}
               </button>
             </div>
             {copyError && <p className="text-xs" style={{ color: "#ef4444" }}>{copyError}</p>}
@@ -4290,7 +4287,7 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
                   <p className="text-xs" style={{ color: "var(--primary)" }} dir="ltr">{copyResult.hashtags.join(" ")}</p>
                 )}
                 <button onClick={copyToClipboard} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: copied ? "#22c55e" : "var(--surface-1)", color: copied ? "#fff" : "var(--text-secondary)" }}>
-                  {copied ? tri(lang, "کپی شد", "Copied", "Kopiert") : tri(lang, "کپی متن", "Copy text", "Text kopieren")}
+                  {copied ? tri(lang, "کپی شد", "Copied", "Kopiert", "Kopyalandı") : tri(lang, "کپی متن", "Copy text", "Text kopieren", "Metni kopyala")}
                 </button>
               </div>
             )}
@@ -4301,23 +4298,23 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
         {pricingAdvisorEnabled && (
           <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مشاور قیمت‌گذاری", "Pricing Advisor", "Preisberater")}</p>
+              <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مشاور قیمت‌گذاری", "Pricing Advisor", "Preisberater", "Fiyatlandırma Danışmanı")}</p>
               <button onClick={generatePricingAdviceClick} disabled={generatingAdvice} className="text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-50 flex items-center gap-1.5" style={{ background: "var(--primary)" }}>
                 {generatingAdvice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                {tri(lang, "تحلیل قیمت", "Analyze price", "Preis analysieren")}
+                {tri(lang, "تحلیل قیمت", "Analyze price", "Preis analysieren", "Fiyatı analiz et")}
               </button>
             </div>
             {adviceError && <p className="text-xs" style={{ color: "#ef4444" }}>{adviceError}</p>}
             {pricingAdvice && (
               <div className="rounded-xl p-3 space-y-2" style={{ background: "var(--surface-2)" }}>
                 <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                  {tri(lang, "⚠️ فقط بر اساس داده‌های داخلی CRM — بدون دسترسی به بازار زنده یا خارجی. این یک پیشنهاد است، نه تصمیم قطعی.", "⚠️ Based only on internal CRM data — no live or external market access. This is a suggestion, not a final decision.", "⚠️ Nur basierend auf internen CRM-Daten — kein Zugriff auf Live- oder externe Marktdaten. Dies ist ein Vorschlag, keine endgültige Entscheidung.")}
+                  {tri(lang, "⚠️ فقط بر اساس داده‌های داخلی CRM — بدون دسترسی به بازار زنده یا خارجی. این یک پیشنهاد است، نه تصمیم قطعی.", "⚠️ Based only on internal CRM data — no live or external market access. This is a suggestion, not a final decision.", "⚠️ Nur basierend auf internen CRM-Daten — kein Zugriff auf Live- oder externe Marktdaten. Dies ist ein Vorschlag, keine endgültige Entscheidung.", "⚠️ Yalnızca dahili CRM verilerine dayanmaktadır — canlı veya harici pazar erişimi yoktur. Bu bir öneridir, kesin karar değildir.")}
                 </p>
                 <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
                   {fmtPrice(pricingAdvice.priceRangeLow, property.currency, lang)} – {fmtPrice(pricingAdvice.priceRangeHigh, property.currency, lang)}
                 </p>
                 <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{pricingAdvice.reasoning}</p>
-                <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{tri(lang, `بر اساس ${pricingAdvice.comparablesUsed} ملک مشابه در سیستم شما.`, `Based on ${pricingAdvice.comparablesUsed} comparable properties in your system.`, `Basierend auf ${pricingAdvice.comparablesUsed} vergleichbaren Immobilien in Ihrem System.`)}</p>
+                <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{tri(lang, `بر اساس ${pricingAdvice.comparablesUsed} ملک مشابه در سیستم شما.`, `Based on ${pricingAdvice.comparablesUsed} comparable properties in your system.`, `Basierend auf ${pricingAdvice.comparablesUsed} vergleichbaren Immobilien in Ihrem System.`, `Sisteminizdeki ${pricingAdvice.comparablesUsed} benzer mülke dayanmaktadır.`)}</p>
                 {pricingAdvice.dataLimitation && (
                   <p className="text-[10px]" style={{ color: "#f59e0b" }}>{pricingAdvice.dataLimitation}</p>
                 )}
@@ -4387,15 +4384,15 @@ function OwnersPanel({ lang, onOpenProperty }: { lang: Lang; onOpenProperty: (id
   return (
     <div className="space-y-3">
       {owners.length > 0 && (
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجوی مالک (نام، تلفن یا ایمیل)", "Search owners (name, phone, or email)", "Eigentümer suchen (Name, Telefon oder E-Mail)")}
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجوی مالک (نام، تلفن یا ایمیل)", "Search owners (name, phone, or email)", "Eigentümer suchen (Name, Telefon oder E-Mail)", "Sahip ara (isim, telefon veya e-posta)")}
           className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
       )}
       {owners.length === 0 ? (
         <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>
-          {tri(lang, "هنوز مالکی ثبت نشده — یک مخاطب را در فرم ثبت ملک به‌عنوان مالک انتخاب کنید", "No owners yet — link a contact as owner when creating a property", "Noch keine Eigentümer — verknüpfen Sie einen Kontakt beim Anlegen einer Immobilie")}
+          {tri(lang, "هنوز مالکی ثبت نشده — یک مخاطب را در فرم ثبت ملک به‌عنوان مالک انتخاب کنید", "No owners yet — link a contact as owner when creating a property", "Noch keine Eigentümer — verknüpfen Sie einen Kontakt beim Anlegen einer Immobilie", "Henüz sahip yok — mülk oluştururken bir kişiyi sahip olarak bağlayın")}
         </p>
       ) : filteredOwners.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "مالکی با این مشخصات پیدا نشد", "No owners match your search", "Keine Eigentümer entsprechen der Suche")}</p>
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "مالکی با این مشخصات پیدا نشد", "No owners match your search", "Keine Eigentümer entsprechen der Suche", "Aramanızla eşleşen sahip yok")}</p>
       ) : (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           {filteredOwners.map((o, i) => (
@@ -4406,7 +4403,7 @@ function OwnersPanel({ lang, onOpenProperty }: { lang: Lang; onOpenProperty: (id
                   <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{o.phone || o.email || "—"}</p>
                 </div>
                 <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(234,88,12,0.12)", color: "var(--primary)" }}>
-                  {o.propertiesOwnedCount} {tri(lang, "ملک", "properties", "Immobilien")}
+                  {o.propertiesOwnedCount} {tri(lang, "ملک", "properties", "Immobilien", "mülk")}
                 </span>
               </button>
               {expanded === o.id && (
@@ -4415,11 +4412,11 @@ function OwnersPanel({ lang, onOpenProperty }: { lang: Lang; onOpenProperty: (id
                     <div key={p.id} className="rounded-xl p-3 space-y-2" style={{ background: "var(--surface-2)" }}>
                       <div className="flex items-center justify-between">
                         <button onClick={() => onOpenProperty(p.id)} className="text-xs font-medium text-start hover:underline" style={{ color: "var(--text-primary)" }}>
-                          {p.title} — {p.address}{p.city ? `${tri(lang, "،", ",", ",")} ${p.city}` : ""}
+                          {p.title} — {p.address}{p.city ? `${tri(lang, "،", ",", ",", ",")} ${p.city}` : ""}
                         </button>
                         {editing?.propertyId !== p.id && (
                           <button onClick={() => startEdit(o.id, p)} className="text-[11px]" style={{ color: "var(--primary)" }}>
-                            {tri(lang, "ویرایش قرارداد", "Edit terms", "Bedingungen bearbeiten")}
+                            {tri(lang, "ویرایش قرارداد", "Edit terms", "Bedingungen bearbeiten", "Koşulları düzenle")}
                           </button>
                         )}
                       </div>
@@ -4430,21 +4427,21 @@ function OwnersPanel({ lang, onOpenProperty }: { lang: Lang; onOpenProperty: (id
                           <input type="date" value={form.representationEndDate} onChange={(e) => setForm({ ...form, representationEndDate: e.target.value })}
                             className="px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                           <input type="number" step="0.1" value={form.agreedCommissionRate} onChange={(e) => setForm({ ...form, agreedCommissionRate: e.target.value })}
-                            placeholder={tri(lang, "کمیسیون %", "Commission %", "Provision %")}
+                            placeholder={tri(lang, "کمیسیون %", "Commission %", "Provision %", "Komisyon %")}
                             className="px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                           <div className="col-span-3 flex gap-2">
                             <button onClick={saveRepresentation} disabled={saving} className="flex-1 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-                              {saving ? "..." : tri(lang, "ذخیره", "Save", "Speichern")}
+                              {saving ? "..." : tri(lang, "ذخیره", "Save", "Speichern", "Kaydet")}
                             </button>
                             <button onClick={() => setEditing(null)} className="flex-1 py-1.5 rounded-lg text-xs" style={{ background: "var(--surface-1)", color: "var(--text-secondary)" }}>
-                              {tri(lang, "لغو", "Cancel", "Abbrechen")}
+                              {tri(lang, "لغو", "Cancel", "Abbrechen", "İptal")}
                             </button>
                           </div>
                         </div>
                       ) : (
                         <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                          {tri(lang, "بازه قرارداد:", "Agreement period:", "Vertragszeitraum:")} {p.representationStartDate ? p.representationStartDate.slice(0, 10) : "—"} → {p.representationEndDate ? p.representationEndDate.slice(0, 10) : "—"}
-                          {" · "}{tri(lang, "کمیسیون:", "Commission:", "Provision:")} {p.agreedCommissionRate != null ? `${p.agreedCommissionRate}%` : "—"}
+                          {tri(lang, "بازه قرارداد:", "Agreement period:", "Vertragszeitraum:", "Anlaşma süresi:")} {p.representationStartDate ? p.representationStartDate.slice(0, 10) : "—"} → {p.representationEndDate ? p.representationEndDate.slice(0, 10) : "—"}
+                          {" · "}{tri(lang, "کمیسیون:", "Commission:", "Provision:", "Komisyon:")} {p.agreedCommissionRate != null ? `${p.agreedCommissionRate}%` : "—"}
                         </p>
                       )}
                     </div>
@@ -4496,8 +4493,8 @@ function ViewingsPanel({ lang, contacts, teamMembers, viewingCoordinatorEnabled 
   }, [viewingCoordinatorEnabled, viewings]);
 
   async function createViewing() {
-    if (!propertyId) { setError(tri(lang, "ملک الزامی است", "Property is required", "Immobilie ist erforderlich")); return; }
-    if (!scheduledAt) { setError(tri(lang, "زمان بازدید الزامی است", "Viewing time is required", "Besichtigungszeit ist erforderlich")); return; }
+    if (!propertyId) { setError(tri(lang, "ملک الزامی است", "Property is required", "Immobilie ist erforderlich", "Mülk gereklidir")); return; }
+    if (!scheduledAt) { setError(tri(lang, "زمان بازدید الزامی است", "Viewing time is required", "Besichtigungszeit ist erforderlich", "Görüntüleme zamanı gereklidir")); return; }
     setSaving(true);
     setError("");
     try {
@@ -4511,16 +4508,13 @@ function ViewingsPanel({ lang, contacts, teamMembers, viewingCoordinatorEnabled 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       if (data.autoRescheduled) {
-        alert(tri(lang,
-          `زمان درخواستی پر بود — بازدید در نزدیک‌ترین بازه آزاد (${new Date(data.viewing.scheduledAt).toLocaleString("fa-IR")}) ثبت شد.`,
-          `The requested time was busy — booked at the nearest free slot (${new Date(data.viewing.scheduledAt).toLocaleString()}) instead.`,
-          `Der gewünschte Termin war belegt — auf den nächsten freien Slot (${new Date(data.viewing.scheduledAt).toLocaleString()}) gebucht.`));
+        alert(tri(lang, `زمان درخواستی پر بود — بازدید در نزدیک‌ترین بازه آزاد (${new Date(data.viewing.scheduledAt).toLocaleString("fa-IR")}) ثبت شد.`, `The requested time was busy — booked at the nearest free slot (${new Date(data.viewing.scheduledAt).toLocaleString()}) instead.`, `Der gewünschte Termin war belegt — auf den nächsten freien Slot (${new Date(data.viewing.scheduledAt).toLocaleString()}) gebucht.`, `İstenen zaman doluydu — en yakın boş zamana (${new Date(data.viewing.scheduledAt).toLocaleString()}) rezerve edildi.`));
       }
       setShowNew(false);
       setPropertyId(""); setContactId(""); setAssignedToId(""); setScheduledAt("");
       load();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : tri(lang, "خطا در ثبت بازدید", "Failed to book viewing", "Fehler beim Buchen der Besichtigung"));
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در ثبت بازدید", "Failed to book viewing", "Fehler beim Buchen der Besichtigung", "Görüntüleme rezerve edilemedi"));
     } finally {
       setSaving(false);
     }
@@ -4562,7 +4556,7 @@ function ViewingsPanel({ lang, contacts, teamMembers, viewingCoordinatorEnabled 
       {viewingCoordinatorEnabled && needsFeedback.length > 0 && (
         <div className="rounded-2xl p-3" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)" }}>
           <p className="text-xs font-medium" style={{ color: "#f59e0b" }}>
-            {tri(lang, `${needsFeedback.length} بازدید گذشته هنوز بازخورد ثبت نشده دارند`, `${needsFeedback.length} past viewings still need feedback logged`, `${needsFeedback.length} vergangene Besichtigungen brauchen noch Rückmeldung`)}
+            {tri(lang, `${needsFeedback.length} بازدید گذشته هنوز بازخورد ثبت نشده دارند`, `${needsFeedback.length} past viewings still need feedback logged`, `${needsFeedback.length} vergangene Besichtigungen brauchen noch Rückmeldung`, `${needsFeedback.length} geçmiş görüntüleme için hâlâ geri bildirim gerekiyor`)}
           </p>
         </div>
       )}
@@ -4570,7 +4564,7 @@ function ViewingsPanel({ lang, contacts, teamMembers, viewingCoordinatorEnabled 
       <div className="flex justify-end">
         <button onClick={() => setShowNew((v) => !v)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-          <Plus className="w-4 h-4" /> {tri(lang, "بازدید جدید", "New viewing", "Neue Besichtigung")}
+          <Plus className="w-4 h-4" /> {tri(lang, "بازدید جدید", "New viewing", "Neue Besichtigung", "Yeni görüntüleme")}
         </button>
       </div>
 
@@ -4578,7 +4572,7 @@ function ViewingsPanel({ lang, contacts, teamMembers, viewingCoordinatorEnabled 
         <div className="rounded-2xl p-4 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <select value={propertyId} onChange={(e) => setPropertyId(e.target.value)}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{tri(lang, "انتخاب ملک", "Select property", "Immobilie auswählen")}</option>
+            <option value="">{tri(lang, "انتخاب ملک", "Select property", "Immobilie auswählen", "Mülk seç")}</option>
             {properties.map((p) => <option key={p.id} value={p.id}>{p.title} — {p.address}</option>)}
           </select>
           {/* The visitor. PropertyViewing.contactId and the POST body already
@@ -4589,33 +4583,33 @@ function ViewingsPanel({ lang, contacts, teamMembers, viewingCoordinatorEnabled 
               buyer is confirmed. */}
           <select value={contactId} onChange={(e) => setContactId(e.target.value)}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{tri(lang, "بازدیدکننده / مشتری (اختیاری)", "Visitor / customer (optional)", "Besucher / Kunde (optional)")}</option>
+            <option value="">{tri(lang, "بازدیدکننده / مشتری (اختیاری)", "Visitor / customer (optional)", "Besucher / Kunde (optional)", "Ziyaretçi / müşteri (isteğe bağlı)")}</option>
             {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <select value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{tri(lang, "کارشناس (اختیاری)", "Agent (optional)", "Makler (optional)")}</option>
+            <option value="">{tri(lang, "کارشناس (اختیاری)", "Agent (optional)", "Makler (optional)", "Danışman (isteğe bağlı)")}</option>
             {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
           {viewingCoordinatorEnabled && assignedToId && (
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={autoSlot} onChange={(e) => setAutoSlot(e.target.checked)} className="w-4 h-4 accent-orange-500" />
               <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                {tri(lang, "اگر این زمان پر بود، نزدیک‌ترین بازه آزاد را خودکار پیدا کن", "If this time is busy, automatically find the nearest free slot", "Falls dieser Termin belegt ist, automatisch den nächsten freien Slot finden")}
+                {tri(lang, "اگر این زمان پر بود، نزدیک‌ترین بازه آزاد را خودکار پیدا کن", "If this time is busy, automatically find the nearest free slot", "Falls dieser Termin belegt ist, automatisch den nächsten freien Slot finden", "Bu zaman doluysa, en yakın boş zamanı otomatik bul")}
               </span>
             </label>
           )}
           {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
           <button onClick={createViewing} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : tri(lang, "ثبت بازدید", "Book viewing", "Besichtigung buchen")}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : tri(lang, "ثبت بازدید", "Book viewing", "Besichtigung buchen", "Görüntüleme rezerve et")}
           </button>
         </div>
       )}
 
       {viewings.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز بازدیدی ثبت نشده است", "No viewings yet", "Noch keine Besichtigungen")}</p>
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز بازدیدی ثبت نشده است", "No viewings yet", "Noch keine Besichtigungen", "Henüz görüntüleme yok")}</p>
       ) : (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           {viewings.map((v, i) => (
@@ -4626,7 +4620,7 @@ function ViewingsPanel({ lang, contacts, teamMembers, viewingCoordinatorEnabled 
                   {new Date(v.scheduledAt).toLocaleString(lang === "fa" ? "fa-IR" : "en-US")}
                   {v.contact ? ` · ${v.contact.name}` : ""}{v.assignedTo ? ` · ${v.assignedTo.name}` : ""}
                 </p>
-                {v.feedback && <p className="text-[11px] mt-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "بازخورد:", "Feedback:", "Rückmeldung:")} {v.feedback}{v.feedbackRating ? ` (${v.feedbackRating}/5)` : ""}</p>}
+                {v.feedback && <p className="text-[11px] mt-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "بازخورد:", "Feedback:", "Rückmeldung:", "Geri bildirim:")} {v.feedback}{v.feedbackRating ? ` (${v.feedbackRating}/5)` : ""}</p>}
               </div>
               <div className="flex items-center gap-2">
                 <select value={v.status} onChange={(e) => setStatus(v.id, e.target.value)}
@@ -4636,7 +4630,7 @@ function ViewingsPanel({ lang, contacts, teamMembers, viewingCoordinatorEnabled 
                 {v.status !== "completed" && (
                   <button onClick={() => { setFeedbackTarget(v); setFeedbackText(v.feedback || ""); setFeedbackRating(v.feedbackRating ? String(v.feedbackRating) : ""); }}
                     className="text-[11px]" style={{ color: "var(--primary)" }}>
-                    {tri(lang, "ثبت بازخورد", "Add feedback", "Rückmeldung")}
+                    {tri(lang, "ثبت بازخورد", "Add feedback", "Rückmeldung", "Geri bildirim ekle")}
                   </button>
                 )}
                 <button onClick={() => deleteViewing(v.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
@@ -4649,18 +4643,18 @@ function ViewingsPanel({ lang, contacts, teamMembers, viewingCoordinatorEnabled 
       {feedbackTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }}>
           <div className="w-full max-w-md rounded-2xl p-5 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-            <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "بازخورد پس از بازدید", "Post-viewing feedback", "Rückmeldung nach der Besichtigung")}</h3>
+            <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "بازخورد پس از بازدید", "Post-viewing feedback", "Rückmeldung nach der Besichtigung", "Görüntüleme sonrası geri bildirim")}</h3>
             <textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} rows={3}
-              placeholder={tri(lang, "نظر خریدار/کارشناس درباره ملک", "Buyer/agent's impression of the property", "Eindruck des Käufers/Maklers")}
+              placeholder={tri(lang, "نظر خریدار/کارشناس درباره ملک", "Buyer/agent's impression of the property", "Eindruck des Käufers/Maklers", "Alıcının/danışmanın mülk hakkındaki izlenimi")}
               className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             <select value={feedbackRating} onChange={(e) => setFeedbackRating(e.target.value)}
               className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-              <option value="">{tri(lang, "امتیاز (اختیاری)", "Rating (optional)", "Bewertung (optional)")}</option>
+              <option value="">{tri(lang, "امتیاز (اختیاری)", "Rating (optional)", "Bewertung (optional)", "Puan (isteğe bağlı)")}</option>
               {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}/5</option>)}
             </select>
             <div className="flex gap-2">
-              <button onClick={saveFeedback} className="flex-1 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--primary)" }}>{tri(lang, "ذخیره", "Save", "Speichern")}</button>
-              <button onClick={() => setFeedbackTarget(null)} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{tri(lang, "لغو", "Cancel", "Abbrechen")}</button>
+              <button onClick={saveFeedback} className="flex-1 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--primary)" }}>{tri(lang, "ذخیره", "Save", "Speichern", "Kaydet")}</button>
+              <button onClick={() => setFeedbackTarget(null)} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{tri(lang, "لغو", "Cancel", "Abbrechen", "İptal")}</button>
             </div>
           </div>
         </div>
@@ -4702,7 +4696,7 @@ function BuyerMatchPanel({ lang, leadMatcherAgentEnabled }: { lang: Lang; leadMa
   useEffect(() => { load(); }, [load]);
 
   async function saveCriteria() {
-    if (!selectedContactId) { setError(tri(lang, "یک مخاطب انتخاب کنید", "Select a contact", "Kontakt auswählen")); return; }
+    if (!selectedContactId) { setError(tri(lang, "یک مخاطب انتخاب کنید", "Select a contact", "Kontakt auswählen", "Bir kişi seçin")); return; }
     setSaving(true);
     setError("");
     try {
@@ -4723,7 +4717,7 @@ function BuyerMatchPanel({ lang, leadMatcherAgentEnabled }: { lang: Lang; leadMa
       setSelectedContactId(""); setPropertyType(""); setListingType(""); setCity(""); setBudgetMin(""); setBudgetMax(""); setMinBedrooms("");
       load();
     } catch {
-      setError(tri(lang, "خطا در ذخیره معیارها", "Failed to save criteria", "Fehler beim Speichern"));
+      setError(tri(lang, "خطا در ذخیره معیارها", "Failed to save criteria", "Fehler beim Speichern", "Kriterler kaydedilemedi"));
     } finally {
       setSaving(false);
     }
@@ -4762,18 +4756,18 @@ function BuyerMatchPanel({ lang, leadMatcherAgentEnabled }: { lang: Lang; leadMa
         <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
             <div>
-              <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "ایجنت تطبیق لید", "Lead Matcher agent", "Lead-Matcher-Agent")}</h2>
-              <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{tri(lang, "پیش‌نویس پیام پیگیری برای لیدها — با اشاره به ملک منطبق در صورت وجود", "Follow-up message drafts for leads — mentioning a matching property where one exists", "Follow-up-Entwürfe für Leads — mit passender Immobilie, falls vorhanden")}</p>
+              <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "ایجنت تطبیق لید", "Lead Matcher agent", "Lead-Matcher-Agent", "Lead Eşleştirme ajanı")}</h2>
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{tri(lang, "پیش‌نویس پیام پیگیری برای لیدها — با اشاره به ملک منطبق در صورت وجود", "Follow-up message drafts for leads — mentioning a matching property where one exists", "Follow-up-Entwürfe für Leads — mit passender Immobilie, falls vorhanden", "Lead'ler için takip mesajı taslakları — varsa eşleşen mülkten bahsedilir")}</p>
             </div>
             <button onClick={loadLeadMatcherDrafts} disabled={loadingDrafts}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold disabled:opacity-50"
               style={{ background: "var(--surface-2)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
               {loadingDrafts ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-              {tri(lang, "تولید پیش‌نویس", "Generate drafts", "Entwürfe generieren")}
+              {tri(lang, "تولید پیش‌نویس", "Generate drafts", "Entwürfe generieren", "Taslak oluştur")}
             </button>
           </div>
           {leadDrafts.length === 0 && !loadingDrafts ? (
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{tri(lang, "روی «تولید پیش‌نویس» بزنید", "Click \"Generate drafts\"", "Klicken Sie auf \"Entwürfe generieren\"")}</p>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{tri(lang, "روی «تولید پیش‌نویس» بزنید", "Click \"Generate drafts\"", "Klicken Sie auf \"Entwürfe generieren\"", "\"Taslak oluştur\"a tıklayın")}</p>
           ) : (
             <div className="space-y-2">
               {leadDrafts.map((d) => {
@@ -4782,23 +4776,23 @@ function BuyerMatchPanel({ lang, leadMatcherAgentEnabled }: { lang: Lang; leadMa
                   <div key={d.contactId} className="rounded-xl p-3 flex items-start justify-between gap-3" style={{ background: "var(--surface-2)" }}>
                     <div className="flex-1">
                       <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
-                        {d.name}{d.matchedPropertyIds.length > 0 && <span className="mr-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(34,197,94,0.1)", color: "#22c55e" }}>{tri(lang, "با ملک منطبق", "with match", "mit Treffer")}</span>}
+                        {d.name}{d.matchedPropertyIds.length > 0 && <span className="mr-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(34,197,94,0.1)", color: "#22c55e" }}>{tri(lang, "با ملک منطبق", "with match", "mit Treffer", "eşleşme ile")}</span>}
                       </p>
                       <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{d.message}</p>
                     </div>
                     {sent ? (
                       <span className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg flex-shrink-0" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>
-                        <Check className="w-3.5 h-3.5" />{tri(lang, "ارسال شد", "Sent", "Gesendet")}
+                        <Check className="w-3.5 h-3.5" />{tri(lang, "ارسال شد", "Sent", "Gesendet", "Gönderildi")}
                       </span>
                     ) : d.email ? (
                       <button onClick={() => sendLeadDraft(d)} disabled={sendingDraftId === d.contactId}
                         className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg flex-shrink-0 disabled:opacity-50"
                         style={{ background: "var(--primary)", color: "white" }}>
                         {sendingDraftId === d.contactId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                        {tri(lang, "ارسال", "Send", "Senden")}
+                        {tri(lang, "ارسال", "Send", "Senden", "Gönder")}
                       </button>
                     ) : (
-                      <span className="text-xs px-2.5 py-1.5 rounded-lg flex-shrink-0" style={{ background: "var(--surface-1)", color: "var(--text-muted)" }}>{tri(lang, "بدون ایمیل", "No email", "Keine E-Mail")}</span>
+                      <span className="text-xs px-2.5 py-1.5 rounded-lg flex-shrink-0" style={{ background: "var(--surface-1)", color: "var(--text-muted)" }}>{tri(lang, "بدون ایمیل", "No email", "Keine E-Mail", "E-posta yok")}</span>
                     )}
                   </div>
                 );
@@ -4811,7 +4805,7 @@ function BuyerMatchPanel({ lang, leadMatcherAgentEnabled }: { lang: Lang; leadMa
       <div className="flex justify-end">
         <button onClick={() => setShowSetCriteria((v) => !v)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-          <Plus className="w-4 h-4" /> {tri(lang, "تعیین معیار خریدار", "Set buyer criteria", "Käuferkriterien festlegen")}
+          <Plus className="w-4 h-4" /> {tri(lang, "تعیین معیار خریدار", "Set buyer criteria", "Käuferkriterien festlegen", "Alıcı kriterlerini belirle")}
         </button>
       </div>
 
@@ -4819,41 +4813,41 @@ function BuyerMatchPanel({ lang, leadMatcherAgentEnabled }: { lang: Lang; leadMa
         <div className="rounded-2xl p-4 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <select value={selectedContactId} onChange={(e) => setSelectedContactId(e.target.value)}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{tri(lang, "انتخاب مخاطب خریدار", "Select buyer contact", "Käuferkontakt auswählen")}</option>
+            <option value="">{tri(lang, "انتخاب مخاطب خریدار", "Select buyer contact", "Käuferkontakt auswählen", "Alıcı kişisini seç")}</option>
             {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           <div className="grid grid-cols-2 gap-2">
             <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)}
               className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-              <option value="">{tri(lang, "نوع ملک (هر نوع)", "Property type (any)", "Immobilientyp (alle)")}</option>
+              <option value="">{tri(lang, "نوع ملک (هر نوع)", "Property type (any)", "Immobilientyp (alle)", "Mülk türü (herhangi)")}</option>
               {Object.entries(PROPERTY_TYPE_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
             </select>
             <select value={listingType} onChange={(e) => setListingType(e.target.value)}
               className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-              <option value="">{tri(lang, "نوع معامله (هر نوع)", "Deal type (any)", "Geschäftsart (alle)")}</option>
-              <option value="buy">{tri(lang, "خرید", "Buy", "Kauf")}</option>
-              <option value="rent">{tri(lang, "اجاره", "Rent", "Miete")}</option>
+              <option value="">{tri(lang, "نوع معامله (هر نوع)", "Deal type (any)", "Geschäftsart (alle)", "İşlem türü (herhangi)")}</option>
+              <option value="buy">{tri(lang, "خرید", "Buy", "Kauf", "Satın al")}</option>
+              <option value="rent">{tri(lang, "اجاره", "Rent", "Miete", "Kirala")}</option>
             </select>
           </div>
-          <input value={city} onChange={(e) => setCity(e.target.value)} placeholder={tri(lang, "شهر (هر شهر)", "City (any)", "Stadt (alle)")}
+          <input value={city} onChange={(e) => setCity(e.target.value)} placeholder={tri(lang, "شهر (هر شهر)", "City (any)", "Stadt (alle)", "Şehir (herhangi)")}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <div className="grid grid-cols-3 gap-2">
-            <input value={budgetMin} onChange={(e) => setBudgetMin(e.target.value)} type="number" placeholder={tri(lang, "حداقل بودجه", "Min budget", "Min. Budget")}
+            <input value={budgetMin} onChange={(e) => setBudgetMin(e.target.value)} type="number" placeholder={tri(lang, "حداقل بودجه", "Min budget", "Min. Budget", "Min bütçe")}
               className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-            <input value={budgetMax} onChange={(e) => setBudgetMax(e.target.value)} type="number" placeholder={tri(lang, "حداکثر بودجه", "Max budget", "Max. Budget")}
+            <input value={budgetMax} onChange={(e) => setBudgetMax(e.target.value)} type="number" placeholder={tri(lang, "حداکثر بودجه", "Max budget", "Max. Budget", "Maks bütçe")}
               className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-            <input value={minBedrooms} onChange={(e) => setMinBedrooms(e.target.value)} type="number" placeholder={tri(lang, "حداقل خواب", "Min bedrooms", "Min. Schlafzimmer")}
+            <input value={minBedrooms} onChange={(e) => setMinBedrooms(e.target.value)} type="number" placeholder={tri(lang, "حداقل خواب", "Min bedrooms", "Min. Schlafzimmer", "Min yatak odası")}
               className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           </div>
           {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
           <button onClick={saveCriteria} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : tri(lang, "ذخیره معیارها", "Save criteria", "Kriterien speichern")}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : tri(lang, "ذخیره معیارها", "Save criteria", "Kriterien speichern", "Kriterleri kaydet")}
           </button>
         </div>
       )}
 
       {results.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز هیچ خریداری معیار جستجو ندارد", "No buyers have search criteria yet", "Noch keine Käuferkriterien")}</p>
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز هیچ خریداری معیار جستجو ندارد", "No buyers have search criteria yet", "Noch keine Käuferkriterien", "Henüz arama kriteri olan alıcı yok")}</p>
       ) : (
         <div className="space-y-3">
           {results.map((r) => (
@@ -4861,14 +4855,14 @@ function BuyerMatchPanel({ lang, leadMatcherAgentEnabled }: { lang: Lang; leadMa
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{r.contactName}{r.phone ? ` · ${r.phone}` : ""}</p>
                 <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: r.matches.length > 0 ? "rgba(34,197,94,0.1)" : "var(--surface-2)", color: r.matches.length > 0 ? "#22c55e" : "var(--text-muted)" }}>
-                  {r.matches.length} {tri(lang, "ملک منطبق", "matches", "Treffer")}
+                  {r.matches.length} {tri(lang, "ملک منطبق", "matches", "Treffer", "eşleşme")}
                 </span>
               </div>
               {r.matches.length > 0 && (
                 <div className="space-y-1.5">
                   {r.matches.map((m) => (
                     <div key={m.id} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
-                      <span style={{ color: "var(--text-primary)" }}>{m.title} — {m.address}{m.city ? `${tri(lang, "،", ",", ",")} ${m.city}` : ""}</span>
+                      <span style={{ color: "var(--text-primary)" }}>{m.title} — {m.address}{m.city ? `${tri(lang, "،", ",", ",", ",")} ${m.city}` : ""}</span>
                       <span style={{ color: "var(--primary)" }}>{fmtMoney(m.price)}</span>
                     </div>
                   ))}
@@ -4925,7 +4919,7 @@ function PerformanceReportPanel({ lang, agencyManagerEnabled }: { lang: Lang; ag
       if (!res.ok) throw new Error(data.error);
       setAgencyReport(data.report);
     } catch (err: unknown) {
-      setAgencyReportError(err instanceof Error ? err.message : tri(lang, "خطا در تولید گزارش", "Failed to generate report", "Fehler beim Erstellen des Berichts"));
+      setAgencyReportError(err instanceof Error ? err.message : tri(lang, "خطا در تولید گزارش", "Failed to generate report", "Fehler beim Erstellen des Berichts", "Rapor oluşturulamadı"));
     } finally {
       setGeneratingAgencyReport(false);
     }
@@ -4938,19 +4932,19 @@ function PerformanceReportPanel({ lang, agencyManagerEnabled }: { lang: Lang; ag
         <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
-              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "دستیار مدیر آژانس", "Agency Manager Assistant", "Assistent der Agenturleitung")}</p>
-              <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{tri(lang, "خلاصهٔ دوره‌ای Pipeline + سوالات پیشنهادی درباره لیدهای رهاشده و بازدیدهای بدون بازخورد", "Periodic pipeline summary + suggested questions about abandoned leads and feedback-less viewings", "Regelmäßige Pipeline-Zusammenfassung + Fragen zu inaktiven Leads und Besichtigungen ohne Rückmeldung")}</p>
+              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "دستیار مدیر آژانس", "Agency Manager Assistant", "Assistent der Agenturleitung", "Ajans Yöneticisi Asistanı")}</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{tri(lang, "خلاصهٔ دوره‌ای Pipeline + سوالات پیشنهادی درباره لیدهای رهاشده و بازدیدهای بدون بازخورد", "Periodic pipeline summary + suggested questions about abandoned leads and feedback-less viewings", "Regelmäßige Pipeline-Zusammenfassung + Fragen zu inaktiven Leads und Besichtigungen ohne Rückmeldung", "Periyodik pipeline özeti + terkedilmiş lead'ler ve geri bildirimsiz görüntülemeler hakkında önerilen sorular")}</p>
             </div>
             <div className="flex items-center gap-2">
               <select value={periodDays} onChange={(e) => setPeriodDays(e.target.value)}
                 className="px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                <option value="7">{tri(lang, "هفتگی", "Weekly", "Wöchentlich")}</option>
-                <option value="14">{tri(lang, "دو‌هفتگی", "Bi-weekly", "Zweiwöchentlich")}</option>
-                <option value="30">{tri(lang, "ماهانه", "Monthly", "Monatlich")}</option>
+                <option value="7">{tri(lang, "هفتگی", "Weekly", "Wöchentlich", "Haftalık")}</option>
+                <option value="14">{tri(lang, "دو‌هفتگی", "Bi-weekly", "Zweiwöchentlich", "İki haftada bir")}</option>
+                <option value="30">{tri(lang, "ماهانه", "Monthly", "Monatlich", "Aylık")}</option>
               </select>
               <button onClick={generateAgencyReport} disabled={generatingAgencyReport} className="text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-50 flex items-center gap-1.5" style={{ background: "var(--primary)" }}>
                 {generatingAgencyReport ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                {tri(lang, "تولید گزارش", "Generate report", "Bericht erstellen")}
+                {tri(lang, "تولید گزارش", "Generate report", "Bericht erstellen", "Rapor oluştur")}
               </button>
             </div>
           </div>
@@ -4966,7 +4960,7 @@ function PerformanceReportPanel({ lang, agencyManagerEnabled }: { lang: Lang; ag
       <div className="flex items-center gap-2 flex-wrap">
         <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
           className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-        <span className="text-sm" style={{ color: "var(--text-muted)" }}>{tri(lang, "تا", "to", "bis")}</span>
+        <span className="text-sm" style={{ color: "var(--text-muted)" }}>{tri(lang, "تا", "to", "bis", "ile")}</span>
         <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
           className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
       </div>
@@ -4974,27 +4968,27 @@ function PerformanceReportPanel({ lang, agencyManagerEnabled }: { lang: Lang; ag
       {loading ? (
         <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />
       ) : report.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "داده‌ای در این بازه یافت نشد", "No data in this range", "Keine Daten in diesem Zeitraum")}</p>
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "داده‌ای در این بازه یافت نشد", "No data in this range", "Keine Daten in diesem Zeitraum", "Bu aralıkta veri yok")}</p>
       ) : (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           {report.map((r, i) => (
             <div key={r.agentId} className="px-4 py-3" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
-              <p className="text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>{r.agentName || tri(lang, "بدون نام", "Unnamed", "Unbenannt")}</p>
+              <p className="text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>{r.agentName || tri(lang, "بدون نام", "Unnamed", "Unbenannt", "İsimsiz")}</p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                 <div>
-                  <p style={{ color: "var(--text-muted)" }}>{tri(lang, "ملک بسته‌شده", "Properties closed", "Abgeschlossene Immobilien")}</p>
+                  <p style={{ color: "var(--text-muted)" }}>{tri(lang, "ملک بسته‌شده", "Properties closed", "Abgeschlossene Immobilien", "Kapatılan mülkler")}</p>
                   <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{r.propertiesClosedCount}</p>
                 </div>
                 <div>
-                  <p style={{ color: "var(--text-muted)" }}>{tri(lang, "حجم کمیسیون", "Commission volume", "Provisionsvolumen")}</p>
+                  <p style={{ color: "var(--text-muted)" }}>{tri(lang, "حجم کمیسیون", "Commission volume", "Provisionsvolumen", "Komisyon hacmi")}</p>
                   <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{fmtMoney(r.commissionVolume)}</p>
                 </div>
                 <div>
-                  <p style={{ color: "var(--text-muted)" }}>{tri(lang, "بازدید انجام‌شده", "Viewings completed", "Abgeschlossene Besichtigungen")}</p>
+                  <p style={{ color: "var(--text-muted)" }}>{tri(lang, "بازدید انجام‌شده", "Viewings completed", "Abgeschlossene Besichtigungen", "Tamamlanan görüntülemeler")}</p>
                   <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{r.viewingsCompleted} / {r.viewingsScheduled}</p>
                 </div>
                 <div>
-                  <p style={{ color: "var(--text-muted)" }}>{tri(lang, "نرخ تبدیل بازدید→قرارداد", "Viewing→contract rate", "Besichtigung→Vertrag-Rate")}</p>
+                  <p style={{ color: "var(--text-muted)" }}>{tri(lang, "نرخ تبدیل بازدید→قرارداد", "Viewing→contract rate", "Besichtigung→Vertrag-Rate", "Görüntüleme→sözleşme oranı")}</p>
                   <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{r.viewingToContractConversionRate != null ? `${r.viewingToContractConversionRate}%` : "—"}</p>
                 </div>
               </div>
@@ -5041,27 +5035,27 @@ function CommissionSplitsByAgent({ lang, agents }: { lang: Lang; agents: Perform
   }, []);
 
   if (!rows || rows.length === 0) return null;
-  const nameOf = (id: string) => agents.find((a) => a.agentId === id)?.agentName || tri(lang, "مشاور", "Agent", "Makler");
+  const nameOf = (id: string) => agents.find((a) => a.agentId === id)?.agentName || tri(lang, "مشاور", "Agent", "Makler", "Danışman");
 
   return (
     <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
       <div className="px-4 py-3 flex items-center justify-between" style={{ background: "var(--surface-1)", borderBottom: "1px solid var(--border)" }}>
         <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-          {tri(lang, "تسهیم کمیسیون به تفکیک مشاور", "Commission splits by agent", "Provisionsaufteilung nach Makler")}
+          {tri(lang, "تسهیم کمیسیون به تفکیک مشاور", "Commission splits by agent", "Provisionsaufteilung nach Makler", "Danışmana göre komisyon paylaşımı")}
         </p>
         <a href="/accounting" className="text-xs" style={{ color: "var(--primary)" }}>
-          {tri(lang, "حسابداری ←", "Accounting →", "Buchhaltung →")}
+          {tri(lang, "حسابداری ←", "Accounting →", "Buchhaltung →", "Muhasebe →")}
         </a>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs min-w-[480px]">
           <thead>
             <tr style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-              <th className="px-4 py-2 text-start font-medium">{tri(lang, "مشاور", "Agent", "Makler")}</th>
-              <th className="px-4 py-2 text-center font-medium">{tri(lang, "تعداد سهم", "Splits", "Anteile")}</th>
-              <th className="px-4 py-2 text-center font-medium">{tri(lang, "کل", "Total", "Gesamt")}</th>
-              <th className="px-4 py-2 text-center font-medium">{tri(lang, "پرداخت‌شده", "Paid", "Bezahlt")}</th>
-              <th className="px-4 py-2 text-center font-medium">{tri(lang, "مانده", "Owed", "Offen")}</th>
+              <th className="px-4 py-2 text-start font-medium">{tri(lang, "مشاور", "Agent", "Makler", "Danışman")}</th>
+              <th className="px-4 py-2 text-center font-medium">{tri(lang, "تعداد سهم", "Splits", "Anteile", "Paylaşımlar")}</th>
+              <th className="px-4 py-2 text-center font-medium">{tri(lang, "کل", "Total", "Gesamt", "Toplam")}</th>
+              <th className="px-4 py-2 text-center font-medium">{tri(lang, "پرداخت‌شده", "Paid", "Bezahlt", "Ödendi")}</th>
+              <th className="px-4 py-2 text-center font-medium">{tri(lang, "مانده", "Owed", "Offen", "Borç")}</th>
             </tr>
           </thead>
           <tbody>
@@ -5160,12 +5154,12 @@ function ProjectDetailModal({ isFa, lang, t, project, onClose, onChanged }: { is
             className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "تاریخ شروع", "Start date", "Startdatum")}</label>
+              <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "تاریخ شروع", "Start date", "Startdatum", "Başlangıç tarihi")}</label>
               <input type="date" value={form.startDate} onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div>
-              <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "تاریخ پایان", "End date", "Enddatum")}</label>
+              <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "تاریخ پایان", "End date", "Enddatum", "Bitiş tarihi")}</label>
               <input type="date" value={form.endDate} onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
@@ -5179,25 +5173,25 @@ function ProjectDetailModal({ isFa, lang, t, project, onClose, onChanged }: { is
               <div className="grid grid-cols-2 gap-2">
                 <select value={reForm.propertyType} onChange={(e) => setReForm((p) => ({ ...p, propertyType: e.target.value }))}
                   className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                  <option value="apartment">{tri(lang, "آپارتمان", "Apartment", "Wohnung")}</option>
-                  <option value="villa">{tri(lang, "ویلا", "Villa", "Villa")}</option>
-                  <option value="land">{tri(lang, "زمین", "Land", "Grundstück")}</option>
-                  <option value="commercial">{tri(lang, "تجاری", "Commercial", "Gewerbe")}</option>
+                  <option value="apartment">{tri(lang, "آپارتمان", "Apartment", "Wohnung", "Daire")}</option>
+                  <option value="villa">{tri(lang, "ویلا", "Villa", "Villa", "Villa")}</option>
+                  <option value="land">{tri(lang, "زمین", "Land", "Grundstück", "Arsa")}</option>
+                  <option value="commercial">{tri(lang, "تجاری", "Commercial", "Gewerbe", "Ticari")}</option>
                 </select>
-                <input value={reForm.city} onChange={(e) => setReForm((p) => ({ ...p, city: e.target.value }))} placeholder={tri(lang, "شهر", "City", "Stadt")}
+                <input value={reForm.city} onChange={(e) => setReForm((p) => ({ ...p, city: e.target.value }))} placeholder={tri(lang, "شهر", "City", "Stadt", "Şehir")}
                   className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
               </div>
-              <input value={reForm.address} onChange={(e) => setReForm((p) => ({ ...p, address: e.target.value }))} placeholder={tri(lang, "آدرس", "Address", "Adresse")}
+              <input value={reForm.address} onChange={(e) => setReForm((p) => ({ ...p, address: e.target.value }))} placeholder={tri(lang, "آدرس", "Address", "Adresse", "Adres")}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
               {isShortTerm ? (
                 <>
-                  <input value={reForm.nightlyPrice} onChange={(e) => setReForm((p) => ({ ...p, nightlyPrice: e.target.value }))} type="number" placeholder={tri(lang, "قیمت هر شب (تومان)", "Price per night (Toman)", "Preis pro Nacht (Toman)")}
+                  <input value={reForm.nightlyPrice} onChange={(e) => setReForm((p) => ({ ...p, nightlyPrice: e.target.value }))} type="number" placeholder={tri(lang, "قیمت هر شب (تومان)", "Price per night (Toman)", "Preis pro Nacht (Toman)", "Gecelik fiyat (Toman)")}
                     className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-                  <input value={reForm.bookingLink} onChange={(e) => setReForm((p) => ({ ...p, bookingLink: e.target.value }))} placeholder={tri(lang, "لینک پلتفرم رزرو", "Booking platform link", "Buchungsplattform-Link")}
+                  <input value={reForm.bookingLink} onChange={(e) => setReForm((p) => ({ ...p, bookingLink: e.target.value }))} placeholder={tri(lang, "لینک پلتفرم رزرو", "Booking platform link", "Buchungsplattform-Link", "Rezervasyon platformu linki")}
                     className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                 </>
               ) : (
-                <input value={reForm.price} onChange={(e) => setReForm((p) => ({ ...p, price: e.target.value }))} type="number" placeholder={tri(lang, "قیمت کل (تومان)", "Total price (Toman)", "Gesamtpreis (Toman)")}
+                <input value={reForm.price} onChange={(e) => setReForm((p) => ({ ...p, price: e.target.value }))} type="number" placeholder={tri(lang, "قیمت کل (تومان)", "Total price (Toman)", "Gesamtpreis (Toman)", "Toplam fiyat (Toman)")}
                   className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
               )}
             </div>
@@ -5206,26 +5200,26 @@ function ProjectDetailModal({ isFa, lang, t, project, onClose, onChanged }: { is
       ) : (
         <div className="space-y-2 text-sm">
           {project.description && <p style={{ color: "var(--text-secondary)" }}>{project.description}</p>}
-          {project.contact && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "مخاطب: ", "Contact: ", "Kontakt: ")}</span><span style={{ color: "var(--text-primary)" }}>{project.contact.name}</span></div>}
-          {project.deal && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "معامله مرتبط: ", "Related deal: ", "Zugehöriger Deal: ")}</span><span style={{ color: "var(--text-primary)" }}>{project.deal.title}</span></div>}
-          {project.startDate && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "شروع: ", "Start: ", "Start: ")}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(project.startDate)}</span></div>}
-          {project.endDate && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "پایان: ", "End: ", "Ende: ")}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(project.endDate)}</span></div>}
+          {project.contact && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "مخاطب: ", "Contact: ", "Kontakt: ", "Kişi: ")}</span><span style={{ color: "var(--text-primary)" }}>{project.contact.name}</span></div>}
+          {project.deal && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "معامله مرتبط: ", "Related deal: ", "Zugehöriger Deal: ", "İlgili anlaşma: ")}</span><span style={{ color: "var(--text-primary)" }}>{project.deal.title}</span></div>}
+          {project.startDate && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "شروع: ", "Start: ", "Start: ", "Başlangıç: ")}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(project.startDate)}</span></div>}
+          {project.endDate && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "پایان: ", "End: ", "Ende: ", "Bitiş: ")}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(project.endDate)}</span></div>}
           {project.property && (
             <div className="pt-2 mt-2 space-y-1" style={{ borderTop: "1px solid var(--border)" }}>
-              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "نوع معامله: ", "Deal type: ", "Geschäftsart: ")}</span><span style={{ color: "var(--text-primary)" }}>{PROJECT_LISTING_TYPE_LABEL[project.property.listingType]?.[lang] || project.property.listingType}</span></div>
-              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "آدرس: ", "Address: ", "Adresse: ")}</span><span style={{ color: "var(--text-primary)" }}>{project.property.address}{project.property.city ? `، ${project.property.city}` : ""}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "نوع معامله: ", "Deal type: ", "Geschäftsart: ", "İşlem türü: ")}</span><span style={{ color: "var(--text-primary)" }}>{PROJECT_LISTING_TYPE_LABEL[project.property.listingType]?.[lang] || project.property.listingType}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "آدرس: ", "Address: ", "Adresse: ", "Adres: ")}</span><span style={{ color: "var(--text-primary)" }}>{project.property.address}{project.property.city ? `، ${project.property.city}` : ""}</span></div>
               {isShortTerm ? (
                 <>
-                  {project.property.nightlyPrice != null && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "قیمت هر شب: ", "Per night: ", "Pro Nacht: ")}</span><span style={{ color: "var(--text-primary)" }}>{fmtMoney(project.property.nightlyPrice)}</span></div>}
+                  {project.property.nightlyPrice != null && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "قیمت هر شب: ", "Per night: ", "Pro Nacht: ", "Gecelik: ")}</span><span style={{ color: "var(--text-primary)" }}>{fmtMoney(project.property.nightlyPrice)}</span></div>}
                   {project.property.bookingLink && (
                     <div>
-                      <span style={{ color: "var(--text-muted)" }}>{tri(lang, "لینک رزرو: ", "Booking link: ", "Buchungslink: ")}</span>
+                      <span style={{ color: "var(--text-muted)" }}>{tri(lang, "لینک رزرو: ", "Booking link: ", "Buchungslink: ", "Rezervasyon linki: ")}</span>
                       <a href={project.property.bookingLink} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>{project.property.bookingLink}</a>
                     </div>
                   )}
                 </>
               ) : (
-                project.property.price > 0 && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "قیمت: ", "Price: ", "Preis: ")}</span><span style={{ color: "var(--text-primary)" }}>{fmtMoney(project.property.price)}</span></div>
+                project.property.price > 0 && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "قیمت: ", "Price: ", "Preis: ", "Fiyat: ")}</span><span style={{ color: "var(--text-primary)" }}>{fmtMoney(project.property.price)}</span></div>
               )}
             </div>
           )}

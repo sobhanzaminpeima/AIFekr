@@ -37,6 +37,15 @@ const DEMO_DE: Message[] = [
   { role: "ai", text: "**Vorgeschlagene Hashtags:**\n#cafe #kaffee #coffeeshop #barista #espresso #kaffeeliebe #morgenkaffee #spezialitätenkaffee #latteart\n\n**Namensideen:**\n• **Die Röstkammer** — Einfach, einprägsam, markentauglich\n• **Café Glut** — Warm, modern, einzigartig\n• **Brauhaus & Co.** — Trendig, professionell\n• **Erstes Licht** — Weckt morgendliche Energie\n• **Gemeinsamer Grund** — Gemeinschaftsgefühl, doppelte Bedeutung\n\nWenn dein Stil modern & minimalistisch ist, sind **Glut** oder **Erstes Licht** deine beste Wahl!", delay: 900 },
 ];
 
+const DEMO_TR: Message[] = [
+  { role: "user", text: "Merhaba! Yeni kafem için bir pazarlama stratejisi yazabilir misin?", delay: 600 },
+  { role: "ai", text: "Merhaba! Tabii ki. 3 ana eksenle başlamanı öneririm:\n\n**1. Instagram** — Günlük 1 paylaşım: kamera arkası, menü öne çıkanları ve kafe atmosferi\n**2. Google Haritalar** — Kaliteli fotoğraflarla profilini tamamla ve ilk müşterileri yorum bırakmaya davet et\n**3. Açılış Kampanyası** — İlk hafta %20 indirim + sosyal medyada paylaşım kampanyası\n\nHerhangi birini daha ayrıntılı anlatmamı ister misin?", delay: 800 },
+  { role: "user", text: "Harika! Instagram içerik stratejisini biraz daha anlat", delay: 700 },
+  { role: "ai", text: "Kafen için haftalık içerik takvimi:\n\n— **Pazartesi** — Kamera arkası: kahve hazırlığı\n— **Salı** — Profesyonel fotoğrafla menü tanıtımı\n— **Çarşamba** — Müşteri yorumu (kullanıcı içeriği)\n— **Perşembe** — Kahve ipuçları (eğitici)\n— **Cuma** — Hafta sonu özel teklifi\n\nHer paylaşımda en az 5 ilgili hashtag olmalı. Hashtag listesini de oluşturmamı ister misin?", delay: 800 },
+  { role: "user", text: "Evet lütfen! Bir de kafe için akılda kalıcı bir isim öner", delay: 600 },
+  { role: "ai", text: "**Önerilen Hashtag'ler:**\n#kafe #kahve #coffeeshop #barista #espresso #kahvesever #sabahkahvesi #kaliteli kahve #latteart\n\n**İsim Önerileri:**\n• **Öğütücü** — Basit, akılda kalıcı, markalaşabilir\n• **Kor Kafe** — Sıcak, modern, özgün\n• **Demle & Co.** — Trend, profesyonel\n• **İlk Işık** — Sabah enerjisini çağrıştırır\n• **Ortak Zemin** — Topluluk hissi, çift anlam\n\nTarzın modern ve minimal ise, **Kor** ya da **İlk Işık** en iyi seçimlerin!", delay: 900 },
+];
+
 function parseMarkdown(text: string) {
   const lines = text.split("\n");
   return lines.map((line, i) => {
@@ -55,7 +64,7 @@ function parseMarkdown(text: string) {
 const TYPING_SPEED = 18;
 
 export default function DemoChat({ lang = "fa" }: { lang?: "fa" | "en" | "de" | "tr" }) {
-  const DEMO = lang === "en" ? DEMO_EN : lang === "de" ? DEMO_DE : DEMO_FA;
+  const DEMO = lang === "en" ? DEMO_EN : lang === "de" ? DEMO_DE : lang === "tr" ? DEMO_TR : DEMO_FA;
   const [visibleMessages, setVisibleMessages] = useState<{ role: "user" | "ai"; text: string; typing: boolean }[]>([]);
   const [currentTyped, setCurrentTyped] = useState("");
   const [phase, setPhase] = useState<"idle" | "running" | "done">("idle");

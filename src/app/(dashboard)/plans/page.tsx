@@ -187,15 +187,15 @@ export default function PlansPage() {
   useEffect(() => {
     const payStatus = searchParams.get("payment");
     const refId     = searchParams.get("ref");
-    if (payStatus === "success") toast.success(tri(lang, `اشتراک فعال شد! کد پیگیری: ${refId}`, `Subscription activated! Ref: ${refId}`, `Abonnement aktiviert! Ref: ${refId}`));
-    if (payStatus === "failed")  toast.error(tri(lang, "پرداخت ناموفق بود. دوباره تلاش کنید.", "Payment failed. Please try again.", "Zahlung fehlgeschlagen. Bitte versuchen Sie es erneut."));
+    if (payStatus === "success") toast.success(tri(lang, `اشتراک فعال شد! کد پیگیری: ${refId}`, `Subscription activated! Ref: ${refId}`, `Abonnement aktiviert! Ref: ${refId}`, `Abonelik etkinleştirildi! Ref: ${refId}`));
+    if (payStatus === "failed")  toast.error(tri(lang, "پرداخت ناموفق بود. دوباره تلاش کنید.", "Payment failed. Please try again.", "Zahlung fehlgeschlagen. Bitte versuchen Sie es erneut.", "Ödeme başarısız oldu. Lütfen tekrar deneyin."));
   }, [searchParams, isFa]);
 
   useEffect(() => {
     fetch("/api/packages")
       .then(r => r.json())
       .then((d: { packages: ApiPackage[] }) => setPackages(d.packages || []))
-      .catch(() => toast.error(tri(lang, "خطا در بارگذاری پلن‌ها", "Failed to load plans", "Pläne konnten nicht geladen werden")));
+      .catch(() => toast.error(tri(lang, "خطا در بارگذاری پلن‌ها", "Failed to load plans", "Pläne konnten nicht geladen werden", "Planlar yüklenemedi")));
   }, []);
 
   useEffect(() => {
@@ -250,31 +250,31 @@ export default function PlansPage() {
 
   // i18n strings
   const s = {
-    title:        tri(lang, "خرید و ارتقا بسته", "Plans & Pricing", "Pläne & Preise"),
-    subtitle:     tri(lang, "هوش مصنوعی برای همه — چت، تصویر، موزیک و ویدیو", "AI for everyone — chat, image, music & video", "KI für alle — Chat, Bild, Musik & Video"),
-    iran:         "🇮🇷 " + tri(lang, "ایران (تومان)", "Iran (Toman)", "Iran (Toman)"),
-    intl:         "🌍 " + tri(lang, "بین‌المللی (دلار)", "International ($)", "International ($)"),
-    monthly:      tri(lang, "ماهانه", "Monthly", "Monatlich"),
-    annual:       tri(lang, "سالانه", "Annual", "Jährlich"),
-    freeMonths:   tri(lang, "۲ ماه رایگان", "2 months free", "2 Monate gratis"),
-    popular:      tri(lang, "پرطرفدار", "Popular", "Beliebt"),
-    recommended:  tri(lang, "پیشنهادی", "Recommended", "Empfohlen"),
-    free:         tri(lang, "رایگان", "Free", "Kostenlos"),
-    perMonth:     tri(lang, "در ماه", "/ mo", "/ Monat"),
-    active:       tri(lang, "فعال", "Active", "Aktiv"),
-    buy:          tri(lang, "خرید", "Buy", "Kaufen"),
-    redirecting:  tri(lang, "در حال انتقال...", "Redirecting...", "Weiterleitung..."),
-    contactIntl:  tri(lang, "برای خرید پلن بین‌المللی با ما تماس بگیرید.", "Contact us for international plans.", "Kontaktieren Sie uns für internationale Pläne."),
-    payError:     tri(lang, "خطا در ایجاد پرداخت", "Payment error", "Zahlungsfehler"),
-    connError:    tri(lang, "خطا در اتصال به درگاه", "Connection error", "Verbindungsfehler"),
-    successBanner:tri(lang, "اشتراک شما با موفقیت فعال شد!", "Your subscription was activated!", "Ihr Abonnement wurde aktiviert!"),
-    compareBtn:   tri(lang, "مقایسه کامل امکانات", "Full Feature Comparison", "Vollständiger Funktionsvergleich"),
-    featuresCol:  tri(lang, "امکانات", "Features", "Funktionen"),
-    customPrice:  tri(lang, "سفارشی", "Custom", "Individuell"),
-    contactUs:    tri(lang, "تماس با ما", "Contact Us", "Kontakt"),
-    getStarted:   tri(lang, "شروع کنید", "Get Started", "Loslegen"),
-    faqTitle:     tri(lang, "سؤالات متداول", "FAQ", "FAQ"),
-    footerNote:   tri(lang, "پرداخت از طریق درگاه امن زرین‌پال — اطلاعات کارت شما نزد ما ذخیره نمی‌شود", "Payments processed securely — we never store your card details", "Zahlungen werden sicher verarbeitet — wir speichern Ihre Karteninformationen nie"),
+    title:        tri(lang, "خرید و ارتقا بسته", "Plans & Pricing", "Pläne & Preise", "Planlar ve Fiyatlandırma"),
+    subtitle:     tri(lang, "هوش مصنوعی برای همه — چت، تصویر، موزیک و ویدیو", "AI for everyone — chat, image, music & video", "KI für alle — Chat, Bild, Musik & Video", "Herkes için yapay zeka — sohbet, görsel, müzik ve video"),
+    iran:         "🇮🇷 " + tri(lang, "ایران (تومان)", "Iran (Toman)", "Iran (Toman)", "İran (Toman)"),
+    intl:         "🌍 " + tri(lang, "بین‌المللی (دلار)", "International ($)", "International ($)", "Uluslararası ($)"),
+    monthly:      tri(lang, "ماهانه", "Monthly", "Monatlich", "Aylık"),
+    annual:       tri(lang, "سالانه", "Annual", "Jährlich", "Yıllık"),
+    freeMonths:   tri(lang, "۲ ماه رایگان", "2 months free", "2 Monate gratis", "2 ay ücretsiz"),
+    popular:      tri(lang, "پرطرفدار", "Popular", "Beliebt", "Popüler"),
+    recommended:  tri(lang, "پیشنهادی", "Recommended", "Empfohlen", "Önerilen"),
+    free:         tri(lang, "رایگان", "Free", "Kostenlos", "Ücretsiz"),
+    perMonth:     tri(lang, "در ماه", "/ mo", "/ Monat", "/ ay"),
+    active:       tri(lang, "فعال", "Active", "Aktiv", "Aktif"),
+    buy:          tri(lang, "خرید", "Buy", "Kaufen", "Satın al"),
+    redirecting:  tri(lang, "در حال انتقال...", "Redirecting...", "Weiterleitung...", "Yönlendiriliyor..."),
+    contactIntl:  tri(lang, "برای خرید پلن بین‌المللی با ما تماس بگیرید.", "Contact us for international plans.", "Kontaktieren Sie uns für internationale Pläne.", "Uluslararası planlar için bizimle iletişime geçin."),
+    payError:     tri(lang, "خطا در ایجاد پرداخت", "Payment error", "Zahlungsfehler", "Ödeme hatası"),
+    connError:    tri(lang, "خطا در اتصال به درگاه", "Connection error", "Verbindungsfehler", "Bağlantı hatası"),
+    successBanner:tri(lang, "اشتراک شما با موفقیت فعال شد!", "Your subscription was activated!", "Ihr Abonnement wurde aktiviert!", "Aboneliğiniz etkinleştirildi!"),
+    compareBtn:   tri(lang, "مقایسه کامل امکانات", "Full Feature Comparison", "Vollständiger Funktionsvergleich", "Tam Özellik Karşılaştırması"),
+    featuresCol:  tri(lang, "امکانات", "Features", "Funktionen", "Özellikler"),
+    customPrice:  tri(lang, "سفارشی", "Custom", "Individuell", "Özel"),
+    contactUs:    tri(lang, "تماس با ما", "Contact Us", "Kontakt", "Bize Ulaşın"),
+    getStarted:   tri(lang, "شروع کنید", "Get Started", "Loslegen", "Başlayın"),
+    faqTitle:     tri(lang, "سؤالات متداول", "FAQ", "FAQ", "SSS"),
+    footerNote:   tri(lang, "پرداخت از طریق درگاه امن زرین‌پال — اطلاعات کارت شما نزد ما ذخیره نمی‌شود", "Payments processed securely — we never store your card details", "Zahlungen werden sicher verarbeitet — wir speichern Ihre Karteninformationen nie", "Ödemeler güvenli şekilde işlenir — kart bilgilerinizi asla saklamayız"),
   };
 
   async function handleBuy(planCode: string, gateway: "zarinpal" | "usdt_trc20" = "zarinpal") {
@@ -290,7 +290,7 @@ export default function PlansPage() {
       const data = await res.json();
       if (!res.ok) return toast.error(data.error || s.payError);
       if (data.activatedByWallet) {
-        toast.success(tri(lang, "با موجودی ولت خریداری و فعال شد!", "Purchased and activated using your wallet balance!", "Mit Wallet-Guthaben gekauft und aktiviert!"));
+        toast.success(tri(lang, "با موجودی ولت خریداری و فعال شد!", "Purchased and activated using your wallet balance!", "Mit Wallet-Guthaben gekauft und aktiviert!", "Cüzdan bakiyeniz kullanılarak satın alındı ve etkinleştirildi!"));
         window.location.href = "/plans?payment=success&ref=WALLET";
         return;
       }
@@ -321,7 +321,7 @@ export default function PlansPage() {
           style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)" }}>
           <Loader2 className="w-5 h-5 flex-shrink-0" style={{ color: "#f59e0b" }} />
           <p className="font-medium text-sm" style={{ color: "#f59e0b" }}>
-            {tri(lang, "پرداخت شما در حال تأیید روی بلاکچین است — به‌محض تأیید، پلن شما خودکار فعال می‌شود.", "Your payment is confirming on the blockchain — your plan will activate automatically once confirmed.", "Ihre Zahlung wird auf der Blockchain bestätigt — Ihr Plan wird automatisch aktiviert, sobald sie bestätigt ist.")}
+            {tri(lang, "پرداخت شما در حال تأیید روی بلاکچین است — به‌محض تأیید، پلن شما خودکار فعال می‌شود.", "Your payment is confirming on the blockchain — your plan will activate automatically once confirmed.", "Ihre Zahlung wird auf der Blockchain bestätigt — Ihr Plan wird automatisch aktiviert, sobald sie bestätigt ist.", "Ödemeniz blockchain üzerinde onaylanıyor — onaylandığında planınız otomatik olarak etkinleşecek.")}
           </p>
         </div>
       )}
@@ -331,11 +331,11 @@ export default function PlansPage() {
         <div className="p-4 rounded-2xl flex items-center gap-3 flex-wrap justify-between"
           style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.3)" }}>
           <p className="text-sm font-medium" style={{ color: "#10b981" }}>
-            {tri(lang, `موجودی ولت شما: ${new Intl.NumberFormat("fa-IR").format(walletBalance)} تومان`, `Your wallet balance: ${walletBalance.toLocaleString()} Toman`, `Ihr Wallet-Guthaben: ${walletBalance.toLocaleString()} Toman`)}
+            {tri(lang, `موجودی ولت شما: ${new Intl.NumberFormat("fa-IR").format(walletBalance)} تومان`, `Your wallet balance: ${walletBalance.toLocaleString()} Toman`, `Ihr Wallet-Guthaben: ${walletBalance.toLocaleString()} Toman`, `Cüzdan bakiyeniz: ${walletBalance.toLocaleString()} Toman`)}
           </p>
           <label className="flex items-center gap-2 cursor-pointer text-sm" style={{ color: "var(--text-primary)" }}>
             <input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} />
-            {tri(lang, "استفاده از موجودی ولت برای این خرید", "Use wallet balance for this purchase", "Wallet-Guthaben für diesen Kauf verwenden")}
+            {tri(lang, "استفاده از موجودی ولت برای این خرید", "Use wallet balance for this purchase", "Wallet-Guthaben für diesen Kauf verwenden", "Bu satın alma için cüzdan bakiyesini kullan")}
           </label>
         </div>
       )}
@@ -468,7 +468,7 @@ export default function PlansPage() {
                   className="w-full mt-1.5 py-1.5 rounded-lg text-xs font-medium disabled:opacity-60"
                   style={{ color: "var(--text-muted)" }}
                 >
-                  {tri(lang, "یا پرداخت با USDT (TRC20)", "or pay with USDT (TRC20)", "oder mit USDT (TRC20) bezahlen")}
+                  {tri(lang, "یا پرداخت با USDT (TRC20)", "or pay with USDT (TRC20)", "oder mit USDT (TRC20) bezahlen", "veya USDT (TRC20) ile öde")}
                 </button>
               )}
             </div>
@@ -541,43 +541,28 @@ export default function PlansPage() {
           they combine, or what "unlimited" actually meant. One plain summary. */}
       <div className="rounded-2xl p-5 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
         <h2 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-          {tri(lang, "قیمت‌گذاری چطور کار می‌کند؟", "How pricing works", "So funktionieren die Preise")}
+          {tri(lang, "قیمت‌گذاری چطور کار می‌کند؟", "How pricing works", "So funktionieren die Preise", "Fiyatlandırma nasıl çalışır")}
         </h2>
         <ul className="space-y-2 text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
           <li>
-            <b style={{ color: "var(--text-primary)" }}>{tri(lang, "۱. پلن اشتراک", "1. Subscription plan", "1. Abo-Plan")}</b>{" — "}
-            {tri(lang,
-              "دسترسی به مدل‌های هوش مصنوعی (چت، تصویر، ویدیو، موزیک) و سقف استفادهٔ ماهانه را تعیین می‌کند.",
-              "Sets which AI models you can use (chat, image, video, music) and your monthly usage limits.",
-              "Legt fest, welche KI-Modelle Sie nutzen können (Chat, Bild, Video, Musik), und Ihre monatlichen Limits.")}
+            <b style={{ color: "var(--text-primary)" }}>{tri(lang, "۱. پلن اشتراک", "1. Subscription plan", "1. Abo-Plan", "1. Abonelik planı")}</b>{" — "}
+            {tri(lang, "دسترسی به مدل‌های هوش مصنوعی (چت، تصویر، ویدیو، موزیک) و سقف استفادهٔ ماهانه را تعیین می‌کند.", "Sets which AI models you can use (chat, image, video, music) and your monthly usage limits.", "Legt fest, welche KI-Modelle Sie nutzen können (Chat, Bild, Video, Musik), und Ihre monatlichen Limits.", "Hangi yapay zeka modellerini kullanabileceğinizi (sohbet, görsel, video, müzik) ve aylık kullanım limitlerinizi belirler.")}
           </li>
           <li>
-            <b style={{ color: "var(--text-primary)" }}>{tri(lang, "۲. افزونه‌ها", "2. Add-ons", "2. Add-ons")}</b>{" — "}
-            {tri(lang,
-              "CRM (مشتریان، حسابداری، فاکتور، قرارداد) و Voice Agent (پاسخ‌گوی تلفنی) جدا از پلن اشتراک و مستقل از آن خریداری می‌شوند.",
-              "CRM (contacts, accounting, invoices, contracts) and Voice Agent (phone assistant) are bought separately from, and independently of, your subscription.",
-              "CRM (Kontakte, Buchhaltung, Rechnungen, Verträge) und Voice Agent (Telefonassistent) werden getrennt vom Abo gekauft.")}
+            <b style={{ color: "var(--text-primary)" }}>{tri(lang, "۲. افزونه‌ها", "2. Add-ons", "2. Add-ons", "2. Eklentiler")}</b>{" — "}
+            {tri(lang, "CRM (مشتریان، حسابداری، فاکتور، قرارداد) و Voice Agent (پاسخ‌گوی تلفنی) جدا از پلن اشتراک و مستقل از آن خریداری می‌شوند.", "CRM (contacts, accounting, invoices, contracts) and Voice Agent (phone assistant) are bought separately from, and independently of, your subscription.", "CRM (Kontakte, Buchhaltung, Rechnungen, Verträge) und Voice Agent (Telefonassistent) werden getrennt vom Abo gekauft.", "CRM (kişiler, muhasebe, faturalar, sözleşmeler) ve Sesli Asistan (telefon asistanı) aboneliğinizden ayrı ve bağımsız olarak satın alınır.")}
           </li>
           <li>
-            <b style={{ color: "var(--text-primary)" }}>{tri(lang, "۳. بستهٔ صنفی", "3. Industry pack", "3. Branchenpaket")}</b>{" — "}
-            {tri(lang,
-              "هزینهٔ اضافه ندارد؛ فقط بخش‌های مرتبط با صنف شما (مثلاً املاک) را جلو می‌آورد.",
-              "Costs nothing extra — it only brings forward the sections relevant to your industry (e.g. real estate).",
-              "Kostet nichts extra — es rückt nur die für Ihre Branche relevanten Bereiche nach vorn (z. B. Immobilien).")}
+            <b style={{ color: "var(--text-primary)" }}>{tri(lang, "۳. بستهٔ صنفی", "3. Industry pack", "3. Branchenpaket", "3. Sektör paketi")}</b>{" — "}
+            {tri(lang, "هزینهٔ اضافه ندارد؛ فقط بخش‌های مرتبط با صنف شما (مثلاً املاک) را جلو می‌آورد.", "Costs nothing extra — it only brings forward the sections relevant to your industry (e.g. real estate).", "Kostet nichts extra — es rückt nur die für Ihre Branche relevanten Bereiche nach vorn (z. B. Immobilien).", "Ekstra bir maliyeti yoktur — yalnızca sektörünüzle ilgili bölümleri (örneğin emlak) öne çıkarır.")}
           </li>
           <li>
-            <b style={{ color: "var(--text-primary)" }}>{tri(lang, "۴. کردیت", "4. Credits", "4. Guthaben")}</b>{" — "}
-            {tri(lang,
-              "هر اجرای هوش مصنوعی کردیت مصرف می‌کند و فقط بعد از موفقیت کسر می‌شود. اگر تمام شد، بدون تغییر پلن از صفحهٔ «کردیت» شارژ کنید. سابقهٔ مصرف همان‌جا قابل مشاهده است.",
-              "Every AI run uses credits, deducted only on success. If you run out, top up from the Credits page without changing plan — your full usage history is there too.",
-              "Jede KI-Ausführung verbraucht Guthaben, abgebucht nur bei Erfolg. Aufladen jederzeit auf der Guthaben-Seite ohne Planwechsel — dort steht auch Ihr Verbrauchsverlauf.")}
+            <b style={{ color: "var(--text-primary)" }}>{tri(lang, "۴. کردیت", "4. Credits", "4. Guthaben", "4. Krediler")}</b>{" — "}
+            {tri(lang, "هر اجرای هوش مصنوعی کردیت مصرف می‌کند و فقط بعد از موفقیت کسر می‌شود. اگر تمام شد، بدون تغییر پلن از صفحهٔ «کردیت» شارژ کنید. سابقهٔ مصرف همان‌جا قابل مشاهده است.", "Every AI run uses credits, deducted only on success. If you run out, top up from the Credits page without changing plan — your full usage history is there too.", "Jede KI-Ausführung verbraucht Guthaben, abgebucht nur bei Erfolg. Aufladen jederzeit auf der Guthaben-Seite ohne Planwechsel — dort steht auch Ihr Verbrauchsverlauf.", "Her yapay zeka çalıştırması kredi kullanır, yalnızca başarılı olduğunda düşülür. Krediniz biterse, plan değiştirmeden Krediler sayfasından yükleyebilirsiniz — tüm kullanım geçmişiniz de orada.")}
           </li>
         </ul>
         <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-          {tri(lang,
-            "«نامحدود» یعنی سقف روزانه/ماهانه‌ای برای آن قابلیت وجود ندارد، ولی استفاده تابع سیاست مصرف منصفانه است و هر اجرا همچنان کردیت مصرف می‌کند.",
-            "\"Unlimited\" means that feature has no daily/monthly cap, but use is subject to a fair-use policy and each run still consumes credits.",
-            "„Unbegrenzt“ bedeutet kein Tages-/Monatslimit für diese Funktion; die Nutzung unterliegt jedoch einer Fair-Use-Richtlinie, und jede Ausführung verbraucht weiterhin Guthaben.")}
+          {tri(lang, "«نامحدود» یعنی سقف روزانه/ماهانه‌ای برای آن قابلیت وجود ندارد، ولی استفاده تابع سیاست مصرف منصفانه است و هر اجرا همچنان کردیت مصرف می‌کند.", "\"Unlimited\" means that feature has no daily/monthly cap, but use is subject to a fair-use policy and each run still consumes credits.", "„Unbegrenzt“ bedeutet kein Tages-/Monatslimit für diese Funktion; die Nutzung unterliegt jedoch einer Fair-Use-Richtlinie, und jede Ausführung verbraucht weiterhin Guthaben.", "\"Sınırsız\", o özelliğin günlük/aylık bir sınırı olmadığı anlamına gelir, ancak kullanım adil kullanım politikasına tabidir ve her çalıştırma kredi tüketmeye devam eder.")}
         </p>
       </div>
 
@@ -587,10 +572,10 @@ export default function PlansPage() {
           <Building2 className="w-6 h-6" style={{ color: "var(--primary)" }} />
           <div>
             <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-              {tri(lang, "پلن‌های کسب‌وکار", "Business Plans", "Geschäftspläne")}
+              {tri(lang, "پلن‌های کسب‌وکار", "Business Plans", "Geschäftspläne", "İşletme Planları")}
             </h2>
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              {tri(lang, "برای تیم‌ها، آژانس‌ها و سازمان‌ها", "For teams, agencies and enterprises", "Für Teams, Agenturen und Unternehmen")}
+              {tri(lang, "برای تیم‌ها، آژانس‌ها و سازمان‌ها", "For teams, agencies and enterprises", "Für Teams, Agenturen und Unternehmen", "Ekipler, ajanslar ve kurumlar için")}
             </p>
           </div>
         </div>
@@ -663,9 +648,9 @@ export default function PlansPage() {
       {/* ── Trust / guarantee ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {[
-          { icon: "🔒", title: tri(lang, "پرداخت امن", "Secure Payment", "Sichere Zahlung"), desc: tri(lang, "درگاه امن زرین‌پال", "SSL-secured checkout", "SSL-gesicherter Checkout") },
-          { icon: "♾️", title: tri(lang, "بدون انقضا", "No Expiry", "Kein Ablauf"), desc: tri(lang, "اعتبار شما هرگز منقضی نمی‌شود", "Credits never expire", "Guthaben läuft nie ab") },
-          { icon: "↩️", title: tri(lang, "ضمانت بازگشت", "Money-back", "Geld-zurück"), desc: tri(lang, "در صورت مشکل وجه برمی‌گردد", "Refund if issues arise", "Erstattung bei Problemen") },
+          { icon: "🔒", title: tri(lang, "پرداخت امن", "Secure Payment", "Sichere Zahlung", "Güvenli Ödeme"), desc: tri(lang, "درگاه امن زرین‌پال", "SSL-secured checkout", "SSL-gesicherter Checkout", "SSL korumalı ödeme") },
+          { icon: "♾️", title: tri(lang, "بدون انقضا", "No Expiry", "Kein Ablauf", "Süresi Dolmaz"), desc: tri(lang, "اعتبار شما هرگز منقضی نمی‌شود", "Credits never expire", "Guthaben läuft nie ab", "Krediler asla sona ermez") },
+          { icon: "↩️", title: tri(lang, "ضمانت بازگشت", "Money-back", "Geld-zurück", "Para İadesi"), desc: tri(lang, "در صورت مشکل وجه برمی‌گردد", "Refund if issues arise", "Erstattung bei Problemen", "Sorun çıkarsa iade edilir") },
         ].map(t => (
           <div key={t.title} className="flex items-center gap-3 p-4 rounded-2xl"
             style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>

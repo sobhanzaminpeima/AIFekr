@@ -26,6 +26,12 @@ const STEPS = {
     { icon: FileText, label: "Investorenvorschlag", desc: "Professionelles Pitch-Deck, bereit für VCs", color: "#3b82f6" },
     { icon: Code2, label: "Umsetzungsplan", desc: "Technische Architektur, Sprint-Plan, Launch-Checkliste", color: "#8b5cf6" },
   ],
+  tr: [
+    { icon: Lightbulb, label: "Fikir Analizi", desc: "SWOT, değer önerisi, rekabet avantajı", color: "#f59e0b" },
+    { icon: DollarSign, label: "Finansal Model", desc: "3 yıllık tahmin, başabaş noktası, finansal KPI'lar", color: "#10b981" },
+    { icon: FileText, label: "Yatırımcı Teklifi", desc: "VC'lere sunuma hazır profesyonel pitch deck", color: "#3b82f6" },
+    { icon: Code2, label: "Uygulama Planı", desc: "Teknik mimari, sprint planı, lansman kontrol listesi", color: "#8b5cf6" },
+  ],
 };
 
 const STR = {
@@ -50,10 +56,17 @@ const STR = {
     cta: "Kostenlos starten →",
     badge: "Intelligent · Professionell · Vollständig",
   },
+  tr: {
+    eyebrow: "Yeni Araç — Yapay Zeka Destekli Startup Kurma",
+    title: "AIFekr ile Startup'ını Kur",
+    desc: "Fikirden uygulamaya — yapay zeka her şeyi senin için oluşturur. Finansal model, yatırımcı teklifi ve uygulama planı dakikalar içinde.",
+    cta: "Ücretsiz Başlayın →",
+    badge: "Akıllı · Profesyonel · Eksiksiz",
+  },
 };
 
 export default function StartupBuilderTeaser({ lang }: Props) {
-  const l = lang === "tr" ? "en" : lang;
+  const l = lang;
   const s = STR[l];
   const steps = STEPS[l];
   const dir = lang === "fa" ? "rtl" : "ltr";

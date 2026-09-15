@@ -160,6 +160,71 @@ const STR = {
     aiTeamAgents: ["Idea Finder", "Strategist", "Researcher", "Writer", "Editor", "SEO Expert", "Publisher", "Critic"],
     aiTeamCta: "See the full system",
   },
+  tr: {
+    brand: "AiFekr",
+    navPacks: "Sektör Paketleri",
+    navAbout: "Hakkımızda",
+    navContact: "Bize Ulaşın",
+    navLogin: "Giriş",
+    navRegister: "Ücretsiz Başlayın",
+    badge: "İşletmeler için Yapay Zeka Platformu",
+    heroTitle1: "İşletmeniz İçin",
+    heroTitle2: "Kurulmuş Bir Yapay Zeka Ekibi",
+    heroDesc: "Her sektör için özel yapay zeka ajan paketleri — inşaattan kliniklere, restoranlardan otellere. Yapay zeka ajanlarınız 7/24 çalışır.",
+    ctaStart: "Ücretsiz Başlayın →",
+    ctaViewPacks: "Paketleri Görüntüle",
+    howTitle: "Nasıl Çalışır",
+    howSubtitle: "3 basit adımda",
+    steps: [
+      { step: "1", title: "Sektörünüzü Seçin", desc: "8 hazır sektör paketinden işletmeniz için doğru olanı seçin" },
+      { step: "2", title: "Kayıt Olun", desc: "30 saniyede bir hesap oluşturun ve seçtiğiniz paketi etkinleştirin" },
+      { step: "3", title: "Yapay Zeka Ajanlarını Devreye Alın", desc: "İşletmenize özel yapay zeka ajanları 7/24 çalışmaya başlar" },
+    ],
+    stepLabel: "Adım",
+    packsTitle: "Sektör Paketleri",
+    packsSubtitle: "Her paket, sektörünüze özel uzmanlaşmış bir yapay zeka ajan ekibi içerir",
+    agentsLabel: "yapay zeka ajanı",
+    viewPack: "Paketi Görüntüle →",
+    viewAllPacks: "Tüm Paketleri Görüntüle",
+    featuresTitle: "Yapay Zeka Araçları",
+    features: [
+      { title: "İşletme Doktoru", desc: "SWOT analizi, 90 günlük eylem planı, zayıflık tespiti", href: "/business-doctor" },
+      { title: "CEO Danışmanı", desc: "Yönetici kararları için 20+ yıl deneyimli stratejik danışman", href: "/ceo" },
+      { title: "SEO Çalışma Alanı", desc: "Anahtar kelime araştırması, URL analizi, içerik optimizasyonu", href: "/seo" },
+      { title: "Sosyal Medya Ajanı", desc: "Instagram, LinkedIn, Twitter ve TikTok için içerik üretimi", href: "/social" },
+      { title: "Yapay Zeka Web Sitesi Tasarımcısı", desc: "Tek tıkla eksiksiz profesyonel bir web sitesi tasarlayın ve kodlayın", href: "/website-designer" },
+      { title: "Yapay Zeka Toplantı Odası", desc: "7 uzman ajanla stratejik bir toplantı simülasyonu yapın", href: "/meeting" },
+    ],
+    ctaTitle: "Başlamaya Hazır mısınız?",
+    ctaDesc: "Şimdi sektör paketinizi seçin ve yapay zeka ajanlarınızı devreye alın",
+    ctaButton: "Ücretsiz Başlayın — Hemen",
+    footer: "© 2025 AiFekr — İşletmeler için Yapay Zeka Platformu",
+    stats: [
+      { label: "Aktif Ajan", value: "17" },
+      { label: "Sektör Paketi", value: "8" },
+      { label: "Çalışma Süresi", value: "%99.9" },
+      { label: "Aktif Kullanıcı", value: "1.000+" },
+    ],
+    pricingTitle: "Şeffaf Fiyatlandırma",
+    pricingSubtitle: "Gizli ücret yok — her şey açık",
+    popularLabel: "En Popüler",
+    freeLabel: "Ücretsiz",
+    perMonth: "/ay",
+    viewAllPricing: "Tüm Paketleri Görüntüle →",
+    faqTitle: "Sıkça Sorulan Sorular",
+    faqSubtitle: "Yaygın sorulara cevaplar",
+    faqs: [
+      { q: "Bir şey kurmam gerekiyor mu?", a: "Hayır, AiFekr tamamen web tabanlıdır ve herhangi bir tarayıcıda çalışır." },
+      { q: "Verilerim güvende mi?", a: "Evet, tüm veriler güvenlik standartlarına göre şifrelenir ve saklanır." },
+      { q: "Planımı değiştirebilir miyim?", a: "Evet, planınızı istediğiniz zaman yükseltebilir veya değiştirebilirsiniz." },
+      { q: "Destek sunuyor musunuz?", a: "Evet, destek ekibimiz yardımcı olmak için hazır." },
+    ],
+    aiTeamEyebrow: "Yeni — Otonom İşletme İşletim Sistemi",
+    aiTeamTitle: "İşletmeniz için çalışan tam bir yapay zeka ajan ekibi",
+    aiTeamDesc: "Birlikte makale yazıp yayınlayan 8 uzman ajan, artı tüm işletmenizi analiz edip önceliklendiren bir yapay zeka CEO'su — paylaşılan hafıza ve canlı web araştırmasıyla.",
+    aiTeamAgents: ["Fikir Bulucu", "Stratejist", "Araştırmacı", "Yazar", "Editör", "SEO Uzmanı", "Yayıncı", "Eleştirmen"],
+    aiTeamCta: "Tüm sistemi görün",
+  },
   de: {
     brand: "AiFekr",
     navPacks: "Branchenpakete",
@@ -243,9 +308,7 @@ export default async function HomePage() {
 
   const lang = await getServerLang();
   const fxRates = await getFxRates();
-  // No Turkish landing copy yet -- falls back to English (see tri.ts's
-  // rollout-strategy comment).
-  const s = STR[lang === "tr" ? "en" : lang];
+  const s = STR[lang];
   const dir = lang === "fa" ? "rtl" : "ltr";
 
   let packs: { id: string; slug: string; name: string; nameEn: string | null; emoji: string; tagline: string; taglineEn: string | null; agents: string; tier: string; price: number; color: string; gradientFrom: string; gradientTo: string }[] = [];
