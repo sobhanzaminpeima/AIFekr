@@ -2375,7 +2375,9 @@ function InvoicesPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang;
   }
 
   async function setStatus(id: string, status: string) {
-    await fetch(`/api/crm/invoices/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    const res = await fetch(`/api/crm/invoices/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    const data = await res.json().catch(() => null);
+    if (data?.ledgerWarning) toast.error(data.ledgerWarning, { duration: 8000 });
     load();
   }
 

@@ -127,10 +127,16 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     // ledger posting hit an issue (e.g. a locked fiscal period) — the CRM
     // invoice is already the source of truth for what the customer sees;
     // the ledger gets a chance to catch up next time this route runs, since
-    // sourceRef makes a later retry safe. Log so a real problem doesn't go
-    // unnoticed, without blocking the invoice update itself.
+    // sourceRef makes a later retry safe. Failures are logged AND returned
+    // as `ledgerWarning` so the UI can tell the user their books need a
+    // manual look, instead of the accounting side silently drifting out of
+    // sync with no one aware.
+    let ledgerWarning: string | null = null;
     if (becameSentForLedger || becamePaidForLedger) {
-      await ensureDefaultChartOfAccounts(ws.workspaceUserId).catch(() => {});
+      await ensureDefaultChartOfAccounts(ws.workspaceUserId).catch((e) => {
+        console.error("ensureDefaultChartOfAccounts failed:", e);
+        ledgerWarning = tri(lang, "فاکتور ذخیره شد ولی ثبت آن در حسابداری با خطا مواجه شد — لطفاً دفترکل را بررسی کنید.", "The invoice was saved, but posting it to Accounting failed — please check the ledger.", "Die Rechnung wurde gespeichert, aber die Buchung in der Buchhaltung ist fehlgeschlagen — bitte prüfen Sie das Hauptbuch.", "Fatura kaydedildi ancak muhasebeye kaydedilirken hata oluştu — lütfen defteri kontrol edin.");
+      });
     }
     if (becameSentForLedger && ledgerTotal > 0) {
       await postJournalEntry({
@@ -142,7 +148,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
           { accountCode: "1200", debit: ledgerTotal },
           { accountCode: "4000", credit: ledgerTotal },
         ],
-      }).catch((e) => console.error("Ledger post (invoice sent) failed:", e));
+      }).catch((e) => {
+        console.error("Ledger post (invoice sent) failed:", e);
+        ledgerWarning = tri(lang, "فاکتور ارسال شد ولی ثبت آن در حسابداری با خطا مواجه شد — لطفاً دفترکل را بررسی کنید.", "The invoice was sent, but posting it to Accounting failed — please check the ledger.", "Die Rechnung wurde versendet, aber die Buchung in der Buchhaltung ist fehlgeschlagen — bitte prüfen Sie das Hauptbuch.", "Fatura gönderildi ancak muhasebeye kaydedilirken hata oluştu — lütfen defteri kontrol edin.");
+      });
     }
     if (becamePaidForLedger && ledgerTotal > 0) {
       await postJournalEntry({
@@ -154,10 +163,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
           { accountCode: "1000", debit: ledgerTotal },
           { accountCode: "1200", credit: ledgerTotal },
         ],
-      }).catch((e) => console.error("Ledger post (invoice paid) failed:", e));
+      }).catch((e) => {
+        console.error("Ledger post (invoice paid) failed:", e);
+        ledgerWarning = tri(lang, "فاکتور به‌عنوان پرداخت‌شده ثبت شد ولی ثبت آن در حسابداری با خطا مواجه شد — لطفاً دفترکل را بررسی کنید.", "The invoice was marked paid, but posting it to Accounting failed — please check the ledger.", "Die Rechnung wurde als bezahlt markiert, aber die Buchung in der Buchhaltung ist fehlgeschlagen — bitte prüfen Sie das Hauptbuch.", "Fatura ödendi olarak işaretlendi ancak muhasebeye kaydedilirken hata oluştu — lütfen defteri kontrol edin.");
+      });
     }
 
-    return NextResponse.json({ invoice });
+    return NextResponse.json({ invoice, ledgerWarning });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : tri(lang, "خطا در ویرایش فاکتور", "Failed to update invoice", "Fehler beim Aktualisieren der Rechnung") }, { status: 400 });
   }
