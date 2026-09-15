@@ -20,7 +20,7 @@ const container: Variants = { hidden: {}, show: { transition: { staggerChildren:
 const item: Variants     = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.21, 0.47, 0.32, 0.98] } } };
 
 export default function PricingSection({
-  plans, popularLabel, freeLabel, perMonth, startButton, viewAll, viewAllHref, lang,
+  plans, popularLabel, freeLabel, perMonth, startButton, viewAll, viewAllHref, lang, usdToTry,
 }: {
   plans: PricingPlan[];
   popularLabel: string;
@@ -30,6 +30,7 @@ export default function PricingSection({
   viewAll: string;
   viewAllHref: string;
   lang?: string;
+  usdToTry?: number;
 }) {
   const reduce = useReducedMotion();
   const isFa = lang === "fa";
@@ -78,6 +79,17 @@ export default function PricingSection({
                       and "$9 / /mo" in the branch below. */}
                   {p.price > 0 && (
                     <span className="text-sm mr-1" style={{ color: "rgba(255,255,255,0.5)" }}>
+                      {" "}{perMonth}
+                    </span>
+                  )}
+                </>
+              ) : lang === "tr" && usdToTry ? (
+                <>
+                  <span className="text-3xl font-bold text-white">
+                    {p.priceUsd && p.priceUsd > 0 ? `₺${Math.round((p.priceUsd / 100) * usdToTry).toLocaleString("tr-TR")}` : freeLabel}
+                  </span>
+                  {p.priceUsd && p.priceUsd > 0 && (
+                    <span className="text-sm ml-1" style={{ color: "rgba(255,255,255,0.5)" }}>
                       {" "}{perMonth}
                     </span>
                   )}

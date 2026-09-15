@@ -502,6 +502,7 @@ export default async function HomePage() {
               viewAll={s.viewAllPricing}
               viewAllHref="/register"
               lang={lang}
+              usdToTry={fxRates.usdToTry}
             />
           </div>
         </section>
