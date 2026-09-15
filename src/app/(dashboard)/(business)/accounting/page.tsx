@@ -17,7 +17,7 @@ interface DashboardData {
   monthExpense: number;
   monthNetProfit: number;
   trend: { label: string; revenue: number; expense: number }[];
-  expenseByCategory: { code: string; name: string; nameEn: string | null; nameDe: string | null; amount: number }[];
+  expenseByCategory: { code: string; name: string; nameEn: string | null; nameDe: string | null; nameTr: string | null; amount: number }[];
   overdueInvoices: { id: string; invoiceNumber: string; total: number; dueDate: string | null; contactName: string }[];
   pendingCommissions: { id: string; dealTitle: string; agentUserId: string; amount: number }[];
   bankUnreconciledCount: number;

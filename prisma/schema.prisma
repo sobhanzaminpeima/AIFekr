@@ -2037,6 +2037,7 @@ model AccountingAccount {
   name            String
   nameEn          String?
   nameDe          String?
+  nameTr          String?
   /// "asset" | "liability" | "equity" | "revenue" | "expense"
   type            String
   parentId        String?

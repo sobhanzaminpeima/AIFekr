@@ -16,10 +16,11 @@ import type { Lang } from "@/lib/i18n";
  * own label beats an empty cell.
  */
 export function accountName(
-  account: { name: string; nameEn?: string | null; nameDe?: string | null },
+  account: { name: string; nameEn?: string | null; nameDe?: string | null; nameTr?: string | null },
   lang: Lang,
 ): string {
   if (lang === "en") return account.nameEn || account.name;
   if (lang === "de") return account.nameDe || account.nameEn || account.name;
+  if (lang === "tr") return account.nameTr || account.nameEn || account.name;
   return account.name;
 }
