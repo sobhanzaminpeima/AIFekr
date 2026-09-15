@@ -28,7 +28,7 @@ export interface CreateScheduledReportInput {
   reportType: ReportType;
   frequency: Frequency;
   recipientEmail: string;
-  lang?: "fa" | "en" | "de";
+  lang?: "fa" | "en" | "de" | "tr";
   /** Presentation currency. Omitted means no conversion. */
   currency?: string | null;
 }
@@ -55,7 +55,7 @@ export async function pauseScheduledReport(id: string, workspaceUserId: string) 
   // Same class of bug as approveFirstRun's error below: hardcoded English,
   // passed straight to the client as err.message regardless of UI language.
   if (report.status !== "active") {
-    throw new Error(tri(report.lang as "fa" | "en" | "de", "فقط زمان‌بندی فعال قابل توقف است", "Only an active schedule can be paused", "Nur ein aktiver Zeitplan kann pausiert werden"));
+    throw new Error(tri(report.lang as "fa" | "en" | "de" | "tr", "فقط زمان‌بندی فعال قابل توقف است", "Only an active schedule can be paused", "Nur ein aktiver Zeitplan kann pausiert werden"));
   }
   return prisma.accountingScheduledReport.update({ where: { id }, data: { status: "paused" } });
 }
@@ -63,7 +63,7 @@ export async function pauseScheduledReport(id: string, workspaceUserId: string) 
 export async function resumeScheduledReport(id: string, workspaceUserId: string) {
   const report = await prisma.accountingScheduledReport.findFirstOrThrow({ where: { id, workspaceUserId } });
   if (report.status !== "paused") {
-    throw new Error(tri(report.lang as "fa" | "en" | "de", "فقط زمان‌بندی متوقف‌شده قابل ازسرگیری است", "Only a paused schedule can be resumed", "Nur ein pausierter Zeitplan kann fortgesetzt werden"));
+    throw new Error(tri(report.lang as "fa" | "en" | "de" | "tr", "فقط زمان‌بندی متوقف‌شده قابل ازسرگیری است", "Only a paused schedule can be resumed", "Nur ein pausierter Zeitplan kann fortgesetzt werden"));
   }
   return prisma.accountingScheduledReport.update({ where: { id }, data: { status: "active" } });
 }
@@ -89,7 +89,7 @@ export async function renderReportContent(
   workspaceUserId: string,
   reportType: ReportType,
   frequency: Frequency,
-  lang: "fa" | "en" | "de",
+  lang: "fa" | "en" | "de" | "tr",
   now: Date = new Date(),
   /** Presentation currency. Undefined/null means show recorded amounts only. */
   presentationCurrency?: string | null,
@@ -177,7 +177,7 @@ export async function runDueScheduledReports(now: Date = new Date()): Promise<{ 
     if (!isDue) continue;
 
     try {
-      const content = await renderReportContent(report.workspaceUserId, report.reportType as ReportType, report.frequency as Frequency, report.lang as "fa" | "en" | "de", now, report.currency);
+      const content = await renderReportContent(report.workspaceUserId, report.reportType as ReportType, report.frequency as Frequency, report.lang as "fa" | "en" | "de" | "tr", now, report.currency);
 
       if (report.status === "pending_first_approval") {
         await prisma.accountingScheduledReport.update({
@@ -207,7 +207,7 @@ export async function runDueScheduledReports(now: Date = new Date()): Promise<{ 
 export async function approveFirstRun(id: string, workspaceUserId: string) {
   const report = await prisma.accountingScheduledReport.findFirstOrThrow({ where: { id, workspaceUserId } });
   if (report.status !== "awaiting_approval" || !report.firstRunPreview) {
-    throw new Error(tri(report.lang as "fa" | "en" | "de", "این زمان‌بندی پیش‌نمایشی برای تأیید ندارد", "This schedule has no pending preview to approve", "Für diesen Zeitplan gibt es keine ausstehende Vorschau zur Genehmigung"));
+    throw new Error(tri(report.lang as "fa" | "en" | "de" | "tr", "این زمان‌بندی پیش‌نمایشی برای تأیید ندارد", "This schedule has no pending preview to approve", "Für diesen Zeitplan gibt es keine ausstehende Vorschau zur Genehmigung"));
   }
   const content = JSON.parse(report.firstRunPreview) as { subject: string; html: string };
   const ok = await sendEmail(report.recipientEmail, content.subject, content.html);
@@ -217,7 +217,7 @@ export async function approveFirstRun(id: string, workspaceUserId: string) {
   // already loaded on this row for exactly this kind of message.
   if (!ok) {
     throw new Error(tri(
-      report.lang as "fa" | "en" | "de",
+      report.lang as "fa" | "en" | "de" | "tr",
       "ارسال ایمیل گزارش تأییدشده ناموفق بود — تنظیمات ایمیل سرور را بررسی کنید",
       "Failed to send the approved report email — check the server's email configuration",
       "Der E-Mail-Versand des genehmigten Berichts ist fehlgeschlagen — prüfen Sie die E-Mail-Konfiguration des Servers"

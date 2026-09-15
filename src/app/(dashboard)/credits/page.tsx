@@ -181,7 +181,7 @@ const TX_TYPE_LABEL: Record<string, Record<string, string>> = {
   purchase: { fa: "خرید کردیت", en: "Credit purchase", de: "Guthabenkauf" },
 };
 
-function CreditPurchaseHistory({ lang }: { lang: "fa" | "en" | "de" }) {
+function CreditPurchaseHistory({ lang }: { lang: "fa" | "en" | "de" | "tr" }) {
   const [payments, setPayments] = useState<{ id: string; amount: number; plan: string; status: string; createdAt: string }[]>([]);
   useEffect(() => {
     fetch("/api/user/payments", { credentials: "include" })
@@ -244,7 +244,7 @@ interface UsageEntry {
  * Where the credits actually went. Reads UsageLog through
  * /api/user/usage/history -- see that route's comment for why this exists.
  */
-function CreditUsageHistory({ lang }: { lang: "fa" | "en" | "de" }) {
+function CreditUsageHistory({ lang }: { lang: "fa" | "en" | "de" | "tr" }) {
   const [entries, setEntries] = useState<UsageEntry[]>([]);
   const [loaded, setLoaded] = useState(false);
 

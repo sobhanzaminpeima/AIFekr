@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     try {
       // Captured when the user switched auto-run on; defaults to "fa", which is
       // exactly what every existing row was already getting.
-      const lang: Lang = (["fa", "en", "de"] as const).includes(u.ceoAutoRunLang as Lang)
+      const lang: Lang = (["fa", "en", "de", "tr"] as const).includes(u.ceoAutoRunLang as Lang)
         ? (u.ceoAutoRunLang as Lang)
         : "fa";
       let analysis = "";

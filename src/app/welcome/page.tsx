@@ -12,27 +12,27 @@ import type { Lang } from "@/lib/i18n";
 // asked three questions they could not read before reaching the product.
 
 const BUSINESS_TYPES: { id: string; emoji: string; label: Record<Lang, string> }[] = [
-  { id: "retail", emoji: "🛍️", label: { fa: "فروشگاه / خرده‌فروشی", en: "Shop / retail", de: "Laden / Einzelhandel" } },
-  { id: "services", emoji: "💼", label: { fa: "خدمات / مشاوره", en: "Services / consulting", de: "Dienstleistung / Beratung" } },
-  { id: "restaurant", emoji: "☕", label: { fa: "رستوران / کافه", en: "Restaurant / café", de: "Restaurant / Café" } },
-  { id: "tech", emoji: "💻", label: { fa: "فناوری / نرم‌افزار", en: "Technology / software", de: "Technologie / Software" } },
-  { id: "production", emoji: "🏭", label: { fa: "تولید / صنعت", en: "Manufacturing / industry", de: "Produktion / Industrie" } },
-  { id: "other", emoji: "✨", label: { fa: "سایر", en: "Something else", de: "Sonstiges" } },
+  { id: "retail", emoji: "🛍️", label: { fa: "فروشگاه / خرده‌فروشی", en: "Shop / retail", de: "Laden / Einzelhandel", tr: "Shop / retail" } },
+  { id: "services", emoji: "💼", label: { fa: "خدمات / مشاوره", en: "Services / consulting", de: "Dienstleistung / Beratung", tr: "Services / consulting" } },
+  { id: "restaurant", emoji: "☕", label: { fa: "رستوران / کافه", en: "Restaurant / café", de: "Restaurant / Café", tr: "Restaurant / café" } },
+  { id: "tech", emoji: "💻", label: { fa: "فناوری / نرم‌افزار", en: "Technology / software", de: "Technologie / Software", tr: "Technology / software" } },
+  { id: "production", emoji: "🏭", label: { fa: "تولید / صنعت", en: "Manufacturing / industry", de: "Produktion / Industrie", tr: "Manufacturing / industry" } },
+  { id: "other", emoji: "✨", label: { fa: "سایر", en: "Something else", de: "Sonstiges", tr: "Something else" } },
 ];
 
 const GOALS: { id: string; emoji: string; label: Record<Lang, string> }[] = [
-  { id: "content", emoji: "✍️", label: { fa: "تولید محتوا و مقاله", en: "Content and article writing", de: "Content- und Artikelerstellung" } },
-  { id: "analysis", emoji: "📊", label: { fa: "آنالیز و مشاوره کسب‌وکار", en: "Business analysis and advice", de: "Geschäftsanalyse und Beratung" } },
-  { id: "social", emoji: "📱", label: { fa: "مدیریت شبکه اجتماعی", en: "Social media management", de: "Social-Media-Management" } },
-  { id: "startup", emoji: "🚀", label: { fa: "ساخت استارتاپ / ایده", en: "Building a startup or idea", de: "Ein Startup oder eine Idee aufbauen" } },
-  { id: "chat", emoji: "🤖", label: { fa: "دستیار هوشمند برای سوالات", en: "A smart assistant for questions", de: "Ein intelligenter Assistent für Fragen" } },
-  { id: "image", emoji: "🎨", label: { fa: "تولید تصویر و ویدئو", en: "Image and video generation", de: "Bild- und Videoerstellung" } },
+  { id: "content", emoji: "✍️", label: { fa: "تولید محتوا و مقاله", en: "Content and article writing", de: "Content- und Artikelerstellung", tr: "Content and article writing" } },
+  { id: "analysis", emoji: "📊", label: { fa: "آنالیز و مشاوره کسب‌وکار", en: "Business analysis and advice", de: "Geschäftsanalyse und Beratung", tr: "Business analysis and advice" } },
+  { id: "social", emoji: "📱", label: { fa: "مدیریت شبکه اجتماعی", en: "Social media management", de: "Social-Media-Management", tr: "Social media management" } },
+  { id: "startup", emoji: "🚀", label: { fa: "ساخت استارتاپ / ایده", en: "Building a startup or idea", de: "Ein Startup oder eine Idee aufbauen", tr: "Building a startup or idea" } },
+  { id: "chat", emoji: "🤖", label: { fa: "دستیار هوشمند برای سوالات", en: "A smart assistant for questions", de: "Ein intelligenter Assistent für Fragen", tr: "A smart assistant for questions" } },
+  { id: "image", emoji: "🎨", label: { fa: "تولید تصویر و ویدئو", en: "Image and video generation", de: "Bild- und Videoerstellung", tr: "Image and video generation" } },
 ];
 
 const EXPERIENCES: { id: string; label: Record<Lang, string> }[] = [
-  { id: "none", label: { fa: "تازه‌کار — هرگز از AI استفاده نکردم", en: "New to this — I have never used AI", de: "Neu dabei — ich habe noch nie KI genutzt" } },
-  { id: "some", label: { fa: "کمی آشنا — ChatGPT را امتحان کردم", en: "Somewhat familiar — I have tried ChatGPT", de: "Etwas vertraut — ich habe ChatGPT ausprobiert" } },
-  { id: "pro", label: { fa: "حرفه‌ای — به طور منظم از AI استفاده می‌کنم", en: "Experienced — I use AI regularly", de: "Erfahren — ich nutze KI regelmäßig" } },
+  { id: "none", label: { fa: "تازه‌کار — هرگز از AI استفاده نکردم", en: "New to this — I have never used AI", de: "Neu dabei — ich habe noch nie KI genutzt", tr: "New to this — I have never used AI" } },
+  { id: "some", label: { fa: "کمی آشنا — ChatGPT را امتحان کردم", en: "Somewhat familiar — I have tried ChatGPT", de: "Etwas vertraut — ich habe ChatGPT ausprobiert", tr: "Somewhat familiar — I have tried ChatGPT" } },
+  { id: "pro", label: { fa: "حرفه‌ای — به طور منظم از AI استفاده می‌کنم", en: "Experienced — I use AI regularly", de: "Erfahren — ich nutze KI regelmäßig", tr: "Experienced — I use AI regularly" } },
 ];
 
 export default function WelcomePage() {

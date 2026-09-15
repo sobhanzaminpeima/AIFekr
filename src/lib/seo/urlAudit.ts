@@ -92,7 +92,7 @@ export type CheckStatus = "pass" | "warning" | "fail";
 export interface UrlCheck { id: string; label: string; status: CheckStatus; detail: string; }
 export interface UrlCheckGroup { id: string; titleFa: string; titleEn: string; titleDe: string; checks: UrlCheck[]; }
 
-export function auditUrlPage(data: CrawledPageData, url: string, lang: "fa" | "en" | "de"): { score: number; groups: UrlCheckGroup[] } {
+export function auditUrlPage(data: CrawledPageData, url: string, lang: "fa" | "en" | "de" | "tr"): { score: number; groups: UrlCheckGroup[] } {
   const tri = (fa: string, en: string, de: string) => lang === "fa" ? fa : lang === "de" ? de : en;
   const check = (id: string, label: string, status: CheckStatus, detail: string): UrlCheck => ({ id, label, status, detail });
 

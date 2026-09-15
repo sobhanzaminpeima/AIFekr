@@ -54,7 +54,7 @@ function parseMarkdown(text: string) {
 
 const TYPING_SPEED = 18;
 
-export default function DemoChat({ lang = "fa" }: { lang?: "fa" | "en" | "de" }) {
+export default function DemoChat({ lang = "fa" }: { lang?: "fa" | "en" | "de" | "tr" }) {
   const DEMO = lang === "en" ? DEMO_EN : lang === "de" ? DEMO_DE : DEMO_FA;
   const [visibleMessages, setVisibleMessages] = useState<{ role: "user" | "ai"; text: string; typing: boolean }[]>([]);
   const [currentTyped, setCurrentTyped] = useState("");

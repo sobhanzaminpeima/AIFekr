@@ -25,6 +25,7 @@ const MIXED_LANGUAGE_NOTE: Record<Lang, string> = {
   fa: "حافظه و درس‌های زیر ممکن است به زبان دیگری (انگلیسی یا آلمانی) نوشته شده باشند — مفهومشان را در نظر بگیر، ولی پاسخ خودت را کاملاً فارسی بنویس.",
   en: "The memories and lessons below may be written in another language (Persian or German) — use their meaning as context, but write your own answer entirely in English.",
   de: "Die folgenden Erinnerungen und Erkenntnisse können in einer anderen Sprache (Persisch oder Englisch) verfasst sein — nutze ihren Inhalt als Kontext, schreibe deine eigene Antwort aber vollständig auf Deutsch.",
+  tr: "The memories and lessons below may be written in another language (Persian or German) — use their meaning as context, but write your own answer entirely in English.",
 };
 
 function systemPrompt(lang: Lang): string {
@@ -174,6 +175,8 @@ const MARKET_QUERY: Record<Lang, (industry: string, name: string) => string> = {
   fa: (industry, name) => `رقبا و روند بازار ${industry} در ایران ${name ? `شبیه ${name}` : ""}`,
   en: (industry, name) => `competitors and market trends in ${industry}${name ? ` similar to ${name}` : ""}`,
   de: (industry, name) => `Wettbewerber und Markttrends in ${industry}${name ? ` ähnlich wie ${name}` : ""}`,
+  // No Turkish translation yet -- English fallback.
+  tr: (industry, name) => `competitors and market trends in ${industry}${name ? ` similar to ${name}` : ""}`,
 };
 
 /**

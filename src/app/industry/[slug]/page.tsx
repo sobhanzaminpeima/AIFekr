@@ -20,8 +20,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const pack = await prisma.industryPack.findUnique({ where: { slug: params.slug } });
   if (!pack) return {};
   const lang = await getServerLang();
-  const name = lang !== "fa" && pack.nameEn ? pack.nameEn : pack.name;
-  const description = lang !== "fa" && pack.valuePropositionEn ? pack.valuePropositionEn : pack.valueProposition;
+  const name = lang === "de" ? (pack.nameDe || pack.nameEn || pack.name) : lang === "en" ? (pack.nameEn || pack.name) : pack.name;
+  const description = lang === "de" ? (pack.valuePropositionDe || pack.valuePropositionEn || pack.valueProposition) : lang === "en" ? (pack.valuePropositionEn || pack.valueProposition) : pack.valueProposition;
   const title = lang === "fa" ? `${name} | بسته هوش مصنوعی AiFekr` : `${name} | AiFekr AI Pack`;
   return {
     title,
@@ -62,7 +62,7 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
   if (!pack) notFound();
 
   const lang = await getServerLang();
-  const s = strings[lang];
+  const s = strings[lang === "tr" ? "en" : lang];
   const fxRates = await getFxRates();
 
   const cookieStore = await cookies();
@@ -81,21 +81,25 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
 
   const isCurrentPack = userPackId === pack.id;
 
-  function pick(fa: string, en: string | null): string {
-    return lang !== "fa" && en ? en : fa;
+  // German falls back to English (never Persian) when a pack has no German
+  // content yet -- same convention as industry/page.tsx's `localized()`.
+  function pick(fa: string, en: string | null, de: string | null): string {
+    if (lang === "de") return de || en || fa;
+    if (lang === "en") return en || fa;
+    return fa;
   }
-  function parseJson<T>(fa: string, en: string | null, fallback: T): T {
-    try { return JSON.parse(pick(fa, en)); } catch { return fallback; }
+  function parseJson<T>(fa: string, en: string | null, de: string | null, fallback: T): T {
+    try { return JSON.parse(pick(fa, en, de)); } catch { return fallback; }
   }
 
-  const agents = parseJson<{ name: string; role: string; description: string; icon: string }[]>(pack.agents, pack.agentsEn, []);
-  const outcomes = parseJson<{ metric: string; description: string }[]>(pack.outcomes, pack.outcomesEn, []);
-  const painPoints = parseJson<string[]>(pack.painPoints, pack.painPointsEn, []);
-  const kpis = parseJson<string[]>(pack.kpis, pack.kpisEn, []);
-  const targetCustomers = parseJson<string[]>(pack.targetCustomers, pack.targetCustomersEn, []);
-  const name = pick(pack.name, pack.nameEn);
-  const tagline = pick(pack.tagline, pack.taglineEn);
-  const valueProposition = pick(pack.valueProposition, pack.valuePropositionEn);
+  const agents = parseJson<{ name: string; role: string; description: string; icon: string }[]>(pack.agents, pack.agentsEn, pack.agentsDe, []);
+  const outcomes = parseJson<{ metric: string; description: string }[]>(pack.outcomes, pack.outcomesEn, pack.outcomesDe, []);
+  const painPoints = parseJson<string[]>(pack.painPoints, pack.painPointsEn, pack.painPointsDe, []);
+  const kpis = parseJson<string[]>(pack.kpis, pack.kpisEn, pack.kpisDe, []);
+  const targetCustomers = parseJson<string[]>(pack.targetCustomers, pack.targetCustomersEn, pack.targetCustomersDe, []);
+  const name = pick(pack.name, pack.nameEn, pack.nameDe);
+  const tagline = pick(pack.tagline, pack.taglineEn, pack.taglineDe);
+  const valueProposition = pick(pack.valueProposition, pack.valuePropositionEn, pack.valuePropositionDe);
 
   return (
     <div className="min-h-screen" style={{ background: "var(--surface-0)" }}>

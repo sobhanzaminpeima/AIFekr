@@ -63,7 +63,7 @@ interface FollowUpDraft {
 
 export default function SalesAgentPage() {
   const { lang } = useTranslation();
-  const s = STR[lang] || STR.en;
+  const s = STR[lang === "tr" ? "en" : lang] || STR.en;
 
   const [running, setRunning] = useState(false);
   const [analysis, setAnalysis] = useState("");

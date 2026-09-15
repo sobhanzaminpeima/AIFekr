@@ -12,7 +12,7 @@ import { signOwnerLinkToken } from "@/lib/auth/ownerAuth";
  * an owner, so this can't be used to test which addresses are registered.
  */
 export async function POST(req: NextRequest) {
-  const { email, lang } = (await req.json().catch(() => ({}))) as { email?: string; lang?: "fa" | "en" | "de" };
+  const { email, lang } = (await req.json().catch(() => ({}))) as { email?: string; lang?: "fa" | "en" | "de" | "tr" };
   const L = lang === "en" ? "en" : lang === "de" ? "de" : "fa";
   const generic = NextResponse.json({
     message:

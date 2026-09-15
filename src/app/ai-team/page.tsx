@@ -140,7 +140,7 @@ const STR = {
 
 export default async function AiTeamPage() {
   const lang = await getServerLang();
-  const s = STR[lang];
+  const s = STR[lang === "tr" ? "en" : lang];
   const dir = lang === "fa" ? "rtl" : "ltr";
 
   return (

@@ -74,7 +74,7 @@ const FALLBACK = {
 
 export default function AssistantPage({ params, searchParams }: { params: { type: string }; searchParams?: { lang?: string } }) {
   // Try to read lang from cookie on the server side approximation; fall back to "fa"
-  const lang = (searchParams?.lang as "fa" | "en" | "de") || "fa";
+  const lang = (searchParams?.lang as "fa" | "en" | "de" | "tr") || "fa";
   const config = ASSISTANT_CONFIGS[params.type] || FALLBACK;
 
   const title = tri(lang, config.titleFa, config.titleEn, config.titleDe);

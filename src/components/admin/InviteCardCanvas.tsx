@@ -16,7 +16,7 @@ import { forwardRef } from "react";
  * visual styling inside it.
  */
 
-export type CardLang = "fa" | "en" | "de";
+export type CardLang = "fa" | "en" | "de" | "tr";
 
 export interface InviteCardProps {
   lang: CardLang;
@@ -72,6 +72,18 @@ const STRINGS: Record<CardLang, {
     linkLabel: "Dein persönlicher Link",
     proBadge: "Pro — 7 Tage gratis",
     packageBadge: "Komplettes Immobilien-Paket",
+    site: "www.aifekr.com",
+  },
+  // No Turkish invite-card copy yet -- reuse the English strings.
+  tr: {
+    title: "AiFekr Invitation",
+    subtitle: "Full access, ready to use",
+    about: "AiFekr is an AI agent platform for businesses — from CRM and a sales agent to a voice call agent, content generation, and a real-estate pricing advisor, each working for you around the clock.",
+    usernameLabel: "Username",
+    passwordLabel: "Temporary password",
+    linkLabel: "Your personal link",
+    proBadge: "Pro — 7 days free",
+    packageBadge: "Full Real Estate Package",
     site: "www.aifekr.com",
   },
 };

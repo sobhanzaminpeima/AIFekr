@@ -53,15 +53,24 @@ const strings = {
 };
 
 interface Pack {
-  id: string; slug: string; name: string; nameEn: string | null; emoji: string;
-  tagline: string; taglineEn: string | null;
+  id: string; slug: string; name: string; nameEn: string | null; nameDe: string | null; emoji: string;
+  tagline: string; taglineEn: string | null; taglineDe: string | null;
   agents: string; tier: string; price: number; color: string;
   gradientFrom: string; gradientTo: string;
 }
 
+/** German falls back to English (never Persian) when a pack has no German
+ * content yet -- the same convention the rest of the platform uses for a
+ * partially-translated row. */
+function localized(lang: "fa" | "en" | "de" | "tr", base: string, en: string | null, de: string | null): string {
+  if (lang === "de") return de || en || base;
+  if (lang === "en") return en || base;
+  return base;
+}
+
 export default async function IndustryPage() {
   const lang = await getServerLang();
-  const s = strings[lang];
+  const s = strings[lang === "tr" ? "en" : lang];
 
   let packs: Pack[] = [];
   try {
@@ -96,8 +105,8 @@ export default async function IndustryPage() {
                   style={{ background: `linear-gradient(135deg, ${pack.gradientFrom}, ${pack.gradientTo})` }}>
                   <span className="text-3xl">{pack.emoji}</span>
                   <div>
-                    <h3 className="font-bold text-white">{lang !== "fa" && pack.nameEn ? pack.nameEn : pack.name}</h3>
-                    <p className="text-xs text-white/70">{lang !== "fa" && pack.taglineEn ? pack.taglineEn : pack.tagline}</p>
+                    <h3 className="font-bold text-white">{localized(lang, pack.name, pack.nameEn, pack.nameDe)}</h3>
+                    <p className="text-xs text-white/70">{localized(lang, pack.tagline, pack.taglineEn, pack.taglineDe)}</p>
                   </div>
                 </div>
 

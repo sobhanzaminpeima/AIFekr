@@ -143,7 +143,7 @@ export async function approveOwnerStatement(statementId: string, approvedBy: str
  *
  * Never auto-called by approve — a separate explicit step.
  */
-export async function sendOwnerStatement(statementId: string, ownerEmail: string, ownerName: string, lang: "fa" | "en" | "de" = "fa") {
+export async function sendOwnerStatement(statementId: string, ownerEmail: string, ownerName: string, lang: "fa" | "en" | "de" | "tr" = "fa") {
   const statement = await prisma.accountingOwnerStatement.findUniqueOrThrow({
     where: { id: statementId },
     include: { entries: true, property: { select: { title: true } } },

@@ -52,6 +52,7 @@ const SYSTEM_PROMPT: Record<Lang, string> = {
   fa: "تو یک استراتژیست محتوای شبکه‌های اجتماعی حرفه‌ای هستی. فقط و فقط یک JSON آرایه خام و معتبر برگردان، بدون توضیح یا markdown اضافه.",
   en: "You are a professional social media content strategist. Return ONLY a raw, valid JSON array, with no explanation or markdown.",
   de: "Du bist ein professioneller Social-Media-Content-Stratege. Gib AUSSCHLIESSLICH ein rohes, gültiges JSON-Array zurück, ohne Erklärung oder Markdown.",
+  tr: "You are a professional social media content strategist. Return ONLY a raw, valid JSON array, with no explanation or markdown.",
 };
 
 function buildUserMessage(name: string, industry: string, extra: string, lang: Lang): string {

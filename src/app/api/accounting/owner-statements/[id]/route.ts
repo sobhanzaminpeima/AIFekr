@@ -38,7 +38,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   });
   if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
-  const { action, emailLang } = (await req.json()) as { action?: string; emailLang?: "fa" | "en" | "de" };
+  const { action, emailLang } = (await req.json()) as { action?: string; emailLang?: "fa" | "en" | "de" | "tr" };
 
   try {
     if (action === "approve") {

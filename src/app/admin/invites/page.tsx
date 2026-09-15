@@ -21,7 +21,7 @@ import { generateQrDataUrl } from "@/lib/utils/qrCode";
  * for the other reader of that single source of truth.
  */
 
-type Lang = "fa" | "en" | "de";
+type Lang = "fa" | "en" | "de" | "tr";
 
 interface UserDetail {
   id: string;
@@ -78,9 +78,21 @@ Dein persönlicher Link: {Empfehlungslink}
 
 Bei Fragen sind wir für dich da.
 Das AIfekr-Team`,
+  tr: `Hi {UserName} 👋
+
+Welcome to AIfekr! We've activated 7 days of full Pro access + the complete Real Estate package for you to try.
+
+🔑 Username: {Username}
+🔑 Temporary password: {Password}
+(You'll be asked to set a new password on first login.)
+
+Your personal link: {ReferralLink}
+
+Reach out anytime with questions.
+The AIfekr Team`,
 };
 
-const LANG_LABEL: Record<Lang, string> = { fa: "فارسی 🇮🇷", en: "English 🇬🇧", de: "Deutsch 🇩🇪" };
+const LANG_LABEL: Record<Lang, string> = { fa: "فارسی 🇮🇷", en: "English 🇬🇧", de: "Deutsch 🇩🇪", tr: "Türkçe 🇹🇷" };
 
 function fillTemplate(lang: Lang, vars: { name: string; username: string; password: string; referralLink: string; trialDays: number }): string {
   const t = TEMPLATES[lang];

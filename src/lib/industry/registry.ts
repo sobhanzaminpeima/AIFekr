@@ -73,7 +73,7 @@ export function getSocialContentPack(slug: string): IndustrySocialContentPack | 
   return socialContentPacks.get(slug) || null;
 }
 
-export type Lang = "fa" | "en" | "de";
+export type Lang = "fa" | "en" | "de" | "tr";
 type TriText = Record<Lang, string>;
 
 export interface ContentIdea {
@@ -109,24 +109,24 @@ export function localizeContentIdeas(ideas: ContentIdea[], lang: Lang): Localize
 /** Generic fallback used for any industry without a dedicated pack (or no industry selected at all) — the master-prompt's own example set (UGC/unboxing etc.), industry-agnostic by design. */
 const GENERIC_CONTENT_IDEAS: ContentIdea[] = [
   {
-    title: { fa: "محتوای تولیدشده توسط مشتری (UGC)", en: "User-generated content (UGC)", de: "Nutzergenerierte Inhalte (UGC)" },
-    format: { fa: "ریشر یا معرفی مشتریان واقعی و تجربه‌شان", en: "A reshare or feature of real customers and their experience", de: "Ein Repost oder Vorstellung echter Kunden und ihrer Erfahrung" },
-    why: { fa: "اعتماد بیشتری نسبت به تبلیغ مستقیم ایجاد می‌کند", en: "Builds more trust than direct advertising", de: "Schafft mehr Vertrauen als direkte Werbung" },
+    title: { fa: "محتوای تولیدشده توسط مشتری (UGC)", en: "User-generated content (UGC)", de: "Nutzergenerierte Inhalte (UGC)", tr: "User-generated content (UGC)" },
+    format: { fa: "ریشر یا معرفی مشتریان واقعی و تجربه‌شان", en: "A reshare or feature of real customers and their experience", de: "Ein Repost oder Vorstellung echter Kunden und ihrer Erfahrung", tr: "A reshare or feature of real customers and their experience" },
+    why: { fa: "اعتماد بیشتری نسبت به تبلیغ مستقیم ایجاد می‌کند", en: "Builds more trust than direct advertising", de: "Schafft mehr Vertrauen als direkte Werbung", tr: "Builds more trust than direct advertising" },
   },
   {
-    title: { fa: "پشت‌صحنه کسب‌وکار", en: "Behind the scenes", de: "Hinter den Kulissen" },
-    format: { fa: "ویدیوی کوتاه از فرآیند کار روزمره تیم", en: "A short video of the team's everyday workflow", de: "Ein kurzes Video vom Arbeitsalltag des Teams" },
-    why: { fa: "شفافیت و صمیمیت با مخاطب می‌سازد", en: "Builds transparency and closeness with the audience", de: "Schafft Transparenz und Nähe zum Publikum" },
+    title: { fa: "پشت‌صحنه کسب‌وکار", en: "Behind the scenes", de: "Hinter den Kulissen", tr: "Behind the scenes" },
+    format: { fa: "ویدیوی کوتاه از فرآیند کار روزمره تیم", en: "A short video of the team's everyday workflow", de: "Ein kurzes Video vom Arbeitsalltag des Teams", tr: "A short video of the team's everyday workflow" },
+    why: { fa: "شفافیت و صمیمیت با مخاطب می‌سازد", en: "Builds transparency and closeness with the audience", de: "Schafft Transparenz und Nähe zum Publikum", tr: "Builds transparency and closeness with the audience" },
   },
   {
-    title: { fa: "سوال و جواب با مخاطبان", en: "Q&A with your audience", de: "Q&A mit deinem Publikum" },
-    format: { fa: "استوری با استیکر سوال یا نظرسنجی", en: "A story with a question sticker or poll", de: "Eine Story mit Frage-Sticker oder Umfrage" },
-    why: { fa: "تعامل مستقیم و داده واقعی از نیاز مخاطب می‌دهد", en: "Gives direct engagement and real data on audience needs", de: "Liefert direktes Engagement und echte Daten zu den Bedürfnissen des Publikums" },
+    title: { fa: "سوال و جواب با مخاطبان", en: "Q&A with your audience", de: "Q&A mit deinem Publikum", tr: "Q&A with your audience" },
+    format: { fa: "استوری با استیکر سوال یا نظرسنجی", en: "A story with a question sticker or poll", de: "Eine Story mit Frage-Sticker oder Umfrage", tr: "A story with a question sticker or poll" },
+    why: { fa: "تعامل مستقیم و داده واقعی از نیاز مخاطب می‌دهد", en: "Gives direct engagement and real data on audience needs", de: "Liefert direktes Engagement und echte Daten zu den Bedürfnissen des Publikums", tr: "Gives direct engagement and real data on audience needs" },
   },
   {
-    title: { fa: "قبل و بعد", en: "Before and after", de: "Vorher und nachher" },
-    format: { fa: "مقایسه تصویری نتیجه کار شما", en: "A visual comparison of your work's result", de: "Ein visueller Vergleich des Ergebnisses deiner Arbeit" },
-    why: { fa: "نتیجه ملموس را بهتر از هر توضیحی نشان می‌دهد", en: "Shows a tangible result better than any explanation", de: "Zeigt ein greifbares Ergebnis besser als jede Erklärung" },
+    title: { fa: "قبل و بعد", en: "Before and after", de: "Vorher und nachher", tr: "Before and after" },
+    format: { fa: "مقایسه تصویری نتیجه کار شما", en: "A visual comparison of your work's result", de: "Ein visueller Vergleich des Ergebnisses deiner Arbeit", tr: "A visual comparison of your work's result" },
+    why: { fa: "نتیجه ملموس را بهتر از هر توضیحی نشان می‌دهد", en: "Shows a tangible result better than any explanation", de: "Zeigt ein greifbares Ergebnis besser als jede Erklärung", tr: "Shows a tangible result better than any explanation" },
   },
 ];
 

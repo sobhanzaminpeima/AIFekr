@@ -2862,10 +2862,10 @@ interface CrmProjectRow {
   property: ProjectProperty | null;
 }
 
-const PROJECT_LISTING_TYPE_LABEL: Record<string, { fa: string; en: string; de: string }> = {
-  sell: { fa: "فروش", en: "Sale", de: "Verkauf" },
-  rent: { fa: "اجاره", en: "Rent", de: "Miete" },
-  short_term_rent: { fa: "اجاره روزانه", en: "Short-term rental", de: "Kurzzeitvermietung" },
+const PROJECT_LISTING_TYPE_LABEL: Record<string, { fa: string; en: string; de: string; tr: string }> = {
+  sell: { fa: "فروش", en: "Sale", de: "Verkauf", tr: "Sale" },
+  rent: { fa: "اجاره", en: "Rent", de: "Miete", tr: "Rent" },
+  short_term_rent: { fa: "اجاره روزانه", en: "Short-term rental", de: "Kurzzeitvermietung", tr: "Short-term rental" },
 };
 
 // `de` filled in: the render site read `(st as any).de || st.en`, so a German
@@ -3085,34 +3085,34 @@ function ProjectsPanel({ isFa, lang, t, contacts, isRealEstate }: { isFa: boolea
 }
 
 const PROPERTY_LISTING_TYPE_LABEL: Record<string, Record<Lang, string>> = {
-  buy: { fa: "خرید", en: "Buy", de: "Kauf" },
-  sell: { fa: "فروش", en: "Sell", de: "Verkauf" },
-  rent: { fa: "اجاره", en: "Rent", de: "Miete" },
-  short_term_rent: { fa: "اجاره روزانه", en: "Short-term rental", de: "Kurzzeitmiete" },
+  buy: { fa: "خرید", en: "Buy", de: "Kauf", tr: "Buy" },
+  sell: { fa: "فروش", en: "Sell", de: "Verkauf", tr: "Sell" },
+  rent: { fa: "اجاره", en: "Rent", de: "Miete", tr: "Rent" },
+  short_term_rent: { fa: "اجاره روزانه", en: "Short-term rental", de: "Kurzzeitmiete", tr: "Short-term rental" },
 };
 const PROPERTY_TYPE_LABEL: Record<string, Record<Lang, string>> = {
-  apartment: { fa: "آپارتمان", en: "Apartment", de: "Wohnung" },
-  villa: { fa: "ویلا", en: "Villa", de: "Villa" },
-  land: { fa: "زمین", en: "Land", de: "Grundstück" },
-  commercial: { fa: "تجاری", en: "Commercial", de: "Gewerbe" },
+  apartment: { fa: "آپارتمان", en: "Apartment", de: "Wohnung", tr: "Apartment" },
+  villa: { fa: "ویلا", en: "Villa", de: "Villa", tr: "Villa" },
+  land: { fa: "زمین", en: "Land", de: "Grundstück", tr: "Land" },
+  commercial: { fa: "تجاری", en: "Commercial", de: "Gewerbe", tr: "Commercial" },
 };
 const PROPERTY_STATUS_LABEL: Record<string, Record<Lang, string>> = {
-  available: { fa: "موجود", en: "Available", de: "Verfügbar" },
-  pending: { fa: "در حال معامله", en: "Pending", de: "Ausstehend" },
-  sold: { fa: "فروخته‌شده", en: "Sold", de: "Verkauft" },
-  rented: { fa: "اجاره‌داده‌شده", en: "Rented", de: "Vermietet" },
+  available: { fa: "موجود", en: "Available", de: "Verfügbar", tr: "Available" },
+  pending: { fa: "در حال معامله", en: "Pending", de: "Ausstehend", tr: "Pending" },
+  sold: { fa: "فروخته‌شده", en: "Sold", de: "Verkauft", tr: "Sold" },
+  rented: { fa: "اجاره‌داده‌شده", en: "Rented", de: "Vermietet", tr: "Rented" },
 };
 // IRT/IRR only make sense in Persian; USD/GBP/EUR are offered regardless of
 // UI language (an agency may list a property in whatever currency the
 // listing itself was priced in) — but the *default* choice when creating a
 // property follows the current UI language (fa->IRT, de->EUR, else USD).
 const CURRENCY_OPTIONS: { value: string; fa?: true; symbol: string; label: Record<Lang, string> }[] = [
-  { value: "IRT", fa: true, symbol: "تومان", label: { fa: "تومان (IRT)", en: "Toman (IRT)", de: "Toman (IRT)" } },
-  { value: "IRR", fa: true, symbol: "ریال", label: { fa: "ریال (IRR)", en: "Rial (IRR)", de: "Rial (IRR)" } },
-  { value: "USD", symbol: "$", label: { fa: "دلار (USD)", en: "US Dollar (USD)", de: "US-Dollar (USD)" } },
-  { value: "GBP", symbol: "£", label: { fa: "پوند (GBP)", en: "British Pound (GBP)", de: "Britisches Pfund (GBP)" } },
-  { value: "EUR", symbol: "€", label: { fa: "یورو (EUR)", en: "Euro (EUR)", de: "Euro (EUR)" } },
-  { value: "TRY", symbol: "₺", label: { fa: "لیر ترکیه (TRY)", en: "Turkish Lira (TRY)", de: "Türkische Lira (TRY)" } },
+  { value: "IRT", fa: true, symbol: "تومان", label: { fa: "تومان (IRT)", en: "Toman (IRT)", de: "Toman (IRT)", tr: "Toman (IRT)" } },
+  { value: "IRR", fa: true, symbol: "ریال", label: { fa: "ریال (IRR)", en: "Rial (IRR)", de: "Rial (IRR)", tr: "Rial (IRR)" } },
+  { value: "USD", symbol: "$", label: { fa: "دلار (USD)", en: "US Dollar (USD)", de: "US-Dollar (USD)", tr: "US Dollar (USD)" } },
+  { value: "GBP", symbol: "£", label: { fa: "پوند (GBP)", en: "British Pound (GBP)", de: "Britisches Pfund (GBP)", tr: "British Pound (GBP)" } },
+  { value: "EUR", symbol: "€", label: { fa: "یورو (EUR)", en: "Euro (EUR)", de: "Euro (EUR)", tr: "Euro (EUR)" } },
+  { value: "TRY", symbol: "₺", label: { fa: "لیر ترکیه (TRY)", en: "Turkish Lira (TRY)", de: "Türkische Lira (TRY)", tr: "Turkish Lira (TRY)" } },
 ];
 function defaultCurrencyForLang(lang: Lang): string {
   return lang === "fa" ? "IRT" : lang === "de" ? "EUR" : "USD";
@@ -3753,11 +3753,11 @@ function OccupancyCalendarModal({ lang, propertyId, contacts, onClose }: { lang:
 }
 
 const DOC_TYPE_LABEL: Record<string, Record<Lang, string>> = {
-  title_deed: { fa: "سند مالکیت", en: "Title deed", de: "Eigentumsurkunde" },
-  power_of_attorney: { fa: "وکالت‌نامه", en: "Power of attorney", de: "Vollmacht" },
-  floor_plan: { fa: "نقشه پلان", en: "Floor plan", de: "Grundriss" },
-  photo: { fa: "عکس", en: "Photo", de: "Foto" },
-  attachment: { fa: "سایر", en: "Other", de: "Sonstiges" },
+  title_deed: { fa: "سند مالکیت", en: "Title deed", de: "Eigentumsurkunde", tr: "Title deed" },
+  power_of_attorney: { fa: "وکالت‌نامه", en: "Power of attorney", de: "Vollmacht", tr: "Power of attorney" },
+  floor_plan: { fa: "نقشه پلان", en: "Floor plan", de: "Grundriss", tr: "Floor plan" },
+  photo: { fa: "عکس", en: "Photo", de: "Foto", tr: "Photo" },
+  attachment: { fa: "سایر", en: "Other", de: "Sonstiges", tr: "Other" },
 };
 
 /** Section 1, item 7 — Property document archive. Reuses the existing CrmDocument model/upload route (adds propertyId) — not a parallel table. Files are only ever fetched through /api/crm/documents/[id]/download, which mints a short-lived signed URL per authenticated request instead of exposing the long-lived link stored in the DB. */
@@ -4548,10 +4548,10 @@ function ViewingsPanel({ lang, contacts, teamMembers, viewingCoordinatorEnabled 
   }
 
   const STATUS_LABEL: Record<string, Record<Lang, string>> = {
-    scheduled: { fa: "برنامه‌ریزی‌شده", en: "Scheduled", de: "Geplant" },
-    completed: { fa: "انجام‌شده", en: "Completed", de: "Abgeschlossen" },
-    cancelled: { fa: "لغوشده", en: "Cancelled", de: "Storniert" },
-    no_show: { fa: "عدم حضور", en: "No-show", de: "Nicht erschienen" },
+    scheduled: { fa: "برنامه‌ریزی‌شده", en: "Scheduled", de: "Geplant", tr: "Scheduled" },
+    completed: { fa: "انجام‌شده", en: "Completed", de: "Abgeschlossen", tr: "Completed" },
+    cancelled: { fa: "لغوشده", en: "Cancelled", de: "Storniert", tr: "Cancelled" },
+    no_show: { fa: "عدم حضور", en: "No-show", de: "Nicht erschienen", tr: "No-show" },
   };
 
   if (loading) return <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />;

@@ -5,8 +5,8 @@ import { prisma } from "@/lib/db/prisma";
 import { routedStreamChat } from "@/lib/ai/router";
 import { getServerLang } from "@/lib/i18n/server";
 
-type Lang = "fa" | "en" | "de";
-function promptLang(l: "fa" | "en" | "de"): Lang {
+type Lang = "fa" | "en" | "de" | "tr";
+function promptLang(l: "fa" | "en" | "de" | "tr"): Lang {
   return l;
 }
 
@@ -30,6 +30,17 @@ const AGENT_PERSONAS: Record<Lang, Record<string, string>> = {
     legal: "شما مشاور حقوقی هستید — متخصص ریسک با تمرکز بر انطباق، قراردادها و مسائل قانونی.",
   },
   en: {
+    ceo: "You are the CEO — a visionary leader focused on overall strategy, company mission, and long-term growth.",
+    marketing: "You are the Marketing Director — a growth specialist focused on branding, customer acquisition, campaigns, and market positioning.",
+    finance: "You are the CFO — a numbers specialist focused on ROI, budgeting, cash flow, and financial risk.",
+    seo: "You are the SEO Specialist — a digital expert focused on search engine rankings, organic traffic, and content strategy.",
+    sales: "You are the Sales Director — a revenue specialist focused on the sales pipeline, closing deals, and customer relationships.",
+    product: "You are the Product Manager — a user-focused specialist covering the product roadmap, features, and user experience.",
+    legal: "You are Legal Counsel — a risk specialist focused on compliance, contracts, and legal matters.",
+  },
+  // No Turkish personas translated yet -- same English text as a working
+  // fallback (see tri.ts's doc comment for the rollout strategy).
+  tr: {
     ceo: "You are the CEO — a visionary leader focused on overall strategy, company mission, and long-term growth.",
     marketing: "You are the Marketing Director — a growth specialist focused on branding, customer acquisition, campaigns, and market positioning.",
     finance: "You are the CFO — a numbers specialist focused on ROI, budgeting, cash flow, and financial risk.",

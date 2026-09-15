@@ -2,14 +2,15 @@ import { cookies } from "next/headers";
 import en from "./en";
 import fa from "./fa";
 import de from "./de";
+import tr from "./tr";
 import { prisma } from "@/lib/db/prisma";
 
-export type Lang = "fa" | "en" | "de";
+export type Lang = "fa" | "en" | "de" | "tr";
 
-const TRANSLATIONS: Record<Lang, typeof en> = { en, fa, de: de as typeof en };
+const TRANSLATIONS: Record<Lang, typeof en> = { en, fa, de: de as typeof en, tr };
 
 function isLang(v: string | undefined): v is Lang {
-  return v === "en" || v === "fa" || v === "de";
+  return v === "en" || v === "fa" || v === "de" || v === "tr";
 }
 
 export async function getServerLang(): Promise<Lang> {

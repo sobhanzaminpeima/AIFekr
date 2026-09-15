@@ -243,7 +243,9 @@ export default async function HomePage() {
 
   const lang = await getServerLang();
   const fxRates = await getFxRates();
-  const s = STR[lang];
+  // No Turkish landing copy yet -- falls back to English (see tri.ts's
+  // rollout-strategy comment).
+  const s = STR[lang === "tr" ? "en" : lang];
   const dir = lang === "fa" ? "rtl" : "ltr";
 
   let packs: { id: string; slug: string; name: string; nameEn: string | null; emoji: string; tagline: string; taglineEn: string | null; agents: string; tier: string; price: number; color: string; gradientFrom: string; gradientTo: string }[] = [];

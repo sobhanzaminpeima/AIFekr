@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 import { useTranslation } from "@/lib/i18n";
 
 type Stage = "idea" | "financial" | "proposal" | "implementation";
-type Lang = "fa" | "en" | "de";
+type Lang = "fa" | "en" | "de" | "tr";
 
 function t(lang: Lang, fa: string, en: string, de: string): string {
   if (lang === "fa") return fa;
@@ -127,10 +127,12 @@ const IMPL_FIELDS = {
 };
 
 function getFieldsForStage(stage: Stage, lang: Lang) {
-  if (stage === "idea") return IDEA_FIELDS[lang];
-  if (stage === "financial") return FINANCIAL_FIELDS[lang];
-  if (stage === "proposal") return PROPOSAL_FIELDS[lang];
-  return IMPL_FIELDS[lang];
+  // No Turkish field sets yet -- falls back to English.
+  const l = lang === "tr" ? "en" : lang;
+  if (stage === "idea") return IDEA_FIELDS[l];
+  if (stage === "financial") return FINANCIAL_FIELDS[l];
+  if (stage === "proposal") return PROPOSAL_FIELDS[l];
+  return IMPL_FIELDS[l];
 }
 
 function getDataKey(stage: Stage): "ideaData" | "financialData" | "proposalData" | "implementationData" {

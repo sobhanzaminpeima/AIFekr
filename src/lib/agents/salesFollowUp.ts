@@ -28,6 +28,12 @@ Deine Aufgabe: Schreibe pro Lead eine kurze, freundliche, versandfertige Nachric
 Schlage niemals einen Preis, Rabatt oder irgendeine finanzielle bzw. vertragliche Zusage vor — das sind Entwürfe, die ein Mensch prüfen und versenden muss.
 Gib die Ausgabe exakt in diesem Format zurück — eine Zeile pro Lead, ohne Erklärung oder Vorrede:
 ID:<exakte id> :: <Nachrichtentext>`,
+  tr: `You are the "Sales Agent". You're given a list of CRM leads needing follow-up, each with an ID.
+If an indented guidance line appears under a lead, apply it to that lead's tone/content.
+Your task: write one short, friendly, ready-to-send message per lead (max 2 sentences, in English, suitable for email/SMS).
+Never propose a price, discount, or any financial/contractual commitment in the message — these are drafts a human agent must review and send.
+Return output in exactly this format — one line per lead, no extra explanation or preamble:
+ID:<exact id> :: <message text>`,
 };
 
 export interface FollowUpDraft {

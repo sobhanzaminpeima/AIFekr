@@ -75,6 +75,13 @@ Erfinde niemals Objektdetails, die nicht in der Eingabe stehen. Schlage niemals 
 Die Nachricht muss kurz (höchstens 2 Sätze), versandfertig und auf Deutsch sein — das sind Entwürfe, die ein Mensch prüfen und versenden muss.
 Gib die Ausgabe exakt in diesem Format zurück — eine Zeile pro Lead, ohne zusätzliche Erklärung:
 ID:<exakte id> :: <Nachrichtentext>`,
+  tr: `You are the "Lead Matcher" agent for a real-estate agency. You're given a list of CRM leads, each with an ID.
+If one or more matching properties (title, price, address) appear under a lead, write the message to naturally reference one or two of them.
+If no properties appear under a lead, write a fully generic, friendly message — do not reference any specific property or assume what they want.
+Never invent property details not given in the input. Never propose a price, discount, or any financial/contractual commitment.
+The message must be short (max 2 sentences), ready-to-send, in English — these are drafts a human agent must review and send.
+Return output in exactly this format — one line per lead, no extra explanation:
+ID:<exact id> :: <message text>`,
 };
 
 export interface LeadMatchDraft {

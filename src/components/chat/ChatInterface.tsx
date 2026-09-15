@@ -127,19 +127,19 @@ const MEDIA_TABS: { id: MediaType; icon: typeof ImageIcon; fa: string; en: strin
 
 const RATIOS = ["1:1", "16:9", "9:16", "4:3"];
 const RATIO_LABEL: Record<string, Record<Lang, string>> = {
-  "1:1":  { fa: "مربع",   en: "Square",    de: "Quadrat" },
-  "16:9": { fa: "افقی",   en: "Landscape", de: "Querformat" },
-  "9:16": { fa: "عمودی",  en: "Portrait",  de: "Hochformat" },
-  "4:3":  { fa: "کلاسیک", en: "Classic",   de: "Klassisch" },
+  "1:1":  { fa: "مربع", en: "Square", de: "Quadrat", tr: "Square" },
+  "16:9": { fa: "افقی", en: "Landscape", de: "Querformat", tr: "Landscape" },
+  "9:16": { fa: "عمودی", en: "Portrait", de: "Hochformat", tr: "Portrait" },
+  "4:3":  { fa: "کلاسیک", en: "Classic", de: "Klassisch", tr: "Classic" },
 };
 const IMAGE_STYLES = ["realistic", "anime", "painting", "minimal", "fantasy", "3d"];
 const IMAGE_STYLE_LABEL: Record<string, Record<Lang, string>> = {
-  realistic: { fa: "واقعی", en: "Realistic", de: "Realistisch" },
-  anime: { fa: "انیمه", en: "Anime", de: "Anime" },
-  painting: { fa: "نقاشی", en: "Painting", de: "Gemälde" },
-  minimal: { fa: "مینیمال", en: "Minimal", de: "Minimalistisch" },
-  fantasy: { fa: "فانتزی", en: "Fantasy", de: "Fantasy" },
-  "3d": { fa: "سه‌بعدی", en: "3D", de: "3D" },
+  realistic: { fa: "واقعی", en: "Realistic", de: "Realistisch", tr: "Realistic" },
+  anime: { fa: "انیمه", en: "Anime", de: "Anime", tr: "Anime" },
+  painting: { fa: "نقاشی", en: "Painting", de: "Gemälde", tr: "Painting" },
+  minimal: { fa: "مینیمال", en: "Minimal", de: "Minimalistisch", tr: "Minimal" },
+  fantasy: { fa: "فانتزی", en: "Fantasy", de: "Fantasy", tr: "Fantasy" },
+  "3d": { fa: "سه‌بعدی", en: "3D", de: "3D", tr: "3D" },
 };
 
 const VIDEO_RATIOS = ["16:9", "9:16", "1:1"];

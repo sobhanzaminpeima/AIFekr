@@ -4,19 +4,24 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Globe } from "lucide-react";
 
-type Lang = "fa" | "en" | "de";
+type Lang = "fa" | "en" | "de" | "tr";
 
+// Turkish listed here so it's actually choosable -- most of the app still
+// falls back to English text for untranslated strings while that rollout is
+// in progress (see tri.ts's doc comment), but the picker itself, and every
+// screen already translated, work today.
 const OPTIONS: { lang: Lang; flag: string; label: string }[] = [
   { lang: "fa", flag: "🇮🇷", label: "فارسی" },
   { lang: "en", flag: "🇬🇧", label: "English" },
   { lang: "de", flag: "🇩🇪", label: "Deutsch" },
+  { lang: "tr", flag: "🇹🇷", label: "Türkçe" },
 ];
-const FLAG: Record<Lang, string> = { fa: "🇮🇷", en: "🇬🇧", de: "🇩🇪" };
+const FLAG: Record<Lang, string> = { fa: "🇮🇷", en: "🇬🇧", de: "🇩🇪", tr: "🇹🇷" };
 
 function getLang(): Lang {
   if (typeof window === "undefined") return "fa";
   const v = localStorage.getItem("lang");
-  return v === "en" || v === "fa" || v === "de" ? v : "fa";
+  return v === "en" || v === "fa" || v === "de" || v === "tr" ? v : "fa";
 }
 
 function applyLang(lang: Lang) {
@@ -24,6 +29,16 @@ function applyLang(lang: Lang) {
   document.cookie = `lang=${lang}; path=/; max-age=31536000`;
   document.documentElement.lang = lang;
   document.documentElement.dir = lang === "fa" ? "rtl" : "ltr";
+  // Best-effort, fire-and-forget: persists the choice so it survives to the
+  // NEXT login (a different device/browser, or this one with cookies
+  // cleared) instead of silently reverting -- logged-out visitors have no
+  // account to save it to, which is fine, the cookie still covers them.
+  fetch("/api/user/profile", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ language: lang }),
+  }).catch(() => {});
   window.location.reload();
 }
 

@@ -46,6 +46,14 @@ Strikte Regeln:
 - Übernimm die Währung exakt so, wie sie in der Eingabe steht; rechne niemals um.
 - Gib die Ausgabe exakt in diesem JSON-Format zurück, ohne zusätzliche Erklärung und ohne Markdown:
 {"priceRangeLow": Zahl, "priceRangeHigh": Zahl, "reasoning": "vollständige Begründung auf Deutsch", "dataLimitation": "Hinweis auf Datenlage (falls dünn) oder leerer String"}`,
+  tr: `You are the "Pricing Advisor" for a real-estate agency. You advise on pricing using ONLY this agency's own internal CRM data (no live or external market feed exists).
+Strict rules:
+- Never claim access to live or external market data — use only comparable properties already in this system.
+- If there are few comparables (fewer than 3), explicitly state that limitation in the response.
+- This is a suggestion only, never a final decision — make that clear in the response.
+- Always explain the reasoning behind the suggested price range, never just a number.
+- Return output in exactly this JSON format, no extra explanation or markdown:
+{"priceRangeLow": number, "priceRangeHigh": number, "reasoning": "full reasoning in English", "dataLimitation": "limitation note (if data was thin) or empty string"}`,
 };
 
 export interface PricingAdvice {

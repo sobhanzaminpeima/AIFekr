@@ -82,20 +82,20 @@ export function convert(amount: number, from: string, to: string, snap: FxSnapsh
  * reader — Persian digits only for an Iranian currency read in Persian, the
  * same rule the rest of the platform uses.
  */
-export function formatReportAmount(amount: number, currency: string, lang: "fa" | "en" | "de"): string {
+export function formatReportAmount(amount: number, currency: string, lang: "fa" | "en" | "de" | "tr"): string {
   const iranian = currency === "IRT" || currency === "IRR";
   const locale = iranian && lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US";
   const word = CURRENCY_WORD[currency]?.[lang] ?? currency;
   return `${Math.round(amount).toLocaleString(locale)} ${word}`;
 }
 
-const CURRENCY_WORD: Record<string, Record<"fa" | "en" | "de", string>> = {
-  IRT: { fa: "تومان", en: "Toman", de: "Toman" },
-  IRR: { fa: "ریال", en: "Rial", de: "Rial" },
-  USD: { fa: "دلار", en: "USD", de: "USD" },
-  EUR: { fa: "یورو", en: "EUR", de: "EUR" },
-  GBP: { fa: "پوند", en: "GBP", de: "GBP" },
-  TRY: { fa: "لیر", en: "TRY", de: "TRY" },
+const CURRENCY_WORD: Record<string, Record<"fa" | "en" | "de" | "tr", string>> = {
+  IRT: { fa: "تومان", en: "Toman", de: "Toman", tr: "Toman" },
+  IRR: { fa: "ریال", en: "Rial", de: "Rial", tr: "Rial" },
+  USD: { fa: "دلار", en: "USD", de: "USD", tr: "USD" },
+  EUR: { fa: "یورو", en: "EUR", de: "EUR", tr: "EUR" },
+  GBP: { fa: "پوند", en: "GBP", de: "GBP", tr: "GBP" },
+  TRY: { fa: "لیر", en: "TRY", de: "TRY", tr: "TRY" },
 };
 
 /**
@@ -108,7 +108,7 @@ export function rateDisclosure(
   to: string,
   rate: number,
   snap: FxSnapshot,
-  lang: "fa" | "en" | "de",
+  lang: "fa" | "en" | "de" | "tr",
 ): string {
   const date = snap.asOf.toISOString().slice(0, 10);
   const r = rate.toLocaleString(lang === "de" ? "de-DE" : "en-US", { maximumFractionDigits: 6 });
@@ -122,7 +122,7 @@ export function rateDisclosure(
 }
 
 /** Shown instead of converted figures when no rate could be established. */
-export function conversionUnavailable(lang: "fa" | "en" | "de"): string {
+export function conversionUnavailable(lang: "fa" | "en" | "de" | "tr"): string {
   if (lang === "fa") return "نرخ ارز در دسترس نبود، بنابراین مبالغ تبدیل نشده‌اند و به ارز اصلی نمایش داده می‌شوند.";
   if (lang === "de") return "Es war kein Wechselkurs verfügbar; die Beträge wurden daher nicht umgerechnet und erscheinen in der Ursprungswährung.";
   return "No exchange rate was available, so amounts have not been converted and appear in their original currency.";

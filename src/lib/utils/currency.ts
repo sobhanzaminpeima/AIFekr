@@ -50,7 +50,7 @@ export async function getFxRates(): Promise<FxRates> {
 }
 
 /** Synchronous formatter for callers that already have rates (e.g. client components that fetched /api/fx-rate once). */
-export function formatPackPriceSync(usd: number, lang: "fa" | "en" | "de", rates: FxRates): string {
+export function formatPackPriceSync(usd: number, lang: "fa" | "en" | "de" | "tr", rates: FxRates): string {
   if (lang === "fa") {
     // Rial = Toman * 10 (Iran's official currency unit; Toman is the everyday
     // colloquial unit). Rounded to the nearest 10,000 Rial for a clean number.
@@ -65,7 +65,7 @@ export function formatPackPriceSync(usd: number, lang: "fa" | "en" | "de", rates
 }
 
 /** Async formatter for server components — fetches (cached) live rates internally. */
-export async function formatPackPrice(usd: number, lang: "fa" | "en" | "de"): Promise<string> {
+export async function formatPackPrice(usd: number, lang: "fa" | "en" | "de" | "tr"): Promise<string> {
   const rates = await getFxRates();
   return formatPackPriceSync(usd, lang, rates);
 }

@@ -13,7 +13,7 @@ interface Pack {
 const container: Variants = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
 const item: Variants = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.21, 0.47, 0.32, 0.98] } } };
 
-export default function PackGrid({ packs, agentsLabel, viewPack, lang = "en", fxRates }: { packs: Pack[]; agentsLabel: string; viewPack: string; lang?: "fa" | "en" | "de"; fxRates: FxRates }) {
+export default function PackGrid({ packs, agentsLabel, viewPack, lang = "en", fxRates }: { packs: Pack[]; agentsLabel: string; viewPack: string; lang?: "fa" | "en" | "de" | "tr"; fxRates: FxRates }) {
   const reduce = useReducedMotion();
 
   return (

@@ -6,6 +6,13 @@ import { Sparkles, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { useTranslation } from "@/lib/i18n";
+import { COUNTRIES, dialCodeFor } from "@/lib/constants/countries";
+
+const LANG_OPTIONS: { code: "fa" | "en" | "de" | "tr"; label: string }[] = [
+  { code: "fa", label: "فارسی" },
+  { code: "en", label: "English" },
+  { code: "de", label: "Deutsch" },
+];
 
 function RegisterForm() {
   const router = useRouter();
@@ -16,7 +23,8 @@ function RegisterForm() {
   const refCode = params.get("ref") || "";
   const planCode = params.get("plan") || "";
 
-  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", confirmPassword: "" });
+  const [form, setForm] = useState({ firstName: "", lastName: "", country: "IR", email: "", phone: "", password: "", confirmPassword: "" });
+  const [registerLang, setRegisterLang] = useState<"fa" | "en" | "de" | "tr">(lang);
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [packName, setPackName] = useState("");
@@ -32,23 +40,38 @@ function RegisterForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name.trim()) return toast.error(t.auth.register.errName);
+    if (!form.firstName.trim()) return toast.error(t.auth.register.errName);
     if (!form.email && !form.phone) return toast.error(t.auth.register.errEmailOrPhone);
     if (form.email && !form.password) return toast.error(t.auth.register.errPasswordRequired);
     if (form.password && form.password !== form.confirmPassword) return toast.error(t.auth.register.errPasswordMismatch);
     if (form.password && form.password.length < 6) return toast.error(t.auth.register.errPasswordShort);
     if (!agreed) return toast.error(t.auth.register.errMustAgree);
 
+    // Iran's phone stays exactly as typed (existing convention everywhere
+    // else in the app); other countries get their dial code composed in,
+    // since this is the first place those numbers get any prefix at all.
+    const composedPhone = form.phone && form.country !== "IR" && dialCodeFor(form.country)
+      ? `${dialCodeFor(form.country)}${form.phone.replace(/^0+/, "")}`
+      : form.phone;
+
     setLoading(true);
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: form.name, email: form.email || undefined, phone: form.phone || undefined, password: form.password || undefined, industryPackSlug: packSlug || undefined, ref: refCode || undefined }),
+        body: JSON.stringify({
+          firstName: form.firstName, lastName: form.lastName || undefined, country: form.country || undefined,
+          language: registerLang,
+          email: form.email || undefined, phone: composedPhone || undefined, password: form.password || undefined,
+          industryPackSlug: packSlug || undefined, ref: refCode || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       toast.success(t.auth.register.success);
+      // The just-chosen language cookie only takes effect on the NEXT
+      // navigation's server render -- a client-side route push would still
+      // render the old language for a flash. A full reload picks it up cleanly.
       window.location.href = planCode ? `/plans?plan=${planCode}&autobuy=1` : "/chat";
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t.auth.register.errGeneric);
@@ -81,11 +104,48 @@ function RegisterForm() {
 
         <div className="glass rounded-2xl p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.firstNameLabel}</label>
+                <input type="text" value={form.firstName} onChange={e => setForm({ ...form, firstName: e.target.value })}
+                  placeholder={t.auth.register.firstNamePlaceholder} className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                  style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} required />
+              </div>
+              <div>
+                <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.lastNameLabel}</label>
+                <input type="text" value={form.lastName} onChange={e => setForm({ ...form, lastName: e.target.value })}
+                  placeholder={t.auth.register.lastNamePlaceholder} className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                  style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
+            </div>
             <div>
-              <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.nameLabel}</label>
-              <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-                placeholder={t.auth.register.namePlaceholder} className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} required />
+              <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.countryLabel}</label>
+              <select value={form.country} onChange={e => setForm({ ...form, country: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                <option value="">{t.auth.register.countryPlaceholder}</option>
+                {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c[lang] ?? c.en}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.languageLabel}</label>
+              <div className="grid grid-cols-3 gap-2">
+                {LANG_OPTIONS.map((l) => (
+                  <button
+                    key={l.code}
+                    type="button"
+                    onClick={() => setRegisterLang(l.code)}
+                    className="py-2.5 rounded-xl text-sm font-medium transition-all"
+                    style={{
+                      background: registerLang === l.code ? "var(--primary)" : "var(--surface-2)",
+                      color: registerLang === l.code ? "white" : "var(--text-secondary)",
+                      border: `1px solid ${registerLang === l.code ? "var(--primary)" : "var(--border)"}`,
+                    }}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
             </div>
             <div>
               <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.emailLabel}</label>
@@ -95,9 +155,20 @@ function RegisterForm() {
             </div>
             <div>
               <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.phoneLabel}</label>
-              <input type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })}
-                placeholder="09123456789" dir="ltr" className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <div className="flex gap-2" dir="ltr">
+                {/* Iran keeps its existing plain "09..." convention unchanged
+                    (every phone-based flow already assumes that exact format) --
+                    the dial-code prefix is only shown for other countries,
+                    which previously had no phone-format handling at all. */}
+                {form.country !== "IR" && dialCodeFor(form.country) && (
+                  <span className="flex items-center px-3 rounded-xl text-sm flex-shrink-0" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                    {dialCodeFor(form.country)}
+                  </span>
+                )}
+                <input type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })}
+                  placeholder={form.country === "IR" ? "09123456789" : "123456789"} dir="ltr" className="flex-1 min-w-0 px-4 py-3 rounded-xl text-sm outline-none"
+                  style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
             </div>
             <div>
               <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.passwordLabel}</label>

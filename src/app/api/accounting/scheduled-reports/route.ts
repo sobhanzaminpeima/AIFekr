@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   if (ws.isAgentRestricted) return NextResponse.json({ error: tri(lang, "دسترسی ندارید", "Not authorized", "Nicht autorisiert") }, { status: 403 });
 
   const { reportType, frequency, recipientEmail, lang: reportLang, currency } = (await req.json()) as {
-    reportType?: string; frequency?: string; recipientEmail?: string; lang?: "fa" | "en" | "de"; currency?: string;
+    reportType?: string; frequency?: string; recipientEmail?: string; lang?: "fa" | "en" | "de" | "tr"; currency?: string;
   };
   if (!reportType || !VALID_TYPES.includes(reportType as ReportType)) return NextResponse.json({ error: tri(lang, "نوع گزارش نامعتبر است", "Invalid report type", "Ungültiger Berichtstyp") }, { status: 400 });
   if (!frequency || !VALID_FREQUENCIES.includes(frequency as Frequency)) return NextResponse.json({ error: tri(lang, "دوره تناوب نامعتبر است", "Invalid frequency", "Ungültige Häufigkeit") }, { status: 400 });

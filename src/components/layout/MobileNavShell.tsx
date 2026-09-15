@@ -1,31 +1,50 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, MessageSquare, Sparkles, Image as ImageIcon, User } from "lucide-react";
+import { Menu, X, MessageSquare, Sparkles, GalleryHorizontal, User } from "lucide-react";
 import CommandPalette from "@/components/ui/CommandPalette";
 import NotificationBell from "@/components/layout/NotificationBell";
 
+/**
+ * Fired whenever the mobile drawer opens or closes, so sibling `fixed`
+ * elements outside this component's own subtree -- currently just
+ * FloatingSupportWidget, mounted alongside <MobileNavShell> in the dashboard
+ * layout -- can hide themselves while the drawer covers the screen. A plain
+ * window event rather than React context because the dashboard layout that
+ * parents both is a server component: there's no client tree above them to
+ * hold shared state in, and this is one boolean, not worth restructuring the
+ * layout into a client wrapper for.
+ */
+export const MOBILE_DRAWER_EVENT = "aifekr:mobile-drawer";
+
 export default function MobileNavShell({
   sidebar, children, lang,
-}: { sidebar: React.ReactNode; children: React.ReactNode; lang: "fa" | "en" | "de" }) {
+}: { sidebar: React.ReactNode; children: React.ReactNode; lang: "fa" | "en" | "de" | "tr" }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent(MOBILE_DRAWER_EVENT, { detail: { open } }));
+  }, [open]);
   const isChatPage = pathname === "/chat" || pathname?.startsWith("/chat/");
   // Persian is the only RTL language here — anything else reads left-to-right.
   const dir = lang === "fa" ? "rtl" : "ltr";
 
+  // No Turkish nav labels yet -- falls back to English, same as elsewhere.
   const LABELS = {
-    fa: { chat: "چت", agents: "ایجنت‌ها", create: "ساخت", settings: "تنظیمات" },
-    en: { chat: "Chat", agents: "Agents", create: "Create", settings: "Settings" },
-    de: { chat: "Chat", agents: "Agenten", create: "Erstellen", settings: "Einstellungen" },
-  }[lang];
+    fa: { chat: "چت", agents: "ایجنت‌ها", gallery: "ساخته‌های من", settings: "تنظیمات" },
+    en: { chat: "Chat", agents: "Agents", gallery: "My creations", settings: "Settings" },
+    de: { chat: "Chat", agents: "Agenten", gallery: "Meine Werke", settings: "Einstellungen" },
+  }[lang === "tr" ? "en" : lang];
 
   const bottomItems = [
     { icon: MessageSquare, label: LABELS.chat, href: "/chat" },
     { icon: Sparkles, label: LABELS.agents, href: "/industry" },
-    { icon: ImageIcon, label: LABELS.create, href: "/image/generate" },
+    // Image/video/music generation is a tab on the chat composer now, so
+    // this slot points at the results instead of a second composer.
+    { icon: GalleryHorizontal, label: LABELS.gallery, href: "/image/gallery" },
     { icon: User, label: LABELS.settings, href: "/settings" },
   ];
 
@@ -52,7 +71,7 @@ export default function MobileNavShell({
           <Menu className="w-5 h-5" />
         </button>
         <span className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>AiFekr</span>
-        <NotificationBell iconOnly />
+        <NotificationBell iconOnly dropUp={false} />
       </header>
 
       {/* Drawer backdrop */}
@@ -67,7 +86,7 @@ export default function MobileNavShell({
       {/* Drawer (mobile sidebar) */}
       <div
         dir={dir}
-        className="md:hidden fixed top-0 bottom-0 z-50 w-[220px] transition-transform duration-300"
+        className="md:hidden fixed top-0 bottom-0 z-50 w-[260px] transition-transform duration-300"
         style={{
           [dir === "rtl" ? "right" : "left"]: 0,
           transform: open ? "translateX(0)" : dir === "rtl" ? "translateX(100%)" : "translateX(-100%)",

@@ -36,6 +36,15 @@ const SECTION_HEADERS: Record<Lang, Record<"forecast"|"atRisk"|"objections"|"bat
     coaching: "5. Vertriebs-Coaching",
     actions: "6. Action Items",
   },
+  // No Turkish translation yet -- English fallback.
+  tr: {
+    forecast: "1. Sales Forecast",
+    atRisk: "2. At-Risk Deals",
+    objections: "3. Objection-Handling Guide",
+    battlecard: "4. Competitive Battlecard",
+    coaching: "5. Sales Coaching",
+    actions: "6. Action Items",
+  },
 };
 
 function buildSystem(lang: Lang, industry: string | null) {

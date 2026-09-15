@@ -3,34 +3,33 @@ import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import { cookies } from "next/headers";
 import { LangProvider } from "@/lib/i18n/LangProvider";
+import { getServerLang, type Lang } from "@/lib/i18n/server";
 
-type Lang = "fa" | "en" | "de";
-
-/**
- * Both this file's readers used to be written as `value === "en" ? "en" : "fa"`,
- * from back when the platform had two languages. German fell into the "fa"
- * branch, so every German visitor got `<html lang="fa" dir="rtl">` — a
- * right-to-left document with left-to-right text, plus a Persian <title>.
- */
-function readLang(value: string | undefined): Lang {
-  return value === "en" || value === "de" ? value : "fa";
-}
+// This file used to resolve its own `lang` from a local `readLang(cookie)`
+// helper that unconditionally fell back to "fa" -- it never consulted the
+// admin's "default_language" SiteSetting at all (that fallback only lived in
+// getServerLang(), which this file wasn't calling), so an admin picking
+// English/German as the site default had literally no effect on a first-time
+// visitor with no `lang` cookie yet. getServerLang() is the one place that
+// already implements cookie -> DB setting -> "fa" correctly; this file now
+// shares it instead of re-deriving (and silently regressing) the same fallback.
 
 const TITLE: Record<Lang, string> = {
   fa: "هوشمند AI — پلتفرم هوش مصنوعی",
   en: "AiFekr — AI Platform",
   de: "AiFekr — KI-Plattform",
+  tr: "AiFekr — AI Platform",
 };
 
 const DESCRIPTION: Record<Lang, string> = {
   fa: "پلتفرم هوش مصنوعی — چت، تصویر، ویدیو، موسیقی و ابزارهای هوشمند کسب‌وکار",
   en: "AI Platform — Chat, Image, Video, Music & Smart Business Tools",
   de: "KI-Plattform — Chat, Bild, Video, Musik und intelligente Business-Tools",
+  tr: "AI Platform — Chat, Image, Video, Music & Smart Business Tools",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
-  const cookieStore = await cookies();
-  const lang = readLang(cookieStore.get("lang")?.value);
+  const lang = await getServerLang();
   return {
     title: TITLE[lang],
     description: DESCRIPTION[lang],
@@ -60,7 +59,7 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
-  const lang = readLang(cookieStore.get("lang")?.value);
+  const lang = await getServerLang();
   const dir = lang === "fa" ? "rtl" : "ltr";
   const theme = (cookieStore.get("theme")?.value === "light") ? "light" : "dark";
 

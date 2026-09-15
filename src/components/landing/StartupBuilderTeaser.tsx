@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Rocket, Lightbulb, DollarSign, FileText, Code2, ArrowRight, Sparkles } from "lucide-react";
 
 interface Props {
-  lang: "fa" | "en" | "de";
+  lang: "fa" | "en" | "de" | "tr";
 }
 
 const STEPS = {
@@ -53,8 +53,9 @@ const STR = {
 };
 
 export default function StartupBuilderTeaser({ lang }: Props) {
-  const s = STR[lang];
-  const steps = STEPS[lang];
+  const l = lang === "tr" ? "en" : lang;
+  const s = STR[l];
+  const steps = STEPS[l];
   const dir = lang === "fa" ? "rtl" : "ltr";
 
   return (

@@ -125,7 +125,7 @@ export default function OwnerStatementsPage() {
   // language -- an admin working in Persian had no way to send an English
   // copy to a non-Iranian owner. Defaults to the admin's language, but is
   // independently choosable per send.
-  const [sendLang, setSendLang] = useState<"fa" | "en" | "de">(lang);
+  const [sendLang, setSendLang] = useState<"fa" | "en" | "de" | "tr">(lang);
 
   const selectedProperty = properties.find((p) => p.id === propertyId);
 
@@ -586,7 +586,7 @@ export default function OwnerStatementsPage() {
                           <>
                             <select
                               value={sendLang}
-                              onChange={(e) => setSendLang(e.target.value as "fa" | "en" | "de")}
+                              onChange={(e) => setSendLang(e.target.value as "fa" | "en" | "de" | "tr")}
                               title={tri(lang, "زبان ایمیل و گزارش ارسالی", "Language of the sent email/statement", "Sprache der gesendeten E-Mail/Abrechnung")}
                               className="text-xs px-2 py-1.5 rounded-lg outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
                             >

@@ -5,7 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { routedStreamChat } from "@/lib/ai/router";
 
-function buildSystemPrompt(lang: "fa" | "en" | "de") {
+function buildSystemPrompt(lang: "fa" | "en" | "de" | "tr") {
   const headers = lang === "en"
     ? { summary: "Executive Summary", analysis: "Analysis", actions: "Recommended Actions", risks: "Key Risks", nextStep: "Next Step" }
     : lang === "de"
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const { question, category, conversationId, history = [], lang: rawLang } = await req.json();
-    const lang: "fa" | "en" | "de" = rawLang === "fa" ? "fa" : rawLang === "de" ? "de" : "en";
+    const lang: "fa" | "en" | "de" | "tr" = rawLang === "fa" ? "fa" : rawLang === "de" ? "de" : "en";
 
     if (!question?.trim()) {
       return NextResponse.json({ error: "Question is required" }, { status: 400 });
