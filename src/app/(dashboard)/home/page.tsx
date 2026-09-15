@@ -74,9 +74,9 @@ function severityStyle(s: AttentionItem["severity"]) {
 }
 
 function severityLabel(s: AttentionItem["severity"], lang: Lang) {
-  if (s === "critical") return tri(lang, "فوری", "Urgent", "Dringend");
-  if (s === "warning") return tri(lang, "نیاز به تأیید", "Needs approval", "Freigabe nötig");
-  return tri(lang, "برنامه‌ریزی‌شده", "Scheduled", "Geplant");
+  if (s === "critical") return tri(lang, "فوری", "Urgent", "Dringend", "Acil");
+  if (s === "warning") return tri(lang, "نیاز به تأیید", "Needs approval", "Freigabe nötig", "Onay gerekiyor");
+  return tri(lang, "برنامه‌ریزی‌شده", "Scheduled", "Geplant", "Zamanlandı");
 }
 
 export default function HomePage() {
@@ -117,29 +117,27 @@ export default function HomePage() {
     if (Math.abs(v) < 1_000_000) return formatNumber(v, lang);
     const billions = v / 1_000_000_000;
     if (Math.abs(billions) >= 1) {
-      return `${formatNumber(Math.round(billions * 10) / 10, lang)} ${tri(lang, "میلیارد", "B", "Mrd.")}`;
+      return `${formatNumber(Math.round(billions * 10) / 10, lang)} ${tri(lang, "میلیارد", "B", "Mrd.", "B")}`;
     }
-    return `${formatNumber(Math.round(v / 100_000) / 10, lang)} ${tri(lang, "میلیون", "M", "Mio.")}`;
+    return `${formatNumber(Math.round(v / 100_000) / 10, lang)} ${tri(lang, "میلیون", "M", "Mio.", "M")}`;
   };
   const statMeta: Record<StatKey, { icon: React.ElementType; label: string; value: string; exact?: string; href: string; alarm?: boolean }> = {
-    activeDeals: { icon: Briefcase, label: tri(lang, "معاملهٔ باز", "Open deals", "Offene Deals"), value: nf(data.stats.activeDeals), href: "/crm" },
-    pipelineValue: { icon: TrendingUp, label: tri(lang, "ارزش پایپلاین", "Pipeline value", "Pipeline-Wert"), value: compact(data.stats.pipelineValue), exact: nf(data.stats.pipelineValue), href: "/crm" },
-    newLeadsThisWeek: { icon: Users, label: tri(lang, "لید جدید این هفته", "New leads this week", "Neue Leads diese Woche"), value: nf(data.stats.newLeadsThisWeek), href: "/crm" },
-    overdueInvoiceCount: { icon: Receipt, label: tri(lang, "فاکتور معوق", "Overdue invoices", "Überfällige Rechnungen"), value: nf(data.stats.overdueInvoiceCount), href: "/crm?tab=invoices", alarm: true },
-    monthRevenue: { icon: Wallet, label: tri(lang, "درآمد این ماه", "Revenue this month", "Umsatz diesen Monat"), value: compact(data.stats.monthRevenue), exact: nf(data.stats.monthRevenue), href: "/accounting" },
-    upcomingViewings: { icon: CalendarDays, label: tri(lang, "بازدید پیش رو", "Upcoming viewings", "Anstehende Besichtigungen"), value: nf(data.stats.upcomingViewings), href: "/crm" },
+    activeDeals: { icon: Briefcase, label: tri(lang, "معاملهٔ باز", "Open deals", "Offene Deals", "Açık anlaşmalar"), value: nf(data.stats.activeDeals), href: "/crm" },
+    pipelineValue: { icon: TrendingUp, label: tri(lang, "ارزش پایپلاین", "Pipeline value", "Pipeline-Wert", "Satış hattı değeri"), value: compact(data.stats.pipelineValue), exact: nf(data.stats.pipelineValue), href: "/crm" },
+    newLeadsThisWeek: { icon: Users, label: tri(lang, "لید جدید این هفته", "New leads this week", "Neue Leads diese Woche", "Bu haftaki yeni potansiyel müşteriler"), value: nf(data.stats.newLeadsThisWeek), href: "/crm" },
+    overdueInvoiceCount: { icon: Receipt, label: tri(lang, "فاکتور معوق", "Overdue invoices", "Überfällige Rechnungen", "Vadesi geçmiş faturalar"), value: nf(data.stats.overdueInvoiceCount), href: "/crm?tab=invoices", alarm: true },
+    monthRevenue: { icon: Wallet, label: tri(lang, "درآمد این ماه", "Revenue this month", "Umsatz diesen Monat", "Bu ayki gelir"), value: compact(data.stats.monthRevenue), exact: nf(data.stats.monthRevenue), href: "/accounting" },
+    upcomingViewings: { icon: CalendarDays, label: tri(lang, "بازدید پیش رو", "Upcoming viewings", "Anstehende Besichtigungen", "Yaklaşan görüntülemeler"), value: nf(data.stats.upcomingViewings), href: "/crm" },
   };
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6" dir={dir}>
       <div>
         <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          {tri(lang, "اتاق فرمان", "Command centre", "Kommandozentrale")}
+          {tri(lang, "اتاق فرمان", "Command centre", "Kommandozentrale", "Komuta merkezi")}
         </h1>
         <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
-          {tri(lang, "وضعیت کسب‌وکار شما و کارهایی که امروز نیاز به توجه دارند",
-            "Where your business stands, and what needs you today",
-            "Wie Ihr Geschäft steht und was heute Ihre Aufmerksamkeit braucht")}
+          {tri(lang, "وضعیت کسب‌وکار شما و کارهایی که امروز نیاز به توجه دارند", "Where your business stands, and what needs you today", "Wie Ihr Geschäft steht und was heute Ihre Aufmerksamkeit braucht", "İşletmenizin durumu ve bugün sizi bekleyenler")}
         </p>
       </div>
 
@@ -151,10 +149,7 @@ export default function HomePage() {
         <div className="flex items-center gap-2.5 rounded-xl px-4 py-2.5" style={{ background: "rgba(234,88,12,0.1)", border: "1px solid rgba(234,88,12,0.25)" }}>
           <span className="text-lg flex-shrink-0" aria-hidden="true">{data.industryPack.emoji}</span>
           <p className="text-sm" style={{ color: "var(--text-primary)" }}>
-            {tri(lang,
-              `ماژول‌های ${data.industryPack.name} برای شما فعال است`,
-              `Your ${data.industryPack.nameEn || data.industryPack.name} modules are active`,
-              `Ihre ${data.industryPack.nameEn || data.industryPack.name}-Module sind aktiv`)}
+            {tri(lang, `ماژول‌های ${data.industryPack.name} برای شما فعال است`, `Your ${data.industryPack.nameEn || data.industryPack.name} modules are active`, `Ihre ${data.industryPack.nameEn || data.industryPack.name}-Module sind aktiv`, `${data.industryPack.nameEn || data.industryPack.name} modülleriniz aktif`)}
           </p>
         </div>
       )}
@@ -166,13 +161,13 @@ export default function HomePage() {
       {data.industryPack?.slug === "real-estate" && (
         <section>
           <h2 className="text-xs font-semibold mb-2.5 px-1" style={{ color: "var(--text-muted)" }}>
-            {tri(lang, "سه کار اصلی روزانه", "Your three core daily jobs", "Ihre drei Kernaufgaben am Tag")}
+            {tri(lang, "سه کار اصلی روزانه", "Your three core daily jobs", "Ihre drei Kernaufgaben am Tag", "Günlük üç temel işiniz")}
           </h2>
           <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
             {[
-              { href: "/crm?tab=properties", icon: Briefcase, label: tri(lang, "ثبت یا به‌روزرسانی ملک", "Add or update a property", "Immobilie anlegen oder aktualisieren") },
-              { href: "/crm?tab=viewings", icon: CalendarDays, label: tri(lang, "زمان‌بندی بازدید", "Schedule a viewing", "Besichtigung planen") },
-              { href: "/accounting/owner-statements", icon: Wallet, label: tri(lang, "صورت‌حساب مالک", "Owner statement", "Eigentümerabrechnung") },
+              { href: "/crm?tab=properties", icon: Briefcase, label: tri(lang, "ثبت یا به‌روزرسانی ملک", "Add or update a property", "Immobilie anlegen oder aktualisieren", "Bir mülk ekle veya güncelle") },
+              { href: "/crm?tab=viewings", icon: CalendarDays, label: tri(lang, "زمان‌بندی بازدید", "Schedule a viewing", "Besichtigung planen", "Bir görüntüleme planla") },
+              { href: "/accounting/owner-statements", icon: Wallet, label: tri(lang, "صورت‌حساب مالک", "Owner statement", "Eigentümerabrechnung", "Mal sahibi ekstresi") },
             ].map((a) => (
               <Link key={a.href} href={a.href}
                 className="rounded-xl p-3.5 flex items-center gap-2.5 transition-colors"
@@ -189,15 +184,13 @@ export default function HomePage() {
         <div className="rounded-2xl p-8 text-center" style={{ background: "var(--surface-1)", border: "1px dashed var(--border)" }}>
           <Sparkles className="w-8 h-8 mx-auto mb-3" style={{ color: "var(--primary)" }} />
           <p className="text-sm font-medium mb-1" style={{ color: "var(--text-primary)" }}>
-            {tri(lang, "هنوز داده‌ای برای نمایش نیست", "Nothing to report yet", "Noch nichts zu berichten")}
+            {tri(lang, "هنوز داده‌ای برای نمایش نیست", "Nothing to report yet", "Noch nichts zu berichten", "Henüz raporlanacak bir şey yok")}
           </p>
           <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>
-            {tri(lang, "با افزودن اولین مخاطب یا ملک، این صفحه شروع به کار می‌کند.",
-              "Add your first contact or property and this page starts working.",
-              "Fügen Sie Ihren ersten Kontakt oder Ihre erste Immobilie hinzu, dann füllt sich diese Seite.")}
+            {tri(lang, "با افزودن اولین مخاطب یا ملک، این صفحه شروع به کار می‌کند.", "Add your first contact or property and this page starts working.", "Fügen Sie Ihren ersten Kontakt oder Ihre erste Immobilie hinzu, dann füllt sich diese Seite.", "İlk kişinizi veya mülkünüzü ekleyin, bu sayfa çalışmaya başlasın.")}
           </p>
           <Link href="/crm" className="inline-block px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-            {tri(lang, "شروع از CRM", "Start in CRM", "Mit dem CRM starten")}
+            {tri(lang, "شروع از CRM", "Start in CRM", "Mit dem CRM starten", "CRM'de başla")}
           </Link>
         </div>
       ) : (
@@ -208,7 +201,7 @@ export default function HomePage() {
           {data.meaningfulStats.length > 0 && (
             <section>
               <h2 className="text-xs font-semibold mb-2.5 px-1" style={{ color: "var(--text-muted)" }}>
-                {tri(lang, "وضعیت کسب‌وکار", "Business at a glance", "Geschäft auf einen Blick")}
+                {tri(lang, "وضعیت کسب‌وکار", "Business at a glance", "Geschäft auf einen Blick", "Bir bakışta işletme")}
               </h2>
               <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
                 {data.meaningfulStats.map((key) => {
@@ -244,17 +237,13 @@ export default function HomePage() {
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
               <AlertCircle className="w-4 h-4" style={{ color: "var(--primary)" }} />
               {data.attention.length > 0
-                ? tri(lang, `${formatNumber(data.attention.length, lang)} کار منتظر شماست`,
-                    `${data.attention.length} things need you`,
-                    `${data.attention.length} Dinge brauchen Sie`)
-                : tri(lang, "نیاز به توجه شما", "Needs your attention", "Braucht Ihre Aufmerksamkeit")}
+                ? tri(lang, `${formatNumber(data.attention.length, lang)} کار منتظر شماست`, `${data.attention.length} things need you`, `${data.attention.length} Dinge brauchen Sie`, `${data.attention.length} konu sizi bekliyor`)
+                : tri(lang, "نیاز به توجه شما", "Needs your attention", "Braucht Ihre Aufmerksamkeit", "Dikkatinizi gerektiriyor")}
             </h2>
             {data.attention.length === 0 ? (
               <div className="flex items-center gap-2 text-sm" style={{ color: "var(--pos)" }}>
                 <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                {tri(lang, "همه‌چیز مرتب است — کاری معوق نمانده.",
-                  "All clear — nothing is overdue.",
-                  "Alles erledigt — nichts ist überfällig.")}
+                {tri(lang, "همه‌چیز مرتب است — کاری معوق نمانده.", "All clear — nothing is overdue.", "Alles erledigt — nichts ist überfällig.", "Her şey yolunda — vadesi geçen bir şey yok.")}
               </div>
             ) : (
               <div className="flex flex-col gap-2">
@@ -287,12 +276,10 @@ export default function HomePage() {
             <section className="rounded-2xl p-5" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
               <h2 className="text-sm font-semibold mb-1 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
                 <Sparkles className="w-4 h-4" style={{ color: "var(--primary)" }} />
-                {tri(lang, "تیم شما این هفته", "Your team this week", "Ihr Team diese Woche")}
+                {tri(lang, "تیم شما این هفته", "Your team this week", "Ihr Team diese Woche", "Bu hafta ekibiniz")}
               </h2>
               <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-                {tri(lang, "کارهایی که بدون دخالت شما انجام شد",
-                  "Work done without you having to ask",
-                  "Arbeit, die ohne Ihr Zutun erledigt wurde")}
+                {tri(lang, "کارهایی که بدون دخالت شما انجام شد", "Work done without you having to ask", "Arbeit, die ohne Ihr Zutun erledigt wurde", "Siz istemeden yapılan işler")}
               </p>
               <div className="flex flex-col gap-2">
                 {data.teamActivity.map((item) => {

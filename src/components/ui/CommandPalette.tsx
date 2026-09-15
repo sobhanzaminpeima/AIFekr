@@ -115,7 +115,7 @@ export default function CommandPalette({ hideTrigger = false }: { hideTrigger?: 
           style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
         >
           <Search className="w-3.5 h-3.5 flex-shrink-0" />
-          <span className="flex-1 text-right truncate">{tri(lang, "جستجو...", "Search...", "Suchen...")}</span>
+          <span className="flex-1 text-right truncate">{tri(lang, "جستجو...", "Search...", "Suchen...", "Ara...")}</span>
           <kbd className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: "var(--surface-2)" }}>⌘K</kbd>
         </button>
       )}
@@ -139,7 +139,7 @@ export default function CommandPalette({ hideTrigger = false }: { hideTrigger?: 
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && filtered[0] && go(filtered[0].href)}
-                placeholder={tri(lang, "کجا می‌خواهید بروید؟", "Where do you want to go?", "Wohin möchten Sie gehen?")}
+                placeholder={tri(lang, "کجا می‌خواهید بروید؟", "Where do you want to go?", "Wohin möchten Sie gehen?", "Nereye gitmek istiyorsunuz?")}
                 className="flex-1 bg-transparent text-sm outline-none"
                 style={{ color: "var(--text-primary)" }}
               />
@@ -158,7 +158,7 @@ export default function CommandPalette({ hideTrigger = false }: { hideTrigger?: 
               ))}
               {filtered.length === 0 && (
                 <p className="px-4 py-6 text-sm text-center" style={{ color: "var(--text-muted)" }}>
-                  {tri(lang, "چیزی یافت نشد.", "No matches.", "Keine Treffer.")}
+                  {tri(lang, "چیزی یافت نشد.", "No matches.", "Keine Treffer.", "Eşleşme yok.")}
                 </p>
               )}
             </div>

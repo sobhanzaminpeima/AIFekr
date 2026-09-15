@@ -46,6 +46,6 @@ export function formatPrice(amount: number): string {
  * reader (this helper feeds ~40 call sites, so that leaked almost everywhere).
  */
 export function formatNumber(n: number, lang?: string): string {
-  const locale = lang === "en" ? "en-US" : lang === "de" ? "de-DE" : "fa-IR";
+  const locale = lang === "en" ? "en-US" : lang === "de" ? "de-DE" : lang === "tr" ? "tr-TR" : "fa-IR";
   return new Intl.NumberFormat(locale).format(n);
 }

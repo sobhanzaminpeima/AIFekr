@@ -75,14 +75,14 @@ function dataSourceLabel(capabilityKeys: string[], lang: Lang): string {
     .filter(Boolean)
     .map((triple) => tri(lang, triple[0], triple[1], triple[2]));
 
-  if (labels.length === 0) return tri(lang, "داده‌های واقعی شما", "your own real data", "Ihren echten Daten");
+  if (labels.length === 0) return tri(lang, "داده‌های واقعی شما", "your own real data", "Ihren echten Daten", "kendi gerçek verileriniz");
 
   const joined =
     labels.length === 1
       ? labels[0]
-      : labels.slice(0, -1).join(tri(lang, "، ", ", ", ", ")) + tri(lang, " و ", " and ", " und ") + labels[labels.length - 1];
+      : labels.slice(0, -1).join(tri(lang, "، ", ", ", ", ", ", ")) + tri(lang, " و ", " and ", " und ", " ve ") + labels[labels.length - 1];
 
-  return tri(lang, `بر اساس ${joined}`, `Based on ${joined}`, `Basierend auf ${joined}`);
+  return tri(lang, `بر اساس ${joined}`, `Based on ${joined}`, `Basierend auf ${joined}`, `${joined} temel alınarak`);
 }
 
 const EXPERT_MODES = [
@@ -268,7 +268,7 @@ function PromptBoxCard({ data, lang }: { data: PromptBoxData; lang: Lang }) {
       <div className="px-4 pt-3 pb-2.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 flex-shrink-0" style={{ color: "var(--primary)" }} />
-          <span className="text-sm font-semibold text-white truncate">{data.name || tri(lang, "پرامپت", "Prompt", "Prompt")}</span>
+          <span className="text-sm font-semibold text-white truncate">{data.name || tri(lang, "پرامپت", "Prompt", "Prompt", "Komut")}</span>
         </div>
         {meta.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-2">
@@ -293,10 +293,10 @@ function PromptBoxCard({ data, lang }: { data: PromptBoxData; lang: Lang }) {
       <div className="flex items-center justify-between px-3 py-2 flex-wrap gap-2" style={{ borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
         <div className="flex items-center gap-1.5 text-[11px]" style={{ color: "#a1a1aa" }}>
           <Hash className="w-3 h-3" />
-          <span>{wordCount} {tri(lang, "کلمه", "words", "Wörter")} · ~{tokenEstimate} tokens</span>
+          <span>{wordCount} {tri(lang, "کلمه", "words", "Wörter", "kelime")} · ~{tokenEstimate} tokens</span>
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={() => setExpanded((v) => !v)} className="p-1.5 rounded-lg transition-colors" style={{ color: "#a1a1aa" }} title={expanded ? tri(lang, "بستن", "Collapse", "Schließen") : tri(lang, "باز کردن", "Expand", "Erweitern")}>
+          <button onClick={() => setExpanded((v) => !v)} className="p-1.5 rounded-lg transition-colors" style={{ color: "#a1a1aa" }} title={expanded ? tri(lang, "بستن", "Collapse", "Schließen", "Daralt") : tri(lang, "باز کردن", "Expand", "Erweitern", "Genişlet")}>
             {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
           <button onClick={() => download("txt", "text/plain")} className="p-1.5 rounded-lg transition-colors" style={{ color: "#a1a1aa" }} title="TXT">
@@ -311,7 +311,7 @@ function PromptBoxCard({ data, lang }: { data: PromptBoxData; lang: Lang }) {
             style={{ background: copied ? "rgba(34,197,94,0.15)" : "var(--primary)", color: copied ? "#22c55e" : "white" }}
           >
             {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-            {copied ? tri(lang, "کپی شد", "Copied", "Kopiert") : tri(lang, "کپی", "Copy", "Kopieren")}
+            {copied ? tri(lang, "کپی شد", "Copied", "Kopiert", "Kopyalandı") : tri(lang, "کپی", "Copy", "Kopieren", "Kopyala")}
           </button>
         </div>
       </div>
@@ -667,7 +667,7 @@ export default function ChatInterface({
           router.refresh();
         } else if (data.status === "failed") {
           clearInterval(interval);
-          const error = tri(lang, "تولید ویدیو ناموفق بود", "Video generation failed", "Videogenerierung fehlgeschlagen");
+          const error = tri(lang, "تولید ویدیو ناموفق بود", "Video generation failed", "Videogenerierung fehlgeschlagen", "Video oluşturma başarısız");
           setMedia(msgId, { error });
           if (convId) saveTurn(convId, "assistant", { error });
         }
@@ -687,7 +687,7 @@ export default function ChatInterface({
           router.refresh();
         } else if (data.status === "failed") {
           clearInterval(interval);
-          const error = tri(lang, "تولید موزیک ناموفق بود", "Music generation failed", "Musikgenerierung fehlgeschlagen");
+          const error = tri(lang, "تولید موزیک ناموفق بود", "Music generation failed", "Musikgenerierung fehlgeschlagen", "Müzik oluşturma başarısız");
           setMedia(msgId, { error });
           if (convId) saveTurn(convId, "assistant", { error });
         }
@@ -699,7 +699,7 @@ export default function ChatInterface({
     const text = input.trim();
     if (!text || busy) return;
     if (mediaType === "image" && mode === "puter" && !window.puter) {
-      toast.error(tri(lang, "اتصال به Puter برقرار نشد", "Could not connect to Puter", "Verbindung zu Puter fehlgeschlagen"));
+      toast.error(tri(lang, "اتصال به Puter برقرار نشد", "Could not connect to Puter", "Verbindung zu Puter fehlgeschlagen", "Puter'a bağlanılamadı"));
       return;
     }
 
@@ -754,7 +754,7 @@ export default function ChatInterface({
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
-        setMedia(assistantId, { pending: true, pendingLabel: tri(lang, "در حال پردازش ویدیو... (۲ تا ۵ دقیقه)", "Processing video... (2-5 min)", "Video wird verarbeitet... (2-5 Min)") });
+        setMedia(assistantId, { pending: true, pendingLabel: tri(lang, "در حال پردازش ویدیو... (۲ تا ۵ دقیقه)", "Processing video... (2-5 min)", "Video wird verarbeitet... (2-5 Min)", "Video işleniyor... (2-5 dk)") });
         pollVideo(data.predictionId, data.videoId, assistantId, convId);
       } else {
         const res = await fetch("/api/music/generate", {
@@ -768,12 +768,12 @@ export default function ChatInterface({
           if (convId) saveTurn(convId, "assistant", { audioUrl: data.output });
           router.refresh();
         } else {
-          setMedia(assistantId, { pending: true, pendingLabel: tri(lang, "در حال ساخت موزیک...", "Generating music...", "Musik wird erstellt...") });
+          setMedia(assistantId, { pending: true, pendingLabel: tri(lang, "در حال ساخت موزیک...", "Generating music...", "Musik wird erstellt...", "Müzik oluşturuluyor...") });
           pollMusic(data.predictionId, data.musicId, assistantId, convId);
         }
       }
     } catch (err: unknown) {
-      const error = err instanceof Error ? err.message : tri(lang, "خطا در تولید", "Generation failed", "Generierung fehlgeschlagen");
+      const error = err instanceof Error ? err.message : tri(lang, "خطا در تولید", "Generation failed", "Generierung fehlgeschlagen", "Oluşturma başarısız");
       setMedia(assistantId, { error });
       if (convId) saveTurn(convId, "assistant", { error });
     } finally {
@@ -801,8 +801,8 @@ export default function ChatInterface({
     if (sourceImages.length >= refLimit) {
       toast.error(
         userPlan && userPlan !== "FREE"
-          ? tri(lang, `حداکثر ${refLimit} عکس مرجع مجاز است`, `Up to ${refLimit} reference photos allowed`, `Bis zu ${refLimit} Referenzfotos erlaubt`)
-          : tri(lang, "برای آپلود عکس بیشتر، پلن خود را ارتقا دهید", "Upgrade your plan to upload more photos", "Aktualisieren Sie Ihren Plan, um mehr Fotos hochzuladen")
+          ? tri(lang, `حداکثر ${refLimit} عکس مرجع مجاز است`, `Up to ${refLimit} reference photos allowed`, `Bis zu ${refLimit} Referenzfotos erlaubt`, `En fazla ${refLimit} referans fotoğrafına izin verilir`)
+          : tri(lang, "برای آپلود عکس بیشتر، پلن خود را ارتقا دهید", "Upgrade your plan to upload more photos", "Aktualisieren Sie Ihren Plan, um mehr Fotos hochzuladen", "Daha fazla fotoğraf yüklemek için planınızı yükseltin")
       );
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
@@ -816,9 +816,9 @@ export default function ChatInterface({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setSourceImages((prev) => [...prev, data.url]);
-      toast.success(tri(lang, "عکس آپلود شد", "Photo uploaded", "Foto hochgeladen"));
+      toast.success(tri(lang, "عکس آپلود شد", "Photo uploaded", "Foto hochgeladen", "Fotoğraf yüklendi"));
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : tri(lang, "خطا در آپلود", "Upload failed", "Upload fehlgeschlagen"));
+      toast.error(err instanceof Error ? err.message : tri(lang, "خطا در آپلود", "Upload failed", "Upload fehlgeschlagen", "Yükleme başarısız"));
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -837,7 +837,7 @@ export default function ChatInterface({
       const data = await res.json();
       setInput(data.translated || input);
     } catch {
-      toast.error(tri(lang, "خطا در ترجمه", "Translation failed", "Übersetzung fehlgeschlagen"));
+      toast.error(tri(lang, "خطا در ترجمه", "Translation failed", "Übersetzung fehlgeschlagen", "Çeviri başarısız"));
     } finally {
       setTranslating(false);
     }
@@ -853,7 +853,7 @@ export default function ChatInterface({
     setInput(templateText(tpl));
     if (mediaType === "image" && REFERENCE_REQUIRED_CATEGORIES.has(tpl.category)) {
       setMode("credits");
-      if (sourceImages.length === 0) toast(tri(lang, "این پرامپت روی عکس خودتان اعمال می‌شود — یک عکس مرجع آپلود کنید", "This prompt applies to your own photo — upload a reference photo", "Dieser Prompt wird auf Ihr eigenes Foto angewendet — laden Sie ein Referenzfoto hoch"), { icon: "📷" });
+      if (sourceImages.length === 0) toast(tri(lang, "این پرامپت روی عکس خودتان اعمال می‌شود — یک عکس مرجع آپلود کنید", "This prompt applies to your own photo — upload a reference photo", "Dieser Prompt wird auf Ihr eigenes Foto angewendet — laden Sie ein Referenzfoto hoch", "Bu komut kendi fotoğrafınıza uygulanır — bir referans fotoğraf yükleyin"), { icon: "📷" });
     }
     setShowTemplates(false);
     fetch("/api/prompts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: tpl.id }) }).catch(() => {});
@@ -871,12 +871,12 @@ export default function ChatInterface({
   const toggleVoiceInput = useCallback(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
-      toast.error(tri(lang, "مرورگر شما از تشخیص صدا پشتیبانی نمی‌کند", "Your browser doesn't support voice input", "Ihr Browser unterstützt keine Spracheingabe"));
+      toast.error(tri(lang, "مرورگر شما از تشخیص صدا پشتیبانی نمی‌کند", "Your browser doesn't support voice input", "Ihr Browser unterstützt keine Spracheingabe", "Tarayıcınız sesli girişi desteklemiyor"));
       return;
     }
     if (listening) { recognitionRef.current?.stop(); setListening(false); return; }
     const recognition = new SR();
-    recognition.lang = tri(lang, "fa-IR", "en-US", "de-DE");
+    recognition.lang = tri(lang, "fa-IR", "en-US", "de-DE", "tr-TR");
     recognition.interimResults = true;
     recognition.continuous = false;
     recognitionRef.current = recognition;
@@ -901,10 +901,10 @@ export default function ChatInterface({
     if (speakingId === msgId) { window.speechSynthesis.cancel(); setSpeakingId(null); return; }
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = tri(lang, "fa-IR", "en-US", "de-DE");
+    utterance.lang = tri(lang, "fa-IR", "en-US", "de-DE", "tr-TR");
     utterance.rate = 1;
     const voices = window.speechSynthesis.getVoices();
-    const langCode = tri(lang, "fa", "en", "de");
+    const langCode = tri(lang, "fa", "en", "de", "tr");
     const match = voices.find((v) => v.lang.startsWith(langCode));
     if (match) utterance.voice = match;
     utterance.onend = () => setSpeakingId(null);
@@ -936,9 +936,9 @@ export default function ChatInterface({
   const pill = { background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" } as const;
   const activeTab = MEDIA_TABS.find((tab) => tab.id === mediaType)!;
 
-  const placeholder = mediaType === "image" ? tri(lang, "چه عکسی بسازم؟ صحنه، سبک و نور را توصیف کن...", "What image should I create? Describe the scene, style and light...", "Welches Bild soll ich erstellen? Szene, Stil und Licht beschreiben...")
-    : mediaType === "video" ? tri(lang, "چه ویدیویی بسازم؟ توصیف کن...", "What video should I create? Describe it...", "Welches Video soll ich erstellen? Beschreiben Sie es...")
-    : mediaType === "music" ? tri(lang, "چه موزیکی بسازم؟ توصیف کن...", "What music should I create? Describe it...", "Welche Musik soll ich erstellen? Beschreiben Sie es...")
+  const placeholder = mediaType === "image" ? tri(lang, "چه عکسی بسازم؟ صحنه، سبک و نور را توصیف کن...", "What image should I create? Describe the scene, style and light...", "Welches Bild soll ich erstellen? Szene, Stil und Licht beschreiben...", "Hangi görseli oluşturayım? Sahneyi, stili ve ışığı tarif edin...")
+    : mediaType === "video" ? tri(lang, "چه ویدیویی بسازم؟ توصیف کن...", "What video should I create? Describe it...", "Welches Video soll ich erstellen? Beschreiben Sie es...", "Hangi videoyu oluşturayım? Tarif edin...")
+    : mediaType === "music" ? tri(lang, "چه موزیکی بسازم؟ توصیف کن...", "What music should I create? Describe it...", "Welche Musik soll ich erstellen? Beschreiben Sie es...", "Hangi müziği oluşturayım? Tarif edin...")
     : (listening ? t.chat.listening : t.chat.placeholder);
 
   return (
@@ -974,13 +974,13 @@ export default function ChatInterface({
           style={{ background: "var(--primary)", color: "white" }}
         >
           <Zap className="w-3.5 h-3.5" />
-          {tri(lang, "افزایش اعتبار", "Add Credits", "Guthaben aufladen")}
+          {tri(lang, "افزایش اعتبار", "Add Credits", "Guthaben aufladen", "Kredi Ekle")}
         </Link>
 
         <button
           onClick={() => window.dispatchEvent(new Event(OPEN_COMMAND_PALETTE_EVENT))}
-          aria-label={tri(lang, "جستجو", "Search", "Suche")}
-          title={tri(lang, "جستجو (⌘K)", "Search (⌘K)", "Suche (⌘K)")}
+          aria-label={tri(lang, "جستجو", "Search", "Suche", "Ara")}
+          title={tri(lang, "جستجو (⌘K)", "Search (⌘K)", "Suche (⌘K)", "Ara (⌘K)")}
           className="flex items-center justify-center w-8 h-8 rounded-xl flex-shrink-0"
           style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
         >
@@ -1101,9 +1101,9 @@ export default function ChatInterface({
             </h2>
             {isMedia ? (
               <p className="text-sm mb-8 max-w-sm" style={{ color: "var(--text-secondary)" }}>
-                {mediaType === "image" ? tri(lang, "با نوشتن یک پیام، اولین عکستان را بسازید", "Write a message to create your first image", "Schreiben Sie eine Nachricht für Ihr erstes Bild")
-                  : mediaType === "video" ? tri(lang, "با نوشتن یک پیام، اولین ویدیوتان را بسازید", "Write a message to create your first video", "Schreiben Sie eine Nachricht für Ihr erstes Video")
-                  : tri(lang, "با نوشتن یک پیام، اولین موزیکتان را بسازید", "Write a message to create your first track", "Schreiben Sie eine Nachricht für Ihren ersten Track")}
+                {mediaType === "image" ? tri(lang, "با نوشتن یک پیام، اولین عکستان را بسازید", "Write a message to create your first image", "Schreiben Sie eine Nachricht für Ihr erstes Bild", "İlk görselinizi oluşturmak için bir mesaj yazın")
+                  : mediaType === "video" ? tri(lang, "با نوشتن یک پیام، اولین ویدیوتان را بسازید", "Write a message to create your first video", "Schreiben Sie eine Nachricht für Ihr erstes Video", "İlk videonuzu oluşturmak için bir mesaj yazın")
+                  : tri(lang, "با نوشتن یک پیام، اولین موزیکتان را بسازید", "Write a message to create your first track", "Schreiben Sie eine Nachricht für Ihren ersten Track", "İlk parçanızı oluşturmak için bir mesaj yazın")}
               </p>
             ) : (
               <>
@@ -1280,7 +1280,7 @@ export default function ChatInterface({
                 </div>
               ))}
               <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                {tri(lang, "عکس مرجع پیوست شد", "Reference photo attached", "Referenzfoto angehängt")}
+                {tri(lang, "عکس مرجع پیوست شد", "Reference photo attached", "Referenzfoto angehängt", "Referans fotoğraf eklendi")}
               </span>
             </div>
           )}
@@ -1293,7 +1293,7 @@ export default function ChatInterface({
                   disabled={uploading || (mediaType === "image" && mode !== "credits") || sourceImages.length >= refLimit}
                   className="disabled:opacity-30"
                   style={{ color: "var(--text-muted)" }}
-                  title={tri(lang, "عکس مرجع", "Reference photo", "Referenzfoto")}
+                  title={tri(lang, "عکس مرجع", "Reference photo", "Referenzfoto", "Referans fotoğraf")}
                 >
                   {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
                 </button>
@@ -1332,7 +1332,7 @@ export default function ChatInterface({
                 disabled={translating || !input.trim()}
                 className="flex-shrink-0 mb-1 disabled:opacity-30"
                 style={{ color: "var(--text-muted)" }}
-                title={tri(lang, "ترجمه به انگلیسی", "Translate to English", "Ins Englische übersetzen")}
+                title={tri(lang, "ترجمه به انگلیسی", "Translate to English", "Ins Englische übersetzen", "İngilizceye çevir")}
               >
                 {translating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Languages className="w-4 h-4" />}
               </button>
@@ -1359,7 +1359,7 @@ export default function ChatInterface({
                 style={{ background: "var(--primary)" }}
               >
                 {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                {tri(lang, "ساخت", "Create", "Erstellen")}
+                {tri(lang, "ساخت", "Create", "Erstellen", "Oluştur")}
                 {mode === "credits" && <span className="opacity-80">· {mediaCost()}</span>}
               </button>
             ) : (
@@ -1388,26 +1388,26 @@ export default function ChatInterface({
                   </select>
                   {mode === "credits" && (
                     <select value={imageQuality} onChange={(e) => setImageQuality(e.target.value as "standard" | "hd")} className="px-2.5 py-1.5 rounded-lg text-[11px] outline-none flex-shrink-0" style={pill}>
-                      <option value="standard">{tri(lang, "اقتصادی · سریع", "Economy · Fast", "Sparsam · Schnell")}</option>
-                      <option value="hd">{tri(lang, "کیفیت بالا", "High quality", "Hohe Qualität")}</option>
+                      <option value="standard">{tri(lang, "اقتصادی · سریع", "Economy · Fast", "Sparsam · Schnell", "Ekonomik · Hızlı")}</option>
+                      <option value="hd">{tri(lang, "کیفیت بالا", "High quality", "Hohe Qualität", "Yüksek kalite")}</option>
                     </select>
                   )}
                   <select value={imageCount} onChange={(e) => setImageCount(parseInt(e.target.value))} className="px-2.5 py-1.5 rounded-lg text-[11px] outline-none flex-shrink-0" style={pill}>
                     {[1, 2, 3, 4].map((n) => (
                       <option key={n} value={n}>
-                        {n === 1 ? tri(lang, "یک خروجی", "1 output", "1 Ergebnis") : tri(lang, `${n} خروجی`, `${n} outputs`, `${n} Ergebnisse`)}
+                        {n === 1 ? tri(lang, "یک خروجی", "1 output", "1 Ergebnis", "1 çıktı") : tri(lang, `${n} خروجی`, `${n} outputs`, `${n} Ergebnisse`, `${n} çıktı`)}
                       </option>
                     ))}
                   </select>
                   {templates.length > 0 && (
                     <button onClick={() => setShowTemplates(true)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium flex-shrink-0" style={pill}>
                       <Sparkles className="w-3 h-3" style={{ color: "var(--primary)" }} />
-                      {tri(lang, "پرامپت آماده", "Ready prompts", "Fertige Prompts")}
+                      {tri(lang, "پرامپت آماده", "Ready prompts", "Fertige Prompts", "Hazır komutlar")}
                     </button>
                   )}
                   <Link href="/image/generate?tab=character" className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium flex-shrink-0" style={pill}>
                     <UserSquare2 className="w-3 h-3" />
-                    {tri(lang, "ساخت کاراکتر", "Character", "Charakter")}
+                    {tri(lang, "ساخت کاراکتر", "Character", "Charakter", "Karakter")}
                   </Link>
                 </>
               )}
@@ -1426,7 +1426,7 @@ export default function ChatInterface({
                   {templates.length > 0 && (
                     <button onClick={() => setShowTemplates(true)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium flex-shrink-0" style={pill}>
                       <Sparkles className="w-3 h-3" style={{ color: "var(--primary)" }} />
-                      {tri(lang, "پرامپت آماده", "Ready prompts", "Fertige Prompts")}
+                      {tri(lang, "پرامپت آماده", "Ready prompts", "Fertige Prompts", "Hazır komutlar")}
                     </button>
                   )}
                 </>
@@ -1457,7 +1457,7 @@ export default function ChatInterface({
             <div className="flex items-center justify-between px-5 py-4 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
               <h2 className="text-base font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
                 <Sparkles className="w-4 h-4" style={{ color: "var(--primary)" }} />
-                {tri(lang, "گالری پرامپت‌های آماده", "Prompt Gallery", "Prompt-Galerie")}
+                {tri(lang, "گالری پرامپت‌های آماده", "Prompt Gallery", "Prompt-Galerie", "Komut Galerisi")}
               </h2>
               <button onClick={() => setShowTemplates(false)} className="p-1.5 rounded-lg" style={{ color: "var(--text-muted)" }}><X className="w-5 h-5" /></button>
             </div>
@@ -1481,7 +1481,7 @@ export default function ChatInterface({
             )}
             <div className="flex-1 overflow-y-auto p-5">
               {templates.length === 0 ? (
-                <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز پرامپتی اضافه نشده", "No prompts added yet", "Noch keine Prompts hinzugefügt")}</p>
+                <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز پرامپتی اضافه نشده", "No prompts added yet", "Noch keine Prompts hinzugefügt", "Henüz komut eklenmedi")}</p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {templates
@@ -1506,14 +1506,14 @@ export default function ChatInterface({
                                 copy a card needs. */}
                             <div className="rounded-xl px-3 py-2 flex-1" style={{ background: "rgba(234,88,12,0.08)", border: "1px solid rgba(234,88,12,0.2)" }}>
                               <p className="text-[10px] font-semibold mb-0.5" style={{ color: "var(--primary)" }}>
-                                {tri(lang, "راهنما", "Guide", "Anleitung")}
+                                {tri(lang, "راهنما", "Guide", "Anleitung", "Rehber")}
                               </p>
                               <p className="text-[11px] leading-5" style={{ color: "var(--text-secondary)" }}>
-                                {guide || tri(lang, "روی «امتحان کن» بزنید تا این پرامپت در چت قرار بگیرد.", "Tap \"Try it\" to load this prompt into the chat.", "Tippen Sie auf „Ausprobieren“, um diesen Prompt in den Chat zu laden.")}
+                                {guide || tri(lang, "روی «امتحان کن» بزنید تا این پرامپت در چت قرار بگیرد.", "Tap \"Try it\" to load this prompt into the chat.", "Tippen Sie auf „Ausprobieren“, um diesen Prompt in den Chat zu laden.", "Bu komutu sohbete yüklemek için \"Dene\"ye dokunun.")}
                               </p>
                             </div>
                             <button onClick={() => pickTemplate(tpl)} className="py-1.5 rounded-lg text-xs font-semibold text-white" style={{ background: "var(--primary)" }}>
-                              {tri(lang, "امتحان کن", "Try it", "Ausprobieren")}
+                              {tri(lang, "امتحان کن", "Try it", "Ausprobieren", "Dene")}
                             </button>
                           </div>
                         </div>
@@ -1540,7 +1540,7 @@ function MediaBubble({
       <div className="flex items-center gap-2 py-1">
         <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--primary)" }} />
         <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          {media.pendingLabel || tri(lang, "در حال ساخت...", "Generating...", "Wird erstellt...")}
+          {media.pendingLabel || tri(lang, "در حال ساخت...", "Generating...", "Wird erstellt...", "Oluşturuluyor...")}
         </span>
       </div>
     );
@@ -1567,7 +1567,7 @@ function MediaBubble({
       <div className="rounded-xl overflow-hidden max-w-[300px]" style={{ border: "1px solid var(--border)" }}>
         <video src={media.videoUrl} controls className="w-full" />
         <a href={media.videoUrl} download className="flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-          <Download className="w-3 h-3" />{tri(lang, "دانلود", "Download", "Herunterladen")}
+          <Download className="w-3 h-3" />{tri(lang, "دانلود", "Download", "Herunterladen", "İndir")}
         </a>
       </div>
     );
@@ -1589,7 +1589,7 @@ function MediaBubble({
         </button>
         <audio id={`audio-${msgId}`} src={media.audioUrl} onEnded={() => setPlayingId(null)} />
         <a href={media.audioUrl} download className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
-          <Download className="w-3 h-3" />{tri(lang, "دانلود MP3", "Download MP3", "MP3 herunterladen")}
+          <Download className="w-3 h-3" />{tri(lang, "دانلود MP3", "Download MP3", "MP3 herunterladen", "MP3 İndir")}
         </a>
       </div>
     );

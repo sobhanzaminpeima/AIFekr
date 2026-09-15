@@ -53,8 +53,8 @@ export default function CreditsPage() {
   useEffect(() => {
     load().finally(() => setLoading(false));
     const params = new URLSearchParams(window.location.search);
-    if (params.get("payment") === "success") toast.success(tri(lang, "خرید کردیت با موفقیت انجام شد", "Credit purchase successful", "Guthabenkauf erfolgreich"));
-    if (params.get("payment") === "failed") toast.error(tri(lang, "پرداخت ناموفق بود", "Payment failed", "Zahlung fehlgeschlagen"));
+    if (params.get("payment") === "success") toast.success(tri(lang, "خرید کردیت با موفقیت انجام شد", "Credit purchase successful", "Guthabenkauf erfolgreich", "Kredi satın alma başarılı"));
+    if (params.get("payment") === "failed") toast.error(tri(lang, "پرداخت ناموفق بود", "Payment failed", "Zahlung fehlgeschlagen", "Ödeme başarısız"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load]);
 
@@ -71,7 +71,7 @@ export default function CreditsPage() {
       if (!res.ok) throw new Error(data.error);
       window.location.href = data.paymentUrl;
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : tri(lang, "خطا در شروع پرداخت", "Failed to start payment", "Zahlung konnte nicht gestartet werden"));
+      toast.error(err instanceof Error ? err.message : tri(lang, "خطا در شروع پرداخت", "Failed to start payment", "Zahlung konnte nicht gestartet werden", "Ödeme başlatılamadı"));
       setBuyingTierId(null);
     }
   }
@@ -93,10 +93,10 @@ export default function CreditsPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
-              {tri(lang, "کیف پول کردیت", "Credit Wallet", "Guthaben-Wallet")}
+              {tri(lang, "کیف پول کردیت", "Credit Wallet", "Guthaben-Wallet", "Kredi Cüzdanı")}
             </h1>
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              {tri(lang, "کردیت شما برای همه ابزارهای تولید محتوای AiFekr استفاده می‌شود.", "Your credits are used across all AiFekr content-generation tools.", "Ihr Guthaben wird für alle AiFekr-Content-Tools verwendet.")}
+              {tri(lang, "کردیت شما برای همه ابزارهای تولید محتوای AiFekr استفاده می‌شود.", "Your credits are used across all AiFekr content-generation tools.", "Ihr Guthaben wird für alle AiFekr-Content-Tools verwendet.", "Krediniz tüm AiFekr içerik oluşturma araçlarında kullanılır.")}
             </p>
           </div>
         </div>
@@ -104,7 +104,7 @@ export default function CreditsPage() {
         {/* Balance -- same figure the sidebar shows (team pool if applicable, see /api/user/profile), plus the account's plan badge shown right next to it, matching the sidebar. */}
         <div className="rounded-2xl p-5 mb-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{tri(lang, "کردیت قابل‌استفاده امروز", "Available credits today", "Heute verfügbares Guthaben")}</p>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{tri(lang, "کردیت قابل‌استفاده امروز", "Available credits today", "Heute verfügbares Guthaben", "Bugün mevcut kredi")}</p>
             {profile?.plan && (
               <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: (PLAN_COLOR[profile.plan] || PLAN_COLOR.FREE) + "22", color: PLAN_COLOR[profile.plan] || PLAN_COLOR.FREE }}>
                 {PLAN_LABEL[profile.plan]?.[lang] || profile.plan}
@@ -118,10 +118,10 @@ export default function CreditsPage() {
         </div>
 
         {/* Tiers */}
-        <h2 className="text-sm font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{tri(lang, "خرید کردیت", "Buy Credits", "Guthaben kaufen")}</h2>
+        <h2 className="text-sm font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{tri(lang, "خرید کردیت", "Buy Credits", "Guthaben kaufen", "Kredi Satın Al")}</h2>
         {tiers.length === 0 ? (
           <p className="text-sm text-center py-10" style={{ color: "var(--text-muted)" }}>
-            {tri(lang, "در حال حاضر تعرفه‌ای برای خرید موجود نیست.", "No purchase tiers are available right now.", "Derzeit sind keine Kaufstufen verfügbar.")}
+            {tri(lang, "در حال حاضر تعرفه‌ای برای خرید موجود نیست.", "No purchase tiers are available right now.", "Derzeit sind keine Kaufstufen verfügbar.", "Şu anda satın alma paketi mevcut değil.")}
           </p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -144,15 +144,15 @@ export default function CreditsPage() {
                     <span className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{formatNumber(t.creditsAmount, lang)}</span>
                   </div>
                   <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                    {formatNumber(t.creditsAmount, lang)} {tri(lang, "کردیت قابل استفاده", "usable credits", "nutzbare Guthaben")}
+                    {formatNumber(t.creditsAmount, lang)} {tri(lang, "کردیت قابل استفاده", "usable credits", "nutzbare Guthaben", "kullanılabilir kredi")}
                   </p>
                   <div className="mt-3">
                     {listPrice && (
-                      <p className="text-xs line-through" style={{ color: "var(--text-muted)" }}>{formatNumber(listPrice, lang)} {tri(lang, "تومان", "Toman", "Toman")}</p>
+                      <p className="text-xs line-through" style={{ color: "var(--text-muted)" }}>{formatNumber(listPrice, lang)} {tri(lang, "تومان", "Toman", "Toman", "Toman")}</p>
                     )}
-                    <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{formatNumber(t.priceToman, lang)} {tri(lang, "تومان", "Toman", "Toman")}</p>
+                    <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{formatNumber(t.priceToman, lang)} {tri(lang, "تومان", "Toman", "Toman", "Toman")}</p>
                     <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                      {tri(lang, `هر کردیت ${formatNumber(perCredit, lang)} تومان`, `${formatNumber(perCredit, lang)} Toman/credit`, `${formatNumber(perCredit, lang)} Toman/Guthaben`)}
+                      {tri(lang, `هر کردیت ${formatNumber(perCredit, lang)} تومان`, `${formatNumber(perCredit, lang)} Toman/credit`, `${formatNumber(perCredit, lang)} Toman/Guthaben`, `Kredi başına ${formatNumber(perCredit, lang)} Toman`)}
                     </p>
                   </div>
                   <button
@@ -162,7 +162,7 @@ export default function CreditsPage() {
                     style={{ background: t.badge ? "var(--primary)" : "var(--surface-2)", color: t.badge ? "white" : "var(--text-primary)" }}
                   >
                     {buyingTierId === t.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />}
-                    {tri(lang, "خرید", "Buy", "Kaufen")}
+                    {tri(lang, "خرید", "Buy", "Kaufen", "Satın Al")}
                   </button>
                 </div>
               );
@@ -197,11 +197,11 @@ function CreditPurchaseHistory({ lang }: { lang: "fa" | "en" | "de" | "tr" }) {
           for where their credits went found nothing and assumed it was lost
           (QA 2026-09-15, U06). Consumption lives in CreditUsageHistory below. */}
       <h2 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-        <History className="w-4 h-4" /> {tri(lang, "خریدهای کردیت", "Credit purchases", "Guthabenkäufe")}
+        <History className="w-4 h-4" /> {tri(lang, "خریدهای کردیت", "Credit purchases", "Guthabenkäufe", "Kredi satın alımları")}
       </h2>
       {payments.length === 0 ? (
         <p className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>
-          {tri(lang, "هنوز تراکنشی ثبت نشده است.", "No transactions yet.", "Noch keine Transaktionen.")}
+          {tri(lang, "هنوز تراکنشی ثبت نشده است.", "No transactions yet.", "Noch keine Transaktionen.", "Henüz işlem yok.")}
         </p>
       ) : (
         <div className="space-y-2">
@@ -212,7 +212,7 @@ function CreditPurchaseHistory({ lang }: { lang: "fa" | "en" | "de" | "tr" }) {
                 <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{lang === "fa" ? toJalali(p.createdAt) : new Date(p.createdAt).toLocaleDateString()}</p>
               </div>
               <span className="text-sm font-medium" style={{ color: p.status === "SUCCESS" ? "#22c55e" : p.status === "FAILED" ? "#ef4444" : "#f59e0b" }}>
-                {formatNumber(p.amount, lang)} {tri(lang, "تومان", "Toman", "Toman")}
+                {formatNumber(p.amount, lang)} {tri(lang, "تومان", "Toman", "Toman", "Toman")}
               </span>
             </div>
           ))}
@@ -259,13 +259,13 @@ function CreditUsageHistory({ lang }: { lang: "fa" | "en" | "de" | "tr" }) {
   return (
     <div className="rounded-2xl p-5 mt-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
       <h2 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-        <History className="w-4 h-4" /> {tri(lang, "مصرف کردیت", "Credit usage", "Guthabenverbrauch")}
+        <History className="w-4 h-4" /> {tri(lang, "مصرف کردیت", "Credit usage", "Guthabenverbrauch", "Kredi kullanımı")}
       </h2>
       {!loaded ? (
         <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--text-muted)" }} /></div>
       ) : entries.length === 0 ? (
         <p className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>
-          {tri(lang, "هنوز کردیتی مصرف نشده است.", "No credits used yet.", "Noch kein Guthaben verbraucht.")}
+          {tri(lang, "هنوز کردیتی مصرف نشده است.", "No credits used yet.", "Noch kein Guthaben verbraucht.", "Henüz kredi kullanılmadı.")}
         </p>
       ) : (
         <div className="space-y-2">

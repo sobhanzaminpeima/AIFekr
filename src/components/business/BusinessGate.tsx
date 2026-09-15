@@ -34,12 +34,12 @@ export default async function BusinessGate({ children }: { children: React.React
   const rtl = lang === "fa";
 
   const features = [
-    { icon: BarChart3, label: tri(lang, "دکتر کسب‌وکار", "Business Doctor", "Business Doctor"), desc: tri(lang, "تحلیل و مشاوره هوشمند", "Smart analysis and advice", "Intelligente Analyse und Beratung") },
-    { icon: Users, label: tri(lang, "اتاق جلسه AI", "AI Meeting Room", "KI-Meetingraum"), desc: tri(lang, "جلسه با ایجنت‌های متخصص", "Meet with specialist agents", "Besprechung mit Fachagenten") },
-    { icon: Globe, label: tri(lang, "سئو حرفه‌ای", "Professional SEO", "Professionelles SEO"), desc: tri(lang, "رتبه‌بندی و بهینه‌سازی", "Ranking and optimisation", "Ranking und Optimierung") },
-    { icon: Zap, label: tri(lang, "شبکه‌های اجتماعی", "Social media", "Social Media"), desc: tri(lang, "تولید محتوا خودکار", "Automatic content generation", "Automatische Content-Erstellung") },
-    { icon: TrendingUp, label: tri(lang, "مشاور مدیرعامل", "CEO Advisor", "CEO-Berater"), desc: tri(lang, "استراتژی و تصمیم‌گیری", "Strategy and decisions", "Strategie und Entscheidungen") },
-    { icon: Globe, label: tri(lang, "طراح وبسایت", "Website Designer", "Website-Designer"), desc: tri(lang, "ساخت سایت هوشمند", "Build a smart site", "Intelligente Website erstellen") },
+    { icon: BarChart3, label: tri(lang, "دکتر کسب‌وکار", "Business Doctor", "Business Doctor", "İşletme Doktoru"), desc: tri(lang, "تحلیل و مشاوره هوشمند", "Smart analysis and advice", "Intelligente Analyse und Beratung", "Akıllı analiz ve tavsiye") },
+    { icon: Users, label: tri(lang, "اتاق جلسه AI", "AI Meeting Room", "KI-Meetingraum", "Yapay Zeka Toplantı Odası"), desc: tri(lang, "جلسه با ایجنت‌های متخصص", "Meet with specialist agents", "Besprechung mit Fachagenten", "Uzman ajanlarla toplantı yap") },
+    { icon: Globe, label: tri(lang, "سئو حرفه‌ای", "Professional SEO", "Professionelles SEO", "Profesyonel SEO"), desc: tri(lang, "رتبه‌بندی و بهینه‌سازی", "Ranking and optimisation", "Ranking und Optimierung", "Sıralama ve optimizasyon") },
+    { icon: Zap, label: tri(lang, "شبکه‌های اجتماعی", "Social media", "Social Media", "Sosyal medya"), desc: tri(lang, "تولید محتوا خودکار", "Automatic content generation", "Automatische Content-Erstellung", "Otomatik içerik oluşturma") },
+    { icon: TrendingUp, label: tri(lang, "مشاور مدیرعامل", "CEO Advisor", "CEO-Berater", "CEO Danışmanı"), desc: tri(lang, "استراتژی و تصمیم‌گیری", "Strategy and decisions", "Strategie und Entscheidungen", "Strateji ve kararlar") },
+    { icon: Globe, label: tri(lang, "طراح وبسایت", "Website Designer", "Website-Designer", "Web Sitesi Tasarımcısı"), desc: tri(lang, "ساخت سایت هوشمند", "Build a smart site", "Intelligente Website erstellen", "Akıllı bir site oluştur") },
   ];
   const Arrow = rtl ? ArrowLeft : ArrowRight;
 
@@ -55,17 +55,11 @@ export default async function BusinessGate({ children }: { children: React.React
         {/* Headline */}
         <div>
           <h1 className="text-3xl font-bold mb-3" style={{ color: "var(--text-primary)" }}>
-            {tri(lang, "آیا می‌خواهی کسب‌وکارت رشد کنه؟", "Ready to grow your business?", "Bereit, Ihr Unternehmen wachsen zu lassen?")}
+            {tri(lang, "آیا می‌خواهی کسب‌وکارت رشد کنه؟", "Ready to grow your business?", "Bereit, Ihr Unternehmen wachsen zu lassen?", "İşletmenizi büyütmeye hazır mısınız?")}
           </h1>
           <p className="text-lg leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            {tri(lang,
-              "با ایجنت‌های هوش مصنوعی تخصصی، کسب‌وکار خود را به سطح بعدی ببر.",
-              "Take your business to the next level with specialist AI agents.",
-              "Bringen Sie Ihr Unternehmen mit spezialisierten KI-Agenten auf die nächste Stufe.")}<br />
-            {tri(lang,
-              "تحلیل، استراتژی، سئو، شبکه‌های اجتماعی و جلسات هوشمند — همه در یک پلتفرم.",
-              "Analysis, strategy, SEO, social media and smart meetings — all on one platform.",
-              "Analyse, Strategie, SEO, Social Media und intelligente Meetings — alles auf einer Plattform.")}
+            {tri(lang, "با ایجنت‌های هوش مصنوعی تخصصی، کسب‌وکار خود را به سطح بعدی ببر.", "Take your business to the next level with specialist AI agents.", "Bringen Sie Ihr Unternehmen mit spezialisierten KI-Agenten auf die nächste Stufe.", "Uzman yapay zeka ajanlarıyla işletmenizi bir üst seviyeye taşıyın.")}<br />
+            {tri(lang, "تحلیل، استراتژی، سئو، شبکه‌های اجتماعی و جلسات هوشمند — همه در یک پلتفرم.", "Analysis, strategy, SEO, social media and smart meetings — all on one platform.", "Analyse, Strategie, SEO, Social Media und intelligente Meetings — alles auf einer Plattform.", "Analiz, strateji, SEO, sosyal medya ve akıllı toplantılar — hepsi tek platformda.")}
           </p>
         </div>
 
@@ -86,17 +80,14 @@ export default async function BusinessGate({ children }: { children: React.React
           <Link href="/industry"
             className="flex items-center justify-center gap-2 px-8 py-4 rounded-2xl font-bold text-white text-lg transition-all hover:opacity-90"
             style={{ background: "linear-gradient(135deg, #ea580c, #f97316)" }}>
-            {tri(lang, "مشاهده بسته‌های صنعتی", "Browse industry packs", "Branchenpakete ansehen")}
+            {tri(lang, "مشاهده بسته‌های صنعتی", "Browse industry packs", "Branchenpakete ansehen", "Sektör paketlerine göz atın")}
             <Arrow className="w-5 h-5" />
           </Link>
           <ContinueWithoutPackButton />
         </div>
 
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          {tri(lang,
-            "بسته‌های صنعتی برای کسب‌وکارها طراحی شده‌اند و شامل ایجنت‌های تخصصی هر صنعت می‌باشند.",
-            "Industry packs are built for businesses and include agents specialised in each industry.",
-            "Branchenpakete sind für Unternehmen gemacht und enthalten Agenten, die auf die jeweilige Branche spezialisiert sind.")}
+          {tri(lang, "بسته‌های صنعتی برای کسب‌وکارها طراحی شده‌اند و شامل ایجنت‌های تخصصی هر صنعت می‌باشند.", "Industry packs are built for businesses and include agents specialised in each industry.", "Branchenpakete sind für Unternehmen gemacht und enthalten Agenten, die auf die jeweilige Branche spezialisiert sind.", "Sektör paketleri işletmeler için oluşturulmuştur ve her sektöre özel uzman ajanlar içerir.")}
         </p>
       </div>
     </div>

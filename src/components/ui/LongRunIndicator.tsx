@@ -39,12 +39,12 @@ export default function LongRunIndicator({
   }, []);
 
   const stage = receivedAny
-    ? tri(lang, "در حال نوشتن پاسخ...", "Writing the answer...", "Antwort wird geschrieben...")
+    ? tri(lang, "در حال نوشتن پاسخ...", "Writing the answer...", "Antwort wird geschrieben...", "Cevap yazılıyor...")
     : elapsed < 8
-      ? tri(lang, "در حال خواندن اطلاعات کسب‌وکار...", "Reading your business data...", "Geschäftsdaten werden gelesen...")
+      ? tri(lang, "در حال خواندن اطلاعات کسب‌وکار...", "Reading your business data...", "Geschäftsdaten werden gelesen...", "İşletme verileriniz okunuyor...")
       : elapsed < expectedSeconds
-        ? tri(lang, "در حال تحلیل...", "Analysing...", "Analyse läuft...")
-        : tri(lang, "بیشتر از معمول طول کشیده — هنوز در حال انجام است", "Taking longer than usual — still working", "Dauert länger als üblich — läuft noch");
+        ? tri(lang, "در حال تحلیل...", "Analysing...", "Analyse läuft...", "Analiz ediliyor...")
+        : tri(lang, "بیشتر از معمول طول کشیده — هنوز در حال انجام است", "Taking longer than usual — still working", "Dauert länger als üblich — läuft noch", "Her zamankinden uzun sürüyor — hâlâ çalışıyor");
 
   return (
     <div className="flex items-center gap-3 rounded-xl px-3 py-2 text-xs" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }} role="status" aria-live="polite">
@@ -52,10 +52,7 @@ export default function LongRunIndicator({
       <span className="flex-1 min-w-0">
         <span className="block" style={{ color: "var(--text-primary)" }}>{stage}</span>
         <span className="block" style={{ color: "var(--text-muted)" }}>
-          {tri(lang,
-            `${elapsed} ثانیه گذشته · معمولاً حدود ${expectedSeconds} ثانیه`,
-            `${elapsed}s elapsed · usually about ${expectedSeconds}s`,
-            `${elapsed} s vergangen · meist etwa ${expectedSeconds} s`)}
+          {tri(lang, `${elapsed} ثانیه گذشته · معمولاً حدود ${expectedSeconds} ثانیه`, `${elapsed}s elapsed · usually about ${expectedSeconds}s`, `${elapsed} s vergangen · meist etwa ${expectedSeconds} s`, `${elapsed} sn geçti · genellikle yaklaşık ${expectedSeconds} sn sürer`)}
         </span>
       </span>
       {onCancel && (
@@ -63,10 +60,10 @@ export default function LongRunIndicator({
           onClick={onCancel}
           className="flex items-center gap-1 px-2.5 py-1 rounded-lg flex-shrink-0"
           style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
-          title={tri(lang, "لغو — کردیتی کسر نمی‌شود", "Cancel — no credits are charged", "Abbrechen — kein Guthaben wird abgebucht")}
+          title={tri(lang, "لغو — کردیتی کسر نمی‌شود", "Cancel — no credits are charged", "Abbrechen — kein Guthaben wird abgebucht", "İptal — kredi tahsil edilmez")}
         >
           <X className="w-3 h-3" />
-          {tri(lang, "لغو", "Cancel", "Abbrechen")}
+          {tri(lang, "لغو", "Cancel", "Abbrechen", "İptal")}
         </button>
       )}
     </div>
