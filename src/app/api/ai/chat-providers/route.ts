@@ -4,17 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { getAvailableProviders } from "@/lib/ai/providers";
 import { prisma } from "@/lib/db/prisma";
-import fs from "fs";
-import path from "path";
-
-function getDisabledProviders(): Set<string> {
-  try {
-    const cfg = JSON.parse(fs.readFileSync(path.join(process.cwd(), "src/lib/ai/provider-config.json"), "utf-8"));
-    return new Set(cfg.disabled ?? []);
-  } catch {
-    return new Set();
-  }
-}
+import { getDisabledProviders, refreshDisabledProviders } from "@/lib/ai/providerConfig";
 
 // User-facing list of usable chat/text models, for model pickers in content
 // generation flows (business posts, Instagram captions, etc). `model` is
@@ -25,6 +15,7 @@ export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
+  await refreshDisabledProviders();
   const disabled = getDisabledProviders();
   const providers = getAvailableProviders()
     .filter((p) => !disabled.has(p.id))

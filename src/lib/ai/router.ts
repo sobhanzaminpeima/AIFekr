@@ -1,5 +1,4 @@
-import fs from "fs";
-import path from "path";
+import { getDisabledProviders, refreshDisabledProviders } from "./providerConfig";
 import { PROVIDERS, getAvailableProviders, streamProvider, type ChatMessage, type Provider, type TokenUsage } from "./providers";
 
 const STALL_TIMEOUT_MS = 10_000; // 10s — applies to first token AND any gap between chunks
@@ -75,16 +74,14 @@ function isRateLimitError(error: Error): boolean {
   return /error 429/i.test(error.message) || /rate limit/i.test(error.message);
 }
 
-function getDisabledProviders(): Set<string> {
-  try {
-    const cfg = JSON.parse(fs.readFileSync(path.join(process.cwd(), "src/lib/ai/provider-config.json"), "utf-8"));
-    return new Set(cfg.disabled ?? []);
-  } catch {
-    return new Set();
-  }
-}
-
-function getEnabledProviders(): Provider[] {
+/**
+ * Exported (not just used internally) so callers that need a *restricted*
+ * subset of providers -- e.g. the floating support assistant, which must
+ * only ever pick from free-tier providers and never fall through to a paid
+ * one -- can filter this same admin-configured enabled/disabled list rather
+ * than re-implementing it (see providerConfig.ts).
+ */
+export function getEnabledProviders(): Provider[] {
   const disabled = getDisabledProviders();
   return getAvailableProviders().filter((p) => !disabled.has(p.id));
 }
@@ -169,6 +166,7 @@ export async function routedStreamChat(
   /** Fired once with real prompt/completion token counts, when the provider that succeeded reports usage. Not every provider returns usage on every request (e.g. no output at all) — in that case this is never called and callers should treat tokens as unknown, not zero. */
   onUsage?: (usage: TokenUsage) => void
 ): Promise<Provider> {
+  await refreshDisabledProviders();
   const message = messages[messages.length - 1]?.content ?? "";
   const primary = selectProvider(message, userPreferredModel);
   onProviderSelected(primary);
