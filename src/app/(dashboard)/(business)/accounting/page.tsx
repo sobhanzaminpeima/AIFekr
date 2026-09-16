@@ -117,7 +117,7 @@ export default function AccountingDashboardPage() {
             </svg>
             {hover && (
               <div className="fixed z-50 px-2 py-1 rounded-lg text-xs pointer-events-none" style={{ left: hover.x + 10, top: hover.y - 30, background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                {hover.label}: {hover.value}
+                {hover.label}: <span dir="ltr">{hover.value}</span>
               </div>
             )}
           </div>
@@ -136,7 +136,7 @@ export default function AccountingDashboardPage() {
                     {/* The account row carries nameEn and nameDe; German used to
                         fall through to the English name because nameDe was never read. */}
                     <span style={{ color: "var(--text-secondary)" }}>{accountName(cat, lang)}</span>
-                    <span style={{ color: "var(--text-primary)" }}>{fmt(cat.amount)}</span>
+                    <span dir="ltr" style={{ color: "var(--text-primary)" }}>{fmt(cat.amount)}</span>
                   </div>
                   <div className="h-2 rounded-full" style={{ background: "var(--surface-2)" }}>
                     <div className="h-2 rounded-full" style={{ width: `${(cat.amount / maxExpenseCat) * 100}%`, background: SERIES_COLORS[i % SERIES_COLORS.length] }} />
@@ -163,7 +163,7 @@ export default function AccountingDashboardPage() {
                     {/* logical margin (ms-*) so the gap flips with dir, unlike the old mr-2 */}
                     <span className="text-xs ms-2" style={{ color: "var(--text-muted)" }}>{inv.contactName}</span>
                   </div>
-                  <span className="text-xs font-medium" style={{ color: "var(--neg)" }}>{fmt(inv.total)}</span>
+                  <span className="text-xs font-medium" dir="ltr" style={{ color: "var(--neg)" }}>{fmt(inv.total)}</span>
                 </div>
               ))}
             </div>
@@ -175,7 +175,7 @@ export default function AccountingDashboardPage() {
           <h2 className="text-sm font-semibold mb-3 flex items-center gap-1.5" style={{ color: "var(--text-primary)" }}><Home className="w-4 h-4" />{tri(lang, "اجاره کوتاه‌مدت", "Short-term rental", "Kurzzeitvermietung")}</h2>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between"><span style={{ color: "var(--text-secondary)" }}>{tri(lang, "واحد فعال", "Active units", "Aktive Einheiten")}</span><span style={{ color: "var(--text-primary)" }}>{data.shortTermRental.activeUnits}</span></div>
-            <div className="flex justify-between"><span style={{ color: "var(--text-secondary)" }}>{tri(lang, "کارمزد این ماه", "Fees this month", "Gebühren diesen Monat")}</span><span style={{ color: "var(--text-primary)" }}>{fmt(data.shortTermRental.monthManagementFeeTotal)}</span></div>
+            <div className="flex justify-between"><span style={{ color: "var(--text-secondary)" }}>{tri(lang, "کارمزد این ماه", "Fees this month", "Gebühren diesen Monat")}</span><span dir="ltr" style={{ color: "var(--text-primary)" }}>{fmt(data.shortTermRental.monthManagementFeeTotal)}</span></div>
             <div className="flex justify-between"><span style={{ color: "var(--text-secondary)" }}>{tri(lang, "گزارش‌های در انتظار تأیید", "Statements awaiting approval", "Abrechnungen zur Freigabe")}</span><span style={{ color: "var(--text-primary)" }}>{data.shortTermRental.pendingStatements}</span></div>
           </div>
         </div>
@@ -205,7 +205,7 @@ export default function AccountingDashboardPage() {
             {data.pendingCommissions.map((c) => (
               <div key={c.id} className="flex items-center justify-between text-sm py-1.5" style={{ borderBottom: "1px solid var(--border)" }}>
                 <span style={{ color: "var(--text-primary)" }}>{c.dealTitle}</span>
-                <span className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{fmt(c.amount)}</span>
+                <span className="text-xs font-medium" dir="ltr" style={{ color: "var(--text-secondary)" }}>{fmt(c.amount)}</span>
               </div>
             ))}
           </div>
@@ -292,7 +292,11 @@ function KpiCard({ icon, label, value, tone }: { icon: React.ReactNode; label: s
         {icon}
         <span className="text-xs">{label}</span>
       </div>
-      <div className="text-base font-bold" style={{ color }}>{value}</div>
+      {/* dir="ltr" isolates the digit-group string from the page's RTL
+          bidi context -- without it, a long thousands-grouped number
+          embedded in an RTL paragraph can have its comma-separated groups
+          visually reordered by the browser's bidi algorithm. */}
+      <div className="text-base font-bold" dir="ltr" style={{ color, textAlign: "start" }}>{value}</div>
     </div>
   );
 }
