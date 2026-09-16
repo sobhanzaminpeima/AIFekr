@@ -3234,6 +3234,63 @@ function CountryCityPicker({ lang, cityValue, onCityChange }: { lang: Lang; city
   );
 }
 
+/**
+ * Minimal "create an owner right here" modal for the property form — a full
+ * new property used to require the owner to already exist as a CrmContact,
+ * created separately in the Contacts tab first. This only collects what an
+ * owner record actually needs (name, phone, email); anyone who wants the
+ * fuller contact form (WhatsApp/Telegram/company/source) still has
+ * NewContactModal in the Contacts tab.
+ */
+function QuickAddOwnerModal({ lang, onClose, onCreated }: { lang: Lang; onClose: () => void; onCreated: (contact: Contact) => void }) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit() {
+    if (!name.trim()) { setError(tri(lang, "نام الزامی است", "Name is required", "Name ist erforderlich", "Ad gereklidir")); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/crm/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), phone: phone || undefined, email: email || undefined, source: "manual" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      onCreated(data.contact);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : tri(lang, "خطا", "Error", "Fehler", "Hata"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl p-5 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{tri(lang, "افزودن مالک جدید", "Add new owner", "Neuen Eigentümer hinzufügen", "Yeni sahip ekle")}</h3>
+          <button onClick={onClose}><X className="w-4 h-4" style={{ color: "var(--text-muted)" }} /></button>
+        </div>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={tri(lang, "نام", "Name", "Name", "Ad")} autoFocus
+          className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={tri(lang, "تلفن (اختیاری)", "Phone (optional)", "Telefon (optional)", "Telefon (isteğe bağlı)")} dir="ltr"
+          className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={tri(lang, "ایمیل (اختیاری)", "Email (optional)", "E-Mail (optional)", "E-posta (isteğe bağlı)")} dir="ltr"
+          className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
+        <button onClick={submit} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+          {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : tri(lang, "افزودن مالک", "Add owner", "Eigentümer hinzufügen", "Sahibi ekle")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, propertyDocumentsEnabled, listingCopywriterEnabled, pricingAdvisorEnabled, openPropertyId, onOpenPropertyHandled }: { isFa: boolean; lang: Lang; contacts: Contact[]; shortTermCalendarEnabled: boolean; propertyDocumentsEnabled: boolean; listingCopywriterEnabled: boolean; pricingAdvisorEnabled: boolean; openPropertyId?: string | null; onOpenPropertyHandled?: () => void }) {
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -3280,6 +3337,13 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
   const [areaSqm, setAreaSqm] = useState("");
   const [description, setDescription] = useState("");
   const [ownerContactId, setOwnerContactId] = useState("");
+  // Owners created inline from this form (see QuickAddOwnerModal below), so
+  // the select shows them immediately without a full contacts reload -- a
+  // new property used to REQUIRE the owner to already exist as a CrmContact
+  // created separately in the Contacts tab first.
+  const [extraOwnerContacts, setExtraOwnerContacts] = useState<Contact[]>([]);
+  const [quickAddTarget, setQuickAddTarget] = useState<"owner" | "rentalOwner" | null>(null);
+  const ownerOptions = [...contacts, ...extraOwnerContacts];
   // Distinct from ownerContactId above (which is actually the CRM lead/
   // buyer-seller link, sent as crmContactId) — this is Property.ownerContactId,
   // the accounting module's rental-income owner (spec 3.9), only meaningful
@@ -3458,21 +3522,46 @@ function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, prope
               className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           </div>
 
-          <select value={ownerContactId} onChange={(e) => setOwnerContactId(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{tri(lang, "بدون مالک/مخاطب مشخص", "No owner/contact set", "Kein Eigentümer/Kontakt festgelegt", "Sahip/kişi belirlenmemiş")}</option>
-            {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <div className="flex gap-2">
+            <select value={ownerContactId} onChange={(e) => setOwnerContactId(e.target.value)}
+              className="flex-1 px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              <option value="">{tri(lang, "بدون مالک/مخاطب مشخص", "No owner/contact set", "Kein Eigentümer/Kontakt festgelegt", "Sahip/kişi belirlenmemiş")}</option>
+              {ownerOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <button type="button" onClick={() => setQuickAddTarget("owner")} title={tri(lang, "مالک جدید", "New owner", "Neuer Eigentümer", "Yeni sahip")}
+              className="px-3 rounded-xl text-sm font-medium flex-shrink-0" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--primary)" }}>
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
 
           {listingType === "short_term_rent" && (
             <div>
               <label className="text-xs mb-1 block" style={{ color: "var(--text-muted)" }}>{tri(lang, "مالک اجاره کوتاه‌مدت (برای گزارش تسویه)", "Short-term rental owner (for owner statements)", "Eigentümer der Kurzzeitvermietung (für Eigentümerabrechnungen)", "Kısa dönem kiralama sahibi (mülk sahibi ekstreleri için)")}</label>
-              <select value={rentalOwnerContactId} onChange={(e) => setRentalOwnerContactId(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                <option value="">{tri(lang, "بدون مالک تعیین‌شده", "No owner set", "Kein Eigentümer festgelegt", "Sahip belirlenmemiş")}</option>
-                {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <div className="flex gap-2">
+                <select value={rentalOwnerContactId} onChange={(e) => setRentalOwnerContactId(e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                  <option value="">{tri(lang, "بدون مالک تعیین‌شده", "No owner set", "Kein Eigentümer festgelegt", "Sahip belirlenmemiş")}</option>
+                  {ownerOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <button type="button" onClick={() => setQuickAddTarget("rentalOwner")} title={tri(lang, "مالک جدید", "New owner", "Neuer Eigentümer", "Yeni sahip")}
+                  className="px-3 rounded-xl text-sm font-medium flex-shrink-0" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--primary)" }}>
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
             </div>
+          )}
+
+          {quickAddTarget && (
+            <QuickAddOwnerModal
+              lang={lang}
+              onClose={() => setQuickAddTarget(null)}
+              onCreated={(contact) => {
+                setExtraOwnerContacts((prev) => [...prev, contact]);
+                if (quickAddTarget === "owner") setOwnerContactId(contact.id);
+                else setRentalOwnerContactId(contact.id);
+                setQuickAddTarget(null);
+              }}
+            />
           )}
 
           <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder={tri(lang, "توضیحات", "Description", "Beschreibung", "Açıklama")}

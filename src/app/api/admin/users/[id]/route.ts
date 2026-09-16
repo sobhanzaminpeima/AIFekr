@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, unauthorizedResponse, forbiddenResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { updateUserAsAdmin, deleteUserAsAdmin } from "@/lib/repositories/adminRepository";
+import { updateUserAsAdmin, deleteUserAsAdmin, PhoneAlreadyInUseError } from "@/lib/repositories/adminRepository";
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const admin = await requireAdmin(req);
@@ -33,8 +33,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 
   const body = await req.json();
-  const user = await updateUserAsAdmin(params.id, body);
-  return NextResponse.json({ user });
+  try {
+    const user = await updateUserAsAdmin(params.id, body);
+    return NextResponse.json({ user });
+  } catch (err) {
+    if (err instanceof PhoneAlreadyInUseError) {
+      return NextResponse.json({ error: err.message }, { status: 409 });
+    }
+    throw err;
+  }
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {

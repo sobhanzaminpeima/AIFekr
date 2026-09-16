@@ -92,7 +92,7 @@ export default function AdminUserDetailPage() {
   const [loading, setLoading] = useState(true);
   const [commissionInput, setCommissionInput] = useState("");
   const [savingCommission, setSavingCommission] = useState(false);
-  const [profileForm, setProfileForm] = useState({ firstName: "", lastName: "", country: "", currency: "" });
+  const [profileForm, setProfileForm] = useState({ firstName: "", lastName: "", country: "", currency: "", phone: "" });
   const [savingProfile, setSavingProfile] = useState(false);
   const [modules, setModules] = useState<ModuleRow[] | null>(null);
   const [savingModuleKey, setSavingModuleKey] = useState<string | null>(null);
@@ -110,6 +110,7 @@ export default function AdminUserDetailPage() {
         lastName: data.user.lastName || "",
         country: data.user.country || "",
         currency: data.user.currency || "",
+        phone: data.user.phone || "",
       });
     } finally {
       setLoading(false);
@@ -146,7 +147,7 @@ export default function AdminUserDetailPage() {
   async function saveProfile() {
     setSavingProfile(true);
     try {
-      await fetch(`/api/admin/users/${id}`, {
+      const res = await fetch(`/api/admin/users/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -154,8 +155,11 @@ export default function AdminUserDetailPage() {
           lastName: profileForm.lastName.trim() || null,
           country: profileForm.country || null,
           currency: profileForm.currency || null,
+          phone: profileForm.phone.trim() || null,
         }),
       });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) { toast.error(data?.error || "خطا در بروزرسانی"); return; }
       toast.success("اطلاعات کاربر بروزرسانی شد");
       load();
     } finally {
@@ -242,7 +246,9 @@ export default function AdminUserDetailPage() {
               {user.isBlocked ? "مسدود" : "فعال"}
             </span>
           </div>
-          <div className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{user.email || user.phone || "—"}</div>
+          <div className="text-sm mt-1" style={{ color: "var(--text-secondary)" }} dir="ltr">
+            {[user.email, user.phone].filter(Boolean).join(" · ") || "—"}
+          </div>
           <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
             عضویت از {toJalali(user.createdAt)}
             {user.lastLoginAt && ` · آخرین ورود ${toJalali(user.lastLoginAt)}`}
@@ -262,7 +268,7 @@ export default function AdminUserDetailPage() {
       {/* Profile info — name split, country, display currency */}
       <div className="rounded-2xl p-5 space-y-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
         <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>اطلاعات شخصی</span>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           <div>
             <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>نام</label>
             <input value={profileForm.firstName} onChange={(e) => setProfileForm((p) => ({ ...p, firstName: e.target.value }))}
@@ -287,6 +293,11 @@ export default function AdminUserDetailPage() {
               className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
               {CURRENCY_OPTIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
+          </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>موبایل</label>
+            <input value={profileForm.phone} onChange={(e) => setProfileForm((p) => ({ ...p, phone: e.target.value }))} dir="ltr"
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           </div>
         </div>
         <button onClick={saveProfile} disabled={savingProfile}

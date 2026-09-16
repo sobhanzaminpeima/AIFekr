@@ -285,9 +285,14 @@ export interface SuggestedStatementLine {
   category: "guest_stay" | "maintenance" | "utilities" | "consumables" | "other";
   income?: number;
   expense?: number;
-  /** "booking" lines are computed deterministically from real PropertyBooking rows — never AI-invented. "ai_parsed" lines are extracted from the manager's own free-text notes and must be reviewed before use. */
-  source: "booking" | "ai_parsed";
+  /** "booking" and "tracked_expense" lines are computed deterministically from real PropertyBooking/AccountingExpense rows — never AI-invented. "ai_parsed" lines are extracted from the manager's own free-text notes and must be reviewed before use. */
+  source: "booking" | "tracked_expense" | "ai_parsed";
 }
+
+/** AccountingAccount.code -> owner-statement category, for expenses already tracked against this property. Unmapped codes fall back to "other" rather than guessing wrong. */
+const EXPENSE_ACCOUNT_CATEGORY: Record<string, SuggestedStatementLine["category"]> = {
+  "5300": "utilities",
+};
 
 function overlapNights(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date): number {
   const start = aStart > bStart ? aStart : bStart;
@@ -332,6 +337,23 @@ export async function suggestOwnerStatementLines(workspaceUserId: string, proper
       source: "booking",
     };
   });
+
+  // Real tracked costs for this property/month — the exact gap that made
+  // owner statements a manual retype every month even though the expense
+  // was already sitting in AccountingExpense with this property's id on it.
+  const trackedExpenses = await prisma.accountingExpense.findMany({
+    where: { workspaceUserId, propertyId, expenseDate: { gte: monthStart, lte: monthEnd } },
+    orderBy: { expenseDate: "asc" },
+  });
+  for (const e of trackedExpenses) {
+    lines.push({
+      date: e.expenseDate.toISOString(),
+      description: e.description,
+      category: EXPENSE_ACCOUNT_CATEGORY[e.accountCode] || "maintenance",
+      expense: e.amount,
+      source: "tracked_expense",
+    });
+  }
 
   if (freeTextNotes && freeTextNotes.trim()) {
     const prompt = `یادداشت آزاد مدیر ملک برای ماه ${monthStart.toISOString().slice(0, 7)}:\n"""${freeTextNotes}"""\n\nاین یادداشت را به یک آرایهٔ JSON از ردیف‌های هزینه/درآمد تبدیل کن. هر ردیف: {"date": "YYYY-MM-DD", "description": "...", "category": "maintenance"|"utilities"|"consumables"|"other"|"guest_stay", "income": عدد یا حذف, "expense": عدد یا حذف}. فقط از اعدادی استفاده کن که در متن آمده — هیچ عددی نساز. اگر تاریخ دقیق در متن نبود از ${monthStart.toISOString().slice(0, 10)} استفاده کن. فقط و فقط آرایهٔ JSON خام را برگردان، بدون هیچ توضیح اضافه.`;

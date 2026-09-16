@@ -28,7 +28,7 @@ interface LineItem {
   category: "guest_stay" | "maintenance" | "utilities" | "consumables" | "other";
   income: string;
   expense: string;
-  source?: "booking" | "ai_parsed";
+  source?: "booking" | "tracked_expense" | "ai_parsed";
 }
 
 interface Statement {
@@ -514,7 +514,7 @@ export default function OwnerStatementsPage() {
 
         <div className="flex gap-2">
           <button disabled={assisting || !propertyId} onClick={getAiSuggestions} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50" style={{ background: "var(--surface-2)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
-            <Sparkles className="w-4 h-4" />{assisting ? tri(lang, "در حال دریافت پیشنهاد...", "Getting suggestions…", "Vorschläge werden geladen…") : tri(lang, "دریافت پیشنهاد هوشمند", "Get AI suggestions", "KI-Vorschläge holen")}
+            <Sparkles className="w-4 h-4" />{assisting ? tri(lang, "در حال دریافت پیشنهاد...", "Getting suggestions…", "Vorschläge werden geladen…") : tri(lang, "پر کردن خودکار (رزروها و هزینه‌های ثبت‌شده)", "Auto-fill (bookings & tracked expenses)", "Automatisch ausfüllen (Buchungen & erfasste Ausgaben)")}
           </button>
           <button onClick={() => setLines((prev) => [...prev, emptyLine()])} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
             <Plus className="w-4 h-4" />{tri(lang, "افزودن ردیف دستی", "Add line manually", "Position manuell hinzufügen")}
@@ -542,6 +542,7 @@ export default function OwnerStatementsPage() {
                 <input value={l.expense} onChange={(e) => updateLine(i, { expense: e.target.value })} placeholder={tri(lang, "هزینه", "Expense", "Ausgabe")} type="number" className="w-24 px-2 py-1.5 rounded-md text-xs" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--neg)" }} />
                 {l.source === "ai_parsed" && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(237,161,0,0.12)", color: "#eda100" }}>{tri(lang, "پیشنهاد AI", "AI suggested", "KI-Vorschlag")}</span>}
                 {l.source === "booking" && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(27,175,122,0.12)", color: "var(--pos)" }}>{tri(lang, "از رزرو", "From booking", "Aus Buchung")}</span>}
+                {l.source === "tracked_expense" && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(27,175,122,0.12)", color: "var(--pos)" }}>{tri(lang, "از هزینه‌های ثبت‌شده", "From tracked expenses", "Aus erfassten Ausgaben")}</span>}
                 <button onClick={() => removeLine(i)} className="p-1.5 rounded-lg" style={{ color: "var(--neg)" }}><Trash2 className="w-4 h-4" /></button>
               </div>
             ))}

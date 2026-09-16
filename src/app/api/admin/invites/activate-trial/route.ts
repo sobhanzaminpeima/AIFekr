@@ -8,6 +8,7 @@ import { hashPassword } from "@/lib/auth/password";
 import { findUserByEmail, findUserByPhone, createUser } from "@/lib/repositories/userRepository";
 import { generateUniqueReferralCode } from "@/lib/utils/referralCode";
 import { rateLimit } from "@/lib/utils/rateLimit";
+import { sendWelcomeEmail } from "@/lib/email/resend";
 
 /**
  * Admin "Invite to AIfekr" tool — activates a Pro trial + (optionally) the
@@ -38,9 +39,10 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const { userId, name, email, phone, trialDays, realEstatePackage, trialLimited } = body as {
-    userId?: string; name?: string; email?: string; phone?: string; trialDays?: number; realEstatePackage?: boolean; trialLimited?: boolean;
+  const { userId, firstName, lastName, email, phone, trialDays, realEstatePackage, trialLimited } = body as {
+    userId?: string; firstName?: string; lastName?: string; email?: string; phone?: string; trialDays?: number; realEstatePackage?: boolean; trialLimited?: boolean;
   };
+  const name = firstName ? `${firstName.trim()}${lastName?.trim() ? ` ${lastName.trim()}` : ""}` : undefined;
 
   const wantsRealEstate = realEstatePackage !== false; // ticked by default per spec
   const isLimited = trialLimited === true; // the "referral trial" package -- video + website designer blocked
@@ -115,7 +117,9 @@ export async function POST(req: NextRequest) {
     const referralCode = await generateUniqueReferralCode(name);
 
     const created = await createUser({
-      name: name.trim(),
+      name: name!.trim(),
+      firstName: firstName?.trim(),
+      lastName: lastName?.trim() || undefined,
       email: email || undefined,
       phone: phone || undefined,
       passwordHash: await hashPassword(placeholderPassword),
@@ -134,6 +138,14 @@ export async function POST(req: NextRequest) {
       invitedAt: now,
     });
     targetUserId = created.id;
+
+    // Best-effort: the admin still has the invite page (credentials, referral
+    // link, invite text) as the reliable hand-off — this is a courtesy notice
+    // so a new invitee who does get emailed knows AIFekr exists before the
+    // admin reaches out, not the only way they find out.
+    if (email) {
+      await sendWelcomeEmail(email, name!.trim()).catch((err) => console.error("invite welcome email failed:", err));
+    }
   }
 
   await prisma.auditLog.create({

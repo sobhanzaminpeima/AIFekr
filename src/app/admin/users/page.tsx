@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, Filter, ChevronLeft, ChevronRight, MoreVertical, Ban, Coins, UserCheck, Trash2, Loader2, Repeat, Plus, Sparkles, X } from "lucide-react";
 import { toJalali, formatNumber } from "@/lib/utils/jalali";
 import toast from "react-hot-toast";
-import { COUNTRIES } from "@/lib/constants/countries";
+import { COUNTRIES, dialCodeFor } from "@/lib/constants/countries";
 
 interface User {
   id: string;
@@ -60,28 +60,41 @@ export default function AdminUsersPage() {
   // "Invite to AIfekr" — activates the trial here, then hands off to the
   // dedicated /admin/invites page (credentials, referral link, invite text).
   const [inviteTarget, setInviteTarget] = useState<{ userId: string | null; name: string } | null>(null);
-  const [inviteForm, setInviteForm] = useState({ name: "", email: "", phone: "", trialDays: 14, realEstatePackage: true, trialLimited: false });
+  const INVITE_FORM_DEFAULT = { firstName: "", lastName: "", email: "", phone: "", country: "IR", trialDays: 14, realEstatePackage: true, trialLimited: false };
+  const [inviteForm, setInviteForm] = useState(INVITE_FORM_DEFAULT);
   const [inviteSaving, setInviteSaving] = useState(false);
 
   function openInviteForExisting(user: User) {
     setInviteTarget({ userId: user.id, name: user.name || user.email || user.phone || "" });
-    setInviteForm({ name: "", email: "", phone: "", trialDays: 14, realEstatePackage: true, trialLimited: false });
+    setInviteForm(INVITE_FORM_DEFAULT);
     setActionUserId(null);
   }
 
   function openInviteForNew() {
     setInviteTarget({ userId: null, name: "" });
-    setInviteForm({ name: "", email: "", phone: "", trialDays: 14, realEstatePackage: true, trialLimited: false });
+    setInviteForm(INVITE_FORM_DEFAULT);
   }
 
   async function activateInvite() {
     if (!inviteTarget) return;
-    if (!inviteTarget.userId && !inviteForm.name.trim()) { toast.error("نام الزامی است"); return; }
+    if (!inviteTarget.userId && !inviteForm.firstName.trim()) { toast.error("نام الزامی است"); return; }
     setInviteSaving(true);
     try {
+      // Phone is collected as a country + local-number pair so it's stored
+      // in the same dial-code-prefixed shape as registration -- a bare
+      // free-text phone here used to have no country context at all.
+      const fullPhone = inviteForm.phone.trim() ? `${dialCodeFor(inviteForm.country)}${inviteForm.phone.trim()}` : undefined;
       const body = inviteTarget.userId
         ? { userId: inviteTarget.userId, trialDays: inviteForm.trialDays, realEstatePackage: inviteForm.realEstatePackage, trialLimited: inviteForm.trialLimited }
-        : { name: inviteForm.name, email: inviteForm.email || undefined, phone: inviteForm.phone || undefined, trialDays: inviteForm.trialDays, realEstatePackage: inviteForm.realEstatePackage, trialLimited: inviteForm.trialLimited };
+        : {
+            firstName: inviteForm.firstName,
+            lastName: inviteForm.lastName || undefined,
+            email: inviteForm.email || undefined,
+            phone: fullPhone,
+            trialDays: inviteForm.trialDays,
+            realEstatePackage: inviteForm.realEstatePackage,
+            trialLimited: inviteForm.trialLimited,
+          };
       const res = await fetch("/api/admin/invites/activate-trial", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
       });
@@ -282,7 +295,8 @@ export default function AdminUsersPage() {
                     <td className="px-4 py-3 cursor-pointer" onClick={() => router.push(`/admin/users/${user.id}`)}>
                       <div>
                         <div className="font-medium" style={{ color: "var(--text-primary)" }}>{user.name || "بدون نام"}</div>
-                        <div className="text-xs" style={{ color: "var(--text-muted)" }}>{user.email || user.phone || "—"}</div>
+                        <div className="text-xs" style={{ color: "var(--text-muted)" }}>{user.email || "—"}</div>
+                        {user.phone && <div className="text-xs" dir="ltr" style={{ color: "var(--text-muted)" }}>{user.phone}</div>}
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -445,20 +459,35 @@ export default function AdminUsersPage() {
               <p className="text-sm" style={{ color: "var(--text-secondary)" }}>برای کاربر: <strong>{inviteTarget.name}</strong></p>
             ) : (
               <>
-                <div>
-                  <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>نام کاربر جدید</label>
-                  <input value={inviteForm.name} onChange={(e) => setInviteForm((p) => ({ ...p, name: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>ایمیل</label>
-                    <input value={inviteForm.email} onChange={(e) => setInviteForm((p) => ({ ...p, email: e.target.value }))}
+                    <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>نام</label>
+                    <input value={inviteForm.firstName} onChange={(e) => setInviteForm((p) => ({ ...p, firstName: e.target.value }))}
                       className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                   </div>
                   <div>
+                    <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>نام خانوادگی</label>
+                    <input value={inviteForm.lastName} onChange={(e) => setInviteForm((p) => ({ ...p, lastName: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>ایمیل</label>
+                  <input value={inviteForm.email} onChange={(e) => setInviteForm((p) => ({ ...p, email: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>کد کشور</label>
+                    <select value={inviteForm.country} onChange={(e) => setInviteForm((p) => ({ ...p, country: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                      {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.fa} {c.dialCode}</option>)}
+                    </select>
+                  </div>
+                  <div className="col-span-2">
                     <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>موبایل</label>
                     <input value={inviteForm.phone} onChange={(e) => setInviteForm((p) => ({ ...p, phone: e.target.value }))}
+                      placeholder="9121234567" dir="ltr"
                       className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                   </div>
                 </div>

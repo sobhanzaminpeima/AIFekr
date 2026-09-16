@@ -8,12 +8,37 @@ import { prisma } from "@/lib/db/prisma";
  * inline in each admin route.
  */
 
-const ADMIN_EDITABLE_USER_FIELDS = ["name", "email", "plan", "credits", "isBlocked", "planExpiry", "role", "crmPlan", "crmPlanExpiry", "commissionPercentOverride"] as const;
+const ADMIN_EDITABLE_USER_FIELDS = ["name", "firstName", "lastName", "country", "currency", "email", "phone", "plan", "credits", "isBlocked", "planExpiry", "role", "crmPlan", "crmPlanExpiry", "commissionPercentOverride"] as const;
 
-export function updateUserAsAdmin(userId: string, body: Record<string, unknown>) {
+export class PhoneAlreadyInUseError extends Error {
+  constructor() {
+    super("این شماره موبایل قبلاً برای کاربر دیگری ثبت شده است");
+  }
+}
+
+export async function updateUserAsAdmin(userId: string, body: Record<string, unknown>) {
   const data: Record<string, unknown> = {};
   for (const key of ADMIN_EDITABLE_USER_FIELDS) {
     if (key in body) data[key] = body[key];
+  }
+
+  if (typeof data.phone === "string") {
+    const trimmed = data.phone.trim();
+    data.phone = trimmed || null;
+    if (trimmed) {
+      const clash = await prisma.user.findUnique({ where: { phone: trimmed }, select: { id: true } });
+      if (clash && clash.id !== userId) throw new PhoneAlreadyInUseError();
+    }
+  }
+  // Keep the legacy `name` column in sync when an admin edits first/last
+  // name specifically -- every existing caller elsewhere in the app still
+  // reads user.name, so it can't just go stale the moment these are split out.
+  if ("firstName" in body || "lastName" in body) {
+    const first = typeof data.firstName === "string" ? data.firstName : undefined;
+    const last = typeof data.lastName === "string" ? data.lastName : undefined;
+    if (first !== undefined || last !== undefined) {
+      data.name = [first, last].filter((s) => s && s.trim()).join(" ") || undefined;
+    }
   }
   return prisma.user.update({ where: { id: userId }, data });
 }
