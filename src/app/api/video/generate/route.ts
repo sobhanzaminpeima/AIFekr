@@ -71,6 +71,8 @@ export async function POST(req: NextRequest) {
     const charged = await chargeAndLog(user.id, creditCost, {
       type: "video",
       metadata: { predictionId, duration, ratio, style },
+      provider: isCustomProviderModel(provider) ? provider.slice("custom:".length) : sourceImageUrl ? "qwen-video-i2v" : provider,
+      mediaSeconds: duration,
     });
     if (!charged) {
       return NextResponse.json({ error: "اعتبار کافی ندارید" }, { status: 402 });

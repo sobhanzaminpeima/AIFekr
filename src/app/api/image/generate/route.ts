@@ -146,6 +146,8 @@ export async function POST(req: NextRequest) {
       type: "image",
       model: usageModelTag,
       metadata: { style, ratio, quality, count },
+      provider: provider === openaiImage ? "openai-image" : "qwen-image",
+      mediaSeconds: count,
     });
     if (!charged) {
       return NextResponse.json({ error: "اعتبار کافی ندارید" }, { status: 402 });

@@ -54,6 +54,8 @@ export async function POST(req: NextRequest) {
     const charged = await chargeAndLog(user.id, creditCost, {
       type: "music",
       metadata: { provider: elevenLabsResult ? "elevenlabs" : "replicate", genre, duration },
+      provider: elevenLabsResult ? "elevenlabs" : "replicate",
+      mediaSeconds: duration,
     });
     if (!charged) {
       return NextResponse.json({ error: "اعتبار کافی ندارید" }, { status: 402 });

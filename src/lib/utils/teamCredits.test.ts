@@ -101,6 +101,38 @@ describe("chargeAndLog", () => {
     expect(JSON.parse(logs[0].metadata!)).toEqual({ style: "realistic" });
   });
 
+  it("persists provider/token fields and computes estimatedCostUsd from AiModelPricing", async () => {
+    await prisma.aiModelPricing.upsert({
+      where: { providerId_kind: { providerId: "test-charge-provider", kind: "chat" } },
+      update: { inputPricePerMillion: 2, outputPricePerMillion: 8, isActive: true },
+      create: { providerId: "test-charge-provider", kind: "chat", inputPricePerMillion: 2, outputPricePerMillion: 8 },
+    });
+
+    const charged = await chargeAndLog(SOLO_ID, 5, {
+      type: "chat",
+      provider: "test-charge-provider",
+      inputTokens: 1_000_000,
+      outputTokens: 500_000,
+    });
+
+    expect(charged).toBe(true);
+    const logs = await prisma.usageLog.findMany({ where: { userId: SOLO_ID } });
+    expect(logs).toHaveLength(1);
+    expect(logs[0].provider).toBe("test-charge-provider");
+    expect(logs[0].inputTokens).toBe(1_000_000);
+    expect(logs[0].outputTokens).toBe(500_000);
+    expect(logs[0].estimatedCostUsd).toBeCloseTo(6, 6);
+
+    await prisma.aiModelPricing.delete({ where: { providerId_kind: { providerId: "test-charge-provider", kind: "chat" } } });
+  });
+
+  it("leaves estimatedCostUsd null when an explicit value isn't given and no provider is set", async () => {
+    const charged = await chargeAndLog(SOLO_ID, 5, { type: "chat" });
+    expect(charged).toBe(true);
+    const log = await prisma.usageLog.findFirst({ where: { userId: SOLO_ID, type: "chat" }, orderBy: { createdAt: "desc" } });
+    expect(log?.estimatedCostUsd).toBeNull();
+  });
+
   it("writes no usage row when the charge is declined", async () => {
     const charged = await chargeAndLog(SOLO_ID, 500, { type: "video" });
 

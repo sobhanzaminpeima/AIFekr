@@ -557,11 +557,73 @@ model UsageLog {
   credits   Int      @default(1)
   metadata  String?
   createdAt DateTime @default(now())
+  /// Provider id from src/lib/ai/providers.ts (e.g. "claude", "gpt5") — the
+  /// PROVIDERS registry, not a separate FK table, since it's a code catalog
+  /// (adding a model is a code change either way; see AiModelPricing's own
+  /// comment for why pricing still gets its own admin-editable table).
+  provider  String?
+  /// Token/media/voice breakdown, kept separate from the single `tokens`
+  /// total above (which predates this and stays for backward compat) so
+  /// cost math can use the actual input/output split instead of guessing a
+  /// ratio. All nullable: most rows only ever populate the ones relevant to
+  /// their `type` (chat -> tokens, video/music -> mediaSeconds, voice ->
+  /// voiceSeconds); an image row and a chat row are never expected to fill
+  /// the same columns.
+  inputTokens      Int?
+  outputTokens     Int?
+  cachedTokens     Int?
+  mediaSeconds     Float?
+  voiceSeconds     Float?
+  /// Estimated cost computed at charge time from AiModelPricing, before the
+  /// provider's real bill is known (which for most providers here, we never
+  /// actually get — see AiModelPricing's comment). Kept distinct from
+  /// actualCostUsd so a future provider that DOES report real billed cost
+  /// (the way Vapi already does for voice, see VoiceCallLog.cost) can fill
+  /// that column without this one silently becoming misleading.
+  estimatedCostUsd Float?
+  actualCostUsd    Float?
+  /// Client-supplied idempotency key for routes that accept one (currently
+  /// none do -- reserved for Phase 6 hardening, not enforced yet).
+  requestId        String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([createdAt])
+  @@index([provider])
+}
+
+// Admin-editable $ pricing per provider+kind, used to compute UsageLog's
+// estimatedCostUsd. Deliberately NOT a full "AiProvider"/"AiModel" pair with
+// priority/fallback/enable-disable columns (the master-prompt spec's shape)
+// -- this app's router already owns enable/disable (providerConfig.ts,
+// SiteSetting-backed, fixed this session) and provider selection/fallback
+// order (router.ts's ROUTING_TABLE, code-level). Duplicating that into a
+// second DB-driven system right after fixing the first one's "config reset
+// by deploy" bug would give the app two sources of truth for the same
+// decision. This table's only job is the dollar figure a given
+// provider+kind actually costs, which had no home anywhere before.
+//
+// providerId matches src/lib/ai/providers.ts's Provider.id for chat/text
+// models; image/video/music routes use a stable string of their own
+// (e.g. "qwen-image", "replicate-video") since those aren't in that
+// registry. One row per (providerId, kind).
+model AiModelPricing {
+  id                     String   @id @default(cuid())
+  providerId             String
+  /// "chat" | "image" | "video" | "music" | "voice"
+  kind                   String
+  /// Chat only: USD per 1,000,000 input/output tokens.
+  inputPricePerMillion   Float?
+  outputPricePerMillion  Float?
+  /// image: USD per generated image. video/music: USD per second.
+  /// voice: USD per minute. Whichever applies to `kind`.
+  pricePerUnit           Float?
+  isActive               Boolean  @default(true)
+  updatedAt              DateTime @updatedAt
+  createdAt              DateTime @default(now())
+
+  @@unique([providerId, kind])
 }
 
 /// Server-side error events, for /admin/logs. That page's "errors" tab used to

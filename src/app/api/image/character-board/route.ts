@@ -87,6 +87,8 @@ export async function POST(req: NextRequest) {
     const charged = await chargeAndLog(user.id, creditCost, {
       type: "image",
       metadata: { kind: "character_sheet", genre: resolvedGenre },
+      provider: "openai-image",
+      mediaSeconds: 3,
     });
     if (!charged) {
       return NextResponse.json({ error: tri(lang, "اعتبار کافی ندارید", "Not enough credits", "Nicht genügend Guthaben") }, { status: 402 });

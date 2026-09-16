@@ -207,6 +207,8 @@ export async function POST(req: NextRequest) {
     let assistantContent = "";
     let selectedProvider: Provider | null = null;
     let tokensUsed: number | null = null;
+    let promptTokensUsed: number | null = null;
+    let completionTokensUsed: number | null = null;
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -271,6 +273,8 @@ export async function POST(req: NextRequest) {
               undefined,
               (usage) => {
                 tokensUsed = usage.totalTokens;
+                promptTokensUsed = usage.promptTokens;
+                completionTokensUsed = usage.completionTokens;
               }
             );
           }
@@ -300,6 +304,9 @@ export async function POST(req: NextRequest) {
               type: "chat",
               model: selectedProvider?.model ?? model ?? "auto",
               tokens: tokensUsed,
+              provider: selectedProvider?.id ?? null,
+              inputTokens: promptTokensUsed,
+              outputTokens: completionTokensUsed,
             });
             if (!charged) {
               // Balance ran out between the pre-flight check and here (a

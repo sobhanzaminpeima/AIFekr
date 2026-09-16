@@ -73,6 +73,18 @@ export interface UsageRecord {
   model?: string | null;
   tokens?: number | null;
   metadata?: Record<string, unknown> | null;
+  /** Provider id from src/lib/ai/providers.ts, or a stable string for media routes not in that registry (e.g. "qwen-image"). */
+  provider?: string | null;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  cachedTokens?: number | null;
+  mediaSeconds?: number | null;
+  voiceSeconds?: number | null;
+  /** Computed from AiModelPricing at charge time if omitted and `provider` is set. */
+  estimatedCostUsd?: number | null;
+  /** For providers that report real billed cost (e.g. Vapi voice calls). */
+  actualCostUsd?: number | null;
+  requestId?: string | null;
 }
 
 /**
@@ -87,6 +99,27 @@ export interface UsageRecord {
  * written in that case, and the caller must refuse the work.
  */
 export async function chargeAndLog(userId: string, amount: number, usage: UsageRecord): Promise<boolean> {
+  // Cost lookup hits AiModelPricing, which callers won't have looked up
+  // themselves -- computed outside the transaction since it's a read of a
+  // table nothing here writes to, so there's no need to hold it up.
+  let estimatedCostUsd = usage.estimatedCostUsd ?? null;
+  if (estimatedCostUsd == null && usage.provider) {
+    const { estimateCostUsd } = await import("@/lib/ai/costEstimator");
+    const kind = usage.type as "chat" | "image" | "video" | "music" | "voice";
+    if (kind === "chat") {
+      estimatedCostUsd = await estimateCostUsd({
+        kind: "chat",
+        providerId: usage.provider,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        cachedTokens: usage.cachedTokens,
+      });
+    } else if (kind === "image" || kind === "video" || kind === "music" || kind === "voice") {
+      const units = usage.mediaSeconds ?? usage.voiceSeconds ?? 1;
+      estimatedCostUsd = await estimateCostUsd({ kind, providerId: usage.provider, units });
+    }
+  }
+
   return prisma.$transaction(async (tx) => {
     const charged = await deductCredits(userId, amount, tx);
     if (!charged) return false;
@@ -99,6 +132,15 @@ export async function chargeAndLog(userId: string, amount: number, usage: UsageR
         tokens: usage.tokens ?? undefined,
         credits: amount,
         metadata: usage.metadata ? JSON.stringify(usage.metadata) : undefined,
+        provider: usage.provider ?? undefined,
+        inputTokens: usage.inputTokens ?? undefined,
+        outputTokens: usage.outputTokens ?? undefined,
+        cachedTokens: usage.cachedTokens ?? undefined,
+        mediaSeconds: usage.mediaSeconds ?? undefined,
+        voiceSeconds: usage.voiceSeconds ?? undefined,
+        estimatedCostUsd: estimatedCostUsd ?? undefined,
+        actualCostUsd: usage.actualCostUsd ?? undefined,
+        requestId: usage.requestId ?? undefined,
       },
     });
     return true;
