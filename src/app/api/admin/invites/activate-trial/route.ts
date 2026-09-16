@@ -38,12 +38,13 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const { userId, name, email, phone, trialDays, realEstatePackage } = body as {
-    userId?: string; name?: string; email?: string; phone?: string; trialDays?: number; realEstatePackage?: boolean;
+  const { userId, name, email, phone, trialDays, realEstatePackage, trialLimited } = body as {
+    userId?: string; name?: string; email?: string; phone?: string; trialDays?: number; realEstatePackage?: boolean; trialLimited?: boolean;
   };
 
   const wantsRealEstate = realEstatePackage !== false; // ticked by default per spec
-  const days = Number.isFinite(trialDays) && (trialDays as number) > 0 && (trialDays as number) <= 90 ? (trialDays as number) : 7;
+  const isLimited = trialLimited === true; // the "referral trial" package -- video + website designer blocked
+  const days = Number.isFinite(trialDays) && (trialDays as number) > 0 && (trialDays as number) <= 90 ? (trialDays as number) : 14;
 
   const now = new Date();
   const trialEndsAt = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
@@ -75,10 +76,11 @@ export async function POST(req: NextRequest) {
       data: {
         plan: "PRO",
         planExpiry: trialEndsAt,
-        trialPlan: "pro_trial_7d",
+        trialPlan: isLimited ? "referral_trial" : "pro_trial_7d",
         trialStartsAt: now,
         trialEndsAt,
         realEstatePackage: wantsRealEstate,
+        trialLimited: isLimited,
         ...(wantsRealEstate ? { industryPackId: realEstatePack!.id, crmPlan: "SOLO", crmPlanExpiry: trialEndsAt } : {}),
         referralCode,
         invitedByAdminId: admin.id,
@@ -120,10 +122,11 @@ export async function POST(req: NextRequest) {
       credits: 200,
       plan: "PRO",
       planExpiry: trialEndsAt,
-      trialPlan: "pro_trial_7d",
+      trialPlan: isLimited ? "referral_trial" : "pro_trial_7d",
       trialStartsAt: now,
       trialEndsAt,
       realEstatePackage: wantsRealEstate,
+      trialLimited: isLimited,
       ...(wantsRealEstate ? { industryPack: { connect: { id: realEstatePack!.id } }, crmPlan: "SOLO", crmPlanExpiry: trialEndsAt } : {}),
       referralCode,
       mustChangePassword: true,
@@ -138,7 +141,7 @@ export async function POST(req: NextRequest) {
       actorId: admin.id,
       action: "trial_activated",
       targetId: targetUserId,
-      metadata: JSON.stringify({ trialDays: days, realEstatePackage: wantsRealEstate, isNewUser }),
+      metadata: JSON.stringify({ trialDays: days, realEstatePackage: wantsRealEstate, trialLimited: isLimited, isNewUser }),
     },
   });
 

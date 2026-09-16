@@ -5,6 +5,14 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowRight, Loader2, MessageSquare, Image as ImageIcon, Video, Wallet, Ban, UserCheck } from "lucide-react";
 import { toJalali, formatNumber } from "@/lib/utils/jalali";
 import toast from "react-hot-toast";
+import { COUNTRIES } from "@/lib/constants/countries";
+
+const CURRENCY_OPTIONS = [
+  { value: "", label: "پیش‌فرض (بر اساس زبان)" },
+  { value: "IRT", label: "تومان" },
+  { value: "USD", label: "دلار" },
+  { value: "EUR", label: "یورو" },
+];
 
 interface Payment {
   id: string;
@@ -27,6 +35,10 @@ interface UsageLog {
 interface UserDetail {
   id: string;
   name?: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  country?: string | null;
+  currency?: string | null;
   email?: string;
   phone?: string;
   role: string;
@@ -42,6 +54,15 @@ interface UserDetail {
   _count: { conversations: number; images: number; videos: number; payments: number };
   payments: Payment[];
   usageLogs: UsageLog[];
+}
+
+interface ModuleRow {
+  key: string;
+  category: "crm" | "agent";
+  labelFa: string;
+  labelEn: string;
+  industrySlug: string;
+  override: boolean | null; // null = pack default applies
 }
 
 const PLAN_BADGE: Record<string, { label: string; color: string }> = {
@@ -71,6 +92,10 @@ export default function AdminUserDetailPage() {
   const [loading, setLoading] = useState(true);
   const [commissionInput, setCommissionInput] = useState("");
   const [savingCommission, setSavingCommission] = useState(false);
+  const [profileForm, setProfileForm] = useState({ firstName: "", lastName: "", country: "", currency: "" });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [modules, setModules] = useState<ModuleRow[] | null>(null);
+  const [savingModuleKey, setSavingModuleKey] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -80,12 +105,63 @@ export default function AdminUserDetailPage() {
       if (!res.ok) { toast.error(data.error || "خطا در بارگذاری"); return; }
       setUser(data.user);
       setCommissionInput(data.user.commissionPercentOverride != null ? String(data.user.commissionPercentOverride) : "");
+      setProfileForm({
+        firstName: data.user.firstName || "",
+        lastName: data.user.lastName || "",
+        country: data.user.country || "",
+        currency: data.user.currency || "",
+      });
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => { if (id) load(); }, [id]);
+  async function loadModules() {
+    try {
+      const res = await fetch(`/api/admin/users/${id}/module-overrides`);
+      const data = await res.json();
+      if (res.ok) setModules(data.modules || []);
+    } catch { /* module toggles are a nicety on this page, never block the rest of it */ }
+  }
+
+  useEffect(() => { if (id) { load(); loadModules(); } }, [id]);
+
+  // enabled: true/false sets an explicit per-user override; null clears it
+  // back to whatever the user's industry pack defaults to.
+  async function setModuleOverride(moduleKey: string, enabled: boolean | null) {
+    setSavingModuleKey(moduleKey);
+    try {
+      const res = await fetch(`/api/admin/users/${id}/module-overrides`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ moduleKey, enabled }),
+      });
+      if (!res.ok) { toast.error("خطا در بروزرسانی ماژول"); return; }
+      setModules((prev) => prev && prev.map((m) => (m.key === moduleKey ? { ...m, override: enabled } : m)));
+    } finally {
+      setSavingModuleKey(null);
+    }
+  }
+
+  async function saveProfile() {
+    setSavingProfile(true);
+    try {
+      await fetch(`/api/admin/users/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: profileForm.firstName.trim() || null,
+          lastName: profileForm.lastName.trim() || null,
+          country: profileForm.country || null,
+          currency: profileForm.currency || null,
+        }),
+      });
+      toast.success("اطلاعات کاربر بروزرسانی شد");
+      load();
+    } finally {
+      setSavingProfile(false);
+    }
+  }
 
   async function saveCommissionOverride() {
     setSavingCommission(true);
@@ -183,6 +259,42 @@ export default function AdminUserDetailPage() {
         </button>
       </div>
 
+      {/* Profile info — name split, country, display currency */}
+      <div className="rounded-2xl p-5 space-y-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>اطلاعات شخصی</span>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div>
+            <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>نام</label>
+            <input value={profileForm.firstName} onChange={(e) => setProfileForm((p) => ({ ...p, firstName: e.target.value }))}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>نام خانوادگی</label>
+            <input value={profileForm.lastName} onChange={(e) => setProfileForm((p) => ({ ...p, lastName: e.target.value }))}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>کشور</label>
+            <select value={profileForm.country} onChange={(e) => setProfileForm((p) => ({ ...p, country: e.target.value }))}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              <option value="">—</option>
+              {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.fa}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>ارز نمایشی</label>
+            <select value={profileForm.currency} onChange={(e) => setProfileForm((p) => ({ ...p, currency: e.target.value }))}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              {CURRENCY_OPTIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <button onClick={saveProfile} disabled={savingProfile}
+          className="px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+          {savingProfile ? "..." : "ذخیره اطلاعات"}
+        </button>
+      </div>
+
       {/* CRM add-on */}
       <div className="rounded-2xl p-5 flex items-center justify-between flex-wrap gap-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
         <div>
@@ -201,6 +313,46 @@ export default function AdminUserDetailPage() {
           <option value="TEAM">CRM تیمی</option>
         </select>
       </div>
+
+      {/* Per-user module toggles (e.g. enabling just "Property Management"
+          for a real-estate user) -- independent of the pack-level defaults;
+          "پیش‌فرض پکیج" clears the override and falls back to those. */}
+      {modules && modules.length > 0 && (
+        <div className="rounded-2xl p-5 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <div>
+            <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>ماژول‌های اختصاصی این کاربر</span>
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>پیش‌فرض هر ماژول از پک صنعتی کاربر می‌آید — اینجا فقط می‌تونید برای همین کاربر جداگانه فعال/غیرفعال کنید.</p>
+          </div>
+          <div className="space-y-1.5">
+            {modules.map((m) => (
+              <div key={m.key} className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl" style={{ background: "var(--surface-2)" }}>
+                <span className="text-sm truncate" style={{ color: "var(--text-primary)" }}>{m.labelFa}</span>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {([
+                    { value: true, label: "فعال" },
+                    { value: false, label: "غیرفعال" },
+                    { value: null, label: "پیش‌فرض پکیج" },
+                  ] as const).map((opt) => (
+                    <button
+                      key={String(opt.value)}
+                      disabled={savingModuleKey === m.key}
+                      onClick={() => setModuleOverride(m.key, opt.value)}
+                      className="px-2.5 py-1 rounded-lg text-xs font-medium disabled:opacity-50"
+                      style={{
+                        background: m.override === opt.value ? "var(--primary)" : "var(--surface-1)",
+                        color: m.override === opt.value ? "white" : "var(--text-secondary)",
+                        border: "1px solid var(--border)",
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Referral commission override */}
       <div className="rounded-2xl p-5 flex items-center justify-between flex-wrap gap-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>

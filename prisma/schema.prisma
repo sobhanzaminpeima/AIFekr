@@ -92,6 +92,11 @@ model User {
   trialStartsAt      DateTime?
   trialEndsAt        DateTime?
   realEstatePackage  Boolean   @default(false)
+  /// The "referral trial" package: full Pro trial except Video Generator and
+  /// Website Designer, which show an upgrade prompt instead of running.
+  /// Independent of trialPlan/trialStartsAt/trialEndsAt (which just record
+  /// the trial's dates) -- this is the one flag every gated route checks.
+  trialLimited       Boolean   @default(false)
   invitedByAdminId   String?
   invitedAt          DateTime?
 

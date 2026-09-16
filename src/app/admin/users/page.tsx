@@ -60,18 +60,18 @@ export default function AdminUsersPage() {
   // "Invite to AIfekr" — activates the trial here, then hands off to the
   // dedicated /admin/invites page (credentials, referral link, invite text).
   const [inviteTarget, setInviteTarget] = useState<{ userId: string | null; name: string } | null>(null);
-  const [inviteForm, setInviteForm] = useState({ name: "", email: "", phone: "", trialDays: 7, realEstatePackage: true });
+  const [inviteForm, setInviteForm] = useState({ name: "", email: "", phone: "", trialDays: 14, realEstatePackage: true, trialLimited: false });
   const [inviteSaving, setInviteSaving] = useState(false);
 
   function openInviteForExisting(user: User) {
     setInviteTarget({ userId: user.id, name: user.name || user.email || user.phone || "" });
-    setInviteForm({ name: "", email: "", phone: "", trialDays: 7, realEstatePackage: true });
+    setInviteForm({ name: "", email: "", phone: "", trialDays: 14, realEstatePackage: true, trialLimited: false });
     setActionUserId(null);
   }
 
   function openInviteForNew() {
     setInviteTarget({ userId: null, name: "" });
-    setInviteForm({ name: "", email: "", phone: "", trialDays: 7, realEstatePackage: true });
+    setInviteForm({ name: "", email: "", phone: "", trialDays: 14, realEstatePackage: true, trialLimited: false });
   }
 
   async function activateInvite() {
@@ -80,8 +80,8 @@ export default function AdminUsersPage() {
     setInviteSaving(true);
     try {
       const body = inviteTarget.userId
-        ? { userId: inviteTarget.userId, trialDays: inviteForm.trialDays, realEstatePackage: inviteForm.realEstatePackage }
-        : { name: inviteForm.name, email: inviteForm.email || undefined, phone: inviteForm.phone || undefined, trialDays: inviteForm.trialDays, realEstatePackage: inviteForm.realEstatePackage };
+        ? { userId: inviteTarget.userId, trialDays: inviteForm.trialDays, realEstatePackage: inviteForm.realEstatePackage, trialLimited: inviteForm.trialLimited }
+        : { name: inviteForm.name, email: inviteForm.email || undefined, phone: inviteForm.phone || undefined, trialDays: inviteForm.trialDays, realEstatePackage: inviteForm.realEstatePackage, trialLimited: inviteForm.trialLimited };
       const res = await fetch("/api/admin/invites/activate-trial", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
       });
@@ -468,7 +468,7 @@ export default function AdminUsersPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>مدت تریال (روز)</label>
-                <input type="number" min={1} max={90} value={inviteForm.trialDays} onChange={(e) => setInviteForm((p) => ({ ...p, trialDays: Number(e.target.value) || 7 }))}
+                <input type="number" min={1} max={90} value={inviteForm.trialDays} onChange={(e) => setInviteForm((p) => ({ ...p, trialDays: Number(e.target.value) || 14 }))}
                   className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
               </div>
               <div className="flex items-end pb-2.5">
@@ -477,6 +477,21 @@ export default function AdminUsersPage() {
                   پکیج املاک کامل
                 </label>
               </div>
+            </div>
+
+            {/* The referral-link trial package: full Pro trial except Video
+                Generator and Website Designer, which show an upgrade prompt.
+                Independent of the "پکیج املاک کامل" checkbox above -- either
+                can be combined with either. */}
+            <div className="rounded-xl p-3" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+              <label className="flex items-start gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                <input type="checkbox" className="mt-0.5" checked={inviteForm.trialLimited} onChange={(e) => setInviteForm((p) => ({ ...p, trialLimited: e.target.checked }))} />
+                <span>
+                  <span style={{ color: "var(--text-primary)" }}>پکیج تریال محدود (لینک دعوت)</span>
+                  <br />
+                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>همه چیز فعاله جز ساخت ویدیو و طراحی وبسایت — با کلیک روی اون‌ها پیام ارتقا حساب نشون داده می‌شه.</span>
+                </span>
+              </label>
             </div>
 
             <div className="flex gap-3 pt-2">

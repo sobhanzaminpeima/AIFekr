@@ -27,6 +27,8 @@ export async function requireAuth(req: NextRequest) {
       crmPlanExpiry: true,
       voicePlan: true,
       voicePlanExpiry: true,
+      trialLimited: true,
+      trialEndsAt: true,
       // User's preferred display currency (see prisma schema for details) --
       // on the shared auth user object so any route can read it without a
       // separate query, the same way plan/credits already work.

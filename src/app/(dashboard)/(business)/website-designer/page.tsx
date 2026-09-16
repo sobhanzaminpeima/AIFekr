@@ -5,6 +5,7 @@ import { Globe, Copy, Check, Download, Code2, Eye, History, ExternalLink } from 
 import ReactMarkdown from "react-markdown";
 import { useTranslation, tri } from "@/lib/i18n";
 import { toJalali } from "@/lib/utils/jalali";
+import UpgradeRequiredModal from "@/components/ui/UpgradeRequiredModal";
 
 interface SavedSite { id: string; businessName: string; createdAt: string; sizeKB: number; }
 
@@ -34,6 +35,7 @@ export default function WebsiteDesignerPage() {
   const [error, setError] = useState("");
   const [savedSites, setSavedSites] = useState<SavedSite[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   useEffect(() => {
     fetch("/api/website-designer/list")
@@ -86,6 +88,8 @@ export default function WebsiteDesignerPage() {
         body: JSON.stringify(form),
       });
       if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data?.requiresUpgrade) { setStep(1); setShowUpgradeModal(true); return; }
         setError(s.errServer);
         return;
       }
@@ -388,6 +392,8 @@ export default function WebsiteDesignerPage() {
           </div>
         )}
       </div>
+
+      {showUpgradeModal && <UpgradeRequiredModal lang={lang} onClose={() => setShowUpgradeModal(false)} />}
     </div>
   );
 }

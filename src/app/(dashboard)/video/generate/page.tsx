@@ -7,6 +7,7 @@ import { Video, Wand2, Loader2, CheckCircle, AlertCircle, Download, Play, Pause,
 import toast from "react-hot-toast";
 import { useTranslation, tri } from "@/lib/i18n";
 import { downscaleImage } from "@/lib/image/downscaleImage";
+import UpgradeRequiredModal from "@/components/ui/UpgradeRequiredModal";
 
 interface PromptTemplate {
   id: string;
@@ -50,6 +51,7 @@ export default function VideoGeneratePage() {
   const [videoProviders, setVideoProviders] = useState<{ id: string; name: string }[]>([]);
   const [videoProvidersLoaded, setVideoProvidersLoaded] = useState(false);
   const [videoProvider, setVideoProvider] = useState<string>("qwen");
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   useEffect(() => {
     fetch("/api/prompts?toolType=video")
@@ -140,7 +142,11 @@ export default function VideoGeneratePage() {
       body: JSON.stringify({ prompt, style, duration, ratio, sourceImageUrl, provider: videoProvider }),
     });
     const data = await res.json();
-    if (!res.ok) { setStatus("failed"); setProgress(0); return toast.error(data.error || s.errGenerate); }
+    if (!res.ok) {
+      setStatus("failed"); setProgress(0);
+      if (data.requiresUpgrade) { setShowUpgradeModal(true); return; }
+      return toast.error(data.error || s.errGenerate);
+    }
     setPredictionId(data.predictionId);
     setVideoId(data.videoId);
     setStatus("polling");
@@ -347,6 +353,8 @@ export default function VideoGeneratePage() {
           <button onClick={() => setStatus("idle")} className="px-3 py-1 rounded-lg text-xs" style={{ background: "rgba(239,68,68,0.2)", color: "#ef4444" }}>{s.retryBtn}</button>
         </div>
       )}
+
+      {showUpgradeModal && <UpgradeRequiredModal lang={lang} onClose={() => setShowUpgradeModal(false)} />}
     </div>
   );
 }

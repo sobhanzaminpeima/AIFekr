@@ -66,6 +66,12 @@ export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
+  // Referral-trial accounts get everything except Video Generator and
+  // Website Designer -- see prisma schema's User.trialLimited comment.
+  if (user.trialLimited) {
+    return NextResponse.json({ error: "برای استفاده از این بخش باید اکانت خود را ارتقا دهید", requiresUpgrade: true }, { status: 403 });
+  }
+
   try {
     const body = await req.json();
     const { businessName, industry, audience, goal, colorPref, style, sections = [] } = body;

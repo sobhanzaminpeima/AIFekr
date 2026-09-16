@@ -20,6 +20,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: FEATURE_DISABLED_MESSAGE.video }, { status: 503 });
   }
 
+  // Referral-trial accounts (activated via /admin/invites with the "limited"
+  // package) get everything except Video Generator and Website Designer --
+  // see prisma schema's User.trialLimited comment for the full flag lifecycle.
+  if (user.trialLimited) {
+    return NextResponse.json({ error: "برای استفاده از این بخش باید اکانت خود را ارتقا دهید", requiresUpgrade: true }, { status: 403 });
+  }
+
   try {
     const { prompt, duration = 5, ratio = "16:9", style = "واقعی", sourceImageUrl, provider = "qwen" } = await req.json();
     if (!prompt?.trim()) return NextResponse.json({ error: "توضیحات ویدیو الزامی است" }, { status: 400 });

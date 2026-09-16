@@ -82,6 +82,17 @@ export async function activatePlanForPayment(
     return expiry;
   }
 
+  // One-off credit top-up — same independent-billing pattern as CRM_*/VOICE_*
+  // above, but simpler: no plan/expiry touched at all, just a straight
+  // credits increment. `planInfo.credits` here is the tier's creditsAmount.
+  if (payment.plan.startsWith("CREDITS_")) {
+    await prisma.$transaction([
+      prisma.payment.update({ where: { id: payment.id }, data: { status: "SUCCESS", refId, authority } }),
+      prisma.user.update({ where: { id: payment.userId }, data: { credits: { increment: planInfo?.credits || 0 } } }),
+    ]);
+    return expiry;
+  }
+
   // Voice Agent add-on — same independent-billing pattern as CRM_* above:
   // must never touch/overwrite the user's AI-usage `plan`.
   if (payment.plan.startsWith("VOICE_")) {
@@ -96,7 +107,7 @@ export async function activatePlanForPayment(
     const existingTeam = await prisma.team.findUnique({ where: { ownerId: payment.userId } });
     await prisma.$transaction([
       prisma.payment.update({ where: { id: payment.id }, data: { status: "SUCCESS", refId, authority } }),
-      prisma.user.update({ where: { id: payment.userId }, data: { plan: "TEAM", planExpiry: expiry } }),
+      prisma.user.update({ where: { id: payment.userId }, data: { plan: "TEAM", planExpiry: expiry, trialLimited: false } }),
       existingTeam
         ? prisma.team.update({
             where: { id: existingTeam.id },
@@ -117,7 +128,10 @@ export async function activatePlanForPayment(
       prisma.payment.update({ where: { id: payment.id }, data: { status: "SUCCESS", refId, authority } }),
       prisma.user.update({
         where: { id: payment.userId },
-        data: { plan: payment.plan, credits: { increment: planInfo?.credits || 0 }, planExpiry: expiry },
+        // Clearing trialLimited here is what turns "upgrade your account" for
+        // a referral-trial user into "your previous business data is
+        // restored" -- see activate-trial/route.ts for where it's first set.
+        data: { plan: payment.plan, credits: { increment: planInfo?.credits || 0 }, planExpiry: expiry, trialLimited: false },
       }),
     ]);
   }
