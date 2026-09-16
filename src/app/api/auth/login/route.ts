@@ -88,6 +88,15 @@ export async function POST(req: NextRequest) {
       maxAge: 30 * 24 * 60 * 60,
     });
 
+    // Restore the account's saved language preference on login -- the `lang`
+    // cookie set at registration (or by LanguageSwitcher since) is just a
+    // browser cookie, gone on a new device/browser or a cleared cookie jar.
+    // Without this, login silently reverted to whatever the site default
+    // happened to be instead of the language the user actually chose.
+    if (user.language) {
+      response.cookies.set("lang", user.language, { secure, sameSite: "lax", maxAge: 365 * 24 * 60 * 60 });
+    }
+
     return response;
   } catch (error) {
     console.error("login error:", error);

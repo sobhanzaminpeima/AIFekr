@@ -90,6 +90,10 @@ export async function GET(req: NextRequest) {
     res.cookies.set("token", token, { httpOnly: true, secure, sameSite: "lax", maxAge: 7 * 24 * 60 * 60 });
     res.cookies.set("refresh_token", refreshToken, { httpOnly: true, secure, sameSite: "lax", maxAge: 30 * 24 * 60 * 60 });
     res.cookies.set("google_oauth_state", "", { maxAge: 0, path: "/" });
+    // Same restore as the password login route -- see its comment.
+    if (user.language) {
+      res.cookies.set("lang", user.language, { secure, sameSite: "lax", maxAge: 365 * 24 * 60 * 60 });
+    }
     return res;
   } catch (err) {
     console.error("Google OAuth callback error:", err);

@@ -18,12 +18,12 @@ import { tri } from "@/lib/i18n/tri";
 const IRANIAN = new Set(["IRT", "IRR"]);
 
 const CURRENCY_WORD: Record<string, Record<Lang, string>> = {
-  IRT: { fa: "تومان", en: "Toman", de: "Toman" },
-  IRR: { fa: "ریال", en: "Rial", de: "Rial" },
-  USD: { fa: "دلار", en: "USD", de: "USD" },
-  GBP: { fa: "پوند", en: "GBP", de: "GBP" },
-  EUR: { fa: "یورو", en: "EUR", de: "EUR" },
-  TRY: { fa: "لیر", en: "TRY", de: "TRY" },
+  IRT: { fa: "تومان", en: "Toman", de: "Toman", tr: "Toman" },
+  IRR: { fa: "ریال", en: "Rial", de: "Rial", tr: "Rial" },
+  USD: { fa: "دلار", en: "USD", de: "USD", tr: "USD" },
+  GBP: { fa: "پوند", en: "GBP", de: "GBP", tr: "GBP" },
+  EUR: { fa: "یورو", en: "EUR", de: "EUR", tr: "EUR" },
+  TRY: { fa: "لیر", en: "TRY", de: "TRY", tr: "TRY" },
 };
 
 /**
