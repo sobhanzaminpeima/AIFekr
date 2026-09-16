@@ -17,6 +17,8 @@ export async function POST(req: NextRequest) {
 
   const { plan, period, gateway, useWallet } = await req.json();
   const selectedGateway: "zarinpal" | "usdt_trc20" = gateway === "usdt_trc20" ? "usdt_trc20" : "zarinpal";
+  // Stored on the Payment row so activation grants the term that was charged.
+  const periodMonths = period === "annual" ? 12 : 1;
   const pkg = await prisma.package.findUnique({ where: { planCode: plan } });
   if (!pkg || !pkg.isActive) return NextResponse.json({ error: "پلن نامعتبر" }, { status: 400 });
 
@@ -54,7 +56,7 @@ export async function POST(req: NextRequest) {
 
   // Wallet balance fully covers the purchase — activate directly, no gateway involved.
   if (walletDiscount > 0 && toman <= 0) {
-    const pending = await createPendingPayment({ userId: user.id, amount: 0, plan, gateway: selectedGateway, walletDiscountToman: walletDiscount });
+    const pending = await createPendingPayment({ userId: user.id, amount: 0, plan, gateway: selectedGateway, walletDiscountToman: walletDiscount, periodMonths });
     const payment = await findPaymentById(pending.id);
     if (!payment) return NextResponse.json({ error: "خطای داخلی" }, { status: 500 });
 
@@ -101,7 +103,7 @@ export async function POST(req: NextRequest) {
       effectiveToman = toman;
     }
 
-    const payment = await createPendingPayment({ userId: user.id, amount: effectiveToman, plan, gateway: "usdt_trc20", walletDiscountToman: walletDiscount });
+    const payment = await createPendingPayment({ userId: user.id, amount: effectiveToman, plan, gateway: "usdt_trc20", walletDiscountToman: walletDiscount, periodMonths });
 
     const result = await createUsdtInvoice({
       amountUsd,
@@ -130,7 +132,7 @@ export async function POST(req: NextRequest) {
   const callbackBaseUrl = process.env.ZARINPAL_CALLBACK_BASE_URL || appUrl;
 
   // Create pending payment record
-  const payment = await createPendingPayment({ userId: user.id, amount: toman, plan, gateway: "zarinpal", walletDiscountToman: walletDiscount });
+  const payment = await createPendingPayment({ userId: user.id, amount: toman, plan, gateway: "zarinpal", walletDiscountToman: walletDiscount, periodMonths });
 
   const result = await createPayment({
     amount: toman,

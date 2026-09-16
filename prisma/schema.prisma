@@ -387,6 +387,10 @@ model Payment {
   /// (see payment/verify and webhooks/nowpayments) — so an abandoned or
   /// failed checkout never loses the user real wallet money for nothing.
   walletDiscountToman Int      @default(0)
+  /// Billing term purchased, in months (1 = monthly, 12 = annual). Expiry is
+  /// Package.duration × this. Without it an annual checkout charged the
+  /// annual price but activation only ever granted one month.
+  periodMonths        Int      @default(1)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

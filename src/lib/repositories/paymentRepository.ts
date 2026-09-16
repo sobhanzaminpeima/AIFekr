@@ -7,7 +7,7 @@ import type { Payment, User } from "@prisma/client";
  * so it gets one audited implementation instead of being re-derived per route.
  */
 
-export function createPendingPayment(data: { userId: string; amount: number; plan: string; gateway: string; walletDiscountToman?: number }) {
+export function createPendingPayment(data: { userId: string; amount: number; plan: string; gateway: string; walletDiscountToman?: number; periodMonths?: number }) {
   return prisma.payment.create({ data: { ...data, status: "PENDING" } });
 }
 
@@ -36,7 +36,7 @@ export async function activatePlanForPayment(
   planInfo: { credits: number; days: number; crmSeatLimit?: number | null } | undefined
 ): Promise<Date> {
   const expiry = new Date();
-  expiry.setDate(expiry.getDate() + (planInfo?.days || 30));
+  expiry.setDate(expiry.getDate() + (planInfo?.days || 30) * Math.max(1, payment.periodMonths ?? 1));
 
   // CRM add-on plans are billed and activated separately from the AI-usage
   // `plan` field — buying CRM_SOLO/CRM_TEAM must never touch/overwrite a
