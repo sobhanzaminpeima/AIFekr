@@ -37,6 +37,21 @@ model User {
   role                      String    @default("USER")
   plan                      String    @default("FREE")
   credits                   Int       @default(100)
+  // Phase 2 of the monetization overhaul: the single `credits` pool is being
+  // split into three separately-tracked wallets, matching how the master
+  // prompt's pricing model actually meters usage (AI chat tokens, media
+  // generation, voice minutes are different cost shapes and need to be
+  // capped/sold separately). `credits` is kept as-is during the transition
+  // -- nothing stops writing to it yet, so existing code paths (plan
+  // activation, credit-tier purchases) keep working unchanged until Phase 3
+  // (billing/plan restructuring) moves them onto the wallets directly. A
+  // one-time backfill script (scripts/split-credits-into-wallets.js) splits
+  // each user's existing `credits` balance into these three proportionally
+  // to their real historical usage mix from UsageLog, per the user's
+  // explicit decision to migrate this way rather than an even 3-way split.
+  aiCredits                 Float     @default(0)
+  mediaCredits              Float     @default(0)
+  voiceMinutes              Float     @default(0)
   planExpiry                DateTime?
   /// Voice Agent add-on tier, purchased and billed separately from `plan` —
   /// same pattern as crmPlan. "NONE" | "ACTIVE".
@@ -191,6 +206,10 @@ model Team {
   name       String
   ownerId    String    @unique
   credits    Int       @default(0)
+  // Same three-wallet split as User -- see User.aiCredits's schema comment.
+  aiCredits    Float     @default(0)
+  mediaCredits Float     @default(0)
+  voiceMinutes Float     @default(0)
   planExpiry DateTime?
   maxSeats   Int       @default(5)
   createdAt  DateTime  @default(now())

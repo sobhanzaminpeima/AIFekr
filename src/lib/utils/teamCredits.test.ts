@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { prisma } from "@/lib/db/prisma";
-import { getAvailableCredits, deductCredits, refundCredits, chargeAndLog } from "./teamCredits";
+import { getAvailableCredits, deductCredits, refundCredits, chargeAndLog, getWalletBalances } from "./teamCredits";
 
 /**
  * Integration tests against the real (dev) SQLite database, following the
@@ -19,8 +19,8 @@ const TEAM_OWNER_ID = `test-credits-owner-${SUFFIX}`;
 async function resetSoloUser(credits: number) {
   await prisma.user.upsert({
     where: { id: SOLO_ID },
-    create: { id: SOLO_ID, name: "credit test solo", credits },
-    update: { credits },
+    create: { id: SOLO_ID, name: "credit test solo", credits, aiCredits: credits, mediaCredits: credits, voiceMinutes: credits },
+    update: { credits, aiCredits: credits, mediaCredits: credits, voiceMinutes: credits },
   });
 }
 
@@ -152,6 +152,38 @@ describe("chargeAndLog", () => {
     const spent = 100 - (await getAvailableCredits(SOLO_ID));
 
     expect(logged).toBe(spent);
+  });
+});
+
+describe("wallet mirroring", () => {
+  it("mirrors a chat charge into aiCredits, leaving other wallets untouched", async () => {
+    await chargeAndLog(SOLO_ID, 20, { type: "chat" });
+    const wallets = await getWalletBalances(SOLO_ID);
+    expect(wallets.aiCredits).toBe(80);
+    expect(wallets.mediaCredits).toBe(100);
+    expect(wallets.voiceMinutes).toBe(100);
+  });
+
+  it("mirrors an image/video/music charge into mediaCredits", async () => {
+    await chargeAndLog(SOLO_ID, 15, { type: "image" });
+    const wallets = await getWalletBalances(SOLO_ID);
+    expect(wallets.mediaCredits).toBe(85);
+    expect(wallets.aiCredits).toBe(100);
+  });
+
+  it("mirrors a voice charge into voiceMinutes", async () => {
+    await chargeAndLog(SOLO_ID, 10, { type: "voice" });
+    const wallets = await getWalletBalances(SOLO_ID);
+    expect(wallets.voiceMinutes).toBe(90);
+    expect(wallets.mediaCredits).toBe(100);
+  });
+
+  it("clamps the mirrored wallet at 0 instead of going negative", async () => {
+    await resetSoloUser(5);
+    await prisma.user.update({ where: { id: SOLO_ID }, data: { aiCredits: 3, credits: 100 } });
+    await chargeAndLog(SOLO_ID, 20, { type: "chat" });
+    const wallets = await getWalletBalances(SOLO_ID);
+    expect(wallets.aiCredits).toBe(0);
   });
 });
 

@@ -20,6 +20,53 @@ import type { Prisma } from "@prisma/client";
 /** Accepts either the shared client or an interactive-transaction client. */
 type Db = Prisma.TransactionClient | typeof prisma;
 
+/**
+ * Phase 2 of the monetization overhaul: `credits` is being split into three
+ * wallets (aiCredits / mediaCredits / voiceMinutes) per the user's explicit
+ * decision to backfill them proportionally to real historical usage (see
+ * scripts/split-credits-into-wallets.js). `credits` REMAINS the pool that
+ * actually gates spending for now -- Payment/plan-activation code (Phase 3:
+ * billing/plan restructuring) still only grants to `credits`, so switching
+ * the gate to the wallets before that lands would leave every new
+ * plan/top-up purchase invisible to the wallet that's supposed to cover it.
+ * Until Phase 3 rewires grants, chargeAndLog mirrors each deduction into the
+ * matching wallet (clamped at 0, best-effort, never blocks the charge) so
+ * the wallets stay a live, accurate breakdown of what's actually being
+ * spent on what -- ready for Phase 4's usage dashboards and Phase 3's
+ * eventual switch to wallet-gated spending.
+ */
+type WalletField = "aiCredits" | "mediaCredits" | "voiceMinutes";
+
+function walletFieldFor(usageType: string): WalletField {
+  if (usageType === "voice") return "voiceMinutes";
+  if (usageType === "image" || usageType === "video" || usageType === "music") return "mediaCredits";
+  return "aiCredits"; // "chat" and any future/unknown type default here
+}
+
+async function mirrorWalletSpend(userId: string, amount: number, walletField: WalletField, db: Db): Promise<void> {
+  if (amount <= 0) return;
+  const membership = await db.teamMember.findUnique({ where: { userId } });
+
+  if (membership) {
+    const team = await db.team.findUnique({ where: { id: membership.teamId } });
+    if (!team) return;
+    const balance = team[walletField];
+    const next = Math.max(0, balance - amount);
+    if (walletField === "aiCredits") await db.team.update({ where: { id: team.id }, data: { aiCredits: next } });
+    else if (walletField === "mediaCredits") await db.team.update({ where: { id: team.id }, data: { mediaCredits: next } });
+    else await db.team.update({ where: { id: team.id }, data: { voiceMinutes: next } });
+    return;
+  }
+
+  const user = await db.user.findUnique({ where: { id: userId } });
+  if (!user) return;
+  const balance = user[walletField];
+  const next = Math.max(0, balance - amount);
+  if (walletField === "aiCredits") await db.user.update({ where: { id: userId }, data: { aiCredits: next } });
+  else if (walletField === "mediaCredits") await db.user.update({ where: { id: userId }, data: { mediaCredits: next } });
+  else await db.user.update({ where: { id: userId }, data: { voiceMinutes: next } });
+}
+
 export async function getAvailableCredits(userId: string, db: Db = prisma): Promise<number> {
   const membership = await db.teamMember.findUnique({
     where: { userId },
@@ -29,6 +76,22 @@ export async function getAvailableCredits(userId: string, db: Db = prisma): Prom
 
   const user = await db.user.findUnique({ where: { id: userId }, select: { credits: true } });
   return user?.credits ?? 0;
+}
+
+export interface WalletBalances {
+  aiCredits: number;
+  mediaCredits: number;
+  voiceMinutes: number;
+}
+
+/** Read-only breakdown of the three wallets, for usage dashboards -- does not gate spending yet (see the Phase 2 comment above `walletFieldFor`). */
+export async function getWalletBalances(userId: string, db: Db = prisma): Promise<WalletBalances> {
+  const membership = await db.teamMember.findUnique({ where: { userId }, include: { team: true } });
+  if (membership) {
+    return { aiCredits: membership.team.aiCredits, mediaCredits: membership.team.mediaCredits, voiceMinutes: membership.team.voiceMinutes };
+  }
+  const user = await db.user.findUnique({ where: { id: userId }, select: { aiCredits: true, mediaCredits: true, voiceMinutes: true } });
+  return { aiCredits: user?.aiCredits ?? 0, mediaCredits: user?.mediaCredits ?? 0, voiceMinutes: user?.voiceMinutes ?? 0 };
 }
 
 /**
@@ -123,6 +186,8 @@ export async function chargeAndLog(userId: string, amount: number, usage: UsageR
   return prisma.$transaction(async (tx) => {
     const charged = await deductCredits(userId, amount, tx);
     if (!charged) return false;
+
+    await mirrorWalletSpend(userId, amount, walletFieldFor(usage.type), tx);
 
     await tx.usageLog.create({
       data: {
