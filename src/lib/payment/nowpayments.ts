@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { ProxyAgent } from "undici";
 
 /**
  * USDT (TRC20) payment provider — added to the same payment layer Zarinpal
@@ -13,6 +14,14 @@ import crypto from "crypto";
  * itself reports the required blockchain confirmations — never optimistically
  * on the browser's return to success_url. See that route for the signature
  * verification and confirmation-count handling.
+ *
+ * Outbound calls to NowPayments must be routed through NOWPAYMENTS_PROXY_URL
+ * when set: NowPayments (like most crypto-exchange APIs) blocks Iran-origin
+ * IPs for sanctions compliance, and this production server is Iran-hosted —
+ * a direct request here just times out. The proxy is a small non-Iran relay
+ * (see its tinyproxy ACL for the exact IPs it accepts) that this one outbound
+ * call is dispatched through; nothing else in the app needs it, so this is
+ * scoped to the `dispatcher` option rather than a process-wide proxy setting.
  */
 
 const NOWPAYMENTS_BASE = "https://api.nowpayments.io/v1";
@@ -21,6 +30,11 @@ function getApiKey(): string {
   const key = process.env.NOWPAYMENTS_API_KEY;
   if (!key) throw new Error("کلید NOWPAYMENTS_API_KEY تنظیم نشده است");
   return key;
+}
+
+function getDispatcher(): ProxyAgent | undefined {
+  const proxyUrl = process.env.NOWPAYMENTS_PROXY_URL;
+  return proxyUrl ? new ProxyAgent(proxyUrl) : undefined;
 }
 
 export interface UsdtPaymentRequest {
@@ -54,7 +68,8 @@ export async function createUsdtInvoice(req: UsdtPaymentRequest): Promise<UsdtPa
         cancel_url: req.cancelUrl,
         ipn_callback_url: req.ipnCallbackUrl,
       }),
-    });
+      dispatcher: getDispatcher(),
+    } as RequestInit);
     const data = await res.json();
     if (!res.ok) return { ok: false, error: data.message || `NowPayments error ${res.status}` };
     return { ok: true, invoiceId: String(data.id), paymentUrl: data.invoice_url };
