@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Briefcase, Plus, X, Phone, Mail, Building2, Loader2, ChevronDown, ChevronUp,
   Users, LayoutGrid, Clock, CheckCircle2, Circle, Zap, FileText, FileDown, Trash2, Upload, Sparkles, CalendarDays,
@@ -113,13 +114,23 @@ export default function CrmPage() {
   const c = t.crm;
 
   // Supports deep-linking from outside the CRM (e.g. /crm?tab=properties from
-  // the "My Agents" hub) — falls back to the default board tab otherwise.
+  // the Home page's quick actions). A lazy useState initializer only runs on
+  // first mount -- since the App Router keeps this page instance alive across
+  // client-side navigations that only change the query string (e.g. going
+  // Home -> CRM?tab=properties after CRM was already visited once this
+  // session), it silently ignored every deep link after the first. Reading
+  // via useSearchParams() and re-syncing in an effect below fixes that.
+  const searchParams = useSearchParams();
+  const VALID_TABS: CrmTab[] = ["board", "contacts", "automation", "agent", "calendar", "analytics", "products", "invoices", "contracts", "projects", "properties", "owners", "viewings", "matches", "performance"];
   const [tab, setTab] = useState<CrmTab>(() => {
-    if (typeof window === "undefined") return "board";
-    const requested = new URLSearchParams(window.location.search).get("tab");
-    const valid: CrmTab[] = ["board", "contacts", "automation", "agent", "calendar", "analytics", "products", "invoices", "contracts", "projects", "properties", "owners", "viewings", "matches", "performance"];
-    return valid.includes(requested as CrmTab) ? (requested as CrmTab) : "board";
+    const requested = searchParams.get("tab");
+    return VALID_TABS.includes(requested as CrmTab) ? (requested as CrmTab) : "board";
   });
+  useEffect(() => {
+    const requested = searchParams.get("tab");
+    if (requested && VALID_TABS.includes(requested as CrmTab)) setTab(requested as CrmTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [loading, setLoading] = useState(true);
   // Clicking a property under an owner (Owners tab) used to do nothing --

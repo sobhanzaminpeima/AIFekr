@@ -23,6 +23,30 @@ export interface FxRates {
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12h — FX rates don't need to be second-fresh for pack pricing display
 let cache: { rates: FxRates; fetchedAt: number } | null = null;
 
+/**
+ * freecurrencyapi.com doesn't cover IRR (Iran is excluded from most FX
+ * providers), so it can only ever refine the EUR leg — TRY and the IRR-based
+ * Toman rate always come from open.er-api.com. Treated as a best-effort
+ * upgrade: on any failure (missing key, quota, network) we silently keep
+ * open.er-api's EUR figure instead of throwing, since that's already a
+ * perfectly usable rate on its own.
+ */
+async function fetchFreeCurrencyApiEur(): Promise<number | null> {
+  const apiKey = process.env.FREECURRENCY_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const res = await fetch(
+      `https://api.freecurrencyapi.com/v1/latest?apikey=${apiKey}&base_currency=USD&currencies=EUR`,
+      { signal: AbortSignal.timeout(5000) },
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return typeof data?.data?.EUR === "number" ? data.data.EUR : null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchLiveRates(): Promise<FxRates> {
   const res = await fetch("https://open.er-api.com/v6/latest/USD", { signal: AbortSignal.timeout(5000) });
   if (!res.ok) throw new Error(`FX API ${res.status}`);
@@ -30,7 +54,8 @@ async function fetchLiveRates(): Promise<FxRates> {
   if (data.result !== "success" || !data.rates?.IRR || !data.rates?.EUR || !data.rates?.TRY) throw new Error("FX API malformed response");
   // open.er-api.com's IRR rate is Iran's official Rial-per-USD figure — divide
   // by 10 for Toman (the everyday colloquial unit this app prices in).
-  return { usdToToman: data.rates.IRR / 10, usdToEur: data.rates.EUR, usdToTry: data.rates.TRY };
+  const freeCurrencyEur = await fetchFreeCurrencyApiEur();
+  return { usdToToman: data.rates.IRR / 10, usdToEur: freeCurrencyEur ?? data.rates.EUR, usdToTry: data.rates.TRY };
 }
 
 /** Cached live FX rates, safe to call on every request — only actually hits the network once per CACHE_TTL_MS. */
