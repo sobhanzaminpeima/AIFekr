@@ -5,6 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { getPredictionStatus } from "@/lib/ai/replicate";
 import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
+import { refundCredits } from "@/lib/utils/teamCredits";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -34,6 +35,21 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json({ status, output: finalUrl });
+  }
+
+  if ((status === "failed" || status === "canceled") && musicId) {
+    // Credits were charged up-front in generate/route.ts before the async
+    // job's outcome was known — refund now that it's terminally failed.
+    // Same idempotency trick as video/status: `refunded: false` in the where
+    // clause means repeated polls can only ever refund once.
+    const { count } = await prisma.generatedMusic.updateMany({
+      where: { id: musicId, userId: user.id, refunded: false },
+      data: { refunded: true },
+    });
+    if (count > 0) {
+      const music = await prisma.generatedMusic.findUnique({ where: { id: musicId }, select: { credits: true } });
+      if (music) await refundCredits(user.id, music.credits);
+    }
   }
 
   return NextResponse.json({ status, output, error });

@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { CREDIT_COSTS } from "@/lib/utils/credits";
-import { getAvailableCredits, deductCredits } from "@/lib/utils/teamCredits";
+import { getAvailableCredits, chargeAndLog } from "@/lib/utils/teamCredits";
 import { getLimitsForPlan } from "@/lib/utils/planLimits";
 import * as qwen from "@/lib/ai/qwen";
 import * as openaiImage from "@/lib/ai/openaiImage";
@@ -12,6 +12,7 @@ import { isCustomProviderModel } from "@/lib/ai/customProviders";
 import { generateCustomImage } from "@/lib/ai/customImageProvider";
 import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
 import { isFeatureEnabled, FEATURE_DISABLED_MESSAGE } from "@/lib/utils/featureToggles";
+import { maxReferenceImages } from "@/lib/constants/imageUploadLimits";
 
 // OpenAI (gpt-image) is preferred when configured — real credit was purchased
 // for it — with Qwen kept as the fallback path exactly as qwen.ts documents.
@@ -47,9 +48,21 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { prompt, style = "realistic", ratio = "1:1", quality = "standard", count = 1, sourceImageUrl, provider: requestedProvider, kind = "standard" } = await req.json();
+    const { prompt, style = "realistic", ratio = "1:1", quality = "standard", count = 1, sourceImageUrl, sourceImageUrls, provider: requestedProvider, kind = "standard" } = await req.json();
 
     if (!prompt?.trim()) return NextResponse.json({ error: "توضیحات تصویر الزامی است" }, { status: 400 });
+
+    // `sourceImageUrls` (plural) is the current shape -- multiple reference
+    // photos in one turn, e.g. two people for a "couple" prompt.
+    // `sourceImageUrl` (singular) is kept working for any older caller.
+    const refUrls: string[] = Array.isArray(sourceImageUrls) && sourceImageUrls.length > 0
+      ? sourceImageUrls
+      : sourceImageUrl ? [sourceImageUrl] : [];
+
+    const maxRefs = maxReferenceImages(user.plan);
+    if (refUrls.length > maxRefs) {
+      return NextResponse.json({ error: `پلن شما اجازهٔ حداکثر ${maxRefs} عکس مرجع را می‌دهد` }, { status: 402 });
+    }
 
     const { provider, usageModelTag } = resolveProvider(requestedProvider);
 
@@ -99,8 +112,8 @@ export async function POST(req: NextRequest) {
           n: count,
           size: ratio === "16:9" ? "1792x1024" : ratio === "9:16" ? "1024x1792" : "1024x1024",
         })
-      : sourceImageUrl
-      ? await provider.generateImageFromReference({ prompt, style, ratio, count, imageUrl: sourceImageUrl })
+      : refUrls.length > 0
+      ? await provider.generateImageFromReference({ prompt, style, ratio, count, imageUrls: refUrls })
       : quality === "hd"
       ? await provider.generateImagesHQ({ prompt, style, ratio, count })
       : await provider.generateImages({ prompt, style, ratio, count });
@@ -125,20 +138,30 @@ export async function POST(req: NextRequest) {
       })
     );
 
-    // Deduct credits + save
-    await deductCredits(user.id, creditCost);
+    // Charge + usage row in one transaction. The images are already
+    // generated at this point, so a declined charge here means a concurrent
+    // request drained the balance after this one's pre-flight check —
+    // surface it rather than handing over free generations.
+    const charged = await chargeAndLog(user.id, creditCost, {
+      type: "image",
+      model: usageModelTag,
+      metadata: { style, ratio, quality, count },
+    });
+    if (!charged) {
+      return NextResponse.json({ error: "اعتبار کافی ندارید" }, { status: 402 });
+    }
 
     const saved = await Promise.all(
       finalUrls.map(url =>
         prisma.generatedImage.create({
-          data: { userId: user.id, prompt, style, url, sourceImageUrl: sourceImageUrl || null, credits: Math.round(creditCost / count), kind: kind === "character_sheet" ? "character_sheet" : "standard" },
+          // GeneratedImage only has one sourceImageUrl column (predates
+          // multi-reference support) -- first reference photo is stored for
+          // the gallery preview; the full set matters only at generation
+          // time, not afterward.
+          data: { userId: user.id, prompt, style, url, sourceImageUrl: refUrls[0] || null, credits: Math.round(creditCost / count), kind: kind === "character_sheet" ? "character_sheet" : "standard" },
         })
       )
     );
-
-    await prisma.usageLog.create({
-      data: { userId: user.id, type: "image", model: usageModelTag, credits: creditCost, metadata: JSON.stringify({ style, ratio, quality, count }) },
-    });
 
     return NextResponse.json({ images: saved, credits_used: creditCost });
   } catch (err) {

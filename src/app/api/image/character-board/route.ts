@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { CREDIT_COSTS } from "@/lib/utils/credits";
-import { getAvailableCredits, deductCredits } from "@/lib/utils/teamCredits";
+import { getAvailableCredits, chargeAndLog } from "@/lib/utils/teamCredits";
 import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
 import { isFeatureEnabled, FEATURE_DISABLED_MESSAGE } from "@/lib/utils/featureToggles";
 import { checkForClearFace } from "@/lib/ai/faceCheck";
@@ -84,7 +84,13 @@ export async function POST(req: NextRequest) {
       url = `data:image/png;base64,${buffer.toString("base64")}`;
     }
 
-    await deductCredits(user.id, creditCost);
+    const charged = await chargeAndLog(user.id, creditCost, {
+      type: "image",
+      metadata: { kind: "character_sheet", genre: resolvedGenre },
+    });
+    if (!charged) {
+      return NextResponse.json({ error: tri(lang, "اعتبار کافی ندارید", "Not enough credits", "Nicht genügend Guthaben") }, { status: 402 });
+    }
 
     const saved = await prisma.generatedImage.create({
       data: {
@@ -96,10 +102,6 @@ export async function POST(req: NextRequest) {
         credits: creditCost,
         kind: "character_sheet",
       },
-    });
-
-    await prisma.usageLog.create({
-      data: { userId: user.id, type: "image", credits: creditCost, metadata: JSON.stringify({ kind: "character_sheet", genre: resolvedGenre }) },
     });
 
     return NextResponse.json({ image: saved, credits_used: creditCost });

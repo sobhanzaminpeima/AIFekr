@@ -8,7 +8,7 @@ import { generateVideo as generateVideoReplicate } from "@/lib/ai/replicate";
 import { isCustomProviderModel } from "@/lib/ai/customProviders";
 import { startCustomVideoJob } from "@/lib/ai/customVideoProvider";
 import { CREDIT_COSTS } from "@/lib/utils/credits";
-import { getAvailableCredits, deductCredits } from "@/lib/utils/teamCredits";
+import { getAvailableCredits, chargeAndLog } from "@/lib/utils/teamCredits";
 import { getLimitsForPlan } from "@/lib/utils/planLimits";
 import { isFeatureEnabled, FEATURE_DISABLED_MESSAGE } from "@/lib/utils/featureToggles";
 
@@ -63,8 +63,18 @@ export async function POST(req: NextRequest) {
       ? await generateVideoReplicate({ prompt, duration: duration as any, ratio, style })
       : await generateVideoQwen({ prompt, duration: duration as any, ratio, style });
 
-    // Deduct credits immediately
-    await deductCredits(user.id, creditCost);
+    // Charge immediately (the provider job is already running) together with
+    // the usage row, so the two can't drift apart. A declined charge means a
+    // concurrent request drained the balance after this one's pre-flight
+    // check — the job is left to finish but nothing is saved, so it never
+    // reaches the user's gallery uncharged.
+    const charged = await chargeAndLog(user.id, creditCost, {
+      type: "video",
+      metadata: { predictionId, duration, ratio, style },
+    });
+    if (!charged) {
+      return NextResponse.json({ error: "اعتبار کافی ندارید" }, { status: 402 });
+    }
 
     // Save with pending status
     const video = await prisma.generatedVideo.create({
@@ -76,10 +86,6 @@ export async function POST(req: NextRequest) {
         sourceImageUrl: sourceImageUrl || null,
         credits: creditCost,
       },
-    });
-
-    await prisma.usageLog.create({
-      data: { userId: user.id, type: "video", credits: creditCost, metadata: JSON.stringify({ predictionId, duration, ratio, style }) },
     });
 
     return NextResponse.json({ videoId: video.id, predictionId, status, credits_used: creditCost });

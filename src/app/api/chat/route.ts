@@ -7,7 +7,7 @@ import { routedStreamChat } from "@/lib/ai/router";
 import { PROVIDERS, type Provider } from "@/lib/ai/providers";
 import { isCustomProviderModel, streamCustomProvider } from "@/lib/ai/customProviders";
 import { CREDIT_COSTS } from "@/lib/utils/credits";
-import { getAvailableCredits, deductCredits } from "@/lib/utils/teamCredits";
+import { getAvailableCredits, chargeAndLog } from "@/lib/utils/teamCredits";
 import { rateLimit } from "@/lib/utils/rateLimit";
 import { getServerLang } from "@/lib/i18n/server";
 import { buildWorkspaceContext } from "@/lib/orchestrator/isolation";
@@ -293,18 +293,25 @@ export async function POST(req: NextRequest) {
             // Deduct credit only now that generation actually succeeded (from
             // the shared team pool if the user is on a team), scaled to the
             // model that was actually used rather than a flat per-message cost.
+            // Charge and usage row go in one transaction so we can never end
+            // up with one without the other.
             const creditsUsed = selectedProvider?.creditCost ?? CREDIT_COSTS.chat;
-            await deductCredits(user.id, creditsUsed);
-
-            await prisma.usageLog.create({
-              data: {
-                userId: user.id,
-                type: "chat",
-                model: selectedProvider?.model ?? model ?? "auto",
-                tokens: tokensUsed,
-                credits: creditsUsed,
-              },
+            const charged = await chargeAndLog(user.id, creditsUsed, {
+              type: "chat",
+              model: selectedProvider?.model ?? model ?? "auto",
+              tokens: tokensUsed,
             });
+            if (!charged) {
+              // Balance ran out between the pre-flight check and here (a
+              // concurrent request won the race). The answer is already
+              // streamed, so this is recorded rather than reversed — but it
+              // must not pass silently as if the user had been charged.
+              await logError({
+                source: "/api/chat (uncharged answer)",
+                error: new Error(`insufficient credits at charge time: needed ${creditsUsed}`),
+                userId: user.id,
+              });
+            }
           } catch (bookkeepingErr) {
             // Logged for manual reconciliation — the user already has their
             // answer, so we still send [DONE] below rather than an error.

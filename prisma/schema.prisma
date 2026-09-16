@@ -359,6 +359,11 @@ model GeneratedMusic {
   url       String
   isPublic  Boolean  @default(false)
   credits   Int      @default(10)
+  /// Mirrors GeneratedVideo.refunded — set once the async Replicate job
+  /// reports a terminal failure and the up-front charge has been returned,
+  /// so repeated status polls can never double-refund the same row. Music
+  /// had no such column, so a failed generation silently kept the credits.
+  refunded  Boolean  @default(false)
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
