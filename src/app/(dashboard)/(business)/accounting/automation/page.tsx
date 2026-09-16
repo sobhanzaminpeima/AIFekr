@@ -7,7 +7,6 @@ import { ArrowRight, ArrowLeft, Send, Pause, Play, Trash2, Eye, KeyRound, Copy, 
 import { tri, type Lang } from "@/lib/i18n";
 import { useAccountingLocale } from "@/lib/accounting/useAccountingLocale";
 import { REPORT_CURRENCIES } from "@/lib/accounting/reportingFx";
-import AccountingNav from "@/components/accounting/AccountingNav";
 
 interface ScheduledReport {
   id: string;
@@ -175,11 +174,10 @@ export default function AccountingAutomationPage() {
     }
   }
 
-  if (loading) return <div className="p-6 text-center" style={{ color: "var(--text-muted)" }}>{tri(lang, "در حال بارگذاری...", "Loading…", "Wird geladen…")}</div>;
+  if (loading) return <div className="text-center" style={{ color: "var(--text-muted)" }}>{tri(lang, "در حال بارگذاری...", "Loading…", "Wird geladen…")}</div>;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6" dir={dir}>
-      <AccountingNav />
+    <div className="max-w-5xl mx-auto space-y-6" dir={dir}>
       <div className="flex items-center gap-2">
         <Link href="/accounting" className="p-1.5 rounded-lg" style={{ color: "var(--text-secondary)" }}>{dir === "rtl" ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}</Link>
         <div>

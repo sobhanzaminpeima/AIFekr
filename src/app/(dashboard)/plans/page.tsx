@@ -279,7 +279,12 @@ export default function PlansPage() {
 
   async function handleBuy(planCode: string, gateway: "zarinpal" | "usdt_trc20" = "zarinpal") {
     if (planCode === "FREE") return;
-    if (!isIr) { toast(s.contactIntl); return; }
+    // Zarinpal is Iran-only, so international market + Zarinpal still means
+    // "contact us." USDT has no such restriction — it's exactly the option
+    // that lets an international buyer pay at all, so it must go through
+    // regardless of the selected market. See payment/create/route.ts for the
+    // matching backend fix (it used to hard-block every INTL-market plan).
+    if (!isIr && gateway !== "usdt_trc20") { toast(s.contactIntl); return; }
     setLoading(planCode);
     try {
       const res  = await fetch("/api/payment/create", {

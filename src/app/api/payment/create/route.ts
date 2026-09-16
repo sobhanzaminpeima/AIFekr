@@ -20,9 +20,16 @@ export async function POST(req: NextRequest) {
   const pkg = await prisma.package.findUnique({ where: { planCode: plan } });
   if (!pkg || !pkg.isActive) return NextResponse.json({ error: "پلن نامعتبر" }, { status: 400 });
 
-  // International plans have price=0 in DB — redirect to contact
-  if (pkg.market === "INTL") {
+  // Zarinpal is Iran-only, so an INTL-market plan (price=0 in Rial, real
+  // price lives in priceUsd) still has to redirect to contact for it.
+  // USDT/crypto has no such restriction — it's precisely the option that
+  // lets an international customer pay at all, so it must work for every
+  // market (IR, INTL, and BOTH), priced directly off pkg.priceUsd when set.
+  if (selectedGateway === "zarinpal" && pkg.market === "INTL") {
     return NextResponse.json({ error: "پلن بین‌الملل — با ما تماس بگیرید" }, { status: 400 });
+  }
+  if (selectedGateway === "usdt_trc20" && pkg.priceUsd == null && pkg.price <= 0) {
+    return NextResponse.json({ error: "این پلن قیمت‌گذاری نشده است" }, { status: 400 });
   }
 
   const baseToman  = Math.round(pkg.price / 10);
@@ -34,9 +41,10 @@ export async function POST(req: NextRequest) {
   // discount against the wallet's own balance, applied at checkout. No FX
   // conversion involved (unlike converting Toman to platform credits, which
   // the app has no established rate for), so this is the one wallet-spend
-  // path that can't be an invented number.
+  // path that can't be an invented number. Meaningless for an INTL-priced
+  // plan (pkg.price is 0 there) — the wallet is Toman-only, so it's skipped.
   let walletDiscount = 0;
-  if (useWallet) {
+  if (useWallet && pkg.price > 0) {
     const walletUser = await prisma.user.findUnique({ where: { id: user.id }, select: { walletBalance: true } });
     walletDiscount = Math.min(walletUser?.walletBalance || 0, listToman);
   }
@@ -71,9 +79,29 @@ export async function POST(req: NextRequest) {
   // creation, so an abandoned or failed checkout never costs the user real
   // wallet money for nothing.
   if (selectedGateway === "usdt_trc20") {
-    const payment = await createPendingPayment({ userId: user.id, amount: toman, plan, gateway: "usdt_trc20", walletDiscountToman: walletDiscount });
-    const rates = await getFxRates();
-    const amountUsd = Math.round((toman / rates.usdToToman) * 100) / 100;
+    // Prefer the plan's own USD price (INTL/BOTH-market plans, and any
+    // IR-market plan that also has one) so an international purchase never
+    // round-trips through the Toman price and an FX rate for no reason;
+    // Iran-only plans (priceUsd null) fall back to converting the discounted
+    // Toman total, same as before this plan-market fix. Either way we also
+    // need a Toman-equivalent `amount` on the Payment row: referral
+    // commission (grantReferralReward) and the confirmation email are both
+    // Toman-denominated, and would silently pay referrers ₸0 commission on
+    // every INTL/USD crypto sale otherwise.
+    let amountUsd: number;
+    let effectiveToman: number;
+    if (pkg.priceUsd != null) {
+      const baseUsd = pkg.priceUsd / 100;
+      amountUsd = period === "annual" ? Math.round(baseUsd * 12 * (1 - ANNUAL_DISCOUNT) * 100) / 100 : baseUsd;
+      const rates = await getFxRates();
+      effectiveToman = Math.round(amountUsd * rates.usdToToman);
+    } else {
+      const rates = await getFxRates();
+      amountUsd = Math.round((toman / rates.usdToToman) * 100) / 100;
+      effectiveToman = toman;
+    }
+
+    const payment = await createPendingPayment({ userId: user.id, amount: effectiveToman, plan, gateway: "usdt_trc20", walletDiscountToman: walletDiscount });
 
     const result = await createUsdtInvoice({
       amountUsd,

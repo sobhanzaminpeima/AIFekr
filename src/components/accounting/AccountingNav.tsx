@@ -10,16 +10,22 @@ import { useTranslation } from "@/lib/i18n";
 import { tri } from "@/lib/i18n/tri";
 
 /**
- * Shared navigation for the accounting module.
+ * Shared navigation for the accounting module, rendered once by
+ * accounting/layout.tsx (not per-page anymore — see that file's comment for
+ * why it moved).
  *
- * It used to be a row of unlabelled pills at the very BOTTOM of /accounting
- * only — so you had to scroll the whole dashboard to find the nine sections,
- * and once you opened one there was no way to move between them without going
- * back. This sits at the top of every accounting page and marks where you are.
+ * On a phone this is still the horizontal scrolling pill row it always was
+ * (nine tabs don't fit a narrow screen any other way). At desktop width it
+ * becomes a persistent left/right sidebar instead: a QA pass found the
+ * horizontal bar meant an admin had to scroll sideways to even see whether
+ * "Close period" or "Finance assistant" existed, and a sidebar shows all
+ * nine section names at once with no discovery cost — the standard pattern
+ * every desktop accounting product (QuickBooks, Xero) already uses.
  */
 export default function AccountingNav() {
   const { lang } = useTranslation();
   const pathname = usePathname();
+  const isFa = lang === "fa";
 
   const links = [
     { href: "/accounting", icon: LayoutDashboard, label: tri(lang, "داشبورد", "Dashboard", "Übersicht") },
@@ -40,8 +46,10 @@ export default function AccountingNav() {
   return (
     <nav
       aria-label={tri(lang, "بخش‌های حسابداری", "Accounting sections", "Buchhaltungsbereiche")}
-      // Scrolls inside itself on a phone rather than widening the page.
-      className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1"
+      // Mobile: horizontal, scrolls inside itself rather than widening the
+      // page. Desktop (md+): a vertical sticky sidebar, full labels, no
+      // scrolling needed to see every section.
+      className="flex md:flex-col gap-1.5 md:gap-1 overflow-x-auto md:overflow-visible pb-1 md:pb-0 -mx-1 px-1 md:mx-0 md:px-0 md:w-56 md:flex-shrink-0 md:sticky md:top-20 md:self-start"
       style={{ scrollbarWidth: "thin" }}
     >
       {links.map(({ href, icon: Icon, label }) => {
@@ -51,11 +59,13 @@ export default function AccountingNav() {
             key={href}
             href={href}
             aria-current={active ? "page" : undefined}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap flex-shrink-0 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs md:text-sm font-medium whitespace-nowrap flex-shrink-0 md:flex-shrink md:w-full transition-colors"
             style={{
               background: active ? "var(--primary)" : "var(--surface-2)",
               color: active ? "#fff" : "var(--text-secondary)",
               border: `1px solid ${active ? "var(--primary)" : "var(--border)"}`,
+              justifyContent: "flex-start",
+              textAlign: isFa ? "right" : "left",
             }}
           >
             <Icon className="w-3.5 h-3.5 flex-shrink-0" />

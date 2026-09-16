@@ -7,7 +7,6 @@ import { linkifyCitations } from "@/lib/accounting/linkifyCitations";
 import { tri } from "@/lib/i18n";
 import { useAccountingLocale } from "@/lib/accounting/useAccountingLocale";
 import { accountName } from "@/lib/accounting/accountName";
-import AccountingNav from "@/components/accounting/AccountingNav";
 
 interface DashboardData {
   cashBalance: number;
@@ -62,8 +61,7 @@ export default function AccountingDashboardPage() {
   const maxExpenseCat = Math.max(1, ...data.expenseByCategory.map((e) => e.amount));
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6" dir={dir}>
-      <AccountingNav />
+    <div className="max-w-6xl mx-auto space-y-6" dir={dir}>
       <div>
         <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "داشبورد حسابداری", "Accounting Dashboard", "Buchhaltungs-Dashboard")}</h1>
         <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>{tri(lang, "وضعیت مالی کسب‌وکار شما در یک نگاه", "Your business finances at a glance", "Ihre Geschäftsfinanzen auf einen Blick")}</p>

@@ -6,7 +6,6 @@ import Link from "next/link";
 import { ArrowRight, ArrowLeft, BookOpen } from "lucide-react";
 import { tri, type Lang } from "@/lib/i18n";
 import { useAccountingLocale } from "@/lib/accounting/useAccountingLocale";
-import AccountingNav from "@/components/accounting/AccountingNav";
 
 interface AccountEntryLine {
   id: string;
@@ -38,16 +37,15 @@ export default function AccountLedgerPage() {
       .finally(() => setLoading(false));
   }, [code]);
 
-  if (loading) return <div className="p-6 text-center" style={{ color: "var(--text-muted)" }}>{tri(lang, "در حال بارگذاری...", "Loading…", "Wird geladen…")}</div>;
-  if (error) return <div className="p-6 text-center text-sm" style={{ color: "var(--neg)" }}>{error}</div>;
+  if (loading) return <div className="text-center" style={{ color: "var(--text-muted)" }}>{tri(lang, "در حال بارگذاری...", "Loading…", "Wird geladen…")}</div>;
+  if (error) return <div className="text-center text-sm" style={{ color: "var(--neg)" }}>{error}</div>;
   if (!account) return null;
 
   const debitTotal = lines.reduce((s, l) => s + l.debit, 0);
   const creditTotal = lines.reduce((s, l) => s + l.credit, 0);
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6" dir={dir}>
-      <AccountingNav />
+    <div className="max-w-4xl mx-auto space-y-6" dir={dir}>
       <div className="flex items-center gap-2">
         <Link href="/accounting/ledger-setup" className="p-1.5 rounded-lg" style={{ color: "var(--text-secondary)" }}>{dir === "rtl" ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}</Link>
         <div>
