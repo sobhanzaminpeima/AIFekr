@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { CREDIT_COSTS } from "@/lib/utils/credits";
+import { getCreditCosts } from "@/lib/utils/creditCosts";
 import { getAvailableCredits, chargeAndLog } from "@/lib/utils/teamCredits";
 import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
 import { isFeatureEnabled, FEATURE_DISABLED_MESSAGE } from "@/lib/utils/featureToggles";
@@ -16,11 +16,6 @@ const VALID_GENRES: Genre[] = [
   "cinematic_drama", "luxury_editorial", "sci_fi", "fantasy",
   "business_corporate", "streetwear_urban", "minimal_tech",
 ];
-
-// Three image generations go into one board (see characterBoard.ts's doc
-// comment for why it's three calls, not one) -- priced as three standard
-// image generations, same per-unit cost the rest of /image/generate uses.
-const CHARACTER_BOARD_CREDIT_COST = CREDIT_COSTS.image_standard * 3;
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
@@ -59,7 +54,10 @@ export async function POST(req: NextRequest) {
     }, { status: 422 });
   }
 
-  const creditCost = CHARACTER_BOARD_CREDIT_COST;
+  // Three image generations go into one board (see characterBoard.ts's doc
+  // comment for why it's three calls, not one) -- priced as three standard
+  // image generations, same per-unit cost the rest of /image/generate uses.
+  const creditCost = (await getCreditCosts()).image_standard * 3;
   if ((await getAvailableCredits(user.id)) < creditCost) {
     return NextResponse.json({ error: tri(lang, `اعتبار کافی ندارید. نیاز به ${creditCost} اعتبار دارید`, `You don't have enough credits. This needs ${creditCost} credits`, `Sie haben nicht genug Guthaben. Dies erfordert ${creditCost} Guthabenpunkte`) }, { status: 402 });
   }

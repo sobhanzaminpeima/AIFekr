@@ -7,6 +7,7 @@ import { routedStreamChat } from "@/lib/ai/router";
 import { PROVIDERS, type Provider } from "@/lib/ai/providers";
 import { isCustomProviderModel, streamCustomProvider } from "@/lib/ai/customProviders";
 import { CREDIT_COSTS } from "@/lib/utils/credits";
+import { getCreditCosts } from "@/lib/utils/creditCosts";
 import { getAvailableCredits, chargeAndLog } from "@/lib/utils/teamCredits";
 import { rateLimit } from "@/lib/utils/rateLimit";
 import { getServerLang } from "@/lib/i18n/server";
@@ -299,7 +300,7 @@ export async function POST(req: NextRequest) {
             // model that was actually used rather than a flat per-message cost.
             // Charge and usage row go in one transaction so we can never end
             // up with one without the other.
-            const creditsUsed = selectedProvider?.creditCost ?? CREDIT_COSTS.chat;
+            const creditsUsed = selectedProvider?.creditCost ?? (await getCreditCosts()).chat;
             const charged = await chargeAndLog(user.id, creditsUsed, {
               type: "chat",
               model: selectedProvider?.model ?? model ?? "auto",

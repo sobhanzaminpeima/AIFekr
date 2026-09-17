@@ -7,7 +7,7 @@ import { generateVideo as generateVideoQwen, generateVideoFromReference } from "
 import { generateVideo as generateVideoReplicate } from "@/lib/ai/replicate";
 import { isCustomProviderModel } from "@/lib/ai/customProviders";
 import { startCustomVideoJob } from "@/lib/ai/customVideoProvider";
-import { CREDIT_COSTS } from "@/lib/utils/credits";
+import { getCreditCosts } from "@/lib/utils/creditCosts";
 import { getAvailableCredits, chargeAndLog } from "@/lib/utils/teamCredits";
 import { getLimitsForPlan } from "@/lib/utils/planLimits";
 import { isFeatureEnabled, FEATURE_DISABLED_MESSAGE } from "@/lib/utils/featureToggles";
@@ -31,7 +31,8 @@ export async function POST(req: NextRequest) {
     const { prompt, duration = 5, ratio = "16:9", style = "واقعی", sourceImageUrl, provider = "qwen" } = await req.json();
     if (!prompt?.trim()) return NextResponse.json({ error: "توضیحات ویدیو الزامی است" }, { status: 400 });
 
-    const creditCost = duration <= 5 ? 20 : duration <= 10 ? 35 : 80;
+    const costs = await getCreditCosts();
+    const creditCost = duration <= 5 ? costs.video_5s : duration <= 10 ? costs.video_10s : costs.video_30s;
 
     if ((await getAvailableCredits(user.id)) < creditCost) {
       return NextResponse.json({ error: `اعتبار کافی ندارید. نیاز به ${creditCost} اعتبار دارید` }, { status: 402 });

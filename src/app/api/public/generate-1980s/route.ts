@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import * as qwen from "@/lib/ai/qwen";
 import * as openaiImage from "@/lib/ai/openaiImage";
 import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
-import { CREDIT_COSTS } from "@/lib/utils/credits";
+import { getCreditCosts } from "@/lib/utils/creditCosts";
 import { deductCredits } from "@/lib/utils/teamCredits";
 import { isFeatureEnabled, FEATURE_DISABLED_MESSAGE } from "@/lib/utils/featureToggles";
 
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
     if (!adminId) return NextResponse.json({ error: "این قابلیت موقتاً در دسترس نیست" }, { status: 503 });
 
     const admin = await prisma.user.findUnique({ where: { id: adminId }, select: { credits: true } });
-    const creditCost = CREDIT_COSTS.image_standard;
+    const creditCost = (await getCreditCosts()).image_standard;
     if (!admin || admin.credits < creditCost) {
       return NextResponse.json({ error: "این قابلیت موقتاً در دسترس نیست" }, { status: 503 });
     }

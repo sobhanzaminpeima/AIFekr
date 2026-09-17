@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, unauthorizedResponse, forbiddenResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { getPlanLimits } from "@/lib/utils/planLimits";
+import { getCreditCosts } from "@/lib/utils/creditCosts";
 
 export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req);
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
   const since = new Date(Date.now() - days * 86_400_000);
 
   try {
-    const [byType, byModel, dailySeries, distinctUsers, totalCalls, totalTokensRow, missingTokenCount, planLimits] = await Promise.all([
+    const [byType, byModel, dailySeries, distinctUsers, totalCalls, totalTokensRow, missingTokenCount, planLimits, creditCosts] = await Promise.all([
       prisma.usageLog.groupBy({
         by: ["type"],
         where: { createdAt: { gte: since } },
@@ -47,6 +48,7 @@ export async function GET(req: NextRequest) {
       prisma.usageLog.aggregate({ where: { createdAt: { gte: since } }, _sum: { tokens: true } }),
       prisma.usageLog.count({ where: { createdAt: { gte: since }, tokens: null } }),
       getPlanLimits(),
+      getCreditCosts(),
     ]);
 
     return NextResponse.json({
@@ -77,6 +79,7 @@ export async function GET(req: NextRequest) {
         tokens: typeof r.tokens === "bigint" ? Number(r.tokens) : (r.tokens ?? 0),
       })),
       planLimits,
+      creditCosts,
     });
   } catch (e) {
     console.error("admin usage API error:", e);

@@ -9,6 +9,7 @@ import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
 import { getAvailableCredits, chargeAndLog } from "@/lib/utils/teamCredits";
 import { getLimitsForPlan } from "@/lib/utils/planLimits";
 import { isFeatureEnabled, FEATURE_DISABLED_MESSAGE } from "@/lib/utils/featureToggles";
+import { getCreditCosts } from "@/lib/utils/creditCosts";
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
@@ -22,7 +23,8 @@ export async function POST(req: NextRequest) {
     const { prompt, genre = "pop", duration = 30 } = await req.json();
     if (!prompt?.trim()) return NextResponse.json({ error: "توضیحات موزیک الزامی است" }, { status: 400 });
 
-    const creditCost = duration <= 30 ? 10 : duration <= 60 ? 18 : 30;
+    const costs = await getCreditCosts();
+    const creditCost = duration <= 30 ? costs.music_30s : duration <= 60 ? costs.music_60s : costs.music_120s;
 
     if ((await getAvailableCredits(user.id)) < creditCost) {
       return NextResponse.json({ error: `اعتبار کافی ندارید. نیاز به ${creditCost} اعتبار دارید` }, { status: 402 });

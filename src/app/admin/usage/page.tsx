@@ -23,7 +23,21 @@ interface UsageStats {
   byModel: { model: string; calls: number; tokens: number }[];
   dailySeries: { day: string; calls: number; tokens: number }[];
   planLimits: Record<string, { dailyChats: number; monthlyImages: number; monthlyVideos: number; monthlyMusics: number; initialCredits: number }>;
+  creditCosts: Record<string, number>;
 }
+
+const CREDIT_COST_LABELS: Record<string, string> = {
+  chat: "چت (هر پیام)",
+  image_standard: "تصویر — استاندارد",
+  image_hd: "تصویر — HD",
+  video_5s: "ویدیو — تا ۵ ثانیه",
+  video_10s: "ویدیو — تا ۱۰ ثانیه",
+  video_30s: "ویدیو — تا ۳۰ ثانیه",
+  music_30s: "موزیک — تا ۳۰ ثانیه",
+  music_60s: "موزیک — تا ۶۰ ثانیه",
+  music_120s: "موزیک — تا ۱۲۰ ثانیه",
+  tool: "ابزار عمومی",
+};
 
 const PLAN_LABELS: Record<string, string> = { FREE: "رایگان", BASIC: "پایه", PRO: "حرفه‌ای", TEAM: "تیمی" };
 
@@ -36,6 +50,16 @@ export default function AdminUsagePage() {
 
   // Cost calculator inputs — defaults are a generic "nano-tier" price point;
   // editable so any provider's real pricing can be plugged in.
+  // Revenue Simulator (Phase 5) — a forward-looking "what if we had N paying
+  // users at $X revenue and $Y AI cost each" projection, seeded from the
+  // real current numbers once they load so it starts from reality rather
+  // than an arbitrary guess. Purely client-side arithmetic; nothing here
+  // reads or writes any backend state.
+  const [simUsers, setSimUsers] = useState(100);
+  const [simRevenuePerUser, setSimRevenuePerUser] = useState(20);
+  const [simCostPerUser, setSimCostPerUser] = useState(2);
+  const [simSeeded, setSimSeeded] = useState(false);
+
   const [inputPrice, setInputPrice] = useState(0.2); // $ per 1M input tokens
   const [cachedPrice, setCachedPrice] = useState(0.02); // $ per 1M cached input tokens
   const [outputPrice, setOutputPrice] = useState(1.25); // $ per 1M output tokens
@@ -49,6 +73,13 @@ export default function AdminUsagePage() {
   const [savedLimits, setSavedLimits] = useState(false);
   const [limitsError, setLimitsError] = useState<string | null>(null);
 
+  // Phase 5 "Credit Rules" -- same pattern as the plan-limits editor above,
+  // backed by the SiteSetting getCreditCosts() reads (see creditCosts.ts).
+  const [costsDraft, setCostsDraft] = useState<UsageStats["creditCosts"] | null>(null);
+  const [savingCosts, setSavingCosts] = useState(false);
+  const [savedCosts, setSavedCosts] = useState(false);
+  const [costsError, setCostsError] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -61,6 +92,7 @@ export default function AdminUsagePage() {
       const data = await res.json();
       setStats(data);
       setLimitsDraft((prev) => prev ?? data.planLimits);
+      setCostsDraft((prev) => prev ?? data.creditCosts);
       if (econRes.ok) setEconomics(await econRes.json());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
@@ -70,6 +102,14 @@ export default function AdminUsagePage() {
   }, [days]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (simSeeded || !economics || !stats || stats.distinctUsers === 0) return;
+    setSimUsers(stats.distinctUsers);
+    setSimRevenuePerUser(Math.round((economics.revenueUsd / stats.distinctUsers) * 100) / 100 || 20);
+    setSimCostPerUser(Math.round((economics.totalCostUsd / stats.distinctUsers) * 100) / 100 || 2);
+    setSimSeeded(true);
+  }, [economics, stats, simSeeded]);
 
   const updateDraft = (plan: string, field: string, value: number) => {
     setLimitsDraft((prev) => (prev ? { ...prev, [plan]: { ...prev[plan as keyof typeof prev], [field]: value } } : prev));
@@ -95,6 +135,33 @@ export default function AdminUsagePage() {
       setLimitsError(e instanceof Error ? e.message : "ذخیره ناموفق بود");
     } finally {
       setSavingLimits(false);
+    }
+  };
+
+  const updateCostDraft = (key: string, value: number) => {
+    setCostsDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
+    setSavedCosts(false);
+  };
+
+  const saveCosts = async () => {
+    if (!costsDraft) return;
+    setSavingCosts(true);
+    setCostsError(null);
+    setSavedCosts(false);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: { creditCosts: JSON.stringify(costsDraft) } }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setSavedCosts(true);
+      setStats((prev) => (prev ? { ...prev, creditCosts: costsDraft } : prev));
+    } catch (e) {
+      setCostsError(e instanceof Error ? e.message : "ذخیره ناموفق بود");
+    } finally {
+      setSavingCosts(false);
     }
   };
 
@@ -203,6 +270,46 @@ export default function AdminUsagePage() {
               </div>
             </div>
           )}
+
+          {/* Revenue Simulator */}
+          <div className="px-4 pb-4 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+            <div className="flex items-center gap-1.5 mb-3">
+              <Calculator className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} />
+              <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>شبیه‌ساز درآمد (Revenue Simulator)</span>
+            </div>
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              <label className="text-xs" style={{ color: "var(--text-muted)" }}>
+                تعداد کاربر
+                <input type="number" min={0} value={simUsers} onChange={(e) => setSimUsers(Number(e.target.value))}
+                  className="w-full mt-1 px-2 py-1.5 rounded-lg text-xs" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </label>
+              <label className="text-xs" style={{ color: "var(--text-muted)" }}>
+                درآمد هر کاربر ($)
+                <input type="number" min={0} step={0.01} value={simRevenuePerUser} onChange={(e) => setSimRevenuePerUser(Number(e.target.value))}
+                  className="w-full mt-1 px-2 py-1.5 rounded-lg text-xs" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </label>
+              <label className="text-xs" style={{ color: "var(--text-muted)" }}>
+                هزینهٔ AI هر کاربر ($)
+                <input type="number" min={0} step={0.01} value={simCostPerUser} onChange={(e) => setSimCostPerUser(Number(e.target.value))}
+                  className="w-full mt-1 px-2 py-1.5 rounded-lg text-xs" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </label>
+            </div>
+            {(() => {
+              const projRevenue = simUsers * simRevenuePerUser;
+              const projCost = simUsers * simCostPerUser;
+              const projMargin = projRevenue > 0 ? ((projRevenue - projCost) / projRevenue) * 100 : null;
+              return (
+                <div className="grid grid-cols-3 gap-3 text-xs">
+                  <div><span style={{ color: "var(--text-muted)" }}>درآمد ماهانه: </span><span className="font-bold" style={{ color: "var(--text-primary)" }}>${projRevenue.toLocaleString()}</span></div>
+                  <div><span style={{ color: "var(--text-muted)" }}>هزینهٔ AI ماهانه: </span><span className="font-bold" style={{ color: "var(--text-primary)" }}>${projCost.toLocaleString()}</span></div>
+                  <div><span style={{ color: "var(--text-muted)" }}>حاشیهٔ ناخالص: </span><span className="font-bold" style={{ color: projMargin == null ? "var(--text-muted)" : projMargin < 0 ? "#ef4444" : "#16a34a" }}>{projMargin == null ? "—" : `${projMargin.toFixed(1)}٪`}</span></div>
+                </div>
+              );
+            })()}
+            <p className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>
+              مقادیر اولیه از میانگین واقعی {stats?.distinctUsers ?? 0} کاربر فعال این بازه محاسبه شده — برای شبیه‌سازی سناریوهای رشد، اعداد رو دستی تغییر بدید.
+            </p>
+          </div>
         </div>
       )}
 
@@ -325,6 +432,43 @@ export default function AdminUsagePage() {
                 </table>
               )}
             </div>
+          </div>
+
+          {/* Credit Rules — per-feature credit cost, editable, persisted to SiteSetting (key "creditCosts"), no deploy needed. Read by every charge route via getCreditCosts(). */}
+          <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+            <div className="px-4 py-3 flex items-center justify-between gap-2" style={{ background: "var(--surface-1)", borderBottom: "1px solid var(--border)" }}>
+              <div className="flex items-center gap-2">
+                <Coins className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
+                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>قوانین کردیت (Credit Rules) — هزینهٔ هر عملیات، قابل‌ویرایش، بدون نیاز به دیپلوی</span>
+              </div>
+              <button
+                onClick={saveCosts}
+                disabled={savingCosts || !costsDraft}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
+                style={{ background: "var(--primary)", color: "white" }}
+              >
+                {savedCosts ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                {savingCosts ? "در حال ذخیره…" : savedCosts ? "ذخیره شد" : "ذخیرهٔ تغییرات"}
+              </button>
+            </div>
+            {costsError && <p className="text-xs px-4 py-2 text-red-400">{costsError}</p>}
+            {costsDraft && (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-4">
+                {Object.entries(costsDraft).map(([key, value]) => (
+                  <div key={key} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg" style={{ background: "var(--surface-1)" }}>
+                    <span style={{ color: "var(--text-secondary)" }}>{CREDIT_COST_LABELS[key] ?? key}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={value}
+                      onChange={(e) => updateCostDraft(key, Number(e.target.value))}
+                      className="w-16 px-2 py-1 rounded-lg text-xs text-left"
+                      style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* plan limits — editable, persisted to SiteSetting (key "planLimits"), no deploy needed */}

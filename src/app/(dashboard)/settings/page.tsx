@@ -7,7 +7,7 @@ import { Save, User, Lock, Trash2, CreditCard, BarChart3, Palette, Globe, Loader
 import toast from "react-hot-toast";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
 import { formatNumber, toJalali } from "@/lib/utils/jalali";
 
 const AVATAR_EMOJIS = ["🙂", "😎", "🚀", "🧠", "🦊", "🐼", "🌟", "🔥", "🎯", "💼", "🧑‍💻", "👩‍💻"];
@@ -48,6 +48,12 @@ interface TeamData {
   members: TeamMemberRow[]; invites: TeamInviteRow[];
 }
 
+interface TeamUsageRow {
+  userId: string; name: string | null; email: string | null; role: string;
+  totalCreditsSpent: number;
+  byType: { type: string; count: number; creditsSpent: number }[];
+}
+
 export default function SettingsPage() {
   const { t, lang } = useTranslation();
   const isFa = lang === "fa";
@@ -58,6 +64,7 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState("");
+  const [currency, setCurrency] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -72,9 +79,11 @@ export default function SettingsPage() {
   const [team, setTeam] = useState<TeamData | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
+  const [teamUsage, setTeamUsage] = useState<TeamUsageRow[] | null>(null);
 
   function loadTeam() {
     fetch("/api/team", { credentials: "include" }).then((r) => r.json()).then((d) => setTeam(d.team || null));
+    fetch("/api/team/usage?days=30", { credentials: "include" }).then((r) => r.json()).then((d) => setTeamUsage(d.breakdown || null));
   }
 
   useEffect(() => {
@@ -85,6 +94,7 @@ export default function SettingsPage() {
           setProfile(d.user);
           setName(d.user.name || "");
           setAvatar(d.user.avatar || "");
+          setCurrency(d.user.currency || "");
         }
       });
     fetch("/api/user/usage", { credentials: "include" }).then((r) => r.json()).then(setUsage);
@@ -131,7 +141,7 @@ export default function SettingsPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ name, avatar }),
+        body: JSON.stringify({ name, avatar, currency: currency || null }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -247,6 +257,38 @@ export default function SettingsPage() {
             <div className="text-xs mb-1.5" style={{ color: "var(--text-muted)" }}>{t.settingsPage.language}</div>
             <LanguageSwitcher />
           </div>
+        </div>
+        <div>
+          <div className="text-xs mb-1.5" style={{ color: "var(--text-muted)" }}>{t.settingsPage.currency}</div>
+          <select
+            value={currency}
+            onChange={async (e) => {
+              const next = e.target.value;
+              setCurrency(next);
+              // Instant apply, same as the theme/language switchers right next
+              // to it -- a separate "save" button here would be inconsistent
+              // with those two and easy to forget.
+              try {
+                const res = await fetch("/api/user/profile", {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({ currency: next || null }),
+                });
+                if (!res.ok) throw new Error();
+                toast.success(t.settingsPage.profileSaved);
+              } catch {
+                toast.error(t.settingsPage.errSaveProfile);
+              }
+            }}
+            className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+            style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+          >
+            <option value="">{t.settingsPage.currencyDefault}</option>
+            <option value="IRT">{t.settingsPage.currencyToman}</option>
+            <option value="USD">{t.settingsPage.currencyUsd}</option>
+            <option value="EUR">{t.settingsPage.currencyEur}</option>
+          </select>
         </div>
       </section>
 
@@ -390,6 +432,32 @@ export default function SettingsPage() {
               style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
               {t.settingsPage.leaveTeam}
             </button>
+          )}
+
+          {/* AI Workforce Usage -- per-member breakdown of the shared credit pool, last 30 days */}
+          {teamUsage && teamUsage.length > 0 && (
+            <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+              <div className="text-xs font-medium pt-2" style={{ color: "var(--text-muted)" }}>
+                {tri(lang, "مصرف تیم — ۳۰ روز اخیر", "Team usage — last 30 days", "Team-Nutzung — letzte 30 Tage")}
+              </div>
+              {teamUsage.map((row) => (
+                <div key={row.userId} className="p-2.5 rounded-xl" style={{ background: "var(--surface-2)" }}>
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span style={{ color: "var(--text-primary)" }}>{row.name || row.email || row.userId}</span>
+                    <span className="font-medium" style={{ color: "var(--primary)" }}>{formatNumber(row.totalCreditsSpent, lang)} {tri(lang, "کردیت", "credits", "Guthaben")}</span>
+                  </div>
+                  {row.byType.length > 0 && (
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                      {row.byType.map((bt) => (
+                        <span key={bt.type} className="text-xs" style={{ color: "var(--text-muted)" }}>
+                          {TYPE_LABEL[bt.type] ?? bt.type}: {formatNumber(bt.creditsSpent, lang)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </section>
       )}

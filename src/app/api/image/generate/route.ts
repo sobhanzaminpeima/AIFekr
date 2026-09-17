@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { CREDIT_COSTS } from "@/lib/utils/credits";
+import { getCreditCosts } from "@/lib/utils/creditCosts";
 import { getAvailableCredits, chargeAndLog } from "@/lib/utils/teamCredits";
 import { getLimitsForPlan } from "@/lib/utils/planLimits";
 import * as qwen from "@/lib/ai/qwen";
@@ -66,7 +66,8 @@ export async function POST(req: NextRequest) {
 
     const { provider, usageModelTag } = resolveProvider(requestedProvider);
 
-    const creditCost = (quality === "hd" ? CREDIT_COSTS.image_hd : CREDIT_COSTS.image_standard) * count;
+    const costs = await getCreditCosts();
+    const creditCost = (quality === "hd" ? costs.image_hd : costs.image_standard) * count;
 
     if ((await getAvailableCredits(user.id)) < creditCost) {
       return NextResponse.json({ error: `اعتبار کافی ندارید. نیاز به ${creditCost} اعتبار دارید` }, { status: 402 });
