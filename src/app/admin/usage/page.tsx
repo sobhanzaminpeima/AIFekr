@@ -3,6 +3,16 @@
 import { useState, useEffect, useCallback } from "react";
 import { AlertTriangle, RefreshCw, Coins, Activity, Users, Calculator, ShieldAlert, Save, CheckCircle2 } from "lucide-react";
 
+interface EconomicsStats {
+  days: number;
+  totalCostUsd: number;
+  revenueUsd: number;
+  grossMarginPct: number | null;
+  usdToToman: number;
+  byProvider: { provider: string; costUsd: number; calls: number }[];
+  redFlagUsers: { userId: string; costUsd: number; user: { id: string; name: string | null; email: string | null; plan: string } | null }[];
+}
+
 interface UsageStats {
   days: number;
   totalCalls: number;
@@ -19,6 +29,7 @@ const PLAN_LABELS: Record<string, string> = { FREE: "رایگان", BASIC: "پا
 
 export default function AdminUsagePage() {
   const [stats, setStats] = useState<UsageStats | null>(null);
+  const [economics, setEconomics] = useState<EconomicsStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [days, setDays] = useState(30);
   const [error, setError] = useState<string | null>(null);
@@ -42,11 +53,15 @@ export default function AdminUsagePage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/usage?days=${days}`, { credentials: "include" });
+      const [res, econRes] = await Promise.all([
+        fetch(`/api/admin/usage?days=${days}`, { credentials: "include" }),
+        fetch(`/api/admin/economics?days=${days}`, { credentials: "include" }),
+      ]);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setStats(data);
       setLimitsDraft((prev) => prev ?? data.planLimits);
+      if (econRes.ok) setEconomics(await econRes.json());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
@@ -127,6 +142,67 @@ export default function AdminUsagePage() {
         <div className="flex items-center gap-2 p-4 rounded-xl" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
           <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
           <p className="text-sm text-red-400">{error}</p>
+        </div>
+      )}
+
+      {economics && (
+        <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <div className="px-4 py-3 flex items-center gap-2" style={{ borderBottom: "1px solid var(--border)" }}>
+            <Calculator className="w-4 h-4" style={{ color: "#ea580c" }} />
+            <h2 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>اکونومیک واحد (Unit Economics)</h2>
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>— هزینهٔ واقعی AI (از AiModelPricing) در برابر درآمد واقعی (از پرداخت‌های موفق)</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4">
+            <div>
+              <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>هزینهٔ AI ({economics.days} روز)</div>
+              <div className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>${economics.totalCostUsd.toFixed(2)}</div>
+            </div>
+            <div>
+              <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>درآمد پرداخت‌های موفق</div>
+              <div className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>${economics.revenueUsd.toFixed(2)}</div>
+            </div>
+            <div>
+              <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>حاشیهٔ ناخالص</div>
+              <div className="text-lg font-bold" style={{ color: economics.grossMarginPct == null ? "var(--text-muted)" : economics.grossMarginPct < 0 ? "#ef4444" : "#16a34a" }}>
+                {economics.grossMarginPct == null ? "—" : `${economics.grossMarginPct.toFixed(1)}٪`}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>نرخ تبدیل</div>
+              <div className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{Math.round(economics.usdToToman).toLocaleString("fa-IR")} ت</div>
+            </div>
+          </div>
+          {economics.byProvider.length > 0 && (
+            <div className="px-4 pb-4">
+              <div className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>هزینه به تفکیک ارائه‌دهنده</div>
+              <div className="space-y-1.5">
+                {economics.byProvider.map((p) => (
+                  <div key={p.provider} className="flex items-center justify-between text-xs">
+                    <span style={{ color: "var(--text-secondary)" }}>{p.provider}</span>
+                    <span style={{ color: "var(--text-muted)" }}>{p.calls}× · ${p.costUsd.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {economics.redFlagUsers.length > 0 && (
+            <div className="px-4 pb-4">
+              <div className="flex items-center gap-1.5 mb-2">
+                <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-xs font-medium text-amber-400">
+                  کاربران پرهزینه ({economics.redFlagUsers.length}) — هزینهٔ AI بیش از ${5} در این بازه
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {economics.redFlagUsers.map((r) => (
+                  <div key={r.userId} className="flex items-center justify-between text-xs">
+                    <span style={{ color: "var(--text-secondary)" }}>{r.user?.name || r.user?.email || r.userId} · {r.user?.plan ?? "?"}</span>
+                    <span className="font-medium text-amber-400">${r.costUsd.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
