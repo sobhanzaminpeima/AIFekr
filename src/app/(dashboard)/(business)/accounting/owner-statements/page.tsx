@@ -260,6 +260,18 @@ export default function OwnerStatementsPage() {
 
   useEffect(() => { loadStatements(propertyId); }, [propertyId, loadStatements]);
 
+  // Auto-fill on unit/month change -- this used to require clicking "پر
+  // کردن خودکار" every time, so a user who just opened the page or switched
+  // units saw an empty line list and had to know to click a button before
+  // tracked bookings/expenses showed up at all. Resetting `lines` first
+  // avoids the previous unit/month's rows silently carrying over.
+  useEffect(() => {
+    if (!propertyId) return;
+    setLines([]);
+    getAiSuggestions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertyId, month]);
+
   async function getAiSuggestions() {
     if (!propertyId) return toast.error(tri(lang, "ابتدا یک واحد را انتخاب کنید", "Select a unit first", "Wählen Sie zuerst eine Einheit"));
     setAssisting(true);
@@ -514,7 +526,7 @@ export default function OwnerStatementsPage() {
 
         <div className="flex gap-2">
           <button disabled={assisting || !propertyId} onClick={getAiSuggestions} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50" style={{ background: "var(--surface-2)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
-            <Sparkles className="w-4 h-4" />{assisting ? tri(lang, "در حال دریافت پیشنهاد...", "Getting suggestions…", "Vorschläge werden geladen…") : tri(lang, "پر کردن خودکار (رزروها و هزینه‌های ثبت‌شده)", "Auto-fill (bookings & tracked expenses)", "Automatisch ausfüllen (Buchungen & erfasste Ausgaben)")}
+            <Sparkles className="w-4 h-4" />{assisting ? tri(lang, "در حال دریافت پیشنهاد...", "Getting suggestions…", "Vorschläge werden geladen…") : tri(lang, "بازخوانی رزروها و هزینه‌های ثبت‌شده", "Refresh bookings & tracked expenses", "Buchungen & erfasste Ausgaben aktualisieren")}
           </button>
           <button onClick={() => setLines((prev) => [...prev, emptyLine()])} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
             <Plus className="w-4 h-4" />{tri(lang, "افزودن ردیف دستی", "Add line manually", "Position manuell hinzufügen")}
