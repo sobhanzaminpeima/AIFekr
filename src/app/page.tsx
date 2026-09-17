@@ -84,7 +84,7 @@ const STR = {
     popularLabel: "محبوب‌ترین",
     freeLabel: "رایگان",
     perMonth: "تومان/ماه",
-    viewAllPricing: "مشاهده همه پکیج‌ها ←",
+    viewAllPricing: "شروع رایگان و مشاهدهٔ همهٔ پکیج‌ها ←",
     faqTitle: "سوالات متداول",
     faqSubtitle: "پاسخ سوالات رایج شما اینجاست",
     faqs: [
@@ -153,7 +153,7 @@ const STR = {
     popularLabel: "Most Popular",
     freeLabel: "Free",
     perMonth: "/mo",
-    viewAllPricing: "View All Packages →",
+    viewAllPricing: "Get Started & See All Packages →",
     faqTitle: "Frequently Asked Questions",
     faqSubtitle: "Answers to common questions",
     faqs: [
@@ -222,7 +222,7 @@ const STR = {
     popularLabel: "En Popüler",
     freeLabel: "Ücretsiz",
     perMonth: "/ay",
-    viewAllPricing: "Tüm Paketleri Görüntüle →",
+    viewAllPricing: "Ücretsiz Başlayın ve Tüm Paketleri Görün →",
     faqTitle: "Sıkça Sorulan Sorular",
     faqSubtitle: "Yaygın sorulara cevaplar",
     faqs: [
@@ -291,7 +291,7 @@ const STR = {
     popularLabel: "Am beliebtesten",
     freeLabel: "Kostenlos",
     perMonth: "/Monat",
-    viewAllPricing: "Alle Pakete ansehen →",
+    viewAllPricing: "Kostenlos starten & alle Pakete ansehen →",
     faqTitle: "Häufig gestellte Fragen",
     faqSubtitle: "Antworten auf häufige Fragen",
     faqs: [
