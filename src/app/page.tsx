@@ -33,6 +33,7 @@ const STR = {
   fa: {
     brand: "هوشمند AI",
     navPacks: "بسته‌های صنعتی",
+    navPricing: "قیمت‌گذاری و پلن‌ها",
     navAbout: "درباره ما",
     navContact: "تماس با ما",
     navLogin: "ورود",
@@ -77,6 +78,9 @@ const STR = {
     ],
     pricingTitle: "قیمت‌گذاری شفاف",
     pricingSubtitle: "بدون هزینه پنهان — همه چیز روشن است",
+    bizPlansTitle: "پلن‌های کسب‌وکار",
+    bizPlansSubtitle: "برای تیم‌ها، آژانس‌ها و سازمان‌ها — اعتبار مشترک برای همه اعضا",
+    contactSales: "تماس با فروش",
     popularLabel: "محبوب‌ترین",
     freeLabel: "رایگان",
     perMonth: "تومان/ماه",
@@ -98,6 +102,7 @@ const STR = {
   en: {
     brand: "AiFekr",
     navPacks: "Industry Packs",
+    navPricing: "Pricing & Plans",
     navAbout: "About Us",
     navContact: "Contact Us",
     navLogin: "Login",
@@ -142,6 +147,9 @@ const STR = {
     ],
     pricingTitle: "Transparent Pricing",
     pricingSubtitle: "No hidden fees — everything is clear",
+    bizPlansTitle: "Business Plans",
+    bizPlansSubtitle: "For teams, agencies and organizations — a shared credit pool for every member",
+    contactSales: "Contact Sales",
     popularLabel: "Most Popular",
     freeLabel: "Free",
     perMonth: "/mo",
@@ -163,6 +171,7 @@ const STR = {
   tr: {
     brand: "AiFekr",
     navPacks: "Sektör Paketleri",
+    navPricing: "Fiyatlandırma ve Planlar",
     navAbout: "Hakkımızda",
     navContact: "Bize Ulaşın",
     navLogin: "Giriş",
@@ -207,6 +216,9 @@ const STR = {
     ],
     pricingTitle: "Şeffaf Fiyatlandırma",
     pricingSubtitle: "Gizli ücret yok — her şey açık",
+    bizPlansTitle: "İşletme Planları",
+    bizPlansSubtitle: "Ekipler, ajanslar ve kurumlar için — her üye için paylaşılan kredi havuzu",
+    contactSales: "Satışla İletişime Geçin",
     popularLabel: "En Popüler",
     freeLabel: "Ücretsiz",
     perMonth: "/ay",
@@ -228,6 +240,7 @@ const STR = {
   de: {
     brand: "AiFekr",
     navPacks: "Branchenpakete",
+    navPricing: "Preise & Pläne",
     navAbout: "Über uns",
     navContact: "Kontakt",
     navLogin: "Anmelden",
@@ -272,6 +285,9 @@ const STR = {
     ],
     pricingTitle: "Transparente Preise",
     pricingSubtitle: "Keine versteckten Kosten — alles ist klar",
+    bizPlansTitle: "Business-Pläne",
+    bizPlansSubtitle: "Für Teams, Agenturen und Unternehmen — ein gemeinsamer Guthaben-Pool für jedes Mitglied",
+    contactSales: "Vertrieb kontaktieren",
     popularLabel: "Am beliebtesten",
     freeLabel: "Kostenlos",
     perMonth: "/Monat",
@@ -291,6 +307,22 @@ const STR = {
     aiTeamCta: "Das gesamte System ansehen",
   },
 };
+
+// Same team/business tiers /plans sells (see BIZ_PLANS_IR/BIZ_PLANS_USD
+// there) -- duplicated here rather than imported since /plans lives under
+// the authenticated (dashboard) layout and can't be rendered from this
+// public page; kept in sync manually when those prices change.
+const BIZ_PLANS_IR = [
+  { name: "تیم کوچک", desc: "تا ۵ کاربر", price: 39000000, color: "#6366f1", features: ["همه امکانات پلاس برای هر عضو", "داشبورد مدیریت تیم", "استخر اعتبار مشترک"] },
+  { name: "تیم متوسط", desc: "تا ۲۰ کاربر", price: 119000000, color: "#ea580c", features: ["همه امکانات پرو برای هر عضو", "AI-BOS اختصاصی", "SSO / SAML"], popular: true },
+  { name: "سازمانی", desc: "بدون محدودیت", price: null, color: "#8b5cf6", features: ["همه امکانات الفا برای هر عضو", "استقرار اختصاصی", "پشتیبانی ۲۴/۷"] },
+];
+
+const BIZ_PLANS_USD = [
+  { name: "Startup", desc: "Up to 5 users", priceUsd: 14900, color: "#6366f1", features: ["All Plus features per seat", "Team dashboard", "Shared credit pool"] },
+  { name: "Growth", desc: "Up to 20 users", priceUsd: 44900, color: "#ea580c", features: ["All Pro features per seat", "AI-BOS included", "SSO / SAML"], popular: true },
+  { name: "Enterprise", desc: "Unlimited", priceUsd: null, color: "#8b5cf6", features: ["All Ultra features per seat", "Custom deployment", "24/7 support"] },
+];
 
 export default async function HomePage() {
   const cookieStore = await cookies();
@@ -381,6 +413,7 @@ export default async function HomePage() {
           </span>
         </Link>
         <div className="hidden md:flex items-center gap-1">
+          <NavLink href="#pricing">{s.navPricing}</NavLink>
           <NavLink href="/industry">{s.navPacks}</NavLink>
           <NavLink href="/about">{s.navAbout}</NavLink>
           <NavLink href="/contact">{s.navContact}</NavLink>
@@ -394,6 +427,7 @@ export default async function HomePage() {
         </div>
         <MobileMenu
           items={[
+            { href: "#pricing", label: s.navPricing },
             { href: "/industry", label: s.navPacks },
             { href: "/about", label: s.navAbout },
             { href: "/contact", label: s.navContact },
@@ -487,7 +521,7 @@ export default async function HomePage() {
 
       {/* Pricing */}
       {pricingPlans.length > 0 && (
-        <section className="py-20 px-6" style={{ background: "rgba(255,255,255,0.02)" }}>
+        <section id="pricing" className="py-20 px-6" style={{ background: "rgba(255,255,255,0.02)" }}>
           <div className="max-w-5xl mx-auto">
             <Reveal>
               <h2 className="text-3xl font-bold text-center mb-4">{s.pricingTitle}</h2>
@@ -507,6 +541,56 @@ export default async function HomePage() {
           </div>
         </section>
       )}
+
+      {/* Business Plans */}
+      <section className="py-20 px-6">
+        <div className="max-w-5xl mx-auto">
+          <Reveal>
+            <h2 className="text-3xl font-bold text-center mb-4">{s.bizPlansTitle}</h2>
+            <p className="text-center mb-12" style={{ color: "rgba(255,255,255,0.5)" }}>{s.bizPlansSubtitle}</p>
+          </Reveal>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {(lang === "fa" ? BIZ_PLANS_IR : BIZ_PLANS_USD).map((biz) => (
+              <Reveal key={biz.name}>
+                <div
+                  className="relative p-6 rounded-2xl h-full flex flex-col"
+                  style={{
+                    background: biz.popular ? `${biz.color}12` : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${biz.popular ? biz.color : "rgba(255,255,255,0.08)"}`,
+                  }}
+                >
+                  {biz.popular && (
+                    <div className="absolute -top-3 right-1/2 translate-x-1/2 px-3 py-0.5 rounded-full text-xs font-bold text-white whitespace-nowrap" style={{ background: biz.color }}>
+                      {s.popularLabel}
+                    </div>
+                  )}
+                  <div className="font-bold text-lg mb-1" style={{ color: biz.color }}>{biz.name}</div>
+                  <div className="text-sm mb-3" style={{ color: "rgba(255,255,255,0.5)" }}>{biz.desc}</div>
+                  <div className="text-2xl font-bold mb-4">
+                    {"price" in biz && biz.price != null
+                      ? `${Math.round(biz.price / 10).toLocaleString("fa-IR")} تومان`
+                      : "priceUsd" in biz && biz.priceUsd != null
+                      ? `$${(biz.priceUsd / 100).toLocaleString()}`
+                      : s.contactSales}
+                  </div>
+                  <ul className="space-y-2 mb-6 flex-1">
+                    {biz.features.map((f) => (
+                      <li key={f} className="text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>• {f}</li>
+                    ))}
+                  </ul>
+                  <Link
+                    href={(("price" in biz && biz.price == null) || ("priceUsd" in biz && biz.priceUsd == null)) ? "/contact" : "/register"}
+                    className="text-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
+                    style={{ background: biz.color }}
+                  >
+                    {(("price" in biz && biz.price == null) || ("priceUsd" in biz && biz.priceUsd == null)) ? s.contactSales : s.navRegister}
+                  </Link>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* FAQ */}
       <section className="py-20 px-6">
