@@ -997,6 +997,7 @@ const tr: typeof en = {
       errorGeneric: "Hata",
       print: {
         printPdf: "Yazdır / PDF",
+        downloadPdf: "PDF İndir",
         close: "Kapat",
         invoiceTitle: "Fatura",
         billTo: "Fatura edilen:",
@@ -1035,6 +1036,7 @@ const tr: typeof en = {
       errorGeneric: "Hata",
       print: {
         printPdf: "Yazdır / PDF",
+        downloadPdf: "PDF İndir",
         close: "Kapat",
         contact: "Kişi:",
       },

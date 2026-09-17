@@ -2507,10 +2507,47 @@ function InvoicesPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang;
 
 function InvoicePrintModal({ isFa, lang, t, invoice, onClose }: { isFa: boolean; lang: Lang; t: Translations["crm"]; invoice: CrmInvoiceRow; onClose: () => void }) {
   const logoUrl = useCompanyLogo();
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  async function handleDownloadPdf() {
+    setDownloadingPdf(true);
+    try {
+      // Dynamically imported -- @react-pdf/renderer is a heavy dependency
+      // that only the small fraction of users who actually export an
+      // invoice need; a static import bloated every /crm visitor's bundle
+      // by ~400kB whether they ever open this modal or not.
+      const { downloadInvoicePdf } = await import("@/components/crm/CrmPdfDocuments");
+      await downloadInvoicePdf(
+        {
+          invoiceNumber: invoice.invoiceNumber,
+          issueDate: invoice.issueDate,
+          contactName: invoice.contact.name,
+          items: invoice.items.map((it) => ({ description: it.description, quantity: it.quantity, unitPrice: it.unitPrice })),
+          subtotal: invoice.subtotal,
+          taxTotal: invoice.taxTotal,
+          discount: invoice.discount,
+          total: invoice.total,
+          currency: invoice.currency,
+          logoUrl,
+        },
+        t.invoices.print,
+        isFa,
+        lang === "fa" ? toJalali(invoice.issueDate) : new Date(invoice.issueDate).toLocaleDateString(lang === "de" ? "de-DE" : "en-US"),
+      );
+    } catch {
+      toast.error(tri(lang, "ساخت PDF با خطا مواجه شد", "Failed to generate the PDF", "PDF-Erstellung fehlgeschlagen"));
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:p-0 print:static" style={{ background: "rgba(0,0,0,0.6)" }}>
       <div className="print:hidden absolute top-4 left-4 flex gap-2">
-        <button onClick={() => window.print()} className="px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>{t.invoices.print.printPdf}</button>
+        <button onClick={handleDownloadPdf} disabled={downloadingPdf} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+          {downloadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />} {t.invoices.print.downloadPdf}
+        </button>
+        <button onClick={() => window.print()} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>{t.invoices.print.printPdf}</button>
         <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>{t.invoices.print.close}</button>
       </div>
       <div dir={isFa ? "rtl" : "ltr"} className="w-full max-w-xl rounded-2xl p-8 space-y-4 max-h-[85vh] overflow-y-auto print:max-h-none print:overflow-visible print:shadow-none print:rounded-none"
@@ -2786,10 +2823,31 @@ function ContractsPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang
 
 function ContractPrintModal({ isFa, t, contract, onClose }: { isFa: boolean; t: Translations["crm"]; contract: CrmContractRow; onClose: () => void }) {
   const logoUrl = useCompanyLogo();
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  async function handleDownloadPdf() {
+    setDownloadingPdf(true);
+    try {
+      const { downloadContractPdf } = await import("@/components/crm/CrmPdfDocuments");
+      await downloadContractPdf(
+        { title: contract.title, contactName: contract.contact.name, content: contract.content, logoUrl },
+        t.contracts.print,
+        isFa,
+      );
+    } catch {
+      toast.error(isFa ? "ساخت PDF با خطا مواجه شد" : "Failed to generate the PDF");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:p-0 print:static" style={{ background: "rgba(0,0,0,0.6)" }}>
       <div className="print:hidden absolute top-4 left-4 flex gap-2">
-        <button onClick={() => window.print()} className="px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>{t.contracts.print.printPdf}</button>
+        <button onClick={handleDownloadPdf} disabled={downloadingPdf} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+          {downloadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />} {t.contracts.print.downloadPdf}
+        </button>
+        <button onClick={() => window.print()} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>{t.contracts.print.printPdf}</button>
         <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>{t.contracts.print.close}</button>
       </div>
       <div dir={isFa ? "rtl" : "ltr"} className="w-full max-w-xl rounded-2xl p-8 space-y-4 max-h-[85vh] overflow-y-auto print:max-h-none print:overflow-visible print:shadow-none print:rounded-none whitespace-pre-wrap"

@@ -17,6 +17,7 @@ const de: Translations = {
     "ceoAdvisor": "CEO-Berater",
     "seoWorkspace": "SEO-Arbeitsbereich",
     "socialMedia": "Social Media",
+    "leadGen": "Lead-Generierung",
     "websiteDesigner": "Website-Designer",
     "industryPacks": "Branchenpakete",
     "meetingRoom": "KI-Besprechungsraum",
@@ -301,6 +302,13 @@ const de: Translations = {
       "selectedPack": "Ausgewähltes Paket:",
       "nameLabel": "Vollständiger Name *",
       "namePlaceholder": "z. B. Max Mustermann",
+      "firstNameLabel": "Vorname *",
+      "firstNamePlaceholder": "Max",
+      "lastNameLabel": "Nachname",
+      "lastNamePlaceholder": "Mustermann",
+      "countryLabel": "Land",
+      "countryPlaceholder": "Land auswählen",
+      "languageLabel": "Standardsprache",
       "emailLabel": "E-Mail",
       "phoneLabel": "Telefon",
       "passwordLabel": "Passwort",
@@ -339,6 +347,11 @@ const de: Translations = {
     "appearanceLanguage": "Erscheinungsbild & Sprache",
     "theme": "Design",
     "language": "Sprache",
+    "currency": "Anzeigewährung",
+    "currencyDefault": "Standard (nach Sprache)",
+    "currencyToman": "Toman",
+    "currencyUsd": "US-Dollar",
+    "currencyEur": "Euro",
     "changePassword": "Passwort ändern",
     "currentPasswordPlaceholder": "Aktuelles Passwort",
     "newPasswordPlaceholder": "Neues Passwort (mind. 6 Zeichen)",
@@ -759,7 +772,8 @@ const de: Translations = {
     "modePuterDesc": "Unbegrenzt, nutzt Ihr eigenes kostenloses puter.com-Konto",
     "puterNotice": "Diese Option nutzt den Drittanbieterdienst Puter.js, nicht die kostenpflichtige Pipeline von AiFekr. Beim ersten Mal fordert Puter Sie auf, sich bei Ihrem eigenen puter.com-Konto anzumelden — die Nutzung wird nicht Ihrem AiFekr-Guthaben belastet.",
     "puterLoginError": "Verbindung zu Puter konnte nicht hergestellt werden — stellen Sie sicher, dass Pop-ups für diese Website zugelassen sind, und versuchen Sie es erneut.",
-    "puterGenerating": "Wird mit Puter generiert..."
+    "puterGenerating": "Wird mit Puter generiert...",
+    "templateNeedsPhotoHint": "Dieser Prompt wird auf Ihr eigenes Foto angewendet — laden Sie ein Referenzfoto hoch"
   },
   "videoGeneratePage": {
     "title": "KI-Videogenerator",
@@ -1112,6 +1126,7 @@ const de: Translations = {
       "errorGeneric": "Fehler",
       "print": {
         "printPdf": "Drucken / PDF",
+        "downloadPdf": "PDF herunterladen",
         "close": "Schließen",
         "invoiceTitle": "Rechnung",
         "billTo": "Rechnungsempfänger:",
@@ -1150,6 +1165,7 @@ const de: Translations = {
       "errorGeneric": "Fehler",
       "print": {
         "printPdf": "Drucken / PDF",
+        "downloadPdf": "PDF herunterladen",
         "close": "Schließen",
         "contact": "Kontakt:"
       },
