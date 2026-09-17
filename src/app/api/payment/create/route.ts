@@ -8,10 +8,20 @@ import { createUsdtInvoice } from "@/lib/payment/nowpayments";
 import { getFxRates } from "@/lib/utils/currency";
 import { createPendingPayment, markPaymentAuthority, markPaymentFailed, findPaymentById, activatePlanForPayment } from "@/lib/repositories/paymentRepository";
 import { resolvePeriod } from "@/lib/payment/period";
+import { rateLimit } from "@/lib/utils/rateLimit";
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
+
+  // Phase 6 hardening: this both hits two external payment gateways per call
+  // and, on the wallet-covered path, activates a plan with no gateway
+  // round-trip at all — worth a per-user cap independent of the login-attempt
+  // limiter, since a compromised session shouldn't be able to hammer either.
+  const limit = rateLimit(`payment-create:${user.id}`, 10, 5 * 60 * 1000);
+  if (!limit.allowed) {
+    return NextResponse.json({ error: "تعداد درخواست پرداخت بیش از حد مجاز — کمی صبر کنید" }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } });
+  }
 
   const { plan, period, gateway, useWallet } = await req.json();
   const selectedGateway: "zarinpal" | "usdt_trc20" = gateway === "usdt_trc20" ? "usdt_trc20" : "zarinpal";
