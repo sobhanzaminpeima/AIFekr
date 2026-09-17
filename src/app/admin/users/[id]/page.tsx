@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowRight, Loader2, MessageSquare, Image as ImageIcon, Video, Wallet, Ban, UserCheck } from "lucide-react";
 import { toJalali, formatNumber } from "@/lib/utils/jalali";
 import toast from "react-hot-toast";
-import { COUNTRIES } from "@/lib/constants/countries";
+import { COUNTRIES, dialCodeFor } from "@/lib/constants/countries";
 
 const CURRENCY_OPTIONS = [
   { value: "", label: "پیش‌فرض (بر اساس زبان)" },
@@ -295,8 +295,23 @@ export default function AdminUserDetailPage() {
             </select>
           </div>
           <div>
-            <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>موبایل</label>
+            <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>
+              موبایل
+              {profileForm.country && dialCodeFor(profileForm.country) && (
+                <span className="mr-1" style={{ color: "var(--text-muted)" }}>(کد کشور: {dialCodeFor(profileForm.country)})</span>
+              )}
+            </label>
+            {/* Existing phone values are already stored in full international
+                format (see /register's own composedPhone logic) -- this field
+                intentionally keeps accepting/saving the raw string the admin
+                types rather than re-composing it from the country dropdown,
+                so editing an existing user's phone can't silently double up
+                or strip a dial code that's already baked into the stored
+                value. The dial-code hint above is just a visual aid tied to
+                the "کشور" dropdown, matching what /register and the invite
+                form show. */}
             <input value={profileForm.phone} onChange={(e) => setProfileForm((p) => ({ ...p, phone: e.target.value }))} dir="ltr"
+              placeholder={profileForm.country && dialCodeFor(profileForm.country) ? `${dialCodeFor(profileForm.country)}123456789` : "09123456789"}
               className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           </div>
         </div>

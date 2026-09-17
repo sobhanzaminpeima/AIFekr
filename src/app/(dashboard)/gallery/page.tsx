@@ -18,9 +18,19 @@ export default function GalleryPage() {
   useEffect(() => {
     setLoading(true);
     fetch(`/api/gallery?type=${tab}`)
-      .then((r) => r.json())
-      .then((data) => { setItems(data.items || []); setLoading(false); });
-  }, [tab]);
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((data) => setItems(data.items || []))
+      .catch(() => {
+        // Same bug class as the standalone image gallery page: without this,
+        // a failed fetch left `loading` stuck true forever with no error and
+        // no way to retry other than a full page reload.
+        toast.error(tri(lang, "بارگذاری گالری با خطا مواجه شد", "Failed to load the gallery", "Galerie konnte nicht geladen werden"));
+      })
+      .finally(() => setLoading(false));
+  }, [tab, lang]);
 
   async function deleteItem(id: string) {
     if (!confirm(tri(lang, "آیا مطمئن هستید؟", "Are you sure?", "Sind Sie sicher?"))) return;

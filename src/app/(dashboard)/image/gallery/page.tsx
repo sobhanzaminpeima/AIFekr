@@ -20,12 +20,22 @@ export default function ImageGalleryPage() {
 
   const fetchImages = useCallback(async (p: number) => {
     setLoading(true);
-    const res = await fetch(`/api/image/gallery?page=${p}`);
-    const data = await res.json();
-    setImages(data.images || []);
-    setTotalPages(data.totalPages || 1);
-    setLoading(false);
-  }, []);
+    try {
+      const res = await fetch(`/api/image/gallery?page=${p}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setImages(data.images || []);
+      setTotalPages(data.totalPages || 1);
+    } catch {
+      // Any failure here (network hiccup, auth race, non-JSON response)
+      // used to leave `loading` stuck true forever, since nothing after the
+      // failed await ever ran -- the gallery just spun indefinitely with no
+      // error and no way to retry.
+      toast.error(tri(lang, "بارگذاری گالری با خطا مواجه شد", "Failed to load the gallery", "Galerie konnte nicht geladen werden"));
+    } finally {
+      setLoading(false);
+    }
+  }, [lang]);
 
   useEffect(() => { fetchImages(page); }, [page, fetchImages]);
 
