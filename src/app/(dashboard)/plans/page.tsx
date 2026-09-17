@@ -11,10 +11,11 @@ import toast from "react-hot-toast";
 import { useSearchParams } from "next/navigation";
 import { useTranslation, tri } from "@/lib/i18n";
 import { IR_PLAN_CODES, USD_PLAN_CODES } from "@/lib/plans/catalog";
+import { PERIOD_DISCOUNT } from "@/lib/payment/period";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type Market = "IR" | "INTL";
-type Period = "monthly" | "annual";
+type Period = "monthly" | "quarterly" | "semiannual" | "annual";
 
 type ApiPackage = {
   planCode: string; name: string; nameEn: string;
@@ -24,7 +25,6 @@ type ApiPackage = {
 };
 
 // ── Static data ───────────────────────────────────────────────────────────────
-const ANNUAL_DISCOUNT = 2 / 12;
 
 const FEATURE_ROWS = [
   { sectionFa: "چت", sectionEn: "Chat", sectionDe: "Chat", icon: MessageSquare, rows: [
@@ -139,15 +139,18 @@ const FAQ_DE = [
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function fmtToman(rial: number, annual: boolean): string {
+// Both return the discounted PER-MONTH equivalent price (what's shown next to
+// the "/month" label) -- the actual one-time charge for the whole period is
+// this times the period's month count, computed server-side at checkout.
+function fmtToman(rial: number, period: Period): string {
   const toman = Math.round(rial / 10);
-  const final = annual ? Math.round(toman * (1 - ANNUAL_DISCOUNT)) : toman;
+  const final = period === "monthly" ? toman : Math.round(toman * (1 - PERIOD_DISCOUNT[period]));
   return final.toLocaleString("fa-IR");
 }
 
-function fmtUsd(cents: number, annual: boolean): string {
+function fmtUsd(cents: number, period: Period): string {
   const usd = cents / 100;
-  const final = annual ? Math.round(usd * (1 - ANNUAL_DISCOUNT) * 100) / 100 : usd;
+  const final = period === "monthly" ? usd : Math.round(usd * (1 - PERIOD_DISCOUNT[period]) * 100) / 100;
   return `$${final % 1 === 0 ? final.toFixed(0) : final.toFixed(2)}`;
 }
 
@@ -254,9 +257,12 @@ export default function PlansPage() {
     subtitle:     tri(lang, "هوش مصنوعی برای همه — چت، تصویر، موزیک و ویدیو", "AI for everyone — chat, image, music & video", "KI für alle — Chat, Bild, Musik & Video", "Herkes için yapay zeka — sohbet, görsel, müzik ve video"),
     iran:         "🇮🇷 " + tri(lang, "ایران (تومان)", "Iran (Toman)", "Iran (Toman)", "İran (Toman)"),
     intl:         "🌍 " + tri(lang, "بین‌المللی (دلار)", "International ($)", "International ($)", "Uluslararası ($)"),
-    monthly:      tri(lang, "ماهانه", "Monthly", "Monatlich", "Aylık"),
-    annual:       tri(lang, "سالانه", "Annual", "Jährlich", "Yıllık"),
-    freeMonths:   tri(lang, "۲ ماه رایگان", "2 months free", "2 Monate gratis", "2 ay ücretsiz"),
+    periodLabels: {
+      monthly:     tri(lang, "ماهانه", "Monthly", "Monatlich", "Aylık"),
+      quarterly:   tri(lang, "۳ ماهه", "3 months", "3 Monate", "3 ay"),
+      semiannual:  tri(lang, "۶ ماهه", "6 months", "6 Monate", "6 ay"),
+      annual:      tri(lang, "سالانه", "Annual", "Jährlich", "Yıllık"),
+    } as Record<Period, string>,
     popular:      tri(lang, "پرطرفدار", "Popular", "Beliebt", "Popüler"),
     recommended:  tri(lang, "پیشنهادی", "Recommended", "Empfohlen", "Önerilen"),
     free:         tri(lang, "رایگان", "Free", "Kostenlos", "Ücretsiz"),
@@ -364,30 +370,31 @@ export default function PlansPage() {
           ))}
         </div>
 
-        {/* Period toggle */}
-        <div className="flex items-center justify-center gap-3">
-          <span className="text-sm" style={{ color: period === "monthly" ? "var(--text-primary)" : "var(--text-muted)" }}>{s.monthly}</span>
-          <button
-            onClick={() => setPeriod(p => p === "monthly" ? "annual" : "monthly")}
-            className="relative w-12 h-6 rounded-full transition-all"
-            style={{ background: period === "annual" ? "var(--primary)" : "var(--surface-2)" }}>
-            <span className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
-              style={{ [isFa ? "right" : "left"]: period === "annual" ? "0.25rem" : "calc(100% - 1.25rem)" }} />
-          </button>
-          <span className="text-sm" style={{ color: period === "annual" ? "var(--text-primary)" : "var(--text-muted)" }}>
-            {s.annual}
-            <span className={isFa ? "mr-1.5" : "ml-1.5"} style={{
-              display: "inline-block",
-              padding: "0 6px",
-              borderRadius: 6,
-              fontSize: 11,
-              fontWeight: 700,
-              color: "white",
-              background: "#16a34a",
-            }}>
-              {s.freeMonths}
-            </span>
-          </span>
+        {/* Period toggle -- 4 billing terms, each showing its own discount badge */}
+        <div className="inline-flex flex-wrap justify-center rounded-2xl p-1 gap-1" style={{ background: "var(--surface-2)" }}>
+          {(["monthly", "quarterly", "semiannual", "annual"] as Period[]).map(p => (
+            <button key={p} onClick={() => setPeriod(p)}
+              className="px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5"
+              style={{
+                background: period === p ? "var(--primary)" : "transparent",
+                color: period === p ? "white" : "var(--text-secondary)",
+              }}>
+              {s.periodLabels[p]}
+              {PERIOD_DISCOUNT[p] > 0 && (
+                <span style={{
+                  display: "inline-block",
+                  padding: "0 6px",
+                  borderRadius: 6,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: period === p ? "var(--primary)" : "white",
+                  background: period === p ? "white" : "#16a34a",
+                }}>
+                  -{Math.round(PERIOD_DISCOUNT[p] * 100)}%
+                </span>
+              )}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -400,8 +407,8 @@ export default function PlansPage() {
           const isCurrent = currentPlan !== null && (currentPlan === plan.planCode || (isFree && currentPlan === "FREE"));
           const price    = isIr ? plan.price : (plan.priceUsd ?? 0);
           const priceStr = isFree ? s.free
-            : isIr ? `${fmtToman(price, period === "annual")} تومان`
-            : fmtUsd(price, period === "annual");
+            : isIr ? `${fmtToman(price, period)} تومان`
+            : fmtUsd(price, period);
 
           return (
             <div key={plan.planCode}
@@ -428,9 +435,9 @@ export default function PlansPage() {
                 ) : (
                   <>
                     <div className="text-base font-bold leading-tight" style={{ color: "var(--text-primary)" }}>{priceStr}</div>
-                    {period === "annual" && (
+                    {period !== "monthly" && (
                       <div className="text-xs line-through mt-0.5" style={{ color: "var(--text-muted)" }}>
-                        {isIr ? `${fmtToman(price, false)} تومان` : fmtUsd(price, false)}
+                        {isIr ? `${fmtToman(price, "monthly")} تومان` : fmtUsd(price, "monthly")}
                       </div>
                     )}
                     <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{s.perMonth}</div>
@@ -594,8 +601,8 @@ export default function PlansPage() {
             const priceDisplay = isCustom
               ? s.customPrice
               : isIr
-                ? `${Math.round(((biz as any).price / 10) * (period === "annual" ? (1 - ANNUAL_DISCOUNT) : 1)).toLocaleString("fa-IR")} تومان`
-                : fmtUsd((biz as any).priceUsd, period === "annual");
+                ? `${fmtToman((biz as any).price, period)} تومان`
+                : fmtUsd((biz as any).priceUsd, period);
 
             return (
               <div key={biz.name}
@@ -615,7 +622,7 @@ export default function PlansPage() {
                 <div className="font-bold text-base mb-0.5" style={{ color: biz.color }}>{biz.name}</div>
                 <div className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>{biz.desc}</div>
                 <div className="text-xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>{priceDisplay}</div>
-                {period === "annual" && !isCustom && isIr && (
+                {period !== "monthly" && !isCustom && isIr && (
                   <div className="text-xs line-through mb-3" style={{ color: "var(--text-muted)" }}>
                     {`${Math.round((biz as any).price / 10).toLocaleString("fa-IR")} تومان`}
                   </div>

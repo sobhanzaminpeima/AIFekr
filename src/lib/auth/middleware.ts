@@ -38,18 +38,30 @@ export async function requireAuth(req: NextRequest) {
 
   if (!user || user.isBlocked) return null;
 
-  // A lapsed paid plan must fall back to FREE-tier limits everywhere plan
-  // gates read user.plan (image/video/music generation, CRM contact caps,
-  // social auto-publish, etc.) — planExpiry was being stored but never
-  // enforced, so every non-team paid plan kept full access forever after
-  // the subscription lapsed. Downgrading here (the single shared auth
-  // entry point) closes that gap for every caller at once, mirroring the
-  // expiry check hasVoiceAccess already does for the Voice add-on.
-  if (user.plan !== "FREE" && user.planExpiry && user.planExpiry.getTime() < Date.now()) {
-    user.plan = "FREE";
+  // Phase 3 of the monetization overhaul: a real active/trialing/past_due/
+  // cancelled/paused subscription state machine (as in the master prompt)
+  // needs a recurring-billing engine that actually fires renewal-failure
+  // events -- neither Zarinpal nor NOWPayments do that here (both are
+  // one-off checkout flows, not tokenized auto-renewal), so states like
+  // "past_due" or "paused" would have no real trigger and would just be
+  // dead code. What's real and worth having: a short grace window after
+  // expiry, so a payment that clears a day or two late doesn't instantly
+  // and silently cut the user over to FREE mid-session. `subscriptionStatus`
+  // is computed here (not persisted) for callers that want to show a
+  // renewal-due banner during the grace window.
+  const GRACE_PERIOD_MS = 3 * 24 * 60 * 60 * 1000;
+  let subscriptionStatus: "active" | "grace_period" | "expired" = "active";
+  if (user.plan !== "FREE" && user.planExpiry) {
+    const msSinceExpiry = Date.now() - user.planExpiry.getTime();
+    if (msSinceExpiry > GRACE_PERIOD_MS) {
+      subscriptionStatus = "expired";
+      user.plan = "FREE";
+    } else if (msSinceExpiry > 0) {
+      subscriptionStatus = "grace_period";
+    }
   }
 
-  return user;
+  return { ...user, subscriptionStatus };
 }
 
 export async function requireAdmin(req: NextRequest) {

@@ -7,9 +7,7 @@ import { createPayment } from "@/lib/payment/zarinpal";
 import { createUsdtInvoice } from "@/lib/payment/nowpayments";
 import { getFxRates } from "@/lib/utils/currency";
 import { createPendingPayment, markPaymentAuthority, markPaymentFailed, findPaymentById, activatePlanForPayment } from "@/lib/repositories/paymentRepository";
-
-// Annual billing: 2 months free ≈ 16.67% discount
-const ANNUAL_DISCOUNT = 2 / 12;
+import { resolvePeriod } from "@/lib/payment/period";
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
@@ -17,8 +15,7 @@ export async function POST(req: NextRequest) {
 
   const { plan, period, gateway, useWallet } = await req.json();
   const selectedGateway: "zarinpal" | "usdt_trc20" = gateway === "usdt_trc20" ? "usdt_trc20" : "zarinpal";
-  // Stored on the Payment row so activation grants the term that was charged.
-  const periodMonths = period === "annual" ? 12 : 1;
+  const { months: periodMonths, discount: periodDiscount } = resolvePeriod(period);
   const pkg = await prisma.package.findUnique({ where: { planCode: plan } });
   if (!pkg || !pkg.isActive) return NextResponse.json({ error: "پلن نامعتبر" }, { status: 400 });
 
@@ -35,8 +32,8 @@ export async function POST(req: NextRequest) {
   }
 
   const baseToman  = Math.round(pkg.price / 10);
-  const listToman  = period === "annual"
-    ? Math.round(baseToman * 12 * (1 - ANNUAL_DISCOUNT))
+  const listToman  = periodMonths > 1
+    ? Math.round(baseToman * periodMonths * (1 - periodDiscount))
     : baseToman;
 
   // Affiliate-wallet "use as balance" option — a same-currency (Toman)
@@ -94,7 +91,7 @@ export async function POST(req: NextRequest) {
     let effectiveToman: number;
     if (pkg.priceUsd != null) {
       const baseUsd = pkg.priceUsd / 100;
-      amountUsd = period === "annual" ? Math.round(baseUsd * 12 * (1 - ANNUAL_DISCOUNT) * 100) / 100 : baseUsd;
+      amountUsd = periodMonths > 1 ? Math.round(baseUsd * periodMonths * (1 - periodDiscount) * 100) / 100 : baseUsd;
       const rates = await getFxRates();
       effectiveToman = Math.round(amountUsd * rates.usdToToman);
     } else {
