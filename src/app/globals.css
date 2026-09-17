@@ -146,3 +146,18 @@ code {
     text-wrap: balance;
   }
 }
+
+/* CRM invoice/contract print modals (see InvoicePrintModal/ContractPrintModal
+   in crm/page.tsx) rely on Tailwind's print: utilities to hide app chrome and
+   reset spacing, but those don't touch the page box itself -- without this,
+   window.print() used the browser's default page margins, which looked
+   inconsistent with the modal's own padding and could push content onto a
+   second page unnecessarily. */
+@media print {
+  @page {
+    margin: 12mm;
+  }
+  body {
+    background: #fff !important;
+  }
+}
