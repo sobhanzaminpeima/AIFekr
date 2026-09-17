@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Coins, Loader2, ShoppingCart, History } from "lucide-react";
+import { Coins, Loader2, ShoppingCart, History, MessageSquare, Image as ImageIcon, Mic } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTranslation, tri } from "@/lib/i18n";
 import { formatNumber, toJalali } from "@/lib/utils/jalali";
@@ -19,6 +19,28 @@ interface Profile {
   displayCredits: number;
   plan: string;
 }
+
+interface WalletBalances {
+  aiCredits: number;
+  mediaCredits: number;
+  voiceMinutes: number;
+}
+
+interface UsageBreakdownRow {
+  type: string;
+  count: number;
+  creditsSpent: number;
+  estimatedCostUsd: number;
+}
+
+const TYPE_LABEL: Record<string, Record<string, string>> = {
+  chat: { fa: "چت", en: "Chat", de: "Chat" },
+  image: { fa: "تصویر", en: "Image", de: "Bild" },
+  video: { fa: "ویدیو", en: "Video", de: "Video" },
+  music: { fa: "موزیک", en: "Music", de: "Musik" },
+  voice: { fa: "صدا", en: "Voice", de: "Sprache" },
+  tool: { fa: "ابزار", en: "Tool", de: "Werkzeug" },
+};
 
 const PLAN_COLOR: Record<string, string> = { FREE: "#71717a", BASIC: "#3b82f6", PRO: "#ea580c", TEAM: "#8b5cf6" };
 const PLAN_LABEL: Record<string, Record<string, string>> = {
@@ -38,16 +60,21 @@ export default function CreditsPage() {
   const isFa = lang === "fa";
   const [tiers, setTiers] = useState<CreditTier[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [wallets, setWallets] = useState<WalletBalances | null>(null);
+  const [breakdown, setBreakdown] = useState<UsageBreakdownRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [buyingTierId, setBuyingTierId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [tiersRes, profileRes] = await Promise.all([
+    const [tiersRes, profileRes, usageRes] = await Promise.all([
       fetch("/api/credits/tiers", { credentials: "include" }).then((r) => r.json()),
       fetch("/api/user/profile", { credentials: "include" }).then((r) => r.json()),
+      fetch("/api/credits/usage-summary", { credentials: "include" }).then((r) => r.json()),
     ]);
     setTiers(tiersRes.tiers || []);
     setProfile(profileRes.user || null);
+    setWallets(usageRes.wallets || null);
+    setBreakdown(usageRes.breakdown || []);
   }, []);
 
   useEffect(() => {
@@ -116,6 +143,45 @@ export default function CreditsPage() {
             <span className="text-3xl font-bold" style={{ color: "var(--text-primary)" }}>{formatNumber(profile?.displayCredits ?? profile?.credits ?? 0, lang)}</span>
           </div>
         </div>
+
+        {/* Wallet breakdown -- AI/Media/Voice, per Phase 2's three-wallet split. Informational only for now: `credits` above still gates spending until plan grants move onto the wallets directly. */}
+        {wallets && (
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            {[
+              { key: "aiCredits" as const, icon: MessageSquare, label: tri(lang, "کردیت هوش مصنوعی", "AI Credits", "KI-Guthaben", "Yapay Zeka Kredisi") },
+              { key: "mediaCredits" as const, icon: ImageIcon, label: tri(lang, "کردیت رسانه", "Media Credits", "Medien-Guthaben", "Medya Kredisi") },
+              { key: "voiceMinutes" as const, icon: Mic, label: tri(lang, "دقایق صدا", "Voice Minutes", "Sprachminuten", "Ses Dakikası") },
+            ].map(({ key, icon: Icon, label }) => (
+              <div key={key} className="rounded-xl p-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+                <Icon className="w-4 h-4 mb-1" style={{ color: "var(--primary)" }} />
+                <div className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{formatNumber(Math.round(wallets[key]), lang)}</div>
+                <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>{label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Usage breakdown -- last 30 days, from UsageLog (Phase 1's cost ledger) */}
+        {breakdown.length > 0 && (
+          <div className="rounded-2xl p-4 mb-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+            <div className="flex items-center gap-2 mb-3">
+              <History className="w-4 h-4" style={{ color: "var(--text-secondary)" }} />
+              <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                {tri(lang, "مصرف ۳۰ روز اخیر", "Usage — last 30 days", "Nutzung — letzte 30 Tage", "Son 30 gün kullanım")}
+              </h2>
+            </div>
+            <div className="space-y-2">
+              {breakdown.map((row) => (
+                <div key={row.type} className="flex items-center justify-between text-sm">
+                  <span style={{ color: "var(--text-secondary)" }}>{TYPE_LABEL[row.type]?.[lang] || row.type}</span>
+                  <span style={{ color: "var(--text-muted)" }}>
+                    {formatNumber(row.count, lang)}× · {formatNumber(row.creditsSpent, lang)} {tri(lang, "کردیت", "credits", "Guthaben", "kredi")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Tiers */}
         <h2 className="text-sm font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{tri(lang, "خرید کردیت", "Buy Credits", "Guthaben kaufen", "Kredi Satın Al")}</h2>
