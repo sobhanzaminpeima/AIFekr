@@ -8,8 +8,9 @@ import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
-export async function GET(req: NextRequest) {
+async function handleGet(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
@@ -28,3 +29,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: tri(lang, "خطا در تولید پیشنهادهای تطبیق لید", "Failed to generate lead-matcher drafts", "Fehler beim Erstellen der Lead-Matcher-Vorschläge") }, { status: 500 });
   }
 }
+
+export const GET = withToolCredits("crm.lead-matcher", handleGet);

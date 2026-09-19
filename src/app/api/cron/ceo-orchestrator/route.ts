@@ -7,6 +7,7 @@ import { tri } from "@/lib/i18n/tri";
 import type { Lang } from "@/lib/i18n";
 import { sendEmail } from "@/lib/email/resend";
 import { markdownToHtml } from "@/lib/utils/markdownToHtml";
+import { reserveToolCredits } from "@/lib/utils/toolCredits";
 
 // Hit by a system crontab entry once a day — runs the CEO orchestrator
 // automatically for every user who opted in (ceoAutoRunEnabled), same
@@ -23,9 +24,13 @@ export async function GET(req: NextRequest) {
     select: { id: true, email: true, name: true, ceoAutoRunLang: true },
   });
 
-  const results: { userId: string; ok: boolean; error?: string }[] = [];
+  const results: { userId: string; ok: boolean; skipped?: string; error?: string }[] = [];
 
   for (const u of users) {
+    // The daily briefing spends model tokens on the user's behalf, so it is billed like any
+    // other tool run -- and skipped, not run for free, when the balance cannot cover it.
+    const gate = await reserveToolCredits(u.id, "ceo.auto-run");
+    if (!gate.ok) { results.push({ userId: u.id, ok: false, skipped: "insufficient_credits" }); continue; }
     try {
       // Captured when the user switched auto-run on; defaults to "fa", which is
       // exactly what every existing row was already getting.
@@ -33,7 +38,11 @@ export async function GET(req: NextRequest) {
         ? (u.ceoAutoRunLang as Lang)
         : "fa";
       let analysis = "";
-      await runCeoAnalysis(u.id, lang, (text: string) => { analysis += text; });
+      // One user's hung model call must not stall the whole batch.
+      await Promise.race([
+        runCeoAnalysis(u.id, lang, (text: string) => { analysis += text; }),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("CEO analysis timed out after 180s")), 180_000)),
+      ]);
       // The memory marker and its category lines are instructions to the next
       // run, not something a human should read in their morning email.
       const emailBody = stripMemorySection(analysis);
@@ -52,6 +61,7 @@ export async function GET(req: NextRequest) {
       }
       results.push({ userId: u.id, ok: true });
     } catch (err) {
+      await gate.release();
       results.push({ userId: u.id, ok: false, error: err instanceof Error ? err.message : String(err) });
     }
   }

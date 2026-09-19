@@ -5,8 +5,9 @@ import { prisma } from "@/lib/db/prisma";
 import { auditContentPost } from "@/lib/agents/seoAudit";
 import { routedStreamChat } from "@/lib/ai/router";
 import { looksLikeInjectionAttempt } from "@/lib/ai/promptSafety";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
@@ -77,3 +78,5 @@ ${post.content}`;
   const after = auditContentPost(updated);
   return NextResponse.json({ post: updated, ...after });
 }
+
+export const POST = withToolCredits("seo.audit-fix", handlePost);

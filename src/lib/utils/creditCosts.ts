@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/db/prisma";
-import { CREDIT_COSTS as DEFAULT_CREDIT_COSTS } from "@/lib/utils/credits";
+import { CREDIT_COSTS as BASE_CREDIT_COSTS, TOOL_COST_DEFAULTS } from "@/lib/utils/credits";
 
-export type CreditCosts = Record<keyof typeof DEFAULT_CREDIT_COSTS, number>;
+const DEFAULT_CREDIT_COSTS = { ...BASE_CREDIT_COSTS, ...TOOL_COST_DEFAULTS };
+
+export type CreditCosts = Record<keyof typeof BASE_CREDIT_COSTS, number> & Record<string, number>;
 
 const SETTING_KEY = "creditCosts";
 

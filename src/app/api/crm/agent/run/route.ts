@@ -5,8 +5,9 @@ import { runCrmAnalysis } from "@/lib/agents/crmAgent";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
@@ -38,3 +39,5 @@ export async function POST(req: NextRequest) {
     headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" },
   });
 }
+
+export const POST = withToolCredits("crm.agent-run", handlePost);

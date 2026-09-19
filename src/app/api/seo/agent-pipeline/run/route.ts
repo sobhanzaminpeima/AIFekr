@@ -16,6 +16,7 @@ import { getServerLang } from "@/lib/i18n/server";
 import type { Lang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 import { readPipelineField } from "@/lib/agents/contentPipelineLabels";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
 interface PublishResult { status: "not_published" | "published" | "failed" | "held_for_review"; url: string | null; error: string | null }
 
@@ -127,7 +128,7 @@ async function runAgent(
   return output;
 }
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
@@ -299,3 +300,5 @@ export async function POST(req: NextRequest) {
     headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" },
   });
 }
+
+export const POST = withToolCredits("seo.pipeline", handlePost);

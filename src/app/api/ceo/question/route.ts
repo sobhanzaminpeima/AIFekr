@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { routedStreamChat } from "@/lib/ai/router";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
 function buildSystemPrompt(lang: "fa" | "en" | "de" | "tr") {
   const headers = lang === "en"
@@ -57,7 +58,7 @@ ${languageRule}
 - End every response with a single "${headers.nextStep}:" line that is specific and actionable`;
 }
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
@@ -130,3 +131,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
+
+export const POST = withToolCredits("ceo.question", handlePost);

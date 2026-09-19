@@ -4,8 +4,9 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { generateFollowUpDrafts } from "@/lib/agents/salesFollowUp";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
-export async function GET(req: NextRequest) {
+async function handleGet(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
@@ -20,3 +21,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: lang === "fa" ? "خطا در تولید پیام‌های پیگیری" : "Failed to generate follow-up drafts" }, { status: 500 });
   }
 }
+
+export const GET = withToolCredits("sales.followup-drafts", handleGet);

@@ -5,6 +5,7 @@ import { routedStreamChat } from "@/lib/ai/router";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 import type { Lang } from "@/lib/i18n";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
 /**
  * Every prompt below branches only on `lang === "fa"`, so German fell into the
@@ -49,7 +50,7 @@ async function crawlUrl(url: string) {
   } catch { return null; }
 }
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const { tool, keyword, content, url, targetKeyword, language } = await req.json();
@@ -106,3 +107,5 @@ export async function POST(req: NextRequest) {
 
   return new NextResponse(stream, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" } });
 }
+
+export const POST = withToolCredits("seo.analyze", handlePost);

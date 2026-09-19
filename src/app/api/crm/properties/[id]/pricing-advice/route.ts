@@ -8,8 +8,9 @@ import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { generatePricingAdvice } from "@/lib/agents/pricingAdvisor";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+async function handleGet(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
@@ -29,3 +30,5 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: tri(lang, "خطا در تولید پیشنهاد قیمت", "Failed to generate pricing advice", "Erstellung des Preisvorschlags fehlgeschlagen") }, { status: 500 });
   }
 }
+
+export const GET = withToolCredits("crm.pricing-advice", handleGet);

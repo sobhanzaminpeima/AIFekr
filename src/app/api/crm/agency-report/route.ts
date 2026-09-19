@@ -8,8 +8,9 @@ import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { generateAgencyReport } from "@/lib/agents/agencyManagerAssistant";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
-export async function GET(req: NextRequest) {
+async function handleGet(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
@@ -31,3 +32,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: tri(lang, "خطا در تولید گزارش", "Failed to generate report", "Bericht konnte nicht erstellt werden") }, { status: 500 });
   }
 }
+
+export const GET = withToolCredits("crm.agency-report", handleGet);

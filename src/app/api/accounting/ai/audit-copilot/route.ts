@@ -6,9 +6,10 @@ import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { runAuditCopilot } from "@/lib/agents/financeAgent";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
 /** Audit Copilot (spec ۸ item ۶) — pre-close review. Read-only, deterministic, never locks anything itself. */
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
@@ -21,3 +22,5 @@ export async function POST(req: NextRequest) {
   const report = await runAuditCopilot(ws.workspaceUserId, new Date(from), new Date(to), ws.businessId);
   return NextResponse.json({ report });
 }
+
+export const POST = withToolCredits("accounting.audit-copilot", handlePost);

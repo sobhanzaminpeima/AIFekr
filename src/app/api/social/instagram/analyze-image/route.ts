@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { PROVIDERS } from "@/lib/ai/providers";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
 /**
  * Vision analysis for "recreate this post" — takes a URL to a reference
@@ -12,7 +13,7 @@ import { PROVIDERS } from "@/lib/ai/providers";
  * Uses Gemini directly (not the text-only router) since it's the only
  * enabled provider whose model actually accepts image input.
  */
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
@@ -73,3 +74,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `خطا در تحلیل تصویر: ${msg}` }, { status: 502 });
   }
 }
+
+export const POST = withToolCredits("social.ig-image", handlePost);

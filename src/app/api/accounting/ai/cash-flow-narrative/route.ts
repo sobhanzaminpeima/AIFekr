@@ -6,9 +6,10 @@ import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { generateCashFlowNarrative } from "@/lib/agents/financeAgent";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
 /** Streaming three-language cash-flow narrative (spec ۸ item ۴) — one language per call, following the caller's current UI language like the rest of the app. Read-only. */
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
@@ -36,3 +37,5 @@ export async function POST(req: NextRequest) {
     headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" },
   });
 }
+
+export const POST = withToolCredits("accounting.cash-flow-narrative", handlePost);

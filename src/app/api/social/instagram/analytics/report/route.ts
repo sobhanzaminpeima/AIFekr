@@ -2,10 +2,13 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { getAccountStats, getRecentMedia } from "@/lib/instagram";
+import { getAccountStats, getRecentMedia, summarizeMediaByType } from "@/lib/instagram";
+import { analyzeSocial, analysisToPrompt } from "@/lib/social/analytics";
+import { brandPromptFor } from "@/lib/social/brandProfile";
 import { routedStreamChat } from "@/lib/ai/router";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
@@ -16,7 +19,7 @@ export async function POST(req: NextRequest) {
   if (!conn) return NextResponse.json({ error: "اینستاگرام متصل نیست" }, { status: 400 });
 
   const [snapshots, current] = await Promise.all([
-    prisma.instagramFollowerSnapshot.findMany({ where: { userId: user.id }, orderBy: { date: "asc" }, take: 90 }),
+    prisma.instagramFollowerSnapshot.findMany({ where: { userId: user.id }, orderBy: { date: "asc" }, take: 180 }),
     getAccountStats(conn.igUserId, conn.accessToken).catch(() => null),
   ]);
 
@@ -31,15 +34,29 @@ export async function POST(req: NextRequest) {
   const daysTracked = first && last ? Math.max(1, Math.round((last.date.getTime() - first.date.getTime()) / 86400000)) : 0;
 
   const mediaSummary = media
-    .map((m, i) => `${i + 1}. [${m.mediaType}] ${(m.caption || "").slice(0, 80).replace(/\n/g, " ")} — ${m.likeCount} likes, ${m.commentsCount} comments (${new Date(m.timestamp).toISOString().slice(0, 10)})`)
+    .map((m, i) => {
+      const kind = m.mediaProductType === "REELS" ? "REEL" : m.mediaType;
+      const views = m.views != null ? `, ${m.views} views` : "";
+      const reach = m.reach != null ? `, ${m.reach} reach` : "";
+      return `${i + 1}. [${kind}] ${(m.caption || "").slice(0, 80).replace(/\n/g, " ")} — ${m.likeCount} likes, ${m.commentsCount} comments${views}${reach} (${new Date(m.timestamp).toISOString().slice(0, 10)})`;
+    })
+    .join("\n");
+
+  const breakdownSummary = summarizeMediaByType(media)
+    .map((b) => `${b.type}: ${b.count} posts, avg ${b.avgViews} views / ${b.avgLikes} likes / ${b.avgComments} comments`)
     .join("\n");
 
   const dataSummary = `Instagram account: @${conn.igUsername || "unknown"}
 Current followers: ${current?.followersCount ?? "unknown"}
 Current post count: ${current?.mediaCount ?? "unknown"}
 Follower change over last ${daysTracked} tracked day(s): ${followerChange >= 0 ? "+" : ""}${followerChange}
+Content type breakdown (recent):
+${breakdownSummary || "(none)"}
 Recent posts (${media.length}):
-${mediaSummary || "(no recent posts found)"}`;
+${mediaSummary || "(no recent posts found)"}
+
+Computed analysis (already calculated from the real data — cite these, do not recompute or guess):
+${analysisToPrompt(analyzeSocial(snapshots.map((s) => ({ date: s.date, followersCount: s.followersCount, mediaCount: s.mediaCount })), media, media.length === 0))}${await brandPromptFor(user.id)}`;
 
   const systemPrompt = lang === "en"
     ? "You are an elite Instagram growth strategist and social media marketing analyst. Analyze the account data given to you and produce a clear, actionable report in markdown. Write ENTIRELY in fluent professional English — never mix in Chinese, Korean, Thai, Hindi, or any other language's words or characters."
@@ -59,3 +76,5 @@ ${mediaSummary || "(no recent posts found)"}`;
 
   return NextResponse.json({ report });
 }
+
+export const POST = withToolCredits("social.ig-report", handlePost);

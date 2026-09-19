@@ -6,6 +6,7 @@ import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { listProposals, proposeExpenseCategorization } from "@/lib/agents/financeAgent";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
 }
 
 /** Asks the agent to propose an account code for one expense (spec ۸ item ۲). Only ever creates a pending proposal — never changes the expense itself. */
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
   const ws = await resolveCrmWorkspace(user.id);
@@ -38,3 +39,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: err instanceof Error ? err.message : tri(lang, "خطا در ساخت پیشنهاد", "Failed to create proposal", "Fehler beim Erstellen des Vorschlags") }, { status: 400 });
   }
 }
+
+export const POST = withToolCredits("accounting.propose", handlePost);

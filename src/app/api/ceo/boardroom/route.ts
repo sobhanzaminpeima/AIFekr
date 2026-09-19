@@ -5,6 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { routedStreamChat } from "@/lib/ai/router";
 import { buildBusinessSnapshot } from "@/lib/agents/businessSnapshot";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
 // ─── Department Agent Types ───────────────────────────────────────────────────
 
@@ -140,7 +141,7 @@ async function runDeptAgent(dept: typeof DEPARTMENTS[0], snapshotText: string): 
 
 // ─── POST /api/ceo/boardroom ──────────────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
@@ -287,3 +288,5 @@ export async function GET(req: NextRequest) {
     },
   });
 }
+
+export const POST = withToolCredits("ceo.boardroom", handlePost);

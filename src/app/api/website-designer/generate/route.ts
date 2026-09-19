@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { routedStreamChat } from "@/lib/ai/router";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
 const SYSTEM = `You are an award-winning web designer and senior front-end developer (ex-Awwwards jury, ex-Stripe design team) who ships pixel-perfect, self-contained landing pages. You never rely on a utility-CSS framework — you hand-write a small, disciplined design system in plain CSS for every project, because your pages must render identically with zero network dependencies beyond fonts/icons.
 
@@ -62,7 +63,7 @@ Generate the COMPLETE HTML code block (start with triple backticks html, end wit
 - IMPORTANT: Do not stop early. Complete the entire file including closing html tag.`;
 }
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
@@ -130,3 +131,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
+
+export const POST = withToolCredits("website-designer", handlePost);

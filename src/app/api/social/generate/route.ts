@@ -4,6 +4,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { routedStreamChat } from "@/lib/ai/router";
 import { isCustomProviderModel, streamCustomProvider } from "@/lib/ai/customProviders";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
 const SYSTEM = `شما یک استراتژیست شبکه‌های اجتماعی حرفه‌ای هستید. پست‌های جذاب، پرتعامل و بهینه برای هر پلتفرم می‌نویسید. پاسخ‌ها را به زبانی که کاربر مشخص می‌کند بنویسید.`;
 
@@ -89,7 +90,7 @@ ${data.industry ? `صنعت: ${data.industry}` : ""}
 [۵ نکته کلیدی برای اجرای موفق این تقویم]`;
 }
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
@@ -133,3 +134,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
+
+export const POST = withToolCredits("social.generate", handlePost);

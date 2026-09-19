@@ -4,8 +4,9 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { runCeoAnalysis } from "@/lib/agents/ceoOrchestrator";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
@@ -34,3 +35,5 @@ export async function POST(req: NextRequest) {
     headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" },
   });
 }
+
+export const POST = withToolCredits("ceo.orchestrator-run", handlePost);

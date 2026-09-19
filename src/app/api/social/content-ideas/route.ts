@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
+import { createHash } from "crypto";
 import { prisma } from "@/lib/db/prisma";
 import { getContentIdeas, localizeContentIdeas, type LocalizedContentIdea } from "@/lib/industry";
 import { routedStreamChat } from "@/lib/ai/router";
@@ -38,9 +39,23 @@ export async function GET(req: NextRequest) {
   const company = await prisma.company.findUnique({ where: { userId: user.id }, select: { name: true, industry: true, notes: true } });
   if (!company?.industry) return NextResponse.json({ ideas: localizeContentIdeas(packResult.ideas, lang), isGeneric: true });
 
+  // This runs on every page mount and calls the model with no charge, so the
+  // result is cached for a day per user/language/profile -- reloading the page
+  // must not be a way to burn model spend.
+  const cacheKey = `contentIdeas:${user.id}:${lang}:${createHash("sha1").update(`${company.name}|${company.industry}|${company.notes ?? ""}`).digest("hex").slice(0, 12)}`;
+  try {
+    const cached = await prisma.siteSetting.findUnique({ where: { key: cacheKey } });
+    if (cached && Date.now() - cached.updatedAt.getTime() < 24 * 60 * 60 * 1000) {
+      return NextResponse.json({ ideas: JSON.parse(cached.value), isGeneric: false });
+    }
+  } catch { /* a cache miss or bad row just falls through to regeneration */ }
+
   try {
     const businessIdeas = await generateBusinessContentIdeas(company.name, company.industry, company.notes, lang);
-    if (businessIdeas.length) return NextResponse.json({ ideas: businessIdeas, isGeneric: false });
+    if (businessIdeas.length) {
+      await prisma.siteSetting.upsert({ where: { key: cacheKey }, create: { key: cacheKey, value: JSON.stringify(businessIdeas) }, update: { value: JSON.stringify(businessIdeas) } }).catch(() => {});
+      return NextResponse.json({ ideas: businessIdeas, isGeneric: false });
+    }
   } catch (err) {
     console.error("business-tailored content ideas failed, falling back to generic:", err);
   }

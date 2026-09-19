@@ -4,6 +4,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { routedStreamChat } from "@/lib/ai/router";
 import { getServerLang } from "@/lib/i18n/server";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
 type Lang = "fa" | "en" | "de" | "tr";
 function promptLang(l: "fa" | "en" | "de" | "tr"): Lang {
@@ -191,7 +192,7 @@ ${contextSection}
 ایجنت‌ها گاهی اوقات اختلاف نظر داشته باشند و مذاکره کنند. هر ایجنت در نقش خود بماند.`;
 }
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
@@ -266,3 +267,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
+
+export const POST = withToolCredits("meeting", handlePost);

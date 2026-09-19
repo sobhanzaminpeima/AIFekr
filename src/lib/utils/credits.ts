@@ -167,3 +167,53 @@ export const PLAN_NAMES_FA: Record<string, string> = {
   BASIC: "پایه",
   TEAM: "تیمی",
 };
+
+/**
+ * Text-LLM "tool" features that are charged per use. Each gets its own
+ * admin-editable price in Credit Rules (key `tool_<feature>`), defaulting to
+ * the general `tool` cost, so an expensive section (say the website designer)
+ * can be priced apart from a cheap one without a deploy.
+ */
+export const TOOL_FEATURES: Record<string, string> = {
+  "accounting.ask": "حسابداری — دستیار مالی (پرسش)",
+  "accounting.audit-copilot": "حسابداری — کمک‌ممیز",
+  "accounting.cash-flow-narrative": "حسابداری — روایت جریان نقدی",
+  "accounting.owner-statement-assist": "حسابداری — کمک صورت‌حساب مالک",
+  "accounting.propose": "حسابداری — پیشنهاد سند/دسته‌بندی",
+  "business-doctor": "دکتر کسب‌وکار",
+  "ceo.boardroom": "CEO — هیئت‌مدیره",
+  "ceo.question": "CEO — پرسش",
+  "ceo.auto-run": "CEO — گزارش خودکار روزانه",
+  "ceo.orchestrator-run": "CEO — تحلیل ارکستراتور",
+  "ceo.followup-drafts": "CEO — پیش‌نویس پیگیری",
+  "sales.agent": "فروش — عامل فروش",
+  "sales.followup-drafts": "فروش — پیش‌نویس پیگیری",
+  "meeting": "جلسه هوشمند",
+  "seo.analyze": "سئو — تحلیل",
+  "seo.suggest": "سئو — پیشنهاد",
+  "seo.pipeline": "سئو — عامل چندمرحله‌ای",
+  "seo.audit-fix": "سئو — رفع مشکلات ممیزی",
+  "social.generate": "شبکه اجتماعی — تولید محتوا",
+  "social.competitors": "شبکه اجتماعی — تحلیل رقبا",
+  "social.ig-report": "اینستاگرام — گزارش",
+  "social.ig-image": "اینستاگرام — تحلیل تصویر",
+  "startup.generate": "استارتاپ — تولید",
+  "website-designer": "طراح وب‌سایت",
+  "image.translate": "ترجمه تصویر",
+  "crm.agent-run": "CRM — اجرای عامل تحلیل",
+  "crm.lead-matcher": "CRM — تطبیق سرنخ",
+  "crm.listing-copy": "CRM — متن آگهی ملک",
+  "crm.pricing-advice": "CRM — پیشنهاد قیمت ملک",
+  "crm.agency-report": "CRM — گزارش آژانس",
+};
+
+export const toolCostKey = (feature: string) => "tool_" + feature.replace(/[.-]/g, "_");
+
+/** Per-feature defaults: every tool starts at the general `tool` price. */
+export const TOOL_COST_DEFAULTS: Record<string, number> = Object.fromEntries(
+  Object.keys(TOOL_FEATURES).map((f) => [toolCostKey(f), CREDIT_COSTS.tool]),
+);
+
+export const TOOL_COST_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(TOOL_FEATURES).map(([f, label]) => [toolCostKey(f), label]),
+);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { TOOL_COST_LABELS } from "@/lib/utils/credits";
 import { AlertTriangle, RefreshCw, Coins, Activity, Users, Calculator, ShieldAlert, Save, CheckCircle2 } from "lucide-react";
 
 interface EconomicsStats {
@@ -456,7 +457,7 @@ export default function AdminUsagePage() {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-4">
                 {Object.entries(costsDraft).map(([key, value]) => (
                   <div key={key} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg" style={{ background: "var(--surface-1)" }}>
-                    <span style={{ color: "var(--text-secondary)" }}>{CREDIT_COST_LABELS[key] ?? key}</span>
+                    <span style={{ color: "var(--text-secondary)" }}>{CREDIT_COST_LABELS[key] ?? TOOL_COST_LABELS[key] ?? key}</span>
                     <input
                       type="number"
                       min={0}

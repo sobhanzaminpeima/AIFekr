@@ -11,7 +11,7 @@ afterEach(async () => {
 
 describe("getCreditCosts", () => {
   it("returns the hardcoded defaults when no admin override exists", async () => {
-    expect(await getCreditCosts()).toEqual(CREDIT_COSTS);
+    expect(await getCreditCosts()).toMatchObject(CREDIT_COSTS);
   });
 
   it("merges a partial admin override over the defaults", async () => {
@@ -25,6 +25,6 @@ describe("getCreditCosts", () => {
 
   it("falls back to defaults when the stored value is malformed JSON", async () => {
     await prisma.siteSetting.create({ data: { key: SETTING_KEY, value: "not json" } });
-    expect(await getCreditCosts()).toEqual(CREDIT_COSTS);
+    expect(await getCreditCosts()).toMatchObject(CREDIT_COSTS);
   });
 });
