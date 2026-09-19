@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
+import { findOpportunities } from "@/lib/seo/opportunities";
 import { getGscAccessToken, querySearchAnalytics, GscReconnectRequiredError } from "@/lib/googleSearchConsole";
 
 function fmtDate(d: Date): string {
@@ -25,10 +26,12 @@ export async function GET(req: NextRequest) {
     const start28 = new Date(end);
     start28.setDate(start28.getDate() - 27);
 
-    const [dailyTrend, topQueries, topPages] = await Promise.all([
+    const [dailyTrend, topQueries, topPages, queryPool] = await Promise.all([
       querySearchAnalytics(accessToken, conn.siteUrl, fmtDate(start28), fmtDate(end), ["date"], 28),
       querySearchAnalytics(accessToken, conn.siteUrl, fmtDate(start28), fmtDate(end), ["query"], 20),
       querySearchAnalytics(accessToken, conn.siteUrl, fmtDate(start28), fmtDate(end), ["page"], 20),
+      // Wider pool than the top-20 table, so opportunities are found beyond the head terms.
+      querySearchAnalytics(accessToken, conn.siteUrl, fmtDate(start28), fmtDate(end), ["query"], 500),
     ]);
 
     const totals = dailyTrend.rows.reduce(
@@ -45,6 +48,7 @@ export async function GET(req: NextRequest) {
       totals: { clicks: totals.clicks, impressions: totals.impressions, avgCtr, avgPosition },
       trend: dailyTrend.rows.map((r) => ({ date: r.keys[0], clicks: r.clicks, impressions: r.impressions })),
       topQueries: topQueries.rows.map((r) => ({ query: r.keys[0], clicks: r.clicks, impressions: r.impressions, ctr: r.ctr * 100, position: r.position })),
+      opportunities: findOpportunities(queryPool.rows.map((r) => ({ query: r.keys[0], clicks: r.clicks, impressions: r.impressions, ctr: r.ctr * 100, position: r.position }))),
       topPages: topPages.rows.map((r) => ({ page: r.keys[0], clicks: r.clicks, impressions: r.impressions, ctr: r.ctr * 100, position: r.position })),
     });
   } catch (e) {

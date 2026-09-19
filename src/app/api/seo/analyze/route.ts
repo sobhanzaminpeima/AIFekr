@@ -6,6 +6,7 @@ import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 import type { Lang } from "@/lib/i18n";
 import { withToolCredits } from "@/lib/utils/withToolCredits";
+import { safeFetch } from "@/lib/net/safeUrl";
 
 /**
  * Every prompt below branches only on `lang === "fa"`, so German fell into the
@@ -25,10 +26,11 @@ function outputLanguageRule(lang: Lang): string {
 }
 
 async function crawlUrl(url: string) {
+  // User-typed URL fetched from our server: safeFetch refuses private/internal targets (and redirects to them).
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
-    const res = await fetch(url, { signal: controller.signal, headers: { "User-Agent": "Mozilla/5.0 (compatible; SEOBot/1.0)" } });
+    const res = await safeFetch(url, { signal: controller.signal, headers: { "User-Agent": "Mozilla/5.0 (compatible; SEOBot/1.0)" } });
     clearTimeout(timeout);
     if (!res.ok) return null;
     const html = await res.text();

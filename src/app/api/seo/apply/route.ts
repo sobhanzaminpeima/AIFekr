@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
+import { safeFetch } from "@/lib/net/safeUrl";
 
 interface ApplyResult {
   field: string;
@@ -26,7 +27,7 @@ async function applyToWordPress(
   // look the entry up by slug across both posts and pages.
   let found: { id: number; type: "posts" | "pages" } | null = null;
   for (const type of ["posts", "pages"] as const) {
-    const res = await fetch(`${base}/wp-json/wp/v2/${type}?slug=${encodeURIComponent(slug)}`, {
+    const res = await safeFetch(`${base}/wp-json/wp/v2/${type}?slug=${encodeURIComponent(slug)}`, {
       headers: { Authorization: auth },
     });
     if (!res.ok) continue;
@@ -52,7 +53,7 @@ async function applyToWordPress(
     body.meta = { rank_math_description: metaDescription, _yoast_wpseo_metadesc: metaDescription };
   }
 
-  const patchRes = await fetch(`${base}/wp-json/wp/v2/${found.type}/${found.id}`, {
+  const patchRes = await safeFetch(`${base}/wp-json/wp/v2/${found.type}/${found.id}`, {
     method: "POST", // WP REST uses POST for partial update, not PATCH
     headers: { Authorization: auth, "Content-Type": "application/json" },
     body: JSON.stringify(body),

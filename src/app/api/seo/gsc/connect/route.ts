@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { getGscOAuthUrl } from "@/lib/googleSearchConsole";
+import { createGscState } from "@/lib/seo/gscState";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -26,6 +27,6 @@ export async function GET(req: NextRequest) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
   const redirectUri = `${appUrl}/api/seo/gsc/callback`;
-  const url = getGscOAuthUrl(redirectUri, user.id);
+  const url = getGscOAuthUrl(redirectUri, createGscState(user.id));
   return NextResponse.redirect(url);
 }

@@ -17,6 +17,7 @@ import type { Lang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 import { readPipelineField } from "@/lib/agents/contentPipelineLabels";
 import { withToolCredits } from "@/lib/utils/withToolCredits";
+import { safeFetch } from "@/lib/net/safeUrl";
 
 interface PublishResult { status: "not_published" | "published" | "failed" | "held_for_review"; url: string | null; error: string | null }
 
@@ -30,7 +31,7 @@ async function publishToConnectedSite(userId: string, title: string, contentMd: 
   try {
     const base = conn.siteUrl.replace(/\/$/, "");
     const auth = "Basic " + Buffer.from(`${conn.wpUsername}:${conn.wpAppPassword}`).toString("base64");
-    const res = await fetch(`${base}/wp-json/wp/v2/posts`, {
+    const res = await safeFetch(`${base}/wp-json/wp/v2/posts`, {
       method: "POST",
       headers: { Authorization: auth, "Content-Type": "application/json" },
       body: JSON.stringify({

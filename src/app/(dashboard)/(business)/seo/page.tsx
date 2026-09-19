@@ -64,6 +64,7 @@ export default function SEOPage() {
     totals: { clicks: number; impressions: number; avgCtr: number; avgPosition: number };
     trend: { date: string; clicks: number; impressions: number }[];
     topQueries: { query: string; clicks: number; impressions: number; ctr: number; position: number }[];
+    opportunities?: { query: string; kind: "striking_distance" | "low_ctr"; clicks: number; impressions: number; ctr: number; position: number; potentialExtraClicks: number }[];
     topPages: { page: string; clicks: number; impressions: number; ctr: number; position: number }[];
   } | null>(null);
   const [gscDataLoading, setGscDataLoading] = useState(false);
@@ -414,6 +415,26 @@ export default function SEOPage() {
                         <Line type="monotone" dataKey="impressions" stroke="#8b5cf6" strokeWidth={2} dot={false} name={tri(lang, "بازدید", "Impressions", "Impressionen")} />
                       </LineChart>
                     </ResponsiveContainer>
+                  </div>
+                )}
+
+                {gscData.opportunities && gscData.opportunities.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-xs font-medium mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "فرصت‌های رشد (از داده واقعی Search Console)", "Growth opportunities (from your real Search Console data)", "Wachstumschancen (aus Ihren echten Search-Console-Daten)")}</p>
+                    <p className="text-[11px] mb-2" style={{ color: "var(--text-muted)" }}>{tri(lang, "برآورد کلیک اضافه بر اساس نمایش واقعی و میانگین CTR صنعت است، نه تضمین.", "Extra-click figures use your real impressions and typical industry CTR; they are estimates, not promises.", "Die Mehrklicks basieren auf Ihren echten Impressionen und dem üblichen Branchen-CTR – Schätzungen, keine Zusagen.")}</p>
+                    <div className="space-y-1">
+                      {gscData.opportunities.map((o, i) => (
+                        <div key={i} className="flex items-center justify-between gap-2 text-xs px-2 py-1.5 rounded-lg" style={{ background: i % 2 === 0 ? "var(--surface-2)" : "transparent" }}>
+                          <span className="truncate flex-1" style={{ color: "var(--text-primary)" }}>{o.query}</span>
+                          <span className="flex-shrink-0" style={{ color: "var(--text-muted)" }}>
+                            {o.kind === "striking_distance"
+                              ? tri(lang, "رتبه " + o.position.toFixed(1) + " — نزدیک به ۳ برتر", "pos " + o.position.toFixed(1) + " — near the top 3", "Pos. " + o.position.toFixed(1) + " — nahe den Top 3")
+                              : tri(lang, "CTR پایین (" + o.ctr.toFixed(1) + "٪) — عنوان/توضیحات را بازنویسی کنید", "low CTR (" + o.ctr.toFixed(1) + "%) — rewrite title/description", "niedrige CTR (" + o.ctr.toFixed(1) + " %) — Titel/Beschreibung überarbeiten")}
+                            {" · +" + o.potentialExtraClicks}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 

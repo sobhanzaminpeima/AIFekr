@@ -1,3 +1,5 @@
+import { safeFetch } from "@/lib/net/safeUrl";
+
 export interface CrawledPageData {
   title: string;
   metaDesc: string;
@@ -37,7 +39,7 @@ export async function crawlUrl(url: string): Promise<CrawledPageData | null> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
     const start = Date.now();
-    const res = await fetch(url, { signal: controller.signal, headers: { "User-Agent": "Mozilla/5.0 (compatible; AiFekrSEOBot/1.0)" } });
+    const res = await safeFetch(url, { signal: controller.signal, headers: { "User-Agent": "Mozilla/5.0 (compatible; AiFekrSEOBot/1.0)" } });
     const responseTimeMs = Date.now() - start;
     clearTimeout(timeout);
     if (!res.ok) return null;
