@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
+import { encryptSecret } from "@/lib/crypto/secretBox";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -28,8 +29,8 @@ export async function POST(req: NextRequest) {
 
   const conn = await prisma.seoConnection.upsert({
     where: { userId: user.id },
-    update: { platform, siteUrl: siteUrl || null, wpUsername: wpUsername || null, wpAppPassword: wpAppPassword || null },
-    create: { userId: user.id, platform, siteUrl: siteUrl || null, wpUsername: wpUsername || null, wpAppPassword: wpAppPassword || null },
+    update: { platform, siteUrl: siteUrl || null, wpUsername: wpUsername || null, wpAppPassword: wpAppPassword ? encryptSecret(wpAppPassword) : null },
+    create: { userId: user.id, platform, siteUrl: siteUrl || null, wpUsername: wpUsername || null, wpAppPassword: wpAppPassword ? encryptSecret(wpAppPassword) : null },
   });
 
   return NextResponse.json({ connection: { platform: conn.platform, siteUrl: conn.siteUrl, wpUsername: conn.wpUsername, hasAppPassword: !!conn.wpAppPassword } });

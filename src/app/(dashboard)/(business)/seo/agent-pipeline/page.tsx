@@ -23,6 +23,7 @@ import { trackFeature } from "@/lib/analytics";
 import ReactMarkdown from "react-markdown";
 import { toJalali } from "@/lib/utils/jalali";
 import { useTranslation, tri } from "@/lib/i18n";
+import CreditCost from "@/components/ui/CreditCost";
 
 type AgentKey = "ideaFinder" | "strategist" | "researcher" | "writer" | "editor" | "seo" | "publisher" | "critic";
 
@@ -354,7 +355,7 @@ export default function AgentPipelinePage() {
                 style={{ background: "var(--primary)" }}
               >
                 {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                {running ? s.runningBtn : s.startBtn}
+                {running ? s.runningBtn : s.startBtn} <CreditCost feature="seo.pipeline" />
               </button>
               {error && <p className="mt-3 text-sm" style={{ color: "#ef4444" }}>{error}</p>}
               {publishInfo && (
@@ -637,7 +638,7 @@ export default function AgentPipelinePage() {
                       {fixingId === post.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
                       {fixingId === post.id
                         ? tri(lang, "در حال رفع مشکلات...", "Fixing issues...", "Probleme werden behoben...")
-                        : tri(lang, "رفع خودکار مشکلات و بررسی مجدد", "Auto-fix issues & re-audit", "Probleme automatisch beheben & erneut prüfen")}
+                        : tri(lang, "رفع خودکار مشکلات و بررسی مجدد", "Auto-fix issues & re-audit", "Probleme automatisch beheben & erneut prüfen")} <CreditCost feature="seo.audit-fix" />
                     </button>
                   </>
                 )}

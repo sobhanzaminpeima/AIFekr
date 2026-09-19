@@ -5,6 +5,8 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { hasVoiceAccess, countUserVoiceAgents, FREE_VOICE_AGENT_LIMIT } from "@/lib/voice/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
+import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
+import { bizScope } from "@/lib/accounting/scope";
 
 const DEFAULT_PROMPTS: Record<string, string> = {
   general: "شما یک دستیار صوتی هوشمند یک آژانس املاک هستید. مؤدب، کوتاه و کاربردی صحبت کنید. ابتدا بپرسید تماس‌گیرنده به دنبال خرید، فروش یا اجاره ملک است، سپس بودجه و منطقه مورد نظر را جویا شوید و از ابزار جستجوی ملک برای پیشنهاد گزینه مناسب استفاده کنید. در پایان، وقت بازدید پیشنهاد دهید. برای سوالاتی که به یک ملک خاص مربوط نیست (ساعات کاری، مدارک لازم، شرایط پرداخت و مشابه آن) از ابزار جستجوی دانش‌نامه استفاده کنید.",
@@ -22,8 +24,9 @@ export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
+  const businessId = await activeBusinessIdFor(user.id);
   const agents = await prisma.voiceAgent.findMany({
-    where: { userId: user.id },
+    where: { userId: user.id, ...bizScope(businessId) },
     orderBy: { createdAt: "desc" },
     include: { _count: { select: { calls: true, appointments: true } } },
   });
@@ -66,6 +69,7 @@ export async function POST(req: NextRequest) {
   const agent = await prisma.voiceAgent.create({
     data: {
       userId: user.id,
+      businessId: await activeBusinessIdFor(user.id),
       name: name.trim(),
       focus: resolvedFocus,
       vertical: resolvedVertical,

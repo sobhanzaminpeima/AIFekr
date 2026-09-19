@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import { useTranslation, tri } from "@/lib/i18n";
 import { toJalali } from "@/lib/utils/jalali";
 import UpgradeRequiredModal from "@/components/ui/UpgradeRequiredModal";
+import CreditCost from "@/components/ui/CreditCost";
 
 interface SavedSite { id: string; businessName: string; createdAt: string; sizeKB: number; }
 
@@ -291,7 +292,7 @@ export default function WebsiteDesignerPage() {
               style={{ background: "var(--primary)" }}
             >
               {loading ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Globe className="w-4 h-4" />}
-              {s.designBtn}
+              {s.designBtn} <CreditCost feature="website-designer" />
             </button>
           </div>
         )}
@@ -360,7 +361,7 @@ export default function WebsiteDesignerPage() {
                   className="mt-2 px-4 py-2 rounded-xl text-sm font-medium text-white"
                   style={{ background: "var(--primary)" }}
                 >
-                  {s.retryBtn}
+                  {s.retryBtn} <CreditCost feature="website-designer" />
                 </button>
               </div>
             )}

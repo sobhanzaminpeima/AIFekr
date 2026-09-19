@@ -3,7 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { findOpportunities } from "@/lib/seo/opportunities";
-import { getGscAccessToken, querySearchAnalytics, GscReconnectRequiredError } from "@/lib/googleSearchConsole";
+import { getGscAccessToken, querySearchAnalytics, GscReconnectRequiredError, GscApiUnavailableError } from "@/lib/googleSearchConsole";
+import { decryptSecret } from "@/lib/crypto/secretBox";
+import { gscMsg } from "@/lib/seo/gscMessages";
+import { getServerLang } from "@/lib/i18n/server";
 
 function fmtDate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -12,13 +15,14 @@ function fmtDate(d: Date): string {
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
+  const lang = await getServerLang();
 
   const conn = await prisma.gscConnection.findUnique({ where: { userId: user.id } });
-  if (!conn) return NextResponse.json({ error: "به Search Console متصل نیستید" }, { status: 400 });
-  if (!conn.siteUrl) return NextResponse.json({ error: "هنوز سایتی انتخاب نشده" }, { status: 400 });
+  if (!conn) return NextResponse.json({ error: gscMsg(lang, "notConnected") }, { status: 400 });
+  if (!conn.siteUrl) return NextResponse.json({ error: gscMsg(lang, "noSite") }, { status: 400 });
 
   try {
-    const accessToken = await getGscAccessToken(conn.refreshToken);
+    const accessToken = await getGscAccessToken(decryptSecret(conn.refreshToken));
 
     // GSC data lags ~2 days — end the window there instead of "today" to avoid a misleading near-empty final day.
     const end = new Date();
@@ -53,13 +57,17 @@ export async function GET(req: NextRequest) {
     });
   } catch (e) {
     console.error("GSC data fetch failed:", e);
+    if (e instanceof GscApiUnavailableError) {
+      // Not the user's doing and not fixable by reconnecting: say so, and do NOT ask them to reconnect.
+      return NextResponse.json({ error: gscMsg(lang, "unavailable"), code: "gsc_api_unavailable" }, { status: 503 });
+    }
     if (e instanceof GscReconnectRequiredError) {
       return NextResponse.json(
-        { error: "اتصال گوگل شما منقضی یا نامعتبر شده است. لطفاً دوباره وارد Google Search Console شوید.", reconnectRequired: true },
+        { error: gscMsg(lang, "reconnect"), reconnectRequired: true },
         { status: 400 }
       );
     }
-    const msg = e instanceof Error ? e.message : "خطا";
-    return NextResponse.json({ error: msg }, { status: 400 });
+    // The raw provider message is logged above; users get a localized one.
+    return NextResponse.json({ error: gscMsg(lang, "generic") }, { status: 400 });
   }
 }

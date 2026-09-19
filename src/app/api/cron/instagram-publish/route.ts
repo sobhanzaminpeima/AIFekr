@@ -3,14 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { publishToInstagram, publishReelToInstagram } from "@/lib/instagram";
 import { notify } from "@/lib/notifications/create";
+import { isCronAuthorized } from "@/lib/auth/cronAuth";
 
 // Hit by a system crontab entry every few minutes (see deployment notes) —
 // this is what makes mode="auto" posts actually go out without a human
 // clicking "publish". Protected by a shared secret since it has no user
 // session; not meant to be called from the browser.
 export async function GET(req: NextRequest) {
-  const secret = req.nextUrl.searchParams.get("secret");
-  if (!secret || secret !== process.env.CRON_SECRET) {
+  if (!isCronAuthorized(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

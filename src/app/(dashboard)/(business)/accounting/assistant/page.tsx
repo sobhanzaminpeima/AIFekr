@@ -6,6 +6,7 @@ import { ArrowRight, ArrowLeft, Sparkles, Send, AlertTriangle } from "lucide-rea
 import { tri, type Lang } from "@/lib/i18n";
 import { useAccountingLocale } from "@/lib/accounting/useAccountingLocale";
 import { linkifyCitations } from "@/lib/accounting/linkifyCitations";
+import CreditCost from "@/components/ui/CreditCost";
 
 interface ChatMessage { role: "user" | "assistant"; text: string; }
 interface AnomalyAlert { accountCode: string; accountName: string; currentMonthAmount: number; trailingAverage: number; deviationPercent: number; }
@@ -128,7 +129,7 @@ export default function FinanceAssistantPage() {
           style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
         />
         <button disabled={loading} onClick={() => ask(input)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium" style={{ background: "var(--primary)", color: "#fff" }}>
-          <Send className="w-4 h-4" />{tri(lang, "ارسال", "Send", "Senden")}
+          <Send className="w-4 h-4" />{tri(lang, "ارسال", "Send", "Senden")} <CreditCost feature="accounting.ask" />
         </button>
       </div>
     </div>

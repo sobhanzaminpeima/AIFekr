@@ -8,14 +8,14 @@ import type { Lang } from "@/lib/i18n";
 import { sendEmail } from "@/lib/email/resend";
 import { markdownToHtml } from "@/lib/utils/markdownToHtml";
 import { reserveToolCredits } from "@/lib/utils/toolCredits";
+import { isCronAuthorized } from "@/lib/auth/cronAuth";
 
 // Hit by a system crontab entry once a day — runs the CEO orchestrator
 // automatically for every user who opted in (ceoAutoRunEnabled), same
 // "no human click needed" pattern as /api/cron/instagram-publish.
 // Protected by a shared secret since it has no user session.
 export async function GET(req: NextRequest) {
-  const secret = req.nextUrl.searchParams.get("secret");
-  if (!secret || secret !== process.env.CRON_SECRET) {
+  if (!isCronAuthorized(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

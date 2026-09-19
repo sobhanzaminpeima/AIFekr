@@ -34,6 +34,7 @@ const UNBILLED: Record<string, string> = {
   "music/status": "status poll of an already-charged job",
   "accounting/ai/anomalies": "rule-based, no model call",
   "accounting/ai/proposals/[id]": "approve/reject a stored proposal: ledger write, no model call",
+  "accounting/ai/audit-copilot": "deterministic ledger checks (provider: deterministic), no model call",
   "ceo/orchestrator/snapshot": "data snapshot, no model call",
   "crm/viewings": "slot suggestion is rule-based, no model call",
   "crm/viewings/needs-feedback": "query only, no model call",

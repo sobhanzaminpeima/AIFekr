@@ -12,6 +12,7 @@ import ReactMarkdown from "react-markdown";
 import { useTranslation } from "@/lib/i18n";
 import { formatNumber, toJalali } from "@/lib/utils/jalali";
 import { stripMemorySection } from "@/lib/agents/ceoMemoryFormat";
+import CreditCost from "@/components/ui/CreditCost";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -370,7 +371,7 @@ export default function AiBosPage() {
                 style={{ background: "linear-gradient(135deg,var(--primary),#8b5cf6)" }}
               >
                 {boardroomRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-                {boardroomRunning ? s.boardroomRunning : s.runBoardroom}
+                {boardroomRunning ? s.boardroomRunning : s.runBoardroom} <CreditCost feature="ceo.boardroom" />
               </button>
             </div>
           </div>
@@ -553,7 +554,7 @@ export default function AiBosPage() {
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
               style={{ background: "var(--primary)" }}>
               {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-              {running ? s.runningAnalysis : s.runAnalysis}
+              {running ? s.runningAnalysis : s.runAnalysis} <CreditCost feature="ceo.orchestrator-run" />
             </button>
             {analysis && (
               <div className="prose prose-sm max-w-none mt-5 pt-5 text-sm" style={{ color: "var(--text-primary)", borderTop: "1px solid var(--border)" }}>
@@ -582,7 +583,7 @@ export default function AiBosPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
               style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
               {draftsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-              {s.generateMessages}
+              {s.generateMessages} <CreditCost feature="ceo.followup-drafts" />
             </button>
           </div>
           {drafts.length === 0 ? (

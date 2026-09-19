@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, businessFilter } from "@/lib/crm/workspace";
 
 /**
  * Aggregate stats for Voice Agent calls tied to this CRM workspace's contacts —
@@ -19,8 +19,8 @@ export async function GET(req: NextRequest) {
   const ws = await resolveCrmWorkspace(user.id);
 
   const baseWhere = ws.isAgentRestricted
-    ? { userId: ws.workspaceUserId, contact: { assignedToId: ws.actingUserId } }
-    : { userId: ws.workspaceUserId };
+    ? { userId: ws.workspaceUserId, ...businessFilter(ws), contact: { assignedToId: ws.actingUserId } }
+    : { userId: ws.workspaceUserId, ...businessFilter(ws) };
 
   const [totalCalls, durationAgg, statusGroups, outcomeGroups, recentCalls, thirtyDayCalls] = await Promise.all([
     prisma.voiceCallLog.count({ where: baseWhere }),

@@ -36,7 +36,7 @@ export async function exchangeGscCode(code: string, redirectUri: string): Promis
   });
   const res = await fetch(TOKEN_URL, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error_description || data.error || "خطا در دریافت توکن گوگل");
+  if (!res.ok) throw new Error(data.error_description || data.error || "Could not exchange the Google authorization code");
   return { accessToken: data.access_token, refreshToken: data.refresh_token || null };
 }
 
@@ -47,6 +47,19 @@ export async function exchangeGscCode(code: string, redirectUri: string): Promis
  * client's project, or the app is in Testing mode and this account isn't a
  * test user). The caller should surface a "reconnect" CTA, not a raw error.
  */
+/**
+ * Google's edge rejected the request before it reached the API. This is a
+ * server-side setup problem (Search Console API not enabled on the Google
+ * Cloud project behind our OAuth client, or the OAuth app is still in Testing
+ * mode and this user is not a listed tester). Reconnecting cannot fix it.
+ */
+export class GscApiUnavailableError extends Error {
+  constructor(detail: string) {
+    super(detail);
+    this.name = "GscApiUnavailableError";
+  }
+}
+
 export class GscReconnectRequiredError extends Error {
   constructor(detail: string) {
     super(detail);
@@ -65,9 +78,9 @@ async function parseJsonOrThrow(res: Response, label: string): Promise<any> {
     // mode with this account not added as a tester) was shown raw to users.
     console.error(`GSC ${label} — non-JSON ${res.status} response:`, text.slice(0, 2000));
     if (res.status === 401 || res.status === 403) {
-      throw new GscReconnectRequiredError(`${label} ${res.status}: Google rejected the request before reaching the API — most likely the Search Console API isn't enabled for this project, or the OAuth app is in Testing mode without this account as a tester.`);
+      throw new GscApiUnavailableError(`${label} ${res.status}: Google rejected the request before reaching the API — most likely the Search Console API isn't enabled for this project, or the OAuth app is in Testing mode without this account as a tester.`);
     }
-    throw new Error(`${label} ${res.status}: پاسخ نامعتبر از گوگل دریافت شد`);
+    throw new Error(`${label} ${res.status}: unexpected non-JSON response from Google`);
   }
 }
 
@@ -86,7 +99,7 @@ export async function getGscAccessToken(refreshToken: string): Promise<string> {
     if (data.error === "invalid_grant") {
       throw new GscReconnectRequiredError(data.error_description || "Refresh token no longer valid");
     }
-    throw new Error(data.error_description || data.error || "خطا در تازه‌سازی توکن گوگل");
+    throw new Error(data.error_description || data.error || "Could not refresh the Google token");
   }
   return data.access_token;
 }
@@ -101,7 +114,7 @@ export async function listGscSites(accessToken: string): Promise<GscSite[]> {
   const data = await parseJsonOrThrow(res, "list sites");
   if (!res.ok) {
     if (res.status === 401) throw new GscReconnectRequiredError(data.error?.message || "Access token rejected");
-    throw new Error(data.error?.message || "خطا در دریافت لیست سایت‌ها");
+    throw new Error(data.error?.message || "Could not list Search Console sites");
   }
   return (data.siteEntry || []).map((s: { siteUrl: string; permissionLevel: string }) => ({ siteUrl: s.siteUrl, permissionLevel: s.permissionLevel }));
 }
@@ -134,7 +147,7 @@ export async function querySearchAnalytics(
   const data = await parseJsonOrThrow(res, "search analytics query");
   if (!res.ok) {
     if (res.status === 401) throw new GscReconnectRequiredError(data.error?.message || "Access token rejected");
-    throw new Error(data.error?.message || "خطا در دریافت داده‌های Search Console");
+    throw new Error(data.error?.message || "Could not fetch Search Console data");
   }
   return { rows: data.rows || [] };
 }

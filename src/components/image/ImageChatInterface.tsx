@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { tri, type Lang } from "@/lib/i18n";
+import CreditCost from "@/components/ui/CreditCost";
 
 const RATIOS = ["1:1", "16:9", "9:16", "4:3"];
 
@@ -584,11 +585,11 @@ export default function ImageChatInterface({ lang }: { lang: Lang }) {
             style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
           />
           <button onClick={translatePrompt} disabled={translating || !prompt.trim()} className="p-2.5 rounded-xl disabled:opacity-30 flex-shrink-0" style={{ color: "var(--text-muted)" }} title={tri(lang, "ترجمه", "Translate", "Übersetzen")}>
-            {translating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Languages className="w-4 h-4" />}
+            {translating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Languages className="w-4 h-4" />} <CreditCost feature="image.translate" />
           </button>
           <button onClick={send} disabled={sending || !prompt.trim() || (mode === "puter" && !puterReady)}
             className="p-2.5 rounded-xl text-white disabled:opacity-50 flex-shrink-0" style={{ background: "var(--primary)" }}>
-            {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+            {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />} {mode !== "puter" && <CreditCost className="text-white" costKey={quality === "hd" ? "image_hd" : "image_standard"} times={count} />}
           </button>
         </div>
       </div>

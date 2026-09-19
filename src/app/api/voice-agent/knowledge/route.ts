@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { looksLikeInjectionAttempt } from "@/lib/ai/promptSafety";
+import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
+import { bizScope } from "@/lib/accounting/scope";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -12,8 +14,9 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const agentId = searchParams.get("agentId");
 
+  const businessId = await activeBusinessIdFor(user.id);
   const entries = await prisma.voiceKnowledgeBase.findMany({
-    where: { userId: user.id, ...(agentId ? { agentId } : {}) },
+    where: { userId: user.id, ...bizScope(businessId), ...(agentId ? { agentId } : {}) },
     orderBy: { updatedAt: "desc" },
     take: 200,
   });
@@ -41,7 +44,7 @@ export async function POST(req: NextRequest) {
   }
 
   const entry = await prisma.voiceKnowledgeBase.create({
-    data: { userId: user.id, agentId: agentId || undefined, title: title.trim(), content: content.trim() },
+    data: { userId: user.id, businessId: await activeBusinessIdFor(user.id), agentId: agentId || undefined, title: title.trim(), content: content.trim() },
   });
   return NextResponse.json({ entry });
 }

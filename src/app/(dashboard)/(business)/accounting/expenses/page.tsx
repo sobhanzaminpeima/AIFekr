@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { ArrowRight, ArrowLeft, Plus, CheckCircle2, XCircle, Wallet, Building2, Sparkles } from "lucide-react";
 import { tri, type Lang } from "@/lib/i18n";
 import { useAccountingLocale } from "@/lib/accounting/useAccountingLocale";
+import CreditCost from "@/components/ui/CreditCost";
 
 interface Account { code: string; name: string; type: string; }
 interface Vendor { id: string; name: string; phone: string | null; email: string | null; }
@@ -283,7 +284,7 @@ export default function ExpensesPage() {
                   <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: st.bg, color: st.color }}>{statusLabel(e.status, lang)}</span>
                   {e.status === "pending_approval" && (
                     <>
-                      <button disabled={busy} onClick={() => askAiCategory(e.id)} className="p-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }} title={tri(lang, "پیشنهاد دسته‌بندی هوشمند", "Suggest a category with AI", "Kategorie per KI vorschlagen")}><Sparkles className="w-4 h-4" /></button>
+                      <button disabled={busy} onClick={() => askAiCategory(e.id)} className="p-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }} title={tri(lang, "پیشنهاد دسته‌بندی هوشمند", "Suggest a category with AI", "Kategorie per KI vorschlagen")}><Sparkles className="w-4 h-4" /> <CreditCost feature="accounting.propose" /></button>
                       <button disabled={busy} onClick={() => expenseAction(e.id, "approve")} className="p-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--pos)" }} title={tri(lang, "تأیید", "Approve", "Genehmigen")}><CheckCircle2 className="w-4 h-4" /></button>
                       <button disabled={busy} onClick={() => expenseAction(e.id, "reject")} className="p-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--neg)" }} title={tri(lang, "رد", "Reject", "Ablehnen")}><XCircle className="w-4 h-4" /></button>
                     </>

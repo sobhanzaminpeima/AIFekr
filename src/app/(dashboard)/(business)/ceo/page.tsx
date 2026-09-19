@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import Link from "next/link";
 import { useTranslation } from "@/lib/i18n";
 import LongRunIndicator from "@/components/ui/LongRunIndicator";
+import CreditCost from "@/components/ui/CreditCost";
 
 const CATEGORIES = [
   { key: "growth", icon: TrendingUp, color: "#10b981" },
@@ -240,7 +241,7 @@ export default function CEOPage() {
             >
               {loading
                 ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin block" />
-                : <Send className="w-5 h-5 text-white" />}
+                : <Send className="w-5 h-5 text-white" />} <CreditCost feature="ceo.question" className="text-white" />
             </button>
           </form>
         </div>

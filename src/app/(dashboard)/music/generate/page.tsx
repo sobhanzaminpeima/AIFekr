@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import { Music, Wand2, Loader2, CheckCircle, AlertCircle, Download, Play, Pause, Volume2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTranslation } from "@/lib/i18n";
+import CreditCost from "@/components/ui/CreditCost";
 
 type GenStatus = "idle" | "generating" | "polling" | "succeeded" | "failed";
 
@@ -148,7 +149,7 @@ export default function MusicGeneratePage() {
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-white disabled:opacity-50"
           style={{ background: "var(--primary)" }}>
           {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Wand2 className="w-5 h-5" />}
-          {isLoading ? s.generatingText : s.generateBtn}
+          {isLoading ? s.generatingText : s.generateBtn} <CreditCost costKey={duration <= 30 ? "music_30s" : duration <= 60 ? "music_60s" : "music_120s"} />
         </button>
       </div>
 

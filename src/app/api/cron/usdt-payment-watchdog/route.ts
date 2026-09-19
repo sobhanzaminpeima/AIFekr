@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { notify } from "@/lib/notifications/create";
+import { isCronAuthorized } from "@/lib/auth/cronAuth";
 
 // Hit by a system crontab entry every ~30 minutes, same shared-secret pattern
 // as the other cron routes (e.g. crm-automation).
@@ -15,8 +16,7 @@ import { notify } from "@/lib/notifications/create";
 const STUCK_THRESHOLD_MS = 2 * 60 * 60 * 1000; // 2h
 
 export async function GET(req: NextRequest) {
-  const secret = req.nextUrl.searchParams.get("secret");
-  if (!secret || secret !== process.env.CRON_SECRET) {
+  if (!isCronAuthorized(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

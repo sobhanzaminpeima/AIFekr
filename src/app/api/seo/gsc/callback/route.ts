@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { exchangeGscCode } from "@/lib/googleSearchConsole";
 import { requireAuth } from "@/lib/auth/middleware";
 import { verifyGscState } from "@/lib/seo/gscState";
+import { encryptSecret } from "@/lib/crypto/secretBox";
 
 export async function GET(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
@@ -37,8 +38,8 @@ export async function GET(req: NextRequest) {
 
     await prisma.gscConnection.upsert({
       where: { userId },
-      update: { refreshToken },
-      create: { userId, refreshToken },
+      update: { refreshToken: encryptSecret(refreshToken) },
+      create: { userId, refreshToken: encryptSecret(refreshToken) },
     });
 
     return NextResponse.redirect(`${appUrl}/seo?gsc=connected`);

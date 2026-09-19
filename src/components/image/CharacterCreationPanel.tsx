@@ -4,7 +4,9 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Upload, X, Loader2, Sparkles, Download, User, Check, Images, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import { tri, type Lang } from "@/lib/i18n";
+import { downscaleImage } from "@/lib/image/downscaleImage";
 import { SAMPLE_CHARACTERS } from "@/lib/ai/characterSheetPrompts";
+import CreditCost from "@/components/ui/CreditCost";
 
 /**
  * Character Creation — a submenu of Image Generation. Step 1 (choose a
@@ -81,8 +83,9 @@ export default function CharacterCreationPanel({ lang, imageProvider }: { lang: 
     setUploading(true);
     setSheetUrl(null);
     try {
+      const compressed = await downscaleImage(file);
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", compressed);
       const res = await fetch("/api/upload", { method: "POST", body: form });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -237,6 +240,7 @@ export default function CharacterCreationPanel({ lang, imageProvider }: { lang: 
                   <span className="text-[10px] leading-tight" style={{ color: "var(--text-secondary)" }}>
                     {tri(lang, sample.labelFa, sample.labelEn, sample.labelDe)}
                   </span>
+                  <CreditCost costKey="image_standard" />
                   {isSelected && <Check className="w-3.5 h-3.5 absolute top-1.5 right-1.5" style={{ color: "var(--primary)" }} />}
                 </button>
               );
@@ -322,7 +326,7 @@ export default function CharacterCreationPanel({ lang, imageProvider }: { lang: 
           {generatingSheet ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
           {generatingSheet
             ? tri(lang, "در حال ساخت بورد کاراکتر (کمی طول می‌کشد)...", "Building the character board (this takes a bit)...", "Charakter-Board wird erstellt (dauert etwas)...")
-            : tri(lang, "ساخت بورد کاراکتر", "Generate Character Board", "Charakter-Board erstellen")}
+            : tri(lang, "ساخت بورد کاراکتر", "Generate Character Board", "Charakter-Board erstellen")} <CreditCost costKey="image_standard" times={3} />
         </button>
       </div>
 

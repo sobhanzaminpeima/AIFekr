@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, businessFilter } from "@/lib/crm/workspace";
 import { hasVoiceAccess } from "@/lib/voice/workspace";
 import { createOutboundCall, VapiNotConfiguredError } from "@/lib/voice/vapiClient";
 import { getServerLang } from "@/lib/i18n/server";
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   const agent = agentId
     ? await prisma.voiceAgent.findUnique({ where: { id: agentId } })
     : await prisma.voiceAgent.findFirst({
-        where: { userId: ws.workspaceUserId, isActive: true, vapiAssistantId: { not: null }, vapiPhoneNumberId: { not: null } },
+        where: { userId: ws.workspaceUserId, ...businessFilter(ws), isActive: true, vapiAssistantId: { not: null }, vapiPhoneNumberId: { not: null } },
         orderBy: { createdAt: "asc" },
       });
 
@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
     await prisma.voiceCallLog.create({
       data: {
         userId: ws.workspaceUserId,
+        businessId: agent.businessId ?? ws.businessId,
         agentId: agent.id,
         contactId: contact.id,
         vapiCallId: call.id,

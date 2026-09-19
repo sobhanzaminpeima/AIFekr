@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import type { LucideIcon } from "lucide-react";
 import { useTranslation, tri } from "@/lib/i18n";
 import LongRunIndicator from "@/components/ui/LongRunIndicator";
+import CreditCost from "@/components/ui/CreditCost";
 
 interface Agent { key: string; nameFa: string; nameEn: string; nameDe: string; Icon: LucideIcon; color: string; }
 
@@ -147,7 +148,7 @@ export default function MeetingPage() {
               style={{ background: "var(--primary)" }}
             >
               <Play className="w-4 h-4" />
-              {t.meeting.startMeeting}
+              {t.meeting.startMeeting} <CreditCost feature="meeting" />
             </button>
           </div>
         )}

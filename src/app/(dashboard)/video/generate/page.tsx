@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import { useTranslation, tri } from "@/lib/i18n";
 import { downscaleImage } from "@/lib/image/downscaleImage";
 import UpgradeRequiredModal from "@/components/ui/UpgradeRequiredModal";
+import CreditCost from "@/components/ui/CreditCost";
 
 interface PromptTemplate {
   id: string;
@@ -299,7 +300,7 @@ export default function VideoGeneratePage() {
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-white disabled:opacity-50"
           style={{ background: "var(--primary)" }}>
           {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Wand2 className="w-5 h-5" />}
-          {isLoading ? s.generatingText : s.generateBtn}
+          {isLoading ? s.generatingText : s.generateBtn} <CreditCost costKey={duration <= 5 ? "video_5s" : duration <= 10 ? "video_10s" : "video_30s"} />
         </button>
       </div>
 

@@ -14,6 +14,7 @@ import { trackFeature } from "@/lib/analytics";
 import { useTranslation, tri } from "@/lib/i18n";
 import LongRunIndicator from "@/components/ui/LongRunIndicator";
 import { Upload, X } from "lucide-react";
+import CreditCost from "@/components/ui/CreditCost";
 
 interface BusinessProfile {
   name: string;
@@ -565,7 +566,7 @@ export default function BusinessDoctorPage() {
                 <button onClick={() => { setShowQuickAnalysis(true); askDoctor(); }} disabled={analyzing || !question.trim()}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-40 flex-shrink-0"
                   style={{ background: "var(--primary)" }}>
-                  {analyzing ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send className="w-4 h-4" />}
+                  {analyzing ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send className="w-4 h-4" />} <CreditCost feature="business-doctor" />
                 </button>
               </div>
             </div>

@@ -6,9 +6,13 @@ import { Share2, Copy, Check, Calendar, Camera, Zap, Loader2, Image as ImageIcon
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
 import { useTranslation, tri } from "@/lib/i18n";
+import { downscaleImage } from "@/lib/image/downscaleImage";
 import { toJalali } from "@/lib/utils/jalali";
 import JalaliDateTimePicker from "@/components/ui/JalaliDateTimePicker";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import BrandProfileCard from "@/components/social/BrandProfileCard";
+import GrowthInsights, { type SocialAnalysisView } from "@/components/social/GrowthInsights";
+import CreditCost from "@/components/ui/CreditCost";
 
 declare global {
   interface Window {
@@ -152,8 +156,14 @@ export default function SocialPage() {
 
   useEffect(() => {
     fetch("/api/social/content-ideas", { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => setContentIdeas(data))
+      .then(async (r) => {
+        const data = await r.json();
+        // An error body (e.g. a stale request landing right after logout, or
+        // a 401) has no `.ideas` array -- setting it anyway crashed the page
+        // later with "Cannot read properties of undefined (reading 'length')"
+        // at contentIdeas.ideas.length below.
+        if (r.ok && Array.isArray(data.ideas)) setContentIdeas(data);
+      })
       .catch(() => {});
   }, []);
 
@@ -309,7 +319,9 @@ export default function SocialPage() {
     igUsername: string | null;
     current: { followersCount: number; mediaCount: number } | null;
     trend: { date: string; followersCount: number; mediaCount: number }[];
-    recentMedia: { id: string; caption: string | null; mediaType: string; mediaUrl: string | null; thumbnailUrl: string | null; permalink: string; timestamp: string; likeCount: number; commentsCount: number }[];
+    recentMedia: { id: string; caption: string | null; mediaType: string; mediaProductType?: string | null; mediaUrl: string | null; thumbnailUrl: string | null; permalink: string; timestamp: string; likeCount: number; commentsCount: number; views?: number | null; reach?: number | null; saved?: number | null; shares?: number | null }[];
+    mediaBreakdown?: { type: string; count: number; totalLikes: number; totalComments: number; totalViews: number; totalReach: number; avgLikes: number; avgComments: number; avgViews: number }[];
+    analysis?: SocialAnalysisView | null;
     mediaError?: string | null;
   } | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
@@ -459,6 +471,12 @@ export default function SocialPage() {
       if (!r.ok) throw new Error();
       setIgConnected(false);
       setIgUsername(null);
+      // Scheduled posts and analytics belonged to the account that was just
+      // disconnected -- leaving them on screen made it look like they'd
+      // carry over to whichever account gets connected next.
+      setPosts([]);
+      setAnalytics(null);
+      setCanAuto(false);
       toast.success(tri(lang, "اتصال اینستاگرام قطع شد", "Instagram disconnected", "Instagram getrennt"));
     } catch {
       toast.error(t.common.error);
@@ -487,8 +505,9 @@ export default function SocialPage() {
     if (!file) return;
     setRefUploading(true);
     try {
+      const compressed = await downscaleImage(file);
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", compressed);
       const res = await fetch("/api/upload", { method: "POST", body: form });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -635,7 +654,7 @@ export default function SocialPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ businessName: form.brandName, businessType: form.platform, topic: form.topic, language: lang, model: textModel }),
       });
-      let d: { caption?: string; hashtags?: string[]; bestTime?: string; error?: string };
+      let d: { caption?: string; hashtags?: string[]; bestTime?: string; error?: string; quality?: { score: number; band: string; findings: { code: string }[] } };
       try {
         d = await r.json();
       } catch {
@@ -648,9 +667,25 @@ export default function SocialPage() {
       setIgHashtags(d.hashtags || []);
       setIgBestTime(d.bestTime || "");
       setWizardStep(2);
+      // Grade what was generated so the owner can judge it before scheduling.
+      refreshQuality(d.caption || "", d.hashtags || []);
     } catch (e) { toast.error(e instanceof Error ? e.message : t.common.error); }
     finally { setIgGenerating(false); }
   }
+
+  // ── Content quality (deterministic, server-side rules) ───────────────────
+  const [quality, setQuality] = useState<{ score: number; band: string; findings: { code: string; message: string }[] } | null>(null);
+
+  const refreshQuality = useCallback(async (caption: string, hashtags: string[], format?: string | null) => {
+    if (!caption.trim()) { setQuality(null); return; }
+    try {
+      const r = await fetch("/api/social/quality", {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ caption, hashtags, format: format ?? null }),
+      });
+      if (r.ok) setQuality(await r.json());
+    } catch { /* advisory only — never block the wizard on this */ }
+  }, []);
 
   function confirmManualContent() {
     if (!igCaption.trim()) return toast.error(t.common.error);
@@ -752,6 +787,10 @@ export default function SocialPage() {
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{t.social.description}</p>
           </div>
         </div>
+
+        {/* Describe the page once — pre-filled from Business Doctor — and every
+            caption, calendar and report below is generated against it. */}
+        <BrandProfileCard lang={lang} />
 
         {/* Content-format suggestions — framed honestly as proven patterns for
             this industry, never "trending now" (no live trend-data source exists). */}
@@ -874,7 +913,7 @@ export default function SocialPage() {
               style={{ background: "var(--primary)" }}
             >
               {loading ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Share2 className="w-4 h-4" />}
-              {loading ? t.social.generating : t.social.generate}
+              {loading ? t.social.generating : t.social.generate} <CreditCost feature="social.generate" />
             </button>
             <button
               onClick={() => generate("calendar")}
@@ -885,6 +924,7 @@ export default function SocialPage() {
               {calendarLoading ? <span className="w-4 h-4 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin" /> : <Calendar className="w-4 h-4" />}
               {t.social.calendar}
             </button>
+              <CreditCost feature="social.generate" />
           </div>
         </div>
 
@@ -1031,6 +1071,25 @@ export default function SocialPage() {
                             {igHashtags.map((h, i) => <span key={i} className="text-xs px-2 py-1 rounded-md" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{h}</span>)}
                           </div>
                           {igBestTime && <p className="text-xs" style={{ color: "var(--text-muted)" }}>⏰ {t.social.bestTime}: {igBestTime}</p>}
+                          {quality && (
+                            <div className="pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold"
+                                  style={{
+                                    background: quality.band === "strong" ? "rgba(34,197,94,0.15)" : quality.band === "ok" ? "rgba(234,179,8,0.15)" : "rgba(239,68,68,0.12)",
+                                    color: quality.band === "strong" ? "#16a34a" : quality.band === "ok" ? "#ca8a04" : "#dc2626",
+                                  }}>
+                                  {tri(lang, "کیفیت", "Quality", "Qualität")} {quality.score}/100
+                                </span>
+                                <button onClick={() => refreshQuality(igCaption, igHashtags)} className="text-[11px] underline" style={{ color: "var(--text-muted)" }}>
+                                  {tri(lang, "بررسی دوباره", "Re-check", "Erneut prüfen")}
+                                </button>
+                              </div>
+                              {quality.findings.slice(0, 3).map((f) => (
+                                <p key={f.code} className="text-[11px] leading-5" style={{ color: "var(--text-muted)" }}>• {f.message}</p>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ) : null}
                       <div className="flex gap-2">
@@ -1081,7 +1140,7 @@ export default function SocialPage() {
                           <button onClick={recreateFromReference} disabled={!refImageUrl || recreating || !puterReady}
                             className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
                             {recreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                            {recreating ? (recreateStep || (tri(lang, "در حال پردازش...", "Processing...", "Verarbeitung..."))) : (tri(lang, "تحلیل و بازسازی", "Analyze & Recreate", "Analysieren & Nachbauen"))}
+                            {recreating ? (recreateStep || (tri(lang, "در حال پردازش...", "Processing...", "Verarbeitung..."))) : (tri(lang, "تحلیل و بازسازی", "Analyze & Recreate", "Analysieren & Nachbauen"))} <CreditCost feature="social.ig-image" plus={["image_standard"]} />
                           </button>
                           {styleDescription && (
                             <p className="text-xs leading-6 p-3 rounded-xl" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{styleDescription}</p>
@@ -1264,7 +1323,7 @@ export default function SocialPage() {
                           className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm disabled:opacity-50"
                           style={{ background: "var(--surface-2)", border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
                           {aiImageGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                          {aiImageGenerating ? (tri(lang, "در حال ساخت عکس...", "Generating image...", "Bild wird generiert...")) : (tri(lang, "طراحی عکس با AI", "Design image with AI", "Bild mit KI gestalten"))}
+                          {aiImageGenerating ? (tri(lang, "در حال ساخت عکس...", "Generating image...", "Bild wird generiert...")) : (tri(lang, "طراحی عکس با AI", "Design image with AI", "Bild mit KI gestalten"))} <CreditCost costKey="image_standard" />
                         </button>
                       </div>
                       <button onClick={openGalleryPicker}
@@ -1289,7 +1348,7 @@ export default function SocialPage() {
                             className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm disabled:opacity-50"
                             style={{ background: "var(--surface-2)", border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
                             {videoGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Video className="w-4 h-4" />}
-                            {videoGenerating ? (videoGenStatus || (tri(lang, "در حال ساخت ویدیو...", "Generating video...", "Video wird generiert..."))) : (tri(lang, "ساخت ریل با AI", "Create Reel with AI", "Reel mit KI erstellen"))}
+                            {videoGenerating ? (videoGenStatus || (tri(lang, "در حال ساخت ویدیو...", "Generating video...", "Video wird generiert..."))) : (tri(lang, "ساخت ریل با AI", "Create Reel with AI", "Reel mit KI erstellen"))} <CreditCost costKey="video_5s" />
                           </button>
                         </div>
                       )}
@@ -1534,37 +1593,96 @@ export default function SocialPage() {
                   <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
                     {(analytics?.trend?.length ?? 0) >= 2
                       ? (() => { const d = analytics!.trend[analytics!.trend.length - 1].followersCount - analytics!.trend[0].followersCount; return `${d >= 0 ? "+" : ""}${d}`; })()
-                      : (tri(lang, "در حال جمع‌آوری", "Collecting", "Wird gesammelt"))}
+                      : (analytics?.trend?.length ?? 0) === 1
+                        ? (tri(lang, "از امروز", "Since today", "Ab heute"))
+                        : (tri(lang, "در حال جمع‌آوری", "Collecting", "Wird gesammelt"))}
                   </p>
                 </div>
               </div>
 
-              {/* Follower growth chart */}
-              {(analytics?.trend?.length ?? 0) >= 2 ? (
+              {/* Follower growth chart — renders from the first snapshot; a
+                  snapshot is taken every few hours so the line fills in fast. */}
+              {(analytics?.trend?.length ?? 0) >= 1 ? (
                 <div className="rounded-xl p-4 mb-5" style={{ background: "var(--surface-2)" }}>
                   <p className="text-xs font-medium mb-3" style={{ color: "var(--text-secondary)" }}>{tri(lang, "روند رشد فالوور", "Follower Growth Trend", "Follower-Wachstumstrend")}</p>
                   <ResponsiveContainer width="100%" height={200}>
-                    <LineChart data={analytics!.trend.map((d) => ({ ...d, dateLabel: lang === "fa" ? toJalali(d.date) : new Date(d.date).toLocaleDateString(lang === "de" ? "de-DE" : "en-US") }))}>
+                    <LineChart data={analytics!.trend.map((d) => ({
+                      ...d,
+                      dateLabel: lang === "fa"
+                        ? toJalali(d.date)
+                        : new Date(d.date).toLocaleDateString(lang === "de" ? "de-DE" : "en-US", { month: "short", day: "numeric" }),
+                    }))}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis dataKey="dateLabel" tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
-                      <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+                      <YAxis domain={["dataMin - 5", "dataMax + 5"]} tick={{ fontSize: 10, fill: "var(--text-muted)" }} allowDecimals={false} />
                       <Tooltip contentStyle={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
-                      <Line type="monotone" dataKey="followersCount" stroke="#3b82f6" strokeWidth={2} dot={false} name={tri(lang, "فالوور", "Followers", "Follower")} />
+                      <Line type="monotone" dataKey="followersCount" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3, fill: "#3b82f6" }} name={tri(lang, "فالوور", "Followers", "Follower")} />
                     </LineChart>
                   </ResponsiveContainer>
+                  {(analytics?.trend?.length ?? 0) < 3 && (
+                    <p className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>
+                      {tri(lang, "هر چند ساعت یک نقطه‌ی جدید اضافه می‌شود — خط روند طی امروز و فردا کامل می‌شود.", "A new point is added every few hours — the trend line fills in over today and tomorrow.", "Alle paar Stunden kommt ein neuer Punkt hinzu — die Trendlinie füllt sich über heute und morgen.")}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <p className="text-xs mb-5 px-3 py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
-                  {tri(lang, "نمودار روند رشد بعد از چند روز جمع‌آوری داده در دسترس قرار می‌گیرد (هر روز یک اسنپ‌شات گرفته می‌شود).", "The growth trend chart becomes available after a few days of data collection (one snapshot per day).", "Das Wachstumstrend-Diagramm wird nach einigen Tagen Datensammlung verfügbar (ein Snapshot pro Tag).")}
+                  {tri(lang, "اولین اسنپ‌شات به‌زودی گرفته می‌شود و نمودار فعال می‌شود.", "The first snapshot is taken shortly and the chart activates.", "Der erste Snapshot wird in Kürze erstellt und das Diagramm aktiviert.")}
                 </p>
+              )}
+
+              {/* Deterministic growth analysis — weekly buckets, growth rate,
+                  engagement rate, audience quality, rule-based findings. */}
+              <GrowthInsights analysis={analytics?.analysis ?? null} lang={lang} />
+
+              {/* Media type breakdown — posts vs reels, views, avg engagement */}
+              {(analytics?.mediaBreakdown?.length ?? 0) > 0 && (
+                <div className="mb-5">
+                  <p className="text-xs font-medium mb-3" style={{ color: "var(--text-secondary)" }}>
+                    {tri(lang, "تفکیک بر اساس نوع محتوا (اخیر)", "Breakdown by content type (recent)", "Aufschlüsselung nach Inhaltstyp (aktuell)")}
+                  </p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs" style={{ color: "var(--text-secondary)" }}>
+                      <thead>
+                        <tr style={{ color: "var(--text-muted)" }}>
+                          <th className="text-start py-1.5 pe-3">{tri(lang, "نوع", "Type", "Typ")}</th>
+                          <th className="text-start py-1.5 pe-3">{tri(lang, "تعداد", "Count", "Anzahl")}</th>
+                          <th className="text-start py-1.5 pe-3">{tri(lang, "بازدید کل", "Total views", "Aufrufe gesamt")}</th>
+                          <th className="text-start py-1.5 pe-3">{tri(lang, "میانگین بازدید", "Avg views", "Ø Aufrufe")}</th>
+                          <th className="text-start py-1.5 pe-3">{tri(lang, "میانگین لایک", "Avg likes", "Ø Likes")}</th>
+                          <th className="text-start py-1.5 pe-3">{tri(lang, "میانگین کامنت", "Avg comments", "Ø Kommentare")}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analytics!.mediaBreakdown!.map((b) => {
+                          const label = b.type === "REELS" ? tri(lang, "ریلز", "Reels", "Reels")
+                            : b.type === "IMAGE" ? tri(lang, "عکس", "Photo", "Foto")
+                            : b.type === "CAROUSEL_ALBUM" ? tri(lang, "آلبوم", "Carousel", "Karussell")
+                            : b.type === "VIDEO" ? tri(lang, "ویدیو", "Video", "Video") : b.type;
+                          return (
+                            <tr key={b.type} style={{ borderTop: "1px solid var(--border)" }}>
+                              <td className="py-1.5 pe-3 font-medium" style={{ color: "var(--text-primary)" }}>{label}</td>
+                              <td className="py-1.5 pe-3">{b.count}</td>
+                              <td className="py-1.5 pe-3">{b.totalViews ? b.totalViews.toLocaleString() : "—"}</td>
+                              <td className="py-1.5 pe-3">{b.avgViews ? b.avgViews.toLocaleString() : "—"}</td>
+                              <td className="py-1.5 pe-3">{b.avgLikes.toLocaleString()}</td>
+                              <td className="py-1.5 pe-3">{b.avgComments.toLocaleString()}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               )}
 
               {/* Content performance */}
               {analytics?.mediaError && (analytics?.recentMedia?.length ?? 0) === 0 && (
                 <p className="text-xs mb-5 px-3 py-2 rounded-lg" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
-                  {isFa
-                    ? `دریافت پست‌های اینستاگرام ناموفق بود: ${analytics.mediaError} — لطفاً حساب اینستاگرام را دوباره متصل کنید.`
-                    : `Failed to load Instagram posts: ${analytics.mediaError} — please reconnect your Instagram account.`}
+                  {tri(lang,
+                    "دریافت پست‌های اینستاگرام ناموفق بود — لطفاً حساب اینستاگرام را دوباره متصل کنید.",
+                    "Failed to load Instagram posts — please reconnect your Instagram account.",
+                    "Instagram-Beiträge konnten nicht geladen werden — bitte verbinden Sie Ihr Instagram-Konto erneut.")}
                 </p>
               )}
               {(analytics?.recentMedia?.length ?? 0) > 0 && (
@@ -1579,7 +1697,15 @@ export default function SocialPage() {
                           className="w-full aspect-square object-cover bg-[var(--surface-1)]"
                           onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                         />
+                        {(m.mediaProductType === "REELS" || m.mediaType === "VIDEO") && (
+                          <span className="absolute top-1.5 end-1.5 text-[10px] px-1.5 py-0.5 rounded bg-black/70 text-white">
+                            {m.mediaProductType === "REELS" ? tri(lang, "ریلز", "Reel", "Reel") : tri(lang, "ویدیو", "Video", "Video")}
+                          </span>
+                        )}
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white text-[11px]">
+                          {typeof m.views === "number" && m.views > 0 && (
+                            <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" /> {m.views.toLocaleString()}</span>
+                          )}
                           <span className="flex items-center gap-1"><Heart className="w-3 h-3" /> {m.likeCount}</span>
                           <span className="flex items-center gap-1"><MessageCircle className="w-3 h-3" /> {m.commentsCount}</span>
                           <ExternalLink className="w-3 h-3 mt-1" />
@@ -1590,12 +1716,19 @@ export default function SocialPage() {
                 </div>
               )}
 
+              {/* Comparable public pages (official business_discovery API) —
+                  hidden from tenants until instagram_basic clears Meta App
+                  Review; showing a non-functional panel with an
+                  "awaiting approval" message is an internal/admin state,
+                  not something a customer should see. Re-enable by restoring
+                  the CompetitorsPanel import + this line once approved. */}
+
               {/* AI growth report */}
               <button onClick={generateAiReport} disabled={aiReportLoading}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
                 style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)" }}>
                 {aiReportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                {aiReportLoading ? (tri(lang, "در حال تحلیل...", "Analyzing...", "Wird analysiert...")) : (tri(lang, "تحلیل و برنامه رشد با AI", "AI Growth Analysis & Plan", "KI-Wachstumsanalyse & Plan"))}
+                {aiReportLoading ? (tri(lang, "در حال تحلیل...", "Analyzing...", "Wird analysiert...")) : (tri(lang, "تحلیل و برنامه رشد با AI", "AI Growth Analysis & Plan", "KI-Wachstumsanalyse & Plan"))} <CreditCost feature="social.ig-report" />
               </button>
 
               {aiReport && (
@@ -1870,9 +2003,10 @@ export default function SocialPage() {
                                   <div key={log.id} className="flex items-center justify-between text-[11px]">
                                     <span style={{ color: "var(--text-secondary)" }}>@{log.commenterUsername || "?"}</span>
                                     <span style={{
-                                      color: log.status === "sent" ? "#22c55e" : log.status === "awaiting_follow" ? "#3b82f6" : log.status === "skipped" ? "#eab308" : "#ef4444",
+                                      color: log.status === "sent" ? "#22c55e" : log.status === "sent_public_fallback" ? "#3b82f6" : log.status === "awaiting_follow" ? "#3b82f6" : log.status === "skipped" ? "#eab308" : "#ef4444",
                                     }}>
                                       {log.status === "sent" ? (tri(lang, "ارسال شد", "sent", "Gesendet"))
+                                        : log.status === "sent_public_fallback" ? (tri(lang, "پاسخ عمومی (دایرکت در انتظار تأیید متا)", "public reply (DM pending Meta approval)", "öffentliche Antwort (DM wartet auf Meta-Freigabe)"))
                                         : log.status === "awaiting_follow" ? (tri(lang, "منتظر تایید فالو", "awaiting follow", "Wartet auf Folgen"))
                                         : log.status === "skipped" ? (tri(lang, "رد شد (محدودیت نرخ)", "skipped (rate limit)", "Übersprungen (Ratenlimit)"))
                                         : (tri(lang, "خطا", "failed", "Fehlgeschlagen"))}

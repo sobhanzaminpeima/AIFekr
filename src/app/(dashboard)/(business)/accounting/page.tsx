@@ -7,6 +7,7 @@ import { linkifyCitations } from "@/lib/accounting/linkifyCitations";
 import { tri } from "@/lib/i18n";
 import { useAccountingLocale } from "@/lib/accounting/useAccountingLocale";
 import { accountName } from "@/lib/accounting/accountName";
+import CreditCost from "@/components/ui/CreditCost";
 
 interface DashboardData {
   cashBalance: number;
@@ -274,7 +275,7 @@ function CashFlowNarrativeCard() {
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-sm font-semibold flex items-center gap-1.5" style={{ color: "var(--text-primary)" }}><Sparkles className="w-4 h-4" />{tri(lang, "خلاصهٔ هوشمند جریان نقدی", "AI cash-flow summary", "KI-Cashflow-Zusammenfassung")}</h2>
         <button onClick={generate} disabled={loading} className="text-xs font-medium px-3 py-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>
-          {loading ? tri(lang, "در حال تولید...", "Generating…", "Wird erstellt…") : text ? tri(lang, "تولید دوباره", "Regenerate", "Neu erstellen") : tri(lang, "تولید خلاصه", "Generate summary", "Zusammenfassung erstellen")}
+          {loading ? tri(lang, "در حال تولید...", "Generating…", "Wird erstellt…") : text ? tri(lang, "تولید دوباره", "Regenerate", "Neu erstellen") : tri(lang, "تولید خلاصه", "Generate summary", "Zusammenfassung erstellen")} <CreditCost feature="accounting.cash-flow-narrative" />
         </button>
       </div>
       {error && <p className="text-xs" style={{ color: "var(--neg)" }}>{error}</p>}

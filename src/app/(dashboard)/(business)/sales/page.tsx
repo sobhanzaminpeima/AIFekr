@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Handshake, Sparkles, Loader2, Send, Mail, Check } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useTranslation } from "@/lib/i18n";
+import CreditCost from "@/components/ui/CreditCost";
 
 const STR = {
   fa: {
@@ -156,7 +157,7 @@ export default function SalesAgentPage() {
           <button onClick={runAgent} disabled={running}
             className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {s.runAnalysis}
+            {s.runAnalysis} <CreditCost feature="sales.agent" />
           </button>
         </div>
 
@@ -181,7 +182,7 @@ export default function SalesAgentPage() {
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold disabled:opacity-50"
               style={{ background: "var(--surface-2)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
               {loadingDrafts ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
-              {s.generateDrafts}
+              {s.generateDrafts} <CreditCost feature="sales.followup-drafts" />
             </button>
           </div>
 

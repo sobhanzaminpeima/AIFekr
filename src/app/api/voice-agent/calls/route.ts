@@ -3,6 +3,8 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
+import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
+import { bizScope } from "@/lib/accounting/scope";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -11,8 +13,9 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const agentId = searchParams.get("agentId");
 
+  const businessId = await activeBusinessIdFor(user.id);
   const calls = await prisma.voiceCallLog.findMany({
-    where: { userId: user.id, ...(agentId ? { agentId } : {}) },
+    where: { userId: user.id, ...bizScope(businessId), ...(agentId ? { agentId } : {}) },
     orderBy: { createdAt: "desc" },
     take: 200,
     include: { agent: { select: { name: true } } },

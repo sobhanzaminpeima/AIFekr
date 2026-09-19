@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import Link from "next/link";
 import { useTranslation, tri } from "@/lib/i18n";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import CreditCost from "@/components/ui/CreditCost";
 
 type Tab = "url" | "keyword" | "content" | "meta";
 type Platform = "wordpress" | "aifekr" | "other";
@@ -507,7 +508,7 @@ export default function SEOPage() {
                 className="w-full py-3 rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
                 style={{ background: "var(--surface-2)", color: "var(--primary)", border: "1px solid var(--primary)" }}>
                 {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                {applying ? t.seo.applying : t.seo.applyButton}
+                {applying ? t.seo.applying : t.seo.applyButton} <CreditCost feature="seo.suggest" />
               </button>
             )}
           </>
@@ -523,7 +524,7 @@ export default function SEOPage() {
             </div>
             <button disabled={loading || !keyword} onClick={() => analyze("keyword", { keyword })}
               className="w-full py-3 rounded-xl font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2" style={{ background: "var(--primary)" }}>
-              <Search className="w-4 h-4" />{loading ? t.seo.analyzing : t.seo.researchButton}
+              <Search className="w-4 h-4" />{loading ? t.seo.analyzing : t.seo.researchButton} <CreditCost feature="seo.analyze" />
             </button>
           </>
         )}
@@ -544,7 +545,7 @@ export default function SEOPage() {
             </div>
             <button disabled={loading || !keyword || !content} onClick={() => analyze("content", { keyword, content })}
               className="w-full py-3 rounded-xl font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2" style={{ background: "var(--primary)" }}>
-              <FileText className="w-4 h-4" />{loading ? t.seo.optimizing : t.seo.optimizeButton}
+              <FileText className="w-4 h-4" />{loading ? t.seo.optimizing : t.seo.optimizeButton} <CreditCost feature="seo.analyze" />
             </button>
           </>
         )}
@@ -565,7 +566,7 @@ export default function SEOPage() {
             </div>
             <button disabled={loading || !pageTopic || !metaKeyword} onClick={() => analyze("meta", { keyword: metaKeyword, content: pageTopic })}
               className="w-full py-3 rounded-xl font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2" style={{ background: "var(--primary)" }}>
-              <Tag className="w-4 h-4" />{loading ? t.seo.generating : t.seo.metaGenerateButton}
+              <Tag className="w-4 h-4" />{loading ? t.seo.generating : t.seo.metaGenerateButton} <CreditCost feature="seo.analyze" />
             </button>
           </>
         )}

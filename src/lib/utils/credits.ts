@@ -176,7 +176,6 @@ export const PLAN_NAMES_FA: Record<string, string> = {
  */
 export const TOOL_FEATURES: Record<string, string> = {
   "accounting.ask": "حسابداری — دستیار مالی (پرسش)",
-  "accounting.audit-copilot": "حسابداری — کمک‌ممیز",
   "accounting.cash-flow-narrative": "حسابداری — روایت جریان نقدی",
   "accounting.owner-statement-assist": "حسابداری — کمک صورت‌حساب مالک",
   "accounting.propose": "حسابداری — پیشنهاد سند/دسته‌بندی",

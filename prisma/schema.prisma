@@ -2011,6 +2011,7 @@ model BoardroomSession {
 model VoiceAgent {
   id                String   @id @default(cuid())
   userId            String
+  businessId String?
   name              String
   /// "buy" | "sell" | "rent" | "general" — shapes the default system prompt.
   focus             String   @default("general")
@@ -2043,6 +2044,7 @@ model VoiceAgent {
   knowledgeBase VoiceKnowledgeBase[]
 
   @@index([userId])
+  @@index([businessId])
 }
 
 /// A Q&A / policy / info snippet the agent can pull from mid-call when a
@@ -2053,6 +2055,7 @@ model VoiceAgent {
 model VoiceKnowledgeBase {
   id        String   @id @default(cuid())
   userId    String
+  businessId String?
   agentId   String?
   title     String
   content   String
@@ -2064,6 +2067,7 @@ model VoiceKnowledgeBase {
 
   @@index([userId])
   @@index([agentId])
+  @@index([businessId])
 }
 
 /// A listing the agent can reference/offer during a call. Kept separate from
@@ -2261,6 +2265,7 @@ model PropertyBooking {
 model VoiceCallLog {
   id           String    @id @default(cuid())
   userId       String
+  businessId String?
   agentId      String
   /// Best-effort match to a CRM contact by phone number (see matchCrmContactByPhone()
   /// in src/lib/voice/crmLink.ts) — null when no match was found. Never
@@ -2289,12 +2294,14 @@ model VoiceCallLog {
   @@index([userId])
   @@index([agentId])
   @@index([contactId])
+  @@index([businessId])
 }
 
 /// A property viewing booked by the agent during (or after) a call.
 model VoiceAppointment {
   id          String   @id @default(cuid())
   userId      String
+  businessId String?
   agentId     String
   propertyId  String?
   callLogId   String?  @unique
@@ -2313,6 +2320,7 @@ model VoiceAppointment {
 
   @@index([userId])
   @@index([agentId])
+  @@index([businessId])
 }
 
 /// A rendered invite-card generation record (admin "Invite to AIfekr" tool).
@@ -2902,6 +2910,7 @@ model AccountingAiProposal {
 model LeadForm {
   id             String   @id @default(cuid())
   userId         String
+  businessId String?
   /// Public URL segment: /f/<slug>. Globally unique, slugified from title + short random suffix.
   slug           String   @unique
   title          String
@@ -2927,6 +2936,7 @@ model LeadForm {
   submissions LeadFormSubmission[]
 
   @@index([userId])
+  @@index([businessId])
 }
 
 model LeadFormSubmission {
@@ -2959,6 +2969,7 @@ model LeadFormSubmission {
 model LeadSource {
   id            String    @id @default(cuid())
   userId        String
+  businessId String?
   /// "meta" | "google"
   provider      String
   /// Meta: the Facebook Page id. Google: "default" (one per tenant).
@@ -2982,6 +2993,7 @@ model LeadSource {
   @@unique([userId, provider, externalId])
   @@index([userId])
   @@index([provider, externalId])
+  @@index([businessId])
 }
 
 // ---------------------------------------------------------------------------

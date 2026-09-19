@@ -196,6 +196,7 @@ async function handleToolCall(tc: VapiToolCall, message: VapiMessage) {
     const appointment = await prisma.voiceAppointment.create({
       data: {
         userId: agent.userId,
+        businessId: agent.businessId,
         agentId: agent.id,
         propertyId: property && property.userId === agent.userId ? property.id : undefined,
         leadName: String(leadName),
@@ -227,6 +228,7 @@ async function handleEndOfCall(message: VapiMessage) {
     where: { vapiCallId: message.call.id },
     create: {
       userId: agent.userId,
+      businessId: agent.businessId,
       agentId: agent.id,
       contactId: contactId || undefined,
       vapiCallId: message.call.id,

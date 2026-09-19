@@ -11,6 +11,7 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { tri, type Lang } from "@/lib/i18n";
 import ChatInterface from "@/components/chat/ChatInterface";
+import CreditCost from "@/components/ui/CreditCost";
 
 type MediaType = "chat" | "image" | "video" | "music";
 
@@ -702,11 +703,11 @@ export default function UnifiedCreateInterface({ lang }: { lang: Lang }) {
           />
           {mediaType === "image" && (
             <button onClick={translatePrompt} disabled={translating || !prompt.trim()} className="p-2.5 rounded-xl disabled:opacity-30 flex-shrink-0" style={{ color: "var(--text-muted)" }} title={tri(lang, "ترجمه", "Translate", "Übersetzen")}>
-              {translating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Languages className="w-4 h-4" />}
+              {translating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Languages className="w-4 h-4" />} <CreditCost feature="image.translate" />
             </button>
           )}
           <button onClick={send} disabled={sending || !prompt.trim() || (mediaType === "image" && mode === "puter" && !puterReady)} className="p-2.5 rounded-xl text-white disabled:opacity-50 flex-shrink-0" style={{ background: "var(--primary)" }}>
-            {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+            {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />} {!(mediaType === "image" && mode === "puter") && <CreditCost className="text-white" costKey={mediaType === "image" ? (imageQuality === "hd" ? "image_hd" : "image_standard") : mediaType === "video" ? (videoDuration <= 5 ? "video_5s" : videoDuration <= 10 ? "video_10s" : "video_30s") : (musicDuration <= 30 ? "music_30s" : musicDuration <= 60 ? "music_60s" : "music_120s")} times={mediaType === "image" ? imageCount : 1} />}
           </button>
         </div>
       </div>

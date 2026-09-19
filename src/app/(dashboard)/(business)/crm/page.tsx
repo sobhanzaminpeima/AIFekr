@@ -16,6 +16,7 @@ import { toJalali } from "@/lib/utils/jalali";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import ReactMarkdown from "react-markdown";
 import { useCompanyLogo } from "@/lib/hooks/useCompanyLogo";
+import CreditCost from "@/components/ui/CreditCost";
 
 interface Stage { id: string; name: string; nameEn: string | null; nameDe: string | null; order: number; isWon: boolean; isLost: boolean; }
 interface Pipeline { id: string; name: string; nameEn: string | null; nameDe: string | null; industrySlug: string | null; isDefault: boolean; stages: Stage[]; }
@@ -1658,7 +1659,7 @@ function CrmAgentPanel({ isFa, lang, t }: { isFa: boolean; lang: Lang; t: Transl
         <button onClick={runAgent} disabled={running}
           className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
           {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          {t.agent.analyzeButton}
+          {t.agent.analyzeButton} <CreditCost feature="crm.agent-run" />
         </button>
       </div>
 
@@ -4436,7 +4437,7 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
               ))}
               <button onClick={generateCopy} disabled={generatingCopy} className="text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-50 flex items-center gap-1.5" style={{ background: "var(--primary)" }}>
                 {generatingCopy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                {tri(lang, "تولید", "Generate", "Generieren", "Oluştur")}
+                {tri(lang, "تولید", "Generate", "Generieren", "Oluştur")} <CreditCost feature="crm.listing-copy" />
               </button>
             </div>
             {copyError && <p className="text-xs" style={{ color: "#ef4444" }}>{copyError}</p>}
@@ -4461,7 +4462,7 @@ function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnable
               <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مشاور قیمت‌گذاری", "Pricing Advisor", "Preisberater", "Fiyatlandırma Danışmanı")}</p>
               <button onClick={generatePricingAdviceClick} disabled={generatingAdvice} className="text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-50 flex items-center gap-1.5" style={{ background: "var(--primary)" }}>
                 {generatingAdvice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                {tri(lang, "تحلیل قیمت", "Analyze price", "Preis analysieren", "Fiyatı analiz et")}
+                {tri(lang, "تحلیل قیمت", "Analyze price", "Preis analysieren", "Fiyatı analiz et")} <CreditCost feature="crm.pricing-advice" />
               </button>
             </div>
             {adviceError && <p className="text-xs" style={{ color: "#ef4444" }}>{adviceError}</p>}
@@ -4923,7 +4924,7 @@ function BuyerMatchPanel({ lang, leadMatcherAgentEnabled }: { lang: Lang; leadMa
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold disabled:opacity-50"
               style={{ background: "var(--surface-2)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
               {loadingDrafts ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-              {tri(lang, "تولید پیش‌نویس", "Generate drafts", "Entwürfe generieren", "Taslak oluştur")}
+              {tri(lang, "تولید پیش‌نویس", "Generate drafts", "Entwürfe generieren", "Taslak oluştur")} <CreditCost feature="crm.lead-matcher" />
             </button>
           </div>
           {leadDrafts.length === 0 && !loadingDrafts ? (
@@ -5104,7 +5105,7 @@ function PerformanceReportPanel({ lang, agencyManagerEnabled }: { lang: Lang; ag
               </select>
               <button onClick={generateAgencyReport} disabled={generatingAgencyReport} className="text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-50 flex items-center gap-1.5" style={{ background: "var(--primary)" }}>
                 {generatingAgencyReport ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                {tri(lang, "تولید گزارش", "Generate report", "Bericht erstellen", "Rapor oluştur")}
+                {tri(lang, "تولید گزارش", "Generate report", "Bericht erstellen", "Rapor oluştur")} <CreditCost feature="crm.agency-report" />
               </button>
             </div>
           </div>

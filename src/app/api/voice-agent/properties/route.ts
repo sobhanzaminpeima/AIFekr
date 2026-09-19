@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { serializeVoiceProperty } from "@/lib/voice/workspace";
+import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
+import { bizScope } from "@/lib/accounting/scope";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -12,8 +14,9 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
 
+  const businessId = await activeBusinessIdFor(user.id);
   const properties = await prisma.property.findMany({
-    where: { userId: user.id, ...(status ? { status } : {}) },
+    where: { userId: user.id, ...bizScope(businessId), ...(status ? { status } : {}) },
     orderBy: { updatedAt: "desc" },
     take: 500,
   });
@@ -37,9 +40,11 @@ export async function POST(req: NextRequest) {
     if (!agent || agent.userId !== user.id) return NextResponse.json({ error: "ایجنت نامعتبر است" }, { status: 400 });
   }
 
+  const businessId = await activeBusinessIdFor(user.id);
   const property = await prisma.property.create({
     data: {
       userId: user.id,
+      businessId,
       agentId: agentId || undefined,
       title: title.trim(),
       listingType,
@@ -66,6 +71,7 @@ export async function POST(req: NextRequest) {
     const priorInterest = await prisma.property.findMany({
       where: {
         userId: user.id,
+        ...bizScope(businessId),
         id: { not: property.id },
         crmContactId: { not: null },
         propertyType: property.propertyType,

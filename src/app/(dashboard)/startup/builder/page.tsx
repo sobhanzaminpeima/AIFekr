@@ -5,6 +5,7 @@ import { Rocket, Lightbulb, DollarSign, FileText, Code2, ChevronRight, Loader2, 
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { useTranslation } from "@/lib/i18n";
+import CreditCost from "@/components/ui/CreditCost";
 
 type Stage = "idea" | "financial" | "proposal" | "implementation";
 type Lang = "fa" | "en" | "de" | "tr";
@@ -428,7 +429,7 @@ export default function StartupBuilderPage() {
                   {loading ? (
                     <><Loader2 className="w-5 h-5 animate-spin" /> {t(lang, "در حال تولید با AI...", "Generating with AI...", "Wird mit KI generiert...")}</>
                   ) : (
-                    <><Rocket className="w-5 h-5" /> {t(lang, "تولید با هوش مصنوعی", "Generate with AI", "Mit KI generieren")} <ArrowRight className="w-4 h-4" /></>
+                    <><Rocket className="w-5 h-5" /> {t(lang, "تولید با هوش مصنوعی", "Generate with AI", "Mit KI generieren")} <ArrowRight className="w-4 h-4" /> <CreditCost feature="startup.generate" /></>
                   )}
                 </button>
               </div>

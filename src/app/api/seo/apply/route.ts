@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { safeFetch } from "@/lib/net/safeUrl";
+import { decryptSecret } from "@/lib/crypto/secretBox";
 
 interface ApplyResult {
   field: string;
@@ -20,7 +21,7 @@ async function applyToWordPress(
     return { ok: false, results: [], error: "اتصال وردپرس کامل نیست" };
   }
   const base = conn.siteUrl.replace(/\/$/, "");
-  const auth = "Basic " + Buffer.from(`${conn.wpUsername}:${conn.wpAppPassword}`).toString("base64");
+  const auth = "Basic " + Buffer.from(`${conn.wpUsername}:${decryptSecret(conn.wpAppPassword)}`).toString("base64");
   const slug = new URL(url).pathname.split("/").filter(Boolean).pop() || "";
 
   // WordPress core doesn't expose a search-by-full-URL endpoint, so we
