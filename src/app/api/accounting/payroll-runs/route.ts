@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { generatePayrollRun } from "@/lib/accounting/payroll";
 import { ensureDefaultChartOfAccounts } from "@/lib/accounting/chartOfAccounts";
 import { getServerLang } from "@/lib/i18n/server";
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
   const runs = await prisma.accountingPayrollRun.findMany({
-    where: { workspaceUserId: ws.workspaceUserId },
+    where: { workspaceUserId: ws.workspaceUserId, ...businessFilter(ws) },
     include: { payslips: { include: { employee: true } } },
     orderBy: { period: "desc" },
   });
@@ -37,8 +37,8 @@ export async function POST(req: NextRequest) {
   if (!period) return NextResponse.json({ error: tri(lang, "ماه الزامی است", "Period is required", "Zeitraum ist erforderlich") }, { status: 400 });
 
   try {
-    await ensureDefaultChartOfAccounts(ws.workspaceUserId);
-    const run = await generatePayrollRun(ws.workspaceUserId, new Date(period));
+    await ensureDefaultChartOfAccounts(ws.workspaceUserId, ws.businessId);
+    const run = await generatePayrollRun(ws.workspaceUserId, new Date(period), ws.businessId);
     return NextResponse.json({ run });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : tri(lang, "خطا در ساخت لیست حقوق", "Failed to generate payroll run", "Fehler beim Erstellen der Gehaltsabrechnung") }, { status: 400 });

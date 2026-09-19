@@ -29,6 +29,7 @@ export interface PostJournalLineInput {
 
 export interface PostJournalEntryInput {
   workspaceUserId: string;
+  businessId?: string | null;
   /** User.id who posted this, or "system" for auto-posted entries. */
   postedBy: string;
   memo?: string;
@@ -72,8 +73,22 @@ export class UnknownAccountError extends Error {
  * above on any invariant violation — callers should not catch these to
  * "fix" the data, only to surface the error.
  */
+/**
+ * Thrown when an entry is posted without a business into a workspace that runs
+ * more than one. Guessing would attach the lines to another business's
+ * accounts and silently corrupt both sets of books, so the ledger refuses.
+ */
+export class BusinessRequiredError extends Error {
+  constructor() {
+    super("This workspace has several businesses: a journal entry must say which business it belongs to");
+    this.name = "BusinessRequiredError";
+  }
+}
+
 export async function postJournalEntry(input: PostJournalEntryInput): Promise<Prisma.AccountingJournalEntryGetPayload<{ include: { lines: true } }>> {
   const { workspaceUserId, postedBy, memo, sourceRef } = input;
+  let businessId = input.businessId;
+  let businessScope: { businessId?: string } = businessId ? { businessId } : {};
   const entryDate = input.entryDate || new Date();
 
   if (input.lines.length < 2) {
@@ -105,15 +120,24 @@ export async function postJournalEntry(input: PostJournalEntryInput): Promise<Pr
   }
 
   const lockedPeriod = await prisma.accountingFiscalPeriod.findFirst({
-    where: { workspaceUserId, isLocked: true, startDate: { lte: entryDate }, endDate: { gte: entryDate } },
+    where: { workspaceUserId, ...businessScope, isLocked: true, startDate: { lte: entryDate }, endDate: { gte: entryDate } },
   });
   if (lockedPeriod) throw new PeriodLockedError(entryDate);
 
   const codes = Array.from(new Set(input.lines.map((l) => l.accountCode)));
   const accounts = await prisma.accountingAccount.findMany({
-    where: { workspaceUserId, code: { in: codes } },
-    select: { id: true, code: true },
+    where: { workspaceUserId, ...businessScope, code: { in: codes } },
+    select: { id: true, code: true, businessId: true },
   });
+  if (!businessId) {
+    // Legacy caller (no business given). Safe only while the workspace has a
+    // single business: then it is unambiguous, and we adopt it so the entry is
+    // stamped correctly. With several, refuse rather than pick one at random.
+    const businesses = new Set(accounts.map((a) => a.businessId ?? null));
+    if (businesses.size > 1) throw new BusinessRequiredError();
+    const only = accounts[0]?.businessId;
+    if (only) { businessId = only; businessScope = { businessId: only }; }
+  }
   const accountIdByCode = new Map(accounts.map((a) => [a.code, a.id]));
   for (const code of codes) {
     if (!accountIdByCode.has(code)) throw new UnknownAccountError(code);
@@ -124,6 +148,7 @@ export async function postJournalEntry(input: PostJournalEntryInput): Promise<Pr
       const created = await tx.accountingJournalEntry.create({
         data: {
           workspaceUserId,
+          ...businessScope,
           postedBy,
           memo,
           entryDate,
@@ -147,7 +172,7 @@ export async function postJournalEntry(input: PostJournalEntryInput): Promise<Pr
         actorId: postedBy,
         action: "journal_entry_posted",
         targetId: entry.id,
-        metadata: JSON.stringify({ workspaceUserId, sourceRef: sourceRef || null, debitTotal, creditTotal }),
+        metadata: JSON.stringify({ workspaceUserId, businessId: businessId || null, sourceRef: sourceRef || null, debitTotal, creditTotal }),
       },
     }).catch(() => {});
 
@@ -179,6 +204,7 @@ export async function reverseJournalEntry(entryId: string, postedBy: string, mem
 
   const reversal = await postJournalEntry({
     workspaceUserId: original.workspaceUserId,
+    businessId: original.businessId ?? undefined,
     postedBy,
     memo: memo || `Reversal of entry ${original.id}`,
     entryDate: new Date(),

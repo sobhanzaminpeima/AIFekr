@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { createCommissionRecord } from "@/lib/accounting/commission";
 import { ensureDefaultChartOfAccounts } from "@/lib/accounting/chartOfAccounts";
 import { getServerLang } from "@/lib/i18n/server";
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
   const records = await prisma.accountingCommissionRecord.findMany({
-    where: { workspaceUserId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { splits: { some: { agentUserId: ws.actingUserId } } } : {}) },
+    where: { workspaceUserId: ws.workspaceUserId, ...businessFilter(ws), ...(ws.isAgentRestricted ? { splits: { some: { agentUserId: ws.actingUserId } } } : {}) },
     include: { splits: true, deal: { select: { id: true, title: true } } },
     orderBy: { createdAt: "desc" },
   });
@@ -39,12 +39,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: tri(lang, "معامله، مبلغ کل و حداقل یک ایجنت الزامی است", "Deal, total amount, and at least one agent split are required", "Deal, Gesamtbetrag und mindestens ein Agentenanteil sind erforderlich") }, { status: 400 });
   }
 
-  const deal = await prisma.crmDeal.findFirst({ where: { id: dealId, userId: ws.workspaceUserId } });
+  const deal = await prisma.crmDeal.findFirst({ where: { id: dealId, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (!deal) return NextResponse.json({ error: tri(lang, "معامله پیدا نشد", "Deal not found", "Deal nicht gefunden") }, { status: 404 });
 
   try {
-    await ensureDefaultChartOfAccounts(ws.workspaceUserId);
-    const record = await createCommissionRecord(ws.workspaceUserId, dealId, totalAmount, splits);
+    await ensureDefaultChartOfAccounts(ws.workspaceUserId, ws.businessId);
+    const record = await createCommissionRecord(ws.workspaceUserId, dealId, totalAmount, splits, ws.businessId);
     return NextResponse.json({ record });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : tri(lang, "خطا در ثبت کمیسیون", "Failed to create commission record", "Fehler beim Erstellen der Provision") }, { status: 400 });

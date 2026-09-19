@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       try {
         await runCrmAnalysis(ws.workspaceUserId, (text) => {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
-        });
+        }, ws.businessId);
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
       } catch (err) {
         console.error("CRM agent error:", err);

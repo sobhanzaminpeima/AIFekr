@@ -93,9 +93,9 @@ export interface LeadMatchDraft {
   message: string;
 }
 
-export async function generateLeadMatcherDrafts(userId: string, lang: Lang): Promise<LeadMatchDraft[]> {
+export async function generateLeadMatcherDrafts(userId: string, lang: Lang, businessId?: string | null): Promise<LeadMatchDraft[]> {
   const leads = await prisma.crmContact.findMany({
-    where: { userId, status: { in: ["lead", "contacted"] } },
+    where: { userId, ...(businessId ? { businessId } : {}), status: { in: ["lead", "contacted"] } },
     orderBy: { updatedAt: "desc" },
     take: 10,
     select: { id: true, name: true, email: true, phone: true, customFields: true },
@@ -109,7 +109,7 @@ export async function generateLeadMatcherDrafts(userId: string, lang: Lang): Pro
   let properties: MatchableProperty[] = [];
   try {
     properties = await prisma.property.findMany({
-      where: { userId, status: "available" },
+      where: { userId, ...(businessId ? { businessId } : {}), status: "available" },
       select: { id: true, title: true, listingType: true, propertyType: true, price: true, city: true, bedrooms: true, address: true },
     });
   } catch (err) {

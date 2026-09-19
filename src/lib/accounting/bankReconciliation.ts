@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { parseCsv } from "@/lib/utils/csv";
+import { bizScope } from "./scope";
 
 /**
  * Bank reconciliation (spec ۳.۶). Iran has no widespread Open Banking API,
@@ -36,12 +37,12 @@ export function parseBankStatementCsv(csvText: string): ImportedTransaction[] {
     .filter((t) => !isNaN(t.amount) && !isNaN(t.date.getTime()));
 }
 
-export async function importBankTransactions(workspaceUserId: string, bankAccountId: string, transactions: ImportedTransaction[]) {
-  const account = await prisma.accountingBankAccount.findFirst({ where: { id: bankAccountId, workspaceUserId } });
+export async function importBankTransactions(workspaceUserId: string, bankAccountId: string, transactions: ImportedTransaction[], businessId?: string | null) {
+  const account = await prisma.accountingBankAccount.findFirst({ where: { id: bankAccountId, workspaceUserId, ...bizScope(businessId) } });
   if (!account) throw new Error("Bank account not found");
 
   await prisma.accountingBankTransaction.createMany({
-    data: transactions.map((t) => ({ workspaceUserId, bankAccountId, date: t.date, description: t.description, amount: t.amount })),
+    data: transactions.map((t) => ({ workspaceUserId, ...bizScope(account.businessId ?? businessId), bankAccountId, date: t.date, description: t.description, amount: t.amount })),
   });
   return prisma.accountingBankTransaction.count({ where: { bankAccountId, status: "unmatched" } });
 }
@@ -81,9 +82,9 @@ const AMOUNT_TOLERANCE = 1; // Toman — float rounding only, not a real fuzzy a
 const DATE_WINDOW_DAYS = 5;
 
 /** Finds candidate expense/invoice payments that could explain one unmatched bank transaction, ranked by confidence. */
-export async function findMatchCandidates(workspaceUserId: string, transactionId: string): Promise<MatchCandidate[]> {
+export async function findMatchCandidates(workspaceUserId: string, transactionId: string, businessId?: string | null): Promise<MatchCandidate[]> {
   const txn = await prisma.accountingBankTransaction.findUniqueOrThrow({ where: { id: transactionId } });
-  if (txn.workspaceUserId !== workspaceUserId) throw new Error("Not found");
+  if (txn.workspaceUserId !== workspaceUserId || (businessId && txn.businessId !== businessId)) throw new Error("Not found");
 
   const windowStart = new Date(txn.date.getTime() - DATE_WINDOW_DAYS * 86400000);
   const windowEnd = new Date(txn.date.getTime() + DATE_WINDOW_DAYS * 86400000);
@@ -94,7 +95,7 @@ export async function findMatchCandidates(workspaceUserId: string, transactionId
   if (txn.amount < 0) {
     // A withdrawal — look for a paid expense in the same amount/date window.
     const expenses = await prisma.accountingExpense.findMany({
-      where: { workspaceUserId, status: "paid", paidAt: { gte: windowStart, lte: windowEnd }, amount: { gte: absAmount - AMOUNT_TOLERANCE, lte: absAmount + AMOUNT_TOLERANCE } },
+      where: { workspaceUserId, ...bizScope(businessId), status: "paid", paidAt: { gte: windowStart, lte: windowEnd }, amount: { gte: absAmount - AMOUNT_TOLERANCE, lte: absAmount + AMOUNT_TOLERANCE } },
     });
     for (const e of expenses) {
       const dateScore = 1 - Math.abs((e.paidAt!.getTime() - txn.date.getTime()) / (DATE_WINDOW_DAYS * 86400000));
@@ -104,7 +105,7 @@ export async function findMatchCandidates(workspaceUserId: string, transactionId
   } else {
     // A deposit — look for a paid invoice in the same amount/date window.
     const invoices = await prisma.crmInvoice.findMany({
-      where: { userId: workspaceUserId, status: "paid", paidAt: { gte: windowStart, lte: windowEnd }, total: { gte: absAmount - AMOUNT_TOLERANCE, lte: absAmount + AMOUNT_TOLERANCE } },
+      where: { userId: workspaceUserId, ...bizScope(businessId), status: "paid", paidAt: { gte: windowStart, lte: windowEnd }, total: { gte: absAmount - AMOUNT_TOLERANCE, lte: absAmount + AMOUNT_TOLERANCE } },
       include: { contact: { select: { name: true } } },
     });
     for (const inv of invoices) {
@@ -118,13 +119,33 @@ export async function findMatchCandidates(workspaceUserId: string, transactionId
 }
 
 /** Confirms a match — the final decision is always the user's (spec ۸.۵-equivalent for finance: AI/algorithm proposes, human decides). */
-export async function confirmMatch(transactionId: string, matchedType: "expense" | "invoice", matchedId: string, matchedBy: string) {
+export type BankScope = { workspaceUserId: string; businessId?: string | null };
+
+/**
+ * Confirms a match. When a scope is supplied this verifies BOTH sides belong to
+ * the caller: the bank line, and the expense/invoice it is being linked to. The
+ * second check closes an IDOR -- without it a user could link their bank line to
+ * any other tenant's (or another business's) record by guessing its id.
+ */
+export async function confirmMatch(transactionId: string, matchedType: "expense" | "invoice", matchedId: string, matchedBy: string, scope?: BankScope) {
+  if (scope) {
+    const txn = await prisma.accountingBankTransaction.findFirst({ where: { id: transactionId, workspaceUserId: scope.workspaceUserId, ...bizScope(scope.businessId) }, select: { id: true } });
+    if (!txn) throw new Error("Bank transaction not found in this workspace");
+    const target = matchedType === "expense"
+      ? await prisma.accountingExpense.findFirst({ where: { id: matchedId, workspaceUserId: scope.workspaceUserId, ...bizScope(scope.businessId) }, select: { id: true } })
+      : await prisma.crmInvoice.findFirst({ where: { id: matchedId, userId: scope.workspaceUserId, ...bizScope(scope.businessId) }, select: { id: true } });
+    if (!target) throw new Error("The record being matched was not found in this workspace");
+  }
   return prisma.accountingBankTransaction.update({
     where: { id: transactionId },
     data: { status: "matched", matchedType, matchedId, matchedAt: new Date(), matchedBy },
   });
 }
 
-export async function ignoreTransaction(transactionId: string, by: string) {
+export async function ignoreTransaction(transactionId: string, by: string, scope?: BankScope) {
+  if (scope) {
+    const txn = await prisma.accountingBankTransaction.findFirst({ where: { id: transactionId, workspaceUserId: scope.workspaceUserId, ...bizScope(scope.businessId) }, select: { id: true } });
+    if (!txn) throw new Error("Bank transaction not found in this workspace");
+  }
   return prisma.accountingBankTransaction.update({ where: { id: transactionId }, data: { status: "ignored", matchedBy: by, matchedAt: new Date() } });
 }

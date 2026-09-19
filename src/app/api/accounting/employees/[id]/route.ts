@@ -19,7 +19,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const { name, userId, baseSalary, isActive } = body as { name?: string; userId?: string | null; baseSalary?: number; isActive?: boolean };
 
   try {
-    const employee = await upsertEmployee({ workspaceUserId: ws.workspaceUserId, id: params.id, name, userId, baseSalary, isActive });
+    const employee = await upsertEmployee({ workspaceUserId: ws.workspaceUserId, businessId: ws.businessId, id: params.id, name, userId, baseSalary, isActive });
     return NextResponse.json({ employee });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : tri(lang, "خطا در به‌روزرسانی کارمند", "Failed to update employee", "Fehler beim Aktualisieren des Mitarbeiters") }, { status: 400 });

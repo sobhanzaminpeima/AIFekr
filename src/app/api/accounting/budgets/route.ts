@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 
   const periodParam = req.nextUrl.searchParams.get("period");
   const period = periodParam ? new Date(periodParam) : new Date();
-  const rows = await getBudgetVsActual(ws.workspaceUserId, period);
+  const rows = await getBudgetVsActual(ws.workspaceUserId, period, ws.businessId);
   return NextResponse.json({ rows });
 }
 
@@ -34,6 +34,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: tri(lang, "کد حساب، دوره و مبلغ الزامی است", "Account code, period, and amount are required", "Kontocode, Zeitraum und Betrag sind erforderlich") }, { status: 400 });
   }
 
-  const budget = await setBudget(ws.workspaceUserId, accountCode, new Date(period), amount);
+  const budget = await setBudget(ws.workspaceUserId, accountCode, new Date(period), amount, ws.businessId);
   return NextResponse.json({ budget });
 }

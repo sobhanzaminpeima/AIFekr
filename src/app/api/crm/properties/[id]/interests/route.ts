@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
-  const property = await prisma.property.findFirst({ where: { id: params.id, userId: ws.workspaceUserId } });
+  const property = await prisma.property.findFirst({ where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (!property) return NextResponse.json({ error: tri(lang, "ملک یافت نشد", "Property not found", "Immobilie nicht gefunden") }, { status: 404 });
 
   const interests = await prisma.propertyInterest.findMany({
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
-  const property = await prisma.property.findFirst({ where: { id: params.id, userId: ws.workspaceUserId } });
+  const property = await prisma.property.findFirst({ where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (!property) return NextResponse.json({ error: tri(lang, "ملک یافت نشد", "Property not found", "Immobilie nicht gefunden") }, { status: 404 });
 
   const body = await req.json();
@@ -65,18 +65,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const name: string | undefined = body.name?.trim();
     if (!name) return NextResponse.json({ error: tri(lang, "نام مشتری یا شناسه مخاطب الزامی است", "Customer name or contact ID is required", "Kundenname oder Kontakt-ID ist erforderlich") }, { status: 400 });
     const contact = await prisma.crmContact.create({
-      data: { userId: ws.workspaceUserId, name, phone: body.phone?.trim() || undefined, email: body.email?.trim() || undefined, status: "lead", assignedToId: ws.isAgentRestricted ? ws.actingUserId : undefined },
+      data: { userId: ws.workspaceUserId, ...businessFilter(ws), name, phone: body.phone?.trim() || undefined, email: body.email?.trim() || undefined, status: "lead", assignedToId: ws.isAgentRestricted ? ws.actingUserId : undefined },
       select: { id: true },
     });
     contactId = contact.id;
   } else {
-    const contact = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}) }, select: { id: true } });
+    const contact = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, ...businessFilter(ws), ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}) }, select: { id: true } });
     if (!contact) return NextResponse.json({ error: tri(lang, "مخاطب یافت نشد", "Contact not found", "Kontakt nicht gefunden") }, { status: 404 });
   }
 
   const interest = await prisma.propertyInterest.upsert({
     where: { propertyId_contactId: { propertyId: params.id, contactId } },
-    create: { userId: ws.workspaceUserId, propertyId: params.id, contactId, note },
+    create: { userId: ws.workspaceUserId, ...businessFilter(ws), propertyId: params.id, contactId, note },
     update: { note },
     include: { contact: { select: { id: true, name: true, phone: true, email: true } } },
   });
@@ -94,7 +94,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   }
 
   const { contactId } = await req.json();
-  const existing = await prisma.propertyInterest.findFirst({ where: { propertyId: params.id, contactId, userId: ws.workspaceUserId } });
+  const existing = await prisma.propertyInterest.findFirst({ where: { propertyId: params.id, contactId, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
   await prisma.propertyInterest.delete({ where: { id: existing.id } });

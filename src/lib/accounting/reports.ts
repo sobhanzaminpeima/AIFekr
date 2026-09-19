@@ -21,9 +21,9 @@ export interface TrialBalanceRow {
 const CREDIT_NATURAL_TYPES = new Set(["liability", "equity", "revenue"]);
 
 /** Trial balance as of `asOf` (defaults to now) — every account with any posted activity, plus its net balance. */
-export async function getTrialBalance(workspaceUserId: string, asOf: Date = new Date()): Promise<TrialBalanceRow[]> {
+export async function getTrialBalance(workspaceUserId: string, asOf: Date = new Date(), businessId?: string | null): Promise<TrialBalanceRow[]> {
   const accounts = await prisma.accountingAccount.findMany({
-    where: { workspaceUserId },
+    where: { workspaceUserId, ...(businessId ? { businessId } : {}) },
     orderBy: { code: "asc" },
   });
 
@@ -52,9 +52,9 @@ export interface ProfitAndLossResult {
 }
 
 /** Basic P&L for [from, to] — revenue accounts' credit balance minus expense accounts' debit balance. */
-export async function getProfitAndLoss(workspaceUserId: string, from: Date, to: Date): Promise<ProfitAndLossResult> {
+export async function getProfitAndLoss(workspaceUserId: string, from: Date, to: Date, businessId?: string | null): Promise<ProfitAndLossResult> {
   const accounts = await prisma.accountingAccount.findMany({
-    where: { workspaceUserId, type: { in: ["revenue", "expense"] } },
+    where: { workspaceUserId, ...(businessId ? { businessId } : {}), type: { in: ["revenue", "expense"] } },
   });
 
   const revenueByAccount: ProfitAndLossResult["revenueByAccount"] = [];
@@ -106,9 +106,9 @@ export interface CustomReportRow {
  * simplification versus the spec's full "save as reusable report" feature,
  * flagged rather than silently skipped.
  */
-export async function runCustomReport(workspaceUserId: string, accountCodes: string[], from: Date, to: Date): Promise<CustomReportRow[]> {
+export async function runCustomReport(workspaceUserId: string, accountCodes: string[], from: Date, to: Date, businessId?: string | null): Promise<CustomReportRow[]> {
   const accounts = await prisma.accountingAccount.findMany({
-    where: { workspaceUserId, ...(accountCodes.length > 0 ? { code: { in: accountCodes } } : {}) },
+    where: { workspaceUserId, ...(businessId ? { businessId } : {}), ...(accountCodes.length > 0 ? { code: { in: accountCodes } } : {}) },
     orderBy: { code: "asc" },
   });
 

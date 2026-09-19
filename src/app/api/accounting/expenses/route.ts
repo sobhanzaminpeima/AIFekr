@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { createExpense } from "@/lib/accounting/expenses";
 import { ensureDefaultChartOfAccounts } from "@/lib/accounting/chartOfAccounts";
 import { getServerLang } from "@/lib/i18n/server";
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   const status = req.nextUrl.searchParams.get("status") || undefined;
   const expenses = await prisma.accountingExpense.findMany({
-    where: { workspaceUserId: ws.workspaceUserId, ...(status ? { status } : {}) },
+    where: { workspaceUserId: ws.workspaceUserId, ...businessFilter(ws), ...(status ? { status } : {}) },
     include: { vendor: true, property: { select: { id: true, title: true } } },
     orderBy: { expenseDate: "desc" },
   });
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     let ownedPropertyId: string | undefined;
     if (propertyId) {
       const owned = await prisma.property.findFirst({
-        where: { id: propertyId, userId: ws.workspaceUserId },
+        where: { id: propertyId, userId: ws.workspaceUserId, ...businessFilter(ws) },
         select: { id: true },
       });
       if (!owned) {
@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
 
     const expense = await createExpense({
       workspaceUserId: ws.workspaceUserId,
+      businessId: ws.businessId || undefined,
       vendorId,
       propertyId: ownedPropertyId,
       kind,

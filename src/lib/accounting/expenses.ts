@@ -20,6 +20,7 @@ const DEFAULT_APPROVAL_THRESHOLD = 5_000_000; // Toman
 
 export interface CreateExpenseInput {
   workspaceUserId: string;
+  businessId?: string;
   vendorId?: string;
   /** The unit this cost belongs to. Omitted for agency-level costs like office rent. */
   propertyId?: string;
@@ -42,6 +43,7 @@ export async function createExpense(input: CreateExpenseInput) {
   return prisma.accountingExpense.create({
     data: {
       workspaceUserId: input.workspaceUserId,
+      businessId: input.businessId,
       vendorId: input.vendorId,
       propertyId: input.propertyId,
       kind: input.kind || "cash_expense",
@@ -57,8 +59,19 @@ export async function createExpense(input: CreateExpenseInput) {
   });
 }
 
-export async function approveExpense(expenseId: string, approvedBy: string) {
+export type ExpenseScope = { workspaceUserId: string; businessId?: string | null };
+
+/** Defence in depth: refuses an expense from another workspace/business even if the caller skipped its own ownership check. */
+function assertExpenseInScope(expense: { workspaceUserId: string; businessId: string | null }, scope?: ExpenseScope) {
+  if (!scope) return;
+  if (expense.workspaceUserId !== scope.workspaceUserId || (scope.businessId && expense.businessId !== scope.businessId)) {
+    throw new Error("Expense not found in this workspace");
+  }
+}
+
+export async function approveExpense(expenseId: string, approvedBy: string, scope?: ExpenseScope) {
   const expense = await prisma.accountingExpense.findUniqueOrThrow({ where: { id: expenseId } });
+  assertExpenseInScope(expense, scope);
   if (expense.status !== "pending_approval") throw new Error("Only a pending expense can be approved");
   return prisma.accountingExpense.update({
     where: { id: expenseId },
@@ -66,8 +79,9 @@ export async function approveExpense(expenseId: string, approvedBy: string) {
   });
 }
 
-export async function rejectExpense(expenseId: string, rejectedBy: string) {
+export async function rejectExpense(expenseId: string, rejectedBy: string, scope?: ExpenseScope) {
   const expense = await prisma.accountingExpense.findUniqueOrThrow({ where: { id: expenseId } });
+  assertExpenseInScope(expense, scope);
   if (expense.status !== "pending_approval") throw new Error("Only a pending expense can be rejected");
   return prisma.accountingExpense.update({
     where: { id: expenseId },
@@ -87,8 +101,9 @@ export async function rejectExpense(expenseId: string, rejectedBy: string) {
  * answerable. If no rate is available, this refuses to post rather than
  * guess — same rule as every other conversion in this module (reportingFx.ts).
  */
-export async function payExpense(expenseId: string, paidBy: string) {
+export async function payExpense(expenseId: string, paidBy: string, scope?: ExpenseScope) {
   const expense = await prisma.accountingExpense.findUniqueOrThrow({ where: { id: expenseId } });
+  assertExpenseInScope(expense, scope);
   if (expense.status !== "approved") throw new Error("Only an approved expense can be paid");
 
   let ledgerAmount = expense.amount;
@@ -103,6 +118,7 @@ export async function payExpense(expenseId: string, paidBy: string) {
 
   await postJournalEntry({
     workspaceUserId: expense.workspaceUserId,
+    businessId: expense.businessId ?? undefined,
     postedBy: paidBy,
     memo,
     sourceRef: `expense:paid:${expense.id}`,

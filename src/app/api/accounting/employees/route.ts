@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const lang = await getServerLang();
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
-  const employees = await listEmployees(ws.workspaceUserId);
+  const employees = await listEmployees(ws.workspaceUserId, ws.businessId);
   return NextResponse.json({ employees });
 }
 
@@ -30,6 +30,6 @@ export async function POST(req: NextRequest) {
   const { name, userId, baseSalary } = body as { name?: string; userId?: string; baseSalary?: number };
   if (!name) return NextResponse.json({ error: tri(lang, "نام کارمند الزامی است", "Employee name is required", "Der Name des Mitarbeiters ist erforderlich") }, { status: 400 });
 
-  const employee = await upsertEmployee({ workspaceUserId: ws.workspaceUserId, name, userId, baseSalary });
+  const employee = await upsertEmployee({ workspaceUserId: ws.workspaceUserId, businessId: ws.businessId, name, userId, baseSalary });
   return NextResponse.json({ employee });
 }

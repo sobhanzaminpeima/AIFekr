@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyApiToken, getBiExport } from "@/lib/accounting/biApi";
+import { verifyApiTokenScope, getBiExport } from "@/lib/accounting/biApi";
 
 /**
  * The external-BI export endpoint (spec ۴). Deliberately outside
@@ -17,14 +17,14 @@ export async function GET(req: NextRequest) {
   const match = auth.match(/^Bearer\s+(.+)$/i);
   if (!match) return NextResponse.json({ error: "Missing bearer token" }, { status: 401 });
 
-  const workspaceUserId = await verifyApiToken(match[1]);
-  if (!workspaceUserId) return NextResponse.json({ error: "Invalid or revoked token" }, { status: 401 });
+  const scope = await verifyApiTokenScope(match[1]);
+  if (!scope) return NextResponse.json({ error: "Invalid or revoked token" }, { status: 401 });
 
   const fromParam = req.nextUrl.searchParams.get("from");
   const toParam = req.nextUrl.searchParams.get("to");
   const to = toParam ? new Date(toParam) : new Date();
   const from = fromParam ? new Date(fromParam) : new Date(to.getFullYear(), to.getMonth(), 1);
 
-  const data = await getBiExport(workspaceUserId, from, to);
+  const data = await getBiExport(scope.workspaceUserId, from, to, scope.businessId);
   return NextResponse.json(data);
 }

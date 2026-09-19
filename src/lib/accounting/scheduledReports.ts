@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { bizScope } from "./scope";
 import { accountName } from "@/lib/accounting/accountName";
 import { tri } from "@/lib/i18n/tri";
 import {
@@ -25,6 +26,7 @@ export type Frequency = "weekly" | "monthly";
 
 export interface CreateScheduledReportInput {
   workspaceUserId: string;
+  businessId?: string | null;
   reportType: ReportType;
   frequency: Frequency;
   recipientEmail: string;
@@ -37,6 +39,7 @@ export async function createScheduledReport(input: CreateScheduledReportInput) {
   return prisma.accountingScheduledReport.create({
     data: {
       workspaceUserId: input.workspaceUserId,
+      ...bizScope(input.businessId),
       reportType: input.reportType,
       frequency: input.frequency,
       recipientEmail: input.recipientEmail,
@@ -46,12 +49,12 @@ export async function createScheduledReport(input: CreateScheduledReportInput) {
   });
 }
 
-export async function listScheduledReports(workspaceUserId: string) {
-  return prisma.accountingScheduledReport.findMany({ where: { workspaceUserId }, orderBy: { createdAt: "asc" } });
+export async function listScheduledReports(workspaceUserId: string, businessId?: string | null) {
+  return prisma.accountingScheduledReport.findMany({ where: { workspaceUserId, ...bizScope(businessId) }, orderBy: { createdAt: "asc" } });
 }
 
-export async function pauseScheduledReport(id: string, workspaceUserId: string) {
-  const report = await prisma.accountingScheduledReport.findFirstOrThrow({ where: { id, workspaceUserId } });
+export async function pauseScheduledReport(id: string, workspaceUserId: string, businessId?: string | null) {
+  const report = await prisma.accountingScheduledReport.findFirstOrThrow({ where: { id, workspaceUserId, ...bizScope(businessId) } });
   // Same class of bug as approveFirstRun's error below: hardcoded English,
   // passed straight to the client as err.message regardless of UI language.
   if (report.status !== "active") {
@@ -60,16 +63,16 @@ export async function pauseScheduledReport(id: string, workspaceUserId: string) 
   return prisma.accountingScheduledReport.update({ where: { id }, data: { status: "paused" } });
 }
 
-export async function resumeScheduledReport(id: string, workspaceUserId: string) {
-  const report = await prisma.accountingScheduledReport.findFirstOrThrow({ where: { id, workspaceUserId } });
+export async function resumeScheduledReport(id: string, workspaceUserId: string, businessId?: string | null) {
+  const report = await prisma.accountingScheduledReport.findFirstOrThrow({ where: { id, workspaceUserId, ...bizScope(businessId) } });
   if (report.status !== "paused") {
     throw new Error(tri(report.lang as "fa" | "en" | "de" | "tr", "فقط زمان‌بندی متوقف‌شده قابل ازسرگیری است", "Only a paused schedule can be resumed", "Nur ein pausierter Zeitplan kann fortgesetzt werden"));
   }
   return prisma.accountingScheduledReport.update({ where: { id }, data: { status: "active" } });
 }
 
-export async function deleteScheduledReport(id: string, workspaceUserId: string) {
-  await prisma.accountingScheduledReport.findFirstOrThrow({ where: { id, workspaceUserId } });
+export async function deleteScheduledReport(id: string, workspaceUserId: string, businessId?: string | null) {
+  await prisma.accountingScheduledReport.findFirstOrThrow({ where: { id, workspaceUserId, ...bizScope(businessId) } });
   return prisma.accountingScheduledReport.delete({ where: { id } });
 }
 
@@ -93,6 +96,8 @@ export async function renderReportContent(
   now: Date = new Date(),
   /** Presentation currency. Undefined/null means show recorded amounts only. */
   presentationCurrency?: string | null,
+  /** The report's business. Without it a multi-business workspace would mail one business's report containing every business's numbers. */
+  businessId?: string | null,
 ) {
   const { from, to, label } = periodFor(frequency, now);
   const isFa = lang === "fa";
@@ -122,7 +127,7 @@ export async function renderReportContent(
     : "";
 
   if (reportType === "monthly_vat") {
-    const vat = await getVatReport(workspaceUserId, from, to);
+    const vat = await getVatReport(workspaceUserId, from, to, businessId);
     const subject = `${tri(lang, "گزارش مالیات بر ارزش‌افزوده", "VAT Report", "Umsatzsteuerbericht")} — ${label}`;
     const html = `<div dir="${dir}" style="font-family:Tahoma,Arial;padding:24px;">
       <h2>${subject}</h2>
@@ -134,8 +139,8 @@ export async function renderReportContent(
     return { subject, html };
   }
 
-  const pl = await getProfitAndLoss(workspaceUserId, from, to);
-  const trialBalance = await getTrialBalance(workspaceUserId, to);
+  const pl = await getProfitAndLoss(workspaceUserId, from, to, businessId);
+  const trialBalance = await getTrialBalance(workspaceUserId, to, businessId);
   const cashRow = trialBalance.find((r) => r.code === "1000");
 
   const subjectLabel = reportType === "weekly_summary"
@@ -177,7 +182,7 @@ export async function runDueScheduledReports(now: Date = new Date()): Promise<{ 
     if (!isDue) continue;
 
     try {
-      const content = await renderReportContent(report.workspaceUserId, report.reportType as ReportType, report.frequency as Frequency, report.lang as "fa" | "en" | "de" | "tr", now, report.currency);
+      const content = await renderReportContent(report.workspaceUserId, report.reportType as ReportType, report.frequency as Frequency, report.lang as "fa" | "en" | "de" | "tr", now, report.currency, report.businessId);
 
       if (report.status === "pending_first_approval") {
         await prisma.accountingScheduledReport.update({
@@ -204,8 +209,8 @@ export async function runDueScheduledReports(now: Date = new Date()): Promise<{ 
  * IS the "first run"), then switches the schedule to "active" so every
  * future due run sends automatically without asking again.
  */
-export async function approveFirstRun(id: string, workspaceUserId: string) {
-  const report = await prisma.accountingScheduledReport.findFirstOrThrow({ where: { id, workspaceUserId } });
+export async function approveFirstRun(id: string, workspaceUserId: string, businessId?: string | null) {
+  const report = await prisma.accountingScheduledReport.findFirstOrThrow({ where: { id, workspaceUserId, ...bizScope(businessId) } });
   if (report.status !== "awaiting_approval" || !report.firstRunPreview) {
     throw new Error(tri(report.lang as "fa" | "en" | "de" | "tr", "این زمان‌بندی پیش‌نمایشی برای تأیید ندارد", "This schedule has no pending preview to approve", "Für diesen Zeitplan gibt es keine ausstehende Vorschau zur Genehmigung"));
   }

@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
   const status = req.nextUrl.searchParams.get("status") || undefined;
-  const proposals = await listProposals(ws.workspaceUserId, status);
+  const proposals = await listProposals(ws.workspaceUserId, status, ws.businessId);
   return NextResponse.json({ proposals });
 }
 
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   if (!expenseId) return NextResponse.json({ error: tri(lang, "شناسه هزینه الزامی است", "expenseId is required", "expenseId ist erforderlich") }, { status: 400 });
 
   try {
-    const proposal = await proposeExpenseCategorization(ws.workspaceUserId, expenseId, user.id);
+    const proposal = await proposeExpenseCategorization(ws.workspaceUserId, expenseId, user.id, ws.businessId);
     return NextResponse.json({ proposal });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : tri(lang, "خطا در ساخت پیشنهاد", "Failed to create proposal", "Fehler beim Erstellen des Vorschlags") }, { status: 400 });

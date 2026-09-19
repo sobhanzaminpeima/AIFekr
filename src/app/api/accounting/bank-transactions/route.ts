@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   const status = req.nextUrl.searchParams.get("status") || undefined;
   const bankAccountId = req.nextUrl.searchParams.get("bankAccountId") || undefined;
   const transactions = await prisma.accountingBankTransaction.findMany({
-    where: { workspaceUserId: ws.workspaceUserId, ...(status ? { status } : {}), ...(bankAccountId ? { bankAccountId } : {}) },
+    where: { workspaceUserId: ws.workspaceUserId, ...businessFilter(ws), ...(status ? { status } : {}), ...(bankAccountId ? { bankAccountId } : {}) },
     orderBy: { date: "desc" },
     take: 200,
   });

@@ -18,6 +18,6 @@ export async function POST(req: NextRequest) {
   const { from, to } = (await req.json()) as { from?: string; to?: string };
   if (!from || !to) return NextResponse.json({ error: tri(lang, "بازه زمانی الزامی است", "A date range is required", "Ein Datumsbereich ist erforderlich") }, { status: 400 });
 
-  const report = await runAuditCopilot(ws.workspaceUserId, new Date(from), new Date(to));
+  const report = await runAuditCopilot(ws.workspaceUserId, new Date(from), new Date(to), ws.businessId);
   return NextResponse.json({ report });
 }

@@ -18,8 +18,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   const { action } = (await req.json()) as { action?: string };
   try {
-    if (action === "close") return NextResponse.json({ period: await closeFiscalPeriod(params.id, ws.workspaceUserId, user.id) });
-    if (action === "reopen") return NextResponse.json({ period: await reopenFiscalPeriod(params.id, ws.workspaceUserId, user.id) });
+    if (action === "close") return NextResponse.json({ period: await closeFiscalPeriod(params.id, ws.workspaceUserId, user.id, ws.businessId) });
+    if (action === "reopen") return NextResponse.json({ period: await reopenFiscalPeriod(params.id, ws.workspaceUserId, user.id, ws.businessId) });
     return NextResponse.json({ error: tri(lang, "اقدام نامعتبر", "Invalid action", "Ungültige Aktion") }, { status: 400 });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : tri(lang, "خطا", "Error", "Fehler") }, { status: 400 });

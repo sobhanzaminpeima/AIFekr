@@ -15,6 +15,6 @@ export async function GET(req: NextRequest) {
   const lang = await getServerLang();
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
-  const alerts = await detectAnomalies(ws.workspaceUserId);
+  const alerts = await detectAnomalies(ws.workspaceUserId, undefined, ws.businessId);
   return NextResponse.json({ alerts });
 }

@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, businessFilter } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -14,7 +14,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const lang = await getServerLang();
   if (ws.isAgentRestricted) return NextResponse.json({ error: tri(lang, "فقط مدیر یا مالک می‌تواند پایپلاین را ویرایش کند", "Only a manager or owner can edit a pipeline", "Nur ein Manager oder Inhaber kann eine Pipeline bearbeiten") }, { status: 403 });
 
-  const existing = await prisma.crmPipeline.findFirst({ where: { id: params.id, userId: ws.workspaceUserId } });
+  const existing = await prisma.crmPipeline.findFirst({ where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
   const { name } = await req.json();
@@ -29,7 +29,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   const lang = await getServerLang();
   if (ws.isAgentRestricted) return NextResponse.json({ error: tri(lang, "فقط مدیر یا مالک می‌تواند پایپلاین را حذف کند", "Only a manager or owner can delete a pipeline", "Nur ein Manager oder Inhaber kann eine Pipeline löschen") }, { status: 403 });
 
-  const existing = await prisma.crmPipeline.findFirst({ where: { id: params.id, userId: ws.workspaceUserId } });
+  const existing = await prisma.crmPipeline.findFirst({ where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
   const dealCount = await prisma.crmDeal.count({ where: { pipelineId: params.id } });

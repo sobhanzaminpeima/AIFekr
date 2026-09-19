@@ -30,24 +30,27 @@ export interface CrmSnapshot {
  * left for the model to estimate from a data dump. The model gets these
  * numbers pre-calculated and only reasons about what they mean.
  */
-export async function buildCrmSnapshot(userId: string): Promise<CrmSnapshot> {
+export async function buildCrmSnapshot(userId: string, businessId?: string | null): Promise<CrmSnapshot> {
+  // Every query below is one business's data when a business is given, so an AI
+  // agent working in business A never reads (or quotes) business B's pipeline.
+  const biz = businessId ? { businessId } : {};
   const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
   const staleThreshold = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
   const [openDeals, closedDeals90d, staleDealRows, contacts, totalContacts] = await Promise.all([
-    prisma.crmDeal.findMany({ where: { userId, status: "open" }, select: { value: true } }),
+    prisma.crmDeal.findMany({ where: { userId, ...biz, status: "open" }, select: { value: true } }),
     prisma.crmDeal.findMany({
-      where: { userId, status: { in: ["won", "lost"] }, updatedAt: { gte: ninetyDaysAgo } },
+      where: { userId, ...biz, status: { in: ["won", "lost"] }, updatedAt: { gte: ninetyDaysAgo } },
       select: { status: true, createdAt: true, wonAt: true },
     }),
     prisma.crmDeal.findMany({
-      where: { userId, status: "open", updatedAt: { lt: staleThreshold } },
+      where: { userId, ...biz, status: "open", updatedAt: { lt: staleThreshold } },
       include: { contact: { select: { name: true } } },
       orderBy: { updatedAt: "asc" },
       take: 10,
     }),
-    prisma.crmContact.findMany({ where: { userId }, select: { source: true, status: true } }),
-    prisma.crmContact.count({ where: { userId } }),
+    prisma.crmContact.findMany({ where: { userId, ...biz }, select: { source: true, status: true } }),
+    prisma.crmContact.count({ where: { userId, ...biz } }),
   ]);
 
   const pipelineValueOpen = openDeals.reduce((sum, d) => sum + d.value, 0);

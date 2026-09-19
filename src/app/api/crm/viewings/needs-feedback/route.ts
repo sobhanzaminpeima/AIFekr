@@ -20,6 +20,6 @@ export async function GET(req: NextRequest) {
   const allowed = await isModuleEnabled({ id: user.id, role: user.role, industryPackId: owner?.industryPackId ?? null }, "agent.viewingCoordinator");
   if (!allowed) return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
 
-  const viewings = await listFeedbackNeeded(ws.workspaceUserId, ws.isAgentRestricted ? ws.actingUserId : undefined);
+  const viewings = await listFeedbackNeeded(ws.workspaceUserId, ws.isAgentRestricted ? ws.actingUserId : undefined, ws.businessId);
   return NextResponse.json({ viewings });
 }

@@ -18,7 +18,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   const { bonus, deductions } = (await req.json()) as { bonus?: number; deductions?: number };
   try {
-    const payslip = await updatePayslip(params.id, ws.workspaceUserId, bonus, deductions);
+    const payslip = await updatePayslip(params.id, ws.workspaceUserId, bonus, deductions, ws.businessId);
     return NextResponse.json({ payslip });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : tri(lang, "خطا در به‌روزرسانی فیش حقوقی", "Failed to update payslip", "Fehler beim Aktualisieren der Gehaltsabrechnung") }, { status: 400 });

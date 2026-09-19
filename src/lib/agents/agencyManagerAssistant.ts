@@ -88,18 +88,18 @@ Output in exactly this Markdown structure:
 (1-3 short suggestions, not orders)`,
 };
 
-export async function generateAgencyReport(userId: string, lang: Lang, periodDays: number, onChunk?: (text: string) => void): Promise<string> {
+export async function generateAgencyReport(userId: string, lang: Lang, periodDays: number, onChunk?: (text: string) => void, businessId?: string | null): Promise<string> {
   const staleThreshold = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000);
 
   const [snapshot, abandonedLeads, feedbackNeeded] = await Promise.all([
-    buildCrmSnapshot(userId),
+    buildCrmSnapshot(userId, businessId),
     prisma.crmContact.findMany({
-      where: { userId, status: { in: ["lead", "contacted"] }, updatedAt: { lt: staleThreshold } },
+      where: { userId, ...(businessId ? { businessId } : {}), status: { in: ["lead", "contacted"] }, updatedAt: { lt: staleThreshold } },
       select: { name: true, updatedAt: true },
       orderBy: { updatedAt: "asc" },
       take: 10,
     }),
-    listFeedbackNeeded(userId),
+    listFeedbackNeeded(userId, undefined, businessId),
   ]);
 
   const daysSince = (d: Date) => Math.floor((Date.now() - d.getTime()) / (24 * 60 * 60 * 1000));

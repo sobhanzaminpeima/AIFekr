@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const lines = await suggestOwnerStatementLines(ws.workspaceUserId, propertyId, new Date(month), notes);
+    const lines = await suggestOwnerStatementLines(ws.workspaceUserId, propertyId, new Date(month), notes, ws.businessId);
     return NextResponse.json({ lines });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : tri(lang, "خطا در ساخت پیشنهاد", "Failed to generate suggestions", "Fehler beim Erstellen der Vorschläge") }, { status: 400 });

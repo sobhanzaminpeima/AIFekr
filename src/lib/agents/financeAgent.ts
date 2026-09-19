@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { bizScope } from "@/lib/accounting/scope";
 import { routedStreamChat } from "@/lib/ai/router";
 import type { Provider } from "@/lib/ai/providers";
 import { getTrialBalance, getProfitAndLoss } from "@/lib/accounting/reports";
@@ -52,15 +53,15 @@ interface FinanceSnapshot {
 }
 
 /** Pulls the same read-only, already-computed numbers the dashboard uses — never a second, AI-only data path. */
-async function buildFinanceSnapshot(workspaceUserId: string): Promise<FinanceSnapshot> {
+async function buildFinanceSnapshot(workspaceUserId: string, businessId?: string | null): Promise<FinanceSnapshot> {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const [trialBalance, monthPL, vat, budgetVsActual, cashFlowForecast] = await Promise.all([
-    getTrialBalance(workspaceUserId),
-    getProfitAndLoss(workspaceUserId, monthStart, now),
-    getVatReport(workspaceUserId, monthStart, now),
-    getBudgetVsActual(workspaceUserId, monthStart),
-    getCashFlowForecast(workspaceUserId, 3),
+    getTrialBalance(workspaceUserId, new Date(), businessId),
+    getProfitAndLoss(workspaceUserId, monthStart, now, businessId),
+    getVatReport(workspaceUserId, monthStart, now, businessId),
+    getBudgetVsActual(workspaceUserId, monthStart, businessId),
+    getCashFlowForecast(workspaceUserId, 3, businessId),
   ]);
   return { trialBalance, monthPL, vat, budgetVsActual, cashFlowForecast };
 }
@@ -85,8 +86,8 @@ function formatSnapshot(s: FinanceSnapshot): string {
  * the Q&A to AuditLog for traceability — this call never writes anything to
  * the ledger itself.
  */
-export async function askFinanceAgent(workspaceUserId: string, question: string, onChunk: (text: string) => void): Promise<string> {
-  const snapshot = await buildFinanceSnapshot(workspaceUserId);
+export async function askFinanceAgent(workspaceUserId: string, question: string, onChunk: (text: string) => void, businessId?: string | null): Promise<string> {
+  const snapshot = await buildFinanceSnapshot(workspaceUserId, businessId);
   const prompt = `${formatSnapshot(snapshot)}\n\n**سؤال کاربر:** ${question}`;
 
   let fullOutput = "";
@@ -124,8 +125,8 @@ Rules: never invent a number not present in the data; name the relevant month fo
  * simultaneously-generated texts. Read-only, logged like every other agent
  * answer.
  */
-export async function generateCashFlowNarrative(workspaceUserId: string, lang: "fa" | "en" | "de" | "tr", onChunk: (text: string) => void): Promise<string> {
-  const [forecast, trialBalance] = await Promise.all([getCashFlowForecast(workspaceUserId, 3), getTrialBalance(workspaceUserId)]);
+export async function generateCashFlowNarrative(workspaceUserId: string, lang: "fa" | "en" | "de" | "tr", onChunk: (text: string) => void, businessId?: string | null): Promise<string> {
+  const [forecast, trialBalance] = await Promise.all([getCashFlowForecast(workspaceUserId, 3, businessId), getTrialBalance(workspaceUserId, new Date(), businessId)]);
   const cashRow = trialBalance.find((r) => r.code === "1000");
 
   const lines = forecast.map((f) => `- ${f.month}: expected inflow ${f.expectedInflow}, expected outflow ${f.expectedOutflow}, net ${f.expectedInflow - f.expectedOutflow}`).join("\n");
@@ -162,16 +163,16 @@ export interface AnomalyAlert {
  * model to eyeball numbers, and the spec only requires an alert, not a
  * narrative. Purely informational — flags, never acts.
  */
-export async function detectAnomalies(workspaceUserId: string, thresholdPercent: number = 50): Promise<AnomalyAlert[]> {
+export async function detectAnomalies(workspaceUserId: string, thresholdPercent: number = 50, businessId?: string | null): Promise<AnomalyAlert[]> {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const currentMonth = await getProfitAndLoss(workspaceUserId, monthStart, now);
+  const currentMonth = await getProfitAndLoss(workspaceUserId, monthStart, now, businessId);
 
   const trailingMonths = await Promise.all(
     [1, 2, 3].map((i) => {
       const from = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const to = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
-      return getProfitAndLoss(workspaceUserId, from, to);
+      return getProfitAndLoss(workspaceUserId, from, to, businessId);
     })
   );
 
@@ -192,6 +193,7 @@ export async function detectAnomalies(workspaceUserId: string, thresholdPercent:
 
 export interface ProposeJournalEntryInput {
   workspaceUserId: string;
+  businessId?: string | null;
   lines: PostJournalLineInput[];
   memo: string;
   requestedBy: string;
@@ -209,6 +211,7 @@ export async function proposeJournalEntry(input: ProposeJournalEntryInput) {
   const proposal = await prisma.accountingAiProposal.create({
     data: {
       workspaceUserId: input.workspaceUserId,
+      ...bizScope(input.businessId),
       type: "journal_entry",
       payload: JSON.stringify({ lines: input.lines, memo: input.memo }),
       sourceContext: input.sourceContext,
@@ -226,12 +229,12 @@ export async function proposeJournalEntry(input: ProposeJournalEntryInput) {
  * categorizations of similarly-worded expenses (cheap, explainable, no model
  * call needed); only asks the model when there isn't a clear precedent.
  */
-export async function proposeExpenseCategorization(workspaceUserId: string, expenseId: string, requestedBy: string) {
-  const expense = await prisma.accountingExpense.findFirstOrThrow({ where: { id: expenseId, workspaceUserId } });
+export async function proposeExpenseCategorization(workspaceUserId: string, expenseId: string, requestedBy: string, businessId?: string | null) {
+  const expense = await prisma.accountingExpense.findFirstOrThrow({ where: { id: expenseId, workspaceUserId, ...bizScope(businessId) } });
   const words = expense.description.split(/\s+/).filter((w) => w.length > 2);
 
   const priorExpenses = await prisma.accountingExpense.findMany({
-    where: { workspaceUserId, id: { not: expenseId }, status: { in: ["approved", "paid"] } },
+    where: { workspaceUserId, ...bizScope(businessId), id: { not: expenseId }, status: { in: ["approved", "paid"] } },
     select: { description: true, accountCode: true },
     take: 200,
   });
@@ -251,7 +254,7 @@ export async function proposeExpenseCategorization(workspaceUserId: string, expe
     reasoning = `بر اساس ${matches.length} هزینهٔ مشابه قبلی در همین کارگاه، ${topCount} مورد به حساب ${topCode} دسته‌بندی شده‌اند.`;
     modelUsed = "heuristic";
   } else {
-    const accounts = await prisma.accountingAccount.findMany({ where: { workspaceUserId, type: "expense" }, select: { code: true, name: true } });
+    const accounts = await prisma.accountingAccount.findMany({ where: { workspaceUserId, ...bizScope(businessId), type: "expense" }, select: { code: true, name: true } });
     const list = accounts.map((a) => `${a.code}: ${a.name}`).join("\n");
     const prompt = `شرح هزینه: "${expense.description}"\nمبلغ: ${expense.amount}\n\nحساب‌های هزینهٔ موجود در دفتر حساب‌ها:\n${list}\n\nفقط و فقط کد حساب پیشنهادی را به‌صورت یک عدد بازگردان، هیچ متن دیگری ننویس.`;
 
@@ -269,6 +272,7 @@ export async function proposeExpenseCategorization(workspaceUserId: string, expe
   const proposal = await prisma.accountingAiProposal.create({
     data: {
       workspaceUserId,
+      ...bizScope(businessId),
       type: "expense_categorization",
       payload: JSON.stringify({ expenseId, suggestedAccountCode, confidence, reasoning }),
       sourceContext: `expense:${expenseId}`,
@@ -314,8 +318,8 @@ function overlapNights(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date): numb
  *    month) — the model extracts structured line items from that text
  *    only, never inventing figures beyond what the note says.
  */
-export async function suggestOwnerStatementLines(workspaceUserId: string, propertyId: string, month: Date, freeTextNotes?: string): Promise<SuggestedStatementLine[]> {
-  const property = await prisma.property.findFirst({ where: { id: propertyId, userId: workspaceUserId } });
+export async function suggestOwnerStatementLines(workspaceUserId: string, propertyId: string, month: Date, freeTextNotes?: string, businessId?: string | null): Promise<SuggestedStatementLine[]> {
+  const property = await prisma.property.findFirst({ where: { id: propertyId, userId: workspaceUserId, ...bizScope(businessId) } });
   if (!property) throw new Error("Property not found in this workspace");
 
   const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
@@ -342,7 +346,7 @@ export async function suggestOwnerStatementLines(workspaceUserId: string, proper
   // owner statements a manual retype every month even though the expense
   // was already sitting in AccountingExpense with this property's id on it.
   const trackedExpenses = await prisma.accountingExpense.findMany({
-    where: { workspaceUserId, propertyId, expenseDate: { gte: monthStart, lte: monthEnd } },
+    where: { workspaceUserId, ...bizScope(businessId), propertyId, expenseDate: { gte: monthStart, lte: monthEnd } },
     orderBy: { expenseDate: "asc" },
   });
   for (const e of trackedExpenses) {
@@ -421,11 +425,11 @@ export interface AuditCopilotReport {
  * closeFiscalPeriod() is a separate, always-human-triggered call, same as
  * every other Draft-and-Approve boundary in this module.
  */
-export async function runAuditCopilot(workspaceUserId: string, from: Date, to: Date): Promise<AuditCopilotReport> {
+export async function runAuditCopilot(workspaceUserId: string, from: Date, to: Date, businessId?: string | null): Promise<AuditCopilotReport> {
   const findings: AuditCopilotFinding[] = [];
 
   const ledgerAgg = await prisma.accountingJournalEntryLine.aggregate({
-    where: { entry: { workspaceUserId, entryDate: { gte: from, lte: to } } },
+    where: { entry: { workspaceUserId, ...bizScope(businessId), entryDate: { gte: from, lte: to } } },
     _sum: { debit: true, credit: true },
   });
   const debitTotal = ledgerAgg._sum.debit || 0;
@@ -435,22 +439,22 @@ export async function runAuditCopilot(workspaceUserId: string, from: Date, to: D
     findings.push({ category: "unbalanced_ledger", count: 1, detail: `مجموع بدهکار (${debitTotal}) با مجموع بستانکار (${creditTotal}) برابر نیست` });
   }
 
-  const pendingExpenses = await prisma.accountingExpense.count({ where: { workspaceUserId, status: "pending_approval", expenseDate: { gte: from, lte: to } } });
+  const pendingExpenses = await prisma.accountingExpense.count({ where: { workspaceUserId, ...bizScope(businessId), status: "pending_approval", expenseDate: { gte: from, lte: to } } });
   if (pendingExpenses > 0) findings.push({ category: "pending_expense", count: pendingExpenses, detail: `${pendingExpenses} هزینه در انتظار تأیید` });
 
-  const unpaidExpenses = await prisma.accountingExpense.count({ where: { workspaceUserId, status: "approved", expenseDate: { gte: from, lte: to } } });
+  const unpaidExpenses = await prisma.accountingExpense.count({ where: { workspaceUserId, ...bizScope(businessId), status: "approved", expenseDate: { gte: from, lte: to } } });
   if (unpaidExpenses > 0) findings.push({ category: "unpaid_expense", count: unpaidExpenses, detail: `${unpaidExpenses} هزینهٔ تأییدشده هنوز پرداخت نشده` });
 
-  const pendingCommissions = await prisma.accountingCommissionSplit.count({ where: { status: "pending", commissionRecord: { workspaceUserId, createdAt: { gte: from, lte: to } } } });
+  const pendingCommissions = await prisma.accountingCommissionSplit.count({ where: { status: "pending", commissionRecord: { workspaceUserId, ...bizScope(businessId), createdAt: { gte: from, lte: to } } } });
   if (pendingCommissions > 0) findings.push({ category: "pending_commission", count: pendingCommissions, detail: `${pendingCommissions} سهم کمیسیون پرداخت‌نشده` });
 
-  const draftStatements = await prisma.accountingOwnerStatement.count({ where: { workspaceUserId, status: "draft", month: { gte: from, lte: to } } });
+  const draftStatements = await prisma.accountingOwnerStatement.count({ where: { workspaceUserId, ...bizScope(businessId), status: "draft", month: { gte: from, lte: to } } });
   if (draftStatements > 0) findings.push({ category: "draft_owner_statement", count: draftStatements, detail: `${draftStatements} گزارش تسویه مالک هنوز پیش‌نویس است` });
 
-  const unmatchedBank = await prisma.accountingBankTransaction.count({ where: { workspaceUserId, status: "unmatched", date: { gte: from, lte: to } } });
+  const unmatchedBank = await prisma.accountingBankTransaction.count({ where: { workspaceUserId, ...bizScope(businessId), status: "unmatched", date: { gte: from, lte: to } } });
   if (unmatchedBank > 0) findings.push({ category: "unmatched_bank_transaction", count: unmatchedBank, detail: `${unmatchedBank} تراکنش بانکی تطبیق‌نشده` });
 
-  const pendingProposals = await prisma.accountingAiProposal.count({ where: { workspaceUserId, status: "pending" } });
+  const pendingProposals = await prisma.accountingAiProposal.count({ where: { workspaceUserId, ...bizScope(businessId), status: "pending" } });
   if (pendingProposals > 0) findings.push({ category: "pending_ai_proposal", count: pendingProposals, detail: `${pendingProposals} پیشنهاد هوش مصنوعی هنوز بررسی نشده` });
 
   await auditAi(workspaceUserId, "audit_copilot_run", "deterministic", { from: from.toISOString(), to: to.toISOString(), findingsCount: findings.length });
@@ -458,26 +462,28 @@ export async function runAuditCopilot(workspaceUserId: string, from: Date, to: D
   return { from: from.toISOString(), to: to.toISOString(), ledgerBalanced, findings, readyToClose: findings.length === 0 };
 }
 
-export async function listProposals(workspaceUserId: string, status?: string) {
-  return prisma.accountingAiProposal.findMany({ where: { workspaceUserId, ...(status ? { status } : {}) }, orderBy: { createdAt: "desc" } });
+export async function listProposals(workspaceUserId: string, status?: string, businessId?: string | null) {
+  return prisma.accountingAiProposal.findMany({ where: { workspaceUserId, ...bizScope(businessId), ...(status ? { status } : {}) }, orderBy: { createdAt: "desc" } });
 }
 
 /** The only place a proposal actually takes effect — always a human-triggered call, never the agent itself. */
-export async function approveProposal(proposalId: string, workspaceUserId: string, approvedBy: string) {
-  const proposal = await prisma.accountingAiProposal.findFirstOrThrow({ where: { id: proposalId, workspaceUserId } });
+export async function approveProposal(proposalId: string, workspaceUserId: string, approvedBy: string, businessId?: string | null) {
+  const proposal = await prisma.accountingAiProposal.findFirstOrThrow({ where: { id: proposalId, workspaceUserId, ...bizScope(businessId) } });
   if (proposal.status !== "pending") throw new Error("Only a pending proposal can be approved");
 
   const payload = JSON.parse(proposal.payload);
   if (proposal.type === "journal_entry") {
     await postJournalEntry({
       workspaceUserId,
+      businessId: proposal.businessId ?? undefined,
       postedBy: approvedBy,
       memo: payload.memo,
       sourceRef: `ai_proposal:${proposal.id}`,
       lines: payload.lines,
     });
   } else if (proposal.type === "expense_categorization") {
-    await prisma.accountingExpense.update({ where: { id: payload.expenseId }, data: { accountCode: payload.suggestedAccountCode } });
+    const touched = await prisma.accountingExpense.updateMany({ where: { id: payload.expenseId, workspaceUserId, ...bizScope(proposal.businessId) }, data: { accountCode: payload.suggestedAccountCode } });
+    if (touched.count === 0) throw new Error("The expense this proposal refers to was not found in this workspace");
   } else {
     throw new Error(`Unknown proposal type: ${proposal.type}`);
   }
@@ -487,8 +493,8 @@ export async function approveProposal(proposalId: string, workspaceUserId: strin
   return updated;
 }
 
-export async function rejectProposal(proposalId: string, workspaceUserId: string, rejectedBy: string) {
-  const proposal = await prisma.accountingAiProposal.findFirstOrThrow({ where: { id: proposalId, workspaceUserId } });
+export async function rejectProposal(proposalId: string, workspaceUserId: string, rejectedBy: string, businessId?: string | null) {
+  const proposal = await prisma.accountingAiProposal.findFirstOrThrow({ where: { id: proposalId, workspaceUserId, ...bizScope(businessId) } });
   if (proposal.status !== "pending") throw new Error("Only a pending proposal can be rejected");
   const updated = await prisma.accountingAiProposal.update({ where: { id: proposalId }, data: { status: "rejected", reviewedBy: rejectedBy, reviewedAt: new Date() } });
   await auditAi(workspaceUserId, "proposal_rejected", proposal.modelUsed, { proposalId, type: proposal.type, rejectedBy });

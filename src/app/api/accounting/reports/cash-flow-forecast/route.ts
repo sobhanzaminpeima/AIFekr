@@ -16,6 +16,6 @@ export async function GET(req: NextRequest) {
 
   const monthsParam = req.nextUrl.searchParams.get("months");
   const months = monthsParam ? parseInt(monthsParam, 10) : 3;
-  const forecast = await getCashFlowForecast(ws.workspaceUserId, Number.isFinite(months) && months > 0 ? months : 3);
+  const forecast = await getCashFlowForecast(ws.workspaceUserId, Number.isFinite(months) && months > 0 ? months : 3, ws.businessId);
   return NextResponse.json({ forecast });
 }

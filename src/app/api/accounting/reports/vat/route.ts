@@ -20,6 +20,6 @@ export async function GET(req: NextRequest) {
   const from = fromParam ? new Date(fromParam) : new Date(now.getFullYear(), now.getMonth(), 1);
   const to = toParam ? new Date(toParam) : now;
 
-  const report = await getVatReport(ws.workspaceUserId, from, to);
+  const report = await getVatReport(ws.workspaceUserId, from, to, ws.businessId);
   return NextResponse.json(report);
 }

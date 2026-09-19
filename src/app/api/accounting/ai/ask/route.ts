@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       try {
         await askFinanceAgent(ws.workspaceUserId, question, (text) => {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
-        });
+        }, ws.businessId);
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
       } catch (err) {
         console.error("Finance AI agent error:", err);

@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   const periodDays = Number.isFinite(periodParam) && periodParam > 0 && periodParam <= 90 ? periodParam : 7;
 
   try {
-    const report = await generateAgencyReport(ws.workspaceUserId, lang, periodDays);
+    const report = await generateAgencyReport(ws.workspaceUserId, lang, periodDays, undefined, ws.businessId);
     return NextResponse.json({ report });
   } catch (err) {
     console.error("Agency Manager Assistant error:", err);

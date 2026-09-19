@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { uploadToStorage, getStorageKey, StorageNotConfiguredError } from "@/lib/storage/r2";
 import { getServerLang } from "@/lib/i18n/server";
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
-  const property = await prisma.property.findFirst({ where: { id: params.id, userId: ws.workspaceUserId } });
+  const property = await prisma.property.findFirst({ where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (!property) return NextResponse.json({ error: tri(lang, "ملک یافت نشد", "Property not found", "Immobilie nicht gefunden") }, { status: 404 });
 
   const form = await req.formData();
@@ -76,7 +76,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
-  const property = await prisma.property.findFirst({ where: { id: params.id, userId: ws.workspaceUserId } });
+  const property = await prisma.property.findFirst({ where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (!property) return NextResponse.json({ error: tri(lang, "ملک یافت نشد", "Property not found", "Immobilie nicht gefunden") }, { status: 404 });
 
   const { url } = await req.json();

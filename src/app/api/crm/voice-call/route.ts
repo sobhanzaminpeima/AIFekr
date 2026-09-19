@@ -31,7 +31,8 @@ export async function POST(req: NextRequest) {
   if (!contactId) return NextResponse.json({ error: tri(lang, "شناسه مخاطب الزامی است", "Contact ID is required", "Kontakt-ID ist erforderlich") }, { status: 400 });
 
   const contact = await prisma.crmContact.findUnique({ where: { id: contactId } });
-  if (!contact || contact.userId !== ws.workspaceUserId) {
+  // An AI call may only be placed to a contact of the ACTIVE business, never to a sibling business's.
+  if (!contact || contact.userId !== ws.workspaceUserId || (ws.businessId && contact.businessId !== ws.businessId)) {
     return NextResponse.json({ error: tri(lang, "مخاطب یافت نشد", "Contact not found", "Kontakt nicht gefunden") }, { status: 404 });
   }
   if (!contact.phone) {

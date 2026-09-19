@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { bizScope } from "./scope";
 
 /** Budgeting and a simple cash-flow forecast (spec ۳.۸). */
 
@@ -15,25 +16,34 @@ function monthStart(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1);
 }
 
-export async function setBudget(workspaceUserId: string, accountCode: string, period: Date, amount: number) {
+export async function setBudget(workspaceUserId: string, accountCode: string, period: Date, amount: number, businessId?: string | null) {
   const periodDate = monthStart(period);
-  return prisma.accountingBudget.upsert({
-    where: { workspaceUserId_accountCode_period: { workspaceUserId, accountCode, period: periodDate } },
-    update: { amount },
-    create: { workspaceUserId, accountCode, period: periodDate, amount },
-  });
+  // find-then-write instead of upsert(): the compound unique key now includes a
+  // nullable businessId, and Prisma cannot express a NULL in a unique where.
+  const where = { workspaceUserId, businessId: businessId ?? null, accountCode, period: periodDate };
+  const existing = await prisma.accountingBudget.findFirst({ where });
+  if (existing) return prisma.accountingBudget.update({ where: { id: existing.id }, data: { amount } });
+  try {
+    return await prisma.accountingBudget.create({ data: { workspaceUserId, accountCode, period: periodDate, amount, ...bizScope(businessId) } });
+  } catch (err) {
+    // Lost a race with a concurrent setBudget for the same key: the unique index
+    // rejected our insert, so update the row the other request just created.
+    const raced = await prisma.accountingBudget.findFirst({ where });
+    if (raced) return prisma.accountingBudget.update({ where: { id: raced.id }, data: { amount } });
+    throw err;
+  }
 }
 
 /** Budget vs Actual for one month — actual comes from real ledger lines, never a second set of numbers. */
-export async function getBudgetVsActual(workspaceUserId: string, period: Date): Promise<BudgetVsActualRow[]> {
+export async function getBudgetVsActual(workspaceUserId: string, period: Date, businessId?: string | null): Promise<BudgetVsActualRow[]> {
   const periodDate = monthStart(period);
   const periodEnd = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0, 23, 59, 59);
 
-  const budgets = await prisma.accountingBudget.findMany({ where: { workspaceUserId, period: periodDate } });
+  const budgets = await prisma.accountingBudget.findMany({ where: { workspaceUserId, ...bizScope(businessId), period: periodDate } });
   const rows: BudgetVsActualRow[] = [];
 
   for (const budget of budgets) {
-    const account = await prisma.accountingAccount.findFirst({ where: { workspaceUserId, code: budget.accountCode } });
+    const account = await prisma.accountingAccount.findFirst({ where: { workspaceUserId, ...bizScope(businessId), code: budget.accountCode } });
     if (!account) continue;
 
     const agg = await prisma.accountingJournalEntryLine.aggregate({
@@ -69,18 +79,18 @@ export interface CashFlowForecastMonth {
  * historical payment pattern" — this is a straightforward version of that,
  * not a trained model.
  */
-export async function getCashFlowForecast(workspaceUserId: string, monthsAhead: number = 3): Promise<CashFlowForecastMonth[]> {
+export async function getCashFlowForecast(workspaceUserId: string, monthsAhead: number = 3, businessId?: string | null): Promise<CashFlowForecastMonth[]> {
   const now = new Date();
 
   const last3MonthsStart = new Date(now.getFullYear(), now.getMonth() - 3, 1);
   const expenseAgg = await prisma.accountingExpense.aggregate({
-    where: { workspaceUserId, status: "paid", paidAt: { gte: last3MonthsStart, lte: now } },
+    where: { workspaceUserId, ...bizScope(businessId), status: "paid", paidAt: { gte: last3MonthsStart, lte: now } },
     _sum: { amount: true },
   });
   const avgMonthlyOutflow = (expenseAgg._sum.amount || 0) / 3;
 
   const openInvoices = await prisma.crmInvoice.findMany({
-    where: { userId: workspaceUserId, status: { in: ["sent", "overdue"] } },
+    where: { userId: workspaceUserId, ...bizScope(businessId), status: { in: ["sent", "overdue"] } },
     select: { total: true, dueDate: true },
   });
 

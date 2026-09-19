@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: { code: string
   const lang = await getServerLang();
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
-  const account = await prisma.accountingAccount.findFirst({ where: { workspaceUserId: ws.workspaceUserId, code: params.code } });
+  const account = await prisma.accountingAccount.findFirst({ where: { workspaceUserId: ws.workspaceUserId, ...businessFilter(ws), code: params.code } });
   if (!account) return NextResponse.json({ error: tri(lang, "حساب پیدا نشد", "Account not found", "Konto nicht gefunden") }, { status: 404 });
 
   const lines = await prisma.accountingJournalEntryLine.findMany({

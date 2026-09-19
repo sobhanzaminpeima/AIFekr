@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       try {
         await generateCashFlowNarrative(ws.workspaceUserId, lang, (text) => {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
-        });
+        }, ws.businessId);
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
       } catch (err) {
         console.error("Cash-flow narrative error:", err);

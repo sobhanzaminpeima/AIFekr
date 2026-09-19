@@ -174,8 +174,202 @@ model User {
   voiceAppointments        VoiceAppointment[]
   voiceKnowledgeBase       VoiceKnowledgeBase[]
   notifications            Notification[]
+  ownedOrganizations       Organization[]        @relation("OrganizationOwner")
+  organizationMemberships  OrganizationMember[]
+  businessMemberships      BusinessMember[]
+  businessesCreated        BusinessWorkspace[]   @relation("BusinessCreator")
+  activeBusinessId         String?
+  activeBusiness           BusinessWorkspace?    @relation("ActiveBusiness", fields: [activeBusinessId], references: [id])
+  organizationLedgerEntries OrganizationCreditLedger[] @relation("OrganizationLedgerActor")
+  organizationAuditEvents  OrganizationAuditLog[] @relation("OrganizationAuditActor")
 
   @@index([industryPackId])
+  @@index([activeBusinessId])
+}
+
+/// Enterprise tenant. Existing personal accounts receive exactly one default
+/// organization and workspace during the backwards-compatible backfill; the
+/// normal product continues to behave as it did until another workspace is
+/// explicitly added.
+model Organization {
+  id                    String   @id @default(cuid())
+  name                  String
+  slug                  String   @unique
+  logoUrl               String?
+  industry              String?
+  country               String?
+  timezone              String   @default("UTC")
+  currency              String   @default("USD")
+  language              String   @default("fa")
+  brandSettings         String?
+  resourceStrategy      String   @default("SHARED") // SHARED | ALLOCATED
+  planType              String   @default("PERSONAL")
+  status                String   @default("ACTIVE") // ACTIVE | GRACE | SUSPENDED | ARCHIVED
+  subscriptionStartsAt  DateTime?
+  subscriptionEndsAt    DateTime?
+  renewalStatus         String?
+  aiCredits             Float    @default(0)
+  mediaCredits          Float    @default(0)
+  voiceMinutes          Float    @default(0)
+  ownerId               String
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  owner        User                     @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members      OrganizationMember[]
+  businesses   BusinessWorkspace[]
+  ledger       OrganizationCreditLedger[]
+  featureFlags OrganizationFeatureFlag[]
+  auditLogs    OrganizationAuditLog[]
+
+  @@index([ownerId])
+  @@index([status])
+}
+
+/// A separately authorized operating workspace inside an Organization. New
+/// module records will attach here; legacy records remain available through a
+/// user's default workspace until their module-specific migration is applied.
+model BusinessWorkspace {
+  id                String   @id @default(cuid())
+  organizationId    String
+  name              String
+  slug              String   @unique
+  logoUrl           String?
+  businessType      String?
+  industry          String?
+  description       String?
+  website           String?
+  email             String?
+  phone             String?
+  country           String?
+  timezone          String   @default("UTC")
+  currency          String   @default("USD")
+  brandSettings     String?
+  aiInstructions    String?
+  modules           String?  // JSON configuration; module access is server-checked.
+  status            String   @default("ACTIVE") // ACTIVE | ARCHIVED
+  createdById       String?
+  aiCreditLimit     Float?
+  mediaCreditLimit  Float?
+  voiceMinuteLimit  Float?
+  limitMode         String   @default("NONE") // NONE | SOFT | HARD
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?                        @relation("BusinessCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  members      BusinessMember[]
+  activeUsers  User[]                       @relation("ActiveBusiness")
+  ledger       OrganizationCreditLedger[]
+  auditLogs    OrganizationAuditLog[]
+
+  @@index([organizationId, status])
+  @@index([createdById])
+}
+
+/// Organization-level identity and role. `allBusinesses` is an explicit
+/// grant; it is never inferred from a client-provided business id.
+model OrganizationMember {
+  id            String   @id @default(cuid())
+  organizationId String
+  userId        String
+  role          String   @default("MEMBER") // OWNER | ADMIN | MANAGER | MEMBER | VIEWER
+  allBusinesses Boolean  @default(false)
+  status        String   @default("ACTIVE") // ACTIVE | INVITED | SUSPENDED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businesses   BusinessMember[]
+
+  @@unique([organizationId, userId])
+  @@index([userId, status])
+}
+
+/// Explicit per-business entitlement for a member who does not have
+/// OrganizationMember.allBusinesses. Permissions are an extensible JSON list
+/// and must be evaluated server-side through organization/context.ts.
+model BusinessMember {
+  id                   String   @id @default(cuid())
+  businessId           String
+  organizationMemberId String
+  userId               String
+  role                 String   @default("MEMBER")
+  permissions          String?
+  status               String   @default("ACTIVE")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  business           BusinessWorkspace  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  organizationMember OrganizationMember @relation(fields: [organizationMemberId], references: [id], onDelete: Cascade)
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, userId])
+  @@index([organizationMemberId])
+  @@index([userId, status])
+}
+
+/// Immutable organization resource ledger. Balances are fast projections;
+/// this table is the audit source of truth for grants, usage, refunds and
+/// manual adjustments. idempotencyKey prevents retried jobs from charging
+/// twice.
+model OrganizationCreditLedger {
+  id             String   @id @default(cuid())
+  organizationId String
+  businessId     String?
+  userId         String?
+  resourceType   String   // AI_CREDIT | MEDIA_CREDIT | VOICE_MINUTE
+  direction      String   // GRANT | USAGE | REFUND | ADJUSTMENT
+  amount         Float
+  feature        String?
+  provider       String?
+  model          String?
+  providerCostUsd Float?
+  metadata       String?
+  idempotencyKey String?  @unique
+  createdAt      DateTime @default(now())
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  business     BusinessWorkspace? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  user         User?              @relation("OrganizationLedgerActor", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([businessId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model OrganizationFeatureFlag {
+  id             String   @id @default(cuid())
+  organizationId String
+  key            String
+  enabled        Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, key])
+}
+
+model OrganizationAuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  businessId     String?
+  actorId        String?
+  action         String
+  targetType     String?
+  targetId       String?
+  metadata       String?
+  createdAt      DateTime @default(now())
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  business     BusinessWorkspace? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  actor        User?              @relation("OrganizationAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([businessId, createdAt])
+  @@index([actorId])
 }
 
 /// In-app notification for a user — created by notify() in
@@ -536,6 +730,9 @@ model City {
 model PropertyInterest {
   id         String   @id @default(cuid())
   userId     String
+  /// Immutable business boundary for this CRM record. Legacy rows are backfilled
+  /// to the owner's default BusinessWorkspace before business-scoped reads ship.
+  businessId String?
   propertyId String
   contactId  String
   note       String?
@@ -546,6 +743,7 @@ model PropertyInterest {
 
   @@unique([propertyId, contactId])
   @@index([userId])
+  @@index([businessId])
   @@index([propertyId])
   @@index([contactId])
 }
@@ -761,6 +959,7 @@ model Prompt {
 model CrmContact {
   id            String    @id @default(cuid())
   userId        String?
+  businessId    String?
   /// Team member responsible for this contact — separate from userId (the
   /// workspace owner) so a team's leads/deals can be split across members.
   assignedToId  String?
@@ -817,6 +1016,7 @@ model CrmContact {
   ownedRentalProperties Property[]      @relation("PropertyOwnerContact")
 
   @@index([userId])
+  @@index([businessId])
   @@index([status])
   @@index([assignedToId])
 }
@@ -828,6 +1028,7 @@ model CrmContact {
 model CrmPipeline {
   id           String   @id @default(cuid())
   userId       String
+  businessId   String?
   name         String
   /// Only populated for pipelines seeded from a template (see
   /// industryTemplates.ts) — a custom user-typed name has no translation
@@ -845,6 +1046,7 @@ model CrmPipeline {
   deals  CrmDeal[]
 
   @@index([userId])
+  @@index([businessId])
 }
 
 /// One column on a pipeline's Kanban board (e.g. "بازدید", "مذاکره").
@@ -872,6 +1074,7 @@ model CrmDeal {
   /// Workspace owner (whose plan/credits this deal counts against) —
   /// distinct from ownerId, the team member actually working the deal.
   userId                  String
+  businessId              String?
   ownerId                 String?
   contactId               String
   pipelineId              String
@@ -918,6 +1121,7 @@ model CrmDeal {
   properties        Property[]
 
   @@index([userId])
+  @@index([businessId])
   @@index([contactId])
   @@index([pipelineId])
   @@index([stageId])
@@ -929,6 +1133,7 @@ model CrmDeal {
 model CrmDocument {
   id         String   @id @default(cuid())
   userId     String
+  businessId String?
   contactId  String?
   dealId     String?
   /// Section 1, item 7 — Property document archive (title deed, power of
@@ -957,6 +1162,7 @@ model CrmDocument {
   property Property?   @relation(fields: [propertyId], references: [id])
 
   @@index([userId])
+  @@index([businessId])
   @@index([contactId])
   @@index([dealId])
   @@index([propertyId])
@@ -967,6 +1173,7 @@ model CrmDocument {
 model CrmAutomationRule {
   id           String   @id @default(cuid())
   userId       String
+  businessId   String?
   name         String
   trigger      String // stale_deal | new_lead | stage_change | no_activity_days
   condition    String? // JSON, e.g. { "days": 3 }
@@ -978,11 +1185,13 @@ model CrmAutomationRule {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
+  @@index([businessId])
 }
 
 model CrmActivity {
   id        String   @id @default(cuid())
   userId    String
+  businessId String?
   contactId String?
   dealId    String?
   type      String // call | email | meeting | note | whatsapp | telegram
@@ -994,6 +1203,7 @@ model CrmActivity {
   deal    CrmDeal?    @relation(fields: [dealId], references: [id])
 
   @@index([userId])
+  @@index([businessId])
   @@index([contactId])
   @@index([dealId])
 }
@@ -1001,6 +1211,7 @@ model CrmActivity {
 model CrmTask {
   id            String    @id @default(cuid())
   userId        String
+  businessId    String?
   contactId     String?
   title         String
   dueDate       DateTime?
@@ -1017,6 +1228,7 @@ model CrmTask {
   contact CrmContact? @relation(fields: [contactId], references: [id])
 
   @@index([userId])
+  @@index([businessId])
   @@index([contactId])
 }
 
@@ -1025,6 +1237,7 @@ model CrmTask {
 model CrmInsight {
   id          String   @id @default(cuid())
   userId      String
+  businessId  String?
   category    String // pipeline_health | risk | opportunity | forecast
   text        String
   embedding   String?
@@ -1034,6 +1247,7 @@ model CrmInsight {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
+  @@index([businessId])
 }
 
 /// A full CRM Agent pipeline-analysis run, dated. Before this model, only the
@@ -1044,6 +1258,7 @@ model CrmInsight {
 model CrmAnalysisRun {
   id        String   @id @default(cuid())
   userId    String
+  businessId String?
   /// The full markdown report, memory-notes section already stripped (that
   /// section is for the next run's prompt, not a human reader).
   content   String
@@ -1052,6 +1267,7 @@ model CrmAnalysisRun {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId, createdAt])
+  @@index([businessId, createdAt])
 }
 
 /// A company's product/service catalog — attached to deals (CrmDealProduct)
@@ -1059,6 +1275,7 @@ model CrmAnalysisRun {
 model CrmProduct {
   id          String   @id @default(cuid())
   userId      String
+  businessId  String?
   name        String
   sku         String?
   description String?
@@ -1075,6 +1292,7 @@ model CrmProduct {
   dealProducts CrmDealProduct[]
 
   @@index([userId])
+  @@index([businessId])
 }
 
 /// Links a product to a deal (what's being sold), snapshotting the price at
@@ -1096,6 +1314,7 @@ model CrmDealProduct {
 model CrmInvoice {
   id            String    @id @default(cuid())
   userId        String
+  businessId    String?
   contactId     String
   dealId        String?
   /// Per-user sequential number (e.g. INV-2026-0001), minted atomically —
@@ -1121,6 +1340,7 @@ model CrmInvoice {
   revisions CrmInvoiceRevision[]
 
   @@index([userId])
+  @@index([businessId])
   @@index([contactId])
   @@index([dealId])
 }
@@ -1144,6 +1364,7 @@ model CrmInvoiceItem {
 model CrmContractTemplate {
   id           String   @id @default(cuid())
   userId       String
+  businessId   String?
   name         String
   industrySlug String?
   /// Template text with {{contactName}}/{{dealValue}}/... placeholders,
@@ -1155,11 +1376,13 @@ model CrmContractTemplate {
   contracts CrmContract[]
 
   @@index([userId])
+  @@index([businessId])
 }
 
 model CrmContract {
   id         String    @id @default(cuid())
   userId     String
+  businessId String?
   contactId  String
   dealId     String?
   templateId String?
@@ -1178,6 +1401,7 @@ model CrmContract {
   revisions CrmContractRevision[]
 
   @@index([userId])
+  @@index([businessId])
   @@index([contactId])
   @@index([dealId])
 }
@@ -1185,6 +1409,7 @@ model CrmContract {
 model CrmNote {
   id        String   @id @default(cuid())
   userId    String
+  businessId String?
   contactId String
   content   String
   isPinned  Boolean  @default(false)
@@ -1195,6 +1420,7 @@ model CrmNote {
   contact CrmContact @relation(fields: [contactId], references: [id])
 
   @@index([userId])
+  @@index([businessId])
   @@index([contactId])
 }
 
@@ -1230,6 +1456,7 @@ model CrmContractRevision {
 model CrmProject {
   id          String    @id @default(cuid())
   userId      String
+  businessId  String?
   contactId   String?
   dealId      String?
   name        String
@@ -1246,6 +1473,7 @@ model CrmProject {
   property Property[]
 
   @@index([userId])
+  @@index([businessId])
   @@index([contactId])
   @@index([dealId])
 }
@@ -1278,6 +1506,9 @@ model Package {
   /// Seat count included for CRM_TEAM-type packages (null for non-CRM or
   /// solo packages). Enforced against Team.maxSeats when this package is purchased.
   crmSeatLimit Int?
+  /// Seat count included for an AI workspace package. Kept separate from the
+  /// CRM add-on limit: a business may buy either product independently.
+  teamSeatLimit Int?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
@@ -1848,6 +2079,7 @@ model VoiceKnowledgeBase {
 model Property {
   id                      String    @id @default(cuid())
   userId                  String
+  businessId              String?
   agentId                 String?
   /// Optional link to the CRM lead interested in / associated with this
   /// property (a contact may be linked to several properties they're
@@ -1934,6 +2166,7 @@ model Property {
   AccountingExpense AccountingExpense[]
 
   @@index([userId])
+  @@index([businessId])
   @@index([agentId])
   @@index([crmContactId])
   @@index([ownerContactId])
@@ -1952,6 +2185,7 @@ model PropertyViewing {
   /// Workspace owner's id (ws.workspaceUserId), same scoping convention as
   /// every other CRM model — never the raw session user id.
   userId         String
+  businessId     String?
   propertyId     String
   /// The buyer/lead attending the viewing — optional so a slot can be
   /// blocked out before a specific contact is confirmed.
@@ -1976,6 +2210,7 @@ model PropertyViewing {
   assignedTo User?       @relation("PropertyViewingAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+  @@index([businessId])
   @@index([propertyId])
   @@index([contactId])
   @@index([assignedToId])
@@ -1994,6 +2229,7 @@ model PropertyBooking {
   id         String   @id @default(cuid())
   /// Workspace owner's id, same scoping convention as every other CRM model.
   userId     String
+  businessId String?
   propertyId String
   checkIn    DateTime
   checkOut   DateTime
@@ -2013,6 +2249,7 @@ model PropertyBooking {
   contact  CrmContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+  @@index([businessId])
   @@index([propertyId])
   @@index([contactId])
   @@index([checkIn])
@@ -2128,6 +2365,7 @@ model AuditLog {
 model AccountingAccount {
   id              String   @id @default(cuid())
   workspaceUserId String
+  businessId      String?
   code            String
   name            String
   nameEn          String?
@@ -2144,8 +2382,9 @@ model AccountingAccount {
   children AccountingAccount[]          @relation("AccountHierarchy")
   lines    AccountingJournalEntryLine[]
 
-  @@unique([workspaceUserId, code])
+  @@unique([workspaceUserId, businessId, code])
   @@index([workspaceUserId])
+  @@index([businessId])
 }
 
 /// One row per financial period an admin can lock. Locking blocks new
@@ -2156,6 +2395,7 @@ model AccountingAccount {
 model AccountingFiscalPeriod {
   id              String    @id @default(cuid())
   workspaceUserId String
+  businessId      String?
   startDate       DateTime
   endDate         DateTime
   isLocked        Boolean   @default(false)
@@ -2164,6 +2404,7 @@ model AccountingFiscalPeriod {
   createdAt       DateTime  @default(now())
 
   @@index([workspaceUserId])
+  @@index([businessId])
 }
 
 /// A balanced double-entry posting. Immutable once created — see comment on
@@ -2173,6 +2414,7 @@ model AccountingFiscalPeriod {
 model AccountingJournalEntry {
   id              String   @id @default(cuid())
   workspaceUserId String
+  businessId      String?
   entryDate       DateTime @default(now())
   memo            String?
   /// Idempotency + traceability key for auto-posted entries, e.g.
@@ -2194,6 +2436,7 @@ model AccountingJournalEntry {
   reversedBy    AccountingJournalEntry[]     @relation("Reversal")
 
   @@index([workspaceUserId, entryDate])
+  @@index([businessId, entryDate])
 }
 
 /// One debit or credit leg of a journal entry. `debit`/`credit` are
@@ -2229,6 +2472,7 @@ model AccountingJournalEntryLine {
 model AccountingVendor {
   id              String   @id @default(cuid())
   workspaceUserId String
+  businessId      String?
   name            String
   phone           String?
   email           String?
@@ -2238,6 +2482,7 @@ model AccountingVendor {
   expenses AccountingExpense[]
 
   @@index([workspaceUserId])
+  @@index([businessId])
 }
 
 /// Covers both spec ۳.۳ concepts — a supplier bill and a standalone cash
@@ -2249,6 +2494,7 @@ model AccountingVendor {
 model AccountingExpense {
   id              String    @id @default(cuid())
   workspaceUserId String
+  businessId      String?
   vendorId        String?
   /// "bill" | "cash_expense"
   kind            String    @default("cash_expense")
@@ -2286,6 +2532,7 @@ model AccountingExpense {
   property Property?         @relation(fields: [propertyId], references: [id])
 
   @@index([workspaceUserId])
+  @@index([businessId])
   @@index([vendorId])
 }
 
@@ -2294,6 +2541,7 @@ model AccountingExpense {
 model AccountingCommissionRecord {
   id              String   @id @default(cuid())
   workspaceUserId String
+  businessId      String?
   dealId          String
   totalAmount     Float
   createdAt       DateTime @default(now())
@@ -2302,6 +2550,7 @@ model AccountingCommissionRecord {
   splits AccountingCommissionSplit[]
 
   @@index([workspaceUserId])
+  @@index([businessId])
   @@index([dealId])
 }
 
@@ -2329,11 +2578,13 @@ model AccountingCommissionSplit {
 model AccountingManagementFeeRule {
   id              String   @id @default(cuid())
   workspaceUserId String
+  businessId      String?
   propertyId      String?  @unique
   feePercent      Float    @default(20)
   createdAt       DateTime @default(now())
 
   @@index([workspaceUserId])
+  @@index([businessId])
 }
 
 /// One statement per property per month — the Draft-and-Approve envelope
@@ -2344,6 +2595,7 @@ model AccountingManagementFeeRule {
 model AccountingOwnerStatement {
   id              String    @id @default(cuid())
   workspaceUserId String
+  businessId      String?
   propertyId      String
   /// First day of the statement's month, e.g. 2026-08-01T00:00:00Z.
   month           DateTime
@@ -2370,6 +2622,7 @@ model AccountingOwnerStatement {
 
   @@unique([propertyId, month])
   @@index([workspaceUserId])
+  @@index([businessId])
 }
 
 model AccountingOwnerStatementEntry {
@@ -2398,6 +2651,7 @@ model AccountingOwnerStatementEntry {
 model AccountingBankAccount {
   id              String   @id @default(cuid())
   workspaceUserId String
+  businessId      String?
   name            String
   accountNumber   String?
   currency        String   @default("IRT")
@@ -2410,6 +2664,7 @@ model AccountingBankAccount {
   transactions AccountingBankTransaction[]
 
   @@index([workspaceUserId])
+  @@index([businessId])
 }
 
 /// One row per imported bank statement line (CSV/Excel import, per spec —
@@ -2420,6 +2675,7 @@ model AccountingBankAccount {
 model AccountingBankTransaction {
   id              String    @id @default(cuid())
   workspaceUserId String
+  businessId      String?
   bankAccountId   String
   date            DateTime
   description     String
@@ -2437,6 +2693,7 @@ model AccountingBankTransaction {
   bankAccount AccountingBankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
 
   @@index([workspaceUserId])
+  @@index([businessId])
   @@index([bankAccountId])
   @@index([status])
 }
@@ -2448,12 +2705,14 @@ model AccountingBankTransaction {
 model AccountingTaxRate {
   id              String   @id @default(cuid())
   workspaceUserId String
+  businessId      String?
   name            String
   ratePercent     Float
   isDefault       Boolean  @default(false)
   createdAt       DateTime @default(now())
 
   @@index([workspaceUserId])
+  @@index([businessId])
 }
 
 /// One row per account/period budget line (spec ۳.۸). Compared against
@@ -2462,14 +2721,16 @@ model AccountingTaxRate {
 model AccountingBudget {
   id              String   @id @default(cuid())
   workspaceUserId String
+  businessId      String?
   accountCode     String
   /// First day of the budgeted month.
   period          DateTime
   amount          Float
   createdAt       DateTime @default(now())
 
-  @@unique([workspaceUserId, accountCode, period])
+  @@unique([workspaceUserId, businessId, accountCode, period])
   @@index([workspaceUserId])
+  @@index([businessId])
 }
 
 // ---------------------------------------------------------------------------
@@ -2484,6 +2745,7 @@ model AccountingBudget {
 model AccountingEmployee {
   id              String   @id @default(cuid())
   workspaceUserId String
+  businessId      String?
   userId          String?
   name            String
   baseSalary      Float    @default(0)
@@ -2494,6 +2756,7 @@ model AccountingEmployee {
   payslips AccountingPayslip[]
 
   @@index([workspaceUserId])
+  @@index([businessId])
   @@index([userId])
 }
 
@@ -2504,6 +2767,7 @@ model AccountingEmployee {
 model AccountingPayrollRun {
   id              String    @id @default(cuid())
   workspaceUserId String
+  businessId      String?
   /// First day of the paid month.
   period          DateTime
   /// "draft" | "approved" | "paid"
@@ -2516,8 +2780,9 @@ model AccountingPayrollRun {
 
   payslips AccountingPayslip[]
 
-  @@unique([workspaceUserId, period])
+  @@unique([workspaceUserId, businessId, period])
   @@index([workspaceUserId])
+  @@index([businessId])
 }
 
 /// One line per employee within a payroll run. commissionTotal is pulled from
@@ -2550,6 +2815,7 @@ model AccountingPayslip {
 model AccountingScheduledReport {
   id              String    @id @default(cuid())
   workspaceUserId String
+  businessId      String?
   /// "weekly_summary" | "monthly_pl" | "monthly_vat"
   reportType      String
   /// "weekly" | "monthly"
@@ -2570,6 +2836,7 @@ model AccountingScheduledReport {
   updatedAt       DateTime  @updatedAt
 
   @@index([workspaceUserId])
+  @@index([businessId])
 }
 
 /// A long-lived, revocable token for the external-BI read-only export API
@@ -2578,6 +2845,7 @@ model AccountingScheduledReport {
 model AccountingApiToken {
   id              String    @id @default(cuid())
   workspaceUserId String
+  businessId      String?
   label           String
   tokenHash       String    @unique
   createdAt       DateTime  @default(now())
@@ -2585,6 +2853,7 @@ model AccountingApiToken {
   revokedAt       DateTime?
 
   @@index([workspaceUserId])
+  @@index([businessId])
 }
 
 // ---------------------------------------------------------------------------
@@ -2599,6 +2868,7 @@ model AccountingApiToken {
 model AccountingAiProposal {
   id              String    @id @default(cuid())
   workspaceUserId String
+  businessId      String?
   /// "journal_entry" | "expense_categorization"
   type            String
   /// JSON payload — shape depends on `type` (see financeAgent.ts).
@@ -2615,6 +2885,7 @@ model AccountingAiProposal {
   reviewedAt      DateTime?
 
   @@index([workspaceUserId])
+  @@index([businessId])
   @@index([status])
 }
 

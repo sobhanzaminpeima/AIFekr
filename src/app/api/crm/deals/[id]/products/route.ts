@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess, dealAgentFilter } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, dealAgentFilter, businessFilter } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -14,12 +14,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const lang = await getServerLang();
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
-  const deal = await prisma.crmDeal.findFirst({ where: { id: params.id, userId: ws.workspaceUserId, ...dealAgentFilter(ws) } });
+  const deal = await prisma.crmDeal.findFirst({ where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws), ...dealAgentFilter(ws) } });
   if (!deal) return NextResponse.json({ error: tri(lang, "معامله پیدا نشد", "Deal not found", "Deal nicht gefunden") }, { status: 404 });
 
   const body = await req.json();
   const { productId, quantity } = body;
-  const product = await prisma.crmProduct.findFirst({ where: { id: productId, userId: ws.workspaceUserId } });
+  const product = await prisma.crmProduct.findFirst({ where: { id: productId, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (!product) return NextResponse.json({ error: tri(lang, "محصول پیدا نشد", "Product not found", "Produkt nicht gefunden") }, { status: 404 });
 
   const qty = typeof quantity === "number" && quantity > 0 ? quantity : 1;
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const lang = await getServerLang();
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
-  const deal = await prisma.crmDeal.findFirst({ where: { id: params.id, userId: ws.workspaceUserId, ...dealAgentFilter(ws) } });
+  const deal = await prisma.crmDeal.findFirst({ where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws), ...dealAgentFilter(ws) } });
   if (!deal) return NextResponse.json({ error: tri(lang, "معامله پیدا نشد", "Deal not found", "Deal nicht gefunden") }, { status: 404 });
 
   const dealProducts = await prisma.crmDealProduct.findMany({ where: { dealId: deal.id }, include: { product: true } });

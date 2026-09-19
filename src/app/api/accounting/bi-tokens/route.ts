@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const lang = await getServerLang();
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
-  const tokens = await listApiTokens(ws.workspaceUserId);
+  const tokens = await listApiTokens(ws.workspaceUserId, ws.businessId);
   return NextResponse.json({ tokens });
 }
 
@@ -30,6 +30,6 @@ export async function POST(req: NextRequest) {
   const { label } = (await req.json()) as { label?: string };
   if (!label) return NextResponse.json({ error: tri(lang, "برچسب توکن الزامی است", "A token label is required", "Ein Token-Label ist erforderlich") }, { status: 400 });
 
-  const { id, token } = await createApiToken(ws.workspaceUserId, label);
+  const { id, token } = await createApiToken(ws.workspaceUserId, label, ws.businessId);
   return NextResponse.json({ id, token });
 }

@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   const asOfParam = req.nextUrl.searchParams.get("asOf");
   const asOf = asOfParam ? new Date(asOfParam) : new Date();
-  const rows = await getTrialBalance(ws.workspaceUserId, asOf);
+  const rows = await getTrialBalance(ws.workspaceUserId, asOf, ws.businessId);
   const totalDebit = rows.reduce((s, r) => s + r.debitTotal, 0);
   const totalCredit = rows.reduce((s, r) => s + r.creditTotal, 0);
   return NextResponse.json({ rows, totalDebit, totalCredit, balanced: Math.abs(totalDebit - totalCredit) < 0.01 });

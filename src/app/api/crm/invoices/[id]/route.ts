@@ -141,6 +141,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     if (becameSentForLedger && ledgerTotal > 0) {
       await postJournalEntry({
         workspaceUserId: ws.workspaceUserId,
+        businessId: ws.businessId ?? undefined,
         postedBy: "system",
         memo: `Invoice ${invoice.invoiceNumber} issued`,
         sourceRef: `invoice:sent:${params.id}`,
@@ -156,6 +157,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     if (becamePaidForLedger && ledgerTotal > 0) {
       await postJournalEntry({
         workspaceUserId: ws.workspaceUserId,
+        businessId: ws.businessId ?? undefined,
         postedBy: "system",
         memo: `Invoice ${invoice.invoiceNumber} paid`,
         sourceRef: `invoice:paid:${params.id}`,

@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { approveExpense, rejectExpense, payExpense, FX_RATE_UNAVAILABLE } from "@/lib/accounting/expenses";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
@@ -19,7 +19,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
   if (ws.isAgentRestricted) return NextResponse.json({ error: tri(lang, "دسترسی ندارید", "Not authorized", "Nicht autorisiert") }, { status: 403 });
 
-  const existing = await prisma.accountingExpense.findFirst({ where: { id: params.id, workspaceUserId: ws.workspaceUserId } });
+  const existing = await prisma.accountingExpense.findFirst({ where: { id: params.id, workspaceUserId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
   const { action } = (await req.json()) as { action?: string };
@@ -27,9 +27,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   try {
     let expense;
-    if (action === "approve") expense = await approveExpense(params.id, user.id);
-    else if (action === "reject") expense = await rejectExpense(params.id, user.id);
-    else expense = await payExpense(params.id, user.id);
+    const scope = { workspaceUserId: ws.workspaceUserId, businessId: ws.businessId };
+    if (action === "approve") expense = await approveExpense(params.id, user.id, scope);
+    else if (action === "reject") expense = await rejectExpense(params.id, user.id, scope);
+    else expense = await payExpense(params.id, user.id, scope);
     return NextResponse.json({ expense });
   } catch (err) {
     if (err instanceof Error && err.message === FX_RATE_UNAVAILABLE) {

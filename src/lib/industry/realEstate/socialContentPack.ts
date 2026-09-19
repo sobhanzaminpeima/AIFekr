@@ -179,9 +179,9 @@ export interface ListingCopyResult {
   hashtags?: string[];
 }
 
-export async function generateListingCopy(userId: string, propertyId: string, lang: PromptLang, platform: ListingCopyPlatform): Promise<ListingCopyResult | null> {
+export async function generateListingCopy(userId: string, propertyId: string, lang: PromptLang, platform: ListingCopyPlatform, businessId?: string | null): Promise<ListingCopyResult | null> {
   const property = await prisma.property.findUnique({ where: { id: propertyId } });
-  if (!property || property.userId !== userId) return null;
+  if (!property || property.userId !== userId || (businessId && property.businessId !== businessId)) return null;
 
   if (platform === "instagram") {
     const post = await buildInstagramPost(userId, propertyId, lang);

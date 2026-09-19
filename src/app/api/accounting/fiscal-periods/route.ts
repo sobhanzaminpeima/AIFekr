@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const lang = await getServerLang();
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
-  const periods = await listFiscalPeriods(ws.workspaceUserId);
+  const periods = await listFiscalPeriods(ws.workspaceUserId, ws.businessId);
   return NextResponse.json({ periods });
 }
 
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   if (!startDate || !endDate) return NextResponse.json({ error: tri(lang, "تاریخ شروع و پایان الزامی است", "Start and end date are required", "Start- und Enddatum sind erforderlich") }, { status: 400 });
 
   try {
-    const period = await createFiscalPeriod(ws.workspaceUserId, new Date(startDate), new Date(endDate));
+    const period = await createFiscalPeriod(ws.workspaceUserId, new Date(startDate), new Date(endDate), ws.businessId);
     return NextResponse.json({ period });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : tri(lang, "خطا در ساخت دوره مالی", "Failed to create fiscal period", "Fehler beim Erstellen des Geschäftsjahres") }, { status: 400 });

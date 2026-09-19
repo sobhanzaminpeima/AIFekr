@@ -30,9 +30,9 @@ const DEFAULT_ACCOUNTS: Array<{ code: string; name: string; nameEn: string; name
 ];
 
 /** Idempotent — safe to call on every accounting page load; only inserts accounts missing for this workspace. */
-export async function ensureDefaultChartOfAccounts(workspaceUserId: string): Promise<void> {
+export async function ensureDefaultChartOfAccounts(workspaceUserId: string, businessId?: string | null): Promise<void> {
   const existing = await prisma.accountingAccount.findMany({
-    where: { workspaceUserId },
+    where: { workspaceUserId, ...(businessId ? { businessId } : {}) },
     select: { code: true },
   });
   const existingCodes = new Set(existing.map((a) => a.code));
@@ -42,6 +42,7 @@ export async function ensureDefaultChartOfAccounts(workspaceUserId: string): Pro
     await prisma.accountingAccount.createMany({
       data: missing.map((a) => ({
         workspaceUserId,
+        businessId: businessId || undefined,
         code: a.code,
         name: a.name,
         nameEn: a.nameEn,
@@ -59,13 +60,13 @@ export async function ensureDefaultChartOfAccounts(workspaceUserId: string): Pro
   // English or Persian. This only ever fills a NULL on a system account whose
   // code we own — it never touches a name a user edited, never touches custom
   // accounts, and is a no-op once done.
-  await backfillLocalizedNames(workspaceUserId, "nameDe");
-  await backfillLocalizedNames(workspaceUserId, "nameTr");
+  await backfillLocalizedNames(workspaceUserId, "nameDe", businessId);
+  await backfillLocalizedNames(workspaceUserId, "nameTr", businessId);
 }
 
-async function backfillLocalizedNames(workspaceUserId: string, field: "nameDe" | "nameTr"): Promise<void> {
+async function backfillLocalizedNames(workspaceUserId: string, field: "nameDe" | "nameTr", businessId?: string | null): Promise<void> {
   const needsBackfill = await prisma.accountingAccount.findMany({
-    where: { workspaceUserId, isSystem: true, [field]: null },
+    where: { workspaceUserId, ...(businessId ? { businessId } : {}), isSystem: true, [field]: null },
     select: { id: true, code: true },
   });
   if (needsBackfill.length === 0) return;

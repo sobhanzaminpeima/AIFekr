@@ -64,13 +64,14 @@ export interface PricingAdvice {
   comparablesUsed: number;
 }
 
-export async function generatePricingAdvice(userId: string, propertyId: string, lang: Lang): Promise<PricingAdvice | null> {
-  const property = await prisma.property.findFirst({ where: { id: propertyId, userId } });
+export async function generatePricingAdvice(userId: string, propertyId: string, lang: Lang, businessId?: string | null): Promise<PricingAdvice | null> {
+  const property = await prisma.property.findFirst({ where: { id: propertyId, userId, ...(businessId ? { businessId } : {}) } });
   if (!property) return null;
 
   const comparables: ComparableProperty[] = await prisma.property.findMany({
     where: {
       userId,
+      ...(businessId ? { businessId } : {}),
       id: { not: propertyId },
       propertyType: property.propertyType,
       listingType: property.listingType,

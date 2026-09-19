@@ -16,7 +16,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   if (ws.isAgentRestricted) return NextResponse.json({ error: tri(lang, "دسترسی ندارید", "Not authorized", "Nicht autorisiert") }, { status: 403 });
 
   try {
-    await revokeApiToken(params.id, ws.workspaceUserId);
+    await revokeApiToken(params.id, ws.workspaceUserId, ws.businessId);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : tri(lang, "خطا", "Error", "Fehler") }, { status: 400 });

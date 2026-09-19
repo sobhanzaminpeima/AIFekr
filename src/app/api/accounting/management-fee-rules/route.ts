@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -25,15 +25,15 @@ export async function GET(req: NextRequest) {
 
   const propertyId = req.nextUrl.searchParams.get("propertyId");
   if (propertyId) {
-    const propertyRule = await prisma.accountingManagementFeeRule.findUnique({ where: { propertyId } });
-    const workspaceDefault = await prisma.accountingManagementFeeRule.findFirst({ where: { workspaceUserId: ws.workspaceUserId, propertyId: null } });
+    const propertyRule = await prisma.accountingManagementFeeRule.findFirst({ where: { propertyId, workspaceUserId: ws.workspaceUserId, ...businessFilter(ws) } });
+    const workspaceDefault = await prisma.accountingManagementFeeRule.findFirst({ where: { workspaceUserId: ws.workspaceUserId, ...businessFilter(ws), propertyId: null } });
     return NextResponse.json({
       feePercent: propertyRule?.feePercent ?? workspaceDefault?.feePercent ?? 20,
       source: propertyRule ? "property" : workspaceDefault ? "workspace_default" : "hardcoded_default",
     });
   }
 
-  const rules = await prisma.accountingManagementFeeRule.findMany({ where: { workspaceUserId: ws.workspaceUserId } });
+  const rules = await prisma.accountingManagementFeeRule.findMany({ where: { workspaceUserId: ws.workspaceUserId, ...businessFilter(ws) } });
   return NextResponse.json({ rules });
 }
 
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (propertyId) {
-    const property = await prisma.property.findFirst({ where: { id: propertyId, userId: ws.workspaceUserId } });
+    const property = await prisma.property.findFirst({ where: { id: propertyId, userId: ws.workspaceUserId, ...businessFilter(ws) } });
     if (!property) return NextResponse.json({ error: tri(lang, "ملک یافت نشد", "Property not found", "Immobilie nicht gefunden") }, { status: 404 });
   }
 
@@ -64,13 +64,13 @@ export async function POST(req: NextRequest) {
     rule = await prisma.accountingManagementFeeRule.upsert({
       where: { propertyId },
       update: { feePercent },
-      create: { workspaceUserId: ws.workspaceUserId, propertyId, feePercent },
+      create: { workspaceUserId: ws.workspaceUserId, businessId: ws.businessId || undefined, propertyId, feePercent },
     });
   } else {
-    const existing = await prisma.accountingManagementFeeRule.findFirst({ where: { workspaceUserId: ws.workspaceUserId, propertyId: null } });
+    const existing = await prisma.accountingManagementFeeRule.findFirst({ where: { workspaceUserId: ws.workspaceUserId, ...businessFilter(ws), propertyId: null } });
     rule = existing
       ? await prisma.accountingManagementFeeRule.update({ where: { id: existing.id }, data: { feePercent } })
-      : await prisma.accountingManagementFeeRule.create({ data: { workspaceUserId: ws.workspaceUserId, propertyId: null, feePercent } });
+      : await prisma.accountingManagementFeeRule.create({ data: { workspaceUserId: ws.workspaceUserId, businessId: ws.businessId || undefined, propertyId: null, feePercent } });
   }
 
   return NextResponse.json({ rule });

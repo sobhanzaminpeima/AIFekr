@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { postJournalEntry, reverseJournalEntry } from "./ledger";
+import { bizScope } from "./scope";
 import { sendEmail } from "@/lib/email/resend";
 import { randomBytes } from "node:crypto";
 
@@ -39,7 +40,8 @@ export async function generateOwnerStatement(
   propertyId: string,
   month: Date,
   entries: OwnerStatementEntryInput[],
-  currency: string = "IRT"
+  currency: string = "IRT",
+  businessId?: string | null
 ) {
   const monthDate = monthStart(month);
 
@@ -55,7 +57,7 @@ export async function generateOwnerStatement(
 
   const feeRule =
     (await prisma.accountingManagementFeeRule.findUnique({ where: { propertyId } })) ||
-    (await prisma.accountingManagementFeeRule.findFirst({ where: { workspaceUserId, propertyId: null } }));
+    (await prisma.accountingManagementFeeRule.findFirst({ where: { workspaceUserId, ...bizScope(businessId), propertyId: null } }));
   const feePercent = feeRule?.feePercent ?? 20;
 
   const incomeTotal = entries.reduce((s, e) => s + (e.income || 0), 0);
@@ -66,6 +68,7 @@ export async function generateOwnerStatement(
 
   const data = {
     workspaceUserId,
+    ...bizScope(businessId),
     propertyId,
     month: monthDate,
     currency,
@@ -101,8 +104,19 @@ export async function generateOwnerStatement(
  * construction (see generateOwnerStatement). Idempotent via sourceRef —
  * approving twice is a no-op on the ledger.
  */
-export async function approveOwnerStatement(statementId: string, approvedBy: string) {
+export type StatementScope = { workspaceUserId: string; businessId?: string | null };
+
+/** Defence in depth: refuses a statement from another workspace/business even if the caller skipped its own ownership check. */
+function assertStatementInScope(statement: { workspaceUserId: string; businessId: string | null }, scope?: StatementScope) {
+  if (!scope) return;
+  if (statement.workspaceUserId !== scope.workspaceUserId || (scope.businessId && statement.businessId !== scope.businessId)) {
+    throw new Error("Owner statement not found in this workspace");
+  }
+}
+
+export async function approveOwnerStatement(statementId: string, approvedBy: string, scope?: StatementScope) {
   const statement = await prisma.accountingOwnerStatement.findUniqueOrThrow({ where: { id: statementId } });
+  assertStatementInScope(statement, scope);
   if (statement.status !== "draft") throw new Error("Only a draft statement can be approved");
   if (statement.netProfit <= 0) {
     // A loss month still gets approved (owner needs to see it), it just
@@ -115,6 +129,7 @@ export async function approveOwnerStatement(statementId: string, approvedBy: str
 
   await postJournalEntry({
     workspaceUserId: statement.workspaceUserId,
+    businessId: statement.businessId ?? undefined,
     postedBy: approvedBy,
     memo: `Owner statement ${statement.propertyId} ${statement.month.toISOString().slice(0, 7)}`,
     sourceRef: `owner_statement:approved:${statement.id}`,
@@ -143,11 +158,12 @@ export async function approveOwnerStatement(statementId: string, approvedBy: str
  *
  * Never auto-called by approve — a separate explicit step.
  */
-export async function sendOwnerStatement(statementId: string, ownerEmail: string, ownerName: string, lang: "fa" | "en" | "de" | "tr" = "fa") {
+export async function sendOwnerStatement(statementId: string, ownerEmail: string, ownerName: string, lang: "fa" | "en" | "de" | "tr" = "fa", scope?: StatementScope) {
   const statement = await prisma.accountingOwnerStatement.findUniqueOrThrow({
     where: { id: statementId },
     include: { entries: true, property: { select: { title: true } } },
   });
+  assertStatementInScope(statement, scope);
   if (statement.status !== "approved") throw new Error("Only an approved statement can be sent");
 
   const shareToken = statement.shareToken || randomBytes(20).toString("hex");
@@ -211,8 +227,8 @@ export async function sendOwnerStatement(statementId: string, ownerEmail: string
  * draft. Always explicit and always audit-logged, same rule as fiscal
  * period reopening.
  */
-export async function reopenOwnerStatement(statementId: string, workspaceUserId: string, reopenedBy: string) {
-  const statement = await prisma.accountingOwnerStatement.findFirstOrThrow({ where: { id: statementId, workspaceUserId } });
+export async function reopenOwnerStatement(statementId: string, workspaceUserId: string, reopenedBy: string, businessId?: string | null) {
+  const statement = await prisma.accountingOwnerStatement.findFirstOrThrow({ where: { id: statementId, workspaceUserId, ...bizScope(businessId) } });
   if (statement.status === "draft") throw new Error("This statement is already a draft");
 
   const postedEntry = await prisma.accountingJournalEntry.findUnique({ where: { sourceRef: `owner_statement:approved:${statement.id}` } });

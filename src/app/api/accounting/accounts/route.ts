@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { ensureDefaultChartOfAccounts } from "@/lib/accounting/chartOfAccounts";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
@@ -18,10 +18,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
   }
 
-  await ensureDefaultChartOfAccounts(ws.workspaceUserId);
+  await ensureDefaultChartOfAccounts(ws.workspaceUserId, ws.businessId);
 
   const accounts = await prisma.accountingAccount.findMany({
-    where: { workspaceUserId: ws.workspaceUserId },
+    where: { workspaceUserId: ws.workspaceUserId, ...businessFilter(ws) },
     orderBy: { code: "asc" },
   });
   return NextResponse.json({ accounts });
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const account = await prisma.accountingAccount.create({
-      data: { workspaceUserId: ws.workspaceUserId, code: code.trim(), name: name.trim(), nameEn, nameDe, type, parentId },
+      data: { workspaceUserId: ws.workspaceUserId, ...businessFilter(ws), code: code.trim(), name: name.trim(), nameEn, nameDe, type, parentId },
     });
     return NextResponse.json({ account });
   } catch (err) {

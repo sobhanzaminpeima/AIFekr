@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
@@ -50,11 +50,11 @@ export async function GET(req: NextRequest) {
   const [agents, wonDeals, viewings] = await Promise.all([
     prisma.user.findMany({ where: { id: { in: uniqueAgentIds } }, select: { id: true, name: true } }),
     prisma.crmDeal.findMany({
-      where: { userId: ws.workspaceUserId, status: "won", wonAt: { gte: startDate, lte: endDate }, ownerId: { in: uniqueAgentIds } },
+      where: { userId: ws.workspaceUserId, ...businessFilter(ws), status: "won", wonAt: { gte: startDate, lte: endDate }, ownerId: { in: uniqueAgentIds } },
       select: { ownerId: true, value: true, commissionAmount: true, commissionRate: true },
     }),
     prisma.propertyViewing.findMany({
-      where: { userId: ws.workspaceUserId, scheduledAt: { gte: startDate, lte: endDate }, assignedToId: { in: uniqueAgentIds } },
+      where: { userId: ws.workspaceUserId, ...businessFilter(ws), scheduledAt: { gte: startDate, lte: endDate }, assignedToId: { in: uniqueAgentIds } },
       select: { assignedToId: true, status: true },
     }),
   ]);

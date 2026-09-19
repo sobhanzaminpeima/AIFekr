@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   if (!allowed) return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
 
   try {
-    const drafts = await generateLeadMatcherDrafts(ws.workspaceUserId, lang);
+    const drafts = await generateLeadMatcherDrafts(ws.workspaceUserId, lang, ws.businessId);
     return NextResponse.json({ drafts });
   } catch (err) {
     console.error("Lead Matcher drafts error:", err);

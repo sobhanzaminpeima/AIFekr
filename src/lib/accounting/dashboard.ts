@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { getTrialBalance, getProfitAndLoss } from "./reports";
 import type { Lang } from "@/lib/i18n";
+import { bizScope } from "./scope";
 
 export interface DashboardData {
   cashBalance: number;
@@ -28,34 +29,34 @@ export interface DashboardData {
  * Jalali month names ("فروردین") on the x-axis of an otherwise translated
  * dashboard.
  */
-export async function getDashboardData(workspaceUserId: string, lang: Lang = "fa"): Promise<DashboardData> {
+export async function getDashboardData(workspaceUserId: string, lang: Lang = "fa", businessId?: string | null): Promise<DashboardData> {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const [trialBalance, monthPL, invoices, commissionRecords, properties, bankUnreconciledCount, statements] = await Promise.all([
-    getTrialBalance(workspaceUserId),
-    getProfitAndLoss(workspaceUserId, monthStart, now),
+    getTrialBalance(workspaceUserId, new Date(), businessId),
+    getProfitAndLoss(workspaceUserId, monthStart, now, businessId),
     prisma.crmInvoice.findMany({
-      where: { userId: workspaceUserId, status: { in: ["sent", "overdue"] }, dueDate: { lt: now } },
+      where: { userId: workspaceUserId, ...bizScope(businessId), status: { in: ["sent", "overdue"] }, dueDate: { lt: now } },
       include: { contact: { select: { name: true } } },
       orderBy: { dueDate: "asc" },
       take: 10,
     }),
     prisma.accountingCommissionSplit.findMany({
-      where: { status: "pending", commissionRecord: { workspaceUserId } },
+      where: { status: "pending", commissionRecord: { workspaceUserId, ...bizScope(businessId) } },
       include: { commissionRecord: { include: { deal: { select: { title: true } } } } },
       take: 10,
     }),
-    prisma.property.findMany({ where: { userId: workspaceUserId, listingType: "short_term_rent" }, select: { id: true } }),
-    prisma.accountingBankTransaction.count({ where: { workspaceUserId, status: "unmatched" } }),
+    prisma.property.findMany({ where: { userId: workspaceUserId, ...bizScope(businessId), listingType: "short_term_rent" }, select: { id: true } }),
+    prisma.accountingBankTransaction.count({ where: { workspaceUserId, ...bizScope(businessId), status: "unmatched" } }),
     // Two distinct things, deliberately queried separately: "fee actually
     // earned this month" only counts recognized (approved/sent) statements —
     // a draft's numbers are provisional and could still change — while
     // "pending review" is the draft count itself.
-    prisma.accountingOwnerStatement.findMany({ where: { workspaceUserId, status: { in: ["approved", "sent"] } }, select: { id: true, managementFee: true, month: true } }),
+    prisma.accountingOwnerStatement.findMany({ where: { workspaceUserId, ...bizScope(businessId), status: { in: ["approved", "sent"] } }, select: { id: true, managementFee: true, month: true } }),
   ]);
 
-  const pendingStatementCount = await prisma.accountingOwnerStatement.count({ where: { workspaceUserId, status: "draft" } });
+  const pendingStatementCount = await prisma.accountingOwnerStatement.count({ where: { workspaceUserId, ...bizScope(businessId), status: "draft" } });
 
   const cashRow = trialBalance.find((r) => r.code === "1000");
   const receivableRow = trialBalance.find((r) => r.code === "1200");
@@ -65,7 +66,7 @@ export async function getDashboardData(workspaceUserId: string, lang: Lang = "fa
   for (let i = 5; i >= 0; i--) {
     const from = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const to = i === 0 ? now : new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
-    const pl = await getProfitAndLoss(workspaceUserId, from, to);
+    const pl = await getProfitAndLoss(workspaceUserId, from, to, businessId);
     const monthLocale = lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US";
     trend.push({ label: from.toLocaleDateString(monthLocale, { month: "short" }), revenue: pl.revenueTotal, expense: pl.expenseTotal });
   }

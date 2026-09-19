@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const lang = await getServerLang();
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
-  const reports = await listScheduledReports(ws.workspaceUserId);
+  const reports = await listScheduledReports(ws.workspaceUserId, ws.businessId);
   return NextResponse.json({ reports });
 }
 
@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
 
   const report = await createScheduledReport({
     workspaceUserId: ws.workspaceUserId,
+    businessId: ws.businessId,
     reportType: reportType as ReportType,
     frequency: frequency as Frequency,
     recipientEmail,

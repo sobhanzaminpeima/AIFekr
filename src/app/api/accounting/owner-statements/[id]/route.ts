@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { approveOwnerStatement, sendOwnerStatement, reopenOwnerStatement } from "@/lib/accounting/ownerStatement";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
   const statement = await prisma.accountingOwnerStatement.findFirst({
-    where: { id: params.id, workspaceUserId: ws.workspaceUserId },
+    where: { id: params.id, workspaceUserId: ws.workspaceUserId, ...businessFilter(ws) },
     include: { entries: true, property: { select: { title: true, ownerContactId: true } } },
   });
   if (!statement) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
@@ -33,7 +33,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if (ws.isAgentRestricted) return NextResponse.json({ error: tri(lang, "دسترسی ندارید", "Not authorized", "Nicht autorisiert") }, { status: 403 });
 
   const existing = await prisma.accountingOwnerStatement.findFirst({
-    where: { id: params.id, workspaceUserId: ws.workspaceUserId },
+    where: { id: params.id, workspaceUserId: ws.workspaceUserId, ...businessFilter(ws) },
     include: { property: { select: { title: true, ownerContactId: true } } },
   });
   if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
@@ -42,7 +42,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   try {
     if (action === "approve") {
-      const statement = await approveOwnerStatement(params.id, user.id);
+      const statement = await approveOwnerStatement(params.id, user.id, { workspaceUserId: ws.workspaceUserId, businessId: ws.businessId });
       return NextResponse.json({ statement });
     }
     if (action === "send") {
@@ -57,11 +57,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       // admin's own UI language (emailLang) -- an admin working in Persian
       // can still send an English copy to a non-Iranian owner. Falls back to
       // the admin's own language if the caller doesn't specify one.
-      const statement = await sendOwnerStatement(params.id, owner.email, owner.name, emailLang || lang);
+      const statement = await sendOwnerStatement(params.id, owner.email, owner.name, emailLang || lang, { workspaceUserId: ws.workspaceUserId, businessId: ws.businessId });
       return NextResponse.json({ statement });
     }
     if (action === "reopen") {
-      const statement = await reopenOwnerStatement(params.id, ws.workspaceUserId, user.id);
+      const statement = await reopenOwnerStatement(params.id, ws.workspaceUserId, user.id, ws.businessId);
       return NextResponse.json({ statement });
     }
     return NextResponse.json({ error: tri(lang, "عملیات نامعتبر است", "Invalid action", "Ungültige Aktion") }, { status: 400 });

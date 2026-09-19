@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
@@ -55,13 +55,13 @@ export async function GET(req: NextRequest) {
   const [contacts, properties] = await Promise.all([
     prisma.crmContact.findMany({
       where: {
-        userId: ws.workspaceUserId,
+        userId: ws.workspaceUserId, ...businessFilter(ws),
         ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}),
       },
       select: { id: true, name: true, phone: true, customFields: true },
     }),
     prisma.property.findMany({
-      where: { userId: ws.workspaceUserId, status: "available" },
+      where: { userId: ws.workspaceUserId, ...businessFilter(ws), status: "available" },
       select: { id: true, title: true, listingType: true, propertyType: true, price: true, city: true, bedrooms: true, address: true },
     }),
   ]);

@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   if (ws.isAgentRestricted) return NextResponse.json({ insights: [] });
 
   const insights = await prisma.crmInsight.findMany({
-    where: { userId: ws.workspaceUserId },
+    where: { userId: ws.workspaceUserId, ...businessFilter(ws) },
     orderBy: { createdAt: "desc" },
     take: 20,
     select: { id: true, category: true, text: true, createdAt: true },

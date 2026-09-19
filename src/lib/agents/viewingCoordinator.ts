@@ -16,10 +16,11 @@ const SEARCH_WINDOW_MS = 4 * 60 * 60 * 1000; // scan up to 4 hours forward
 const WORKING_HOUR_START = 9;
 const WORKING_HOUR_END = 20;
 
-async function hasConflict(workspaceUserId: string, assignedToId: string, time: Date, excludeViewingId?: string): Promise<boolean> {
+async function hasConflict(workspaceUserId: string, assignedToId: string, time: Date, excludeViewingId?: string, businessId?: string | null): Promise<boolean> {
   const conflict = await prisma.propertyViewing.findFirst({
     where: {
       userId: workspaceUserId,
+      ...(businessId ? { businessId } : {}),
       assignedToId,
       status: "scheduled",
       ...(excludeViewingId ? { id: { not: excludeViewingId } } : {}),
@@ -73,10 +74,11 @@ export interface FeedbackNeededViewing {
  * happens in the UI, never an automated message to the customer (that
  * would need the same human-approval gate as everything else here).
  */
-export async function listFeedbackNeeded(workspaceUserId: string, assignedToId?: string): Promise<FeedbackNeededViewing[]> {
+export async function listFeedbackNeeded(workspaceUserId: string, assignedToId?: string, businessId?: string | null): Promise<FeedbackNeededViewing[]> {
   return prisma.propertyViewing.findMany({
     where: {
       userId: workspaceUserId,
+      ...(businessId ? { businessId } : {}),
       status: "scheduled",
       feedback: null,
       scheduledAt: { lt: new Date() },

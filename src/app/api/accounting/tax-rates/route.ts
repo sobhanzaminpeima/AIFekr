@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const lang = await getServerLang();
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
-  const taxRates = await prisma.accountingTaxRate.findMany({ where: { workspaceUserId: ws.workspaceUserId }, orderBy: { ratePercent: "asc" } });
+  const taxRates = await prisma.accountingTaxRate.findMany({ where: { workspaceUserId: ws.workspaceUserId, ...businessFilter(ws) }, orderBy: { ratePercent: "asc" } });
   return NextResponse.json({ taxRates });
 }
 
@@ -32,8 +32,8 @@ export async function POST(req: NextRequest) {
   }
 
   if (isDefault) {
-    await prisma.accountingTaxRate.updateMany({ where: { workspaceUserId: ws.workspaceUserId, isDefault: true }, data: { isDefault: false } });
+    await prisma.accountingTaxRate.updateMany({ where: { workspaceUserId: ws.workspaceUserId, ...businessFilter(ws), isDefault: true }, data: { isDefault: false } });
   }
-  const taxRate = await prisma.accountingTaxRate.create({ data: { workspaceUserId: ws.workspaceUserId, name: name.trim(), ratePercent, isDefault: !!isDefault } });
+  const taxRate = await prisma.accountingTaxRate.create({ data: { workspaceUserId: ws.workspaceUserId, businessId: ws.businessId || undefined, name: name.trim(), ratePercent, isDefault: !!isDefault } });
   return NextResponse.json({ taxRate });
 }

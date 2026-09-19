@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { generateOwnerStatement, STATEMENT_LOCKED } from "@/lib/accounting/ownerStatement";
 import { ensureDefaultChartOfAccounts } from "@/lib/accounting/chartOfAccounts";
 import { getServerLang } from "@/lib/i18n/server";
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   const propertyId = req.nextUrl.searchParams.get("propertyId") || undefined;
   const statements = await prisma.accountingOwnerStatement.findMany({
-    where: { workspaceUserId: ws.workspaceUserId, ...(propertyId ? { propertyId } : {}) },
+    where: { workspaceUserId: ws.workspaceUserId, ...businessFilter(ws), ...(propertyId ? { propertyId } : {}) },
     include: { property: { select: { title: true } } },
     orderBy: { month: "desc" },
   });
@@ -42,17 +42,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: tri(lang, "ملک، ماه و حداقل یک ردیف الزامی است", "Property, month, and at least one line item are required", "Immobilie, Monat und mindestens eine Position sind erforderlich") }, { status: 400 });
   }
 
-  const property = await prisma.property.findFirst({ where: { id: propertyId, userId: ws.workspaceUserId } });
+  const property = await prisma.property.findFirst({ where: { id: propertyId, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (!property) return NextResponse.json({ error: tri(lang, "ملک پیدا نشد", "Property not found", "Immobilie nicht gefunden") }, { status: 404 });
 
   try {
-    await ensureDefaultChartOfAccounts(ws.workspaceUserId);
+    await ensureDefaultChartOfAccounts(ws.workspaceUserId, ws.businessId);
     const statement = await generateOwnerStatement(
       ws.workspaceUserId,
       propertyId,
       new Date(month),
       entries.map((e) => ({ date: new Date(e.date), description: e.description, category: e.category as "guest_stay" | "maintenance" | "utilities" | "consumables" | "other", income: e.income, expense: e.expense })),
-      currency
+      currency,
+      ws.businessId
     );
     return NextResponse.json({ statement });
   } catch (err) {

@@ -16,15 +16,15 @@ export interface VatReport {
   netPayable: number; // outputTax - inputTax — positive means owed to the tax authority
 }
 
-export async function getVatReport(workspaceUserId: string, from: Date, to: Date): Promise<VatReport> {
+export async function getVatReport(workspaceUserId: string, from: Date, to: Date, businessId?: string | null): Promise<VatReport> {
   const invoices = await prisma.crmInvoice.findMany({
-    where: { userId: workspaceUserId, status: { in: ["sent", "paid", "overdue"] }, issueDate: { gte: from, lte: to } },
+    where: { userId: workspaceUserId, ...(businessId ? { businessId } : {}), status: { in: ["sent", "paid", "overdue"] }, issueDate: { gte: from, lte: to } },
     select: { taxTotal: true },
   });
   const outputTax = invoices.reduce((s, i) => s + i.taxTotal, 0);
 
   const expenses = await prisma.accountingExpense.findMany({
-    where: { workspaceUserId, status: { in: ["approved", "paid"] }, expenseDate: { gte: from, lte: to } },
+    where: { workspaceUserId, ...(businessId ? { businessId } : {}), status: { in: ["approved", "paid"] }, expenseDate: { gte: from, lte: to } },
     select: { taxAmount: true },
   });
   const inputTax = expenses.reduce((s, e) => s + e.taxAmount, 0);

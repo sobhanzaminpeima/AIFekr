@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
-  const property = await prisma.property.findFirst({ where: { id: params.id, userId: ws.workspaceUserId } });
+  const property = await prisma.property.findFirst({ where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (!property) return NextResponse.json({ error: tri(lang, "ملک یافت نشد", "Property not found", "Immobilie nicht gefunden") }, { status: 404 });
 
   const bookings = await prisma.propertyBooking.findMany({
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
-  const property = await prisma.property.findFirst({ where: { id: params.id, userId: ws.workspaceUserId } });
+  const property = await prisma.property.findFirst({ where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (!property) return NextResponse.json({ error: tri(lang, "ملک یافت نشد", "Property not found", "Immobilie nicht gefunden") }, { status: 404 });
 
   const body = await req.json();
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   if (contactId) {
-    const contact = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId } });
+    const contact = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, ...businessFilter(ws) } });
     if (!contact) return NextResponse.json({ error: tri(lang, "مخاطب یافت نشد", "Contact not found", "Kontakt nicht gefunden") }, { status: 404 });
   }
 
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const booking = await prisma.propertyBooking.create({
     data: {
-      userId: ws.workspaceUserId,
+      userId: ws.workspaceUserId, ...businessFilter(ws),
       propertyId: params.id,
       checkIn: checkInDate,
       checkOut: checkOutDate,

@@ -21,7 +21,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (!allowed) return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
 
   try {
-    const advice = await generatePricingAdvice(ws.workspaceUserId, params.id, lang);
+    const advice = await generatePricingAdvice(ws.workspaceUserId, params.id, lang, ws.businessId);
     if (!advice) return NextResponse.json({ error: tri(lang, "ملک یافت نشد یا تولید پیشنهاد ناموفق بود", "Property not found or advice generation failed", "Immobilie nicht gefunden oder Erstellung des Vorschlags fehlgeschlagen") }, { status: 404 });
     return NextResponse.json(advice);
   } catch (err) {

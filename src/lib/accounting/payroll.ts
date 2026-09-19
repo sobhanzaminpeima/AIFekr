@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { postJournalEntry } from "./ledger";
+import { bizScope } from "./scope";
 
 /**
  * Simple payroll (spec ۳.۵): base salary + commission + bonus/deductions,
@@ -21,6 +22,7 @@ function monthStart(d: Date): Date {
 
 export interface UpsertEmployeeInput {
   workspaceUserId: string;
+  businessId?: string | null;
   id?: string;
   userId?: string | null;
   name?: string;
@@ -30,7 +32,7 @@ export interface UpsertEmployeeInput {
 
 export async function upsertEmployee(input: UpsertEmployeeInput) {
   if (input.id) {
-    const existing = await prisma.accountingEmployee.findFirst({ where: { id: input.id, workspaceUserId: input.workspaceUserId } });
+    const existing = await prisma.accountingEmployee.findFirst({ where: { id: input.id, workspaceUserId: input.workspaceUserId, ...bizScope(input.businessId) } });
     if (!existing) throw new Error("Employee not found in this workspace");
     return prisma.accountingEmployee.update({
       where: { id: input.id },
@@ -41,6 +43,7 @@ export async function upsertEmployee(input: UpsertEmployeeInput) {
   return prisma.accountingEmployee.create({
     data: {
       workspaceUserId: input.workspaceUserId,
+      ...bizScope(input.businessId),
       userId: input.userId || null,
       name: input.name,
       baseSalary: input.baseSalary || 0,
@@ -49,8 +52,8 @@ export async function upsertEmployee(input: UpsertEmployeeInput) {
   });
 }
 
-export async function listEmployees(workspaceUserId: string) {
-  return prisma.accountingEmployee.findMany({ where: { workspaceUserId }, orderBy: { createdAt: "asc" } });
+export async function listEmployees(workspaceUserId: string, businessId?: string | null) {
+  return prisma.accountingEmployee.findMany({ where: { workspaceUserId, ...bizScope(businessId) }, orderBy: { createdAt: "asc" } });
 }
 
 /**
@@ -61,16 +64,17 @@ export async function listEmployees(workspaceUserId: string) {
  * deductions default to 0 and are editable via updatePayslip() until the
  * run is approved.
  */
-export async function generatePayrollRun(workspaceUserId: string, period: Date) {
+export async function generatePayrollRun(workspaceUserId: string, period: Date, businessId?: string | null) {
   const periodStart = monthStart(period);
   const periodEnd = new Date(Date.UTC(periodStart.getUTCFullYear(), periodStart.getUTCMonth() + 1, 0, 23, 59, 59));
 
-  const existing = await prisma.accountingPayrollRun.findUnique({ where: { workspaceUserId_period: { workspaceUserId, period: periodStart } } });
+  // findFirst, not findUnique: the unique key now includes a nullable businessId, which Prisma cannot express with NULL.
+  const existing = await prisma.accountingPayrollRun.findFirst({ where: { workspaceUserId, businessId: businessId ?? null, period: periodStart } });
   if (existing && existing.status !== "draft") {
     throw new Error("This payroll run is already approved/paid — it cannot be regenerated.");
   }
 
-  const employees = await prisma.accountingEmployee.findMany({ where: { workspaceUserId, isActive: true } });
+  const employees = await prisma.accountingEmployee.findMany({ where: { workspaceUserId, ...bizScope(businessId), isActive: true } });
   if (employees.length === 0) throw new Error("No active employees to run payroll for");
 
   const payslipData = await Promise.all(
@@ -78,7 +82,7 @@ export async function generatePayrollRun(workspaceUserId: string, period: Date) 
       let commissionTotal = 0;
       if (emp.userId) {
         const agg = await prisma.accountingCommissionSplit.aggregate({
-          where: { agentUserId: emp.userId, status: "paid", paidAt: { gte: periodStart, lte: periodEnd }, commissionRecord: { workspaceUserId } },
+          where: { agentUserId: emp.userId, status: "paid", paidAt: { gte: periodStart, lte: periodEnd }, commissionRecord: { workspaceUserId, ...bizScope(businessId) } },
           _sum: { amount: true },
         });
         commissionTotal = agg._sum.amount || 0;
@@ -104,15 +108,15 @@ export async function generatePayrollRun(workspaceUserId: string, period: Date) 
   }
 
   return prisma.accountingPayrollRun.create({
-    data: { workspaceUserId, period: periodStart, payslips: { create: payslipData } },
+    data: { workspaceUserId, ...bizScope(businessId), period: periodStart, payslips: { create: payslipData } },
     include: { payslips: { include: { employee: true } } },
   });
 }
 
 /** Adjusts a single payslip's bonus/deductions before the run is approved. */
-export async function updatePayslip(payslipId: string, workspaceUserId: string, bonus?: number, deductions?: number) {
+export async function updatePayslip(payslipId: string, workspaceUserId: string, bonus?: number, deductions?: number, businessId?: string | null) {
   const payslip = await prisma.accountingPayslip.findUniqueOrThrow({ where: { id: payslipId }, include: { payrollRun: true } });
-  if (payslip.payrollRun.workspaceUserId !== workspaceUserId) throw new Error("Payslip not found in this workspace");
+  if (payslip.payrollRun.workspaceUserId !== workspaceUserId || (businessId && payslip.payrollRun.businessId !== businessId)) throw new Error("Payslip not found in this workspace");
   if (payslip.payrollRun.status !== "draft") throw new Error("Only a draft run's payslips can be edited");
 
   const newBonus = bonus ?? payslip.bonus;
@@ -123,9 +127,18 @@ export async function updatePayslip(payslipId: string, workspaceUserId: string, 
   });
 }
 
+type RunScope = { workspaceUserId: string; businessId?: string | null };
+
+/** Defence in depth: refuses a run that belongs to another workspace/business even if the caller skipped its own ownership check. */
+function assertRunInScope(run: { workspaceUserId: string; businessId: string | null }, scope?: RunScope) {
+  if (!scope) return;
+  if (run.workspaceUserId !== scope.workspaceUserId || (scope.businessId && run.businessId !== scope.businessId)) throw new Error("Payroll run not found in this workspace");
+}
+
 /** Freezes a draft run's numbers — no ledger posting yet, same as an approved (not-yet-paid) expense. */
-export async function approvePayrollRun(runId: string, approvedBy: string) {
+export async function approvePayrollRun(runId: string, approvedBy: string, scope?: RunScope) {
   const run = await prisma.accountingPayrollRun.findUniqueOrThrow({ where: { id: runId } });
+  assertRunInScope(run, scope);
   if (run.status !== "draft") throw new Error("Only a draft payroll run can be approved");
   return prisma.accountingPayrollRun.update({ where: { id: runId }, data: { status: "approved", approvedBy, approvedAt: new Date() } });
 }
@@ -135,14 +148,16 @@ export async function approvePayrollRun(runId: string, approvedBy: string) {
  * Salaries & Commission) / Credit 1000 (Cash) for the sum of every payslip's
  * netPay — and marks it paid. Idempotent via sourceRef.
  */
-export async function payPayrollRun(runId: string, paidBy: string) {
+export async function payPayrollRun(runId: string, paidBy: string, scope?: RunScope) {
   const run = await prisma.accountingPayrollRun.findUniqueOrThrow({ where: { id: runId }, include: { payslips: true } });
+  assertRunInScope(run, scope);
   if (run.status !== "approved") throw new Error("Only an approved payroll run can be paid");
 
   const total = run.payslips.reduce((s, p) => s + p.netPay, 0);
   if (total > 0) {
     await postJournalEntry({
       workspaceUserId: run.workspaceUserId,
+      businessId: run.businessId ?? undefined,
       postedBy: paidBy,
       memo: `Payroll ${run.period.toISOString().slice(0, 7)}`,
       sourceRef: `payroll:paid:${run.id}`,

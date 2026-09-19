@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -16,7 +16,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
   if (ws.isAgentRestricted) return NextResponse.json({ error: tri(lang, "فقط مدیر یا مالک می‌تواند قالب قرارداد را ویرایش کند", "Only a manager or owner can edit a contract template", "Nur ein Manager oder Eigentümer kann eine Vertragsvorlage bearbeiten") }, { status: 403 });
 
-  const existing = await prisma.crmContractTemplate.findFirst({ where: { id: params.id, userId: ws.workspaceUserId } });
+  const existing = await prisma.crmContractTemplate.findFirst({ where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
   const body = await req.json();
@@ -41,7 +41,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
   if (ws.isAgentRestricted) return NextResponse.json({ error: tri(lang, "فقط مدیر یا مالک می‌تواند قالب قرارداد را حذف کند", "Only a manager or owner can delete a contract template", "Nur ein Manager oder Eigentümer kann eine Vertragsvorlage löschen") }, { status: 403 });
 
-  const existing = await prisma.crmContractTemplate.findFirst({ where: { id: params.id, userId: ws.workspaceUserId } });
+  const existing = await prisma.crmContractTemplate.findFirst({ where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
   await prisma.crmContractTemplate.delete({ where: { id: params.id } });

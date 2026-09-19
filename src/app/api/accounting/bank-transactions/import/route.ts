@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   try {
     const transactions = parseBankStatementCsv(csv);
     if (transactions.length === 0) return NextResponse.json({ error: tri(lang, "هیچ تراکنش معتبری در فایل یافت نشد", "No valid transactions found in the file", "Keine gültigen Transaktionen in der Datei gefunden") }, { status: 400 });
-    const unmatchedCount = await importBankTransactions(ws.workspaceUserId, bankAccountId, transactions);
+    const unmatchedCount = await importBankTransactions(ws.workspaceUserId, bankAccountId, transactions, ws.businessId);
     return NextResponse.json({ imported: transactions.length, unmatchedCount });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : tri(lang, "خطا در وارد کردن تراکنش‌ها", "Failed to import transactions", "Fehler beim Importieren der Transaktionen") }, { status: 400 });
