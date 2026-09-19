@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useTranslation, tri } from "@/lib/i18n";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import CreditCost from "@/components/ui/CreditCost";
+import { normalizeUrlInput } from "@/lib/seo/urlInput";
 
 type Tab = "url" | "keyword" | "content" | "meta";
 type Platform = "wordpress" | "aifekr" | "other";
@@ -135,17 +136,77 @@ export default function SEOPage() {
   interface UrlCheckGroup { id: string; titleFa: string; titleEn: string; titleDe?: string; checks: UrlCheck[]; }
   const [urlAudit, setUrlAudit] = useState<{ score: number; groups: UrlCheckGroup[] } | null>(null);
   const [urlAuditLoading, setUrlAuditLoading] = useState(false);
+  type ImprovePlanView = { summary: string; title: string; metaDescription: string; h1: string; fixes: { priority: "high" | "medium" | "low"; issue: string; action: string }[]; contentIdeas: string[] };
+  const [improving, setImproving] = useState(false);
+  const [plan, setPlan] = useState<ImprovePlanView | null>(null);
+  const [planApplying, setPlanApplying] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
+  async function improveWithAi() {
+    const normalized = normalizeUrlInput(url);
+    if (!normalized) return;
+    setImproving(true);
+    setPlan(null);
+    try {
+      const r = await fetch("/api/seo/improve", {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ url: normalized, targetKeyword, language: lang }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || t.common.error);
+      setPlan(d.plan);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t.common.error);
+    } finally {
+      setImproving(false);
+    }
+  }
+
+  // Writes the AI-proposed title/description to the connected site. Only ever runs from an explicit click.
+  async function applyPlan() {
+    if (!plan || !(plan.title || plan.metaDescription)) return;
+    const normalized = normalizeUrlInput(url);
+    if (!normalized) return;
+    const body: Record<string, string> = { url: normalized };
+    if (plan.title) body.title = plan.title;
+    if (plan.metaDescription) body.metaDescription = plan.metaDescription;
+    if (platform === "aifekr") {
+      if (!aifekrWebsiteId) return toast.error(t.common.error);
+      body.websiteId = aifekrWebsiteId;
+    }
+    setPlanApplying(true);
+    try {
+      const res = await fetch("/api/seo/apply", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success(tri(lang, "عنوان و توضیحات روی سایت شما اعمال شد", "Title and description applied to your site", "Titel und Beschreibung wurden auf Ihrer Website übernommen"));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t.common.error);
+    } finally {
+      setPlanApplying(false);
+    }
+  }
+
+  function copyText(key: string, text: string) {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey((k) => (k === key ? null : k)), 1800);
+  }
+
   async function analyzeUrl() {
-    if (!url.startsWith("http")) return;
+    // Accept a bare domain ("mysite.com"); the button used to stay disabled without an explicit https://.
+    const normalized = normalizeUrlInput(url);
+    if (!normalized) { toast.error(tri(lang, "آدرس وب‌سایت معتبر نیست. مثال: mysite.com", "That doesn't look like a website address. Example: mysite.com", "Das ist keine gültige Website-Adresse. Beispiel: meineseite.de")); return; }
+    if (normalized !== url) setUrl(normalized);
     setUrlAuditLoading(true);
     setUrlAudit(null);
+    setPlan(null);
     setResult("");
     try {
       const r = await fetch("/api/seo/analyze-url", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, language: lang }),
+        body: JSON.stringify({ url: normalized, language: lang }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
@@ -499,10 +560,17 @@ export default function SEOPage() {
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
-            <button disabled={urlAuditLoading || !url.startsWith("http")} onClick={analyzeUrl}
+            <button disabled={urlAuditLoading || !url.trim()} onClick={analyzeUrl}
               className="w-full py-3 rounded-xl font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2" style={{ background: "var(--primary)" }}>
               <Globe className="w-4 h-4" />{urlAuditLoading ? t.seo.analyzing : t.seo.analyzeButton}
             </button>
+            {urlAudit && !urlAuditLoading && (
+              <button disabled={improving} onClick={improveWithAi}
+                className="w-full py-3 rounded-xl font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg,var(--primary),#8b5cf6)" }}>
+                {improving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {improving ? tri(lang, "در حال تهیه برنامه بهبود...", "Building your improvement plan...", "Verbesserungsplan wird erstellt...") : tri(lang, "بهبود با هوش مصنوعی", "Improve with AI", "Mit KI verbessern")} <CreditCost feature="seo.improve" />
+              </button>
+            )}
             {platform && platform !== "other" && urlAudit && !urlAuditLoading && (
               <button disabled={applying} onClick={applyChanges}
                 className="w-full py-3 rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
@@ -624,6 +692,70 @@ export default function SEOPage() {
                   </div>
                 );
               })}
+              {plan && (
+                <div className="p-5 space-y-4" style={{ borderTop: "1px solid var(--border)", background: "var(--surface-2)" }}>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" style={{ color: "var(--primary)" }} />
+                    <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "برنامه بهبود سئو (بر پایه بررسی واقعی صفحه شما)", "SEO improvement plan (based on the real audit of your page)", "SEO-Verbesserungsplan (auf Basis der echten Prüfung Ihrer Seite)")}</span>
+                  </div>
+                  {plan.summary && <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{plan.summary}</p>}
+
+                  {[
+                    { key: "title", label: tri(lang, "عنوان پیشنهادی (Title)", "Suggested title", "Vorgeschlagener Titel"), value: plan.title, max: 60 },
+                    { key: "meta", label: tri(lang, "توضیحات پیشنهادی (Meta Description)", "Suggested meta description", "Vorgeschlagene Meta-Beschreibung"), value: plan.metaDescription, max: 160 },
+                    { key: "h1", label: tri(lang, "H1 پیشنهادی", "Suggested H1", "Vorgeschlagene H1"), value: plan.h1, max: 0 },
+                  ].filter((f) => f.value).map((f) => (
+                    <div key={f.key} className="rounded-xl p-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{f.label}{f.max ? ` · ${f.value.length}/${f.max}` : ""}</span>
+                        <button onClick={() => copyText(f.key, f.value)} className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                          {copiedKey === f.key ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}{copiedKey === f.key ? t.seo.copied : t.seo.copy}
+                        </button>
+                      </div>
+                      <p className="text-sm break-words" style={{ color: "var(--text-primary)" }}>{f.value}</p>
+                    </div>
+                  ))}
+
+                  {plan.fixes.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{tri(lang, "اقدامات به ترتیب اولویت", "Actions in priority order", "Maßnahmen nach Priorität")}</p>
+                      <div className="space-y-2">
+                        {plan.fixes.map((f, i) => (
+                          <div key={i} className="rounded-xl p-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+                            <div className="flex items-start gap-2">
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 mt-0.5" style={{ background: f.priority === "high" ? "rgba(239,68,68,0.15)" : f.priority === "medium" ? "rgba(234,179,8,0.15)" : "rgba(34,197,94,0.15)", color: f.priority === "high" ? "#ef4444" : f.priority === "medium" ? "#eab308" : "#22c55e" }}>
+                                {f.priority === "high" ? tri(lang, "بالا", "High", "Hoch") : f.priority === "medium" ? tri(lang, "متوسط", "Medium", "Mittel") : tri(lang, "کم", "Low", "Niedrig")}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{f.issue}</p>
+                                <p className="text-xs mt-0.5 break-words" style={{ color: "var(--text-muted)" }}>{f.action}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {plan.contentIdeas.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "ایده‌های محتوا برای این صفحه", "Content ideas for this page", "Content-Ideen für diese Seite")}</p>
+                      <ul className="list-disc ps-5 text-xs space-y-0.5" style={{ color: "var(--text-muted)" }}>{plan.contentIdeas.map((c, i) => <li key={i}>{c}</li>)}</ul>
+                    </div>
+                  )}
+
+                  {platform && platform !== "other" ? (
+                    <button disabled={planApplying || !(plan.title || plan.metaDescription)} onClick={applyPlan}
+                      className="w-full py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                      style={{ background: "var(--surface-1)", color: "var(--primary)", border: "1px solid var(--primary)" }}>
+                      {planApplying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                      {tri(lang, "اعمال عنوان و توضیحات روی سایت من", "Apply title & description to my site", "Titel & Beschreibung auf meiner Website übernehmen")}
+                    </button>
+                  ) : (
+                    <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "برای اعمال خودکار، پلتفرم سایت (مثلاً وردپرس) را بالای صفحه متصل کنید؛ وگرنه موارد بالا را کپی و دستی جایگذاری کنید.", "To apply automatically, connect your site platform (e.g. WordPress) at the top of the page; otherwise copy the items above and paste them in yourself.", "Zum automatischen Übernehmen verbinden Sie oben Ihre Website-Plattform (z. B. WordPress); andernfalls kopieren Sie die Punkte oben manuell.")}</p>
+                  )}
+                </div>
+              )}
             </>
           ) : null}
         </div>

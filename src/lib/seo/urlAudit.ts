@@ -1,4 +1,4 @@
-import { safeFetch } from "@/lib/net/safeUrl";
+import { safeFetch, UnsafeUrlError } from "@/lib/net/safeUrl";
 
 export interface CrawledPageData {
   title: string;
@@ -34,7 +34,19 @@ export interface CrawledPageData {
   statusCode: number;
 }
 
+/** Why a page could not be crawled, so the user is told something they can act on instead of a generic failure. */
+export type CrawlFailure =
+  | { reason: "blocked" }                       // private/internal address or non-web scheme
+  | { reason: "timeout" }                       // no answer within the crawl window
+  | { reason: "http"; status: number }          // the site answered with an error (401/403/429 = it refuses our crawler)
+  | { reason: "unreachable" };                  // DNS/connection failure
+
 export async function crawlUrl(url: string): Promise<CrawledPageData | null> {
+  const r = await crawlUrlDetailed(url);
+  return "data" in r ? r.data : null;
+}
+
+export async function crawlUrlDetailed(url: string): Promise<{ data: CrawledPageData } | CrawlFailure> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
@@ -42,7 +54,7 @@ export async function crawlUrl(url: string): Promise<CrawledPageData | null> {
     const res = await safeFetch(url, { signal: controller.signal, headers: { "User-Agent": "Mozilla/5.0 (compatible; AiFekrSEOBot/1.0)" } });
     const responseTimeMs = Date.now() - start;
     clearTimeout(timeout);
-    if (!res.ok) return null;
+    if (!res.ok) return { reason: "http", status: res.status };
     const html = await res.text();
 
     const getTag = (p: RegExp) => { const m = html.match(p); return m ? m[1]?.trim() || "" : ""; };
@@ -78,15 +90,17 @@ export async function crawlUrl(url: string): Promise<CrawledPageData | null> {
     const doctype = /^\s*<!doctype html>/i.test(html);
     const server = res.headers.get("server");
 
-    return {
+    return { data: {
       title, metaDesc, metaKeywords, canonical, ogTitle, ogDesc, ogImage, robotsMeta, viewport, charset, langAttr,
       h1: h1s.slice(0, 5), h2: h2s.slice(0, 10), h3Count,
       images, imagesWithAlt, lazyImages, links, internalLinks, externalLinks, wordCount,
       hasSchema, hasFavicon, isHttps, hasDeprecatedTags, hasInlineCss, htmlSize: html.length, doctype,
       server, responseTimeMs, statusCode: res.status,
-    };
-  } catch {
-    return null;
+    } };
+  } catch (e) {
+    if (e instanceof UnsafeUrlError) return e.message === "host could not be resolved" ? { reason: "unreachable" } : { reason: "blocked" };
+    if (e instanceof Error && e.name === "AbortError") return { reason: "timeout" };
+    return { reason: "unreachable" };
   }
 }
 

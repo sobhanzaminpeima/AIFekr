@@ -189,6 +189,7 @@ export const TOOL_FEATURES: Record<string, string> = {
   "sales.followup-drafts": "فروش — پیش‌نویس پیگیری",
   "meeting": "جلسه هوشمند",
   "seo.analyze": "سئو — تحلیل",
+  "seo.improve": "سئو — بهبود با AI",
   "seo.suggest": "سئو — پیشنهاد",
   "seo.pipeline": "سئو — عامل چندمرحله‌ای",
   "seo.audit-fix": "سئو — رفع مشکلات ممیزی",

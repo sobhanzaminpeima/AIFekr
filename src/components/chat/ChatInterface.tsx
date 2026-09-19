@@ -19,6 +19,7 @@ import { OPEN_COMMAND_PALETTE_EVENT } from "@/components/ui/CommandPalette";
 import { maxReferenceImages } from "@/lib/constants/imageUploadLimits";
 import { downscaleImage } from "@/lib/image/downscaleImage";
 import OrchestratorActionCard, { type OrchestratorAction } from "@/components/chat/OrchestratorActionCard";
+import { useCreditCosts } from "@/components/ui/CreditCost";
 
 interface PromptBoxData {
   name: string;
@@ -104,6 +105,8 @@ interface ChatProvider {
   id: string;
   name: string;
   model: string;
+  /** Credits one message costs on this model (shown next to the name). */
+  creditCost?: number;
 }
 
 // ── Media generation ────────────────────────────────────────────────────────
@@ -335,6 +338,8 @@ export default function ChatInterface({
   const [streaming, setStreaming] = useState(false);
   const [selectedModel, setSelectedModel] = useState(MODEL_IDS[0].id);
   const [chatProviders, setChatProviders] = useState<ChatProvider[]>([]);
+  // Cost per message in credits, from the same admin-editable Credit Rules the chat route charges from.
+  const chatBaseCost = useCreditCosts()?.chat ?? null;
   const [currentConvId, setCurrentConvId] = useState(conversationId);
   const [activeProvider, setActiveProvider] = useState<string | null>(null);
   const [expertMode, setExpertMode] = useState("default");
@@ -1054,8 +1059,8 @@ export default function ChatInterface({
             className="px-2.5 py-1.5 rounded-xl text-xs outline-none flex-shrink-0 max-w-[9rem]"
             style={pill}
           >
-            {MODEL_IDS.map((m) => <option key={m.id} value={m.id}>{t.chat.models[m.key]}</option>)}
-            {chatProviders.map((p) => <option key={p.id} value={p.model}>{p.name}</option>)}
+            {MODEL_IDS.map((m) => <option key={m.id} value={m.id}>{t.chat.models[m.key]}{chatBaseCost != null ? ` · ${chatBaseCost}+` : ""}</option>)}
+            {chatProviders.map((p) => <option key={p.id} value={p.model}>{p.name}{p.creditCost != null ? ` · ${p.creditCost}` : ""}</option>)}
           </select>
         )}
         {mediaType === "image" && mode === "credits" && imageProviders.length > 0 && (
