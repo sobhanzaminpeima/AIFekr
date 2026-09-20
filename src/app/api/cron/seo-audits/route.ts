@@ -5,11 +5,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { isCronAuthorized } from "@/lib/auth/cronAuth";
 import { prisma } from "@/lib/db/prisma";
 import { auditAndSave } from "@/lib/seo/siteAuditService";
+import { syncRankings } from "@/lib/seo/rankService";
 import { sendEmail } from "@/lib/email/resend";
 import { tri } from "@/lib/i18n/tri";
 
 /** Sites audited per invocation: each audit crawls up to 10 pages, so the run is kept short and frequent. */
 const BATCH = 4;
+/** Search Console snapshots taken per invocation. */
+const RANK_SYNCS_PER_TICK = 5;
 
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
 
@@ -61,5 +64,17 @@ export async function GET(req: NextRequest) {
       results.push({ siteId: site.id, ok: false, reason: "error" });
     }
   }
-  return NextResponse.json({ ran: due.length, results });
+  // Weekly Search Console snapshots ride on this same tick (no extra crontab entry): a few sites per run,
+  // only those with a Google connection whose newest snapshot is older than six days.
+  const ranks: { siteId: string; ok: boolean; reason?: string }[] = [];
+  const candidates = await prisma.seoSite.findMany({ where: { user: { gscConnection: { isNot: null }, isBlocked: false } }, orderBy: { createdAt: "asc" }, take: 40, select: { id: true } });
+  for (const c of candidates) {
+    if (ranks.length >= RANK_SYNCS_PER_TICK) break;
+    const last = await prisma.seoRankSnapshot.findFirst({ where: { siteId: c.id }, orderBy: { createdAt: "desc" }, select: { createdAt: true } });
+    if (last && Date.now() - last.createdAt.getTime() < 6 * 24 * 60 * 60 * 1000) continue;
+    const r = await syncRankings(c.id);
+    ranks.push({ siteId: c.id, ok: r.ok, reason: r.ok ? undefined : r.reason });
+  }
+
+  return NextResponse.json({ ran: due.length, results, ranks });
 }

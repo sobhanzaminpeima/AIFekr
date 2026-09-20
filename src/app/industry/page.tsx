@@ -2,17 +2,20 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db/prisma";
 import { getServerLang } from "@/lib/i18n/server";
-import { absoluteUrl } from "@/lib/seo/site";
+import { absoluteUrl, pageJsonLd } from "@/lib/seo/site";
+import JsonLd from "@/components/seo/JsonLd";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getServerLang();
-  const title = lang === "fa" ? "بازار بسته‌های صنعتی هوش مصنوعی | AiFekr" : "AI Industry Packs Marketplace | AiFekr";
+  const title = lang === "fa" ? "بازار بسته‌های صنعتی هوش مصنوعی — عوامل AI برای هر صنعت | AiFekr" : lang === "de" ? "Marktplatz für Branchen-KI-Pakete — KI-Agenten für jede Branche | AiFekr" : "AI Industry Packs Marketplace — AI Agents for Every Industry | AiFekr";
   const description =
     lang === "fa"
       ? "تیم‌های عامل هوش مصنوعی اختصاصی برای هر صنعت — رستوران، مطب، املاک و بیشتر — آماده برای کار ۲۴/۷ با AiFekr."
-      : "Specialized AI agent teams for every industry — ready to work 24/7 with AiFekr.";
+      : lang === "de"
+        ? "Spezialisierte KI-Agententeams für jede Branche — Restaurant, Praxis, Immobilien, Bau und mehr. Einsatzbereit rund um die Uhr mit AiFekr."
+        : "Specialized AI agent teams for every industry — restaurants, clinics, real estate, construction and more. Ready to work 24/7 with AiFekr.";
   return { title: { absolute: title }, description, alternates: { canonical: absoluteUrl("/industry") }, openGraph: { title, description } };
 }
 
@@ -79,6 +82,7 @@ export default async function IndustryPage() {
 
   return (
     <div className="min-h-screen p-8" style={{ background: "var(--surface-0)" }}>
+      <JsonLd data={pageJsonLd(lang, "/industry", "CollectionPage")} />
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold mb-3" style={{ color: "var(--text-primary)" }}>{s.title}</h1>

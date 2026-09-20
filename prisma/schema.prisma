@@ -1740,6 +1740,7 @@ model SeoSite {
   user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   audits      SeoAudit[]
   contentPlan SeoContentPlan?
+  rankSnapshots SeoRankSnapshot[]
 
   @@unique([userId, url])
   @@index([userId])
@@ -1804,6 +1805,26 @@ model SeoContentPlan {
 
   @@index([enabled, nextRunAt])
   @@index([userId])
+}
+
+/// One query's real Search Console numbers for a tracked site over a 7-day window
+/// ending on `date`. Only ever written from Search Console data -- never estimated.
+model SeoRankSnapshot {
+  id          String   @id @default(cuid())
+  siteId      String
+  /// Last day (UTC, yyyy-mm-dd) of the 7-day window this row covers
+  date        String
+  query       String
+  clicks      Int
+  impressions Int
+  ctr         Float
+  position    Float
+  createdAt   DateTime @default(now())
+
+  site SeoSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, date, query])
+  @@index([siteId, date])
 }
 
 model IndustryPack {

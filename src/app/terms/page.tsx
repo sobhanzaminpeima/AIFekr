@@ -3,7 +3,8 @@ import Image from "next/image";
 import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
 import { getServerLang } from "@/lib/i18n/server";
 import type { Metadata } from "next";
-import { pageMetadata } from "@/lib/seo/site";
+import { pageMetadata, pageJsonLd } from "@/lib/seo/site";
+import JsonLd from "@/components/seo/JsonLd";
 
 export const dynamic = "force-dynamic";
 
@@ -148,6 +149,7 @@ export default async function TermsPage() {
 
   return (
     <div className="min-h-screen" dir={lang === "fa" ? "rtl" : "ltr"} style={{ background: "#0a0a0f", color: "#f5f5f5" }}>
+      <JsonLd data={pageJsonLd(lang, "/terms")} />
       <nav
         className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4"
         style={{ background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}

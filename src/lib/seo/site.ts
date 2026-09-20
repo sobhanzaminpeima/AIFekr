@@ -55,3 +55,36 @@ export function pageMetadata(lang: Lang, path: string, title: Text4, description
     twitter: { card: "summary_large_image", title: t, description: d },
   };
 }
+
+const PAGE_LABEL: Record<string, Text4> = {
+  "/": { fa: "خانه", en: "Home", de: "Startseite", tr: "Ana sayfa" },
+  "/about": { fa: "درباره ما", en: "About us", de: "Über uns", tr: "Hakkımızda" },
+  "/contact": { fa: "تماس با ما", en: "Contact", de: "Kontakt", tr: "İletişim" },
+  "/privacy": { fa: "حریم خصوصی", en: "Privacy policy", de: "Datenschutz", tr: "Gizlilik" },
+  "/terms": { fa: "شرایط استفاده", en: "Terms of service", de: "Nutzungsbedingungen", tr: "Kullanım koşulları" },
+  "/ai-team": { fa: "تیم هوش مصنوعی", en: "AI team", de: "KI-Team", tr: "Yapay zekâ ekibi" },
+  "/industry": { fa: "بسته‌های صنعتی", en: "Industry packs", de: "Branchenpakete", tr: "Sektör paketleri" },
+  "/register": { fa: "ثبت‌نام", en: "Sign up", de: "Registrieren", tr: "Kayıt ol" },
+};
+
+const labelFor = (lang: Lang, path: string): string => {
+  const l = PAGE_LABEL[path];
+  return l ? tri(lang, l.fa, l.en, l.de, l.tr ?? l.en) : path;
+};
+
+/**
+ * schema.org markup for an inner public page: the page itself plus its breadcrumb
+ * trail. Only facts we can stand behind -- no ratings, prices or review counts.
+ * `nameOverride` names a dynamic page (an industry pack); its parent is /industry.
+ */
+export function pageJsonLd(lang: Lang, path: string, type: "WebPage" | "AboutPage" | "ContactPage" | "CollectionPage" = "WebPage", nameOverride?: string): Record<string, unknown>[] {
+  const url = absoluteUrl(path);
+  const name = nameOverride ?? labelFor(lang, path);
+  const trail: { name: string; url: string }[] = [{ name: labelFor(lang, "/"), url: absoluteUrl("/") }];
+  if (nameOverride && path.startsWith("/industry/")) trail.push({ name: labelFor(lang, "/industry"), url: absoluteUrl("/industry") });
+  trail.push({ name, url });
+  return [
+    { "@context": "https://schema.org", "@type": type, name, url, inLanguage: lang, isPartOf: { "@type": "WebSite", name: SITE_NAME, url: SITE_URL } },
+    { "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: trail.map((t, i) => ({ "@type": "ListItem", position: i + 1, name: t.name, item: t.url })) },
+  ];
+}

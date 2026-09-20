@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { absoluteUrl } from "@/lib/seo/site";
+import { absoluteUrl, pageJsonLd } from "@/lib/seo/site";
+import JsonLd from "@/components/seo/JsonLd";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -22,12 +23,14 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const lang = await getServerLang();
   const name = lang === "de" ? (pack.nameDe || pack.nameEn || pack.name) : lang === "en" ? (pack.nameEn || pack.name) : pack.name;
   const description = lang === "de" ? (pack.valuePropositionDe || pack.valuePropositionEn || pack.valueProposition) : lang === "en" ? (pack.valuePropositionEn || pack.valueProposition) : pack.valueProposition;
-  const title = lang === "fa" ? `${name} | بسته هوش مصنوعی AiFekr` : `${name} | AiFekr AI Pack`;
+  const title = lang === "fa" ? `${name} — بسته عوامل هوش مصنوعی برای کسب‌وکار شما | AiFekr` : lang === "de" ? `${name} — KI-Agenten-Paket für Ihr Unternehmen | AiFekr` : `${name} — AI Agent Pack for Your Business | AiFekr`;
+  const filler = lang === "fa" ? " تیمی از عوامل هوش مصنوعی متخصص که ۲۴ ساعته برای کسب‌وکار شما کار می‌کنند." : lang === "de" ? " Ein Team spezialisierter KI-Agenten, das rund um die Uhr für Ihr Unternehmen arbeitet." : " A team of specialist AI agents working around the clock for your business.";
+  const snippet = description ? (description.length >= 110 ? description : (description.trim() + filler).slice(0, 160)) : filler.trim();
   return {
     title: { absolute: title },
-    description: description || undefined,
+    description: snippet,
     alternates: { canonical: absoluteUrl(`/industry/${params.slug}`) },
-    openGraph: { title, description: description || undefined },
+    openGraph: { title, description: snippet },
   };
 }
 
@@ -103,6 +106,7 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
 
   return (
     <div className="min-h-screen" style={{ background: "var(--surface-0)" }}>
+      <JsonLd data={pageJsonLd(lang, `/industry/${params.slug}`, "WebPage", name)} />
       {/* Hero */}
       <div className="p-8 md:p-12" style={{ background: `linear-gradient(135deg, ${pack.gradientFrom}, ${pack.gradientTo})` }}>
         <div className="max-w-5xl mx-auto">

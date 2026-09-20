@@ -4,7 +4,8 @@ import { getServerLang } from "@/lib/i18n/server";
 import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
 import AiTeamPipeline from "@/components/landing/AiTeamPipeline";
 import type { Metadata } from "next";
-import { pageMetadata } from "@/lib/seo/site";
+import { pageMetadata, pageJsonLd } from "@/lib/seo/site";
+import JsonLd from "@/components/seo/JsonLd";
 
 export const dynamic = "force-dynamic";
 
@@ -153,6 +154,7 @@ export default async function AiTeamPage() {
 
   return (
     <div className="min-h-screen" dir={dir} style={{ background: "#0a0a0f", color: "#f5f5f5" }}>
+      <JsonLd data={pageJsonLd(lang, "/ai-team")} />
       <header className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <Link href="/" className="flex items-center gap-2">
           <Image src="/logo.svg" alt="AiFekr" width={28} height={28} className="rounded-lg" />
