@@ -331,14 +331,24 @@ export default function SEOPage() {
           <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{t.seo.title}</h1>
           <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{t.seo.description}</p>
         </div>
-        <Link
-          href="/seo/agent-pipeline"
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium flex-shrink-0"
-          style={{ background: "rgba(234,88,12,0.15)", color: "var(--primary)" }}
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          {tri(lang, "خط تولید محتوای هوشمند (۸ Agent)", "Smart Content Pipeline (8 Agents)", "Intelligente Content-Pipeline (8 Agenten)")}
-        </Link>
+        <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+          <Link
+            href="/seo/sites"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium"
+            style={{ background: "var(--primary)", color: "#fff" }}
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+            {tri(lang, "مانیتور سئو (تحلیل ذخیره‌شده و خودکار)", "SEO Monitor (saved & automatic audits)", "SEO-Monitor (gespeicherte & automatische Analysen)")}
+          </Link>
+          <Link
+            href="/seo/agent-pipeline"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium"
+            style={{ background: "rgba(234,88,12,0.15)", color: "var(--primary)" }}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            {tri(lang, "خط تولید محتوای هوشمند (۸ Agent)", "Smart Content Pipeline (8 Agents)", "Intelligente Content-Pipeline (8 Agenten)")}
+          </Link>
+        </div>
       </div>
 
       <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>

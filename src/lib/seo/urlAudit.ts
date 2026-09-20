@@ -35,6 +35,8 @@ export interface CrawledPageData {
   statusCode: number;
   twitterCard?: string;
   hreflangCount?: number;
+  /** Raw hrefs found on the page (deduplicated, capped) -- lets a site audit discover more pages to crawl. */
+  linkTargets?: string[];
   /** X-Robots-Tag response header (can noindex a page without any meta tag). */
   xRobotsTag?: string;
   /** Site-level crawlability, probed from the page's own origin. Undefined when the probe did not run. */
@@ -79,7 +81,7 @@ export async function crawlUrl(url: string): Promise<CrawledPageData | null> {
   return "data" in r ? r.data : null;
 }
 
-export async function crawlUrlDetailed(url: string): Promise<{ data: CrawledPageData } | CrawlFailure> {
+export async function crawlUrlDetailed(url: string, opts: { probeSite?: boolean } = {}): Promise<{ data: CrawledPageData } | CrawlFailure> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
@@ -126,7 +128,8 @@ export async function crawlUrlDetailed(url: string): Promise<{ data: CrawledPage
     const server = res.headers.get("server");
     let origin = "";
     try { origin = new URL(url).origin; } catch {}
-    const site = origin ? await probeSite(origin) : undefined;
+    // robots.txt / sitemap are site-wide: a multi-page audit probes them once (on the homepage), not per page.
+    const site = origin && opts.probeSite !== false ? await probeSite(origin) : undefined;
 
     return { data: {
       title, metaDesc, metaKeywords, canonical, ogTitle, ogDesc, ogImage, robotsMeta, viewport, charset, langAttr,
@@ -134,7 +137,7 @@ export async function crawlUrlDetailed(url: string): Promise<{ data: CrawledPage
       images, imagesWithAlt, lazyImages, links, internalLinks, externalLinks, wordCount,
       hasSchema, hasFavicon, isHttps, hasDeprecatedTags, hasInlineCss, htmlSize: html.length, doctype,
       server, responseTimeMs, statusCode: res.status,
-      twitterCard, hreflangCount, xRobotsTag: res.headers.get("x-robots-tag") || "", site,
+      twitterCard, hreflangCount, linkTargets: Array.from(new Set(allLinks)).slice(0, 120), xRobotsTag: res.headers.get("x-robots-tag") || "", site,
     } };
   } catch (e) {
     if (e instanceof UnsafeUrlError) return e.message === "host could not be resolved" ? { reason: "unreachable" } : { reason: "blocked" };

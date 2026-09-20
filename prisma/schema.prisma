@@ -157,6 +157,7 @@ model User {
   teamMembership           TeamMember?
   seoConnection            SeoConnection?
   gscConnection            GscConnection?
+  seoSites                 SeoSite[]
   instagramConn            InstagramConnection?
   scheduledPosts           ScheduledPost[]
   pipelineRuns             ContentPipelineRun[]
@@ -1717,6 +1718,94 @@ model GscConnection {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+/// A website a user tracks in the SEO Command Center. Audits are saved per site
+/// so progress can be compared over time and re-run automatically.
+model SeoSite {
+  id          String    @id @default(cuid())
+  userId      String
+  businessId  String?
+  /// Normalised origin, e.g. "https://mysite.com/"
+  url         String
+  name        String?
+  /// Re-audit automatically on a schedule (see /api/cron/seo-audits)
+  autoAudit   Boolean   @default(true)
+  /// "daily" | "weekly" | "monthly"
+  frequency   String    @default("weekly")
+  lastAuditAt DateTime?
+  nextAuditAt DateTime?
+  lastScore   Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  audits      SeoAudit[]
+  contentPlan SeoContentPlan?
+
+  @@unique([userId, url])
+  @@index([userId])
+  @@index([businessId])
+  @@index([autoAudit, nextAuditAt])
+}
+
+/// One saved audit of a site (several pages crawled). `pages` and `siteChecks`
+/// hold compact JSON; only non-passing checks are stored per page.
+model SeoAudit {
+  id            String    @id @default(cuid())
+  siteId        String
+  userId        String
+  /// "manual" | "auto"
+  source        String    @default("manual")
+  score         Int
+  pagesCrawled  Int
+  failCount     Int
+  warnCount     Int
+  passCount     Int
+  siteChecks    String
+  pages         String
+  /// AI improvement plan (JSON), generated on demand and saved with the audit
+  plan          String?
+  planCreatedAt DateTime?
+  createdAt     DateTime  @default(now())
+
+  site SeoSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId, createdAt])
+  @@index([userId])
+}
+
+/// Blog automation for a tracked site: on a schedule the content pipeline writes
+/// the next post and either saves it in AiFekr only, as a WordPress draft, or
+/// publishes it live. Default is "draft" -- nothing goes live without opting in.
+model SeoContentPlan {
+  id           String    @id @default(cuid())
+  siteId       String    @unique
+  userId       String
+  enabled      Boolean   @default(false)
+  /// What the blog is about; used when the topic queue is empty
+  theme        String    @default("")
+  /// JSON array of topics to write about, consumed one per run
+  topics       String    @default("[]")
+  brandVoice   String?
+  /// Language the posts are written in (captured from the UI language when the plan is saved)
+  lang         String    @default("fa")
+  /// "daily" | "every3days" | "weekly" | "biweekly"
+  frequency    String    @default("weekly")
+  /// "draft" (WordPress draft) | "publish" (live) | "hold" (kept in AiFekr only)
+  mode         String    @default("draft")
+  nextRunAt    DateTime?
+  lastRunAt    DateTime?
+  lastError    String?
+  /// Set while a run is in flight so two cron ticks cannot start the same plan twice
+  runningSince DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  site SeoSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([enabled, nextRunAt])
+  @@index([userId])
+}
+
 model IndustryPack {
   id                 String               @id @default(cuid())
   slug               String               @unique
@@ -1831,6 +1920,8 @@ model ContentPipelineRun {
   /// "running" | "done" | "failed"
   status     String   @default("running")
   shareToken String?  @unique
+  /// SeoContentPlan that started this run (null for runs started by hand)
+  planId     String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -1839,6 +1930,7 @@ model ContentPipelineRun {
   post  ContentPost?
 
   @@index([userId])
+  @@index([planId])
 }
 
 /// Output of a single agent within one pipeline run. A writer/editor
