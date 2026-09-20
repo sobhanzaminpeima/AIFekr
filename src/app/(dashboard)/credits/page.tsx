@@ -5,6 +5,7 @@ import { Coins, Loader2, ShoppingCart, History, MessageSquare, Image as ImageIco
 import toast from "react-hot-toast";
 import { useTranslation, tri } from "@/lib/i18n";
 import { formatNumber, toJalali } from "@/lib/utils/jalali";
+import { toolFeatureLabel } from "@/lib/utils/credits";
 
 interface CreditTier {
   id: string;
@@ -295,12 +296,15 @@ const USAGE_TYPE_LABEL: Record<string, Record<string, string>> = {
   video: { fa: "تولید ویدیو", en: "Video generation", de: "Videogenerierung" },
   music: { fa: "تولید موزیک", en: "Music generation", de: "Musikgenerierung" },
   seo: { fa: "سئو", en: "SEO", de: "SEO" },
+  tool: { fa: "ابزار هوش مصنوعی", en: "AI tool", de: "KI-Tool" },
+  voice: { fa: "دستیار صوتی", en: "Voice agent", de: "Sprachassistent" },
   social: { fa: "شبکه‌های اجتماعی", en: "Social", de: "Social Media" },
 };
 
 interface UsageEntry {
   id: string;
   type: string;
+  feature?: string | null;
   model: string | null;
   credits: number;
   createdAt: string;
@@ -339,7 +343,7 @@ function CreditUsageHistory({ lang }: { lang: "fa" | "en" | "de" | "tr" }) {
             <div key={e.id} className="flex items-center justify-between p-3 rounded-xl" style={{ background: "var(--surface-2)" }}>
               <div className="min-w-0">
                 <p className="text-sm truncate" style={{ color: "var(--text-primary)" }}>
-                  {USAGE_TYPE_LABEL[e.type]?.[lang] || e.type}
+                  {e.type === "tool" && e.feature ? toolFeatureLabel(e.feature, lang) : USAGE_TYPE_LABEL[e.type]?.[lang] || e.type}
                   {e.model && <span className="text-[11px]" style={{ color: "var(--text-muted)" }}> · {e.model}</span>}
                 </p>
                 <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>

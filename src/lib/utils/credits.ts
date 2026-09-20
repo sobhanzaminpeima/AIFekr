@@ -207,6 +207,26 @@ export const TOOL_FEATURES: Record<string, string> = {
   "crm.agency-report": "CRM — گزارش آژانس",
 };
 
+/** English names of the tool features, used in the credit ledger for every non-Persian language. */
+export const TOOL_FEATURES_EN: Record<string, string> = {
+  "accounting.ask": "Accounting — finance assistant", "accounting.cash-flow-narrative": "Accounting — cash-flow summary",
+  "accounting.owner-statement-assist": "Accounting — owner statement assist", "accounting.propose": "Accounting — categorisation proposal",
+  "business-doctor": "Business doctor", "ceo.boardroom": "CEO — boardroom", "ceo.question": "CEO — question",
+  "ceo.auto-run": "CEO — daily briefing", "ceo.orchestrator-run": "CEO — orchestrator analysis", "ceo.followup-drafts": "CEO — follow-up drafts",
+  "sales.agent": "Sales — sales agent", "sales.followup-drafts": "Sales — follow-up drafts", "meeting": "Smart meeting",
+  "seo.analyze": "SEO — analysis", "seo.improve": "SEO — improve with AI", "seo.suggest": "SEO — suggestion",
+  "seo.pipeline": "SEO — blog post (content team)", "seo.audit-fix": "SEO — fix audit issues",
+  "social.generate": "Social — content generation", "social.competitors": "Social — competitor analysis",
+  "social.ig-report": "Instagram — report", "social.ig-image": "Instagram — image analysis",
+  "startup.generate": "Startup — generate", "website-designer": "Website designer", "image.translate": "Image prompt translation",
+  "crm.agent-run": "CRM — analysis agent", "crm.lead-matcher": "CRM — lead matcher", "crm.listing-copy": "CRM — listing copy",
+  "crm.pricing-advice": "CRM — pricing advice", "crm.agency-report": "CRM — agency report",
+};
+
+/** Display name of a tool feature in the user's language (English for languages without their own table). */
+export const toolFeatureLabel = (feature: string, lang: string): string =>
+  (lang === "fa" ? TOOL_FEATURES[feature] : TOOL_FEATURES_EN[feature]) ?? TOOL_FEATURES_EN[feature] ?? feature;
+
 export const toolCostKey = (feature: string) => "tool_" + feature.replace(/[.-]/g, "_");
 
 /** Per-feature defaults: every tool starts at the general `tool` price. */

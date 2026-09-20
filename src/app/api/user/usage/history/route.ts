@@ -30,8 +30,13 @@ export async function GET(req: NextRequest) {
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },
     take: limit,
-    select: { id: true, type: true, model: true, credits: true, tokens: true, createdAt: true },
+    select: { id: true, type: true, model: true, credits: true, tokens: true, createdAt: true, metadata: true },
   });
 
-  return NextResponse.json({ entries });
+  // Tool charges carry the feature id in their metadata; without it the ledger could only say "tool".
+  const featureOf = (metadata: string | null): string | null => {
+    if (!metadata) return null;
+    try { const f = JSON.parse(metadata)?.feature; return typeof f === "string" ? f : null; } catch { return null; }
+  };
+  return NextResponse.json({ entries: entries.map(({ metadata, ...e }) => ({ ...e, feature: featureOf(metadata) })) });
 }

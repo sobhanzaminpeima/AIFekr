@@ -9,6 +9,7 @@ import { useTranslation, tri } from "@/lib/i18n";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import CreditCost from "@/components/ui/CreditCost";
 import { normalizeUrlInput } from "@/lib/seo/urlInput";
+import { GSC_ENABLED } from "@/lib/seo/features";
 
 type Tab = "url" | "keyword" | "content" | "meta";
 type Platform = "wordpress" | "aifekr" | "other";
@@ -72,6 +73,7 @@ export default function SEOPage() {
   const [gscDataLoading, setGscDataLoading] = useState(false);
 
   const loadGscStatus = useCallback(async () => {
+    if (!GSC_ENABLED) return;
     try {
       const r = await fetch("/api/seo/gsc/status", { credentials: "include" });
       const d = await r.json();
@@ -398,147 +400,149 @@ export default function SEOPage() {
         )}
       </div>
 
-      <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4" style={{ color: "var(--primary)" }} />
-            <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Google Search Console</span>
-          </div>
-          {!gscConnected ? (
-            <a href="/api/seo/gsc/connect" className="text-xs px-3 py-1.5 rounded-lg font-medium text-white" style={{ background: "var(--primary)" }}>
-              {tri(lang, "اتصال به Search Console", "Connect Search Console", "Mit Search Console verbinden")}
-            </a>
-          ) : (
-            <button onClick={() => { setGscSiteUrl(null); setGscData(null); loadGscSites(); }} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-              {tri(lang, "تغییر سایت", "Change site", "Website wechseln")}
-            </button>
-          )}
-        </div>
-
-        {!gscConnected && (
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            {tri(lang,
-              "برای دیدن آمار واقعی کلیک، بازدید و رتبهٔ کلمات کلیدی سایتتان همین‌جا، به Google Search Console متصل شوید.",
-              "Connect Google Search Console to see your site's real click, impression, and keyword ranking data right here.",
-              "Verbinden Sie sich mit Google Search Console, um echte Klick-, Impressionen- und Keyword-Ranking-Daten Ihrer Website hier zu sehen.")}
-          </p>
-        )}
-
-        {gscConnected && !gscSiteUrl && (
-          <div>
-            {gscSitesLoading ? (
-              <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
-                <Loader2 className="w-4 h-4 animate-spin" /> {tri(lang, "در حال دریافت لیست سایت‌ها...", "Loading your sites...", "Websites werden geladen...")}
-              </div>
-            ) : gscSites.length === 0 ? (
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                {tri(lang, "هیچ سایت تایید‌شده‌ای در حساب Search Console شما پیدا نشد.", "No verified sites found in your Search Console account.", "Keine verifizierten Websites in Ihrem Search Console-Konto gefunden.")}
-              </p>
+      {GSC_ENABLED && (
+        <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" style={{ color: "var(--primary)" }} />
+              <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Google Search Console</span>
+            </div>
+            {!gscConnected ? (
+              <a href="/api/seo/gsc/connect" className="text-xs px-3 py-1.5 rounded-lg font-medium text-white" style={{ background: "var(--primary)" }}>
+                {tri(lang, "اتصال به Search Console", "Connect Search Console", "Mit Search Console verbinden")}
+              </a>
             ) : (
-              <div className="space-y-1.5">
-                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{tri(lang, "کدوم سایت رو می‌خوای ببینی؟", "Which site do you want to view?", "Welche Website möchten Sie ansehen?")}</p>
-                {gscSites.map((s) => (
-                  <button key={s.siteUrl} onClick={() => pickGscSite(s.siteUrl)} dir="ltr"
-                    className="w-full text-left px-3 py-2 rounded-lg text-xs" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>
-                    {s.siteUrl}
-                  </button>
-                ))}
-              </div>
+              <button onClick={() => { setGscSiteUrl(null); setGscData(null); loadGscSites(); }} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                {tri(lang, "تغییر سایت", "Change site", "Website wechseln")}
+              </button>
             )}
           </div>
-        )}
 
-        {gscConnected && gscSiteUrl && (
-          <div>
-            <p className="text-xs mb-3" dir="ltr" style={{ color: "var(--text-muted)" }}>{gscSiteUrl}</p>
-            {gscDataLoading && !gscData ? (
-              <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--text-muted)" }} /></div>
-            ) : gscData ? (
-              <>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                  <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
-                    <div className="flex items-center gap-1.5 mb-1"><MousePointerClick className="w-3.5 h-3.5" style={{ color: "#3b82f6" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "کلیک", "Clicks", "Klicks")}</span></div>
-                    <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.clicks.toLocaleString()}</p>
-                  </div>
-                  <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
-                    <div className="flex items-center gap-1.5 mb-1"><Eye className="w-3.5 h-3.5" style={{ color: "#8b5cf6" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "بازدید", "Impressions", "Impressionen")}</span></div>
-                    <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.impressions.toLocaleString()}</p>
-                  </div>
-                  <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
-                    <div className="flex items-center gap-1.5 mb-1"><TrendingUp className="w-3.5 h-3.5" style={{ color: "#22c55e" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>CTR</span></div>
-                    <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.avgCtr.toFixed(1)}%</p>
-                  </div>
-                  <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
-                    <div className="flex items-center gap-1.5 mb-1"><Search className="w-3.5 h-3.5" style={{ color: "#eab308" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "رتبه میانگین", "Avg. position", "Ø Position")}</span></div>
-                    <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.avgPosition.toFixed(1)}</p>
-                  </div>
+          {!gscConnected && (
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              {tri(lang,
+                "برای دیدن آمار واقعی کلیک، بازدید و رتبهٔ کلمات کلیدی سایتتان همین‌جا، به Google Search Console متصل شوید.",
+                "Connect Google Search Console to see your site's real click, impression, and keyword ranking data right here.",
+                "Verbinden Sie sich mit Google Search Console, um echte Klick-, Impressionen- und Keyword-Ranking-Daten Ihrer Website hier zu sehen.")}
+            </p>
+          )}
+
+          {gscConnected && !gscSiteUrl && (
+            <div>
+              {gscSitesLoading ? (
+                <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                  <Loader2 className="w-4 h-4 animate-spin" /> {tri(lang, "در حال دریافت لیست سایت‌ها...", "Loading your sites...", "Websites werden geladen...")}
                 </div>
-
-                {gscData.trend.length >= 2 && (
-                  <div className="rounded-xl p-3 mb-4" style={{ background: "var(--surface-2)" }}>
-                    <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{tri(lang, "روند ۲۸ روز اخیر", "Last 28 days", "Letzte 28 Tage")}</p>
-                    <ResponsiveContainer width="100%" height={180}>
-                      <LineChart data={gscData.trend}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                        <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--text-muted)" }} />
-                        <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
-                        <Tooltip contentStyle={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
-                        <Line type="monotone" dataKey="clicks" stroke="#3b82f6" strokeWidth={2} dot={false} name={tri(lang, "کلیک", "Clicks", "Klicks")} />
-                        <Line type="monotone" dataKey="impressions" stroke="#8b5cf6" strokeWidth={2} dot={false} name={tri(lang, "بازدید", "Impressions", "Impressionen")} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-
-                {gscData.opportunities && gscData.opportunities.length > 0 && (
-                  <div className="mb-4">
-                    <p className="text-xs font-medium mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "فرصت‌های رشد (از داده واقعی Search Console)", "Growth opportunities (from your real Search Console data)", "Wachstumschancen (aus Ihren echten Search-Console-Daten)")}</p>
-                    <p className="text-[11px] mb-2" style={{ color: "var(--text-muted)" }}>{tri(lang, "برآورد کلیک اضافه بر اساس نمایش واقعی و میانگین CTR صنعت است، نه تضمین.", "Extra-click figures use your real impressions and typical industry CTR; they are estimates, not promises.", "Die Mehrklicks basieren auf Ihren echten Impressionen und dem üblichen Branchen-CTR – Schätzungen, keine Zusagen.")}</p>
-                    <div className="space-y-1">
-                      {gscData.opportunities.map((o, i) => (
-                        <div key={i} className="flex items-center justify-between gap-2 text-xs px-2 py-1.5 rounded-lg" style={{ background: i % 2 === 0 ? "var(--surface-2)" : "transparent" }}>
-                          <span className="truncate flex-1" style={{ color: "var(--text-primary)" }}>{o.query}</span>
-                          <span className="flex-shrink-0" style={{ color: "var(--text-muted)" }}>
-                            {o.kind === "striking_distance"
-                              ? tri(lang, "رتبه " + o.position.toFixed(1) + " — نزدیک به ۳ برتر", "pos " + o.position.toFixed(1) + " — near the top 3", "Pos. " + o.position.toFixed(1) + " — nahe den Top 3")
-                              : tri(lang, "CTR پایین (" + o.ctr.toFixed(1) + "٪) — عنوان/توضیحات را بازنویسی کنید", "low CTR (" + o.ctr.toFixed(1) + "%) — rewrite title/description", "niedrige CTR (" + o.ctr.toFixed(1) + " %) — Titel/Beschreibung überarbeiten")}
-                            {" · +" + o.potentialExtraClicks}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{tri(lang, "پرکلیک‌ترین کلمات کلیدی", "Top queries", "Top-Abfragen")}</p>
-                    <div className="space-y-1">
-                      {gscData.topQueries.slice(0, 10).map((q, i) => (
-                        <div key={i} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg" style={{ background: i % 2 === 0 ? "var(--surface-2)" : "transparent" }}>
-                          <span className="truncate flex-1" style={{ color: "var(--text-primary)" }}>{q.query}</span>
-                          <span className="flex-shrink-0 mr-2" style={{ color: "var(--text-muted)" }}>{q.clicks} / {q.impressions}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{tri(lang, "پرکلیک‌ترین صفحات", "Top pages", "Top-Seiten")}</p>
-                    <div className="space-y-1">
-                      {gscData.topPages.slice(0, 10).map((p, i) => (
-                        <div key={i} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg" style={{ background: i % 2 === 0 ? "var(--surface-2)" : "transparent" }}>
-                          <span className="truncate flex-1" dir="ltr" style={{ color: "var(--text-primary)" }}>{p.page.replace(/^https?:\/\//, "")}</span>
-                          <span className="flex-shrink-0 mr-2" style={{ color: "var(--text-muted)" }}>{p.clicks} / {p.impressions}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+              ) : gscSites.length === 0 ? (
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  {tri(lang, "هیچ سایت تایید‌شده‌ای در حساب Search Console شما پیدا نشد.", "No verified sites found in your Search Console account.", "Keine verifizierten Websites in Ihrem Search Console-Konto gefunden.")}
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{tri(lang, "کدوم سایت رو می‌خوای ببینی؟", "Which site do you want to view?", "Welche Website möchten Sie ansehen?")}</p>
+                  {gscSites.map((s) => (
+                    <button key={s.siteUrl} onClick={() => pickGscSite(s.siteUrl)} dir="ltr"
+                      className="w-full text-left px-3 py-2 rounded-lg text-xs" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>
+                      {s.siteUrl}
+                    </button>
+                  ))}
                 </div>
-              </>
-            ) : null}
-          </div>
-        )}
-      </div>
+              )}
+            </div>
+          )}
+
+          {gscConnected && gscSiteUrl && (
+            <div>
+              <p className="text-xs mb-3" dir="ltr" style={{ color: "var(--text-muted)" }}>{gscSiteUrl}</p>
+              {gscDataLoading && !gscData ? (
+                <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--text-muted)" }} /></div>
+              ) : gscData ? (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                    <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
+                      <div className="flex items-center gap-1.5 mb-1"><MousePointerClick className="w-3.5 h-3.5" style={{ color: "#3b82f6" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "کلیک", "Clicks", "Klicks")}</span></div>
+                      <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.clicks.toLocaleString()}</p>
+                    </div>
+                    <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
+                      <div className="flex items-center gap-1.5 mb-1"><Eye className="w-3.5 h-3.5" style={{ color: "#8b5cf6" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "بازدید", "Impressions", "Impressionen")}</span></div>
+                      <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.impressions.toLocaleString()}</p>
+                    </div>
+                    <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
+                      <div className="flex items-center gap-1.5 mb-1"><TrendingUp className="w-3.5 h-3.5" style={{ color: "#22c55e" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>CTR</span></div>
+                      <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.avgCtr.toFixed(1)}%</p>
+                    </div>
+                    <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
+                      <div className="flex items-center gap-1.5 mb-1"><Search className="w-3.5 h-3.5" style={{ color: "#eab308" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "رتبه میانگین", "Avg. position", "Ø Position")}</span></div>
+                      <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.avgPosition.toFixed(1)}</p>
+                    </div>
+                  </div>
+
+                  {gscData.trend.length >= 2 && (
+                    <div className="rounded-xl p-3 mb-4" style={{ background: "var(--surface-2)" }}>
+                      <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{tri(lang, "روند ۲۸ روز اخیر", "Last 28 days", "Letzte 28 Tage")}</p>
+                      <ResponsiveContainer width="100%" height={180}>
+                        <LineChart data={gscData.trend}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                          <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--text-muted)" }} />
+                          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+                          <Tooltip contentStyle={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
+                          <Line type="monotone" dataKey="clicks" stroke="#3b82f6" strokeWidth={2} dot={false} name={tri(lang, "کلیک", "Clicks", "Klicks")} />
+                          <Line type="monotone" dataKey="impressions" stroke="#8b5cf6" strokeWidth={2} dot={false} name={tri(lang, "بازدید", "Impressions", "Impressionen")} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {gscData.opportunities && gscData.opportunities.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-xs font-medium mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "فرصت‌های رشد (از داده واقعی Search Console)", "Growth opportunities (from your real Search Console data)", "Wachstumschancen (aus Ihren echten Search-Console-Daten)")}</p>
+                      <p className="text-[11px] mb-2" style={{ color: "var(--text-muted)" }}>{tri(lang, "برآورد کلیک اضافه بر اساس نمایش واقعی و میانگین CTR صنعت است، نه تضمین.", "Extra-click figures use your real impressions and typical industry CTR; they are estimates, not promises.", "Die Mehrklicks basieren auf Ihren echten Impressionen und dem üblichen Branchen-CTR – Schätzungen, keine Zusagen.")}</p>
+                      <div className="space-y-1">
+                        {gscData.opportunities.map((o, i) => (
+                          <div key={i} className="flex items-center justify-between gap-2 text-xs px-2 py-1.5 rounded-lg" style={{ background: i % 2 === 0 ? "var(--surface-2)" : "transparent" }}>
+                            <span className="truncate flex-1" style={{ color: "var(--text-primary)" }}>{o.query}</span>
+                            <span className="flex-shrink-0" style={{ color: "var(--text-muted)" }}>
+                              {o.kind === "striking_distance"
+                                ? tri(lang, "رتبه " + o.position.toFixed(1) + " — نزدیک به ۳ برتر", "pos " + o.position.toFixed(1) + " — near the top 3", "Pos. " + o.position.toFixed(1) + " — nahe den Top 3")
+                                : tri(lang, "CTR پایین (" + o.ctr.toFixed(1) + "٪) — عنوان/توضیحات را بازنویسی کنید", "low CTR (" + o.ctr.toFixed(1) + "%) — rewrite title/description", "niedrige CTR (" + o.ctr.toFixed(1) + " %) — Titel/Beschreibung überarbeiten")}
+                              {" · +" + o.potentialExtraClicks}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{tri(lang, "پرکلیک‌ترین کلمات کلیدی", "Top queries", "Top-Abfragen")}</p>
+                      <div className="space-y-1">
+                        {gscData.topQueries.slice(0, 10).map((q, i) => (
+                          <div key={i} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg" style={{ background: i % 2 === 0 ? "var(--surface-2)" : "transparent" }}>
+                            <span className="truncate flex-1" style={{ color: "var(--text-primary)" }}>{q.query}</span>
+                            <span className="flex-shrink-0 mr-2" style={{ color: "var(--text-muted)" }}>{q.clicks} / {q.impressions}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{tri(lang, "پرکلیک‌ترین صفحات", "Top pages", "Top-Seiten")}</p>
+                      <div className="space-y-1">
+                        {gscData.topPages.slice(0, 10).map((p, i) => (
+                          <div key={i} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg" style={{ background: i % 2 === 0 ? "var(--surface-2)" : "transparent" }}>
+                            <span className="truncate flex-1" dir="ltr" style={{ color: "var(--text-primary)" }}>{p.page.replace(/^https?:\/\//, "")}</span>
+                            <span className="flex-shrink-0 mr-2" style={{ color: "var(--text-muted)" }}>{p.clicks} / {p.impressions}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-2 flex-wrap">
         {tabs.map(tb => (

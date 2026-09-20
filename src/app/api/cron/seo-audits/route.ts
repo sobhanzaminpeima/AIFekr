@@ -8,6 +8,7 @@ import { auditAndSave } from "@/lib/seo/siteAuditService";
 import { syncRankings } from "@/lib/seo/rankService";
 import { sendEmail } from "@/lib/email/resend";
 import { tri } from "@/lib/i18n/tri";
+import { GSC_ENABLED } from "@/lib/seo/features";
 
 /** Sites audited per invocation: each audit crawls up to 10 pages, so the run is kept short and frequent. */
 const BATCH = 4;
@@ -67,7 +68,7 @@ export async function GET(req: NextRequest) {
   // Weekly Search Console snapshots ride on this same tick (no extra crontab entry): a few sites per run,
   // only those with a Google connection whose newest snapshot is older than six days.
   const ranks: { siteId: string; ok: boolean; reason?: string }[] = [];
-  const candidates = await prisma.seoSite.findMany({ where: { user: { gscConnection: { isNot: null }, isBlocked: false } }, orderBy: { createdAt: "asc" }, take: 40, select: { id: true } });
+  const candidates = !GSC_ENABLED ? [] : await prisma.seoSite.findMany({ where: { user: { gscConnection: { isNot: null }, isBlocked: false } }, orderBy: { createdAt: "asc" }, take: 40, select: { id: true } });
   for (const c of candidates) {
     if (ranks.length >= RANK_SYNCS_PER_TICK) break;
     const last = await prisma.seoRankSnapshot.findFirst({ where: { siteId: c.id }, orderBy: { createdAt: "desc" }, select: { createdAt: true } });

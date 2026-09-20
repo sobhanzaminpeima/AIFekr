@@ -10,6 +10,7 @@ import CreditCost from "@/components/ui/CreditCost";
 import SeoPlanCard, { type PlanView } from "@/components/seo/SeoPlanCard";
 import ContentPlanCard from "@/components/seo/ContentPlanCard";
 import RankingsCard from "@/components/seo/RankingsCard";
+import { GSC_ENABLED } from "@/lib/seo/features";
 
 interface Site { id: string; url: string; name: string | null; autoAudit: boolean; frequency: string; lastAuditAt: string | null; nextAuditAt: string | null; lastScore: number | null }
 interface AuditRow { id: string; score: number; pagesCrawled: number; failCount: number; warnCount: number; passCount: number; source: string; createdAt: string }
@@ -315,7 +316,7 @@ export default function SeoSitesPage() {
             </div>
           )}
 
-          {selected && <RankingsCard siteId={selected.id} />}
+          {GSC_ENABLED && selected && <RankingsCard siteId={selected.id} />}
           {selected && <ContentPlanCard siteId={selected.id} />}
         </>
       )}

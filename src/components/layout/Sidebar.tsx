@@ -20,6 +20,8 @@ import { useTranslation, tri, type Lang } from "@/lib/i18n";
 import { DEPARTMENTS as TEAM_DEPARTMENTS } from "@/lib/team/identity";
 import { formatNumber } from "@/lib/utils/jalali";
 import { OPEN_CONVERSATION_EVENT } from "@/components/chat/ChatInterface";
+import OrganizationSwitcher from "@/components/organization/OrganizationSwitcher";
+import { useLiveCredits } from "@/lib/credits/live";
 
 // A history click used to be a plain <Link href="/chat/[id]"> -- since the
 // dashboard layout is force-dynamic, every one of those was a full Next.js
@@ -125,6 +127,8 @@ const DEPARTMENTS: {
 ];
 
 export default function Sidebar({ user, conversations = [], onNewChat }: SidebarProps) {
+  // Live balance: the layout renders it once, so without this it stays stale after credits are spent.
+  const liveCredits = useLiveCredits(user?.credits ?? 0);
   const pathname = usePathname();
   // Mirrors the URL for highlighting the active history item. A client-side
   // conversation switch (see openConversationClick) changes the URL via
@@ -276,6 +280,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         <Image src="/logo.svg" alt="AiFekr" width={32} height={32} className="rounded-lg" />
         <span className="font-bold text-base" style={{ color: "var(--text-primary)" }}>AiFekr</span>
       </div>
+      <OrganizationSwitcher />
 
       {/* New chat */}
       <div className="p-3">
@@ -635,7 +640,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             <div className="flex items-center gap-2">
               <Wallet className="w-4 h-4" style={{ color: "var(--primary)" }} />
               <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-                {formatNumber(user.credits, lang)} {tri(lang, "اعتبار", "credits", "Credits", "kredi")}
+                {formatNumber(liveCredits, lang)} {tri(lang, "اعتبار", "credits", "Credits", "kredi")}
               </span>
             </div>
             <span className="text-xs px-2 py-0.5 rounded-full font-medium"
