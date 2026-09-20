@@ -2,6 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
 import { getServerLang } from "@/lib/i18n/server";
+import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo/site";
 
 export const dynamic = "force-dynamic";
 
@@ -132,6 +134,12 @@ const SECTIONS_DE = [
     body: "Bei Fragen zu diesen Bedingungen kontaktieren Sie bitte den AiFekr-Support über die Seite \"Kontakt\".",
   },
 ];
+
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getServerLang();
+  const meta = pageMetadata(lang, "/terms", {"fa":"شرایط استفاده — قوانین، پرداخت و اعتبار","en":"Terms of Service — Rules, Payments & Credits","de":"Nutzungsbedingungen — Regeln, Zahlung & Credits","tr":"Kullanım Koşulları — Kurallar, Ödeme ve Krediler"}, {"fa":"شرایط و قوانین استفاده از پلتفرم هوش مصنوعی AiFekr، پرداخت‌ها و اعتبارها.","en":"Terms and conditions for using the AiFekr AI platform, payments and credits.","de":"Nutzungsbedingungen der KI-Plattform AiFekr, Zahlungen und Credits.","tr":"AiFekr yapay zekâ platformunun kullanım koşulları, ödemeler ve krediler."});
+  return meta;
+}
 
 export default async function TermsPage() {
   const lang = await getServerLang();

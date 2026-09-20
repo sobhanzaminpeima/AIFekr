@@ -127,7 +127,7 @@ export default function LoginPage() {
             </div>
             <span className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>AiFekr</span>
           </div>
-          <p style={{ color: "var(--text-secondary)" }}>{t.auth.login.subtitle}</p>
+          <h1 className="text-base font-normal" style={{ color: "var(--text-secondary)" }}>{t.auth.login.subtitle}</h1>
         </div>
 
         {/* Card */}

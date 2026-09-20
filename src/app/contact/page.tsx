@@ -8,6 +8,8 @@ import { getServerLang } from "@/lib/i18n/server";
 // "use client" module, so a Server Component importing tri from it gets a
 // client-reference proxy instead of the function and crashes at render.
 import { tri } from "@/lib/i18n/tri";
+import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo/site";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +47,12 @@ async function getSettings(lang: string) {
   } catch {
     return defaults;
   }
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getServerLang();
+  const meta = pageMetadata(lang, "/contact", {"fa":"تماس با ما — پشتیبانی و همکاری","en":"Contact Us — Support & Partnerships","de":"Kontakt — Support & Partnerschaften","tr":"İletişim — Destek ve İş Birliği"}, {"fa":"با تیم AiFekr در ارتباط باشید: پشتیبانی، همکاری و سؤال درباره بسته‌های هوش مصنوعی صنعتی.","en":"Get in touch with the AiFekr team: support, partnerships and questions about our industry AI packs.","de":"Kontaktieren Sie das AiFekr-Team: Support, Partnerschaften und Fragen zu unseren Branchen-KI-Paketen.","tr":"AiFekr ekibiyle iletişime geçin: destek, iş birliği ve sektörel yapay zekâ paketleri hakkında sorular."});
+  return meta;
 }
 
 export default async function ContactPage() {

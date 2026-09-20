@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { absoluteUrl } from "@/lib/seo/site";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -6,7 +7,6 @@ import { prisma } from "@/lib/db/prisma";
 import { verifyToken } from "@/lib/auth/jwt";
 import { getServerLang } from "@/lib/i18n/server";
 import ActivateButton from "@/components/industry/ActivateButton";
-import { formatPackPriceSync, getFxRates } from "@/lib/utils/currency";
 
 export const dynamic = "force-dynamic";
 
@@ -24,8 +24,9 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const description = lang === "de" ? (pack.valuePropositionDe || pack.valuePropositionEn || pack.valueProposition) : lang === "en" ? (pack.valuePropositionEn || pack.valueProposition) : pack.valueProposition;
   const title = lang === "fa" ? `${name} | بسته هوش مصنوعی AiFekr` : `${name} | AiFekr AI Pack`;
   return {
-    title,
+    title: { absolute: title },
     description: description || undefined,
+    alternates: { canonical: absoluteUrl(`/industry/${params.slug}`) },
     openGraph: { title, description: description || undefined },
   };
 }
@@ -33,7 +34,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 const strings = {
   fa: {
     agents: "عوامل هوش مصنوعی", agent: "عامل", painPoints: "مشکلاتی که حل می‌کند",
-    outcomes: "نتایج مورد انتظار", kpis: "شاخص‌های کلیدی داشبورد", month: "در ماه",
+    outcomes: "نتایج بالقوه", kpis: "شاخص‌های کلیدی داشبورد", included: "همراه اشتراک AiFekr",
     activate: "فعال‌سازی بسته", loginToActivate: "برای فعال‌سازی وارد شوید",
     back: "← بازگشت به همه بسته‌ها", gold: "طلایی", pro: "حرفه‌ای",
     registerFirst: "ثبت‌نام و فعال‌سازی", alreadyActive: "بسته شما فعال است",
@@ -41,7 +42,7 @@ const strings = {
   },
   en: {
     agents: "AI Agents", agent: "agents", painPoints: "Problems It Solves",
-    outcomes: "Expected Outcomes", kpis: "Dashboard KPIs", month: "per month",
+    outcomes: "Potential outcomes", kpis: "Dashboard KPIs", included: "Included with your AiFekr subscription",
     activate: "Activate Pack", loginToActivate: "Login to Activate",
     back: "← Back to All Packs", gold: "Gold", pro: "Professional",
     registerFirst: "Register & Activate", alreadyActive: "Your pack is active",
@@ -49,7 +50,7 @@ const strings = {
   },
   de: {
     agents: "KI-Agenten", agent: "Agenten", painPoints: "Probleme, die es löst",
-    outcomes: "Erwartete Ergebnisse", kpis: "Dashboard-KPIs", month: "pro Monat",
+    outcomes: "Mögliche Ergebnisse", kpis: "Dashboard-KPIs", included: "In Ihrem AiFekr-Abo enthalten",
     activate: "Paket aktivieren", loginToActivate: "Zum Aktivieren anmelden",
     back: "← Zurück zu allen Paketen", gold: "Gold", pro: "Professionell",
     registerFirst: "Registrieren & aktivieren", alreadyActive: "Ihr Paket ist aktiv",
@@ -63,7 +64,6 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
 
   const lang = await getServerLang();
   const s = strings[lang === "tr" ? "en" : lang];
-  const fxRates = await getFxRates();
 
   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;
@@ -181,8 +181,10 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
               }}>
               {pack.tier === "gold" ? s.gold : s.pro}
             </span>
-            <div className="text-4xl font-bold mb-1" style={{ color: pack.color }}>{formatPackPriceSync(pack.price, lang, fxRates)}</div>
-            <div className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>{s.month}</div>
+            <div className="text-lg font-bold mb-1" style={{ color: pack.color }}>{s.included}</div>
+            <div className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
+              {lang === "fa" ? "بدون پرداخت جداگانه؛ با انتخاب صنعت فعال می‌شود." : "No separate pack charge; activate it after choosing your industry."}
+            </div>
 
             {isCurrentPack ? (
               <div>

@@ -4,6 +4,7 @@ import { Toaster } from "react-hot-toast";
 import { cookies } from "next/headers";
 import { LangProvider } from "@/lib/i18n/LangProvider";
 import { getServerLang, type Lang } from "@/lib/i18n/server";
+import { SITE_URL, SITE_NAME } from "@/lib/seo/site";
 
 // This file used to resolve its own `lang` from a local `readLang(cookie)`
 // helper that unconditionally fell back to "fa" -- it never consulted the
@@ -31,8 +32,14 @@ const DESCRIPTION: Record<Lang, string> = {
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getServerLang();
   return {
-    title: TITLE[lang],
+    // Absolute base so canonical / Open Graph URLs resolve to aifekr.com, and a
+    // template so every page that sets only a short title still gets the brand.
+    metadataBase: new URL(SITE_URL),
+    title: { default: TITLE[lang], template: "%s | AiFekr" },
     description: DESCRIPTION[lang],
+    applicationName: SITE_NAME,
+    openGraph: { type: "website", siteName: SITE_NAME, title: TITLE[lang], description: DESCRIPTION[lang], locale: ({ fa: "fa_IR", en: "en_US", de: "de_DE", tr: "tr_TR" } as const)[lang] },
+    twitter: { card: "summary_large_image", title: TITLE[lang], description: DESCRIPTION[lang] },
     manifest: "/manifest.json",
     appleWebApp: {
       capable: true,
@@ -52,7 +59,8 @@ export async function generateMetadata(): Promise<Metadata> {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // maximumScale: 1 used to be set here, which blocks pinch-zoom: an accessibility
+  // failure that Google's mobile-usability checks also flag.
   viewportFit: "cover",
   themeColor: "#0a0a0f",
 };

@@ -22,6 +22,7 @@ function RegisterForm() {
   const packSlug = params.get("pack") || "";
   const refCode = params.get("ref") || "";
   const planCode = params.get("plan") || "";
+  const billingPeriod = params.get("period") || "";
 
   const [form, setForm] = useState({ firstName: "", lastName: "", country: "IR", email: "", phone: "", password: "", confirmPassword: "" });
   const [registerLang, setRegisterLang] = useState<"fa" | "en" | "de" | "tr">(lang);
@@ -72,7 +73,7 @@ function RegisterForm() {
       // The just-chosen language cookie only takes effect on the NEXT
       // navigation's server render -- a client-side route push would still
       // render the old language for a flash. A full reload picks it up cleanly.
-      window.location.href = planCode ? `/plans?plan=${planCode}&autobuy=1` : "/chat";
+      window.location.href = planCode ? `/plans?plan=${planCode}&period=${encodeURIComponent(billingPeriod)}&autobuy=1` : "/chat";
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t.auth.register.errGeneric);
     } finally {
@@ -94,7 +95,7 @@ function RegisterForm() {
             </div>
             <span className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>AiFekr</span>
           </div>
-          <p style={{ color: "var(--text-secondary)" }}>{t.auth.register.subtitle}</p>
+          <h1 className="text-base font-normal" style={{ color: "var(--text-secondary)" }}>{t.auth.register.subtitle}</h1>
           {packName && (
             <div className="mt-3 px-4 py-2 rounded-xl inline-block" style={{ background: "rgba(234,88,12,0.1)", border: "1px solid rgba(234,88,12,0.3)" }}>
               <span className="text-sm" style={{ color: "var(--primary)" }}>{t.auth.register.selectedPack} {packName}</span>

@@ -2,6 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
 import { getServerLang } from "@/lib/i18n/server";
+import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo/site";
 
 export const dynamic = "force-dynamic";
 
@@ -120,6 +122,12 @@ const SECTIONS_DE = [
     body: "Bei Fragen zum Datenschutz oder zur Anfrage auf Datenlöschung kontaktieren Sie uns bitte über die Seite \"Kontakt\".",
   },
 ];
+
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getServerLang();
+  const meta = pageMetadata(lang, "/privacy", {"fa":"حریم خصوصی — نحوه نگهداری داده‌های شما","en":"Privacy Policy — How We Handle Your Data","de":"Datenschutz — So gehen wir mit Ihren Daten um","tr":"Gizlilik Politikası — Verilerinizi Nasıl Kullanırız"}, {"fa":"سیاست حریم خصوصی AiFekr: چه داده‌هایی جمع‌آوری می‌کنیم، چگونه از آن‌ها استفاده می‌کنیم و چه حقوقی دارید.","en":"AiFekr's privacy policy: what data we collect, how we use it and what rights you have.","de":"Datenschutzerklärung von AiFekr: welche Daten wir erheben, wie wir sie verwenden und welche Rechte Sie haben.","tr":"AiFekr gizlilik politikası: hangi verileri topladığımız, nasıl kullandığımız ve haklarınız."});
+  return meta;
+}
 
 export default async function PrivacyPage() {
   const lang = await getServerLang();

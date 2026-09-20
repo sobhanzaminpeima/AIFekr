@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db/prisma";
 import { Sparkles, Target, Users, Rocket } from "lucide-react";
 import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
 import { getServerLang } from "@/lib/i18n/server";
+import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo/site";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +41,12 @@ async function getSettings(lang: string) {
   } catch {
     return defaults;
   }
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getServerLang();
+  const meta = pageMetadata(lang, "/about", {"fa":"درباره ما — عوامل هوش مصنوعی برای هر صنعت","en":"About Us — AI Agents for Every Industry","de":"Über uns — KI-Agenten für jede Branche","tr":"Hakkımızda — Her Sektör için Yapay Zekâ Ajanları"}, {"fa":"AiFekr پلتفرم هوش مصنوعی کسب‌وکار است: تیمی از عوامل AI تخصصی برای هر صنعت که فروش، حسابداری، محتوا و پشتیبانی شما را خودکار می‌کنند.","en":"AiFekr is the AI platform for business: a team of specialist AI agents per industry that automates your sales, accounting, content and support.","de":"AiFekr ist die KI-Plattform für Unternehmen: ein Team spezialisierter KI-Agenten pro Branche, das Vertrieb, Buchhaltung, Content und Support automatisiert.","tr":"AiFekr, işletmeler için yapay zekâ platformudur: her sektöre özel uzman yapay zekâ ajanları satış, muhasebe, içerik ve desteği otomatikleştirir."});
+  return meta;
 }
 
 export default async function AboutPage() {

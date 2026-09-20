@@ -26,6 +26,9 @@ import AiTeamTeaser from "@/components/landing/AiTeamTeaser";
 import StartupBuilderTeaser from "@/components/landing/StartupBuilderTeaser";
 import { getFxRates } from "@/lib/utils/currency";
 import { planCodesForLang, sortByPlanLadder } from "@/lib/plans/catalog";
+import type { Metadata } from "next";
+import { pageMetadata, SITE_NAME, SITE_URL } from "@/lib/seo/site";
+import JsonLd from "@/components/seo/JsonLd";
 
 export const dynamic = "force-dynamic";
 
@@ -313,16 +316,24 @@ const STR = {
 // the authenticated (dashboard) layout and can't be rendered from this
 // public page; kept in sync manually when those prices change.
 const BIZ_PLANS_IR = [
-  { name: "تیم کوچک", desc: "تا ۵ کاربر", price: 39000000, color: "#6366f1", features: ["همه امکانات پلاس برای هر عضو", "داشبورد مدیریت تیم", "استخر اعتبار مشترک"] },
-  { name: "تیم متوسط", desc: "تا ۲۰ کاربر", price: 119000000, color: "#ea580c", features: ["همه امکانات پرو برای هر عضو", "AI-BOS اختصاصی", "SSO / SAML"], popular: true },
+  { planCode: "TEAM_STARTER", name: "تیم کوچک", desc: "تا ۵ کاربر", price: 39000000, color: "#6366f1", features: ["فضای کار تیمی", "استخر اعتبار مشترک", "گزارش مصرف تیم"] },
+  { planCode: "TEAM_GROWTH", name: "تیم متوسط", desc: "تا ۲۰ کاربر", price: 119000000, color: "#ea580c", features: ["فضای کار تیمی پیشرفته", "استخر اعتبار مشترک", "گزارش مصرف تیم"], popular: true },
   { name: "سازمانی", desc: "بدون محدودیت", price: null, color: "#8b5cf6", features: ["همه امکانات الفا برای هر عضو", "استقرار اختصاصی", "پشتیبانی ۲۴/۷"] },
 ];
 
 const BIZ_PLANS_USD = [
-  { name: "Startup", desc: "Up to 5 users", priceUsd: 14900, color: "#6366f1", features: ["All Plus features per seat", "Team dashboard", "Shared credit pool"] },
-  { name: "Growth", desc: "Up to 20 users", priceUsd: 44900, color: "#ea580c", features: ["All Pro features per seat", "AI-BOS included", "SSO / SAML"], popular: true },
+  { planCode: "TEAM_STARTER", name: "Startup", desc: "Up to 5 users", priceUsd: 14900, color: "#6366f1", features: ["Team workspace", "Shared credit pool", "Team usage reports"] },
+  { planCode: "TEAM_GROWTH", name: "Growth", desc: "Up to 20 users", priceUsd: 44900, color: "#ea580c", features: ["Advanced team workspace", "Shared credit pool", "Team usage reports"], popular: true },
   { name: "Enterprise", desc: "Unlimited", priceUsd: null, color: "#8b5cf6", features: ["All Ultra features per seat", "Custom deployment", "24/7 support"] },
 ];
+
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getServerLang();
+  const meta = pageMetadata(lang, "/", {"fa":"AiFekr — عوامل هوش مصنوعی برای کسب‌وکار شما | CRM، سئو و بیشتر","en":"AiFekr — AI Agents for Your Business | CRM, Chat, SEO & More","de":"AiFekr — KI-Agenten für Ihr Unternehmen | CRM, Chat, SEO & mehr","tr":"AiFekr — İşletmeniz için Yapay Zekâ Ajanları | CRM, Sohbet, SEO"}, {"fa":"بسته‌های هوش مصنوعی ویژه هر صنعت — CRM، حسابداری، تولید محتوا، سئو و دستیار صوتی. تیم AI شما ۲۴ ساعته کار می‌کند. رایگان شروع کنید.","en":"Dedicated AI agent packs for every industry — CRM, accounting, content, SEO and voice. Your AI team works 24/7. Start free today.","de":"Branchenspezifische KI-Agenten-Pakete — CRM, Buchhaltung, Content, SEO und Voice. Ihr KI-Team arbeitet rund um die Uhr. Jetzt kostenlos starten.","tr":"Her sektöre özel yapay zekâ ajan paketleri — CRM, muhasebe, içerik, SEO ve sesli asistan. Yapay zekâ ekibiniz 7/24 çalışır. Ücretsiz başlayın."});
+  // The landing page keeps its full, keyword-rich title (no " | AiFekr" template suffix).
+  meta.title = { absolute: String(meta.title) };
+  return meta;
+}
 
 export default async function HomePage() {
   const cookieStore = await cookies();
@@ -338,15 +349,15 @@ export default async function HomePage() {
     }
   }
 
-  const lang = await getServerLang();
-  const fxRates = await getFxRates();
+  // These were awaited one after another; they are independent, and the packs query needs neither.
+  const packsQuery = prisma.industryPack.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, take: 8 }).catch(() => null);
+  const [lang, fxRates] = await Promise.all([getServerLang(), getFxRates()]);
   const s = STR[lang];
   const dir = lang === "fa" ? "rtl" : "ltr";
 
   let packs: { id: string; slug: string; name: string; nameEn: string | null; emoji: string; tagline: string; taglineEn: string | null; agents: string; tier: string; price: number; color: string; gradientFrom: string; gradientTo: string }[] = [];
-  try {
-    packs = await prisma.industryPack.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, take: 8 });
-  } catch {}
+  const fetchedPacks = await packsQuery;
+  if (fetchedPacks) packs = fetchedPacks;
   const localizedPacks = packs.map((p) => ({
     ...p,
     name: lang !== "fa" && p.nameEn ? p.nameEn : p.name,
@@ -395,6 +406,18 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen" dir={dir} style={{ background: "#0a0a0f", color: "#f5f5f5" }}>
+      {/* Structured data: only facts we can stand behind (no ratings, prices or review counts). */}
+      <JsonLd
+        data={[
+          { "@context": "https://schema.org", "@type": "Organization", name: SITE_NAME, url: SITE_URL, logo: `${SITE_URL}/icon-512.png` },
+          { "@context": "https://schema.org", "@type": "WebSite", name: SITE_NAME, url: SITE_URL, inLanguage: lang },
+          {
+            "@context": "https://schema.org", "@type": "SoftwareApplication", name: SITE_NAME, url: SITE_URL,
+            applicationCategory: "BusinessApplication", operatingSystem: "Web",
+            description: "AI agent packs for every industry: CRM, accounting, content, SEO and voice.",
+          },
+        ]}
+      />
       {/* Navbar */}
       <AnimatedNavbar>
         <Link href="/" className="flex items-center gap-2.5 group shrink-0">
@@ -579,7 +602,7 @@ export default async function HomePage() {
                     ))}
                   </ul>
                   <Link
-                    href={(("price" in biz && biz.price == null) || ("priceUsd" in biz && biz.priceUsd == null)) ? "/contact" : "/register"}
+                    href={(("price" in biz && biz.price == null) || ("priceUsd" in biz && biz.priceUsd == null)) ? "/contact" : `/register?plan=${encodeURIComponent((biz as { planCode: string }).planCode)}&period=monthly`}
                     className="text-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
                     style={{ background: biz.color }}
                   >

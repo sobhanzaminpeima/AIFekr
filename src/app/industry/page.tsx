@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db/prisma";
 import { getServerLang } from "@/lib/i18n/server";
-import { formatPackPriceSync, getFxRates } from "@/lib/utils/currency";
+import { absoluteUrl } from "@/lib/seo/site";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
     lang === "fa"
       ? "تیم‌های عامل هوش مصنوعی اختصاصی برای هر صنعت — رستوران، مطب، املاک و بیشتر — آماده برای کار ۲۴/۷ با AiFekr."
       : "Specialized AI agent teams for every industry — ready to work 24/7 with AiFekr.";
-  return { title, description, openGraph: { title, description } };
+  return { title: { absolute: title }, description, alternates: { canonical: absoluteUrl("/industry") }, openGraph: { title, description } };
 }
 
 const strings = {
@@ -23,7 +23,7 @@ const strings = {
     empty: "بسته‌ای یافت نشد",
     emptySub: "لطفاً با ادمین تماس بگیرید",
     agents: "عامل AI",
-    month: "ماه",
+    included: "همراه پلن شما",
     view: "مشاهده بسته",
     gold: "طلایی",
     pro: "حرفه‌ای",
@@ -34,7 +34,7 @@ const strings = {
     empty: "No packs found",
     emptySub: "Please contact admin",
     agents: "AI agents",
-    month: "mo",
+    included: "Included with your plan",
     view: "View Pack",
     gold: "Gold",
     pro: "Professional",
@@ -45,7 +45,7 @@ const strings = {
     empty: "Keine Pakete gefunden",
     emptySub: "Bitte wenden Sie sich an den Administrator",
     agents: "KI-Agenten",
-    month: "Mon.",
+    included: "In Ihrem Plan enthalten",
     view: "Paket ansehen",
     gold: "Gold",
     pro: "Professionell",
@@ -76,7 +76,6 @@ export default async function IndustryPage() {
   try {
     packs = await prisma.industryPack.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } });
   } catch {}
-  const fxRates = await getFxRates();
 
   return (
     <div className="min-h-screen p-8" style={{ background: "var(--surface-0)" }}>
@@ -126,7 +125,7 @@ export default async function IndustryPage() {
 
                   <div className="flex items-center justify-between mt-4">
                     <span className="font-bold" style={{ color: pack.color }}>
-                      {formatPackPriceSync(pack.price, lang, fxRates)}<span className="text-xs font-normal" style={{ color: "var(--text-muted)" }}>/{s.month}</span>
+                      {s.included}
                     </span>
                     <Link href={`/industry/${pack.slug}`}
                       className="px-4 py-1.5 rounded-lg text-xs font-medium text-white transition-all"

@@ -3,6 +3,8 @@ import Image from "next/image";
 import { getServerLang } from "@/lib/i18n/server";
 import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
 import AiTeamPipeline from "@/components/landing/AiTeamPipeline";
+import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo/site";
 
 export const dynamic = "force-dynamic";
 
@@ -137,6 +139,12 @@ const STR = {
     finalCtaButton: "Kostenlos starten",
   },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getServerLang();
+  const meta = pageMetadata(lang, "/ai-team", {"fa":"تیم هوش مصنوعی شما — مدیرعامل، فروش، سئو و بیشتر","en":"Your AI Team — CEO, Sales, Accountant & SEO Agents","de":"Ihr KI-Team — CEO-, Vertriebs-, Buchhaltungs- & SEO-Agenten","tr":"Yapay Zekâ Ekibiniz — CEO, Satış, Muhasebe ve SEO"}, {"fa":"با عوامل AI تخصصی AiFekr آشنا شوید: مدیرعامل، فروش، حسابدار، سئو و محتوا — همه در یک تیم که ۲۴ ساعته کار می‌کند.","en":"Meet AiFekr's specialist AI agents: CEO, sales, accountant, SEO and content — one team that works around the clock.","de":"Lernen Sie die spezialisierten KI-Agenten von AiFekr kennen: CEO, Vertrieb, Buchhaltung, SEO und Content — ein Team, das rund um die Uhr arbeitet.","tr":"AiFekr'in uzman yapay zekâ ajanlarıyla tanışın: CEO, satış, muhasebe, SEO ve içerik — 7/24 çalışan tek bir ekip."});
+  return meta;
+}
 
 export default async function AiTeamPage() {
   const lang = await getServerLang();
