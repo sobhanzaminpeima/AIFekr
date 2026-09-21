@@ -1,0 +1,1 @@
+ALTER TABLE "SeoAudit" ADD COLUMN "mobileScore" INTEGER;

@@ -1,5 +1,6 @@
 import { safeFetch } from "@/lib/net/safeUrl";
 import { crawlUrlDetailed, auditUrlPage, type CrawlFailure, type UrlCheckGroup } from "@/lib/seo/urlAudit";
+import { mobileIssues, mobileOnlyRegressions } from "@/lib/seo/mobileCore";
 import { parseSitemapLocs, pickPages, MAX_PAGES_PER_AUDIT, type StoredPage, type StoredIssue } from "@/lib/seo/siteAuditCore";
 
 export interface SiteAuditResult {
@@ -9,6 +10,8 @@ export interface SiteAuditResult {
   warnCount: number;
   passCount: number;
   pages: StoredPage[];
+  /** Average score of the pages as a phone sees them; null when no mobile crawl succeeded. */
+  mobileScore: number | null;
   /** Site-wide problems (robots.txt, sitemap, hreflang), taken from the homepage probe. */
   siteIssues: StoredIssue[];
 }
@@ -16,6 +19,8 @@ export interface SiteAuditResult {
 const SITE_LEVEL_CHECKS = new Set(["robotsTxt", "sitemap", "hreflang"]);
 const TIME_BUDGET_MS = 55_000;
 const CONCURRENCY = 3;
+/** Pages also fetched as a phone (a second request each): the homepage and the next few. */
+const MOBILE_PAGES = 4;
 
 async function fetchText(url: string): Promise<string | null> {
   try {
@@ -73,17 +78,34 @@ export async function runSiteAudit(homeUrl: string, lang: "fa" | "en" | "de" | "
   const siteIssues: StoredIssue[] = [];
   let fail = 0, warn = 0, pass = 0;
 
-  const record = (url: string, data: Parameters<typeof auditUrlPage>[0], isHome: boolean) => {
+  const record = async (url: string, data: Parameters<typeof auditUrlPage>[0], isHome: boolean, withMobile: boolean) => {
     const { score, groups } = auditUrlPage(data, url, lang);
     const s = summarizeGroups(groups);
     // Site-wide findings belong to the site, not to every page.
     const pageIssues = s.issues.filter((i) => !SITE_LEVEL_CHECKS.has(i.id));
     if (isHome) for (const i of s.issues) if (SITE_LEVEL_CHECKS.has(i.id)) siteIssues.push(i);
     fail += s.fail; warn += s.warn; pass += s.pass;
-    pages.push({ url, score, statusCode: data.statusCode, title: data.title, h1Count: data.h1.length, wordCount: data.wordCount, responseMs: data.responseTimeMs, issues: pageIssues });
+    const page: StoredPage = { url, score, statusCode: data.statusCode, title: data.title, h1Count: data.h1.length, wordCount: data.wordCount, responseMs: data.responseTimeMs, issues: pageIssues };
+
+    // The same page as a phone gets it. Google indexes the mobile version first, so a worse
+    // mobile page is a real ranking problem, not a cosmetic one.
+    if (withMobile) {
+      const m = await crawlUrlDetailed(url, { probeSite: false, device: "mobile" });
+      if ("data" in m) {
+        const ma = auditUrlPage(m.data, url, lang);
+        page.mobileScore = ma.score;
+        const extra = [
+          ...mobileIssues(data, m.data, url, lang),
+          ...mobileOnlyRegressions(groups.flatMap((g) => g.checks), ma.groups.flatMap((g) => g.checks)),
+        ];
+        for (const i of extra) { if (i.status === "fail") fail++; else warn++; }
+        page.issues.push(...extra);
+      }
+    }
+    pages.push(page);
   };
 
-  record(homeUrl, home.data, true);
+  await record(homeUrl, home.data, true, true);
 
   const rest = targets.filter((u) => u.replace(/\/$/, "") !== homeUrl.replace(/\/$/, ""));
   let cursor = 0;
@@ -91,7 +113,7 @@ export async function runSiteAudit(homeUrl: string, lang: "fa" | "en" | "de" | "
     while (cursor < rest.length && Date.now() - started < TIME_BUDGET_MS) {
       const url = rest[cursor++];
       const r = await crawlUrlDetailed(url, { probeSite: false });
-      if ("data" in r) { record(url, r.data, false); continue; }
+      if ("data" in r) { await record(url, r.data, false, pages.length < MOBILE_PAGES); continue; }
       // A page the sitemap/links promise but that errors is itself a real finding; timeouts are treated as transient.
       if (r.reason === "http") {
         fail++;
@@ -102,5 +124,7 @@ export async function runSiteAudit(homeUrl: string, lang: "fa" | "en" | "de" | "
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, rest.length) }, worker));
 
   const score = pages.length ? Math.round(pages.reduce((sum, p) => sum + p.score, 0) / pages.length) : 0;
-  return { ok: true, result: { score, pagesCrawled: pages.length, failCount: fail, warnCount: warn, passCount: pass, pages, siteIssues } };
+  const withMobile = pages.filter((p) => typeof p.mobileScore === "number");
+  const mobileScore = withMobile.length ? Math.round(withMobile.reduce((sum, p) => sum + (p.mobileScore as number), 0) / withMobile.length) : null;
+  return { ok: true, result: { score, mobileScore, pagesCrawled: pages.length, failCount: fail, warnCount: warn, passCount: pass, pages, siteIssues } };
 }

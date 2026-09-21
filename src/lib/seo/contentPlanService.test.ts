@@ -111,3 +111,31 @@ describe("runContentPlan", () => {
     await prisma.seoContentPlan.update({ where: { id: planId }, data: { theme: "Real estate in Berlin" } });
   });
 });
+
+describe("runContentPlan with an explicit topic", () => {
+  it("writes that topic, leaves the queue and the schedule untouched, and honours a mode override", async () => {
+    const conn = { platform: "wordpress", siteUrl: "https://blog.test", wpUsername: "u", wpAppPassword: "p" };
+    await prisma.seoConnection.upsert({ where: { userId }, create: { userId, ...conn }, update: conn });
+    const nextRunAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    await prisma.seoContentPlan.update({ where: { id: planId }, data: { topics: JSON.stringify(["Queued A", "Queued B"]), nextRunAt } });
+    runContentPipeline.mockResolvedValueOnce({ postId: "x", publishResult: { status: "published", url: "https://blog.test/p", error: null } });
+
+    const res = await runContentPlan(planId, { topic: "  A very specific article  ", mode: "publish" });
+    expect(res.ok).toBe(true);
+    const call = runContentPipeline.mock.calls[0][0];
+    expect(call.topic).toBe("A very specific article");
+    expect(call.publishMode).toBe("publish"); // overrides the plan's "draft"
+
+    const p = await plan();
+    expect(JSON.parse(p.topics)).toEqual(["Queued A", "Queued B"]);
+    expect(p.nextRunAt!.getTime()).toBe(nextRunAt.getTime());
+  });
+
+  it("a failed hand-started run does not reschedule the plan", async () => {
+    const nextRunAt = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
+    await prisma.seoContentPlan.update({ where: { id: planId }, data: { nextRunAt } });
+    runContentPipeline.mockRejectedValueOnce(new Error("nope"));
+    expect(await runContentPlan(planId, { topic: "Another topic" })).toMatchObject({ ok: false, reason: "failed" });
+    expect((await plan()).nextRunAt!.getTime()).toBe(nextRunAt.getTime());
+  });
+});

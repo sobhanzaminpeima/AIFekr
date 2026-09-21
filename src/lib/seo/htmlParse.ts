@@ -71,3 +71,41 @@ export function viewportBlocksZoom(viewport: string): boolean {
   const max = v.match(/maximum-scale=([\d.]+)/);
   return !!max && parseFloat(max[1]) < 2;
 }
+
+export type WpSeoPlugin = "yoast" | "rankmath" | "aioseo" | "seopress" | null;
+
+export interface WordPressSignals {
+  generator: string;
+  /** The SEO plugin that left its fingerprint in the page source (they all announce themselves in an HTML comment or head block). */
+  seoPlugin: WpSeoPlugin;
+  /** Internal links use ?p=123 / ?page_id=123 instead of readable URLs. */
+  plainPermalinks: boolean;
+  /** Links to the default "Uncategorized" category. */
+  uncategorized: boolean;
+  /** The generator tag reveals the WordPress version. */
+  versionExposed: boolean;
+}
+
+/**
+ * Detects a WordPress site from its public HTML and reads what can be checked without
+ * logging in. Returns null for a page that is not WordPress. Everything here is a
+ * fingerprint of the rendered page, so a site that strips the fingerprints reads as
+ * "not detected" -- callers word their advice accordingly.
+ */
+export function detectWordPress(html: string, hrefs: string[], generator: string): WordPressSignals | null {
+  const isWp = /wordpress/i.test(generator) || /\/wp-content\/|\/wp-includes\/|\/wp-json\//i.test(html);
+  if (!isWp) return null;
+  const seoPlugin: WpSeoPlugin =
+    /yoast seo|yoast\.com\/wordpress\/plugins\/seo|yoast-schema-graph/i.test(html) ? "yoast"
+    : /rank math seo|rankmath\.com|rank-math/i.test(html) ? "rankmath"
+    : /all in one seo|aioseo/i.test(html) ? "aioseo"
+    : /seopress/i.test(html) ? "seopress"
+    : null;
+  return {
+    generator,
+    seoPlugin,
+    plainPermalinks: hrefs.some((h) => /[?&](p|page_id)=\d+/.test(h)),
+    uncategorized: hrefs.some((h) => /\/category\/uncategorized\/?/i.test(h)),
+    versionExposed: /wordpress\s+\d/i.test(generator),
+  };
+}

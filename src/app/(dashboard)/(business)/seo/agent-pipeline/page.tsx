@@ -37,7 +37,7 @@ interface StepState { output: string; status: "idle" | "running" | "done" | "fai
 interface Lesson { id: string; agentKey: string; text: string; source: string; createdAt: string; }
 interface Post {
   id: string; title: string; content: string; metaTitle: string; metaDescription: string; slug: string; keywords: string; publishedAt: string;
-  externalStatus?: "not_published" | "published" | "failed" | "held_for_review"; externalUrl?: string | null; externalError?: string | null;
+  externalStatus?: "not_published" | "published" | "draft" | "failed" | "held_for_review"; externalUrl?: string | null; externalError?: string | null;
   heroImageUrl?: string | null;
 }
 interface SeoIssue { id: string; severity: "error" | "warning" | "info"; messageFa: string; messageEn: string; }
@@ -535,6 +535,9 @@ export default function AgentPipelinePage() {
                         <p className="text-xs" style={{ color: "var(--text-muted)" }}>{tri(lang, toJalali(post.publishedAt), new Date(post.publishedAt).toLocaleDateString("en-US"), new Date(post.publishedAt).toLocaleDateString("de-DE"))}</p>
                         {post.externalStatus === "published" && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>{s.publishedBadge}</span>
+                        )}
+                        {post.externalStatus === "draft" && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(59,130,246,0.15)", color: "#3b82f6" }}>{tri(lang, "پیش‌نویس وردپرس", "WordPress draft", "WordPress-Entwurf")}</span>
                         )}
                         {post.externalStatus === "failed" && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444" }}>{s.publishFailedBadge}</span>

@@ -44,7 +44,7 @@ export async function auditAndSave(siteId: string, source: "manual" | "auto", la
 
   const audit = await prisma.seoAudit.create({
     data: {
-      siteId, userId: site.userId, source, score: r.score, pagesCrawled: r.pagesCrawled,
+      siteId, userId: site.userId, source, score: r.score, mobileScore: r.mobileScore, pagesCrawled: r.pagesCrawled,
       failCount: r.failCount, warnCount: r.warnCount, passCount: r.passCount,
       siteChecks: JSON.stringify(r.siteIssues), pages: JSON.stringify(r.pages),
     },

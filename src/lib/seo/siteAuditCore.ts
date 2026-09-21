@@ -16,7 +16,9 @@ export interface StoredPage {
   h1Count: number;
   wordCount: number;
   responseMs: number;
-  /** Only non-passing checks are stored (keeps an audit small). */
+  /** Score of this page as a phone sees it (mobile user agent); undefined when the mobile crawl was skipped or failed. */
+  mobileScore?: number;
+  /** Only non-passing checks are stored (keeps an audit small); mobile-specific ones have ids starting "mobile_". */
   issues: StoredIssue[];
 }
 

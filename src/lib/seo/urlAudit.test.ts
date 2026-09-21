@@ -43,4 +43,19 @@ describe("auditUrlPage crawlability", () => {
     expect(ids).not.toContain("robotsTxt");
     expect(ids).toContain("indexable");
   });
+
+  it("adds a WordPress SEO group only for WordPress sites, and reports what the page source shows", () => {
+    const wp = { generator: "WordPress 6.4", seoPlugin: null, plainPermalinks: true, uncategorized: true, versionExposed: true };
+    const ids = (d: CrawledPageData) => auditUrlPage(d, "https://a.com/", "en").groups.flatMap((g) => g.checks).filter((c) => c.status !== "pass").map((c) => c.id);
+    expect(auditUrlPage(base, "https://a.com/", "en").groups.map((g) => g.id)).not.toContain("wordpress");
+    expect(ids({ ...base, wp })).toEqual(expect.arrayContaining(["wpSeoPlugin", "wpPermalinks", "wpVersion", "wpUncategorized"]));
+    expect(ids({ ...base, wp: { ...wp, seoPlugin: "yoast", plainPermalinks: false, versionExposed: false, uncategorized: false } })).not.toEqual(expect.arrayContaining(["wpSeoPlugin"]));
+  });
+
+  it("explains a noindex WordPress site with the Reading-settings fix", () => {
+    const r = auditUrlPage({ ...base, robotsMeta: "noindex, nofollow", wp: { generator: "WordPress", seoPlugin: "yoast", plainPermalinks: false, uncategorized: false, versionExposed: false } }, "https://a.com/", "en");
+    const c = r.groups.flatMap((g) => g.checks).find((x) => x.id === "wpDiscourage");
+    expect(c?.status).toBe("fail");
+    expect(c?.detail).toContain("Settings → Reading");
+  });
 });

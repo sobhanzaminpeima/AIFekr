@@ -22,7 +22,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   try { plan = audit.plan ? JSON.parse(audit.plan) : null; } catch { plan = null; }
 
   return NextResponse.json({
-    audit: { id: audit.id, score: audit.score, pagesCrawled: audit.pagesCrawled, failCount: audit.failCount, warnCount: audit.warnCount, passCount: audit.passCount, source: audit.source, createdAt: audit.createdAt, planCreatedAt: audit.planCreatedAt },
+    audit: { id: audit.id, score: audit.score, mobileScore: audit.mobileScore, pagesCrawled: audit.pagesCrawled, failCount: audit.failCount, warnCount: audit.warnCount, passCount: audit.passCount, source: audit.source, createdAt: audit.createdAt, planCreatedAt: audit.planCreatedAt },
     site: audit.site,
     pages: snapshot.pages,
     siteIssues: snapshot.siteIssues,

@@ -11,8 +11,8 @@ import { looksLikeInjectionAttempt } from "@/lib/ai/promptSafety";
 import type { Lang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 import { readPipelineField } from "@/lib/agents/contentPipelineLabels";
-import { safeFetch } from "@/lib/net/safeUrl";
-import { decryptSecret } from "@/lib/crypto/secretBox";
+import { createPost, loadWpConn } from "@/lib/wordpress/client";
+import type { SeoFields } from "@/lib/wordpress/core";
 
 /**
  * The 8-agent content pipeline as a plain function, so it can be driven by an
@@ -24,38 +24,29 @@ import { decryptSecret } from "@/lib/crypto/secretBox";
  * saves it there as a draft, "hold" keeps the article in AiFekr only.
  */
 
-export interface PublishResult { status: "not_published" | "published" | "failed" | "held_for_review"; url: string | null; error: string | null }
+export interface PublishResult {
+  status: "not_published" | "published" | "draft" | "failed" | "held_for_review";
+  /** Live URL for a published post, the wp-admin edit link for a draft. */
+  url: string | null;
+  error: string | null;
+}
 
-/** Publishes the finished post to the user's connected WordPress site (from the SEO tool's SeoConnection), if any. */
-async function publishToConnectedSite(userId: string, title: string, contentMd: string, slug: string, excerpt: string, wpStatus: "publish" | "draft" = "publish"): Promise<PublishResult> {
-  const conn = await prisma.seoConnection.findUnique({ where: { userId } });
-  if (!conn || conn.platform !== "wordpress" || !conn.siteUrl || !conn.wpUsername || !conn.wpAppPassword) {
-    return { status: "not_published", url: null, error: null };
-  }
-
-  try {
-    const base = conn.siteUrl.replace(/\/$/, "");
-    const auth = "Basic " + Buffer.from(`${conn.wpUsername}:${decryptSecret(conn.wpAppPassword)}`).toString("base64");
-    const res = await safeFetch(`${base}/wp-json/wp/v2/posts`, {
-      method: "POST",
-      headers: { Authorization: auth, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        content: markdownToHtml(contentMd),
-        excerpt,
-        slug,
-        status: wpStatus,
-      }),
-    });
-    if (!res.ok) {
-      const errText = await res.text();
-      return { status: "failed", url: null, error: `WordPress error ${res.status}: ${errText.slice(0, 300)}` };
-    }
-    const data = await res.json();
-    return { status: "published", url: data.link || null, error: null };
-  } catch (err) {
-    return { status: "failed", url: null, error: err instanceof Error ? err.message : String(err) };
-  }
+/**
+ * Sends the finished post to the user's connected WordPress site, if any: as a live post
+ * or a draft, with the SEO title / description / focus keyword written to the site's SEO
+ * plugin (Yoast / Rank Math) when it exposes them.
+ */
+async function publishToConnectedSite(
+  userId: string, title: string, contentMd: string, slug: string, excerpt: string,
+  wpStatus: "publish" | "draft", seo: SeoFields,
+): Promise<PublishResult> {
+  const conn = await loadWpConn(userId);
+  if (!conn) return { status: "not_published", url: null, error: null };
+  const res = await createPost(conn, { title, contentHtml: markdownToHtml(contentMd), slug, excerpt, status: wpStatus, seo });
+  if (!res.ok) return { status: "failed", url: null, error: res.error };
+  return res.status === "publish"
+    ? { status: "published", url: res.link, error: null }
+    : { status: "draft", url: res.editUrl, error: null };
 }
 
 async function runAgent(
@@ -223,7 +214,7 @@ export async function runContentPipeline(o: PipelineOptions): Promise<{ postId: 
     ? { status: "held_for_review", url: null, error: tri(lang, "محتوا برای بازبینی نگه داشته شد — الگویی مشابه تلاش برای دستکاری خودکار در متن یا نتایج جستجو شناسایی شد. لطفاً پیش از انتشار، محتوا را بررسی کنید.", "Content held for review — a pattern resembling an attempted prompt injection was detected in the text or the search results. Please review it before publishing.", "Inhalt zur Prüfung zurückgehalten — im Text oder in den Suchergebnissen wurde ein Muster erkannt, das einem Manipulationsversuch ähnelt. Bitte prüfen Sie ihn vor der Veröffentlichung.") }
     : o.publishMode === "hold"
   ? { status: "not_published" as const, url: null, error: null }
-  : await publishToConnectedSite(user.id, titleLine, draft, slug, metaDescription, o.publishMode === "draft" ? "draft" : "publish");
+  : await publishToConnectedSite(user.id, titleLine, draft, slug, metaDescription, o.publishMode === "draft" ? "draft" : "publish", { title: metaTitle, description: metaDescription, focusKeyword: keywords.split(/[,،]/)[0]?.trim() || undefined });
 
   const post = await prisma.contentPost.create({
     data: {

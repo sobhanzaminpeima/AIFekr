@@ -1,5 +1,6 @@
 import { safeFetch, UnsafeUrlError } from "@/lib/net/safeUrl";
-import { decodeEntities, textOfTags, parseRobotsTxt, viewportBlocksZoom } from "@/lib/seo/htmlParse";
+import { MOBILE_UA } from "@/lib/seo/mobileCore";
+import { decodeEntities, textOfTags, parseRobotsTxt, viewportBlocksZoom, detectWordPress, type WordPressSignals } from "@/lib/seo/htmlParse";
 
 export interface CrawledPageData {
   title: string;
@@ -35,6 +36,10 @@ export interface CrawledPageData {
   statusCode: number;
   twitterCard?: string;
   hreflangCount?: number;
+  /** WordPress fingerprints from the public page source; undefined when the site is not WordPress. */
+  wp?: WordPressSignals;
+  /** URL of the last response after redirects (differs from the request when e.g. phones are sent to an m. host). */
+  finalUrl?: string;
   /** Raw hrefs found on the page (deduplicated, capped) -- lets a site audit discover more pages to crawl. */
   linkTargets?: string[];
   /** X-Robots-Tag response header (can noindex a page without any meta tag). */
@@ -81,12 +86,12 @@ export async function crawlUrl(url: string): Promise<CrawledPageData | null> {
   return "data" in r ? r.data : null;
 }
 
-export async function crawlUrlDetailed(url: string, opts: { probeSite?: boolean } = {}): Promise<{ data: CrawledPageData } | CrawlFailure> {
+export async function crawlUrlDetailed(url: string, opts: { probeSite?: boolean; device?: "desktop" | "mobile" } = {}): Promise<{ data: CrawledPageData } | CrawlFailure> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
     const start = Date.now();
-    const res = await safeFetch(url, { signal: controller.signal, headers: { "User-Agent": "Mozilla/5.0 (compatible; AiFekrSEOBot/1.0)" } });
+    const res = await safeFetch(url, { signal: controller.signal, headers: { "User-Agent": opts.device === "mobile" ? MOBILE_UA : "Mozilla/5.0 (compatible; AiFekrSEOBot/1.0)" } });
     const responseTimeMs = Date.now() - start;
     clearTimeout(timeout);
     if (!res.ok) return { reason: "http", status: res.status };
@@ -108,6 +113,7 @@ export async function crawlUrlDetailed(url: string, opts: { probeSite?: boolean 
     const h2s = textOfTags(html, "h2");
     const h3Count = (html.match(/<h3[^>]*>/gi) || []).length;
     const twitterCard = getTag(/<meta[^>]*name=["']twitter:card["'][^>]*content=["']([^"']*)["']/i);
+    const generator = getTag(/<meta[^>]*name=["']generator["'][^>]*content=["']([^"']*)["']/i);
     const hreflangCount = (html.match(/<link[^>]*rel=["']alternate["'][^>]*hreflang=/gi) || []).length;
     const images = (html.match(/<img[^>]*>/gi) || []).length;
     const imagesWithAlt = (html.match(/<img[^>]*alt=["'][^"']+["'][^>]*>/gi) || []).length;
@@ -137,7 +143,8 @@ export async function crawlUrlDetailed(url: string, opts: { probeSite?: boolean 
       images, imagesWithAlt, lazyImages, links, internalLinks, externalLinks, wordCount,
       hasSchema, hasFavicon, isHttps, hasDeprecatedTags, hasInlineCss, htmlSize: html.length, doctype,
       server, responseTimeMs, statusCode: res.status,
-      twitterCard, hreflangCount, linkTargets: Array.from(new Set(allLinks)).slice(0, 120), xRobotsTag: res.headers.get("x-robots-tag") || "", site,
+      wp: detectWordPress(html, allLinks, generator) ?? undefined,
+      finalUrl: res.url || url, twitterCard, hreflangCount, linkTargets: Array.from(new Set(allLinks)).slice(0, 120), xRobotsTag: res.headers.get("x-robots-tag") || "", site,
     } };
   } catch (e) {
     if (e instanceof UnsafeUrlError) return e.message === "host could not be resolved" ? { reason: "unreachable" } : { reason: "blocked" };
@@ -234,6 +241,27 @@ export function auditUrlPage(data: CrawledPageData, url: string, lang: "fa" | "e
     { id: "media", titleFa: "رسانه و بهینه‌سازی تصاویر", titleEn: "Media & Image Optimization", titleDe: "Medien & Bildoptimierung", checks: media },
     { id: "technical", titleFa: "فنی، عملکرد و لینک‌ها", titleEn: "Technical, Performance & Links", titleDe: "Technik, Leistung & Links", checks: technical },
   ];
+
+  // WordPress-specific SEO checks, only for sites that are WordPress (read from the public page source).
+  if (data.wp) {
+    const w = data.wp;
+    const pluginName = ({ yoast: "Yoast SEO", rankmath: "Rank Math", aioseo: "All in One SEO", seopress: "SEOPress" } as const)[w.seoPlugin ?? "yoast"];
+    const wpChecks: UrlCheck[] = [
+      check("wpSeoPlugin", tri("افزونه سئوی وردپرس", "WordPress SEO plugin", "WordPress-SEO-Plugin"), w.seoPlugin ? "pass" : "warning",
+        w.seoPlugin ? pluginName : tri("افزونه سئو پیدا نشد. نصب Yoast SEO یا Rank Math برای مدیریت عنوان، توضیحات و sitemap توصیه می‌شود.", "No SEO plugin detected. Install Yoast SEO or Rank Math to manage titles, descriptions and the sitemap.", "Kein SEO-Plugin erkannt. Installieren Sie Yoast SEO oder Rank Math für Titel, Beschreibungen und Sitemap.")),
+      check("wpPermalinks", tri("ساختار پیوند یکتا", "Permalink structure", "Permalink-Struktur"), w.plainPermalinks ? "warning" : "pass",
+        w.plainPermalinks ? tri("آدرس‌ها به شکل ?p=123 هستند. در تنظیمات ← پیوندهای یکتا، «نام نوشته» را انتخاب کنید.", "URLs look like ?p=123. In Settings → Permalinks choose “Post name”.", "URLs sehen aus wie ?p=123. Wählen Sie unter Einstellungen → Permalinks „Beitragsname“.") : tri("آدرس‌های خوانا", "Readable URLs", "Lesbare URLs")),
+      check("wpVersion", tri("نسخه وردپرس", "WordPress version", "WordPress-Version"), w.versionExposed ? "warning" : "pass",
+        w.versionExposed ? tri(`نسخه وردپرس در تگ generator فاش شده است (${w.generator}).`, `The WordPress version is exposed in the generator tag (${w.generator}).`, `Die WordPress-Version steht im Generator-Tag (${w.generator}).`) : tri("نسخه فاش نشده", "Version not exposed", "Version nicht sichtbar")),
+      check("wpUncategorized", tri("دسته‌بندی پیش‌فرض", "Default category", "Standardkategorie"), w.uncategorized ? "warning" : "pass",
+        w.uncategorized ? tri("مطالب در دسته «Uncategorized» هستند؛ یک دسته‌بندی معنادار بسازید.", "Posts sit in the “Uncategorized” category; create meaningful categories.", "Beiträge liegen in „Uncategorized“; legen Sie sinnvolle Kategorien an.") : tri("دسته‌بندی معنادار", "Meaningful categories", "Sinnvolle Kategorien")),
+    ];
+    if (/noindex/i.test(data.robotsMeta)) {
+      wpChecks.push(check("wpDiscourage", tri("مسدود بودن موتورهای جستجو", "Search engines discouraged", "Suchmaschinen ausgeschlossen"), "fail",
+        tri("صفحه noindex است. در وردپرس: تنظیمات ← خواندن ← «درخواست از موتورهای جستجو برای ایندکس نکردن» را خاموش کنید.", "The page is noindex. In WordPress: Settings → Reading → untick “Discourage search engines from indexing this site”.", "Die Seite ist noindex. In WordPress: Einstellungen → Lesen → „Suchmaschinen davon abhalten, diese Website zu indexieren“ deaktivieren.")));
+    }
+    groups.push({ id: "wordpress", titleFa: "سئوی وردپرس", titleEn: "WordPress SEO", titleDe: "WordPress-SEO", checks: wpChecks });
+  }
 
   const allChecks = groups.flatMap((g) => g.checks);
   const weight: Record<CheckStatus, number> = { pass: 1, warning: 0.5, fail: 0 };

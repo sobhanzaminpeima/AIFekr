@@ -2,73 +2,14 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { safeFetch } from "@/lib/net/safeUrl";
-import { decryptSecret } from "@/lib/crypto/secretBox";
+import { loadWpConn, applySeoToUrl } from "@/lib/wordpress/client";
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n/tri";
 
 interface ApplyResult {
   field: string;
   applied: boolean;
   note?: string;
-}
-
-async function applyToWordPress(
-  conn: { siteUrl: string | null; wpUsername: string | null; wpAppPassword: string | null },
-  url: string,
-  title?: string,
-  metaDescription?: string
-): Promise<{ ok: boolean; results: ApplyResult[]; error?: string }> {
-  if (!conn.siteUrl || !conn.wpUsername || !conn.wpAppPassword) {
-    return { ok: false, results: [], error: "اتصال وردپرس کامل نیست" };
-  }
-  const base = conn.siteUrl.replace(/\/$/, "");
-  const auth = "Basic " + Buffer.from(`${conn.wpUsername}:${decryptSecret(conn.wpAppPassword)}`).toString("base64");
-  const slug = new URL(url).pathname.split("/").filter(Boolean).pop() || "";
-
-  // WordPress core doesn't expose a search-by-full-URL endpoint, so we
-  // look the entry up by slug across both posts and pages.
-  let found: { id: number; type: "posts" | "pages" } | null = null;
-  for (const type of ["posts", "pages"] as const) {
-    const res = await safeFetch(`${base}/wp-json/wp/v2/${type}?slug=${encodeURIComponent(slug)}`, {
-      headers: { Authorization: auth },
-    });
-    if (!res.ok) continue;
-    const data = await res.json();
-    if (Array.isArray(data) && data.length > 0) {
-      found = { id: data[0].id, type };
-      break;
-    }
-  }
-
-  if (!found) {
-    return { ok: false, results: [], error: "این صفحه در وردپرس پیدا نشد (slug مطابقتی نداشت)" };
-  }
-
-  const results: ApplyResult[] = [];
-  const body: Record<string, unknown> = {};
-  if (title) body.title = title;
-  if (metaDescription) {
-    // Best-effort: only applies if an SEO plugin (Yoast/RankMath) has
-    // registered these meta keys with show_in_rest — WordPress silently
-    // ignores unregistered meta keys rather than erroring, so we can't be
-    // fully sure this landed without a follow-up read.
-    body.meta = { rank_math_description: metaDescription, _yoast_wpseo_metadesc: metaDescription };
-  }
-
-  const patchRes = await safeFetch(`${base}/wp-json/wp/v2/${found.type}/${found.id}`, {
-    method: "POST", // WP REST uses POST for partial update, not PATCH
-    headers: { Authorization: auth, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  if (!patchRes.ok) {
-    const err = await patchRes.text();
-    return { ok: false, results: [], error: `وردپرس این تغییر را رد کرد: ${err.slice(0, 200)}` };
-  }
-
-  if (title) results.push({ field: "title", applied: true });
-  if (metaDescription) results.push({ field: "metaDescription", applied: true, note: "فقط در صورتی اعمال می‌شود که افزونه‌ی سئوی سایت (Yoast/RankMath) این فیلد را برای REST API فعال کرده باشد" });
-
-  return { ok: true, results };
 }
 
 async function applyToAiFekrSite(
@@ -110,16 +51,37 @@ export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
-  const { url, title, metaDescription, websiteId } = await req.json();
+  const { url, title, metaDescription, websiteId, focusKeyword } = await req.json();
 
   const conn = await prisma.seoConnection.findUnique({ where: { userId: user.id } });
   if (!conn) return NextResponse.json({ error: "ابتدا پلتفرم وبسایت خود را در بالای صفحه متصل کنید" }, { status: 400 });
 
   if (conn.platform === "wordpress") {
-    if (!url) return NextResponse.json({ error: "آدرس صفحه الزامی است" }, { status: 400 });
-    const r = await applyToWordPress(conn, url, title, metaDescription);
-    if (!r.ok) return NextResponse.json({ error: r.error }, { status: 502 });
-    return NextResponse.json({ results: r.results });
+    const lang = await getServerLang();
+    if (!url) return NextResponse.json({ error: tri(lang, "آدرس صفحه الزامی است", "The page URL is required", "Die Seiten-URL ist erforderlich") }, { status: 400 });
+    const wpConn = await loadWpConn(user.id);
+    if (!wpConn) return NextResponse.json({ error: tri(lang, "اتصال وردپرس کامل نیست", "The WordPress connection is incomplete", "Die WordPress-Verbindung ist unvollständig") }, { status: 400 });
+
+    const r = await applySeoToUrl(wpConn, url, { title, description: metaDescription, focusKeyword });
+    if (!r.ok) {
+      const message =
+        r.reason === "no_plugin" ? tri(lang, "سایت وردپرس شما افزونه سئوی پشتیبانی‌شده (Yoast یا Rank Math) ندارد، پس عنوان و توضیحات سئو خودکار ثبت نمی‌شود. متن پیشنهادی را کپی و در وردپرس جایگذاری کنید.", "Your WordPress site has no supported SEO plugin (Yoast or Rank Math), so the SEO title and description can't be set automatically. Copy the suggested text into WordPress instead.", "Ihre WordPress-Website hat kein unterstütztes SEO-Plugin (Yoast oder Rank Math), daher können SEO-Titel und -Beschreibung nicht automatisch gesetzt werden. Kopieren Sie den Vorschlag stattdessen in WordPress.")
+        : r.reason === "not_found" ? tri(lang, "این صفحه در وردپرس پیدا نشد (slug مطابقت نداشت).", "That page wasn't found in WordPress (no slug matched).", "Diese Seite wurde in WordPress nicht gefunden (kein Slug passt).")
+        : tri(lang, "وردپرس این تغییر را نپذیرفت: ", "WordPress rejected the change: ", "WordPress hat die Änderung abgelehnt: ") + (r.message ?? "");
+      return NextResponse.json({ error: message, reason: r.reason }, { status: r.reason === "error" ? 502 : 409 });
+    }
+    const confirmed = Object.values(r.fields).filter((v) => v === "confirmed").length;
+    if (confirmed === 0) {
+      return NextResponse.json({
+        error: tri(lang, "وردپرس درخواست را گرفت ولی هیچ‌کدام از فیلدهای سئو را ثبت نکرد (افزونه سئو آن‌ها را برای REST باز نکرده). متن را دستی جایگذاری کنید.", "WordPress accepted the request but stored none of the SEO fields (the SEO plugin doesn't expose them to REST). Please paste the text in manually.", "WordPress hat die Anfrage angenommen, aber keines der SEO-Felder gespeichert (das SEO-Plugin gibt sie nicht per REST frei). Bitte fügen Sie den Text manuell ein."),
+        reason: "not_confirmed",
+      }, { status: 409 });
+    }
+    return NextResponse.json({
+      seoPlugin: r.seoPlugin, editUrl: r.editUrl,
+      results: Object.entries(r.fields).map(([key, v]) => ({ field: key, applied: v === "confirmed" })),
+      partial: confirmed < Object.keys(r.fields).length,
+    });
   }
 
   if (conn.platform === "aifekr") {

@@ -16,7 +16,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     where: { siteId: site.id },
     orderBy: { createdAt: "desc" },
     take: 60,
-    select: { id: true, score: true, pagesCrawled: true, failCount: true, warnCount: true, passCount: true, source: true, createdAt: true, planCreatedAt: true },
+    select: { id: true, score: true, mobileScore: true, pagesCrawled: true, failCount: true, warnCount: true, passCount: true, source: true, createdAt: true, planCreatedAt: true },
   });
   return NextResponse.json({ site, audits });
 }

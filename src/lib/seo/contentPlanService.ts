@@ -16,7 +16,14 @@ const langOf = (l: string): Lang => (l === "en" || l === "de" || l === "tr" ? l 
  * Used by the scheduler and by "write one now". Safe against double starts, bills
  * the same credits as a manual pipeline run and refunds them if the chain fails.
  */
-export async function runContentPlan(planId: string): Promise<PlanRunResult> {
+export interface RunOptions {
+  /** Write about this specific topic now (does not consume the queue and leaves the schedule alone). */
+  topic?: string;
+  /** Override the plan's publish mode for this run only. */
+  mode?: PlanMode;
+}
+
+export async function runContentPlan(planId: string, opts: RunOptions = {}): Promise<PlanRunResult> {
   const plan = await prisma.seoContentPlan.findUniqueOrThrow({ where: { id: planId } });
 
   // Claim the plan atomically: only one caller may hold it, and a marker left by a dead process expires.
@@ -28,9 +35,11 @@ export async function runContentPlan(planId: string): Promise<PlanRunResult> {
 
   const finish = (data: { nextRunAt?: Date | null; lastError?: string | null; lastRunAt?: Date; topics?: string }) =>
     prisma.seoContentPlan.update({ where: { id: plan.id }, data: { ...data, runningSince: null } });
-  const retryAt = (ms: number) => (plan.enabled ? new Date(Date.now() + ms) : null);
+  // A hand-started run must not move the schedule: only scheduled runs reschedule themselves.
+  const manual = !!opts.topic;
+  const retryAt = (ms: number) => (manual ? plan.nextRunAt : plan.enabled ? new Date(Date.now() + ms) : null);
 
-  const choice = chooseTopic(parseTopics(plan.topics), plan.theme);
+  const choice = manual ? { topic: opts.topic!.trim().slice(0, 300), fromQueue: false, remaining: [] as string[] } : chooseTopic(parseTopics(plan.topics), plan.theme);
   if (!choice) {
     await finish({ lastError: "no_topic", nextRunAt: retryAt(DAY) });
     return { ok: false, reason: "no_topic" };
@@ -44,7 +53,7 @@ export async function runContentPlan(planId: string): Promise<PlanRunResult> {
 
   const conn = await prisma.seoConnection.findUnique({ where: { userId: plan.userId } });
   const hasWordPress = !!(conn && conn.platform === "wordpress" && conn.siteUrl && conn.wpUsername && conn.wpAppPassword);
-  const mode: PlanMode = effectiveMode(isMode(plan.mode) ? plan.mode : "draft", hasWordPress);
+  const mode: PlanMode = effectiveMode(opts.mode && isMode(opts.mode) ? opts.mode : isMode(plan.mode) ? plan.mode : "draft", hasWordPress);
 
   const recent = await prisma.contentPost.findMany({ where: { userId: plan.userId }, orderBy: { publishedAt: "desc" }, take: 30, select: { title: true } });
 
@@ -60,7 +69,7 @@ export async function runContentPlan(planId: string): Promise<PlanRunResult> {
     const now = new Date();
     await finish({
       lastRunAt: now, lastError: publishResult.status === "failed" ? `publish_failed: ${publishResult.error ?? ""}`.slice(0, 300) : null,
-      nextRunAt: plan.enabled ? nextRunDate(plan.frequency, now) : null,
+      nextRunAt: manual ? plan.nextRunAt : plan.enabled ? nextRunDate(plan.frequency, now) : null,
       ...(choice.fromQueue ? { topics: JSON.stringify(choice.remaining) } : {}),
     });
     return { ok: true, postId, runId: run.id, status: publishResult.status, url: publishResult.url };

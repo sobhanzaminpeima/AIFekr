@@ -1757,6 +1757,8 @@ model SeoAudit {
   /// "manual" | "auto"
   source        String    @default("manual")
   score         Int
+  /// Average score of the crawled pages as a phone sees them (null when no mobile crawl succeeded)
+  mobileScore   Int?
   pagesCrawled  Int
   failCount     Int
   warnCount     Int

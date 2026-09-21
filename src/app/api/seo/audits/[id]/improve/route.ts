@@ -8,6 +8,7 @@ import { crawlUrlDetailed, auditUrlPage } from "@/lib/seo/urlAudit";
 import { crawlFailureMessage } from "@/lib/seo/crawlMessages";
 import { generateImprovePlan } from "@/lib/seo/improvePlan";
 import { normalizePageUrl } from "@/lib/seo/siteAuditCore";
+import { parseSnapshot } from "@/lib/seo/siteAuditService";
 import { withToolCredits } from "@/lib/utils/withToolCredits";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
@@ -37,7 +38,10 @@ async function handlePost(req: NextRequest, { params }: { params: { id: string }
 
   let plan;
   try {
-    plan = await generateImprovePlan({ url: pageUrl, data: crawl.data, groups, score, lang, targetKeyword: typeof body.targetKeyword === "string" ? body.targetKeyword.trim().slice(0, 100) : undefined });
+    // The audit also crawled this page as a phone; carry those findings into the plan.
+    const stored = parseSnapshot(audit).pages.find((pg) => pg.url.replace(/\/$/, "") === pageUrl.replace(/\/$/, ""));
+    const mobileChecks = (stored?.issues ?? []).filter((i) => i.id.startsWith("mobile_"));
+    plan = await generateImprovePlan({ url: pageUrl, data: crawl.data, groups, score, lang, extraChecks: mobileChecks, targetKeyword: typeof body.targetKeyword === "string" ? body.targetKeyword.trim().slice(0, 100) : undefined });
   } catch (e) {
     console.error("seo audit improve: model call failed:", e);
     plan = null;

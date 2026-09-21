@@ -11,11 +11,12 @@ import SeoPlanCard, { type PlanView } from "@/components/seo/SeoPlanCard";
 import ContentPlanCard from "@/components/seo/ContentPlanCard";
 import RankingsCard from "@/components/seo/RankingsCard";
 import { GSC_ENABLED } from "@/lib/seo/features";
+import WordPressCard from "@/components/seo/WordPressCard";
 
 interface Site { id: string; url: string; name: string | null; autoAudit: boolean; frequency: string; lastAuditAt: string | null; nextAuditAt: string | null; lastScore: number | null }
-interface AuditRow { id: string; score: number; pagesCrawled: number; failCount: number; warnCount: number; passCount: number; source: string; createdAt: string }
+interface AuditRow { id: string; score: number; mobileScore: number | null; pagesCrawled: number; failCount: number; warnCount: number; passCount: number; source: string; createdAt: string }
 interface Issue { id: string; label: string; status: "warning" | "fail"; detail: string }
-interface PageRow { url: string; score: number; statusCode: number; title: string; issues: Issue[] }
+interface PageRow { url: string; score: number; mobileScore?: number; statusCode: number; title: string; issues: Issue[] }
 interface IssueRef { scope: string; id: string; label: string; status: "warning" | "fail" }
 interface Diff { scoreDelta: number; fixed: IssueRef[]; added: IssueRef[]; remaining: number }
 interface AuditFull { audit: AuditRow & { planCreatedAt: string | null }; pages: PageRow[]; siteIssues: Issue[]; diff: Diff | null; plan: PlanView | null }
@@ -38,6 +39,7 @@ export default function SeoSitesPage() {
   const [running, setRunning] = useState(false);
   const [improving, setImproving] = useState(false);
   const [open, setOpen] = useState<Set<string>>(new Set());
+  const [wpVersion, setWpVersion] = useState(0);
 
   const selected = sites.find((s) => s.id === selectedId) ?? null;
 
@@ -136,7 +138,7 @@ export default function SeoSitesPage() {
   }
 
   const toggle = (url: string) => setOpen((cur) => { const n = new Set(cur); if (n.has(url)) n.delete(url); else n.add(url); return n; });
-  const chart = [...history].reverse().map((a) => ({ date: new Date(a.createdAt).toLocaleDateString(locale, { month: "short", day: "numeric" }), score: a.score }));
+  const chart = [...history].reverse().map((a) => ({ date: new Date(a.createdAt).toLocaleDateString(locale, { month: "short", day: "numeric" }), score: a.score, mobile: a.mobileScore ?? undefined }));
   const freqLabel: Record<string, string> = { daily: tri(lang, "روزانه", "Daily", "Täglich"), weekly: tri(lang, "هفتگی", "Weekly", "Wöchentlich"), monthly: tri(lang, "ماهانه", "Monthly", "Monatlich") };
   const StatusIcon = ({ s }: { s: "warning" | "fail" }) => (s === "fail" ? <XCircle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#ef4444" }} /> : <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#eab308" }} />);
 
@@ -216,8 +218,14 @@ export default function SeoSitesPage() {
                   <div className="flex flex-wrap items-center gap-6">
                     <div className="text-center">
                       <div className="text-4xl font-bold" style={{ color: scoreColor(detail.audit.score) }}>{detail.audit.score}</div>
-                      <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>/ 100</div>
+                      <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>🖥 {tri(lang, "دسکتاپ", "Desktop", "Desktop")}</div>
                     </div>
+                    {detail.audit.mobileScore != null && (
+                      <div className="text-center">
+                        <div className="text-4xl font-bold" style={{ color: scoreColor(detail.audit.mobileScore) }}>{detail.audit.mobileScore}</div>
+                        <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>📱 {tri(lang, "موبایل", "Mobile", "Mobil")}</div>
+                      </div>
+                    )}
                     <div className="text-xs space-y-1" style={{ color: "var(--text-secondary)" }}>
                       <div>{tri(lang, `${detail.audit.pagesCrawled} صفحه بررسی شد`, `${detail.audit.pagesCrawled} pages audited`, `${detail.audit.pagesCrawled} Seiten geprüft`)} · {fmt(detail.audit.createdAt)} · {detail.audit.source === "auto" ? tri(lang, "خودکار", "scheduled", "geplant") : tri(lang, "دستی", "manual", "manuell")}</div>
                       <div><span style={{ color: "#ef4444" }}>{detail.audit.failCount} {tri(lang, "خطا", "failing", "Fehler")}</span> · <span style={{ color: "#eab308" }}>{detail.audit.warnCount} {tri(lang, "هشدار", "warnings", "Warnungen")}</span> · <span style={{ color: "#22c55e" }}>{detail.audit.passCount} {tri(lang, "سالم", "passing", "in Ordnung")}</span></div>
@@ -241,7 +249,8 @@ export default function SeoSitesPage() {
                           <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
                           <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
                           <Tooltip contentStyle={{ background: "var(--surface-2)", border: "1px solid var(--border)", fontSize: 12 }} />
-                          <Line type="monotone" dataKey="score" stroke="var(--primary)" strokeWidth={2} dot={{ r: 3 }} />
+                          <Line type="monotone" dataKey="score" name={tri(lang, "دسکتاپ", "Desktop", "Desktop")} stroke="var(--primary)" strokeWidth={2} dot={{ r: 3 }} />
+                          <Line type="monotone" dataKey="mobile" name={tri(lang, "موبایل", "Mobile", "Mobil")} stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} connectNulls />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
@@ -282,6 +291,7 @@ export default function SeoSitesPage() {
                         <div key={p.url} className="rounded-xl overflow-hidden" style={{ background: "var(--surface-2)" }}>
                           <button onClick={() => toggle(p.url)} className="w-full flex items-center gap-3 px-3 py-2 text-start">
                             <span className="text-sm font-bold w-8 flex-shrink-0" style={{ color: scoreColor(p.score) }}>{p.score}</span>
+                            {p.mobileScore != null && <span className="text-[11px] flex-shrink-0 w-10" style={{ color: scoreColor(p.mobileScore) }}>📱{p.mobileScore}</span>}
                             <span className="flex-1 min-w-0 text-xs truncate" dir="ltr" style={{ color: "var(--text-primary)" }}>{p.url.replace(/^https?:\/\//, "")}</span>
                             <span className="text-[11px] flex-shrink-0" style={{ color: "var(--text-muted)" }}>{p.issues.length} {tri(lang, "مورد", "issues", "Punkte")}</span>
                             <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--text-muted)", transform: open.has(p.url) ? "rotate(180deg)" : undefined }} />
@@ -317,7 +327,8 @@ export default function SeoSitesPage() {
           )}
 
           {GSC_ENABLED && selected && <RankingsCard siteId={selected.id} />}
-          {selected && <ContentPlanCard siteId={selected.id} />}
+          {selected && <WordPressCard onChange={() => setWpVersion((v) => v + 1)} />}
+          {selected && <ContentPlanCard key={`${selected.id}-${wpVersion}`} siteId={selected.id} />}
         </>
       )}
     </div>

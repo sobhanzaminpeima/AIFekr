@@ -22,6 +22,8 @@ export default function ContentPlanCard({ siteId }: { siteId: string }) {
   const [saving, setSaving] = useState(false);
   const [starting, setStarting] = useState(false);
   const dirty = useRef(false);
+  const [writeTopic, setWriteTopic] = useState("");
+  const [writeMode, setWriteMode] = useState<string>("");
 
   const load = useCallback(async () => {
     const r = await fetch(`/api/seo/sites/${siteId}/content-plan`, { credentials: "include" });
@@ -77,6 +79,23 @@ export default function ContentPlanCard({ siteId }: { siteId: string }) {
     }
   }
 
+  async function writeNow() {
+    if (writeTopic.trim().length < 5) { toast.error(tri(lang, "موضوع مقاله را بنویسید.", "Enter the article topic.", "Geben Sie das Artikelthema ein.")); return; }
+    setStarting(true);
+    try {
+      const r = await fetch(`/api/seo/sites/${siteId}/content-plan/write`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ topic: writeTopic, mode: writeMode || plan?.mode }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      toast.success(tri(lang, "نوشتن مقاله شروع شد؛ چند دقیقه طول می‌کشد.", "Writing started — it takes a few minutes.", "Der Beitrag wird geschrieben – das dauert einige Minuten."));
+      setWriteTopic("");
+      setTimeout(load, 1500); // the run marks itself "running" a moment after the request returns
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error");
+    } finally {
+      setStarting(false);
+    }
+  }
+
   if (!plan) return <div className="p-6 flex justify-center"><Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--primary)" }} /></div>;
 
   const errorText: Record<string, string> = {
@@ -106,6 +125,19 @@ export default function ContentPlanCard({ siteId }: { siteId: string }) {
           <input type="checkbox" checked={plan.enabled} disabled={saving} onChange={(e) => { edit({ enabled: e.target.checked }); save({ enabled: e.target.checked }); }} />
           {plan.enabled ? tri(lang, "فعال", "On", "An") : tri(lang, "خاموش", "Off", "Aus")}
         </label>
+      </div>
+
+      <div className="p-4 space-y-3" style={{ borderBottom: "1px solid var(--border)" }}>
+        <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "همین حالا یک مقاله با موضوع دلخواه بنویس", "Write an article on a topic of your choice, now", "Jetzt einen Artikel zu einem Thema Ihrer Wahl schreiben")}</p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input value={writeTopic} onChange={(e) => setWriteTopic(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") writeNow(); }} placeholder={tri(lang, "مثلاً: راهنمای خرید آپارتمان در برلین", "e.g. A guide to buying a flat in Berlin", "z. B. Ratgeber: Wohnung in Berlin kaufen")} className="flex-1 px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <select value={writeMode || plan.mode} onChange={(e) => setWriteMode(e.target.value)} className="px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            {modes.map((m) => <option key={m.v} value={m.v}>{m.label}</option>)}
+          </select>
+          <button onClick={writeNow} disabled={starting || plan.running} className="px-4 py-2.5 rounded-xl text-xs font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-1.5" style={{ background: "var(--primary)" }}>
+            {starting || plan.running ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PenLine className="w-3.5 h-3.5" />}{tri(lang, "بنویس و ارسال کن", "Write & send", "Schreiben & senden")} <CreditCost feature="seo.pipeline" />
+          </button>
+        </div>
       </div>
 
       <div className="p-4 space-y-3">
@@ -168,7 +200,8 @@ export default function ContentPlanCard({ siteId }: { siteId: string }) {
                   <span className="flex-1 min-w-0 truncate">{r.post?.title || r.topic}</span>
                   <span className="flex-shrink-0 opacity-70">
                     {r.status === "running" ? tri(lang, "در حال نوشتن", "writing", "schreibt") : r.status === "failed" ? tri(lang, "ناموفق", "failed", "fehlgeschlagen")
-                      : r.post?.externalStatus === "published" ? tri(lang, "منتشر/پیش‌نویس شد", "sent to WordPress", "an WordPress gesendet")
+                      : r.post?.externalStatus === "published" ? tri(lang, "منتشر شد", "published", "veröffentlicht")
+                      : r.post?.externalStatus === "draft" ? tri(lang, "پیش‌نویس در وردپرس", "WordPress draft", "WordPress-Entwurf")
                       : r.post?.externalStatus === "failed" ? tri(lang, "خطا در انتشار", "publish failed", "Veröffentlichung fehlgeschlagen")
                       : r.post?.externalStatus === "held_for_review" ? tri(lang, "منتظر بازبینی", "held for review", "zur Prüfung zurückgehalten")
                       : tri(lang, "ذخیره در AiFekr", "saved in AiFekr", "in AiFekr gespeichert")}

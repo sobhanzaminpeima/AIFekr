@@ -50,3 +50,29 @@ describe("viewportBlocksZoom", () => {
     expect(viewportBlocksZoom("width=device-width, maximum-scale=5")).toBe(false);
   });
 });
+
+import { detectWordPress } from "./htmlParse";
+
+describe("detectWordPress", () => {
+  const wpHtml = '<html><head><link rel="stylesheet" href="/wp-content/themes/x/style.css"><!-- This site is optimized with the Yoast SEO plugin v22 --></head></html>';
+  it("recognises WordPress and the SEO plugin from the page source", () => {
+    const s = detectWordPress(wpHtml, ["/about", "/blog/hello"], "WordPress 6.5.2");
+    expect(s).toMatchObject({ seoPlugin: "yoast", plainPermalinks: false, uncategorized: false, versionExposed: true });
+  });
+  it("returns null for a site that is not WordPress", () => {
+    expect(detectWordPress("<html><body>hi</body></html>", ["/x"], "")).toBeNull();
+    expect(detectWordPress("<html><body>hi</body></html>", ["/x"], "Hugo 0.120")).toBeNull();
+  });
+  it("finds Rank Math, All in One SEO and SEOPress", () => {
+    expect(detectWordPress('<link href="/wp-content/x"><!-- Rank Math SEO plugin -->', [], "")?.seoPlugin).toBe("rankmath");
+    expect(detectWordPress('<link href="/wp-content/x"><!-- All in One SEO 4 -->', [], "")?.seoPlugin).toBe("aioseo");
+    expect(detectWordPress('<link href="/wp-content/x"><!-- SEOPress -->', [], "")?.seoPlugin).toBe("seopress");
+  });
+  it("reports no SEO plugin when none left a fingerprint", () => {
+    expect(detectWordPress('<link href="/wp-content/x">', [], "WordPress")?.seoPlugin).toBeNull();
+  });
+  it("flags plain permalinks, the Uncategorized category and a hidden version", () => {
+    const s = detectWordPress('<link href="/wp-content/x">', ["/?p=123", "/category/uncategorized/"], "WordPress");
+    expect(s).toMatchObject({ plainPermalinks: true, uncategorized: true, versionExposed: false });
+  });
+});
