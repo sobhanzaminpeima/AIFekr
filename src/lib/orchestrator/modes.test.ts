@@ -135,9 +135,9 @@ describe("COMMIT tools", () => {
 });
 
 describe("the tool table itself", () => {
-  it("covers exactly the four domains approved for this phase", () => {
+  it("covers exactly the approved domains (the four from Phase 4, plus SEO added on the owner's approval)", () => {
     const capabilities = Array.from(new Set(allTools().map((t) => t.capabilityKey))).sort();
-    expect(capabilities).toEqual(["accounting", "ceo", "crm", "social"]);
+    expect(capabilities).toEqual(["accounting", "ceo", "crm", "seo", "social"]);
   });
 
   it("resolves every tool by its own key", () => {
