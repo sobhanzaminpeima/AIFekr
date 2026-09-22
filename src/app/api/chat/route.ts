@@ -17,6 +17,7 @@ import { parseRoutingState, serializeRoutingState } from "@/lib/orchestrator/rou
 import { callPlanner } from "@/lib/orchestrator/planner";
 import { buildProductKnowledgeBlock } from "@/lib/orchestrator/kb/productContext";
 import { logError } from "@/lib/logging/errorLog";
+import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
 
 const SUGGESTIONS_INSTRUCTION = `
 
@@ -146,12 +147,17 @@ export async function POST(req: NextRequest) {
       (systemPrompt || SYSTEM_PROMPTS[expertMode as string] || SYSTEM_PROMPTS.default) +
       (await buildProductKnowledgeBlock(message, lang));
 
-    // Find or create conversation
-    let convId = conversationId;
+    // Find or create conversation. An id passed by the client is only ever trusted once
+    // it is confirmed to belong to this user -- otherwise one user could inject messages
+    // into (and read/rewrite the routing state of) another user's conversation.
+    let convId: string | undefined = conversationId
+      ? (await prisma.conversation.findFirst({ where: { id: conversationId, userId: user.id }, select: { id: true } }))?.id
+      : undefined;
     if (!convId) {
       const conv = await prisma.conversation.create({
         data: {
           userId: user.id,
+          businessId: await activeBusinessIdFor(user.id),
           title: message.slice(0, 50),
           model: model || "auto",
         },

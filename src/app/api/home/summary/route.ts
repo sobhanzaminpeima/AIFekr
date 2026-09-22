@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
   const ws = await resolveCrmWorkspace(user.id);
   const lang = await getServerLang();
-  const summary = await getHomeSummary(ws.workspaceUserId, lang);
+  const summary = await getHomeSummary(ws.workspaceUserId, lang, ws.businessId);
 
   // Which industry pack (if any) this account has -- the home page uses this
   // for a one-line "your X modules are active" banner. A user only ever

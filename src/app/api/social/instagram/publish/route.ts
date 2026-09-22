@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { publishToInstagram, publishReelToInstagram } from "@/lib/instagram";
+import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
+import { bizScope } from "@/lib/accounting/scope";
 
 // Manual "انتشار الان" trigger — same underlying call the cron uses for
 // mode="auto" posts, just fired on demand instead of at scheduledFor.
@@ -10,13 +12,14 @@ export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
+  const businessId = await activeBusinessIdFor(user.id);
   const { postId } = await req.json();
-  const post = await prisma.scheduledPost.findFirst({ where: { id: postId, userId: user.id } });
+  const post = await prisma.scheduledPost.findFirst({ where: { id: postId, userId: user.id, ...bizScope(businessId) } });
   if (!post) return NextResponse.json({ error: "پست یافت نشد" }, { status: 404 });
   if (post.status === "PUBLISHED") return NextResponse.json({ error: "این پست قبلاً منتشر شده" }, { status: 400 });
   if (!post.imageUrl && !post.videoUrl) return NextResponse.json({ error: "این پست تصویر یا ویدیو ندارد و از طریق API قابل انتشار نیست" }, { status: 400 });
 
-  const conn = await prisma.instagramConnection.findUnique({ where: { userId: user.id } });
+  const conn = await prisma.instagramConnection.findFirst({ where: { userId: user.id, ...bizScope(businessId) } });
   if (!conn) return NextResponse.json({ error: "حساب اینستاگرام متصل نیست" }, { status: 400 });
 
   try {

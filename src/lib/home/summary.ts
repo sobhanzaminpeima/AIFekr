@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import type { Lang } from "@/lib/i18n";
 import { tri } from "@/lib/i18n/tri";
+import { bizScope } from "@/lib/accounting/scope";
 
 /**
  * The business snapshot behind the dashboard home page.
@@ -72,7 +73,8 @@ export interface HomeSummary {
 
 const SEVERITY_WEIGHT: Record<AttentionSeverity, number> = { critical: 300, warning: 200, info: 100 };
 
-export async function getHomeSummary(workspaceUserId: string, lang: Lang): Promise<HomeSummary> {
+export async function getHomeSummary(workspaceUserId: string, lang: Lang, businessId?: string | null): Promise<HomeSummary> {
+  const scope = bizScope(businessId);
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -84,31 +86,31 @@ export async function getHomeSummary(workspaceUserId: string, lang: Lang): Promi
     ceoNotes, contentRuns,
   ] = await Promise.all([
     prisma.crmDeal.findMany({
-      where: { userId: workspaceUserId, status: "open" },
+      where: { userId: workspaceUserId, ...scope, status: "open" },
       select: { id: true, value: true },
     }),
-    prisma.crmContact.count({ where: { userId: workspaceUserId, createdAt: { gte: weekAgo } } }),
+    prisma.crmContact.count({ where: { userId: workspaceUserId, ...scope, createdAt: { gte: weekAgo } } }),
     prisma.crmInvoice.findMany({
-      where: { userId: workspaceUserId, status: { in: ["sent", "overdue"] }, dueDate: { lt: now } },
+      where: { userId: workspaceUserId, ...scope, status: { in: ["sent", "overdue"] }, dueDate: { lt: now } },
       include: { contact: { select: { name: true } } },
       orderBy: { dueDate: "asc" },
       take: 5,
     }),
     prisma.crmTask.findMany({
-      where: { userId: workspaceUserId, status: { not: "done" }, dueDate: { lt: now } },
+      where: { userId: workspaceUserId, ...scope, status: { not: "done" }, dueDate: { lt: now } },
       orderBy: { dueDate: "asc" },
       take: 5,
     }),
-    prisma.accountingOwnerStatement.count({ where: { workspaceUserId, status: "draft" } }),
-    prisma.accountingBankTransaction.count({ where: { workspaceUserId, status: "unmatched" } }),
+    prisma.accountingOwnerStatement.count({ where: { workspaceUserId, ...scope, status: "draft" } }),
+    prisma.accountingBankTransaction.count({ where: { workspaceUserId, ...scope, status: "unmatched" } }),
     prisma.propertyViewing.count({
-      where: { property: { userId: workspaceUserId }, scheduledAt: { gte: now, lte: inSevenDays } },
+      where: { property: { userId: workspaceUserId, ...scope }, scheduledAt: { gte: now, lte: inSevenDays } },
     }),
     prisma.crmInvoice.aggregate({
-      where: { userId: workspaceUserId, status: "paid", paidAt: { gte: monthStart } },
+      where: { userId: workspaceUserId, ...scope, status: "paid", paidAt: { gte: monthStart } },
       _sum: { total: true },
     }),
-    prisma.crmContact.count({ where: { userId: workspaceUserId } }),
+    prisma.crmContact.count({ where: { userId: workspaceUserId, ...scope } }),
     // Phase 5, proposal 3 -- the dashboard showed data conditions but never
     // said what the AI team had done, so the "your team works for you" promise
     // on /ai-team had no counterpart anywhere in the product. Both reads are

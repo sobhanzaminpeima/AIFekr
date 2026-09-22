@@ -7,6 +7,8 @@ import { analyzeSocial, analysisToPrompt } from "@/lib/social/analytics";
 import { brandPromptFor } from "@/lib/social/brandProfile";
 import { routedStreamChat } from "@/lib/ai/router";
 import { withToolCredits } from "@/lib/utils/withToolCredits";
+import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
+import { bizScope } from "@/lib/accounting/scope";
 
 async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
@@ -15,7 +17,8 @@ async function handlePost(req: NextRequest) {
   const { language } = await req.json().catch(() => ({ language: "fa" }));
   const lang = language === "en" ? "en" : "fa";
 
-  const conn = await prisma.instagramConnection.findUnique({ where: { userId: user.id } });
+  const businessId = await activeBusinessIdFor(user.id);
+  const conn = await prisma.instagramConnection.findFirst({ where: { userId: user.id, ...bizScope(businessId) } });
   if (!conn) return NextResponse.json({ error: "اینستاگرام متصل نیست" }, { status: 400 });
 
   const [snapshots, current] = await Promise.all([

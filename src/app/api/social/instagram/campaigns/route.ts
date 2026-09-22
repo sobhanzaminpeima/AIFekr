@@ -4,6 +4,8 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { canAutoPublish } from "@/lib/utils/planGates";
 import { normalizeLinks } from "@/lib/utils/campaignLinks";
+import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
+import { bizScope } from "@/lib/accounting/scope";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -24,7 +26,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "این قابلیت فقط برای پلن‌های پرو و تیم فعال است" }, { status: 403 });
   }
 
-  const conn = await prisma.instagramConnection.findUnique({ where: { userId: user.id } });
+  const businessId = await activeBusinessIdFor(user.id);
+  const conn = await prisma.instagramConnection.findFirst({ where: { userId: user.id, ...bizScope(businessId) } });
   if (!conn) return NextResponse.json({ error: "اینستاگرام متصل نیست" }, { status: 400 });
 
   const { keyword, dmMessage, publicReplyMessage, postId, links, followGateEnabled, followGatePrompt } = await req.json().catch(() => ({}));

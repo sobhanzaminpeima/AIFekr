@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { publishToInstagram, publishReelToInstagram } from "@/lib/instagram";
 import { notify } from "@/lib/notifications/create";
 import { isCronAuthorized } from "@/lib/auth/cronAuth";
+import { bizScope } from "@/lib/accounting/scope";
 
 // Hit by a system crontab entry every few minutes (see deployment notes) —
 // this is what makes mode="auto" posts actually go out without a human
@@ -16,7 +17,6 @@ export async function GET(req: NextRequest) {
 
   const due = await prisma.scheduledPost.findMany({
     where: { mode: "auto", status: "PENDING", scheduledFor: { lte: new Date() } },
-    include: { user: { include: { instagramConn: true } } },
   });
 
   const results = [];
@@ -33,7 +33,9 @@ export async function GET(req: NextRequest) {
     });
     if (claim.count === 0) continue;
 
-    const conn = post.user.instagramConn;
+    // The post's own business, not "whichever account this user has now" -- a user with
+    // several businesses must have this post go out through the business it was queued for.
+    const conn = await prisma.instagramConnection.findFirst({ where: { userId: post.userId, ...bizScope(post.businessId) } });
     if (!conn || (!post.imageUrl && !post.videoUrl)) {
       await prisma.scheduledPost.update({ where: { id: post.id }, data: { status: "FAILED", errorMessage: "اتصال اینستاگرام یا تصویر/ویدیو موجود نیست" } });
       notify(post.userId, {

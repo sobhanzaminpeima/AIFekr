@@ -158,7 +158,7 @@ model User {
   seoConnection            SeoConnection?
   gscConnection            GscConnection?
   seoSites                 SeoSite[]
-  instagramConn            InstagramConnection?
+  instagramConnections     InstagramConnection[]
   scheduledPosts           ScheduledPost[]
   pipelineRuns             ContentPipelineRun[]
   agentLessons             ContentAgentLesson[]
@@ -245,6 +245,8 @@ model BusinessWorkspace {
   country           String?
   timezone          String   @default("UTC")
   currency          String   @default("USD")
+  /// The business's own working language (fa | en | de | tr) -- distinct from a viewer's personal UI-language cookie.
+  language          String   @default("fa")
   brandSettings     String?
   aiInstructions    String?
   modules           String?  // JSON configuration; module access is server-checked.
@@ -499,6 +501,8 @@ model Conversation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   projectId String?
+  /// Business this conversation belongs to (nullable: legacy rows, and workspaces with no provisioned business).
+  businessId String?
 
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   project  Project?  @relation(fields: [projectId], references: [id])
@@ -506,6 +510,7 @@ model Conversation {
 
   @@index([userId])
   @@index([projectId])
+  @@index([businessId])
 }
 
 model Message {
@@ -1575,7 +1580,9 @@ model GeneratedWebsite {
 /// Facebook Page — there's no way around that, it's a Meta platform rule).
 model InstagramConnection {
   id          String    @id @default(cuid())
-  userId      String    @unique
+  userId      String
+  /// Business this Instagram account belongs to (nullable: legacy rows, and workspaces with no provisioned business).
+  businessId  String?
   igUserId    String
   igUsername  String?
   pageId      String
@@ -1585,6 +1592,9 @@ model InstagramConnection {
   updatedAt   DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, businessId])
+  @@index([businessId])
 }
 
 /// One row per connected account per day — built by a daily cron since
@@ -1669,6 +1679,8 @@ model InstagramCommentReplyLog {
 model ScheduledPost {
   id           String   @id @default(cuid())
   userId       String
+  /// Business this post belongs to (nullable: legacy rows, and workspaces with no provisioned business).
+  businessId   String?
   caption      String
   hashtags     String
   imageUrl     String?
@@ -1691,6 +1703,7 @@ model ScheduledPost {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([businessId])
   @@index([status, scheduledFor])
 }
 

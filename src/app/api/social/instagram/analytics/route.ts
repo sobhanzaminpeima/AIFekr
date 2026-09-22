@@ -2,20 +2,24 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { getAccountStats, getRecentMedia } from "@/lib/instagram";
+import { getAccountStats, getRecentMedia, summarizeMediaByType } from "@/lib/instagram";
+import { analyzeSocial } from "@/lib/social/analytics";
+import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
+import { bizScope } from "@/lib/accounting/scope";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
-  const conn = await prisma.instagramConnection.findUnique({ where: { userId: user.id } });
+  const businessId = await activeBusinessIdFor(user.id);
+  const conn = await prisma.instagramConnection.findFirst({ where: { userId: user.id, ...bizScope(businessId) } });
   if (!conn) return NextResponse.json({ error: "اینستاگرام متصل نیست" }, { status: 400 });
 
   const [snapshots, live] = await Promise.all([
     prisma.instagramFollowerSnapshot.findMany({
       where: { userId: user.id },
       orderBy: { date: "asc" },
-      take: 90,
+      take: 180,
     }),
     getAccountStats(conn.igUserId, conn.accessToken).catch(() => null),
   ]);
@@ -37,6 +41,14 @@ export async function GET(req: NextRequest) {
     current: live,
     trend: snapshots.map((s) => ({ date: s.date, followersCount: s.followersCount, mediaCount: s.mediaCount })),
     recentMedia: media,
+    mediaBreakdown: summarizeMediaByType(media),
+    // Deterministic growth analysis (buckets, growth rate, engagement rate,
+    // audience quality, per-type correlation, rule-based findings).
+    analysis: analyzeSocial(
+      snapshots.map((s) => ({ date: s.date, followersCount: s.followersCount, mediaCount: s.mediaCount })),
+      media,
+      !!mediaError
+    ),
     mediaError,
   });
 }
