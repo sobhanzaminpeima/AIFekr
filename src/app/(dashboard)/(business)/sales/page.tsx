@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Handshake, Sparkles, Loader2, Send, Mail, Check } from "lucide-react";
+import { Handshake, Sparkles, Loader2, Send, Mail, Check, ListPlus } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useTranslation } from "@/lib/i18n";
 import CreditCost from "@/components/ui/CreditCost";
@@ -21,6 +21,8 @@ const STR = {
     noEmail: "بدون ایمیل",
     needsCrm: "این قابلیت نیاز به خرید افزونه CRM دارد",
     ownerOnly: "فقط مدیر یا مالک می‌تواند تحلیل ایجنت فروش را اجرا کند",
+    createTask: "ساخت تسک پیگیری",
+    taskCreated: "تسک ساخته شد",
   },
   en: {
     title: "Sales Agent",
@@ -36,6 +38,8 @@ const STR = {
     noEmail: "No email",
     needsCrm: "This feature requires the CRM add-on",
     ownerOnly: "Only a manager or owner can run the Sales Agent analysis",
+    createTask: "Create Follow-up Task",
+    taskCreated: "Task created",
   },
   de: {
     title: "Vertriebs-Agent",
@@ -51,6 +55,8 @@ const STR = {
     noEmail: "Keine E-Mail",
     needsCrm: "Diese Funktion erfordert das CRM-Add-on",
     ownerOnly: "Nur ein Manager oder Eigentümer kann die Vertriebs-Agent-Analyse ausführen",
+    createTask: "Follow-up-Aufgabe erstellen",
+    taskCreated: "Aufgabe erstellt",
   },
 } as const;
 
@@ -74,6 +80,8 @@ export default function SalesAgentPage() {
   const [loadingDrafts, setLoadingDrafts] = useState(false);
   const [sentIds, setSentIds] = useState<Set<string>>(new Set());
   const [sendingId, setSendingId] = useState<string | null>(null);
+  const [taskCreatedIds, setTaskCreatedIds] = useState<Set<string>>(new Set());
+  const [creatingTaskId, setCreatingTaskId] = useState<string | null>(null);
 
   async function runAgent() {
     setRunning(true);
@@ -136,6 +144,22 @@ export default function SalesAgentPage() {
     }
   }
 
+  async function createTaskFromDraft(d: FollowUpDraft) {
+    setCreatingTaskId(d.contactId);
+    try {
+      const title = lang === "fa" ? `پیگیری با ${d.name}` : lang === "de" ? `Nachfassen bei ${d.name}` : `Follow up with ${d.name}`;
+      const dueDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      const res = await fetch("/api/crm/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId: d.contactId, title, dueDate, draftMessage: d.message }),
+      });
+      if (res.ok) setTaskCreatedIds((prev) => new Set(prev).add(d.contactId));
+    } finally {
+      setCreatingTaskId(null);
+    }
+  }
+
   const memoryHeaderPattern = lang === "fa" ? /## ۶?\.?\s*نکاتی برای حافظهٔ آینده/ : lang === "de" ? /## Notizen für zukünftige Erinnerung/ : /## Notes for future memory/;
 
   return (
@@ -192,26 +216,41 @@ export default function SalesAgentPage() {
             <div className="space-y-2">
               {drafts.map((d) => {
                 const sent = sentIds.has(d.contactId);
+                const taskCreated = taskCreatedIds.has(d.contactId);
                 return (
                   <div key={d.contactId} className="rounded-xl p-3 flex items-start justify-between gap-3" style={{ background: "var(--surface-2)" }}>
                     <div className="flex-1">
                       <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{d.name}</p>
                       <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{d.message}</p>
                     </div>
-                    {sent ? (
-                      <span className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg flex-shrink-0" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>
-                        <Check className="w-3.5 h-3.5" />{s.sent}
-                      </span>
-                    ) : d.email ? (
-                      <button onClick={() => sendDraft(d)} disabled={sendingId === d.contactId}
-                        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg flex-shrink-0 disabled:opacity-50"
-                        style={{ background: "var(--primary)", color: "white" }}>
-                        {sendingId === d.contactId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                        {s.send}
-                      </button>
-                    ) : (
-                      <span className="text-xs px-2.5 py-1.5 rounded-lg flex-shrink-0" style={{ background: "var(--surface-1)", color: "var(--text-muted)" }}>{s.noEmail}</span>
-                    )}
+                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                      {sent ? (
+                        <span className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>
+                          <Check className="w-3.5 h-3.5" />{s.sent}
+                        </span>
+                      ) : d.email ? (
+                        <button onClick={() => sendDraft(d)} disabled={sendingId === d.contactId}
+                          className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg disabled:opacity-50"
+                          style={{ background: "var(--primary)", color: "white" }}>
+                          {sendingId === d.contactId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                          {s.send}
+                        </button>
+                      ) : (
+                        <span className="text-xs px-2.5 py-1.5 rounded-lg" style={{ background: "var(--surface-1)", color: "var(--text-muted)" }}>{s.noEmail}</span>
+                      )}
+                      {taskCreated ? (
+                        <span className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>
+                          <Check className="w-3.5 h-3.5" />{s.taskCreated}
+                        </span>
+                      ) : (
+                        <button onClick={() => createTaskFromDraft(d)} disabled={creatingTaskId === d.contactId}
+                          className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg disabled:opacity-50"
+                          style={{ background: "var(--surface-1)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
+                          {creatingTaskId === d.contactId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ListPlus className="w-3.5 h-3.5" />}
+                          {s.createTask}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
