@@ -77,7 +77,12 @@ export async function PUT(req: NextRequest) {
   if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
   const data: Record<string, unknown> = {};
-  if (status) data.status = status;
+  if (status) {
+    data.status = status;
+    // completedAt tracks exactly when a task was marked done, and clears
+    // if it's reopened -- so "done" always means "done at this timestamp".
+    data.completedAt = status === "done" ? new Date() : null;
+  }
   if (title) data.title = title;
   if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null;
 

@@ -41,7 +41,7 @@ interface Contact {
 }
 interface TeamMember { id: string; name: string; email: string; }
 interface Activity { id: string; type: string; content: string; createdAt: string; }
-interface Task { id: string; title: string; status: string; dueDate: string | null; draftMessage?: string | null; }
+interface Task { id: string; title: string; status: string; dueDate: string | null; draftMessage?: string | null; completedAt?: string | null; }
 interface ContactDetail extends Contact {
   deals: Deal[]; activities: Activity[]; tasks: Task[];
 }
@@ -1299,8 +1299,13 @@ function ContactDetailModal({ isFa, lang, t, contact, teamMembers, onClose, onCh
             {contact.tasks.map((tk) => (
               <div key={tk.id} className="rounded-xl" style={{ background: "var(--surface-2)" }}>
                 <button onClick={() => toggleTask(tk.id, tk.status)} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-right">
-                  {tk.status === "done" ? <CheckCircle2 className="w-3.5 h-3.5" style={{ color: "#22c55e" }} /> : <Circle className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} />}
-                  <span style={{ color: tk.status === "done" ? "var(--text-muted)" : "var(--text-primary)", textDecoration: tk.status === "done" ? "line-through" : "none" }}>{tk.title}</span>
+                  {tk.status === "done" ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#22c55e" }} /> : <Circle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />}
+                  <span className="flex-1" style={{ color: tk.status === "done" ? "var(--text-muted)" : "var(--text-primary)", textDecoration: tk.status === "done" ? "line-through" : "none" }}>{tk.title}</span>
+                  {tk.status === "done" && tk.completedAt && (
+                    <span className="text-[10px] flex-shrink-0" style={{ color: "var(--text-muted)", textDecoration: "none" }}>
+                      {new Date(tk.completedAt).toLocaleString(isFa ? "fa-IR" : lang === "de" ? "de-DE" : "en-US", { dateStyle: "medium", timeStyle: "short" })}
+                    </span>
+                  )}
                 </button>
                 {/* AI-drafted follow-up message (e.g. after a viewing with no
                     feedback) -- shown for review, never sent automatically.

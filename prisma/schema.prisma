@@ -1228,6 +1228,9 @@ model CrmTask {
   /// owner to review and send themselves -- Draft-and-Approve, never sent
   /// automatically. Null for a plain internal reminder task.
   draftMessage  String?
+  /// Set when status transitions to "done", cleared if reopened -- lets the
+  /// UI show exactly when a follow-up was completed, not just that it was.
+  completedAt   DateTime?
   createdAt     DateTime  @default(now())
 
   user    User        @relation(fields: [userId], references: [id])
