@@ -9,6 +9,7 @@ const de: Translations = {
     "gallery": "Meine Galerie",
     "tools": "Werkzeuge",
     "assistants": "Assistenten",
+    "studentWorkspace": "Lernbereich",
     "businessDoctor": "Business Doctor",
     "crm": "CRM",
     "accounting": "Buchhaltung",

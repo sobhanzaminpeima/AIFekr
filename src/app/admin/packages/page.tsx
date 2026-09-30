@@ -8,10 +8,10 @@ type Pkg = {
   id: string; planCode: string; name: string; nameEn: string; price: number; priceUsd: number | null;
   market: string; duration: number;
   credits: number; isActive: boolean; isFeatured: boolean; color: string;
-  features: string; featuresEn: string | null; sortOrder: number;
+  features: string; featuresEn: string | null; sortOrder: number; teamSeatLimit: number | null;
 };
 
-const EMPTY_FORM = { planCode: "", name: "", nameEn: "", price: 0, priceUsd: "" as number | "", market: "IR", duration: 30, credits: 1000, color: "#ea580c", features: "", featuresEn: "", sortOrder: 0 };
+const EMPTY_FORM = { planCode: "", name: "", nameEn: "", price: 0, priceUsd: "" as number | "", market: "IR", duration: 30, credits: 1000, color: "#ea580c", features: "", featuresEn: "", sortOrder: 0, teamSeatLimit: "" as number | "" };
 
 const MARKETS = [
   { value: "IR", label: "ایران (ریال)" },
@@ -46,7 +46,7 @@ export default function PackagesPage() {
       planCode: p.planCode, name: p.name, nameEn: p.nameEn,
       price: p.price, priceUsd: p.priceUsd ?? "", market: p.market || "IR",
       duration: p.duration, credits: p.credits, color: p.color,
-      features: p.features, featuresEn: p.featuresEn ?? "", sortOrder: p.sortOrder,
+      features: p.features, featuresEn: p.featuresEn ?? "", sortOrder: p.sortOrder, teamSeatLimit: p.teamSeatLimit ?? "",
     });
     setShowForm(true);
   }
@@ -187,6 +187,12 @@ export default function PackagesPage() {
                     className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                 </div>
               ))}
+            </div>
+            <div>
+              <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>تعداد صندلی تیمی (اختیاری)</label>
+              <input type="number" min="1" value={form.teamSeatLimit} placeholder="خالی = پلن فردی"
+                onChange={e => setForm(p => ({ ...p, teamSeatLimit: e.target.value === "" ? "" : Number(e.target.value) }))}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

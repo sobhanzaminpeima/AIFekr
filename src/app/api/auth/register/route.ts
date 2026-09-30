@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   const lang = VALID_LANGS.has(bodyForLang?.language) ? bodyForLang.language : await getServerLang();
 
   try {
-    const { name, firstName, lastName, country, language, email, phone, password, industryPackSlug, ref } = bodyForLang;
+    const { name, firstName, lastName, country, language, email, phone, password, ref } = bodyForLang;
 
     // firstName/lastName are the primary fields going forward; `name` (kept
     // for every existing caller that reads user.name) is derived from them
@@ -46,12 +46,9 @@ export async function POST(req: NextRequest) {
       if (existing) return NextResponse.json({ error: tri(lang, "این موبایل قبلاً ثبت شده است", "This phone number is already registered", "Diese Telefonnummer ist bereits registriert") }, { status: 409 });
     }
 
-    // Find pack if provided
-    let industryPackId: string | undefined;
-    if (industryPackSlug) {
-      const pack = await prisma.industryPack.findUnique({ where: { slug: industryPackSlug } });
-      if (pack) industryPackId = pack.id;
-    }
+    // Industry packs are activated only after the paid CRM entitlement is
+    // verified by POST /api/packs/[slug]. Never grant business access from a
+    // public registration query parameter.
 
     // Resolve referrer (if a valid ?ref= code was passed) — silently
     // ignored if the code doesn't match anyone, so a stale/bad link never
@@ -79,7 +76,6 @@ export async function POST(req: NextRequest) {
       email: email || undefined,
       phone: phone || undefined,
       passwordHash: password ? await hashPassword(password) : undefined,
-      industryPack: industryPackId ? { connect: { id: industryPackId } } : undefined,
       credits: 200,
       plan: "FREE",
       referralCode,

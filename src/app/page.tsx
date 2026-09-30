@@ -24,6 +24,7 @@ import PricingSection from "@/components/landing/PricingSection";
 import FaqSection from "@/components/landing/FaqSection";
 import AiTeamTeaser from "@/components/landing/AiTeamTeaser";
 import StartupBuilderTeaser from "@/components/landing/StartupBuilderTeaser";
+import StudentWorkspaceTeaser from "@/components/landing/StudentWorkspaceTeaser";
 import { getFxRates } from "@/lib/utils/currency";
 import { planCodesForLang, sortByPlanLadder } from "@/lib/plans/catalog";
 import type { Metadata } from "next";
@@ -541,6 +542,9 @@ export default async function HomePage() {
 
       {/* Startup Builder Teaser */}
       <StartupBuilderTeaser lang={lang} />
+
+      {/* Separate student product path — business navigation is not required. */}
+      <StudentWorkspaceTeaser lang={lang} />
 
       {/* Pricing */}
       {pricingPlans.length > 0 && (

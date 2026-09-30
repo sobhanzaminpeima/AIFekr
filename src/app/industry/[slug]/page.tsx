@@ -7,6 +7,7 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/db/prisma";
 import { verifyToken } from "@/lib/auth/jwt";
 import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n/tri";
 import ActivateButton from "@/components/industry/ActivateButton";
 
 export const dynamic = "force-dynamic";
@@ -72,13 +73,15 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
   const token = cookieStore.get("token")?.value;
   let userId: string | null = null;
   let userPackId: string | null = null;
+  let hasBusinessSubscription = false;
 
   if (token) {
     const payload = verifyToken(token);
     if (payload) {
       userId = payload.userId;
-      const u = await prisma.user.findUnique({ where: { id: userId }, select: { industryPackId: true } });
+      const u = await prisma.user.findUnique({ where: { id: userId }, select: { industryPackId: true, crmPlan: true, crmPlanExpiry: true } });
       userPackId = u?.industryPackId || null;
+      hasBusinessSubscription = !!u && u.crmPlan !== "NONE" && (!u.crmPlanExpiry || u.crmPlanExpiry.getTime() > Date.now());
     }
   }
 
@@ -185,9 +188,11 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
               }}>
               {pack.tier === "gold" ? s.gold : s.pro}
             </span>
-            <div className="text-lg font-bold mb-1" style={{ color: pack.color }}>{s.included}</div>
+            <div className="text-lg font-bold mb-1" style={{ color: pack.color }}>{hasBusinessSubscription ? s.included : tri(lang, "نیازمند اشتراک کسب‌وکار", "Business subscription required", "Business-Abo erforderlich", "İşletme aboneliği gerekli")}</div>
             <div className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-              {lang === "fa" ? "بدون پرداخت جداگانه؛ با انتخاب صنعت فعال می‌شود." : "No separate pack charge; activate it after choosing your industry."}
+              {hasBusinessSubscription
+                ? tri(lang, "پس از خرید اشتراک CRM، انتخاب صنعت هزینه جداگانه ندارد.", "Once CRM is active, selecting an industry has no separate charge.", "Mit aktivem CRM-Abo kostet die Branchenwahl nichts extra.", "CRM etkin olduktan sonra sektör seçimi için ek ücret alınmaz.")
+                : tri(lang, "ابتدا پلن CRM را تهیه کن؛ سپس بستهٔ صنعت و ابزارهای مرتبط در پورتال فعال می‌شوند.", "Choose a CRM plan first; then this industry pack and its related tools can be activated in your portal.", "Wähle zuerst einen CRM-Tarif; danach kannst du dieses Branchenpaket im Portal aktivieren.", "Önce CRM planı satın al; ardından bu sektör paketini portalında etkinleştir.")}
             </div>
 
             {isCurrentPack ? (
@@ -201,8 +206,12 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
                   {s.goToBusiness}
                 </Link>
               </div>
-            ) : userId ? (
+            ) : userId && hasBusinessSubscription ? (
               <ActivateButton slug={pack.slug} color={pack.color} label={s.activate} />
+            ) : userId ? (
+              <Link href="/crm" className="block w-full py-3 rounded-xl font-semibold text-white text-center" style={{ background: pack.color }}>
+                {tri(lang, "مشاهده پلن‌های کسب‌وکار", "View business plans", "Business-Tarife ansehen", "İşletme planlarını gör")}
+              </Link>
             ) : (
               <>
                 <Link href={`/register?pack=${pack.slug}`}

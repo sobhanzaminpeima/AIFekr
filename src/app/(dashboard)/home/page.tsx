@@ -61,6 +61,8 @@ interface HomeSummary {
   meaningfulStats: StatKey[];
   isEmptyWorkspace: boolean;
   industryPack: { name: string; nameEn: string | null; emoji: string; slug: string } | null;
+  studentWorkspace: { enabled: boolean; courseCount: number; upcomingExamCount: number; pendingTaskCount: number };
+  businessAccess: boolean;
 }
 
 /**
@@ -154,6 +156,15 @@ export default function HomePage() {
         </div>
       )}
 
+      {data.studentWorkspace.enabled && (
+        <Link href="/student" className="block rounded-2xl p-5 transition-colors" style={{ background: "linear-gradient(120deg,rgba(249,115,22,.13),rgba(99,102,241,.1))", border: "1px solid rgba(249,115,22,.25)" }}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3"><span className="w-10 h-10 rounded-xl grid place-items-center" style={{ background: "rgba(249,115,22,.14)", color: "#f97316" }}><Sparkles className="w-5 h-5"/></span><div><h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "فضای دانشجویی شما فعال است", "Your Student Workspace is active", "Ihr Lernbereich ist aktiv", "Öğrenci alanınız etkin")}</h2><p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, `${data.studentWorkspace.courseCount} درس · ${data.studentWorkspace.pendingTaskCount} کار باز · ${data.studentWorkspace.upcomingExamCount} امتحان پیش‌رو`, `${data.studentWorkspace.courseCount} courses · ${data.studentWorkspace.pendingTaskCount} open tasks · ${data.studentWorkspace.upcomingExamCount} upcoming exams`, `${data.studentWorkspace.courseCount} Kurse · ${data.studentWorkspace.pendingTaskCount} offene Aufgaben · ${data.studentWorkspace.upcomingExamCount} Prüfungen`, `${data.studentWorkspace.courseCount} ders · ${data.studentWorkspace.pendingTaskCount} açık görev · ${data.studentWorkspace.upcomingExamCount} yaklaşan sınav`)}</p></div></div>
+            <span className="text-sm font-semibold" style={{ color: "#f97316" }}>{tri(lang, "ورود به فضای دانشجویی ←", "Open Student Workspace →", "Lernbereich öffnen →", "Öğrenci alanını aç →")}</span>
+          </div>
+        </Link>
+      )}
+
       {/* Industry start actions. QA 2026-09-15 found a small agency faced every
           general module at once, making the first session long; it suggested a
           start page built around the industry's three core daily jobs. Shown
@@ -187,11 +198,15 @@ export default function HomePage() {
             {tri(lang, "هنوز داده‌ای برای نمایش نیست", "Nothing to report yet", "Noch nichts zu berichten", "Henüz raporlanacak bir şey yok")}
           </p>
           <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>
-            {tri(lang, "با افزودن اولین مخاطب یا ملک، این صفحه شروع به کار می‌کند.", "Add your first contact or property and this page starts working.", "Fügen Sie Ihren ersten Kontakt oder Ihre erste Immobilie hinzu, dann füllt sich diese Seite.", "İlk kişinizi veya mülkünüzü ekleyin, bu sayfa çalışmaya başlasın.")}
+            {data.studentWorkspace.enabled && !data.businessAccess
+              ? tri(lang, "این حساب فضای دانشجویی دارد. ابزارهای CRM و بیزنس تا زمان فعال‌سازی پلن تجاری از منو پنهان می‌مانند.", "This account has the Student Workspace. CRM and business tools stay hidden until a business plan is activated.", "Dieses Konto hat den Lernbereich. CRM- und Business-Tools bleiben bis zur Aktivierung eines Business-Tarifs verborgen.", "Bu hesapta Öğrenci Alanı var. İşletme planı etkinleşene kadar CRM ve işletme araçları gizli kalır.")
+              : tri(lang, "با افزودن اولین مخاطب یا ملک، این صفحه شروع به کار می‌کند.", "Add your first contact or property and this page starts working.", "Fügen Sie Ihren ersten Kontakt oder Ihre erste Immobilie hinzu, dann füllt sich diese Seite.", "İlk kişinizi veya mülkünüzü ekleyin, bu sayfa çalışmaya başlasın.")}
           </p>
-          <Link href="/crm" className="inline-block px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
+          {data.businessAccess ? <Link href="/crm" className="inline-block px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
             {tri(lang, "شروع از CRM", "Start in CRM", "Mit dem CRM starten", "CRM'de başla")}
-          </Link>
+          </Link> : data.studentWorkspace.enabled ? <Link href="/student#business-upgrade" className="inline-block px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
+            {tri(lang, "رفتن به فضای دانشجویی", "Go to Student Workspace", "Zum Lernbereich", "Öğrenci alanına git")}
+          </Link> : null}
         </div>
       ) : (
         <>

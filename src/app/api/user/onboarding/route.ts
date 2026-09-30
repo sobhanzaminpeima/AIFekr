@@ -18,7 +18,8 @@ export async function POST(req: NextRequest) {
 
   // Return recommended tool based on answers
   let redirect = "/chat";
-  if (goal === "content") redirect = "/seo/agent-pipeline";
+  if (businessType === "student" || goal === "study") redirect = "/student";
+  else if (goal === "content") redirect = "/seo/agent-pipeline";
   else if (goal === "analysis") redirect = "/business-doctor";
   else if (goal === "social") redirect = "/social";
   else if (goal === "startup") redirect = "/startup/builder";

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { canAutoPublish } from "@/lib/utils/planGates";
 import { scoreContent } from "@/lib/social/contentQuality";
 import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
-import { bizScope } from "@/lib/accounting/scope";
+import { instagramWorkspaceScope } from "@/lib/instagram/workspaceScope";
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "انتشار خودکار فقط برای پلن حرفه‌ای و تیمی فعال است — لطفاً پلن خود را ارتقا دهید یا حالت دستی را انتخاب کنید" }, { status: 403 });
   }
   if (requestedMode === "auto") {
-    const conn = await prisma.instagramConnection.findFirst({ where: { userId: user.id, ...bizScope(businessId) } });
+    const conn = await prisma.instagramConnection.findFirst({ where: { userId: user.id, ...instagramWorkspaceScope(businessId) } });
     if (!conn) return NextResponse.json({ error: "ابتدا حساب اینستاگرام خود را متصل کنید" }, { status: 400 });
     if (!imageUrl && !videoUrl) return NextResponse.json({ error: "برای انتشار خودکار، تصویر یا ویدیوی پست الزامی است" }, { status: 400 });
   }

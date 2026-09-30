@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Run this ON THE PRODUCTION VPS (not from your local machine), as the user
-# that owns the app / runs pm2. Requires: git remote already configured,
-# node/npm, pm2, and a working DATABASE_URL in the server's .env.
+# Run this ON THE PRODUCTION VPS after the reviewed source bundle has been
+# copied there. It deliberately does not run `git pull`: production is not a
+# git checkout, and pretending otherwise led to incomplete deploys.
+# Requires node/npm, pm2, and a working DATABASE_URL in the server's .env.
 #
 # Usage: ssh onto the server, cd into the app directory, then:
 #   bash scripts/deploy.sh
@@ -9,16 +10,23 @@ set -euo pipefail
 
 APP_NAME="${PM2_APP_NAME:-ai-platform}"
 
-echo "==> Pulling latest main"
-git pull origin main
+if [[ -z "${DATABASE_URL:-}" ]]; then
+  echo "DATABASE_URL must be set (for example in .env.local)." >&2
+  exit 1
+fi
+DATABASE_PATH="${DATABASE_URL#file:}"
 
-echo "==> Installing dependencies"
-npm install
+echo "==> Backing up the production database"
+BACKUP_DIR=".deploy-backup-$(date -u +%Y%m%d%H%M%S)"
+mkdir -p "$BACKUP_DIR"
+if [[ -n "$DATABASE_PATH" && -f "$DATABASE_PATH" ]]; then
+  cp "$DATABASE_PATH" "$BACKUP_DIR/prod.db"
+fi
 
 echo "==> Applying database migrations"
 npx prisma migrate deploy
 
-echo "==> Seeding/updating packages (adds VOICE_MONTHLY etc.)"
+echo "==> Seeding missing packages (existing admin pricing is preserved)"
 node prisma/seed-packages.js
 
 echo "==> Regenerating Prisma client"

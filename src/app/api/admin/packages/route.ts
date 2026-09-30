@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
         isActive: body.isActive ?? true,
         isFeatured: body.isFeatured ?? false,
         sortOrder: Number(body.sortOrder) || 0,
+        teamSeatLimit: body.teamSeatLimit === "" || body.teamSeatLimit == null ? null : Number(body.teamSeatLimit),
       },
     });
     return NextResponse.json({ package: pkg });
@@ -78,6 +79,7 @@ export async function PUT(req: NextRequest) {
         isActive: data.isActive,
         isFeatured: data.isFeatured,
         sortOrder: Number(data.sortOrder) || 0,
+        teamSeatLimit: data.teamSeatLimit === "" || data.teamSeatLimit == null ? null : Number(data.teamSeatLimit),
       },
     });
     return NextResponse.json({ package: pkg });

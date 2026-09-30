@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
   const projects = await prisma.crmProject.findMany({
     where: {
       userId: ws.workspaceUserId,
+      ...businessFilter(ws),
       ...(contactId ? { contactId } : {}),
       ...(status ? { status } : {}),
       ...(ws.isAgentRestricted ? { contact: { assignedToId: ws.actingUserId } } : {}),
@@ -58,11 +59,11 @@ export async function POST(req: NextRequest) {
   if (!name?.trim()) return NextResponse.json({ error: tri(lang, "نام پروژه الزامی است", "Project name is required", "Projektname ist erforderlich") }, { status: 400 });
 
   if (contactId) {
-    const contact = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}) } });
+    const contact = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, ...businessFilter(ws), ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}) } });
     if (!contact) return NextResponse.json({ error: tri(lang, "مخاطب یافت نشد", "Contact not found", "Kontakt nicht gefunden") }, { status: 404 });
   }
   if (dealId) {
-    const deal = await prisma.crmDeal.findFirst({ where: { id: dealId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { ownerId: ws.actingUserId } : {}) } });
+    const deal = await prisma.crmDeal.findFirst({ where: { id: dealId, userId: ws.workspaceUserId, ...businessFilter(ws), ...(ws.isAgentRestricted ? { ownerId: ws.actingUserId } : {}) } });
     if (!deal) return NextResponse.json({ error: tri(lang, "معامله یافت نشد", "Deal not found", "Deal nicht gefunden") }, { status: 404 });
   }
 
@@ -93,6 +94,7 @@ export async function POST(req: NextRequest) {
   const project = await prisma.crmProject.create({
     data: {
       userId: ws.workspaceUserId,
+      ...businessFilter(ws),
       name: name.trim(),
       contactId: contactId || undefined,
       dealId: dealId || undefined,
@@ -105,6 +107,7 @@ export async function POST(req: NextRequest) {
             property: {
               create: {
                 userId: ws.workspaceUserId,
+                ...businessFilter(ws),
                 title: name.trim(),
                 listingType: dealType,
                 propertyType: realEstate.propertyType || "apartment",

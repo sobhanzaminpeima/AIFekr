@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { uploadToStorage, getStorageKey, deleteFromStorage, StorageNotConfiguredError } from "@/lib/storage/r2";
-import { resolveCrmWorkspace } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, businessFilter } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
@@ -41,13 +41,13 @@ export async function GET(req: NextRequest) {
 
   if (ws.isAgentRestricted) {
     if (contactId) {
-      const owned = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, assignedToId: ws.actingUserId } });
+      const owned = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, ...businessFilter(ws), assignedToId: ws.actingUserId } });
       if (!owned) return NextResponse.json({ documents: [] });
     } else if (dealId) {
-      const owned = await prisma.crmDeal.findFirst({ where: { id: dealId, userId: ws.workspaceUserId, ownerId: ws.actingUserId } });
+      const owned = await prisma.crmDeal.findFirst({ where: { id: dealId, userId: ws.workspaceUserId, ...businessFilter(ws), ownerId: ws.actingUserId } });
       if (!owned) return NextResponse.json({ documents: [] });
     } else if (propertyId) {
-      const owned = await prisma.property.findFirst({ where: { id: propertyId, userId: ws.workspaceUserId, crmContact: { assignedToId: ws.actingUserId } } });
+      const owned = await prisma.property.findFirst({ where: { id: propertyId, userId: ws.workspaceUserId, ...businessFilter(ws), crmContact: { assignedToId: ws.actingUserId } } });
       if (!owned) return NextResponse.json({ documents: [] });
     } else {
       return NextResponse.json({ documents: [] });
@@ -57,6 +57,7 @@ export async function GET(req: NextRequest) {
   const documents = await prisma.crmDocument.findMany({
     where: {
       userId: ws.workspaceUserId,
+      ...businessFilter(ws),
       ...(contactId ? { contactId } : {}),
       ...(dealId ? { dealId } : {}),
       ...(propertyId ? { propertyId } : {}),
@@ -101,15 +102,15 @@ export async function POST(req: NextRequest) {
 
   // A document must attach to something in this workspace — and, for an AGENT, to a record assigned to them.
   if (contactId) {
-    const contact = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}) } });
+    const contact = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, ...businessFilter(ws), ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}) } });
     if (!contact) return NextResponse.json({ error: tri(lang, "مخاطب یافت نشد", "Contact not found", "Kontakt nicht gefunden") }, { status: 404 });
   }
   if (dealId) {
-    const deal = await prisma.crmDeal.findFirst({ where: { id: dealId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { ownerId: ws.actingUserId } : {}) } });
+    const deal = await prisma.crmDeal.findFirst({ where: { id: dealId, userId: ws.workspaceUserId, ...businessFilter(ws), ...(ws.isAgentRestricted ? { ownerId: ws.actingUserId } : {}) } });
     if (!deal) return NextResponse.json({ error: tri(lang, "معامله یافت نشد", "Deal not found", "Deal nicht gefunden") }, { status: 404 });
   }
   if (propertyId) {
-    const property = await prisma.property.findFirst({ where: { id: propertyId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { crmContact: { assignedToId: ws.actingUserId } } : {}) } });
+    const property = await prisma.property.findFirst({ where: { id: propertyId, userId: ws.workspaceUserId, ...businessFilter(ws), ...(ws.isAgentRestricted ? { crmContact: { assignedToId: ws.actingUserId } } : {}) } });
     if (!property) return NextResponse.json({ error: tri(lang, "ملک یافت نشد", "Property not found", "Immobilie nicht gefunden") }, { status: 404 });
   }
   if (!contactId && !dealId && !propertyId) {
@@ -130,7 +131,7 @@ export async function POST(req: NextRequest) {
   }
 
   const document = await prisma.crmDocument.create({
-    data: { userId: ws.workspaceUserId, contactId: contactId || undefined, dealId: dealId || undefined, propertyId: propertyId || undefined, name, type, fileUrl, storageKey: key },
+    data: { userId: ws.workspaceUserId, ...businessFilter(ws), contactId: contactId || undefined, dealId: dealId || undefined, propertyId: propertyId || undefined, name, type, fileUrl, storageKey: key },
   });
   const { fileUrl: _fileUrl, storageKey: _storageKey, ...documentWithoutUrl } = document;
   return NextResponse.json({ document: documentWithoutUrl });
@@ -145,13 +146,13 @@ export async function DELETE(req: NextRequest) {
   const { id } = await req.json();
   const existing = await prisma.crmDocument.findFirst({
     where: {
-      id, userId: ws.workspaceUserId,
+      id, userId: ws.workspaceUserId, ...businessFilter(ws),
       ...(ws.isAgentRestricted ? { OR: [{ contact: { assignedToId: ws.actingUserId } }, { deal: { ownerId: ws.actingUserId } }, { property: { crmContact: { assignedToId: ws.actingUserId } } }] } : {}),
     },
   });
   if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
-  await prisma.crmDocument.delete({ where: { id } });
+  await prisma.crmDocument.deleteMany({ where: { id, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (existing.storageKey) await deleteFromStorage(existing.storageKey).catch((err) => console.error("R2 delete failed (non-fatal, DB row already removed):", err));
   return NextResponse.json({ success: true });
 }

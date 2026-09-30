@@ -33,7 +33,7 @@ export async function activatePlanForPayment(
   payment: Payment & { user: User },
   refId: string,
   authority: string,
-  planInfo: { credits: number; days: number; crmSeatLimit?: number | null } | undefined
+  planInfo: { credits: number; days: number; crmSeatLimit?: number | null; teamSeatLimit?: number | null } | undefined
 ): Promise<Date> {
   const expiry = new Date();
   expiry.setDate(expiry.getDate() + (planInfo?.days || 30) * Math.max(1, payment.periodMonths ?? 1));
@@ -103,7 +103,8 @@ export async function activatePlanForPayment(
     return expiry;
   }
 
-  if (payment.plan === "TEAM") {
+  if (payment.plan === "TEAM" || payment.plan.startsWith("TEAM_")) {
+    const seatLimit = planInfo?.teamSeatLimit || 5;
     const existingTeam = await prisma.team.findUnique({ where: { ownerId: payment.userId } });
     await prisma.$transaction([
       prisma.payment.update({ where: { id: payment.id }, data: { status: "SUCCESS", refId, authority } }),
@@ -111,7 +112,7 @@ export async function activatePlanForPayment(
       existingTeam
         ? prisma.team.update({
             where: { id: existingTeam.id },
-            data: { credits: { increment: planInfo?.credits || 0 }, planExpiry: expiry },
+            data: { credits: { increment: planInfo?.credits || 0 }, planExpiry: expiry, maxSeats: Math.max(existingTeam.maxSeats, seatLimit) },
           })
         : prisma.team.create({
             data: {
@@ -119,6 +120,7 @@ export async function activatePlanForPayment(
               ownerId: payment.userId,
               credits: planInfo?.credits || 0,
               planExpiry: expiry,
+              maxSeats: seatLimit,
               members: { create: { userId: payment.userId, role: "OWNER" } },
             },
           }),

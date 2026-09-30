@@ -69,9 +69,17 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** True for 429 rate-limit errors — worth a short wait-and-retry on the same provider, since token-per-minute budgets refill quickly, unlike auth/billing failures which never recover on retry. */
-function isRateLimitError(error: Error): boolean {
-  return /error 429/i.test(error.message) || /rate limit/i.test(error.message);
+/**
+ * A transient RPM/TPM limit can clear in seconds. A provider's exhausted
+ * account quota, missing billing, or disabled API is permanent until an
+ * operator changes it; retrying it three times makes every affected chat wait
+ * 90 seconds before the normal fallback chain can help. Gemini reports both
+ * conditions as HTTP 429, so status code alone is not enough.
+ */
+function isRetryableRateLimitError(error: Error): boolean {
+  const message = error.message.toLowerCase();
+  if (!(/error 429/.test(message) || /rate limit/.test(message) || /resource_exhausted/.test(message))) return false;
+  return !/(exceeded your current quota|check your plan and billing|billing details|insufficient quota|quota.*exceeded)/.test(message);
 }
 
 /**
@@ -187,7 +195,7 @@ export async function routedStreamChat(
     // providers enabled where there's no real fallback to fall back to.
     // Escalating delay (20s/30s/40s) gives the rolling per-minute budget
     // more room to actually clear between attempts.
-    if (isRateLimitError(error)) {
+    if (isRetryableRateLimitError(error)) {
       const retryDelaysMs = [20_000, 30_000, 40_000];
       for (const delay of retryDelaysMs) {
         await sleep(delay);
@@ -201,7 +209,7 @@ export async function routedStreamChat(
           const retryPartial = (retryError as Error & { partial?: boolean }).partial ?? false;
           console.warn(`[Router] ${primary.name} retry also failed:`, retryError.message);
           onFallback?.({ from: primary, partial: retryPartial });
-          if (!isRateLimitError(retryError)) break; // non-rate-limit failure — stop retrying, move to fallback chain
+          if (!isRetryableRateLimitError(retryError)) break; // non-retryable failure — move to fallback chain
         }
       }
     }

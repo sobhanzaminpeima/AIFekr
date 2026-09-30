@@ -41,7 +41,7 @@ export interface GeneratedIgContent {
  * the unattended workflow cron (/api/cron/instagram-workflow) can call it
  * without a user session or HTTP round-trip.
  */
-export async function generateIgContent(businessName: string, businessType: string, topic: string, lang: PromptLang, model?: string): Promise<GeneratedIgContent> {
+export async function generateIgContent(businessName: string, businessType: string, topic: string, lang: PromptLang, model?: string, brandContext = ""): Promise<GeneratedIgContent> {
   const systemPrompt = tri(lang,
     "تو استراتژیست شبکه‌های اجتماعی حرفه‌ای هستی. فقط و فقط یک JSON خام و معتبر برگردان، بدون توضیح یا markdown اضافه.",
     "You are a professional social media strategist. Return ONLY a raw, valid JSON object — no explanation or markdown.",
@@ -61,11 +61,16 @@ Always include exactly 5 relevant, high-search hashtags.`
 {"caption": "کپشن کامل با ایموجی مناسب", "hashtags": ["#تگ1", "#تگ2", "#تگ3", "#تگ4", "#تگ5"], "bestTime": "توضیح کوتاه فارسی از بهترین روز و ساعت انتشار برای رشد پیج (مثلاً پنجشنبه ساعت ۲۰:۰۰)"}
 حتماً دقیقاً ۵ هشتگ مرتبط و پرجستجو در ایران بده.`;
 
+  // The tenant's saved positioning (brandProfileToPrompt) is appended to the
+  // task, not the system prompt, so it reads as context about THIS account
+  // rather than instructions that could override the output format.
+  const fullMessage = userMessage + brandContext;
+
   let raw = "";
   if (isCustomProviderModel(model)) {
-    await streamCustomProvider(model, [{ role: "user", content: userMessage }], systemPrompt, (chunk) => { raw += chunk; });
+    await streamCustomProvider(model, [{ role: "user", content: fullMessage }], systemPrompt, (chunk) => { raw += chunk; });
   } else {
-    await routedStreamChat([{ role: "user", content: userMessage }], systemPrompt, (chunk) => { raw += chunk; }, () => {}, model);
+    await routedStreamChat([{ role: "user", content: fullMessage }], systemPrompt, (chunk) => { raw += chunk; }, () => {}, model);
   }
 
   const match = raw.match(/\{[\s\S]*\}/);
@@ -82,7 +87,7 @@ export interface WeeklyCalendarPost {
 }
 
 /** Structured 7-day content calendar — one caption+hashtags per day, distinct from each other, not just the single-post generator repeated. */
-export async function generateWeeklyCalendar(businessName: string, businessType: string, topic: string, lang: PromptLang): Promise<WeeklyCalendarPost[]> {
+export async function generateWeeklyCalendar(businessName: string, businessType: string, topic: string, lang: PromptLang, brandContext = ""): Promise<WeeklyCalendarPost[]> {
   const systemPrompt = tri(lang,
     "تو استراتژیست محتوای شبکه‌های اجتماعی حرفه‌ای هستی. فقط و فقط یک آرایه JSON خام و معتبر برگردان، بدون توضیح یا markdown اضافه.",
     "You are a professional social media content strategist. Return ONLY a raw, valid JSON array — no explanation or markdown.",
@@ -97,7 +102,7 @@ export async function generateWeeklyCalendar(businessName: string, businessType:
 [{"dayOffset": 0, "caption": "کپشن کامل با ایموجی مناسب", "hashtags": ["#تگ1", "#تگ2", "#تگ3", "#تگ4", "#تگ5"]}, ...]`;
 
   let raw = "";
-  await routedStreamChat([{ role: "user", content: userMessage }], systemPrompt, (chunk) => { raw += chunk; }, () => {}, undefined, undefined, 4096);
+  await routedStreamChat([{ role: "user", content: userMessage + brandContext }], systemPrompt, (chunk) => { raw += chunk; }, () => {}, undefined, undefined, 4096);
 
   const match = raw.match(/\[[\s\S]*\]/);
   if (!match) throw new Error("پاسخ AI قابل تفسیر نبود");
@@ -173,6 +178,24 @@ export async function getInstagramUsername(igUserId: string, accessToken: string
 }
 
 /**
+ * The `user_id` from the OAuth token-exchange response is an Instagram-scoped
+ * id that the Graph API's `/{id}` node and — critically — the comments/messages
+ * webhook's `entry.id` do NOT use. Both of those use the IG User ID, which is
+ * what `GET /me?fields=user_id` returns. Storing the wrong one meant every
+ * inbound webhook failed its `instagramConnection` lookup, so comment→DM
+ * automations silently never fired. Always resolve the real id here right
+ * after connecting.
+ */
+export async function getInstagramProfile(accessToken: string): Promise<{ userId: string; username?: string; accountType?: string }> {
+  const res = await fetch(`${IG_GRAPH_BASE}/me?fields=user_id,username,account_type&access_token=${accessToken}`);
+  const data = await res.json();
+  if (!res.ok || !data.user_id) {
+    throw new Error(data.error?.message || "خطا در دریافت پروفایل اینستاگرام");
+  }
+  return { userId: String(data.user_id), username: data.username, accountType: data.account_type };
+}
+
+/**
  * Setting up the app-level webhook in the Meta dashboard is NOT enough for
  * "Instagram API with Instagram Login" — each individual connected account
  * must also be subscribed via this per-user Graph API call, or Meta simply
@@ -180,13 +203,50 @@ export async function getInstagramUsername(igUserId: string, accessToken: string
  * the OAuth connection itself succeeds. Call this right after every
  * successful connect.
  */
-export async function subscribeToCommentWebhooks(igUserId: string, accessToken: string): Promise<void> {
-  // messaging_postbacks is needed for the Follow Gate's "I followed" button click to reach us.
-  const res = await fetch(`${IG_GRAPH_BASE}/${igUserId}/subscribed_apps?subscribed_fields=comments,messaging_postbacks&access_token=${accessToken}`, {
+export async function subscribeToInstagramWebhooks(igUserId: string, accessToken: string): Promise<void> {
+  // messages powers Auto Direct; comments powers comment campaigns; messaging_postbacks
+  // delivers button taps for the Follow Gate.
+  const fields = "comments,messages,messaging_postbacks";
+  const body = new URLSearchParams({ subscribed_fields: fields, access_token: accessToken });
+  const res = await fetch(`${IG_GRAPH_BASE}/${igUserId}/subscribed_apps`, {
     method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error?.message || "خطا در فعال‌سازی وبهوک کامنت");
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error?.message || `Meta webhook subscription failed (HTTP ${res.status})`);
+  // Meta may respond HTTP 200 while the subscription itself was rejected.
+  // Treat only its explicit success response as enabled; otherwise the UI
+  // would claim success while no webhook events can arrive.
+  if (data.success !== true) {
+    throw new Error(data.error?.message || "Meta درخواست اشتراک وبهوک را تأیید نکرد؛ تنظیمات Webhooks اپ Meta را بررسی کنید.");
+  }
+}
+
+/** Read back the account-level fields so the dashboard can distinguish an
+ * actual subscription from a stale connection or a failed Meta request. */
+export async function getInstagramWebhookSubscription(igUserId: string, accessToken: string): Promise<{ subscribed: boolean; fields: string[] }> {
+  const configuredAppId = getInstagramAppId();
+  if (!configuredAppId) throw new Error("INSTAGRAM_APP_ID server configuration is missing");
+  const params = new URLSearchParams({ access_token: accessToken });
+  const res = await fetch(`${IG_GRAPH_BASE}/${igUserId}/subscribed_apps?${params}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error?.message || `Meta webhook status failed (HTTP ${res.status})`);
+
+  const subscriptions = Array.isArray(data.data) ? data.data : [];
+  const appSubscription = subscriptions.find((item: { application?: { id?: string }; subscribed_fields?: string[] }) => item.application?.id === configuredAppId);
+  const fields = Array.isArray(appSubscription?.subscribed_fields) ? appSubscription.subscribed_fields : [];
+  return { subscribed: ["comments", "messages", "messaging_postbacks"].every((field) => fields.includes(field)), fields };
+}
+
+/** Reverse of subscribeToInstagramWebhooks — called on disconnect so Meta stops
+ * delivering this account's events to us. Best-effort; caller swallows errors. */
+export async function unsubscribeFromWebhooks(igUserId: string, accessToken: string): Promise<void> {
+  const res = await fetch(`${IG_GRAPH_BASE}/${igUserId}/subscribed_apps?access_token=${accessToken}`, { method: "DELETE" });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error?.message || "خطا در لغو وبهوک");
+  }
 }
 
 /** Plain text DM to an existing conversation (not a private-reply-to-comment — uses the account's own messages endpoint). */
@@ -198,6 +258,24 @@ export async function sendTextMessage(igUserId: string, recipientId: string, acc
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error?.message || "خطا در ارسال پیام");
+}
+
+/** Best-effort Instagram sender action. A failed indicator must never block the actual reply. */
+export async function sendTypingIndicator(
+  igUserId: string,
+  recipientId: string,
+  accessToken: string,
+  action: "typing_on" | "typing_off",
+): Promise<void> {
+  const res = await fetch(`${IG_GRAPH_BASE}/${igUserId}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ recipient: { id: recipientId }, sender_action: action, access_token: accessToken }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error?.message || "Instagram typing indicator failed");
+  }
 }
 
 /** DM with a single postback button — the mechanism behind the Follow Gate's "I followed" confirmation. */
@@ -299,13 +377,21 @@ export async function getAccountStats(igUserId: string, accessToken: string): Pr
 export interface IgMediaItem {
   id: string;
   caption: string | null;
+  /** IMAGE | VIDEO | CAROUSEL_ALBUM */
   mediaType: string;
+  /** FEED | REELS | STORY | AD — the field that actually tells a Reel apart from a feed video. */
+  mediaProductType: string | null;
   mediaUrl: string | null;
   thumbnailUrl: string | null;
   permalink: string;
   timestamp: string;
   likeCount: number;
   commentsCount: number;
+  /** From media insights — null when the account/media type doesn't expose it. */
+  views: number | null;
+  reach: number | null;
+  saved: number | null;
+  shares: number | null;
 }
 
 /** Sends a private DM in reply to a specific comment (Instagram's "private_replies" endpoint) — the mechanism behind comment→DM growth campaigns. Only works within a short window after the comment is posted, per Meta's own restriction. */
@@ -330,21 +416,86 @@ export async function replyToComment(commentId: string, accessToken: string, mes
   if (!res.ok) throw new Error(data.error?.message || "خطا در پاسخ به کامنت");
 }
 
-/** Recent posts with engagement — used for the "content trend" view. */
+interface IgInsightNode { data?: { name: string; values?: { value: number }[] }[] }
+
+function readInsight(insights: IgInsightNode | undefined, name: string): number | null {
+  const row = insights?.data?.find((d) => d.name === name);
+  const v = row?.values?.[0]?.value;
+  return typeof v === "number" ? v : null;
+}
+
+/**
+ * Recent posts with engagement + per-media insights (reach / views / saves /
+ * shares), and media_product_type so Reels are distinguishable from feed
+ * posts. Insights are pulled in the same call via field expansion; a media
+ * type that doesn't support a metric just omits it (we surface null, not 0).
+ */
 export async function getRecentMedia(igUserId: string, accessToken: string, limit = 12): Promise<IgMediaItem[]> {
-  const fields = "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count";
-  const res = await fetch(`${IG_GRAPH_BASE}/${igUserId}/media?fields=${fields}&limit=${limit}&access_token=${accessToken}`);
+  const fields =
+    "id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count," +
+    "insights.metric(reach,saved,shares,views)";
+  const res = await fetch(`${IG_GRAPH_BASE}/${igUserId}/media?fields=${encodeURIComponent(fields)}&limit=${limit}&access_token=${accessToken}`);
   const data = await res.json();
   if (!res.ok) throw new Error(data.error?.message || "خطا در دریافت پست‌ها");
-  return (data.data || []).map((m: Record<string, unknown>) => ({
-    id: m.id,
-    caption: m.caption ?? null,
-    mediaType: m.media_type,
-    mediaUrl: m.media_url ?? null,
-    thumbnailUrl: m.thumbnail_url ?? null,
-    permalink: m.permalink,
-    timestamp: m.timestamp,
-    likeCount: m.like_count ?? 0,
-    commentsCount: m.comments_count ?? 0,
-  }));
+  return (data.data || []).map((m: Record<string, unknown>) => {
+    const insights = m.insights as IgInsightNode | undefined;
+    return {
+      id: m.id,
+      caption: m.caption ?? null,
+      mediaType: m.media_type,
+      mediaProductType: (m.media_product_type as string) ?? null,
+      mediaUrl: m.media_url ?? null,
+      thumbnailUrl: m.thumbnail_url ?? null,
+      permalink: m.permalink,
+      timestamp: m.timestamp,
+      likeCount: m.like_count ?? 0,
+      commentsCount: m.comments_count ?? 0,
+      views: readInsight(insights, "views"),
+      reach: readInsight(insights, "reach"),
+      saved: readInsight(insights, "saved"),
+      shares: readInsight(insights, "shares"),
+    };
+  });
+}
+
+export interface IgMediaBreakdownRow {
+  type: string; // "REELS" | "IMAGE" | "CAROUSEL_ALBUM" | "VIDEO"
+  count: number;
+  totalLikes: number;
+  totalComments: number;
+  totalViews: number;
+  totalReach: number;
+  avgLikes: number;
+  avgComments: number;
+  avgViews: number;
+}
+
+/** Aggregates getRecentMedia() by content type for the analytics breakdown. */
+export function summarizeMediaByType(media: IgMediaItem[]): IgMediaBreakdownRow[] {
+  const groups = new Map<string, IgMediaItem[]>();
+  for (const m of media) {
+    const key = m.mediaProductType === "REELS" ? "REELS" : m.mediaType || "OTHER";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(m);
+  }
+  return Array.from(groups.entries())
+    .map(([type, items]) => {
+      const totalLikes = items.reduce((s, m) => s + m.likeCount, 0);
+      const totalComments = items.reduce((s, m) => s + m.commentsCount, 0);
+      const totalViews = items.reduce((s, m) => s + (m.views ?? 0), 0);
+      const totalReach = items.reduce((s, m) => s + (m.reach ?? 0), 0);
+      const n = items.length || 1;
+      return {
+        type,
+        count: items.length,
+        totalLikes,
+        totalComments,
+        totalViews,
+        totalReach,
+        avgLikes: Math.round(totalLikes / n),
+        avgComments: Math.round(totalComments / n),
+        avgViews: Math.round(totalViews / n),
+      };
+    })
+    .sort((a, b) => b.count - a.count);
 }

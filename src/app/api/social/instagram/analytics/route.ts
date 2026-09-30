@@ -5,19 +5,20 @@ import { prisma } from "@/lib/db/prisma";
 import { getAccountStats, getRecentMedia, summarizeMediaByType } from "@/lib/instagram";
 import { analyzeSocial } from "@/lib/social/analytics";
 import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
-import { bizScope } from "@/lib/accounting/scope";
+import { instagramWorkspaceScope } from "@/lib/instagram/workspaceScope";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
   const businessId = await activeBusinessIdFor(user.id);
-  const conn = await prisma.instagramConnection.findFirst({ where: { userId: user.id, ...bizScope(businessId) } });
+  const workspace = instagramWorkspaceScope(businessId);
+  const conn = await prisma.instagramConnection.findFirst({ where: { userId: user.id, ...workspace } });
   if (!conn) return NextResponse.json({ error: "اینستاگرام متصل نیست" }, { status: 400 });
 
   const [snapshots, live] = await Promise.all([
     prisma.instagramFollowerSnapshot.findMany({
-      where: { userId: user.id },
+      where: { userId: user.id, ...workspace },
       orderBy: { date: "asc" },
       take: 180,
     }),

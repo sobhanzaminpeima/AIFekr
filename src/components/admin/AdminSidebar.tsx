@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Users, CreditCard, DollarSign, Bot, Wrench,
+  LayoutDashboard, Users, CreditCard, DollarSign, Bot, Wrench, GraduationCap,
   Activity, Settings, LogOut, Sparkles, Shield, MessageSquare,
   HelpCircle, Package, UserCog, Database, Cpu, Contact,
   ChevronDown, Factory, Building2, Tag, Globe, Coins, Rocket, BarChart2, Phone, ToggleRight, Wallet, Link2, Magnet,
@@ -34,6 +34,12 @@ const navGroups = [
       { icon: HelpCircle, label: "سوالات آماده", href: "/admin/prompts" },
       { icon: Link2, label: "لینک عمومی دهه ۸۰", href: "/admin/public-share" },
       { icon: Rocket, label: "استعلام استارتاپ", href: "/admin/startup-inquiries" },
+    ],
+  },
+  {
+    label: "آموزش و دانشجویی",
+    items: [
+      { icon: GraduationCap, label: "فضای دانشجویی", href: "/admin/student" },
     ],
   },
   {

@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, dealAgentFilter } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, dealAgentFilter, businessFilter } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
   const deals = await prisma.crmDeal.findMany({
     where: {
       userId: ws.workspaceUserId,
+      ...businessFilter(ws),
       ...(pipelineId ? { pipelineId } : {}),
       ...(stageId ? { stageId } : {}),
       ...(status ? { status } : {}),
@@ -60,8 +61,8 @@ export async function POST(req: NextRequest) {
   // otherwise a contactId/pipelineId/stageId from another user could be guessed and reused.
   // An AGENT may only create a deal against a contact already assigned to them.
   const [contact, pipeline, stage] = await Promise.all([
-    prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}) } }),
-    prisma.crmPipeline.findFirst({ where: { id: pipelineId, userId: ws.workspaceUserId } }),
+    prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, ...businessFilter(ws), ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}) } }),
+    prisma.crmPipeline.findFirst({ where: { id: pipelineId, userId: ws.workspaceUserId, ...businessFilter(ws) } }),
     prisma.crmStage.findFirst({ where: { id: stageId, pipelineId } }),
   ]);
   if (!contact) return NextResponse.json({ error: tri(lang, "مخاطب یافت نشد", "Contact not found", "Kontakt nicht gefunden") }, { status: 404 });
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest) {
   const deal = await prisma.crmDeal.create({
     data: {
       userId: ws.workspaceUserId,
+      ...businessFilter(ws),
       contactId,
       pipelineId,
       stageId,

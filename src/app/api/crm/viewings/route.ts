@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { suggestViewingSlot } from "@/lib/agents/viewingCoordinator";
 import { getServerLang } from "@/lib/i18n/server";
@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
   const viewings = await prisma.propertyViewing.findMany({
     where: {
       userId: ws.workspaceUserId,
+      ...businessFilter(ws),
       ...(propertyId ? { propertyId } : {}),
       ...(status ? { status } : {}),
       ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}),
@@ -69,11 +70,11 @@ export async function POST(req: NextRequest) {
   const requestedDate = new Date(scheduledAt);
   if (!scheduledAt || isNaN(requestedDate.getTime())) return NextResponse.json({ error: tri(lang, "زمان بازدید نامعتبر است", "Invalid viewing time", "Ungültige Besichtigungszeit") }, { status: 400 });
 
-  const property = await prisma.property.findFirst({ where: { id: propertyId, userId: ws.workspaceUserId } });
+  const property = await prisma.property.findFirst({ where: { id: propertyId, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (!property) return NextResponse.json({ error: tri(lang, "ملک یافت نشد", "Property not found", "Immobilie nicht gefunden") }, { status: 404 });
 
   if (contactId) {
-    const contact = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId } });
+    const contact = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, ...businessFilter(ws) } });
     if (!contact) return NextResponse.json({ error: tri(lang, "مخاطب یافت نشد", "Contact not found", "Kontakt nicht gefunden") }, { status: 404 });
   }
 
@@ -102,6 +103,7 @@ export async function POST(req: NextRequest) {
     const conflict = await prisma.propertyViewing.findFirst({
       where: {
         userId: ws.workspaceUserId,
+        ...businessFilter(ws),
         assignedToId,
         status: { in: ["scheduled"] },
         scheduledAt: {
@@ -127,6 +129,7 @@ export async function POST(req: NextRequest) {
   const viewing = await prisma.propertyViewing.create({
     data: {
       userId: ws.workspaceUserId,
+      ...businessFilter(ws),
       propertyId,
       contactId: contactId || undefined,
       assignedToId: assignedToId || undefined,

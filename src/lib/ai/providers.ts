@@ -179,10 +179,21 @@ export const PROVIDERS: Provider[] = [
     // above has failed. Groq's free tier has a much higher daily request
     // cap than other free options, but it's still a shared free pool, so
     // this must never be promoted above a paid provider in ROUTING_TABLE.
+    //
+    // Was "llama-3.3-70b-versatile" — Groq retired the entire Llama-3.x
+    // family from this account's catalog at some point (found 2026-09-11,
+    // while building the floating support assistant: every real request
+    // came back "404 model_not_found", meaning this fallback had been
+    // silently dead — routedStreamChat just moved on to the next provider
+    // in the chain, so nothing user-facing ever surfaced the failure).
+    // Verified against Groq's live /v1/models: the current free catalog is
+    // openai/gpt-oss-{20b,120b,safeguard-20b}, qwen/qwen3.{6,8}-27b,
+    // groq/compound{,-mini}, allam-2-7b — gpt-oss-20b is the closest match
+    // to the old model's "fast, general, last-resort" role.
     id: "groq",
-    name: "Groq (Llama 3.3 70B, free tier)",
+    name: "Groq (GPT-OSS 20B, free tier)",
     provider: "groq",
-    model: "llama-3.3-70b-versatile",
+    model: "openai/gpt-oss-20b",
     baseURL: RELAY_BASE_URL ? `${RELAY_BASE_URL}/groq/openai/v1` : "https://api.groq.com/openai/v1",
     apiKey: process.env.GROQ_API_KEY || "",
     strengths: ["general", "fast"],
@@ -226,6 +237,8 @@ export async function streamOpenAICompat(
   onChunk: (text: string) => void,
   maxTokensOverride?: number
 ): Promise<TokenUsage | null> {
+  const tokenCap = maxTokensOverride ? Math.min(maxTokensOverride, provider.maxOutputCeiling ?? provider.maxTokens) : provider.maxTokens;
+
   const body = JSON.stringify({
     model: provider.model,
     messages: [
@@ -234,8 +247,30 @@ export async function streamOpenAICompat(
     ],
     stream: true,
     stream_options: { include_usage: true },
-    max_tokens: maxTokensOverride ? Math.min(maxTokensOverride, provider.maxOutputCeiling ?? provider.maxTokens) : provider.maxTokens,
+    // OpenAI's own API renamed this parameter and now hard-rejects the old
+    // name: "Unsupported parameter: 'max_tokens' is not supported with this
+    // model. Use 'max_completion_tokens' instead" — a 400 on every single
+    // request, which made this provider a silently dead link in the fallback
+    // chain (found 2026-09-12 in the dev server logs while testing the
+    // orchestrator; same failure mode as the retired Groq model found in
+    // Phase 3). Scoped to `provider: "openai"` because every other
+    // OpenAI-*compatible* provider here — Groq, Mistral/FreeLLMAPI,
+    // DeepSeek, OpenRouter, Cohere — still expects `max_tokens` and would
+    // itself 400 on the new name.
+    ...(provider.provider === "openai" ? { max_completion_tokens: tokenCap } : { max_tokens: tokenCap }),
     temperature: 0.7,
+    // Groq's current free catalog is now exclusively "reasoning" models
+    // (openai/gpt-oss-*, qwen3.x) -- unlike the plain instruct model this
+    // provider used to point at, they spend part of the completion token
+    // budget on an internal reasoning pass (delivered as `delta.reasoning`,
+    // a field this function already ignores -- only `delta.content` below is
+    // read) before writing the visible answer. Left at the model's default
+    // effort, a longer prompt can burn the whole max_tokens budget on
+    // reasoning and return no visible text at all (measured: with
+    // max_tokens=100 and no override, "low" used 5 reasoning tokens and left
+    // the rest for the answer). Scoped to Groq specifically since that's the
+    // one measured -- other providers may not recognise this field at all.
+    ...(provider.provider === "groq" ? { reasoning_effort: "low" } : {}),
   });
 
   const headers: Record<string, string> = {

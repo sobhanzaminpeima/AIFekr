@@ -10,6 +10,7 @@ const tr: typeof en = {
     gallery: "Galerim",
     tools: "Araçlar",
     assistants: "Asistanlar",
+    studentWorkspace: "Öğrenci Alanı",
     businessDoctor: "İşletme Doktoru",
     crm: "CRM",
     accounting: "Muhasebe",

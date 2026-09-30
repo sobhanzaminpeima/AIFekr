@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, businessFilter } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -20,10 +20,10 @@ export async function GET(req: NextRequest) {
   // no unscoped "all recent activity" feed that would leak other agents' work.
   if (ws.isAgentRestricted) {
     if (contactId) {
-      const owned = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, assignedToId: ws.actingUserId } });
+      const owned = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, ...businessFilter(ws), assignedToId: ws.actingUserId } });
       if (!owned) return NextResponse.json({ activities: [] });
     } else if (dealId) {
-      const owned = await prisma.crmDeal.findFirst({ where: { id: dealId, userId: ws.workspaceUserId, ownerId: ws.actingUserId } });
+      const owned = await prisma.crmDeal.findFirst({ where: { id: dealId, userId: ws.workspaceUserId, ...businessFilter(ws), ownerId: ws.actingUserId } });
       if (!owned) return NextResponse.json({ activities: [] });
     } else {
       return NextResponse.json({ activities: [] });
@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
   const activities = await prisma.crmActivity.findMany({
     where: {
       userId: ws.workspaceUserId,
+      ...businessFilter(ws),
       ...(contactId ? { contactId } : {}),
       ...(dealId ? { dealId } : {}),
     },
@@ -54,20 +55,20 @@ export async function POST(req: NextRequest) {
   // Only attach to a contact/deal that's actually in this workspace — and, for an
   // AGENT, only one assigned to them.
   if (contactId) {
-    const contact = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}) } });
+    const contact = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, ...businessFilter(ws), ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}) } });
     if (!contact) return NextResponse.json({ error: tri(lang, "مخاطب یافت نشد", "Contact not found", "Kontakt nicht gefunden") }, { status: 404 });
   }
   if (dealId) {
-    const deal = await prisma.crmDeal.findFirst({ where: { id: dealId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { ownerId: ws.actingUserId } : {}) } });
+    const deal = await prisma.crmDeal.findFirst({ where: { id: dealId, userId: ws.workspaceUserId, ...businessFilter(ws), ...(ws.isAgentRestricted ? { ownerId: ws.actingUserId } : {}) } });
     if (!deal) return NextResponse.json({ error: tri(lang, "معامله یافت نشد", "Deal not found", "Deal nicht gefunden") }, { status: 404 });
   }
 
   const activity = await prisma.crmActivity.create({
-    data: { userId: ws.workspaceUserId, contactId: contactId || undefined, dealId: dealId || undefined, type, content: content.trim() },
+    data: { userId: ws.workspaceUserId, ...businessFilter(ws), contactId: contactId || undefined, dealId: dealId || undefined, type, content: content.trim() },
   });
 
   if (contactId) {
-    await prisma.crmContact.update({ where: { id: contactId }, data: { lastContact: new Date() } });
+    await prisma.crmContact.updateMany({ where: { id: contactId, userId: ws.workspaceUserId, ...businessFilter(ws) }, data: { lastContact: new Date() } });
   }
 
   return NextResponse.json({ activity });

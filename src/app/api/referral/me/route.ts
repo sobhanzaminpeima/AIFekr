@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
   ]);
 
   return NextResponse.json({
+    currency: auth.currency ?? null,
     referralCode: user?.referralCode ?? null,
     invitedCount: invitedUsers.length,
     walletBalance: user?.walletBalance || 0,

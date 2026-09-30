@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { PROVIDERS } from "@/lib/ai/providers";
 import { getDisabledProviders, refreshDisabledProviders, setProviderEnabled } from "@/lib/ai/providerConfig";
+import { isTypeSafeConfigured } from "@/lib/ai/typesafe";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -18,8 +19,16 @@ export async function GET(req: NextRequest) {
   // here means this list can't drift from what's actually live again.
   const providers = PROVIDERS.map((p) => ({
     id: p.id, name: p.name, provider: p.provider, model: p.model, strengths: p.strengths,
-    maxTokens: p.maxTokens, creditCost: p.creditCost, configured: p.apiKey.length > 10,
+    maxTokens: p.maxTokens, creditCost: p.creditCost, configured: p.apiKey.length > 10, kind: "chat",
   }));
+  // Jev deliberately stays out of PROVIDERS: it is not OpenAI-compatible and
+  // cannot generate a chat reply. Showing it here keeps its health visible
+  // without ever routing a user's chat message to an incompatible API.
+  providers.push({
+    id: "typesafe-jev", name: "TypeSafe Jev", provider: "typesafe", model: "jev-latest",
+    strengths: ["structured", "classification", "fast"], maxTokens: 0, creditCost: 0,
+    configured: isTypeSafeConfigured, kind: "structured-decision",
+  });
   await refreshDisabledProviders();
   return NextResponse.json({ disabled: Array.from(getDisabledProviders()), providers });
 }
@@ -34,7 +43,7 @@ export async function POST(req: NextRequest) {
   if (!providerId || typeof providerId !== "string") {
     return NextResponse.json({ ok: false, error: "Missing providerId" }, { status: 400 });
   }
-  if (!PROVIDERS.some((p) => p.id === providerId)) {
+  if (!PROVIDERS.some((p) => p.id === providerId) && providerId !== "typesafe-jev") {
     return NextResponse.json({ ok: false, error: "Unknown providerId" }, { status: 400 });
   }
 

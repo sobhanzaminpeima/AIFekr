@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
   if (payment.status !== "PENDING") return NextResponse.json({ ok: true });
 
   const pkg = await prisma.package.findUnique({ where: { planCode: payment.plan } });
-  const planInfo = pkg ? { credits: pkg.credits, days: pkg.duration, crmSeatLimit: pkg.crmSeatLimit } : undefined;
+  const planInfo = pkg ? { credits: pkg.credits, days: pkg.duration, crmSeatLimit: pkg.crmSeatLimit, teamSeatLimit: pkg.teamSeatLimit } : undefined;
   const refId = String(data.payment_id || data.invoice_id || "");
   await activatePlanForPayment(payment, refId, payment.authority || "", planInfo);
 

@@ -75,8 +75,8 @@ async function callOpenAIGenerate(promptText: string, count: number, size: strin
   return images;
 }
 
-async function callOpenAIEdit(promptText: string, referenceImageUrl: string, count: number, size: string): Promise<string[]> {
-  const refRes = await fetch(referenceImageUrl);
+async function fetchAsPng(url: string): Promise<Buffer> {
+  const refRes = await fetch(url);
   if (!refRes.ok) throw new Error(`Could not fetch reference image: HTTP ${refRes.status}`);
   const rawBuf = Buffer.from(await refRes.arrayBuffer());
   // `new Blob([buf])` with no explicit type defaults to "" -> serialized as
@@ -87,14 +87,24 @@ async function callOpenAIEdit(promptText: string, referenceImageUrl: string, cou
   // gpt-image data: URI output) happened to be in to a format OpenAI
   // accepts, rather than trusting an upstream Content-Type that may not
   // even be set.
-  const refBuf = await sharp(rawBuf).png().toBuffer();
+  return sharp(rawBuf).png().toBuffer();
+}
+
+// `image[]` (repeated field) is OpenAI's documented way to pass more than
+// one reference photo to gpt-image's edit endpoint in a single call -- e.g.
+// two people's photos composited into one "couple" portrait. Each entry
+// still goes through the same fetch+re-encode as the single-image path.
+async function callOpenAIEdit(promptText: string, referenceImageUrls: string[], count: number, size: string): Promise<string[]> {
+  const refBufs = await Promise.all(referenceImageUrls.map(fetchAsPng));
 
   const form = new FormData();
   form.append("model", IMAGE_MODEL);
   form.append("prompt", promptText);
   form.append("n", String(count));
   form.append("size", size);
-  form.append("image", new Blob([new Uint8Array(refBuf)], { type: "image/png" }), "reference.png");
+  refBufs.forEach((buf, i) => {
+    form.append("image[]", new Blob([new Uint8Array(buf)], { type: "image/png" }), `reference-${i}.png`);
+  });
 
   const res = await fetch("https://api.openai.com/v1/images/edits", {
     method: "POST",
@@ -129,11 +139,20 @@ export async function generateImagesHQ(opts: GenerateImageOptions): Promise<stri
   return callOpenAIGenerate(promptText, opts.count, sizeForRatio(opts.ratio), "high");
 }
 
-/** Image-to-image: generates a new image guided by a user-uploaded reference photo instead of from text alone. */
-export async function generateImageFromReference(opts: GenerateImageOptions & { imageUrl: string }): Promise<string[]> {
+/**
+ * Image-to-image: generates a new image guided by one or more user-uploaded
+ * reference photos instead of from text alone (e.g. two people for a
+ * "couple" prompt). `imageUrl` is kept as an alias for the single-image
+ * case so existing callers (character board, etc.) don't need to change.
+ */
+export async function generateImageFromReference(
+  opts: GenerateImageOptions & { imageUrl?: string; imageUrls?: string[] }
+): Promise<string[]> {
+  const urls = opts.imageUrls?.length ? opts.imageUrls : opts.imageUrl ? [opts.imageUrl] : [];
+  if (urls.length === 0) throw new Error("generateImageFromReference: no reference image provided");
   if (!hasOpenAIImage) {
     return Array.from({ length: opts.count }, (_, i) => `https://picsum.photos/seed/${Date.now() + i + 200}/1024/1024`);
   }
   const promptText = `${opts.prompt}, ${STYLE_PROMPTS[opts.style] || ""}`;
-  return callOpenAIEdit(promptText, opts.imageUrl, opts.count, sizeForRatio(opts.ratio));
+  return callOpenAIEdit(promptText, urls, opts.count, sizeForRatio(opts.ratio));
 }

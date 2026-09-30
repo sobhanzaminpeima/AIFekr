@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -17,7 +17,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
   const existing = await prisma.crmProject.findFirst({
-    where: { id: params.id, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { contact: { assignedToId: ws.actingUserId } } : {}) },
+    where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws), ...(ws.isAgentRestricted ? { contact: { assignedToId: ws.actingUserId } } : {}) },
   });
   if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
@@ -45,7 +45,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     } else if (rawBookingLink === "") {
       bookingLink = "";
     }
-    const property = await prisma.property.findFirst({ where: { crmProjectId: params.id } });
+    const property = await prisma.property.findFirst({ where: { crmProjectId: params.id, userId: ws.workspaceUserId, ...businessFilter(ws) } });
     if (property) {
       await prisma.property.update({
         where: { id: property.id },
@@ -72,10 +72,10 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
   const existing = await prisma.crmProject.findFirst({
-    where: { id: params.id, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { contact: { assignedToId: ws.actingUserId } } : {}) },
+    where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws), ...(ws.isAgentRestricted ? { contact: { assignedToId: ws.actingUserId } } : {}) },
   });
   if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
-  await prisma.crmProject.delete({ where: { id: params.id } });
+  await prisma.crmProject.deleteMany({ where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   return NextResponse.json({ success: true });
 }

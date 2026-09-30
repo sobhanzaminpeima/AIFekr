@@ -37,8 +37,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url });
   } catch (e) {
     if (e instanceof StorageNotConfiguredError) {
-      console.error("upload rejected:", e.message);
-      return NextResponse.json({ error: "فضای ذخیره‌سازی فایل پیکربندی نشده است" }, { status: 503 });
+      // Same fallback every other upload path in the app already applies
+      // (see /api/image/generate and /api/image/character-board) when R2
+      // isn't configured -- without this, EVERY "upload your own photo"
+      // reference-image flow (image-to-image, image-to-video, Character
+      // Creator step 1) hard-fails with a 503 instead of degrading.
+      console.error("upload falling back to data URI (storage not configured):", e.message);
+      const url = `data:${file.type};base64,${buf.toString("base64")}`;
+      return NextResponse.json({ url });
     }
     throw e;
   }

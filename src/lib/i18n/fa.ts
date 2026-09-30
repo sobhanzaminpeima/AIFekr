@@ -9,6 +9,7 @@ const fa: Translations = {
     gallery: "گالری من",
     tools: "ابزارها",
     assistants: "دستیارها",
+    studentWorkspace: "فضای دانشجویی",
     businessDoctor: "دکتر کسب‌وکار",
     crm: "CRM",
     accounting: "حسابداری",

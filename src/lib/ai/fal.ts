@@ -47,8 +47,19 @@ export async function generateImages(opts: GenerateImageOptions): Promise<string
   return result.images.map(img => img.url);
 }
 
-/** Image-to-image: generates a new image guided by a user-uploaded reference photo instead of from text alone. */
-export async function generateImageFromReference(opts: GenerateImageOptions & { imageUrl: string }): Promise<string[]> {
+/**
+ * Image-to-image: generates a new image guided by a user-uploaded reference
+ * photo instead of from text alone. Unlike the OpenAI provider, Fal's
+ * image-to-image endpoint takes exactly one `image_url` -- if the caller
+ * passed multiple reference photos (e.g. a "couple" prompt), only the first
+ * is used here. That's a real limitation of this fallback provider, not a
+ * bug: multi-reference compositing only works through OpenAI's edit
+ * endpoint (see openaiImage.ts), which is the provider actually configured
+ * on this deployment.
+ */
+export async function generateImageFromReference(opts: GenerateImageOptions & { imageUrl?: string; imageUrls?: string[] }): Promise<string[]> {
+  const imageUrl = opts.imageUrls?.[0] ?? opts.imageUrl;
+  if (!imageUrl) throw new Error("generateImageFromReference: no reference image provided");
   if (!hasFal) {
     return Array.from({ length: opts.count }, (_, i) =>
       `https://picsum.photos/seed/${Date.now() + i + 200}/1024/1024`
@@ -58,7 +69,7 @@ export async function generateImageFromReference(opts: GenerateImageOptions & { 
   const result = await fal.run("fal-ai/flux/dev/image-to-image", {
     input: {
       prompt: `${opts.prompt}, ${STYLE_PROMPTS[opts.style] || ""}`,
-      image_url: opts.imageUrl,
+      image_url: imageUrl,
       strength: 0.75, // how much the output may diverge from the reference photo
       num_images: opts.count,
       guidance_scale: 3.5,

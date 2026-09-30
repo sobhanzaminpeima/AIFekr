@@ -33,7 +33,7 @@ const SECTIONS = [
   {
     id: "language", label: "زبان و محلی‌سازی", icon: Globe,
     fields: [
-      { key: "default_language", label: "زبان پیش‌فرض سایت", type: "select", default: "fa", options: ["fa", "en"] },
+      { key: "default_language", label: "زبان پیش‌فرض سایت", type: "select", default: "fa", options: ["fa", "en", "de"] },
       { key: "calendar_type", label: "نوع تقویم", type: "select", default: "jalali", options: ["jalali", "gregorian"] },
     ],
   },

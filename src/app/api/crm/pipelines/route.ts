@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { createPipelineFromTemplate } from "@/lib/repositories/crmRepository";
-import { resolveCrmWorkspace } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, businessFilter } from "@/lib/crm/workspace";
 import { getCrmTemplate, crmIndustryTemplates, defaultCrmTemplate } from "@/lib/crm/industryTemplates";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   const ws = await resolveCrmWorkspace(user.id);
 
   const pipelines = await prisma.crmPipeline.findMany({
-    where: { userId: ws.workspaceUserId },
+    where: { userId: ws.workspaceUserId, ...businessFilter(ws) },
     include: { stages: { orderBy: { order: "asc" } } },
     orderBy: { createdAt: "asc" },
   });
@@ -80,8 +80,8 @@ export async function POST(req: NextRequest) {
   // stages (renamed) so the pipeline is immediately usable, rather than a
   // stage-less pipeline that leaves every stage picker empty.
   if (name && !industrySlug) {
-    const isDefault = (await prisma.crmPipeline.count({ where: { userId: ws.workspaceUserId } })) === 0;
-    const pipeline = await createPipelineFromTemplate(ws.workspaceUserId, null, isDefault);
+    const isDefault = (await prisma.crmPipeline.count({ where: { userId: ws.workspaceUserId, ...businessFilter(ws) } })) === 0;
+    const pipeline = await createPipelineFromTemplate(ws.workspaceUserId, null, isDefault, ws.businessId);
     // Custom name has no translation of its own — clear the template's
     // nameEn/nameDe so it doesn't show "General Sales" in English while
     // the user's own Persian name shows in Farsi.
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
 
   // Otherwise seed from the industry template (falls back to a generic
   // sales pipeline if industrySlug is missing/unrecognized).
-  const isDefault = (await prisma.crmPipeline.count({ where: { userId: ws.workspaceUserId } })) === 0;
-  const pipeline = await createPipelineFromTemplate(ws.workspaceUserId, industrySlug || null, isDefault);
+  const isDefault = (await prisma.crmPipeline.count({ where: { userId: ws.workspaceUserId, ...businessFilter(ws) } })) === 0;
+  const pipeline = await createPipelineFromTemplate(ws.workspaceUserId, industrySlug || null, isDefault, ws.businessId);
   return NextResponse.json({ pipeline });
 }

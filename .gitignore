@@ -59,11 +59,25 @@ tsc-errors.txt
 # office lock files
 ~$*.docx
 
-# local docs / backups / investor materials (not for the repo)
-/docs/
+# local docs / backups / investor materials (not for the repo).
+# Written as /docs/* rather than /docs/ so the one subtree below can be
+# re-included — git will not descend into a directory excluded as a whole, so
+# a negation under a plain `/docs/` rule would never match. Everything else in
+# docs/ stays ignored, including env.local.backup.txt and prod.db.backup.
+/docs/*
+
+# ...except the support assistant's knowledge base, which is product content:
+# it ships in the deploy, is read at runtime by the KB sync, and needs to be
+# reviewable in a diff like any other change.
+!/docs/knowledge-base/
 
 # vendored OpenMontage tool (nested git repo, venv, node_modules, .env — not part of AIfekr app)
 /tools/openmontage/
 
 # CodeCortex local index (generated, machine-specific — regenerate with `cortex init .`)
 /.codecortex/
+
+# Local Codex/Cortex workspace metadata and generated skill notes
+/.freebuff/
+/.mcp.json
+/Claude outputs/

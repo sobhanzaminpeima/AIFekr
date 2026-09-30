@@ -11,6 +11,7 @@ import SessionWatchdog from "@/components/layout/SessionWatchdog";
 import TrialBanner from "@/components/layout/TrialBanner";
 import { getServerLang } from "@/lib/i18n/server";
 import { bizScope } from "@/lib/accounting/scope";
+import { isStudentWorkspaceEnabled } from "@/lib/student/access";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
@@ -30,7 +31,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { id: true, name: true, credits: true, plan: true, isBlocked: true, industryPackId: true, onboardingDone: true, trialEndsAt: true, trialLimited: true, activeBusinessId: true },
+    select: { id: true, name: true, credits: true, plan: true, isBlocked: true, industryPackId: true, crmPlan: true, crmPlanExpiry: true, onboardingDone: true, trialEndsAt: true, trialLimited: true, activeBusinessId: true },
   });
 
   if (!user || user.isBlocked) redirect("/login");
@@ -46,6 +47,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     include: { team: { select: { credits: true } } },
   });
   const displayCredits = teamMembership?.team.credits ?? user.credits;
+  const studentWorkspaceEnabled = await isStudentWorkspaceEnabled();
 
   // tool: "support" tags the floating support assistant's own conversations
   // (see src/lib/orchestrator/support -- same reuse-Conversation/Message
@@ -68,7 +70,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         lang={lang}
         sidebar={
           <Sidebar
-            user={{ ...user, credits: displayCredits }}
+            user={{ ...user, credits: displayCredits, studentWorkspaceEnabled }}
             conversations={conversations.map((c) => ({ ...c, updatedAt: c.updatedAt.toISOString() }))}
           />
         }

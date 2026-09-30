@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, businessFilter } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
   let csv: string;
   if (type === "deals") {
     const deals = await prisma.crmDeal.findMany({
-      where: { userId: ws.workspaceUserId },
+      where: { userId: ws.workspaceUserId, ...businessFilter(ws) },
       include: { contact: { select: { name: true } }, stage: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
       take: 5000,
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
       ["title", "value", "status", "stage", "contact", "probability", "expectedCloseDate", "createdAt"]
     );
   } else {
-    const contacts = await prisma.crmContact.findMany({ where: { userId: ws.workspaceUserId }, orderBy: { createdAt: "desc" }, take: 5000 });
+    const contacts = await prisma.crmContact.findMany({ where: { userId: ws.workspaceUserId, ...businessFilter(ws) }, orderBy: { createdAt: "desc" }, take: 5000 });
     csv = toCsv(
       contacts.map((c) => ({
         name: c.name, phone: c.phone || "", email: c.email || "", company: c.company || "",

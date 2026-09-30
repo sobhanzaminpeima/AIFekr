@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
     ? await prisma.creditPricingTier.findUnique({ where: { id: payment.plan.slice("CREDITS_".length) } })
         .then((tier) => (tier ? { credits: tier.creditsAmount, days: 0 } : undefined))
     : await prisma.package.findUnique({ where: { planCode: payment.plan } })
-        .then((pkg) => (pkg ? { credits: pkg.credits, days: pkg.duration, crmSeatLimit: pkg.crmSeatLimit } : undefined));
+        .then((pkg) => (pkg ? { credits: pkg.credits, days: pkg.duration, crmSeatLimit: pkg.crmSeatLimit, teamSeatLimit: pkg.teamSeatLimit } : undefined));
   await activatePlanForPayment(payment, result.refId || "", authority, planInfo);
 
   // Wallet discount is only actually deducted now, on success — see the

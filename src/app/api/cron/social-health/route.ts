@@ -47,15 +47,15 @@ export async function GET(req: NextRequest) {
 
     // ── 1. Comment→DM campaign receiving comments but sending nothing ────
     try {
-      const activeCampaigns = await prisma.instagramCommentCampaign.count({ where: { userId, isActive: true } });
+      const activeCampaigns = await prisma.instagramCommentCampaign.count({ where: { userId, businessId: conn.businessId, isActive: true } });
       if (activeCampaigns > 0) {
         const since = new Date(now - 3 * DAY);
         const [commentsSeen, dmsSent] = await Promise.all([
-          prisma.instagramCommentReplyLog.count({ where: { userId, createdAt: { gte: since } } }),
+          prisma.instagramCommentReplyLog.count({ where: { userId, businessId: conn.businessId, createdAt: { gte: since } } }),
           // "sent_public_fallback" counts as delivered too — that's the
           // interim path while instagram_manage_messages awaits App Review;
           // it must not trip the same alarm as a genuinely dead campaign.
-          prisma.instagramCommentReplyLog.count({ where: { userId, status: { in: ["sent", "sent_public_fallback"] }, createdAt: { gte: since } } }),
+          prisma.instagramCommentReplyLog.count({ where: { userId, businessId: conn.businessId, status: { in: ["sent", "sent_public_fallback"] }, createdAt: { gte: since } } }),
         ]);
         if (commentsSeen > 0 && dmsSent === 0) {
           const notified = await warn(
@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
     // ── 3. Analytics snapshots stopped (token expired / relay down) ──────
     try {
       const latest = await prisma.instagramFollowerSnapshot.findFirst({
-        where: { userId }, orderBy: { date: "desc" }, select: { date: true },
+        where: { userId, businessId: conn.businessId }, orderBy: { date: "desc" }, select: { date: true },
       });
       if (latest && now - latest.date.getTime() > DAY) {
         const notified = await warn(

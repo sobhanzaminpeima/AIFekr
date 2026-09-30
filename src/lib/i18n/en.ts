@@ -8,6 +8,7 @@ const en = {
     gallery: "My Gallery",
     tools: "Tools",
     assistants: "Assistants",
+    studentWorkspace: "Student Workspace",
     businessDoctor: "Business Doctor",
     crm: "CRM",
     accounting: "Accounting",

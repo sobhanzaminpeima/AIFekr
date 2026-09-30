@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
   const rules = await prisma.crmAutomationRule.findMany({
-    where: { userId: ws.workspaceUserId },
+    where: { userId: ws.workspaceUserId, ...businessFilter(ws) },
     orderBy: { createdAt: "desc" },
   });
   return NextResponse.json({ rules });
@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
   const rule = await prisma.crmAutomationRule.create({
     data: {
       userId: ws.workspaceUserId,
+      ...businessFilter(ws),
       name: name.trim(),
       trigger,
       condition: JSON.stringify({ days }),

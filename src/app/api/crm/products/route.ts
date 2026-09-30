@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const activeOnly = searchParams.get("activeOnly") === "1";
 
   const products = await prisma.crmProduct.findMany({
-    where: { userId: ws.workspaceUserId, ...(activeOnly ? { isActive: true } : {}) },
+    where: { userId: ws.workspaceUserId, ...businessFilter(ws), ...(activeOnly ? { isActive: true } : {}) },
     orderBy: { updatedAt: "desc" },
     take: 500,
   });
@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
   const product = await prisma.crmProduct.create({
     data: {
       userId: ws.workspaceUserId,
+      ...businessFilter(ws),
       name: name.trim(),
       sku: sku || undefined,
       description: description || undefined,

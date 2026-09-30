@@ -12,6 +12,7 @@ import type { Lang } from "@/lib/i18n";
 // asked three questions they could not read before reaching the product.
 
 const BUSINESS_TYPES: { id: string; emoji: string; label: Record<Lang, string> }[] = [
+  { id: "student", emoji: "🎓", label: { fa: "دانشجو / یادگیرنده", en: "Student / learner", de: "Studierende / Lernende", tr: "Öğrenci / öğrenen" } },
   { id: "retail", emoji: "🛍️", label: { fa: "فروشگاه / خرده‌فروشی", en: "Shop / retail", de: "Laden / Einzelhandel", tr: "Shop / retail" } },
   { id: "services", emoji: "💼", label: { fa: "خدمات / مشاوره", en: "Services / consulting", de: "Dienstleistung / Beratung", tr: "Services / consulting" } },
   { id: "restaurant", emoji: "☕", label: { fa: "رستوران / کافه", en: "Restaurant / café", de: "Restaurant / Café", tr: "Restaurant / café" } },
@@ -21,6 +22,7 @@ const BUSINESS_TYPES: { id: string; emoji: string; label: Record<Lang, string> }
 ];
 
 const GOALS: { id: string; emoji: string; label: Record<Lang, string> }[] = [
+  { id: "study", emoji: "📚", label: { fa: "مطالعه، درس و آمادگی امتحان", en: "Study, courses and exam prep", de: "Lernen, Kurse und Prüfungsvorbereitung", tr: "Ders, çalışma ve sınav hazırlığı" } },
   { id: "content", emoji: "✍️", label: { fa: "تولید محتوا و مقاله", en: "Content and article writing", de: "Content- und Artikelerstellung", tr: "Content and article writing" } },
   { id: "analysis", emoji: "📊", label: { fa: "آنالیز و مشاوره کسب‌وکار", en: "Business analysis and advice", de: "Geschäftsanalyse und Beratung", tr: "Business analysis and advice" } },
   { id: "social", emoji: "📱", label: { fa: "مدیریت شبکه اجتماعی", en: "Social media management", de: "Social-Media-Management", tr: "Social media management" } },
@@ -57,12 +59,12 @@ export default function WelcomePage() {
 
   const steps = [
     {
-      question: tri(lang, "کسب‌وکار شما در چه حوزه‌ایست؟", "What field is your business in?", "In welcher Branche ist Ihr Unternehmen tätig?"),
+      question: tri(lang, "کدام گزینه بیشتر شما را توصیف می‌کند؟", "Which best describes you?", "Was beschreibt Sie am besten?", "Sizi en iyi hangisi tanımlar?"),
       options: BUSINESS_TYPES,
       key: "businessType" as const,
     },
     {
-      question: tri(lang, "بیشتر می‌خواید از AiFekr برای چه کاری استفاده کنید؟", "What do you mainly want to use AiFekr for?", "Wofür möchten Sie AiFekr hauptsächlich nutzen?"),
+      question: tri(lang, "بیشتر می‌خواید از AiFekr برای چه کاری استفاده کنید؟", "What do you mainly want to use AiFekr for?", "Wofür möchten Sie AiFekr hauptsächlich nutzen?", "AiFekr'i en çok ne için kullanmak istiyorsunuz?"),
       options: GOALS,
       key: "goal" as const,
     },

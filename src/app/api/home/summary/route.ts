@@ -6,6 +6,7 @@ import { resolveCrmWorkspace } from "@/lib/crm/workspace";
 import { getHomeSummary } from "@/lib/home/summary";
 import { getServerLang } from "@/lib/i18n/server";
 import { prisma } from "@/lib/db/prisma";
+import { isStudentWorkspaceEnabled } from "@/lib/student/access";
 
 /**
  * Deliberately not gated behind hasCrmAccess(): the home page has to render
@@ -25,10 +26,25 @@ export async function GET(req: NextRequest) {
   // for a one-line "your X modules are active" banner. A user only ever
   // wonders this once, right after buying a pack, but nothing on the page
   // told them their purchase actually took effect.
-  const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { industryPackId: true } });
+  const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { industryPackId: true, crmPlan: true, crmPlanExpiry: true } });
   const pack = dbUser?.industryPackId
     ? await prisma.industryPack.findUnique({ where: { id: dbUser.industryPackId }, select: { name: true, nameEn: true, emoji: true, slug: true } })
     : null;
 
-  return NextResponse.json({ ...summary, industryPack: pack });
+  const studentEnabled = await isStudentWorkspaceEnabled();
+  const student = studentEnabled
+    ? await Promise.all([
+        prisma.studentCourse.count({ where: { userId: user.id } }),
+        prisma.studentExam.count({ where: { userId: user.id, examAt: { gte: new Date() } } }),
+        prisma.studentTask.count({ where: { userId: user.id, completedAt: null } }),
+      ])
+    : [0, 0, 0];
+  const crmActive = !!dbUser?.crmPlan && dbUser.crmPlan !== "NONE" && (!dbUser.crmPlanExpiry || dbUser.crmPlanExpiry > new Date());
+
+  return NextResponse.json({
+    ...summary,
+    industryPack: pack,
+    studentWorkspace: { enabled: studentEnabled, courseCount: student[0], upcomingExamCount: student[1], pendingTaskCount: student[2] },
+    businessAccess: crmActive || !!pack,
+  });
 }

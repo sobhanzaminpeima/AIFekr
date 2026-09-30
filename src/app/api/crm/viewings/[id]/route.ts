@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
@@ -25,7 +25,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
-  const existing = await prisma.propertyViewing.findFirst({ where: { id: params.id, userId: ws.workspaceUserId } });
+  const existing = await prisma.propertyViewing.findFirst({ where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (!existing) return NextResponse.json({ error: tri(lang, "بازدید یافت نشد", "Viewing not found", "Besichtigung nicht gefunden") }, { status: 404 });
 
   const body = await req.json();
@@ -46,6 +46,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const conflict = await prisma.propertyViewing.findFirst({
       where: {
         userId: ws.workspaceUserId,
+        ...businessFilter(ws),
         assignedToId: nextAssignee,
         status: { in: ["scheduled"] },
         id: { not: params.id },
@@ -92,7 +93,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
-  const existing = await prisma.propertyViewing.findFirst({ where: { id: params.id, userId: ws.workspaceUserId } });
+  const existing = await prisma.propertyViewing.findFirst({ where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (!existing) return NextResponse.json({ error: tri(lang, "بازدید یافت نشد", "Viewing not found", "Besichtigung nicht gefunden") }, { status: 404 });
 
   await prisma.propertyViewing.delete({ where: { id: params.id } });

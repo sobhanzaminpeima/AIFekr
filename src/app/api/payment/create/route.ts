@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     const payment = await findPaymentById(pending.id);
     if (!payment) return NextResponse.json({ error: "خطای داخلی" }, { status: 500 });
 
-    const planInfo = { credits: pkg.credits, days: pkg.duration, crmSeatLimit: pkg.crmSeatLimit };
+    const planInfo = { credits: pkg.credits, days: pkg.duration, crmSeatLimit: pkg.crmSeatLimit, teamSeatLimit: pkg.teamSeatLimit };
     // `authority` is unique on Payment — must be per-payment, not a shared
     // literal, or a second wallet-covered purchase (same or another user)
     // collides on it and crashes.

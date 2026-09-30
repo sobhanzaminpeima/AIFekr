@@ -8,7 +8,7 @@ import { brandPromptFor } from "@/lib/social/brandProfile";
 import { routedStreamChat } from "@/lib/ai/router";
 import { withToolCredits } from "@/lib/utils/withToolCredits";
 import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
-import { bizScope } from "@/lib/accounting/scope";
+import { instagramWorkspaceScope } from "@/lib/instagram/workspaceScope";
 
 async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
@@ -18,11 +18,12 @@ async function handlePost(req: NextRequest) {
   const lang = language === "en" ? "en" : "fa";
 
   const businessId = await activeBusinessIdFor(user.id);
-  const conn = await prisma.instagramConnection.findFirst({ where: { userId: user.id, ...bizScope(businessId) } });
+  const workspace = instagramWorkspaceScope(businessId);
+  const conn = await prisma.instagramConnection.findFirst({ where: { userId: user.id, ...workspace } });
   if (!conn) return NextResponse.json({ error: "اینستاگرام متصل نیست" }, { status: 400 });
 
   const [snapshots, current] = await Promise.all([
-    prisma.instagramFollowerSnapshot.findMany({ where: { userId: user.id }, orderBy: { date: "asc" }, take: 180 }),
+    prisma.instagramFollowerSnapshot.findMany({ where: { userId: user.id, ...workspace }, orderBy: { date: "asc" }, take: 180 }),
     getAccountStats(conn.igUserId, conn.accessToken).catch(() => null),
   ]);
 

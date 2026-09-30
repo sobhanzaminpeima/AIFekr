@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { generateIgContent } from "@/lib/instagram";
 import { getSocialContentPack } from "@/lib/industry";
+import { getBrandProfile, brandProfileToPrompt } from "@/lib/social/brandProfile";
+import { scoreContent } from "@/lib/social/contentQuality";
 import type { Lang } from "@/lib/i18n";
 
 // Structured counterpart to /api/social/generate — that one streams free
@@ -31,13 +33,23 @@ export async function POST(req: NextRequest) {
     // hard error just because the specialized path didn't pan out.
   }
 
-  if (!businessName || !businessType) {
+  // The saved positioning is read server-side from the session rather than
+  // taken from the request body, and it also backfills name/type so the owner
+  // no longer has to retype their brand on every visit.
+  const profile = await getBrandProfile(user.id).catch(() => null);
+  const name = businessName || profile?.businessName;
+  const type = businessType || profile?.pageType || profile?.businessIndustry;
+
+  if (!name || !type) {
     return NextResponse.json({ error: "نام و نوع کسب‌وکار الزامی است" }, { status: 400 });
   }
 
   try {
-    const result = await generateIgContent(businessName, businessType, topic || "", lang, model);
-    return NextResponse.json(result);
+    const result = await generateIgContent(name, type, topic || "", lang, model, brandProfileToPrompt(profile));
+    // Grade what we just produced so the owner sees a score and concrete
+    // fixes before scheduling, instead of having to judge it themselves.
+    const quality = scoreContent({ caption: result.caption, hashtags: result.hashtags, format: null });
+    return NextResponse.json({ ...result, quality });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "خطا";
     return NextResponse.json({ error: `خطا در ارتباط با AI: ${msg}` }, { status: 502 });

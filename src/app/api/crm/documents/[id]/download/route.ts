@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, businessFilter } from "@/lib/crm/workspace";
 import { getSignedDownloadUrl } from "@/lib/storage/r2";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { getServerLang } from "@/lib/i18n/server";
@@ -27,6 +27,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     where: {
       id: params.id,
       userId: ws.workspaceUserId,
+      ...businessFilter(ws),
       ...(ws.isAgentRestricted
         ? { OR: [{ contact: { assignedToId: ws.actingUserId } }, { deal: { ownerId: ws.actingUserId } }, { property: { crmContact: { assignedToId: ws.actingUserId } } }] }
         : {}),

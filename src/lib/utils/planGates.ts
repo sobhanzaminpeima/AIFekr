@@ -3,7 +3,7 @@
 // reliably (scheduler + Graph API calls) — lower plans get the same AI
 // content generation but must publish manually.
 export function canAutoPublish(plan: string): boolean {
-  return plan === "PRO" || plan === "TEAM";
+  return ["PRO", "ALPHA", "TEAM", "PRO_USD", "ULTRA_USD"].includes(plan);
 }
 
 /// CRM: FREE/ECHO get a capped contact list to try the feature; PLUS and up

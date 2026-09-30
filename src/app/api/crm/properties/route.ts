@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
   const properties = await prisma.property.findMany({
     where: {
       userId: ws.workspaceUserId,
+      ...businessFilter(ws),
       ...(status ? { status } : {}),
       ...(listingType ? { listingType } : {}),
       ...(ws.isAgentRestricted ? { crmContact: { assignedToId: ws.actingUserId } } : {}),
@@ -96,15 +97,15 @@ export async function POST(req: NextRequest) {
   if (currency !== undefined && !CURRENCIES.includes(currency)) return NextResponse.json({ error: tri(lang, "واحد پولی نامعتبر است", "Invalid currency", "Ungültige Währung") }, { status: 400 });
 
   if (crmContactId) {
-    const contact = await prisma.crmContact.findFirst({ where: { id: crmContactId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}) } });
+    const contact = await prisma.crmContact.findFirst({ where: { id: crmContactId, userId: ws.workspaceUserId, ...businessFilter(ws), ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}) } });
     if (!contact) return NextResponse.json({ error: tri(lang, "مالک/مخاطب یافت نشد", "Owner/contact not found", "Eigentümer/Kontakt nicht gefunden") }, { status: 404 });
   }
   if (crmDealId) {
-    const deal = await prisma.crmDeal.findFirst({ where: { id: crmDealId, userId: ws.workspaceUserId } });
+    const deal = await prisma.crmDeal.findFirst({ where: { id: crmDealId, userId: ws.workspaceUserId, ...businessFilter(ws) } });
     if (!deal) return NextResponse.json({ error: tri(lang, "معامله یافت نشد", "Deal not found", "Deal nicht gefunden") }, { status: 404 });
   }
   if (ownerContactId) {
-    const owner = await prisma.crmContact.findFirst({ where: { id: ownerContactId, userId: ws.workspaceUserId } });
+    const owner = await prisma.crmContact.findFirst({ where: { id: ownerContactId, userId: ws.workspaceUserId, ...businessFilter(ws) } });
     if (!owner) return NextResponse.json({ error: tri(lang, "مالک/مخاطب یافت نشد", "Owner/contact not found", "Eigentümer/Kontakt nicht gefunden") }, { status: 404 });
   }
 
@@ -121,6 +122,7 @@ export async function POST(req: NextRequest) {
   const property = await prisma.property.create({
     data: {
       userId: ws.workspaceUserId,
+      ...businessFilter(ws),
       title: title.trim(),
       listingType,
       propertyType: propertyType || "apartment",

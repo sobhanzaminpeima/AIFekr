@@ -5,7 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { crmContactLimit } from "@/lib/utils/planGates";
 import { countUserContacts } from "@/lib/repositories/crmRepository";
-import { resolveCrmWorkspace, agentFilter } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, agentFilter, businessFilter } from "@/lib/crm/workspace";
 import { notify } from "@/lib/notifications/create";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status");
 
   const contacts = await prisma.crmContact.findMany({
-    where: { userId: ws.workspaceUserId, ...(status ? { status } : {}), ...agentFilter(ws) },
+    where: { userId: ws.workspaceUserId, ...businessFilter(ws), ...(status ? { status } : {}), ...agentFilter(ws) },
     orderBy: { updatedAt: "desc" },
     take: 500,
     include: { _count: { select: { properties: true, propertyInterests: true } } },
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
   const limit = crmContactLimit(user.plan);
   if (limit !== -1) {
-    const count = await countUserContacts(ws.workspaceUserId);
+    const count = await countUserContacts(ws.workspaceUserId, ws.businessId);
     if (count >= limit) {
       return NextResponse.json(
         { error: tri(lang, `پلن شما حداکثر ${limit} مخاطب CRM را پشتیبانی می‌کند. برای مخاطب نامحدود ارتقا دهید.`, `Your plan supports up to ${limit} CRM contacts. Upgrade for unlimited contacts.`, `Ihr Plan unterstützt bis zu ${limit} CRM-Kontakte. Upgraden Sie für unbegrenzte Kontakte.`) },
@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
   const contact = await prisma.crmContact.create({
     data: {
       userId: ws.workspaceUserId,
+      ...businessFilter(ws),
       name: name.trim(),
       phone: phone || undefined,
       email: email || undefined,

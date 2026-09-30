@@ -33,7 +33,10 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const pack = await prisma.industryPack.findUnique({ where: { slug: params.slug } });
+    const account = await prisma.user.findUnique({ where: { id: user.id }, select: { crmPlan: true, crmPlanExpiry: true } });
+    const crmActive = !!account && account.crmPlan !== "NONE" && (!account.crmPlanExpiry || account.crmPlanExpiry.getTime() > Date.now());
+    if (!crmActive) return NextResponse.json({ error: "برای فعال‌کردن بسته‌های صنعتی ابتدا اشتراک کسب‌وکار/CRM را تهیه کنید" }, { status: 402 });
+    const pack = await prisma.industryPack.findFirst({ where: { slug: params.slug, isActive: true } });
     if (!pack) return NextResponse.json({ error: "Pack not found" }, { status: 404 });
 
     await prisma.user.update({

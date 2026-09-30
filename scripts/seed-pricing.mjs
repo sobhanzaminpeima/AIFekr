@@ -28,7 +28,7 @@ const plans = [
     duration: 30,
     credits: 800,
     features:
-      "مدل‌های پیشرفته (Claude Sonnet، GPT-5، Gemini Pro)\n۱۰۰ پیام در هر ۳ ساعت\nتصویر نامحدود\nساخت موزیک با Suno\nکاوش عمیق (Deep Research)\nبدون تبلیغات",
+      "مدل‌های پیشرفته\n۱۰۰ پیام در هر ۳ ساعت\nتولید تصویر با اعتبارهای پلن\nساخت موسیقی با هوش مصنوعی\nکاوش عمیق (Deep Research)\nبدون تبلیغات",
     isActive: true,
     isFeatured: true,
     color: "#ea580c",
@@ -44,7 +44,7 @@ const plans = [
     duration: 30,
     credits: 2000,
     features:
-      "مدل‌های حرفه‌ای (Claude Opus، GPT-5 Sol، o3)\n۱۵۰ پیام در هر ۳ ساعت\nتصویر نامحدود با Midjourney\n۲۰ ویدیو در هفته\nساخت موزیک\nساخت وبسایت هوشمند\nسرعت پاسخ بالاتر",
+      "مدل‌های پیشرفته با اولویت پردازش\n۱۵۰ پیام در هر ۳ ساعت\nتولید تصویر باکیفیت با اعتبارهای پلن\n۲۰ ویدیو در هفته\nساخت موسیقی با هوش مصنوعی\nساخت وبسایت هوشمند\nسرعت پاسخ بالاتر",
     isActive: true,
     isFeatured: false,
     color: "#8b5cf6",
@@ -92,7 +92,7 @@ const plans = [
     duration: 30,
     credits: 800,
     features:
-      "Advanced models (Claude Sonnet, GPT-5, Gemini Pro)\n100 messages per 3 hours\nUnlimited image generation\nMusic generation (Suno)\nDeep Research\nNo ads",
+      "Advanced AI models\n100 messages per 3 hours\nImage generation within plan credits\nAI music generation\nDeep Research\nNo ads",
     isActive: true,
     isFeatured: true,
     color: "#ea580c",
@@ -108,7 +108,7 @@ const plans = [
     duration: 30,
     credits: 2000,
     features:
-      "Premium models (Claude Opus, GPT-5 Sol, o3)\n150 messages per 3 hours\nUnlimited images with Midjourney\n20 videos per week\nMusic generation\nAI Website builder\nFaster responses",
+      "Advanced models with priority processing\n150 messages per 3 hours\nHigh-quality image generation within plan credits\n20 videos per week\nAI music generation\nAI website builder\nFaster responses",
     isActive: true,
     isFeatured: false,
     color: "#8b5cf6",
@@ -136,7 +136,10 @@ for (const plan of plans) {
   await prisma.package.upsert({
     where: { planCode: plan.planCode },
     create: plan,
-    update: plan,
+    // The database is the live catalogue: the admin can change prices,
+    // credits and copy without a deploy.  Seeding is bootstrap-only, so a
+    // later deploy must never silently replace those commercial decisions.
+    update: {},
   });
   console.log("✓", plan.planCode);
 }

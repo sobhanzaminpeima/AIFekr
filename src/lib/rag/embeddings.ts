@@ -8,14 +8,10 @@ const COHERE_API_KEY = process.env.COHERE_API_KEY || "";
 
 export const hasEmbeddings = COHERE_API_KEY.length > 10;
 
-/**
- * Embeds a single piece of text. Returns null (never throws) on any
- * failure — every call site must treat embeddings as best-effort and fall
- * back to recency ordering when this comes back null.
- */
-export async function embedText(text: string, inputType: "search_document" | "search_query" = "search_document"): Promise<number[] | null> {
-  if (!hasEmbeddings || !text.trim()) return null;
+/** Cohere's /v1/embed accepts up to 96 texts per request. */
+const MAX_BATCH = 96;
 
+async function embedBatch(texts: string[], inputType: "search_document" | "search_query"): Promise<(number[] | null)[]> {
   try {
     const res = await fetch(`${COHERE_BASE}/v1/embed`, {
       method: "POST",
@@ -25,18 +21,58 @@ export async function embedText(text: string, inputType: "search_document" | "se
       },
       body: JSON.stringify({
         model: "embed-multilingual-v3.0",
-        texts: [text.slice(0, 8000)],
+        texts: texts.map((t) => t.slice(0, 8000)),
         input_type: inputType,
         embedding_types: ["float"],
       }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) return texts.map(() => null);
     const data = await res.json();
-    const vec = data.embeddings?.float?.[0] ?? data.embeddings?.[0];
-    return Array.isArray(vec) ? vec : null;
+    const vectors = data.embeddings?.float ?? data.embeddings;
+    if (!Array.isArray(vectors)) return texts.map(() => null);
+    return texts.map((_, i) => (Array.isArray(vectors[i]) ? vectors[i] : null));
   } catch {
-    return null;
+    return texts.map(() => null);
   }
+}
+
+/**
+ * Embeds many texts at once, in chunks of 96, preserving input order.
+ * Entries that couldn't be embedded come back as null rather than throwing.
+ *
+ * Worth using over a loop of `embedText` for anything bulk: Cohere's free tier
+ * caps *requests* per minute, not texts, so indexing 222 knowledge-base chunks
+ * one at a time stops dead at exactly 100 embedded and silently leaves the
+ * rest without vectors (measured, 2026-09-11). The same work as three batched
+ * requests stays comfortably inside the limit.
+ */
+export async function embedTexts(texts: string[], inputType: "search_document" | "search_query" = "search_document"): Promise<(number[] | null)[]> {
+  if (!hasEmbeddings) return texts.map(() => null);
+
+  const results: (number[] | null)[] = new Array(texts.length).fill(null);
+  // Empty strings are filtered out rather than sent — Cohere rejects the whole
+  // batch if any text is blank, which would lose every vector in that batch.
+  const indexed = texts.map((t, i) => ({ t, i })).filter(({ t }) => t.trim().length > 0);
+
+  for (let start = 0; start < indexed.length; start += MAX_BATCH) {
+    const slice = indexed.slice(start, start + MAX_BATCH);
+    const vectors = await embedBatch(slice.map((s) => s.t), inputType);
+    slice.forEach((s, k) => {
+      results[s.i] = vectors[k];
+    });
+  }
+
+  return results;
+}
+
+/**
+ * Embeds a single piece of text. Returns null (never throws) on any
+ * failure — every call site must treat embeddings as best-effort and fall
+ * back to recency ordering when this comes back null.
+ */
+export async function embedText(text: string, inputType: "search_document" | "search_query" = "search_document"): Promise<number[] | null> {
+  if (!hasEmbeddings || !text.trim()) return null;
+  return (await embedTexts([text], inputType))[0];
 }
 
 export function cosineSimilarity(a: number[], b: number[]): number {

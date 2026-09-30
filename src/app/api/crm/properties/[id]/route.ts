@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
@@ -27,14 +27,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
-  const existing = await prisma.property.findFirst({ where: { id: params.id, userId: ws.workspaceUserId } });
+  const existing = await prisma.property.findFirst({ where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (!existing) return NextResponse.json({ error: tri(lang, "ملک یافت نشد", "Property not found", "Immobilie nicht gefunden") }, { status: 404 });
 
   const body = await req.json();
   const { title, propertyType, price, nightlyPrice, currency, bookingLink, address, city, bedrooms, bathrooms, areaSqm, description, images, status, crmContactId, crmDealId, ownerContactId, representationStartDate, representationEndDate, agreedCommissionRate } = body;
 
   if (ownerContactId) {
-    const owner = await prisma.crmContact.findFirst({ where: { id: ownerContactId, userId: ws.workspaceUserId } });
+    const owner = await prisma.crmContact.findFirst({ where: { id: ownerContactId, userId: ws.workspaceUserId, ...businessFilter(ws) } });
     if (!owner) return NextResponse.json({ error: tri(lang, "مالک/مخاطب یافت نشد", "Owner/contact not found", "Eigentümer/Kontakt nicht gefunden") }, { status: 404 });
   }
   if (currency !== undefined && !["IRT", "IRR", "USD", "GBP", "EUR", "TRY"].includes(currency)) {
@@ -106,7 +106,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     return NextResponse.json({ error: tri(lang, "این ماژول برای شما فعال نیست", "This module is not enabled for you", "Dieses Modul ist für Sie nicht aktiviert") }, { status: 403 });
   }
 
-  const existing = await prisma.property.findFirst({ where: { id: params.id, userId: ws.workspaceUserId } });
+  const existing = await prisma.property.findFirst({ where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws) } });
   if (!existing) return NextResponse.json({ error: tri(lang, "ملک یافت نشد", "Property not found", "Immobilie nicht gefunden") }, { status: 404 });
 
   await prisma.property.delete({ where: { id: params.id } });

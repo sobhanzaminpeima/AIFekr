@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { resolveOrganizationContext } from "@/lib/organization/context";
 
 export type CrmRole = "OWNER" | "MANAGER" | "AGENT";
 
@@ -12,6 +13,8 @@ export interface CrmWorkspace {
   isAgentRestricted: boolean;
   /** The workspace owner's CRM add-on tier — "NONE" | "SOLO" | "TEAM". Gates the paid CRM surfaces (billing, contracts, automation, AI agent, team roles); basic Pipeline/Contacts stay on the existing free-trial contact cap regardless. */
   crmPlan: string;
+  /** Verified BusinessWorkspace boundary for new multi-business CRM reads. */
+  businessId: string | null;
 }
 
 /**
@@ -34,8 +37,20 @@ export async function resolveCrmWorkspace(sessionUserId: string): Promise<CrmWor
   });
 
   if (membership && membership.crmRole && membership.team.ownerId !== sessionUserId) {
-    const owner = await prisma.user.findUnique({ where: { id: membership.team.ownerId }, select: { crmPlan: true, crmPlanExpiry: true } });
+    const owner = await prisma.user.findUnique({ where: { id: membership.team.ownerId }, select: { crmPlan: true, crmPlanExpiry: true, activeBusinessId: true } });
     if (owner?.crmPlan === "TEAM" && !isExpired(owner.crmPlanExpiry)) {
+      // Team membership alone must never bridge two businesses. The migration
+      // creates this grant for legacy teams; later invitations create it
+      // explicitly. If no grant exists, keep the user in their own workspace.
+      const grant = owner.activeBusinessId
+        ? await prisma.businessMember.findUnique({ where: { businessId_userId: { businessId: owner.activeBusinessId, userId: sessionUserId } }, select: { id: true, status: true } })
+        : null;
+      if (!grant || grant.status !== "ACTIVE") {
+        const selfContext = await resolveOrganizationContext(sessionUserId);
+        const self = await prisma.user.findUnique({ where: { id: sessionUserId }, select: { crmPlan: true, crmPlanExpiry: true } });
+        const crmPlan = self && !isExpired(self.crmPlanExpiry) ? self.crmPlan || "NONE" : "NONE";
+        return { workspaceUserId: sessionUserId, actingUserId: sessionUserId, crmRole: "OWNER", isAgentRestricted: false, crmPlan, businessId: selfContext?.businessId ?? null };
+      }
       const role = membership.crmRole as CrmRole;
       return {
         workspaceUserId: membership.team.ownerId,
@@ -43,13 +58,25 @@ export async function resolveCrmWorkspace(sessionUserId: string): Promise<CrmWor
         crmRole: role,
         isAgentRestricted: role === "AGENT",
         crmPlan: owner.crmPlan,
+        businessId: owner.activeBusinessId,
       };
     }
   }
 
   const self = await prisma.user.findUnique({ where: { id: sessionUserId }, select: { crmPlan: true, crmPlanExpiry: true } });
+  const context = await resolveOrganizationContext(sessionUserId);
   const crmPlan = self && !isExpired(self.crmPlanExpiry) ? self.crmPlan || "NONE" : "NONE";
-  return { workspaceUserId: sessionUserId, actingUserId: sessionUserId, crmRole: "OWNER", isAgentRestricted: false, crmPlan };
+  return { workspaceUserId: sessionUserId, actingUserId: sessionUserId, crmRole: "OWNER", isAgentRestricted: false, crmPlan, businessId: context?.businessId ?? null };
+}
+
+/**
+ * Scope new CRM queries to the verified active business. During the additive
+ * migration this intentionally returns an empty fragment for accounts that
+ * have not been provisioned yet; routes switch to it only after their data is
+ * backfilled, avoiding a surprise lockout for legacy accounts.
+ */
+export function businessFilter(ws: CrmWorkspace): { businessId?: string } {
+  return ws.businessId ? { businessId: ws.businessId } : {};
 }
 
 /** True once a stored expiry date has passed — null/undefined means no expiry (never purchased, or a non-expiring grant). */

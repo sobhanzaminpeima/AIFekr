@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { createInvoiceWithNumber, computeInvoiceTotals, InvoiceItemInput } from "@/lib/repositories/crmInvoiceRepository";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
   const invoices = await prisma.crmInvoice.findMany({
     where: {
       userId: ws.workspaceUserId,
+      ...businessFilter(ws),
       ...(contactId ? { contactId } : {}),
       ...(status ? { status } : {}),
       ...(ws.isAgentRestricted ? { contact: { assignedToId: ws.actingUserId } } : {}),
@@ -48,11 +49,11 @@ export async function POST(req: NextRequest) {
   if (!contactId) return NextResponse.json({ error: tri(lang, "contactId الزامی است", "contactId is required", "contactId ist erforderlich") }, { status: 400 });
   if (!Array.isArray(items) || items.length === 0) return NextResponse.json({ error: tri(lang, "حداقل یک آیتم فاکتور الزامی است", "At least one invoice item is required", "Mindestens eine Rechnungsposition ist erforderlich") }, { status: 400 });
 
-  const contact = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}) } });
+  const contact = await prisma.crmContact.findFirst({ where: { id: contactId, userId: ws.workspaceUserId, ...businessFilter(ws), ...(ws.isAgentRestricted ? { assignedToId: ws.actingUserId } : {}) } });
   if (!contact) return NextResponse.json({ error: tri(lang, "مخاطب پیدا نشد", "Contact not found", "Kontakt nicht gefunden") }, { status: 404 });
 
   if (dealId) {
-    const deal = await prisma.crmDeal.findFirst({ where: { id: dealId, userId: ws.workspaceUserId, contactId } });
+    const deal = await prisma.crmDeal.findFirst({ where: { id: dealId, userId: ws.workspaceUserId, ...businessFilter(ws), contactId } });
     if (!deal) return NextResponse.json({ error: tri(lang, "معامله پیدا نشد یا متعلق به این مخاطب نیست", "Deal not found or doesn't belong to this contact", "Deal nicht gefunden oder gehört nicht zu diesem Kontakt") }, { status: 404 });
   }
 
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest) {
     const total = Math.max(0, subtotal + taxTotal - discountAmt);
 
     const invoice = await createInvoiceWithNumber(ws.workspaceUserId, {
+      ...businessFilter(ws),
       contact: { connect: { id: contactId } },
       deal: dealId ? { connect: { id: dealId } } : undefined,
       subtotal,
@@ -72,7 +74,7 @@ export async function POST(req: NextRequest) {
       dueDate: dueDate ? new Date(dueDate) : undefined,
       notes: notes || undefined,
       items: { create: itemsData },
-    });
+    }, 5, ws.businessId);
     return NextResponse.json({ invoice });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : tri(lang, "خطا در ساخت فاکتور", "Failed to create invoice", "Fehler beim Erstellen der Rechnung") }, { status: 400 });

@@ -96,13 +96,21 @@ export async function generateImagesHQ(opts: GenerateImageOptions): Promise<stri
   return generateImages(opts);
 }
 
-/** Image-to-image: generates a new image guided by a user-uploaded reference photo instead of from text alone. */
-export async function generateImageFromReference(opts: GenerateImageOptions & { imageUrl: string }): Promise<string[]> {
+/**
+ * Image-to-image: generates a new image guided by a user-uploaded reference
+ * photo instead of from text alone. DashScope's single-image endpoint only
+ * takes one reference -- if the caller passed several (e.g. a "couple"
+ * prompt), only the first is used. Multi-reference compositing only works
+ * through OpenAI's edit endpoint (see openaiImage.ts).
+ */
+export async function generateImageFromReference(opts: GenerateImageOptions & { imageUrl?: string; imageUrls?: string[] }): Promise<string[]> {
+  const imageUrl = opts.imageUrls?.[0] ?? opts.imageUrl;
+  if (!imageUrl) throw new Error("generateImageFromReference: no reference image provided");
   if (!hasQwen) {
     return Array.from({ length: opts.count }, (_, i) => `https://picsum.photos/seed/${Date.now() + i + 200}/1024/1024`);
   }
   const promptText = `${opts.prompt}, ${STYLE_PROMPTS[opts.style] || ""}`;
-  return callQwenImage(promptText, opts.imageUrl, opts.count);
+  return callQwenImage(promptText, imageUrl, opts.count);
 }
 
 // ─── Video ──────────────────────────────────────────────────────────────────

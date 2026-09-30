@@ -45,12 +45,13 @@ export function computeInvoiceTotals(items: InvoiceItemInput[]) {
 export async function createInvoiceWithNumber(
   userId: string,
   data: Omit<Prisma.CrmInvoiceCreateInput, "invoiceNumber" | "user">,
-  maxAttempts = 5
+  maxAttempts = 5,
+  businessId?: string | null,
 ) {
   const year = new Date().getFullYear();
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const countThisYear = await prisma.crmInvoice.count({
-      where: { userId, invoiceNumber: { startsWith: `INV-${year}-` } },
+      where: { userId, ...(businessId ? { businessId } : {}), invoiceNumber: { startsWith: `INV-${year}-` } },
     });
     const seq = String(countThisYear + 1 + attempt).padStart(4, "0");
     const invoiceNumber = `INV-${year}-${seq}`;

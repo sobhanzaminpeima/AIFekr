@@ -11,7 +11,7 @@ import toast from "react-hot-toast";
 import { useSearchParams } from "next/navigation";
 import { useTranslation, tri } from "@/lib/i18n";
 import { IR_PLAN_CODES, USD_PLAN_CODES } from "@/lib/plans/catalog";
-import { PERIOD_DISCOUNT } from "@/lib/payment/period";
+import { PERIOD_DISCOUNT, PERIOD_MONTHS } from "@/lib/payment/period";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type Market = "IR" | "INTL";
@@ -24,29 +24,37 @@ type ApiPackage = {
   color: string; features: string; featuresEn?: string;
 };
 
+type FeatureRow = {
+  labelFa: string; labelEn: string; subtitle?: string;
+  ir: (boolean | string)[]; en: (boolean | string)[];
+};
+type FeatureSection = {
+  sectionFa: string; sectionEn: string; sectionDe: string;
+  icon: typeof MessageSquare; rows: FeatureRow[];
+};
+
 // ── Static data ───────────────────────────────────────────────────────────────
 
-const FEATURE_ROWS = [
+const FEATURE_ROWS: FeatureSection[] = [
   { sectionFa: "چت", sectionEn: "Chat", sectionDe: "Chat", icon: MessageSquare, rows: [
     { labelFa: "پیام در روز / ۳ ساعت", labelEn: "Messages per day / 3h", ir: ["۲۰/روز", "۵۰/۳ساعت", "۱۰۰/۳ساعت", "۱۵۰/۳ساعت", "۷۵۰/۳ساعت"], en: ["20/day", "50/3h", "100/3h", "150/3h", "750/3h"] },
     { labelFa: "مدل‌های پایه", labelEn: "Basic models", ir: [true, true, true, true, true], en: [true, true, true, true, true] },
-    { labelFa: "مدل‌های پیشرفته", labelEn: "Advanced models", subtitle: "Claude Sonnet, GPT-5, Gemini Pro", ir: [false, false, true, true, true], en: [false, false, true, true, true] },
-    { labelFa: "مدل‌های حرفه‌ای", labelEn: "Pro models", subtitle: "Claude Opus, GPT-5 Sol, o3", ir: [false, false, false, true, true], en: [false, false, false, true, true] },
+    { labelFa: "مدل‌های پیشرفته", labelEn: "Advanced models", ir: [false, false, true, true, true], en: [false, false, true, true, true] },
+    { labelFa: "دسترسی اولویت‌دار به مدل‌ها", labelEn: "Priority model access", ir: [false, false, false, true, true], en: [false, false, false, true, true] },
     { labelFa: "جستجو در اینترنت", labelEn: "Web search", ir: [true, true, true, true, true], en: [true, true, true, true, true] },
     { labelFa: "آپلود فایل", labelEn: "File upload", ir: [false, true, true, true, true], en: [false, true, true, true, true] },
     { labelFa: "کاوش عمیق (Deep Research)", labelEn: "Deep Research", ir: [false, false, true, true, true], en: [false, false, true, true, true] },
   ]},
   { sectionFa: "تصویر", sectionEn: "Image", sectionDe: "Bild", icon: Image, rows: [
     { labelFa: "تعداد تصویر", labelEn: "Images", ir: ["۳/روز", "۱۵/روز", "نامحدود", "نامحدود", "نامحدود"], en: ["3/day", "15/day", "Unlimited", "Unlimited", "Unlimited"] },
-    { labelFa: "مدل‌های پیشرفته", labelEn: "Advanced models", subtitle: "Flux Pro, SDXL, Gemini Image", ir: [false, false, true, true, true], en: [false, false, true, true, true] },
-    { labelFa: "Midjourney", labelEn: "Midjourney", ir: [false, false, false, true, true], en: [false, false, false, true, true] },
+    { labelFa: "تولید تصویر پیشرفته", labelEn: "Advanced image generation", ir: [false, false, true, true, true], en: [false, false, true, true, true] },
   ]},
   { sectionFa: "موزیک", sectionEn: "Music", sectionDe: "Musik", icon: Music, rows: [
-    { labelFa: "ساخت موزیک (Suno)", labelEn: "Music generation (Suno)", ir: [false, false, true, true, true], en: [false, false, true, true, true] },
+    { labelFa: "ساخت موسیقی با هوش مصنوعی", labelEn: "AI music generation", ir: [false, false, true, true, true], en: [false, false, true, true, true] },
   ]},
   { sectionFa: "ویدیو", sectionEn: "Video", sectionDe: "Video", icon: Video, rows: [
     { labelFa: "تعداد ویدیو در هفته", labelEn: "Videos per week", ir: ["—", "—", "—", "۲۰", "۱۰۰"], en: ["—", "—", "—", "20", "100"] },
-    { labelFa: "مدل ویدیو (Veo, Kling)", labelEn: "Video models (Veo, Kling)", ir: [false, false, false, true, true], en: [false, false, false, true, true] },
+    { labelFa: "تولید ویدیو با هوش مصنوعی", labelEn: "AI video generation", ir: [false, false, false, true, true], en: [false, false, false, true, true] },
   ]},
   { sectionFa: "امکانات دیگر", sectionEn: "Other Features", sectionDe: "Weitere Funktionen", icon: Sparkles, rows: [
     { labelFa: "ساخت وبسایت هوشمند", labelEn: "AI website builder", ir: [false, false, false, true, true], en: [false, false, false, true, true] },
@@ -65,15 +73,15 @@ const FEATURE_LABEL_DE: Record<string, string> = {
   "Messages per day / 3h": "Nachrichten pro Tag / 3 Std.",
   "Basic models": "Basismodelle",
   "Advanced models": "Erweiterte Modelle",
-  "Pro models": "Pro-Modelle",
+  "Priority model access": "Priorisierter Modellzugang",
   "Web search": "Websuche",
   "File upload": "Datei-Upload",
   "Deep Research": "Deep Research",
   "Images": "Bilder",
-  "Midjourney": "Midjourney",
-  "Music generation (Suno)": "Musikgenerierung (Suno)",
+  "Advanced image generation": "Erweiterte Bildgenerierung",
+  "AI music generation": "KI-Musikgenerierung",
   "Videos per week": "Videos pro Woche",
-  "Video models (Veo, Kling)": "Videomodelle (Veo, Kling)",
+  "AI video generation": "KI-Videogenerierung",
   "AI website builder": "KI-Website-Builder",
   "Ad-free": "Werbefrei",
   "Faster responses": "Schnellere Antworten",
@@ -104,14 +112,14 @@ const FREE_USD: ApiPackage = { planCode: "FREE", name: "Free",   nameEn: "Free",
 // starting proposal, easy to retune from the admin panel once real usage data
 // from actual business customers comes in.
 const BIZ_PLANS_IR = [
-  { name: "تیم کوچک", desc: "تا ۵ کاربر", price: 39000000, color: "#6366f1", features: ["همه امکانات پلاس برای هر عضو", "داشبورد مدیریت تیم", "استخر اعتبار مشترک", "API اختصاصی", "گزارش مصرف تیم"] },
-  { name: "تیم متوسط", desc: "تا ۲۰ کاربر", price: 119000000, color: "#ea580c", features: ["همه امکانات پرو برای هر عضو", "داشبورد پیشرفته تیم", "AI-BOS اختصاصی", "SSO / SAML", "مدیر اکانت اختصاصی"], popular: true },
+  { planCode: "TEAM_STARTER", name: "تیم کوچک", desc: "تا ۵ کاربر", price: 39000000, color: "#6366f1", features: ["فضای کار تیمی", "استخر اعتبار مشترک", "گزارش مصرف تیم"] },
+  { planCode: "TEAM_GROWTH", name: "تیم متوسط", desc: "تا ۲۰ کاربر", price: 119000000, color: "#ea580c", features: ["فضای کار تیمی پیشرفته", "استخر اعتبار مشترک", "گزارش مصرف تیم"], popular: true },
   { name: "سازمانی", desc: "بدون محدودیت", price: null, color: "#8b5cf6", features: ["همه امکانات الفا برای هر عضو", "استقرار اختصاصی", "SLA اختصاصی", "یکپارچه‌سازی سفارشی", "پشتیبانی ۲۴/۷"] },
 ];
 
 const BIZ_PLANS_USD = [
-  { name: "Startup", desc: "Up to 5 users", priceUsd: 14900, color: "#6366f1", features: ["All Plus features per seat", "Team dashboard", "Shared credit pool", "Dedicated API", "Team usage reports"] },
-  { name: "Growth", desc: "Up to 20 users", priceUsd: 44900, color: "#ea580c", features: ["All Pro features per seat", "Advanced team dashboard", "AI-BOS included", "SSO / SAML", "Dedicated account manager"], popular: true },
+  { planCode: "TEAM_STARTER", name: "Startup", desc: "Up to 5 users", priceUsd: 14900, color: "#6366f1", features: ["Team workspace", "Shared credit pool", "Team usage reports"] },
+  { planCode: "TEAM_GROWTH", name: "Growth", desc: "Up to 20 users", priceUsd: 44900, color: "#ea580c", features: ["Advanced team workspace", "Shared credit pool", "Team usage reports"], popular: true },
   { name: "Enterprise", desc: "Unlimited", priceUsd: null, color: "#8b5cf6", features: ["All Ultra features per seat", "Custom deployment", "Custom SLA", "Custom integrations", "24/7 support"] },
 ];
 
@@ -154,6 +162,15 @@ function fmtUsd(cents: number, period: Period): string {
   return `$${final % 1 === 0 ? final.toFixed(0) : final.toFixed(2)}`;
 }
 
+/** The amount actually charged today, distinct from the discounted monthly equivalent. */
+function fmtTotal(rial: number, cents: number | null, isIran: boolean, period: Period): string {
+  const months = PERIOD_MONTHS[period];
+  const multiplier = months * (1 - PERIOD_DISCOUNT[period]);
+  if (isIran) return `${Math.round((rial / 10) * multiplier).toLocaleString("fa-IR")} تومان`;
+  const usd = ((cents || 0) / 100) * multiplier;
+  return `$${usd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+}
+
 function CellVal({ val }: { val: boolean | string }) {
   if (typeof val === "boolean") {
     return val
@@ -193,6 +210,15 @@ export default function PlansPage() {
     if (payStatus === "success") toast.success(tri(lang, `اشتراک فعال شد! کد پیگیری: ${refId}`, `Subscription activated! Ref: ${refId}`, `Abonnement aktiviert! Ref: ${refId}`, `Abonelik etkinleştirildi! Ref: ${refId}`));
     if (payStatus === "failed")  toast.error(tri(lang, "پرداخت ناموفق بود. دوباره تلاش کنید.", "Payment failed. Please try again.", "Zahlung fehlgeschlagen. Bitte versuchen Sie es erneut.", "Ödeme başarısız oldu. Lütfen tekrar deneyin."));
   }, [searchParams, isFa]);
+
+  // Keep a period selected on the public landing page through registration
+  // and into checkout. Invalid/missing values deliberately fall back to monthly.
+  useEffect(() => {
+    const requested = searchParams.get("period");
+    if (requested === "monthly" || requested === "quarterly" || requested === "semiannual" || requested === "annual") {
+      setPeriod(requested);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     fetch("/api/packages")
@@ -409,6 +435,7 @@ export default function PlansPage() {
           const priceStr = isFree ? s.free
             : isIr ? `${fmtToman(price, period)} تومان`
             : fmtUsd(price, period);
+          const total = isFree ? "" : fmtTotal(plan.price, plan.priceUsd, isIr, period);
 
           return (
             <div key={plan.planCode}
@@ -441,6 +468,9 @@ export default function PlansPage() {
                       </div>
                     )}
                     <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{s.perMonth}</div>
+                    {period !== "monthly" && <div className="text-xs mt-1 font-medium" style={{ color: plan.color }}>
+                      {tri(lang, `پرداخت امروز: ${total}`, `Due today: ${total}`, `Heute fällig: ${total}`, `Bugün ödeme: ${total}`)}
+                    </div>}
                   </>
                 )}
               </div>
@@ -642,15 +672,16 @@ export default function PlansPage() {
                     configured and leaves no record of the inquiry (QA 2026-09-15:
                     business plans had no visible self-serve path). The contact
                     page is a real form, carrying which plan was chosen. */}
-                <a
-                  href={`/contact?subject=business-plan&plan=${encodeURIComponent(biz.name)}`}
+                <button
+                  onClick={() => isCustom ? window.location.href = `/contact?subject=business-plan&plan=${encodeURIComponent(biz.name)}` : handleBuy((biz as any).planCode, isIr ? "zarinpal" : "usdt_trc20")}
+                  disabled={!!loading}
                   className="w-full py-2.5 rounded-xl text-sm font-semibold text-center transition-all block"
                   style={{
                     background: (biz as any).popular ? biz.color : `${biz.color}20`,
                     color: (biz as any).popular ? "white" : biz.color,
                   }}>
                   {isCustom ? s.contactUs : s.getStarted}
-                </a>
+                </button>
               </div>
             );
           })}

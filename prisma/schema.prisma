@@ -183,6 +183,13 @@ model User {
   activeBusiness           BusinessWorkspace?    @relation("ActiveBusiness", fields: [activeBusinessId], references: [id])
   organizationLedgerEntries OrganizationCreditLedger[] @relation("OrganizationLedgerActor")
   organizationAuditEvents  OrganizationAuditLog[] @relation("OrganizationAuditActor")
+  studentCourses           StudentCourse[]
+  studentMaterials         StudentMaterial[]
+  studentNotes             StudentNote[]
+  studentFlashcards        StudentFlashcard[]
+  studentQuizAttempts      StudentQuizAttempt[]
+  studentExams             StudentExam[]
+  studentTasks             StudentTask[]
 
   @@index([industryPackId])
   @@index([activeBusinessId])
@@ -1607,13 +1614,15 @@ model InstagramConnection {
 model InstagramFollowerSnapshot {
   id             String   @id @default(cuid())
   userId         String
+  businessId     String?
   date           DateTime // truncated to the day this snapshot was taken
   followersCount Int
   mediaCount     Int
   createdAt      DateTime @default(now())
 
-  @@unique([userId, date])
+  @@unique([userId, businessId, date])
   @@index([userId])
+  @@index([businessId, date])
 }
 
 /// A keyword→DM auto-reply rule. When someone comments `keyword` on `postId`
@@ -1625,6 +1634,9 @@ model InstagramFollowerSnapshot {
 model InstagramCommentCampaign {
   id                 String   @id @default(cuid())
   userId             String
+  name               String   @default("")
+  /// Workspace boundary. Null rows are legacy campaigns created before SaaS workspaces.
+  businessId         String?
   /// Comma/Persian-comma separated — any one matching the comment text triggers the campaign.
   keyword            String
   postId             String?
@@ -1644,6 +1656,8 @@ model InstagramCommentCampaign {
   updatedAt          DateTime @updatedAt
 
   @@index([userId])
+  @@index([businessId])
+  @@index([userId, businessId])
 }
 
 /// One row per comment the webhook actually processed — the unique
@@ -1661,6 +1675,7 @@ model InstagramCommentReplyLog {
   /// Denormalized from the campaign's owner — lets the per-hour rate-limit
   /// count be a single indexed query instead of a join through the campaign.
   userId            String?
+  businessId        String?
   commentId         String   @unique
   commenterId       String
   commenterUsername String?
@@ -1673,6 +1688,54 @@ model InstagramCommentReplyLog {
 
   @@index([campaignId])
   @@index([userId, createdAt])
+  @@index([businessId, createdAt])
+}
+
+/// A native Auto Direct rule for inbound Instagram messages. This is intentionally
+/// separate from comment campaigns: a DM can be answered only after Meta delivers
+/// a messaging event, while a comment uses the private-reply endpoint and its own
+/// delivery window.
+model InstagramDirectRule {
+  id           String   @id @default(cuid())
+  userId       String
+  businessId   String?
+  name         String
+  /// keyword | all_messages | ai_fallback. A single fallback rule is permitted per workspace.
+  triggerType  String   @default("keyword")
+  /// Comma/Persian-comma separated keywords. Empty only for all_messages.
+  keywords     String
+  response     String
+  followGateEnabled Boolean @default(false)
+  typingIndicatorEnabled Boolean @default(false)
+  delayMinSeconds Int @default(0)
+  delayMaxSeconds Int @default(0)
+  isActive     Boolean  @default(true)
+  triggerCount Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId, businessId])
+  @@index([businessId, isActive])
+}
+
+/// Audit trail for inbound/outbound Auto Direct messages. `eventId` makes webhook
+/// processing idempotent, so Meta retries cannot send the same automated reply twice.
+model InstagramDirectMessageLog {
+  id          String   @id @default(cuid())
+  userId      String
+  businessId  String?
+  ruleId      String?
+  eventId     String   @unique
+  senderId    String
+  direction   String   // inbound | outbound
+  text        String?
+  replyText   String?
+  status      String   @default("received") // received | awaiting_follow | unlocking | sent | skipped | failed
+  error       String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, businessId, createdAt])
+  @@index([ruleId])
 }
 
 /// A generated Instagram post queued to go out. mode="auto" actually calls
@@ -3293,4 +3356,139 @@ model OrchestratorAction {
 
   @@index([conversationId])
   @@index([workspaceUserId, status])
+}
+
+/// Personal study workspace. Student data is intentionally scoped to the
+/// owning user rather than the currently selected business workspace.
+model StudentCourse {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  courseCode  String?
+  institution String?
+  term        String?
+  instructor  String?
+  description String?
+  color       String   @default("#f97316")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  materials   StudentMaterial[]
+  notes       StudentNote[]
+  flashcards  StudentFlashcard[]
+  quizzes     StudentQuiz[]
+  exams       StudentExam[]
+  tasks       StudentTask[]
+
+  @@index([userId, updatedAt])
+}
+
+model StudentMaterial {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  title     String
+  content   String
+  source    String   @default("text")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    StudentCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([userId, courseId, createdAt])
+}
+
+model StudentNote {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    StudentCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([userId, courseId, updatedAt])
+}
+
+model StudentFlashcard {
+  id            String   @id @default(cuid())
+  userId        String
+  courseId      String
+  question      String
+  answer        String
+  masteryLevel  Int      @default(0)
+  reviewCount   Int      @default(0)
+  lastReviewedAt DateTime?
+  nextReviewAt  DateTime?
+  createdAt     DateTime @default(now())
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    StudentCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([userId, courseId, createdAt])
+}
+
+model StudentQuiz {
+  id        String   @id @default(cuid())
+  courseId  String
+  title     String
+  questions String
+  createdAt DateTime @default(now())
+  course    StudentCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  attempts  StudentQuizAttempt[]
+
+  @@index([courseId, createdAt])
+}
+
+model StudentQuizAttempt {
+  id          String   @id @default(cuid())
+  userId      String
+  quizId      String
+  answers     String
+  score       Int
+  total       Int
+  weakTopics  String?
+  completedAt DateTime @default(now())
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quiz        StudentQuiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@index([userId, completedAt])
+  @@index([quizId, completedAt])
+}
+
+model StudentExam {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  title     String
+  examAt    DateTime
+  createdAt DateTime @default(now())
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    StudentCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([userId, examAt])
+  @@index([courseId, examAt])
+}
+
+/// Personal assignment/deadline and editable study-plan item.
+model StudentTask {
+  id          String        @id @default(cuid())
+  userId      String
+  courseId    String?
+  title       String
+  description String        @default("")
+  taskType    String        @default("assignment") // assignment | study
+  dueAt       DateTime?
+  priority    Int           @default(2) // 1 low, 2 normal, 3 high
+  completedAt DateTime?
+  generated   Boolean       @default(false)
+  dedupeKey   String?       @unique
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course      StudentCourse? @relation(fields: [courseId], references: [id], onDelete: SetNull)
+
+  @@index([userId, completedAt, dueAt])
+  @@index([courseId, dueAt])
 }

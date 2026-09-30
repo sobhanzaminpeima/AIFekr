@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Script from "next/script";
-import { Share2, Copy, Check, Calendar, Camera, Zap, Loader2, Image as ImageIcon, Upload, Wand2, X, TrendingUp, Users, Heart, MessageCircle, Sparkles, ExternalLink, PenLine, ChevronLeft, Clock, Link2, Printer, Megaphone, Target, CheckCircle2, BarChart3, Activity, Video } from "lucide-react";
+import { Share2, Copy, Check, Calendar, Camera, Zap, Loader2, Image as ImageIcon, Upload, Wand2, X, TrendingUp, Users, Heart, MessageCircle, Sparkles, ExternalLink, PenLine, ChevronLeft, Clock, Link2, Printer, Megaphone, Target, CheckCircle2, BarChart3, Activity, Video, Send, Inbox } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
 import { useTranslation, tri } from "@/lib/i18n";
@@ -13,6 +13,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import BrandProfileCard from "@/components/social/BrandProfileCard";
 import GrowthInsights, { type SocialAnalysisView } from "@/components/social/GrowthInsights";
 import CreditCost from "@/components/ui/CreditCost";
+import InstagramCommentAutomationBuilder from "@/components/social/InstagramCommentAutomationBuilder";
 
 declare global {
   interface Window {
@@ -361,12 +362,12 @@ export default function SocialPage() {
   // ── Comment → DM auto-reply campaigns ────────────────────────────────────
   type CampaignLink = { id: string; label: string; url: string; clicks: number };
   type CampaignLog = { id: string; commenterUsername: string | null; status: string; error: string | null; createdAt: string };
-  const [campaigns, setCampaigns] = useState<{ id: string; keyword: string; dmMessage: string; publicReplyMessage: string | null; links: string | null; postId: string | null; followGateEnabled: boolean; followGatePrompt: string | null; isActive: boolean; triggerCount: number }[]>([]);
+  const [campaigns, setCampaigns] = useState<{ id: string; name: string; keyword: string; dmMessage: string; publicReplyMessage: string | null; links: string | null; postId: string | null; followGateEnabled: boolean; followGatePrompt: string | null; isActive: boolean; triggerCount: number }[]>([]);
   const [campaignsLoading, setCampaignsLoading] = useState(false);
   const [newKeyword, setNewKeyword] = useState("");
   const [newDmMessage, setNewDmMessage] = useState("");
   const [newPublicReply, setNewPublicReply] = useState("");
-  const [newPostId, setNewPostId] = useState(""); // "" = applies to every post
+  const [newPostId, setNewPostId] = useState("");
   const [newFollowGate, setNewFollowGate] = useState(false);
   const [newFollowGatePrompt, setNewFollowGatePrompt] = useState("");
   const [newLink1Label, setNewLink1Label] = useState("");
@@ -377,6 +378,129 @@ export default function SocialPage() {
   const [openLogsFor, setOpenLogsFor] = useState<string | null>(null);
   const [campaignLogs, setCampaignLogs] = useState<CampaignLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
+
+  // ── Native SaaS Auto Direct rules ──────────────────────────────────────
+  type DirectRule = { id: string; name: string; triggerType: "keyword" | "all_messages" | "ai_fallback"; keywords: string; response: string; followGateEnabled: boolean; typingIndicatorEnabled: boolean; delayMinSeconds: number; delayMaxSeconds: number; isActive: boolean; triggerCount: number };
+  type DirectLog = { id: string; senderId: string; direction: "inbound" | "outbound"; text: string | null; replyText: string | null; status: string; error: string | null; createdAt: string };
+  const [directRules, setDirectRules] = useState<DirectRule[]>([]);
+  const [directLogs, setDirectLogs] = useState<DirectLog[]>([]);
+  const [directLoading, setDirectLoading] = useState(false);
+  const [subscribingInstagram, setSubscribingInstagram] = useState(false);
+  const [instagramWebhookStatus, setInstagramWebhookStatus] = useState<"checking" | "active" | "inactive" | "unknown">("unknown");
+  const [savingDirectRule, setSavingDirectRule] = useState(false);
+  const [directName, setDirectName] = useState("");
+  const [directKeywords, setDirectKeywords] = useState("");
+  const [directResponse, setDirectResponse] = useState("");
+  const [directFallback, setDirectFallback] = useState(false);
+  const [directAiFallback, setDirectAiFallback] = useState(false);
+  const [directFollowGate, setDirectFollowGate] = useState(false);
+  const [directTypingIndicator, setDirectTypingIndicator] = useState(false);
+  const [directDelayRange, setDirectDelayRange] = useState("0:0");
+  const [selectedDirectSender, setSelectedDirectSender] = useState("");
+  const [directReplyDraft, setDirectReplyDraft] = useState("");
+  const [sendingDirectReply, setSendingDirectReply] = useState(false);
+  const directReplyAttemptRef = useRef<{ text: string; id: string } | null>(null);
+
+  const loadDirectRules = useCallback(async () => {
+    setDirectLoading(true);
+    try {
+      const r = await fetch("/api/social/instagram/direct-rules", { credentials: "include" });
+      const d = await r.json();
+      if (r.ok) {
+        setDirectRules(d.rules || []);
+        const messages = d.recentMessages || [];
+        setDirectLogs(messages);
+        setSelectedDirectSender((current) => current || messages.find((message: DirectLog) => message.direction === "inbound")?.senderId || "");
+      }
+    } catch {} finally { setDirectLoading(false); }
+  }, []);
+
+  async function createDirectRule() {
+    if (!directName.trim() || !directResponse.trim() || (!directFallback && !directAiFallback && !directKeywords.trim())) {
+      return toast.error(tri(lang, "نام، پاسخ و کلمه کلیدی الزامی است", "Name, response and a keyword are required", "Name, Antwort und Schlüsselwort sind erforderlich"));
+    }
+    setSavingDirectRule(true);
+    try {
+      const r = await fetch("/api/social/instagram/direct-rules", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: directName, triggerType: directAiFallback ? "ai_fallback" : directFallback ? "all_messages" : "keyword", keywords: directKeywords, response: directResponse, followGateEnabled: directFollowGate, typingIndicatorEnabled: directTypingIndicator, delayMinSeconds: Number(directDelayRange.split(":")[0]), delayMaxSeconds: Number(directDelayRange.split(":")[1]) }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      setDirectName(""); setDirectKeywords(""); setDirectResponse(""); setDirectFallback(false); setDirectAiFallback(false); setDirectFollowGate(false); setDirectTypingIndicator(false); setDirectDelayRange("0:0");
+      toast.success(tri(lang, "قانون دایرکت فعال شد", "Auto Direct rule is active", "Auto-Direct-Regel ist aktiv"));
+      loadDirectRules();
+    } catch (error) { toast.error(error instanceof Error ? error.message : t.common.error); }
+    finally { setSavingDirectRule(false); }
+  }
+
+  async function updateDirectRule(id: string, isActive: boolean) {
+    setDirectRules((rules) => rules.map((rule) => rule.id === id ? { ...rule, isActive } : rule));
+    const r = await fetch(`/api/social/instagram/direct-rules/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive }) });
+    if (!r.ok) loadDirectRules();
+  }
+
+  async function deleteDirectRule(id: string) {
+    const r = await fetch(`/api/social/instagram/direct-rules/${id}`, { method: "DELETE", credentials: "include" });
+    if (r.ok) setDirectRules((rules) => rules.filter((rule) => rule.id !== id)); else toast.error(t.common.error);
+  }
+
+  async function sendDirectReply() {
+    const text = directReplyDraft.trim();
+    if (!selectedDirectSender || !text || sendingDirectReply) return;
+    if (!directReplyAttemptRef.current || directReplyAttemptRef.current.text !== text) {
+      directReplyAttemptRef.current = { text, id: globalThis.crypto.randomUUID() };
+    }
+    setSendingDirectReply(true);
+    try {
+      const r = await fetch("/api/social/instagram/inbox/reply", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientId: selectedDirectSender, text, requestId: directReplyAttemptRef.current.id }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || t.common.error);
+      setDirectReplyDraft("");
+      directReplyAttemptRef.current = null;
+      await loadDirectRules();
+      toast.success(tri(lang, "پاسخ ارسال شد", "Reply sent", "Antwort gesendet"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t.common.error);
+    } finally {
+      setSendingDirectReply(false);
+    }
+  }
+
+  async function enableDirectWebhooks() {
+    setSubscribingInstagram(true);
+    try {
+      const r = await fetch("/api/social/instagram/webhooks/subscribe", { method: "POST", credentials: "include" });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      setInstagramWebhookStatus(d.subscribed ? "active" : "inactive");
+      toast.success(tri(lang, "دریافت پیام‌های اینستاگرام فعال شد", "Instagram message events are enabled", "Instagram-Nachrichtenereignisse sind aktiviert"));
+    } catch (error) {
+      setInstagramWebhookStatus("inactive");
+      toast.error(error instanceof Error ? error.message : t.common.error);
+    }
+    finally { setSubscribingInstagram(false); }
+  }
+
+  useEffect(() => {
+    if (!igConnected) {
+      setInstagramWebhookStatus("unknown");
+      return;
+    }
+    let cancelled = false;
+    setInstagramWebhookStatus("checking");
+    fetch("/api/social/instagram/webhooks/subscribe", { credentials: "include" })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Webhook status unavailable");
+        if (!cancelled) setInstagramWebhookStatus(data.subscribed ? "active" : "inactive");
+      })
+      .catch(() => { if (!cancelled) setInstagramWebhookStatus("unknown"); });
+    return () => { cancelled = true; };
+  }, [igConnected]);
 
   function parseCampaignLinks(links: string | null): CampaignLink[] {
     if (!links) return [];
@@ -404,34 +528,29 @@ export default function SocialPage() {
     finally { setCampaignsLoading(false); }
   }, []);
 
+  // Retained for compatibility with the legacy form markup while the visual
+  // builder is introduced; the visible builder owns its own validated submit.
   async function createCampaign() {
-    if (!newKeyword.trim() || !newDmMessage.trim()) return toast.error(tri(lang, "کلمه کلیدی و پیام دایرکت الزامی است", "Keyword and DM message are required", "Schlüsselwort und DM-Nachricht sind erforderlich"));
     setSavingCampaign(true);
     try {
       const links = [
         { label: newLink1Label, url: newLink1Url },
         { label: newLink2Label, url: newLink2Url },
-      ].filter((l) => l.label.trim() && l.url.trim());
-      const r = await fetch("/api/social/instagram/campaigns", {
-        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+      ].filter((link) => link.label.trim() && link.url.trim());
+      const response = await fetch("/api/social/instagram/campaigns", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          name: newKeyword.trim() || "Instagram comment automation",
           keyword: newKeyword, dmMessage: newDmMessage, publicReplyMessage: newPublicReply || undefined,
-          links: links.length > 0 ? links : undefined, postId: newPostId || undefined,
-          followGateEnabled: newFollowGate, followGatePrompt: newFollowGate ? (newFollowGatePrompt || undefined) : undefined,
+          links: links.length ? links : undefined, postId: newPostId || undefined,
+          followGateEnabled: newFollowGate, followGatePrompt: newFollowGate ? newFollowGatePrompt || undefined : undefined,
         }),
       });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error);
-      toast.success(tri(lang, "کمپین ساخته شد", "Campaign created", "Kampagne erstellt"));
-      setNewKeyword(""); setNewDmMessage(""); setNewPublicReply(""); setNewPostId("");
-      setNewLink1Label(""); setNewLink1Url(""); setNewLink2Label(""); setNewLink2Url("");
-      setNewFollowGate(false); setNewFollowGatePrompt("");
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || t.common.error);
       loadCampaigns();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.common.error);
-    } finally {
-      setSavingCampaign(false);
-    }
+    } catch (error) { toast.error(error instanceof Error ? error.message : t.common.error); }
+    finally { setSavingCampaign(false); }
   }
 
   async function toggleCampaign(id: string, isActive: boolean) {
@@ -496,7 +615,7 @@ export default function SocialPage() {
   }, [loadIgStatus]);
 
   useEffect(() => {
-    if (igConnected) { loadAnalytics(); loadCampaigns(); }
+    if (igConnected) { loadAnalytics(); loadCampaigns(); loadDirectRules(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [igConnected]);
 
@@ -772,6 +891,9 @@ export default function SocialPage() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
+
+  const directSenders = Array.from(new Set(directLogs.filter((message) => message.direction === "inbound").map((message) => message.senderId)));
+  const selectedDirectMessages = directLogs.filter((message) => message.senderId === selectedDirectSender).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
   return (
     <div className="min-h-screen p-6" style={{ background: "var(--surface-0)" }}>
@@ -1818,6 +1940,82 @@ export default function SocialPage() {
 
       </div>
 
+      {/* Native Auto Direct */}
+      {igConnected && (
+        <div className="rounded-2xl p-6 mt-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center gap-2 mb-1"><MessageCircle className="w-5 h-5" style={{ color: "#a855f7" }} /><h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "Auto Direct — پاسخ خودکار دایرکت", "Auto Direct — DM replies", "Auto Direct — DM-Antworten")}</h2></div>
+          <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>{tri(lang, "قانون‌های هر کسب‌وکار جداست. پیام‌های ورودی با webhook امن ثبت می‌شوند و هر پیام فقط یک‌بار پاسخ می‌گیرد.", "Rules are isolated per business. Secure webhook events are logged and each message can be answered only once.", "Regeln sind je Geschäft getrennt. Webhook-Ereignisse werden sicher protokolliert und jede Nachricht wird nur einmal beantwortet.")}</p>
+          <div className="mb-4 rounded-xl p-3" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+            <div className="flex flex-wrap items-center gap-3">
+              <button onClick={enableDirectWebhooks} disabled={subscribingInstagram || !canAuto} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-50" style={{ background: "var(--surface-1)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>{subscribingInstagram || instagramWebhookStatus === "checking" ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}{tri(lang, "بررسی و فعال‌سازی وبهوک", "Verify and enable webhook", "Webhook prüfen und aktivieren")}</button>
+              <span className="text-xs" style={{ color: instagramWebhookStatus === "active" ? "#16a34a" : "var(--text-muted)" }}>
+                {instagramWebhookStatus === "active"
+                  ? tri(lang, "اشتراک حساب برای کامنت و دایرکت تأیید شد", "Account subscription for comments and DMs verified", "Konto-Abo für Kommentare und DMs bestätigt")
+                  : instagramWebhookStatus === "inactive"
+                    ? tri(lang, "اشتراک Meta فعال نیست؛ دکمه را بزنید یا تنظیمات اپ را بررسی کنید.", "Meta subscription is not active; retry or check the app configuration.", "Meta-Abonnement ist nicht aktiv; erneut versuchen oder App-Konfiguration prüfen.")
+                    : instagramWebhookStatus === "checking"
+                      ? tri(lang, "در حال بررسی وضعیت Meta…", "Checking Meta subscription…", "Meta-Abonnement wird geprüft…")
+                      : tri(lang, "وضعیت اشتراک Meta قابل بررسی نیست.", "Meta subscription status could not be verified.", "Meta-Abonnementstatus konnte nicht geprüft werden.")}
+              </span>
+            </div>
+            <p className="mt-2 text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "این فقط اشتراک حساب را بررسی می‌کند. در پنل توسعه‌دهندگان Meta نیز باید محصول Instagram/Webhooks و فیلد comments فعال و به همین callback متصل باشد.", "This verifies the account subscription only. In Meta Developers, the Instagram/Webhooks product must also enable the comments field and point to this app’s callback.", "Dies prüft nur das Konto-Abo. In Meta Developers müssen Instagram/Webhooks und das Feld comments ebenfalls aktiviert und mit diesem Callback verbunden sein.")}</p>
+          </div>
+          {!canAuto ? <p className="text-xs px-3 py-2 rounded-lg" style={{ background: "rgba(234,88,12,0.1)", color: "var(--primary)" }}>{tri(lang, "Auto Direct در پلن‌های Pro و Team فعال است.", "Auto Direct is available on Pro and Team plans.", "Auto Direct ist für Pro- und Team-Pläne verfügbar.")}</p> : <>
+            <div className="rounded-xl p-4 space-y-3 mb-4" style={{ background: "var(--surface-2)" }}>
+              <input value={directName} onChange={(e) => setDirectName(e.target.value)} placeholder={tri(lang, "نام قانون (مثلاً پاسخ قیمت)", "Rule name (e.g. pricing reply)", "Regelname (z.B. Preisantwort)")} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <label className="flex items-center gap-2 text-xs" style={{ color: "var(--text-secondary)" }}><input type="checkbox" checked={directFallback} onChange={(e) => { setDirectFallback(e.target.checked); if (e.target.checked) setDirectAiFallback(false); }} className="accent-purple-500" />{tri(lang, "پاسخ ثابت پیش‌فرض برای همهٔ پیام‌ها", "Fixed fallback reply for all messages", "Feste Standardantwort für alle Nachrichten")}</label>
+              <label className="flex items-center gap-2 text-xs" style={{ color: "var(--text-secondary)" }}><input type="checkbox" checked={directAiFallback} onChange={(e) => { setDirectAiFallback(e.target.checked); if (e.target.checked) setDirectFallback(false); }} className="accent-purple-500" />{tri(lang, "پاسخ AI وقتی هیچ کلمه‌ای تطبیق ندارد", "AI reply when no keyword matches", "KI-Antwort, wenn kein Schlüsselwort passt")} <CreditCost feature="social.instagram-auto-reply" /></label>
+              {!directFallback && !directAiFallback && <input value={directKeywords} onChange={(e) => setDirectKeywords(e.target.value)} placeholder={tri(lang, "کلمات کلیدی با کاما: قیمت، مشاوره", "Keywords, comma-separated: price, consultation", "Schlüsselwörter, kommagetrennt: Preis, Beratung")} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />}
+              <textarea value={directResponse} onChange={(e) => setDirectResponse(e.target.value)} rows={2} placeholder={directAiFallback ? tri(lang, "راهنمای کسب‌وکار برای پاسخ AI (قیمت/قوانین واقعی را بنویس)", "Business guidance for AI replies (add accurate pricing and policies)", "Geschäftshinweise für KI-Antworten (Preise und Richtlinien ergänzen)") : tri(lang, "پاسخ خودکار دایرکت…", "Automated DM response…", "Automatische DM-Antwort…")} className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="flex items-start gap-2 rounded-lg p-3 text-xs" style={{ background: "var(--surface-1)", color: "var(--text-secondary)" }}>
+                  <input type="checkbox" checked={directFollowGate} onChange={(e) => setDirectFollowGate(e.target.checked)} className="mt-0.5 accent-purple-500" />
+                  <span><span className="block font-medium" style={{ color: "var(--text-primary)" }}>{tri(lang, "درخواست فالو پیش از پاسخ", "Follow confirmation gate", "Follow-Bestätigung vor der Antwort")}</span><span className="block mt-1">{tri(lang, "پاسخ تا زدن دکمهٔ ادامه پنهان می‌ماند. Meta فالو را خودکار تأیید نمی‌کند؛ این گزینه تأیید کاربر است.", "The reply stays hidden until the user taps Continue. Meta does not expose an automatic follow check; this is self-confirmation.", "Die Antwort bleibt verborgen, bis die Person auf Weiter tippt. Meta bietet keine automatische Follow-Prüfung; dies ist eine Selbstbestätigung.")}</span></span>
+                </label>
+                <label className="flex items-start gap-2 rounded-lg p-3 text-xs" style={{ background: "var(--surface-1)", color: "var(--text-secondary)" }}>
+                  <input type="checkbox" checked={directTypingIndicator} onChange={(e) => setDirectTypingIndicator(e.target.checked)} className="mt-0.5 accent-purple-500" />
+                  <span><span className="block font-medium" style={{ color: "var(--text-primary)" }}>{tri(lang, "نمایش وضعیت در حال نوشتن", "Mimic active typing status", "Schreibstatus anzeigen")}</span><span className="block mt-1">{tri(lang, "بهترین‌تلاش؛ اگر Meta پشتیبانی نکند، پاسخ اصلی همچنان ارسال می‌شود.", "Best effort; if Meta rejects the indicator, the actual reply still sends.", "Best-Effort; wird der Indikator abgelehnt, wird die Antwort trotzdem gesendet.")}</span></span>
+                </label>
+              </div>
+              <label className="block text-xs" style={{ color: "var(--text-secondary)" }}>{tri(lang, "تأخیر تصادفی ارسال", "Randomized delivery delay", "Zufällige Sendeverzögerung")}
+                <select value={directDelayRange} onChange={(e) => setDirectDelayRange(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                  <option value="0:0">{tri(lang, "ارسال فوری", "Send immediately", "Sofort senden")}</option>
+                  <option value="1:3">{tri(lang, "۱ تا ۳ ثانیه", "1–3 seconds", "1–3 Sekunden")}</option>
+                  <option value="3:5">{tri(lang, "۳ تا ۵ ثانیه", "3–5 seconds", "3–5 Sekunden")}</option>
+                </select>
+                <span className="block mt-1 text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "سقف تأخیر عمداً ۵ ثانیه است تا پاسخ‌های وب‌هوک بیش از حد معطل نشوند.", "The maximum is capped at 5 seconds to keep webhook replies bounded.", "Die Verzögerung ist auf 5 Sekunden begrenzt, damit Webhook-Antworten nicht unnötig warten.")}</span>
+              </label>
+              <button onClick={createDirectRule} disabled={savingDirectRule} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50" style={{ background: "#a855f7" }}>{savingDirectRule ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}{tri(lang, "فعال‌سازی قانون", "Activate rule", "Regel aktivieren")}</button>
+            </div>
+            {directLoading ? <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin" /></div> : <div className="space-y-2">{directRules.map((rule) => <div key={rule.id} className="rounded-xl p-3 flex items-center justify-between gap-3" style={{ background: "var(--surface-2)" }}><div className="min-w-0"><p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{rule.name} <span className="text-[11px] font-normal" style={{ color: "var(--text-muted)" }}>· {rule.triggerCount}×</span></p><p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{rule.triggerType === "all_messages" ? tri(lang, "پاسخ پیش‌فرض ثابت", "Fixed fallback", "Feste Standardantwort") : rule.triggerType === "ai_fallback" ? tri(lang, "پاسخ AI پس از تطبیق‌نشدن keyword", "AI fallback after keyword matching", "KI-Fallback nach Schlüsselwortsuche") : rule.keywords} → {rule.response}</p><p className="mt-1 text-[10px]" style={{ color: "var(--text-muted)" }}>{[rule.followGateEnabled && tri(lang, "تأیید فالو", "follow confirmation", "Follow-Bestätigung"), rule.typingIndicatorEnabled && tri(lang, "وضعیت تایپ", "typing status", "Schreibstatus"), rule.delayMaxSeconds > 0 && `${rule.delayMinSeconds}–${rule.delayMaxSeconds}s`].filter(Boolean).join(" · ") || tri(lang, "ارسال فوری", "immediate delivery", "sofortige Zustellung")}</p></div><div className="flex gap-2"><button onClick={() => updateDirectRule(rule.id, !rule.isActive)} className="relative w-10 h-5 rounded-full" style={{ background: rule.isActive ? "#a855f7" : "var(--surface-1)" }}><span className="absolute top-0.5 w-4 h-4 rounded-full bg-white" style={{ right: rule.isActive ? "0.125rem" : "calc(100% - 1.125rem)" }} /></button><button onClick={() => deleteDirectRule(rule.id)} className="p-1.5" style={{ color: "var(--text-muted)" }}><X className="w-4 h-4" /></button></div></div>)}</div>}
+            {directLogs.length > 0 && <div className="mt-4"><p className="text-[11px] mb-2" style={{ color: "var(--text-muted)" }}>{tri(lang, "فعالیت‌های اخیر دایرکت", "Recent Direct activity", "Letzte Direct-Aktivität")}</p><div className="space-y-2">{directLogs.slice(0, 5).map((log) => <div key={log.id} className="rounded-lg px-3 py-2 text-[11px]" style={{ background: "var(--surface-2)" }}><div className="flex items-center justify-between gap-3"><span className="min-w-0 truncate" style={{ color: "var(--text-secondary)" }}>@{log.senderId} · {log.text || "—"}</span><span className="shrink-0" style={{ color: log.status === "sent" ? "#22c55e" : log.status === "failed" ? "#ef4444" : "var(--text-muted)" }}>{log.status === "sent" ? tri(lang, "پاسخ داده شد", "replied", "beantwortet") : log.status === "awaiting_follow" ? tri(lang, "در انتظار تأیید", "waiting for confirmation", "wartet auf Bestätigung") : log.status === "failed" ? tri(lang, "خطا", "failed", "fehlgeschlagen") : tri(lang, "ثبت شد", "logged", "protokolliert")}</span></div>{log.replyText && <p className="mt-1" style={{ color: "var(--text-muted)" }}>↳ {log.replyText}</p>}</div>)}</div></div>}
+          </>}
+        </div>
+      )}
+
+      {/* Instagram customer inbox — manual replies are limited to user-initiated conversations. */}
+      {igConnected && canAuto && (
+        <section className="rounded-2xl p-6 mt-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center gap-2 mb-1"><Inbox className="w-5 h-5" style={{ color: "#a855f7" }} /><h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "صندوق پیام اینستاگرام", "Instagram Inbox", "Instagram-Postfach")}</h2></div>
+          <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>{tri(lang, "گفتگوهای ورودی و پاسخ‌های خودکار این کسب‌وکار را ببین و دستی پاسخ بده. ارسال فقط به مخاطبی ممکن است که قبلاً به همین حساب پیام داده باشد؛ محدودیت‌های پنجرهٔ پاسخ Meta همچنان اعمال می‌شود.", "Review inbound conversations and automation replies for this business, then reply manually. Replies are limited to people who messaged this connected account; Meta's messaging window still applies.", "Eingehende Gespräche und automatische Antworten dieses Geschäfts ansehen und manuell antworten. Antworten sind nur an Personen möglich, die diesem verbundenen Konto geschrieben haben; Metas Nachrichtenfenster gilt weiterhin.")}</p>
+          {directSenders.length === 0 ? <div className="rounded-xl p-5 text-center text-sm" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>{tri(lang, "هنوز گفتگویی دریافت نشده است. پس از فعال‌سازی وب‌هوک پیام‌ها، گفتگوهای جدید اینجا نمایش داده می‌شوند.", "No conversations yet. New threads will appear here after Instagram message webhooks are enabled.", "Noch keine Gespräche. Neue Unterhaltungen erscheinen hier, sobald Instagram-Nachrichten-Webhooks aktiviert sind.")}</div> : <div className="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
+            <div className="space-y-1 max-h-80 overflow-y-auto rounded-xl p-2" style={{ background: "var(--surface-2)" }}>{directSenders.map((sender) => {
+              const latest = directLogs.find((message) => message.senderId === sender);
+              return <button key={sender} onClick={() => setSelectedDirectSender(sender)} className="w-full rounded-lg px-3 py-2 text-left text-xs" style={{ background: selectedDirectSender === sender ? "var(--surface-1)" : "transparent", color: "var(--text-primary)" }}><span className="block font-medium">{tri(lang, "گفتگو", "Conversation", "Gespräch")} · {sender.slice(-8)}</span><span className="block mt-1 truncate" style={{ color: "var(--text-muted)" }}>{latest?.text || latest?.replyText || "—"}</span></button>;
+            })}</div>
+            <div className="min-w-0 rounded-xl p-3 flex flex-col" style={{ background: "var(--surface-2)" }}>
+              <div className="flex-1 min-h-40 max-h-80 overflow-y-auto space-y-2 pb-3">{selectedDirectMessages.map((message) => <div key={message.id} className="space-y-1">
+                {message.direction === "inbound" && <div className="max-w-[85%] rounded-xl rounded-tl-sm px-3 py-2 text-xs" style={{ background: "var(--surface-1)", color: "var(--text-primary)" }}><p>{message.text || "—"}</p><span className="block mt-1 text-[10px]" style={{ color: "var(--text-muted)" }}>{new Date(message.createdAt).toLocaleTimeString(lang, { hour: "2-digit", minute: "2-digit" })}</span></div>}
+                {message.direction === "outbound" && <div className="ml-auto max-w-[85%] rounded-xl rounded-tr-sm px-3 py-2 text-xs" style={{ background: "rgba(168,85,247,0.18)", color: "var(--text-primary)" }}><p>{message.text || "—"}</p><span className="block mt-1 text-[10px]" style={{ color: "var(--text-muted)" }}>{new Date(message.createdAt).toLocaleTimeString(lang, { hour: "2-digit", minute: "2-digit" })} · {message.status}</span></div>}
+                {message.direction === "inbound" && message.replyText && <div className="ml-auto max-w-[85%] rounded-xl rounded-tr-sm px-3 py-2 text-xs" style={{ background: "rgba(168,85,247,0.18)", color: "var(--text-primary)" }}><p>{message.replyText}</p><span className="block mt-1 text-[10px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "پاسخ خودکار", "Automated reply", "Automatische Antwort")} · {message.status}</span></div>}
+                {message.direction === "inbound" && message.status === "awaiting_follow" && <p className="text-[10px] text-center" style={{ color: "var(--text-muted)" }}>{tri(lang, "پاسخ تا تأیید مخاطب نگه داشته شده است", "Reply is waiting for the recipient's confirmation", "Antwort wartet auf Bestätigung der Person")}</p>}
+              </div>)}</div>
+              <div className="flex gap-2 border-t pt-3" style={{ borderColor: "var(--border)" }}><textarea value={directReplyDraft} onChange={(e) => setDirectReplyDraft(e.target.value)} rows={2} maxLength={1000} disabled={!selectedDirectSender || sendingDirectReply} placeholder={tri(lang, "پاسخ دستی…", "Write a manual reply…", "Manuelle Antwort schreiben…")} className="flex-1 resize-none rounded-lg px-3 py-2 text-xs outline-none disabled:opacity-50" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} /><button onClick={sendDirectReply} disabled={!selectedDirectSender || !directReplyDraft.trim() || sendingDirectReply} className="self-end flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-white disabled:opacity-50" style={{ background: "#a855f7" }}>{sendingDirectReply ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}{tri(lang, "ارسال", "Send", "Senden")}</button></div>
+            </div>
+          </div>}
+        </section>
+      )}
+
       {/* Comment → DM auto-reply campaigns */}
       {igConnected && (
         <div className="rounded-2xl p-6 mt-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
@@ -1839,8 +2037,9 @@ export default function SocialPage() {
             </p>
           ) : (
             <>
-              {/* New campaign form */}
-              <div className="rounded-xl p-4 mb-4 space-y-3" style={{ background: "var(--surface-2)" }}>
+              <InstagramCommentAutomationBuilder posts={analytics?.recentMedia || []} lang={lang} onCreated={loadCampaigns} />
+              {/* Legacy form kept hidden during rollout so existing saved campaigns remain unaffected. */}
+              <div hidden className="rounded-xl p-4 mb-4 space-y-3" style={{ background: "var(--surface-2)" }}>
                 <input
                   value={newKeyword} onChange={(e) => setNewKeyword(e.target.value)}
                   placeholder={tri(lang, "کلمه‌های کلیدی، با کاما جدا کن (مثلاً: قیمت, هزینه)", "Keywords, comma-separated (e.g. price, cost)", "Schlüsselwörter, kommagetrennt (z.B. Preis, Kosten)")}
@@ -1941,6 +2140,7 @@ export default function SocialPage() {
                       <div key={c.id} className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
                         <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>{c.name || c.keyword}</p>
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                               {c.keyword.split(/[,،]/).map((k) => k.trim()).filter(Boolean).map((k) => (
                                 <span key={k} className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>

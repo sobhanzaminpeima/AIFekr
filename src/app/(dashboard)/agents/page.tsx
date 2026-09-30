@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Sparkles, ArrowLeft, ArrowRight, HeartPulse, Briefcase, Handshake, Phone,
-  Crown, Search, Share2, Globe, Users, Calculator, Factory,
+  Crown, Search, Share2, Globe, Users, Calculator, Factory, Magnet,
 } from "lucide-react";
 import { useTranslation, tri, type Lang } from "@/lib/i18n";
 import { REAL_ESTATE_MODULES, type ModuleDefinition } from "@/lib/industry/moduleRegistry";
@@ -44,7 +44,7 @@ const GENERAL_AGENTS: GeneralAgent[] = [
     descriptionEn: "Analyzes your business's overall health and surfaces weaknesses and opportunities.",
     descriptionDe: "Analysiert die allgemeine Gesundheit Ihres Unternehmens und zeigt Schwächen und Chancen auf." },
   { key: "crm", icon: Briefcase, department: "sales", href: "/crm",
-    labelFa: "مدیریت مشتریان (CRM)", labelEn: "CRM", labelDe: "CRM",
+    labelFa: "CRM", labelEn: "CRM", labelDe: "CRM",
     descriptionFa: "پایپلاین فروش، مخاطبین، اتوماسیون و دستیار تحلیل CRM.",
     descriptionEn: "Sales pipeline, contacts, automation, and the CRM analysis assistant.",
     descriptionDe: "Vertriebspipeline, Kontakte, Automatisierung und der CRM-Analyseassistent." },
@@ -73,6 +73,11 @@ const GENERAL_AGENTS: GeneralAgent[] = [
     descriptionFa: "کلمات کلیدی، محتوا و عملکرد سایت شما در گوگل را مدیریت می‌کند.",
     descriptionEn: "Manages your keywords, content, and Google search performance.",
     descriptionDe: "Verwaltet Ihre Keywords, Inhalte und Google-Suchleistung." },
+  { key: "lead-gen", icon: Magnet, department: "marketing", href: "/lead-gen",
+    labelFa: "تولید لید", labelEn: "Lead Generation", labelDe: "Lead-Generierung",
+    descriptionFa: "فرم لید بسازید، روی سایت خودتان امبد کنید و لیدها مستقیم وارد CRM شوند.",
+    descriptionEn: "Build lead forms, embed them on your own site, and capture leads straight into your CRM.",
+    descriptionDe: "Erstellen Sie Lead-Formulare, binden Sie sie auf Ihrer Website ein und erfassen Sie Leads direkt in Ihrem CRM." },
   { key: "social-media", icon: Share2, department: "marketing", href: "/social",
     labelFa: "شبکه‌های اجتماعی", labelEn: "Social Media", labelDe: "Social Media",
     descriptionFa: "محتوای پست و پیشنهاد فرمت‌های پرتعامل برای شبکه‌های اجتماعی می‌سازد.",
@@ -100,8 +105,8 @@ const ALL_AGENT_MODULES: ModuleDefinition[] = [...REAL_ESTATE_MODULES].filter((m
  * roster does: colour groups agents by what part of the business they serve.
  */
 function AgentCard({
-  href, label, description, Icon, department, BackIcon,
-}: { href: string; label: string; description: string; Icon: React.ElementType; department: DepartmentKey; BackIcon: typeof ArrowLeft }) {
+  href, label, description, Icon, department, BackIcon, lang,
+}: { href: string; label: string; description: string; Icon: React.ElementType; department: DepartmentKey; BackIcon: typeof ArrowLeft; lang: Lang }) {
   const dept = DEPARTMENTS[department];
   return (
     <Link href={href} className="group p-4 rounded-2xl flex items-start gap-3 transition-all hover:-translate-y-0.5" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
@@ -114,6 +119,15 @@ function AgentCard({
           <BackIcon className="w-4 h-4 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "var(--primary)" }} />
         </div>
         <p className="text-xs leading-5 mt-0.5" style={{ color: "var(--text-secondary)" }}>{description}</p>
+        {/* Every card on this page is something the user can open right now
+            -- gated-out agents are filtered out before they ever render (see
+            enabledIndustryAgents below) -- but that was never stated on the
+            card itself, so "My Agents" read as a plain catalog rather than a
+            list of what's actually usable. */}
+        <span className="inline-flex items-center gap-1 mt-2 text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{ background: "rgba(34,197,94,0.12)", color: "#22c55e" }}>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#22c55e" }} />
+          {tri(lang, "فعال", "Active", "Aktiv")}
+        </span>
       </div>
     </Link>
   );
@@ -163,7 +177,7 @@ export default function MyAgentsPage() {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {GENERAL_AGENTS.map((agent) => (
-            <AgentCard key={agent.key} href={agent.href} BackIcon={BackIcon} Icon={agent.icon} department={agent.department}
+            <AgentCard key={agent.key} href={agent.href} BackIcon={BackIcon} Icon={agent.icon} department={agent.department} lang={lang}
               label={tri(lang, agent.labelFa, agent.labelEn, agent.labelDe)}
               description={tri(lang, agent.descriptionFa, agent.descriptionEn, agent.descriptionDe)} />
           ))}
@@ -182,7 +196,7 @@ export default function MyAgentsPage() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {enabledIndustryAgents.map((agent) => (
-              <AgentCard key={agent.key} href={agent.href || "/crm"} BackIcon={BackIcon} Icon={Factory} department="sales"
+              <AgentCard key={agent.key} href={agent.href || "/crm"} BackIcon={BackIcon} Icon={Factory} department="sales" lang={lang}
                 label={tri(lang, agent.labelFa, agent.labelEn, agent.labelDe)}
                 description={tri(lang, agent.descriptionFa || "", agent.descriptionEn || "", agent.descriptionDe || "")} />
             ))}

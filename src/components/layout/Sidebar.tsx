@@ -42,7 +42,7 @@ function openConversationClick(pathname: string, id: string) {
 interface Project { id: string; name: string; color: string; icon: string; conversationCount: number; }
 
 interface SidebarProps {
-  user?: { name?: string | null; credits: number; plan: string; industryPackId?: string | null } | null;
+  user?: { name?: string | null; credits: number; plan: string; industryPackId?: string | null; crmPlan?: string | null; crmPlanExpiry?: string | Date | null; studentWorkspaceEnabled?: boolean } | null;
   conversations?: { id: string; title?: string | null; updatedAt: string; projectId?: string | null }[];
   onNewChat?: () => void;
 }
@@ -162,7 +162,9 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
   const [convMenuOpen, setConvMenuOpen] = useState<string | null>(null);
 
   const router = useRouter();
+  const crmPlanActive = !!user?.crmPlan && user.crmPlan !== "NONE" && (!user.crmPlanExpiry || new Date(user.crmPlanExpiry).getTime() > Date.now());
   const hasPack = !!user?.industryPackId;
+  const hasBusinessAccess = hasPack || crmPlanActive;
 
   useEffect(() => { loadProjects(); }, []);
 
@@ -294,9 +296,10 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
       <nav className="flex-1 overflow-y-auto px-2 space-y-0.5 pb-2">
         <NavItem icon={LayoutDashboard} label={tri(lang, "خانه", "Home", "Startseite", "Ana Sayfa")} href="/home" active={isActive("/home")} />
         <NavItem icon={MessageSquare} label={t.nav.chat} href="/chat" active={isActive("/chat")} />
+        {user?.studentWorkspaceEnabled !== false && <NavItem icon={GraduationCap} label={t.nav.studentWorkspace} href="/student" active={isActive("/student")} />}
 
         {/* ── BUSINESS SECTION ─────────────────── */}
-        {hasPack ? (
+        {hasBusinessAccess ? (
           <>
             <NavSection label={tri(lang, "کسب‌وکار من", "My Business", "Mein Unternehmen", "İşletmem")} />
             {/* Business Doctor is the front door of the whole platform — it is

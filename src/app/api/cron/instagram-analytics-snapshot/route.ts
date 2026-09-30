@@ -28,14 +28,21 @@ export async function GET(req: NextRequest) {
   for (const conn of connections) {
     try {
       const stats = await getAccountStats(conn.igUserId, conn.accessToken);
-      await prisma.instagramFollowerSnapshot.upsert({
-        where: { userId_date: { userId: conn.userId, date: bucket } },
-        update: { followersCount: stats.followersCount, mediaCount: stats.mediaCount },
-        create: { userId: conn.userId, date: bucket, followersCount: stats.followersCount, mediaCount: stats.mediaCount },
+      const existing = await prisma.instagramFollowerSnapshot.findFirst({
+        where: { userId: conn.userId, businessId: conn.businessId, date: bucket }, select: { id: true },
       });
+      if (existing) {
+        await prisma.instagramFollowerSnapshot.update({
+          where: { id: existing.id }, data: { followersCount: stats.followersCount, mediaCount: stats.mediaCount },
+        });
+      } else {
+        await prisma.instagramFollowerSnapshot.create({
+          data: { userId: conn.userId, businessId: conn.businessId, date: bucket, followersCount: stats.followersCount, mediaCount: stats.mediaCount },
+        });
+      }
       // Keep history bounded — 180 points ≈ 45 days at a 6h cadence.
       const old = await prisma.instagramFollowerSnapshot.findMany({
-        where: { userId: conn.userId }, orderBy: { date: "desc" }, skip: 180, select: { id: true },
+        where: { userId: conn.userId, businessId: conn.businessId }, orderBy: { date: "desc" }, skip: 180, select: { id: true },
       });
       if (old.length) await prisma.instagramFollowerSnapshot.deleteMany({ where: { id: { in: old.map((o) => o.id) } } });
       results.push({ userId: conn.userId, ok: true });
