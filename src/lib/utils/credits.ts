@@ -206,6 +206,8 @@ export const TOOL_FEATURES: Record<string, string> = {
   "crm.listing-copy": "CRM — متن آگهی ملک",
   "crm.pricing-advice": "CRM — پیشنهاد قیمت ملک",
   "crm.agency-report": "CRM — گزارش آژانس",
+  "student.ocr": "دانشجو — OCR تصویر و اسلاید",
+  "student.transcribe": "دانشجو — رونویسی صوت درس",
 };
 
 /** English names of the tool features, used in the credit ledger for every non-Persian language. */
@@ -222,6 +224,7 @@ export const TOOL_FEATURES_EN: Record<string, string> = {
   "startup.generate": "Startup — generate", "website-designer": "Website designer", "image.translate": "Image prompt translation",
   "crm.agent-run": "CRM — analysis agent", "crm.lead-matcher": "CRM — lead matcher", "crm.listing-copy": "CRM — listing copy",
   "crm.pricing-advice": "CRM — pricing advice", "crm.agency-report": "CRM — agency report",
+  "student.ocr": "Student — image and slide OCR", "student.transcribe": "Student — lecture transcription",
 };
 
 /** Display name of a tool feature in the user's language (English for languages without their own table). */

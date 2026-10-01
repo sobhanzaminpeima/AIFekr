@@ -54,15 +54,17 @@ export async function POST(req: NextRequest) {
   let file: unknown;
   let titleField: unknown;
   let textField: unknown;
+  let ocrTextField: unknown;
+  let sourceField: unknown;
   try {
     if (req.headers.get("content-type")?.toLowerCase().includes("multipart/form-data")) {
       const form = await req.formData();
-      courseId = form.get("courseId"); file = form.get("file"); titleField = form.get("title"); textField = form.get("content");
+      courseId = form.get("courseId"); file = form.get("file"); titleField = form.get("title"); textField = form.get("content"); ocrTextField = form.get("ocrText"); sourceField = form.get("source");
     } else {
       const body: unknown = await req.json();
       if (!body || typeof body !== "object") throw new Error("invalid body");
       const value = body as Record<string, unknown>;
-      courseId = value.courseId; titleField = value.title; textField = value.content;
+      courseId = value.courseId; titleField = value.title; textField = value.content; ocrTextField = value.ocrText; sourceField = value.source;
     }
   } catch { return NextResponse.json({ error: "اطلاعات جزوه نامعتبر است" }, { status: 400 }); }
   if (typeof courseId !== "string" || !courseId) return NextResponse.json({ error: "درس الزامی است" }, { status: 400 });
@@ -85,7 +87,9 @@ export async function POST(req: NextRequest) {
     source = file.name.toLowerCase().endsWith(".pptx") ? "pptx" : "file";
   } else if (typeof textField === "string") {
     content = textField.trim();
+    if (sourceField === "image_ocr" || sourceField === "audio_transcript") source = sourceField;
   }
+  if (typeof ocrTextField === "string") content = [content, ocrTextField.trim()].filter(Boolean).join("\n\n[متن OCR تصاویر اسلاید]\n");
   content = content.trim().slice(0, MAX_TEXT);
   title = title.slice(0, 200);
   if (!title || !content) return NextResponse.json({ error: "عنوان و محتوای قابل‌خواندن الزامی است" }, { status: 400 });

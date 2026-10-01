@@ -192,6 +192,9 @@ model User {
   studentQuizAttempts      StudentQuizAttempt[]
   studentExams             StudentExam[]
   studentTasks             StudentTask[]
+  ownedStudentGroups       StudentStudyGroup[] @relation("StudentStudyGroupOwner")
+  studentGroupMemberships  StudentStudyGroupMember[]
+  studentGroupMessages     StudentStudyGroupMessage[]
 
   @@index([industryPackId])
   @@index([activeBusinessId])
@@ -3496,4 +3499,40 @@ model StudentTask {
 
   @@index([userId, completedAt, dueAt])
   @@index([courseId, dueAt])
+}
+
+/// Small opt-in study groups. A high-entropy invite code grants membership;
+/// all group reads and messages are scoped to active membership.
+model StudentStudyGroup {
+  id         String   @id @default(cuid())
+  name       String
+  inviteCode String   @unique
+  ownerId    String
+  createdAt  DateTime @default(now())
+  owner      User     @relation("StudentStudyGroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members    StudentStudyGroupMember[]
+  messages   StudentStudyGroupMessage[]
+  @@index([ownerId, createdAt])
+}
+
+model StudentStudyGroupMember {
+  id        String   @id @default(cuid())
+  groupId   String
+  userId    String
+  joinedAt  DateTime @default(now())
+  group     StudentStudyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([groupId, userId])
+  @@index([userId, joinedAt])
+}
+
+model StudentStudyGroupMessage {
+  id        String   @id @default(cuid())
+  groupId   String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  group     StudentStudyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([groupId, createdAt])
 }
