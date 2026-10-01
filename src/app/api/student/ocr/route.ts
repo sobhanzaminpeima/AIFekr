@@ -14,7 +14,7 @@ const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
-  const unavailable = await studentWorkspaceDisabledResponse();
+  const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   const limit = rateLimit(`student-ocr:${user.id}`, 8, 60_000);
   if (!limit.allowed) return NextResponse.json({ error: "درخواست OCR زیاد است؛ کمی بعد دوباره تلاش کنید" }, { status: 429 });

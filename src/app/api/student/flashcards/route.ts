@@ -8,7 +8,7 @@ import { studentWorkspaceDisabledResponse } from "@/lib/student/access";
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
-  const unavailable = await studentWorkspaceDisabledResponse();
+  const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   const courseId = new URL(req.url).searchParams.get("courseId");
   if (!courseId) return NextResponse.json({ error: "courseId الزامی است" }, { status: 400 });
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
-  const unavailable = await studentWorkspaceDisabledResponse();
+  const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   let body: { courseId?: string; question?: string; answer?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }

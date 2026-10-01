@@ -8,7 +8,7 @@ import { studentWorkspaceDisabledResponse } from "@/lib/student/access";
 export async function GET(req: NextRequest, context: { params: { id: string } }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
-  const unavailable = await studentWorkspaceDisabledResponse();
+  const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   const course = await prisma.studentCourse.findFirst({
     where: { id: context.params.id, userId: user.id },
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest, context: { params: { id: string } })
 export async function PATCH(req: NextRequest, context: { params: { id: string } }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
-  const unavailable = await studentWorkspaceDisabledResponse();
+  const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   let body: { name?: string; courseCode?: string | null; institution?: string | null; term?: string | null; instructor?: string | null; description?: string | null; color?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }
@@ -49,7 +49,7 @@ export async function PATCH(req: NextRequest, context: { params: { id: string } 
 export async function DELETE(req: NextRequest, context: { params: { id: string } }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
-  const unavailable = await studentWorkspaceDisabledResponse();
+  const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   const deleted = await prisma.studentCourse.deleteMany({ where: { id: context.params.id, userId: user.id } });
   if (!deleted.count) return NextResponse.json({ error: "درس پیدا نشد" }, { status: 404 });

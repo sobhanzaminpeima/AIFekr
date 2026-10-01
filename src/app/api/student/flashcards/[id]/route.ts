@@ -9,7 +9,7 @@ import { scheduleFlashcardReview, type FlashcardRating } from "@/lib/student/spa
 export async function PATCH(req: NextRequest, context: { params: { id: string } }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
-  const unavailable = await studentWorkspaceDisabledResponse();
+  const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   let body: { rating?: FlashcardRating };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }

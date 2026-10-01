@@ -8,7 +8,7 @@ import { studentWorkspaceDisabledResponse } from "@/lib/student/access";
 export async function PATCH(req: NextRequest, context: { params: { id: string } }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
-  const unavailable = await studentWorkspaceDisabledResponse();
+  const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   let body: { title?: string; description?: string; dueAt?: string | null; priority?: number; completed?: boolean };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }
@@ -42,7 +42,7 @@ export async function PATCH(req: NextRequest, context: { params: { id: string } 
 export async function DELETE(req: NextRequest, context: { params: { id: string } }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
-  const unavailable = await studentWorkspaceDisabledResponse();
+  const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   const deleted = await prisma.studentTask.deleteMany({ where: { id: context.params.id, userId: user.id } });
   if (!deleted.count) return NextResponse.json({ error: "کار پیدا نشد" }, { status: 404 });

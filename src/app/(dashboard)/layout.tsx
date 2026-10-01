@@ -47,7 +47,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     include: { team: { select: { credits: true } } },
   });
   const displayCredits = teamMembership?.team.credits ?? user.credits;
-  const studentWorkspaceEnabled = await isStudentWorkspaceEnabled();
+  const studentWorkspaceEnabled = await isStudentWorkspaceEnabled(user);
 
   // tool: "support" tags the floating support assistant's own conversations
   // (see src/lib/orchestrator/support -- same reuse-Conversation/Message

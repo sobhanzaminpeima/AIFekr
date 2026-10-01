@@ -192,6 +192,7 @@ model User {
   studentQuizAttempts      StudentQuizAttempt[]
   studentExams             StudentExam[]
   studentTasks             StudentTask[]
+  studentStudySessions     StudentStudySession[]
   ownedStudentGroups       StudentStudyGroup[] @relation("StudentStudyGroupOwner")
   studentGroupMemberships  StudentStudyGroupMember[]
   studentGroupMessages     StudentStudyGroupMessage[]
@@ -3384,6 +3385,7 @@ model StudentCourse {
   quizzes     StudentQuiz[]
   exams       StudentExam[]
   tasks       StudentTask[]
+  studySessions StudentStudySession[]
 
   @@index([userId, updatedAt])
 }
@@ -3499,6 +3501,25 @@ model StudentTask {
 
   @@index([userId, completedAt, dueAt])
   @@index([courseId, dueAt])
+}
+
+/// Server-timestamped study sessions used for student progress reports.
+/// activeUserKey is set only while a session is running; the nullable unique
+/// index guarantees one active timer per student without blocking history.
+model StudentStudySession {
+  id             String    @id @default(cuid())
+  userId         String
+  courseId       String?
+  startedAt      DateTime  @default(now())
+  endedAt        DateTime?
+  durationSeconds Int      @default(0)
+  activeUserKey  String?   @unique
+  createdAt      DateTime  @default(now())
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course         StudentCourse? @relation(fields: [courseId], references: [id], onDelete: SetNull)
+
+  @@index([userId, startedAt])
+  @@index([courseId, startedAt])
 }
 
 /// Small opt-in study groups. A high-entropy invite code grants membership;

@@ -8,7 +8,7 @@ import { studentWorkspaceDisabledResponse } from "@/lib/student/access";
 export async function GET(req: NextRequest) {
   const auth = await requireAuth(req);
   if (!auth) return unauthorizedResponse();
-  const unavailable = await studentWorkspaceDisabledResponse();
+  const unavailable = await studentWorkspaceDisabledResponse(auth);
   if (unavailable) return unavailable;
   const user = await prisma.user.findUnique({ where: { id: auth.id }, select: { name: true, email: true, avatar: true, studentPublicSlug: true, studentProfilePublic: true } });
   return NextResponse.json({ profile: user });
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const auth = await requireAuth(req);
   if (!auth) return unauthorizedResponse();
-  const unavailable = await studentWorkspaceDisabledResponse();
+  const unavailable = await studentWorkspaceDisabledResponse(auth);
   if (unavailable) return unavailable;
   let body: { slug?: unknown; isPublic?: unknown };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }

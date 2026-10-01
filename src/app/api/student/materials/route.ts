@@ -31,7 +31,7 @@ async function extractText(file: File): Promise<string> {
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
-  const unavailable = await studentWorkspaceDisabledResponse();
+  const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   const courseId = new URL(req.url).searchParams.get("courseId");
   if (!courseId) return NextResponse.json({ error: "courseId الزامی است" }, { status: 400 });
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
-  const unavailable = await studentWorkspaceDisabledResponse();
+  const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   const limit = rateLimit(`student-material:${user.id}`, 20, 60_000);
   if (!limit.allowed) return NextResponse.json({ error: "درخواست‌ها زیاد است؛ کمی بعد دوباره تلاش کنید" }, { status: 429 });

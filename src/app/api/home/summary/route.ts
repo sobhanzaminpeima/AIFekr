@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     ? await prisma.industryPack.findUnique({ where: { id: dbUser.industryPackId }, select: { name: true, nameEn: true, emoji: true, slug: true } })
     : null;
 
-  const studentEnabled = await isStudentWorkspaceEnabled();
+  const studentEnabled = await isStudentWorkspaceEnabled(user);
   const student = studentEnabled
     ? await Promise.all([
         prisma.studentCourse.count({ where: { userId: user.id } }),

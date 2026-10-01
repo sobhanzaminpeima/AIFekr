@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { getAllModules } from "@/lib/industry/moduleRegistry";
+import { STUDENT_WORKSPACE_MODULE_KEY } from "@/lib/student/access";
 
 async function checkAdmin(req: NextRequest) {
   const user = await requireAuth(req);
@@ -23,10 +24,21 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const overrides = await prisma.userModuleOverride.findMany({ where: { userId: params.id } });
   const overrideMap = new Map(overrides.map((o) => [o.moduleKey, o.enabled]));
 
-  const modules = getAllModules().map((m) => ({
-    ...m,
-    override: overrideMap.has(m.key) ? overrideMap.get(m.key) : null,
-  }));
+  const modules = [
+    ...getAllModules().map((m) => ({
+      ...m,
+      override: overrideMap.has(m.key) ? overrideMap.get(m.key) : null,
+    })),
+    {
+      key: STUDENT_WORKSPACE_MODULE_KEY,
+      category: "student" as const,
+      labelFa: "ماژول دانشجویی",
+      labelEn: "Student Workspace",
+      labelDe: "Lernbereich",
+      industrySlug: "education",
+      override: overrideMap.get(STUDENT_WORKSPACE_MODULE_KEY) ?? null,
+    },
+  ];
 
   return NextResponse.json({ user: { id: targetUser.id, name: targetUser.name, industryPackId: targetUser.industryPackId }, modules });
 }
@@ -39,6 +51,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const { moduleKey, enabled } = await req.json();
   if (!moduleKey) return NextResponse.json({ error: "moduleKey is required" }, { status: 400 });
+  if (moduleKey !== STUDENT_WORKSPACE_MODULE_KEY && !getAllModules().some((module) => module.key === moduleKey)) {
+    return NextResponse.json({ error: "ماژول نامعتبر است" }, { status: 400 });
+  }
 
   if (enabled === null) {
     await prisma.userModuleOverride.deleteMany({ where: { userId: params.id, moduleKey } });

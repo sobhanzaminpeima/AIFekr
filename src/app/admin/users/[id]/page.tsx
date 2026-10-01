@@ -58,7 +58,7 @@ interface UserDetail {
 
 interface ModuleRow {
   key: string;
-  category: "crm" | "agent";
+  category: "crm" | "agent" | "student";
   labelFa: string;
   labelEn: string;
   industrySlug: string;
@@ -347,7 +347,7 @@ export default function AdminUserDetailPage() {
         <div className="rounded-2xl p-5 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <div>
             <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>ماژول‌های اختصاصی این کاربر</span>
-            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>پیش‌فرض هر ماژول از پک صنعتی کاربر می‌آید — اینجا فقط می‌تونید برای همین کاربر جداگانه فعال/غیرفعال کنید.</p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>دسترسی این کاربر را جداگانه تنظیم کنید؛ «پیش‌فرض» به تنظیم سراسری یا پک صنعتی برمی‌گردد.</p>
           </div>
           <div className="space-y-1.5">
             {modules.map((m) => (
@@ -357,7 +357,7 @@ export default function AdminUserDetailPage() {
                   {([
                     { value: true, label: "فعال" },
                     { value: false, label: "غیرفعال" },
-                    { value: null, label: "پیش‌فرض پکیج" },
+                    { value: null, label: "پیش‌فرض" },
                   ] as const).map((opt) => (
                     <button
                       key={String(opt.value)}

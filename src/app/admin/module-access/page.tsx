@@ -5,8 +5,8 @@ import { ToggleLeft, ToggleRight, Search, Layers, UserCog } from "lucide-react";
 import toast from "react-hot-toast";
 
 type Pack = { id: string; slug: string; name: string; emoji: string };
-type ModuleRow = { key: string; category: "crm" | "agent"; labelFa: string; labelEn: string; enabled: boolean };
-type OverrideModuleRow = { key: string; category: "crm" | "agent"; labelFa: string; labelEn: string; override: boolean | null };
+type ModuleRow = { key: string; category: "crm" | "agent" | "student"; labelFa: string; labelEn: string; enabled: boolean };
+type OverrideModuleRow = { key: string; category: "crm" | "agent" | "student"; labelFa: string; labelEn: string; override: boolean | null };
 type SearchedUser = { id: string; name: string | null; phone: string | null; industryPackId: string | null };
 
 export default function ModuleAccessAdminPage() {

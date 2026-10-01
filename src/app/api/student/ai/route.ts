@@ -31,7 +31,7 @@ function parseJsonArray(text: string): unknown[] | null {
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
-  const unavailable = await studentWorkspaceDisabledResponse();
+  const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   const limit = rateLimit(`student-ai:${user.id}`, 12, 60_000);
   if (!limit.allowed) return NextResponse.json({ error: "درخواست‌های هوش مصنوعی زیاد است؛ کمی صبر کنید" }, { status: 429 });

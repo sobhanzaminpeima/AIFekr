@@ -14,7 +14,7 @@ const AUDIO_TYPES = new Set(["audio/mpeg", "audio/mp4", "audio/mp4a-latm", "audi
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
-  const unavailable = await studentWorkspaceDisabledResponse();
+  const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   const limit = rateLimit(`student-transcribe:${user.id}`, 5, 60_000);
   if (!limit.allowed) return NextResponse.json({ error: "درخواست رونویسی زیاد است؛ کمی بعد تلاش کنید" }, { status: 429 });

@@ -12,7 +12,7 @@ const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 export async function POST(req: NextRequest) {
   const auth = await requireAuth(req);
   if (!auth) return unauthorizedResponse();
-  const unavailable = await studentWorkspaceDisabledResponse();
+  const unavailable = await studentWorkspaceDisabledResponse(auth);
   if (unavailable) return unavailable;
   let form: FormData;
   try { form = await req.formData(); } catch { return NextResponse.json({ error: "فایل تصویر معتبر نیست" }, { status: 400 }); }

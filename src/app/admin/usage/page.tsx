@@ -16,6 +16,7 @@ interface EconomicsStats {
 
 interface UsageStats {
   days: number;
+  scope: "all" | "student";
   totalCalls: number;
   totalTokens: number;
   missingTokenCount: number;
@@ -47,6 +48,7 @@ export default function AdminUsagePage() {
   const [economics, setEconomics] = useState<EconomicsStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [days, setDays] = useState(30);
+  const [scope, setScope] = useState<"all" | "student">("all");
   const [error, setError] = useState<string | null>(null);
 
   // Cost calculator inputs — defaults are a generic "nano-tier" price point;
@@ -86,7 +88,7 @@ export default function AdminUsagePage() {
     setError(null);
     try {
       const [res, econRes] = await Promise.all([
-        fetch(`/api/admin/usage?days=${days}`, { credentials: "include" }),
+        fetch(`/api/admin/usage?days=${days}&scope=${scope}`, { credentials: "include" }),
         fetch(`/api/admin/economics?days=${days}`, { credentials: "include" }),
       ]);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -100,7 +102,7 @@ export default function AdminUsagePage() {
     } finally {
       setLoading(false);
     }
-  }, [days]);
+  }, [days, scope]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -190,6 +192,11 @@ export default function AdminUsagePage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <label className="sr-only" htmlFor="usage-scope">بخش مصرف</label>
+          <select id="usage-scope" value={scope} onChange={(event) => setScope(event.target.value as "all" | "student")} className="rounded-lg px-3 py-2 text-xs" style={{ background: "var(--surface-2)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
+            <option value="all">همهٔ ماژول‌ها</option>
+            <option value="student">فقط ماژول دانشجویی</option>
+          </select>
           {[7, 30, 90].map((d) => (
             <button
               key={d}
