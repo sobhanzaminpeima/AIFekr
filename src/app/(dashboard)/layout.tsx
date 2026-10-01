@@ -14,6 +14,7 @@ import { getServerLang } from "@/lib/i18n/server";
 import { bizScope } from "@/lib/accounting/scope";
 import { isStudentWorkspaceEnabled } from "@/lib/student/access";
 import { shouldShowTrialBanner } from "@/lib/subscriptions/trialBanner";
+import DashboardPullToRefresh from "@/components/layout/DashboardPullToRefresh";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
@@ -81,6 +82,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         {showTrialBanner && user.trialEndsAt && <TrialBanner lang={lang} trialEndsAt={user.trialEndsAt.toISOString()} trialLimited={user.trialLimited} />}
         {children}
       </MobileNavShell>
+      <DashboardPullToRefresh lang={lang} />
       {studentWorkspaceEnabled && <StudentTimerDock lang={lang} />}
       {/* Dashboard-only by design (Phase 1 decision) -- admin pages are on the
           orchestrator's DENY list anyway, and the public/marketing site has no

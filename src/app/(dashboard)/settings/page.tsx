@@ -192,7 +192,7 @@ export default function SettingsPage() {
       <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{t.settingsPage.title}</h1>
 
       {/* Profile */}
-      <section className="p-5 rounded-2xl space-y-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+      <section className="p-4 sm:p-5 rounded-2xl space-y-4 min-w-0 overflow-hidden" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
         <div className="flex items-center gap-2">
           <User className="w-5 h-5" style={{ color: "var(--primary)" }} />
           <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>{t.settingsPage.personalInfo}</h2>
@@ -222,12 +222,12 @@ export default function SettingsPage() {
         </div>
 
         {profile && (
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm min-w-0">
+            <div className="min-w-0">
               <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>{t.settingsPage.emailOrPhone}</div>
-              <div style={{ color: "var(--text-primary)" }} dir="ltr">{profile.email || profile.phone || "—"}</div>
+              <div className="min-w-0 break-all [overflow-wrap:anywhere]" style={{ color: "var(--text-primary)" }} dir="ltr">{profile.email || profile.phone || "—"}</div>
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>{t.settingsPage.currentPlan}</div>
               <div style={{ color: "var(--primary)" }}>{profile.plan}</div>
             </div>

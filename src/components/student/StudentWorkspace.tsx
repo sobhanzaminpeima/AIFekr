@@ -18,7 +18,7 @@ type Exam = { id: string; title: string; examAt: string; course: { id: string; n
 type Note = { id: string; title: string; updatedAt: string; course: { id: string; name: string } };
 type BusinessPackage = { planCode: "CRM_SOLO" | "CRM_TEAM"; name: string; nameEn: string; price: number; priceUsd: number | null; market: string; duration: number; features: string; featuresEn?: string };
 
-const shell: React.CSSProperties = { minHeight: "100%", padding: "32px clamp(16px, 4vw, 48px)", color: "var(--text-primary)" };
+const shell: React.CSSProperties = { minHeight: "100%", padding: "clamp(14px, 3vw, 32px) clamp(12px, 4vw, 48px) calc(88px + env(safe-area-inset-bottom))", color: "var(--text-primary)" };
 const card: React.CSSProperties = { background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 18 };
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -301,12 +301,16 @@ export default function StudentWorkspace() {
 
   return <main style={shell} dir={rtl ? "rtl" : "ltr"}>
     <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-      <header className="flex flex-wrap items-center justify-between gap-5 mb-8">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: "rgba(249,115,22,.14)", color: "#f97316" }}><GraduationCap size={30} /></div>
-          <div><h1 className="text-3xl font-bold tracking-tight">{t.title}</h1><p className="mt-1" style={{ color: "var(--text-secondary)" }}>{t.subtitle}</p></div>
+      <header className="mb-5 flex flex-col gap-4 md:mb-8 md:flex-row md:items-center md:justify-between md:gap-5">
+        <div className="flex min-w-0 items-center gap-3 md:gap-4">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl md:h-14 md:w-14 md:rounded-2xl" style={{ background: "rgba(249,115,22,.14)", color: "#f97316" }}><GraduationCap size={25} className="md:hidden"/><GraduationCap size={30} className="hidden md:block" /></div>
+          <div className="min-w-0"><h1 className="text-xl font-bold tracking-tight md:text-3xl">{t.title}</h1><p className="mt-1 text-xs leading-5 md:text-sm" style={{ color: "var(--text-secondary)" }}>{t.subtitle}</p></div>
         </div>
-        <div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => changeCalendar(calendar === "persian" ? "gregory" : "persian")} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)" }}><CalendarRange size={16} />{calendar === "persian" ? tri(lang, "تقویم شمسی", "Persian calendar", "Persischer Kalender", "İran takvimi") : tri(lang, "تقویم میلادی", "Gregorian calendar", "Gregorianischer Kalender", "Miladi takvim")}</button><Link href={selectedCourse ? `/student/chat?courseId=${encodeURIComponent(selectedCourse)}` : "/student/chat"} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-white" style={{ background: "#f97316" }}><MessageCircle size={16} />{tri(lang, "گفتگوی درسی جدید", "New study chat", "Neuer Lernchat", "Yeni çalışma sohbeti")}</Link><Link href="/home" className="inline-flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}><Back size={16} />{tri(lang, "بازگشت به داشبورد", "Back to dashboard", "Zum Dashboard", "Panele dön")}</Link></div>
+        <div className="grid grid-cols-2 items-center gap-2 md:flex md:flex-wrap">
+          <button type="button" onClick={() => changeCalendar(calendar === "persian" ? "gregory" : "persian")} className="inline-flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs sm:text-sm md:px-3" style={{ borderColor: "var(--border)" }}><CalendarRange size={16} className="shrink-0" />{calendar === "persian" ? tri(lang, "تقویم شمسی", "Persian calendar", "Persischer Kalender", "İran takvimi") : tri(lang, "تقویم میلادی", "Gregorian calendar", "Gregorianischer Kalender", "Miladi takvim")}</button>
+          <Link href={selectedCourse ? `/student/chat?courseId=${encodeURIComponent(selectedCourse)}` : "/student/chat"} className="inline-flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs text-white sm:text-sm md:px-3" style={{ background: "#f97316" }}><MessageCircle size={16} className="shrink-0" /><span className="truncate">{tri(lang, "گفتگوی درسی جدید", "New study chat", "Neuer Lernchat", "Yeni çalışma sohbeti")}</span></Link>
+          <Link href="/home" className="col-span-2 inline-flex items-center justify-center gap-2 py-1 text-xs md:col-span-1 md:py-2 md:text-sm" style={{ color: "var(--text-secondary)" }}><Back size={16} />{tri(lang, "بازگشت به داشبورد", "Back to dashboard", "Zum Dashboard", "Panele dön")}</Link>
+        </div>
       </header>
 
       {error && <div role="alert" className="mb-5 rounded-xl px-4 py-3 text-sm" style={{ background: "rgba(239,68,68,.12)", color: "#dc2626" }}>{error}</div>}
@@ -314,7 +318,7 @@ export default function StudentWorkspace() {
 
       <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
         <nav aria-label={tri(lang, "ناوبری فضای دانشجویی", "Student workspace navigation", "Navigation im Lernbereich", "Öğrenci alanı gezintisi")} className="lg:sticky lg:top-24">
-          <div className="flex gap-2 overflow-x-auto rounded-2xl p-2 lg:flex-col lg:overflow-visible" style={{ ...card, padding: 8 }}>
+          <div className="flex snap-x gap-1.5 overflow-x-auto rounded-xl p-1.5 [scrollbar-width:none] lg:gap-2 lg:rounded-2xl lg:p-2 lg:flex-col lg:overflow-visible" style={{ ...card, padding: 8 }}>
             {[
               { id: "overview", label: tri(lang, "نمای کلی", "Overview", "Übersicht", "Genel Bakış"), icon: Home },
               { id: "courses", label: t.courses, icon: BookOpen },
@@ -324,7 +328,7 @@ export default function StudentWorkspace() {
               { id: "thesis", label: tri(lang, "پایان‌نامه و تکلیف", "Thesis & assignments", "Abschlussarbeit & Aufgaben", "Tez ve ödevler"), icon: FileText },
               { id: "profile", label: tri(lang, "پروفایل دانشجو", "Student profile", "Studierendenprofil", "Öğrenci profili"), icon: UserRound },
               { id: "business", label: tri(lang, "ابزارهای کسب‌وکار", "Business tools", "Unternehmen", "İşletme araçları"), icon: Briefcase },
-            ].map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setStudentView(id as typeof studentView)} aria-current={studentView === id ? "page" : undefined} className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-start text-sm transition-colors lg:w-full" style={{ background: studentView === id ? "rgba(249,115,22,.13)" : "transparent", color: studentView === id ? "#f97316" : "var(--text-secondary)", fontWeight: studentView === id ? 600 : 400 }}><Icon size={17}/><span>{label}</span></button>)}
+            ].map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setStudentView(id as typeof studentView)} aria-current={studentView === id ? "page" : undefined} className="flex snap-start shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 text-start text-xs transition-colors sm:text-sm lg:w-full lg:gap-2 lg:rounded-xl lg:px-3 lg:py-2.5" style={{ background: studentView === id ? "rgba(249,115,22,.13)" : "transparent", color: studentView === id ? "#f97316" : "var(--text-secondary)", fontWeight: studentView === id ? 600 : 400 }}><Icon size={16}/><span>{label}</span></button>)}
             <div className="mx-2 hidden border-t pt-2 text-[11px] lg:block" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>{tri(lang, "فضای شخصی یادگیری", "Personal learning space", "Persönlicher Lernbereich", "Kişisel öğrenme alanı")}</div>
           </div>
           <Link href={selectedCourse ? `/student/chat?courseId=${encodeURIComponent(selectedCourse)}` : "/student/chat"} className="mt-3 hidden w-full items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold text-white lg:flex" style={{ background: "#f97316" }}><MessageCircle size={16}/>{tri(lang, "گفتگوی درسی جدید", "New study chat", "Neuer Lernchat", "Yeni çalışma sohbeti")}</Link>

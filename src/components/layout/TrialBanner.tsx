@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Clock } from "lucide-react";
 import { tri, type Lang } from "@/lib/i18n";
 
@@ -11,10 +13,34 @@ import { tri, type Lang } from "@/lib/i18n";
  * lives in each API route (see User.trialLimited in schema.prisma).
  */
 export default function TrialBanner({ lang, trialEndsAt, trialLimited }: { lang: Lang; trialEndsAt: string; trialLimited: boolean }) {
+  const pathname = usePathname();
+  const [visible, setVisible] = useState(true);
   const endsAt = new Date(trialEndsAt);
   const msLeft = endsAt.getTime() - Date.now();
   const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
   const expired = msLeft <= 0;
+
+  const syncEntitlement = useCallback(async () => {
+    try {
+      const response = await fetch("/api/auth/me", { cache: "no-store", credentials: "include" });
+      if (!response.ok) return;
+      const { user } = await response.json();
+      const planExpiry = user?.planExpiry ? new Date(user.planExpiry).getTime() : null;
+      const hasPaidAccess = user?.plan && user.plan !== "FREE" && (planExpiry === null || planExpiry > Date.now());
+      setVisible(!hasPaidAccess && !!user?.trialEndsAt);
+    } catch { /* Keep the server-rendered state during a transient network failure. */ }
+  }, []);
+
+  useEffect(() => {
+    void syncEntitlement();
+    const onFocus = () => void syncEntitlement();
+    const onVisible = () => { if (document.visibilityState === "visible") void syncEntitlement(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { window.removeEventListener("focus", onFocus); document.removeEventListener("visibilitychange", onVisible); };
+  }, [pathname, syncEntitlement]);
+
+  if (!visible) return null;
 
   return (
     <div

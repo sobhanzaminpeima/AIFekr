@@ -366,7 +366,9 @@ The `/student` workspace includes a persistent study timer that stays available
 while navigating the signed-in dashboard. Pauses and resumes are recorded with
 the study session and included in study reports. Study groups can optionally be
 associated with one of the student's own courses. The planner accepts exam and
-task dates using a locale-aware date input. See
+task dates using a locale-aware date input. The workspace adapts its navigation
+and actions for narrow mobile screens; dashboard pages support pull-to-refresh,
+and the active study timer stays above the mobile navigation. See
 [`docs/student-module-status.md`](docs/student-module-status.md) for the module
 scope, migration, and verification details.
 

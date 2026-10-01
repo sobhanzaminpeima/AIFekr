@@ -64,7 +64,7 @@ export default function StudentTimerDock({ lang }: { lang: Lang }) {
   const clock = `${Math.floor(elapsed / 3600).toString().padStart(2, "0")}:${Math.floor(elapsed % 3600 / 60).toString().padStart(2, "0")}:${(elapsed % 60).toString().padStart(2, "0")}`;
   const paused = !!active.pausedAt;
 
-  return <aside aria-label={tri(lang, "زمان‌سنج مطالعهٔ فعال", "Active study timer", "Aktiver Lerntimer", "Etkin çalışma sayacı")} className="fixed bottom-20 right-3 z-[60] w-[min(22rem,calc(100vw-1.5rem))] rounded-2xl p-3 shadow-2xl sm:right-5" style={{ background: "var(--surface-1)", border: `1px solid ${paused ? "rgba(234,88,12,.4)" : "rgba(34,197,94,.38)"}` }}>
+  return <aside aria-label={tri(lang, "زمان‌سنج مطالعهٔ فعال", "Active study timer", "Aktiver Lerntimer", "Etkin çalışma sayacı")} className="fixed bottom-[calc(68px+env(safe-area-inset-bottom))] right-3 z-[60] w-[min(22rem,calc(100vw-1.5rem))] rounded-2xl p-3 shadow-2xl sm:right-5 md:bottom-5" style={{ background: "var(--surface-1)", border: `1px solid ${paused ? "rgba(234,88,12,.4)" : "rgba(34,197,94,.38)"}` }}>
     <div className="flex items-center justify-between gap-3">
       <div className="min-w-0">
         <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: paused ? "#ea580c" : "#16a34a" }}><span className={`h-2 w-2 rounded-full ${paused ? "" : "animate-pulse"}`} style={{ background: paused ? "#ea580c" : "#16a34a" }}/>{paused ? tri(lang, "مطالعه متوقف موقت", "Study paused", "Lernen pausiert", "Çalışma duraklatıldı") : tri(lang, "در حال مطالعه", "Studying", "Lernen läuft", "Çalışılıyor")}</div>
