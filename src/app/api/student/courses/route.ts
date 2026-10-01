@@ -40,6 +40,9 @@ export async function POST(req: NextRequest) {
     instructor: body.instructor?.trim().slice(0, 120) || undefined,
     description: body.description?.trim().slice(0, 2000) || undefined,
     color: /^#[0-9a-f]{6}$/i.test(body.color || "") ? body.color! : "#f97316",
+  }, include: {
+    _count: { select: { materials: true, notes: true, flashcards: true, exams: true, quizzes: true } },
+    exams: { where: { examAt: { gte: new Date() } }, orderBy: { examAt: "asc" }, take: 1 },
   } });
   return NextResponse.json({ course }, { status: 201 });
 }

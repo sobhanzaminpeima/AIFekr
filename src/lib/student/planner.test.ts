@@ -14,13 +14,13 @@ describe("proposeStudySessions", () => {
     ]);
   });
 
-  it("does not schedule after an exam and deduplicates same-course same-day sessions", () => {
+  it("keeps sessions attached to each exam even when exams share a course and day", () => {
     const sessions = proposeStudySessions([
       { id: "exam-1", title: "Midterm", courseId: "course-1", courseName: "Economics", examAt: new Date("2026-10-02T09:00:00.000Z") },
       { id: "exam-2", title: "Final", courseId: "course-1", courseName: "Economics", examAt: new Date("2026-10-05T09:00:00.000Z") },
     ], now);
-    expect(sessions).toHaveLength(5);
-    expect(new Set(sessions.map((session) => session.dueAt.toISOString().slice(0, 10))).size).toBe(5);
+    expect(sessions).toHaveLength(7);
+    expect(new Set(sessions.map((session) => session.examId))).toEqual(new Set(["exam-1", "exam-2"]));
     expect(sessions.every((session) => session.dueAt < new Date("2026-10-05T09:00:00.000Z"))).toBe(true);
   });
 });

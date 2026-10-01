@@ -50,9 +50,9 @@ export default function StudentAssignmentHelper({ courseId, lang }: { courseId: 
         </select>
         <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} maxLength={8000} required rows={4} placeholder={tri(lang, "متن تکلیف، معیارهای استاد یا بخش کوتاهی از پیش‌نویس…", "Assignment prompt, rubric, or a short draft excerpt…", "Aufgabenstellung, Bewertungsraster oder kurzer Entwurf…", "Ödev, değerlendirme ölçütü veya kısa taslak bölümü…")} className="w-full rounded-lg p-3 text-sm" style={fieldStyle} />
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "حداقل ۵ اعتبار لازم است؛ هزینهٔ واقعی پس از پاسخ موفق ثبت می‌شود.", "At least 5 credits are required; actual provider usage is charged after a successful answer.", "Mindestens 5 Credits; der tatsächliche Verbrauch wird nach erfolgreicher Antwort berechnet.", "En az 5 kredi gerekir; gerçek kullanım başarılı yanıt sonrası düşülür.")}</span>
+          <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "هزینهٔ هر اجرا حداکثر ۵ اعتبار است؛ عدد واقعی بعد از پاسخ نمایش داده می‌شود.", "Up to 5 credits per run; the actual amount is shown after completion.", "Bis zu 5 Credits pro Anfrage; der tatsächliche Betrag wird nach Abschluss angezeigt.", "Her istek en fazla 5 kredi; gerçek miktar tamamlanınca gösterilir.")}</span>
           <button disabled={busy || !prompt.trim()} className="rounded-lg px-3 py-2 text-sm text-white disabled:opacity-50" style={{ background: "#8b5cf6" }}>
-            {busy ? <><Loader2 size={15} className="inline me-1 animate-spin" />{tri(lang, "در حال بررسی…", "Working…", "Wird geprüft…", "İşleniyor…")}</> : tri(lang, "راهنمایی کن", "Help me learn", "Lernhilfe", "Yardım et")}
+            {busy ? <><Loader2 size={15} className="inline me-1 animate-spin" />{tri(lang, "در حال بررسی…", "Working…", "Wird geprüft…", "İşleniyor…")}</> : <>{tri(lang, "راهنمایی کن", "Help me learn", "Lernhilfe", "Yardım et")} · {tri(lang, "حداکثر ۵ اعتبار", "≤5 credits", "max. 5 Credits", "en fazla 5 kredi")}</>}
           </button>
         </div>
       </form>
@@ -65,6 +65,7 @@ export default function StudentAssignmentHelper({ courseId, lang }: { courseId: 
           </button>
         </div>
         <div className="text-sm leading-7 whitespace-pre-wrap">{answer}</div>
+        <p className="mt-3 border-t pt-2 text-xs" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>{tri(lang, "این پاسخ در یادداشت‌های همین درس ذخیره شد.", "This response was saved in this course’s notes.", "Diese Antwort wurde in den Notizen dieses Kurses gespeichert.", "Bu yanıt bu dersin notlarına kaydedildi.")}</p>
       </div>}
     </section>
   );

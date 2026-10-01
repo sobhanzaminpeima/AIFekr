@@ -34,6 +34,8 @@ model User {
   /// "IRT" | "USD" | "EUR".
   currency                  String?
   avatar                    String?
+  studentPublicSlug         String?   @unique
+  studentProfilePublic      Boolean   @default(false)
   role                      String    @default("USER")
   plan                      String    @default("FREE")
   credits                   Int       @default(100)
@@ -3434,6 +3436,7 @@ model StudentQuiz {
   courseId  String
   title     String
   questions String
+  timeLimitSeconds Int?
   createdAt DateTime @default(now())
   course    StudentCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
   attempts  StudentQuizAttempt[]
@@ -3450,6 +3453,8 @@ model StudentQuizAttempt {
   total       Int
   weakTopics  String?
   completedAt DateTime @default(now())
+  startedAt DateTime?
+  attemptToken String? @unique
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   quiz        StudentQuiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
 

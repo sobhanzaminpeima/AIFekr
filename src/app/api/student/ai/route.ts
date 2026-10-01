@@ -10,6 +10,7 @@ import { rateLimit } from "@/lib/utils/rateLimit";
 import { getServerLang } from "@/lib/i18n/server";
 import type { Provider } from "@/lib/ai/providers";
 import { studentWorkspaceDisabledResponse } from "@/lib/student/access";
+import { sign } from "jsonwebtoken";
 
 const MAX_PROVIDER_COST = 5;
 const MAX_SOURCE_CHARS = 32_000;
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
   if (unavailable) return unavailable;
   const limit = rateLimit(`student-ai:${user.id}`, 12, 60_000);
   if (!limit.allowed) return NextResponse.json({ error: "درخواست‌های هوش مصنوعی زیاد است؛ کمی صبر کنید" }, { status: 429 });
-  let body: { courseId?: string; action?: string; prompt?: string; count?: number };
+  let body: { courseId?: string; action?: string; prompt?: string; count?: number; timeLimitSeconds?: number };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }
   const courseId = body.courseId;
   const action = body.action || "ask";
@@ -66,9 +67,10 @@ export async function POST(req: NextRequest) {
 
     if (action === "ask") {
       const cost = selectedProvider.current?.creditCost ?? provider.creditCost ?? MAX_PROVIDER_COST;
+      const savedNote = await prisma.studentNote.create({ data: { userId: user.id, courseId, title: `AI: ${prompt.slice(0, 170)}`, content: `Question\n${prompt}\n\nAnswer\n${output.trim()}` } });
       const charged = await chargeAndLog(user.id, cost, { type: "chat", model: provider.model, provider: provider.id, metadata: { feature: "student", action } });
-      if (!charged) return NextResponse.json({ error: "اعتبار شما هنگام اجرای درخواست تغییر کرد؛ پاسخ ذخیره نشد" }, { status: 402 });
-      return NextResponse.json({ answer: output.trim(), creditsUsed: cost, provider: provider.name, sources: materials.map((m) => m.title) });
+      if (!charged) { await prisma.studentNote.deleteMany({ where: { id: savedNote.id, userId: user.id } }); return NextResponse.json({ error: "اعتبار شما هنگام اجرای درخواست تغییر کرد؛ پاسخ ذخیره نشد" }, { status: 402 }); }
+      return NextResponse.json({ answer: output.trim(), savedNoteId: savedNote.id, creditsUsed: cost, provider: provider.name, sources: materials.map((m) => m.title) });
     }
 
     const parsed = parseJsonArray(output);
@@ -95,14 +97,21 @@ export async function POST(req: NextRequest) {
     if (questions.length !== requestedCount) return NextResponse.json({ error: "سوال‌های خروجی معتبر نیستند؛ اعتباری کسر نشد" }, { status: 502 });
     const cost = selectedProvider.current?.creditCost ?? provider.creditCost ?? MAX_PROVIDER_COST;
     const quizId = crypto.randomUUID();
-    const result = await prisma.studentQuiz.create({ data: { id: quizId, courseId, title: prompt.slice(0, 120), questions: JSON.stringify(questions) } });
+    const timeLimitSeconds = Number.isInteger(body.timeLimitSeconds) ? Math.max(60, Math.min(7200, body.timeLimitSeconds!)) : null;
+    const result = await prisma.studentQuiz.create({ data: { id: quizId, courseId, title: prompt.slice(0, 120), questions: JSON.stringify(questions), timeLimitSeconds } });
     const charged = await chargeAndLog(user.id, cost, { type: "chat", model: provider.model, provider: provider.id, metadata: { feature: "student", action, count: questions.length } });
     if (!charged) {
       await prisma.studentQuiz.deleteMany({ where: { id: quizId, course: { userId: user.id } } });
       return NextResponse.json({ error: "اعتبار شما هنگام اجرای درخواست تغییر کرد؛ آزمون ذخیره نشد" }, { status: 402 });
     }
-    const safeQuestions = questions.map(({ correctIndex: _correctIndex, ...question }) => question);
-    return NextResponse.json({ quiz: { id: result.id, title: result.title, questions: safeQuestions }, creditsUsed: cost, provider: provider.name });
+    const safeQuestions = questions.map((question) => ({
+      question: question.question,
+      topic: question.topic,
+      explanation: question.explanation,
+      options: question.options,
+    }));
+    const attemptToken = timeLimitSeconds ? sign({ kind: "student_quiz", quizId, userId: user.id }, process.env.JWT_SECRET!, { expiresIn: timeLimitSeconds + 3600 }) : null;
+    return NextResponse.json({ quiz: { id: result.id, title: result.title, timeLimitSeconds: result.timeLimitSeconds, attemptToken, questions: safeQuestions }, creditsUsed: cost, provider: provider.name });
   } catch (error) {
     console.error("student AI failed", error);
     return NextResponse.json({ error: "اجرای درخواست هوش مصنوعی ناموفق بود" }, { status: 502 });

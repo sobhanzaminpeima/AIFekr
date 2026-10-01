@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { looksLikeInjectionAttempt } from "@/lib/ai/promptSafety";
 import { rateLimit } from "@/lib/utils/rateLimit";
 import { studentWorkspaceDisabledResponse } from "@/lib/student/access";
+import { extractPptxText } from "@/lib/student/pptx";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_TEXT = 100_000;
@@ -20,6 +21,9 @@ async function extractText(file: File): Promise<string> {
   if (name.endsWith(".docx") || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
     const mammoth = await import("mammoth");
     return (await mammoth.extractRawText({ buffer: buf })).value || "";
+  }
+  if (name.endsWith(".pptx") || file.type === "application/vnd.openxmlformats-officedocument.presentationml.presentation") {
+    return extractPptxText(buf, MAX_TEXT);
   }
   throw new Error("UNSUPPORTED_TYPE");
 }
@@ -46,12 +50,21 @@ export async function POST(req: NextRequest) {
   if (!limit.allowed) return NextResponse.json({ error: "درخواست‌ها زیاد است؛ کمی بعد دوباره تلاش کنید" }, { status: 429 });
   const declaredLength = Number(req.headers.get("content-length") || 0);
   if (declaredLength > MAX_FILE_BYTES * 1.5) return NextResponse.json({ error: "حجم فایل حداکثر ۱۰ مگابایت است" }, { status: 413 });
-  let form: FormData;
-  try { form = await req.formData(); } catch { return NextResponse.json({ error: "فرم بارگذاری نامعتبر است" }, { status: 400 }); }
-  const courseId = form.get("courseId");
-  const file = form.get("file");
-  const titleField = form.get("title");
-  const textField = form.get("content");
+  let courseId: unknown;
+  let file: unknown;
+  let titleField: unknown;
+  let textField: unknown;
+  try {
+    if (req.headers.get("content-type")?.toLowerCase().includes("multipart/form-data")) {
+      const form = await req.formData();
+      courseId = form.get("courseId"); file = form.get("file"); titleField = form.get("title"); textField = form.get("content");
+    } else {
+      const body: unknown = await req.json();
+      if (!body || typeof body !== "object") throw new Error("invalid body");
+      const value = body as Record<string, unknown>;
+      courseId = value.courseId; titleField = value.title; textField = value.content;
+    }
+  } catch { return NextResponse.json({ error: "اطلاعات جزوه نامعتبر است" }, { status: 400 }); }
   if (typeof courseId !== "string" || !courseId) return NextResponse.json({ error: "درس الزامی است" }, { status: 400 });
   const course = await prisma.studentCourse.findFirst({ where: { id: courseId, userId: user.id }, select: { id: true } });
   if (!course) return NextResponse.json({ error: "درس پیدا نشد" }, { status: 404 });
@@ -61,14 +74,15 @@ export async function POST(req: NextRequest) {
   let source = "text";
   if (file instanceof File) {
     if (file.size > MAX_FILE_BYTES) return NextResponse.json({ error: "حجم فایل حداکثر ۱۰ مگابایت است" }, { status: 413 });
-    if (!/\.pdf$/i.test(file.name) && !/\.docx$/i.test(file.name) && file.type !== "application/pdf" && file.type !== "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
-      return NextResponse.json({ error: "فقط فایل PDF و DOCX پشتیبانی می‌شود" }, { status: 415 });
+    if (!/\.(pdf|docx|pptx)$/i.test(file.name) && !["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.presentationml.presentation"].includes(file.type)) {
+      return NextResponse.json({ error: "فقط فایل PDF، DOCX و PPTX پشتیبانی می‌شود" }, { status: 415 });
     }
     try { content = await extractText(file); } catch (error) {
-      return NextResponse.json({ error: error instanceof Error && error.message === "UNSUPPORTED_TYPE" ? "فقط PDF و DOCX پشتیبانی می‌شود" : "استخراج متن فایل ناموفق بود" }, { status: 422 });
+      if (error instanceof Error && ["TOO_MANY_SLIDES", "PPTX_EXPANDED_LIMIT"].includes(error.message)) return NextResponse.json({ error: error.message === "TOO_MANY_SLIDES" ? "فایل حداکثر می‌تواند ۵۰۰ اسلاید داشته باشد" : "حجم بازشدهٔ محتوای اسلایدها بیش از حد مجاز است" }, { status: 413 });
+      return NextResponse.json({ error: error instanceof Error && error.message === "UNSUPPORTED_TYPE" ? "فقط فایل PDF، DOCX و PPTX پشتیبانی می‌شود" : "استخراج متن فایل ناموفق بود" }, { status: 422 });
     }
     title ||= file.name;
-    source = "file";
+    source = file.name.toLowerCase().endsWith(".pptx") ? "pptx" : "file";
   } else if (typeof textField === "string") {
     content = textField.trim();
   }

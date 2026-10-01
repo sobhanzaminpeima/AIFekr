@@ -5,6 +5,19 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { studentWorkspaceDisabledResponse } from "@/lib/student/access";
 
+export async function GET(req: NextRequest, context: { params: { id: string } }) {
+  const user = await requireAuth(req);
+  if (!user) return unauthorizedResponse();
+  const unavailable = await studentWorkspaceDisabledResponse();
+  if (unavailable) return unavailable;
+  const course = await prisma.studentCourse.findFirst({
+    where: { id: context.params.id, userId: user.id },
+    select: { id: true, name: true },
+  });
+  if (!course) return NextResponse.json({ error: "درس پیدا نشد" }, { status: 404 });
+  return NextResponse.json({ course });
+}
+
 export async function PATCH(req: NextRequest, context: { params: { id: string } }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
