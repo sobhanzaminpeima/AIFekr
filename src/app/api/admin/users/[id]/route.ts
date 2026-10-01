@@ -33,6 +33,19 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 
   const body = await req.json();
+  if (Object.prototype.hasOwnProperty.call(body, "planExpiry")) {
+    if (body.planExpiry === null || body.planExpiry === "") {
+      body.planExpiry = null;
+    } else if (typeof body.planExpiry === "string") {
+      const planExpiry = new Date(body.planExpiry);
+      if (Number.isNaN(planExpiry.getTime())) {
+        return NextResponse.json({ error: "تاریخ انقضا معتبر نیست" }, { status: 400 });
+      }
+      body.planExpiry = planExpiry;
+    } else {
+      return NextResponse.json({ error: "قالب تاریخ انقضا معتبر نیست" }, { status: 400 });
+    }
+  }
   try {
     const user = await updateUserAsAdmin(params.id, body);
     return NextResponse.json({ user });

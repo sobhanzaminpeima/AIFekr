@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, Plus, Sparkles, FileText, CalendarDays, Layers3, ArrowLeft, ArrowRight, GraduationCap, Loader2, Upload, X, Brain, CheckCircle2, Briefcase, LockKeyhole, Pencil, Trash2, MessageCircle, CalendarRange } from "lucide-react";
+import { BookOpen, Plus, Sparkles, FileText, CalendarDays, Layers3, ArrowLeft, ArrowRight, GraduationCap, Loader2, Upload, X, Brain, CheckCircle2, Briefcase, LockKeyhole, Pencil, Trash2, MessageCircle, CalendarRange, Home, ClipboardList, Users, BarChart3, UserRound } from "lucide-react";
 import { useTranslation, tri, type Lang } from "@/lib/i18n";
 import StudentPlanner from "@/components/student/StudentPlanner";
 import StudentAssignmentHelper from "@/components/student/StudentAssignmentHelper";
@@ -80,6 +80,7 @@ export default function StudentWorkspace() {
   const [activeIndustry, setActiveIndustry] = useState(false);
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [calendar, setCalendar] = useState<"persian" | "gregory">(lang === "fa" ? "persian" : "gregory");
+  const [studentView, setStudentView] = useState<"overview" | "courses" | "planner" | "groups" | "reports" | "thesis" | "profile" | "business">("overview");
 
   useEffect(() => {
     const saved = window.localStorage.getItem("student-calendar");
@@ -311,19 +312,51 @@ export default function StudentWorkspace() {
       {error && <div role="alert" className="mb-5 rounded-xl px-4 py-3 text-sm" style={{ background: "rgba(239,68,68,.12)", color: "#dc2626" }}>{error}</div>}
       {notice && <div role="status" className="mb-5 rounded-xl px-4 py-3 text-sm" style={{ background: "rgba(34,197,94,.12)", color: "#15803d" }}>{notice}</div>}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-7">
-        {[
-          { label: t.courses, value: courses.length, icon: BookOpen, color: "#f97316" },
-          { label: tri(lang, "منابع درسی", "Course materials", "Kursmaterial", "Ders kaynakları"), value: courses.reduce((n, c) => n + c._count.materials, 0), icon: FileText, color: "#0ea5e9" },
-          { label: t.notes, value: notes.length, icon: Layers3, color: "#8b5cf6" },
-          { label: t.exams, value: exams.length, icon: CalendarDays, color: "#10b981" },
-        ].map(({ label, value, icon: Icon, color }) => <div key={label} style={{ ...card, padding: 18 }}><Icon size={19} color={color} /><div className="mt-3 text-2xl font-bold">{value}</div><div className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{label}</div></div>)}
-      </div>
+      <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
+        <nav aria-label={tri(lang, "ناوبری فضای دانشجویی", "Student workspace navigation", "Navigation im Lernbereich", "Öğrenci alanı gezintisi")} className="lg:sticky lg:top-24">
+          <div className="flex gap-2 overflow-x-auto rounded-2xl p-2 lg:flex-col lg:overflow-visible" style={{ ...card, padding: 8 }}>
+            {[
+              { id: "overview", label: tri(lang, "نمای کلی", "Overview", "Übersicht", "Genel Bakış"), icon: Home },
+              { id: "courses", label: t.courses, icon: BookOpen },
+              { id: "planner", label: tri(lang, "برنامه و امتحان‌ها", "Planner & exams", "Planer & Prüfungen", "Planlayıcı ve sınavlar"), icon: ClipboardList },
+              { id: "groups", label: tri(lang, "گروه‌های مطالعه", "Study groups", "Lerngruppen", "Çalışma grupları"), icon: Users },
+              { id: "reports", label: tri(lang, "گزارش مطالعه", "Study reports", "Lernberichte", "Çalışma raporları"), icon: BarChart3 },
+              { id: "thesis", label: tri(lang, "پایان‌نامه و تکلیف", "Thesis & assignments", "Abschlussarbeit & Aufgaben", "Tez ve ödevler"), icon: FileText },
+              { id: "profile", label: tri(lang, "پروفایل دانشجو", "Student profile", "Studierendenprofil", "Öğrenci profili"), icon: UserRound },
+              { id: "business", label: tri(lang, "ابزارهای کسب‌وکار", "Business tools", "Unternehmen", "İşletme araçları"), icon: Briefcase },
+            ].map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setStudentView(id as typeof studentView)} aria-current={studentView === id ? "page" : undefined} className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-start text-sm transition-colors lg:w-full" style={{ background: studentView === id ? "rgba(249,115,22,.13)" : "transparent", color: studentView === id ? "#f97316" : "var(--text-secondary)", fontWeight: studentView === id ? 600 : 400 }}><Icon size={17}/><span>{label}</span></button>)}
+            <div className="mx-2 hidden border-t pt-2 text-[11px] lg:block" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>{tri(lang, "فضای شخصی یادگیری", "Personal learning space", "Persönlicher Lernbereich", "Kişisel öğrenme alanı")}</div>
+          </div>
+          <Link href={selectedCourse ? `/student/chat?courseId=${encodeURIComponent(selectedCourse)}` : "/student/chat"} className="mt-3 hidden w-full items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold text-white lg:flex" style={{ background: "#f97316" }}><MessageCircle size={16}/>{tri(lang, "گفتگوی درسی جدید", "New study chat", "Neuer Lernchat", "Yeni çalışma sohbeti")}</Link>
+        </nav>
+        <div className="min-w-0">
+          {studentView === "overview" && <>
+            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+              {[
+                { label: t.courses, value: courses.length, icon: BookOpen, color: "#f97316" },
+                { label: tri(lang, "منابع درسی", "Course materials", "Kursmaterial", "Ders kaynakları"), value: courses.reduce((n, c) => n + c._count.materials, 0), icon: FileText, color: "#0ea5e9" },
+                { label: t.notes, value: notes.length, icon: Layers3, color: "#8b5cf6" },
+                { label: t.exams, value: exams.length, icon: CalendarDays, color: "#10b981" },
+              ].map(({ label, value, icon: Icon, color }) => <div key={label} style={{ ...card, padding: 16 }}><Icon size={19} color={color} /><div className="mt-2 text-2xl font-bold">{value}</div><div className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{label}</div></div>)}
+            </div>
+            <div className="mt-5 grid gap-4 xl:grid-cols-[1.2fr_.8fr]">
+              <section className="rounded-2xl p-5" style={card}><div className="flex items-center justify-between gap-3"><div><h2 className="font-semibold">{tri(lang, "ادامهٔ یادگیری", "Continue learning", "Weiterlernen", "Öğrenmeye devam et")}</h2><p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>{courses.length ? tri(lang, "یک درس را باز کن تا به جزوه، یادداشت و ابزارهای هوشمند آن برسی.", "Open a course to access its materials, notes and study tools.", "Öffne einen Kurs für Materialien, Notizen und Lernwerkzeuge.", "Kaynaklara, notlara ve öğrenme araçlarına ulaşmak için ders aç.") : t.empty}</p></div><button onClick={startNewCourse} className="inline-flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-white" style={{ background: "#f97316" }}><Plus size={16}/>{t.addCourse}</button></div>{courses.slice(0, 4).length > 0 && <div className="mt-4 grid gap-2 sm:grid-cols-2">{courses.slice(0, 4).map((course) => <button key={course.id} onClick={() => { setSelectedCourse(course.id); setStudentView("courses"); }} className="flex items-center justify-between gap-2 rounded-xl p-3 text-start" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}><span className="truncate text-sm font-medium">{course.name}</span><span className="shrink-0 text-xs" style={{ color: "var(--text-secondary)" }}>{course._count.materials} {t.materials}</span></button>)}</div>}</section>
+              <section className="rounded-2xl p-5" style={card}><h2 className="font-semibold">{tri(lang, "نزدیک‌ترین امتحان‌ها", "Upcoming exams", "Nächste Prüfungen", "Yaklaşan sınavlar")}</h2>{exams.length ? <div className="mt-3 space-y-2">{exams.slice(0, 4).map((exam) => <div key={exam.id} className="flex items-center justify-between gap-3 rounded-xl p-3" style={{ background: "var(--surface-1)" }}><div className="min-w-0"><div className="truncate text-sm font-medium">{exam.title}</div><div className="text-xs" style={{ color: "var(--text-secondary)" }}>{exam.course.name}</div></div><span className="shrink-0 text-xs" style={{ color: exam.course.color }}>{dateLabel(exam.examAt, lang, calendar)}</span></div>)}</div> : <p className="mt-3 text-sm" style={{ color: "var(--text-secondary)" }}>{tri(lang, "امتحانی ثبت نشده است.", "No exams scheduled.", "Keine Prüfungen geplant.", "Planlanmış sınav yok.")}</p>}</section>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[
+              { id: "planner", icon: ClipboardList, label: tri(lang, "برنامهٔ مطالعه", "Study planner", "Lernplan", "Çalışma planı") },
+              { id: "groups", icon: Users, label: tri(lang, "همکاری با گروه", "Study together", "Gemeinsam lernen", "Birlikte çalış") },
+              { id: "reports", icon: BarChart3, label: tri(lang, "زمان‌سنج و گزارش", "Timer & reports", "Timer & Berichte", "Sayaç ve raporlar") },
+              { id: "thesis", icon: Sparkles, label: tri(lang, "دستیار تکلیف و پایان‌نامه", "Thesis & assignment AI", "KI für Aufgaben", "Tez ve ödev asistanı") },
+            ].map(({ id, icon: Icon, label }) => <button key={id} onClick={() => setStudentView(id as typeof studentView)} className="flex items-center gap-3 rounded-xl p-4 text-start text-sm font-medium" style={card}><Icon size={18} color="#f97316"/>{label}<ArrowRight size={15} className="ms-auto"/></button>)}</div>
+          </>}
 
-      <StudentProfileCard lang={lang} />
-      <StudentPlanner courses={courses.map(({ id, name }) => ({ id, name }))} exams={exams} lang={lang} calendar={calendar} />
-
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.5fr)_minmax(300px,.8fr)] gap-6 items-start">
+          {studentView === "profile" && <StudentProfileCard lang={lang} />}
+          {studentView === "planner" && <StudentPlanner courses={courses.map(({ id, name }) => ({ id, name }))} exams={exams} lang={lang} calendar={calendar} />}
+          {studentView === "groups" && <StudentStudyGroups lang={lang} courses={courses.map(({ id, name }) => ({ id, name }))} />}
+          {studentView === "reports" && <StudentStudyReport courses={courses.map(({ id, name }) => ({ id, name }))} lang={lang} calendar={calendar} />}
+          {studentView === "thesis" && <StudentThesisAssistant courses={courses.map(({ id, name }) => ({ id, name }))} lang={lang} />}
+          {studentView === "courses" && <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,.8fr)] xl:items-start">
         <section>
           <div className="flex items-center justify-between mb-4"><h2 className="text-xl font-semibold">{t.courses}</h2><button onClick={startNewCourse} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white" style={{ background: "#f97316" }}><Plus size={17} />{t.addCourse}</button></div>
           {loading ? <div className="py-16 text-center" style={{ color: "var(--text-secondary)" }}><Loader2 className="animate-spin inline" /> <span className="ms-2">{t.loading}</span></div> : courses.length === 0 ? <div style={{ ...card, padding: 36, textAlign: "center" }}><BookOpen size={34} color="#f97316" className="mx-auto mb-3"/><div className="font-medium">{t.empty}</div><button className="mt-4 rounded-xl px-4 py-2 text-white" style={{ background: "#f97316" }} onClick={startNewCourse}>{t.addCourse}</button></div> : <div className="grid sm:grid-cols-2 gap-4">
@@ -353,12 +386,9 @@ export default function StudentWorkspace() {
             {tab === "exams" ? <div className="p-4">{exams.length === 0 ? <p className="text-sm py-5 text-center" style={{ color: "var(--text-secondary)" }}>{tri(lang, "امتحانی ثبت نشده", "No exams scheduled", "Keine Prüfung geplant", "Sınav planlanmadı")}</p> : exams.map((exam) => <div key={exam.id} className="flex gap-3 py-3 border-b last:border-0" style={{ borderColor: "var(--border)" }}><div className="rounded-lg px-2 py-1 text-center text-xs" style={{ background: `${exam.course.color}18`, color: exam.course.color }}>{dateLabel(exam.examAt, lang, calendar)}</div><div><div className="text-sm font-medium">{exam.title}</div><div className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{exam.course.name}</div></div></div>)}</div> : <div className="p-4">{notes.length === 0 ? <p className="text-sm py-5 text-center" style={{ color: "var(--text-secondary)" }}>{tri(lang, "یادداشتی ثبت نشده", "No notes yet", "Noch keine Notizen", "Henüz not yok")}</p> : notes.slice(0, 8).map((note) => <button key={note.id} onClick={() => setSelectedCourse(note.course.id)} className="block w-full text-start py-3 border-b last:border-0" style={{ borderColor: "var(--border)" }}><div className="text-sm font-medium truncate">{note.title}</div><div className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{note.course.name} · {dateLabel(note.updatedAt, lang, calendar)}</div></button>)}</div>}</div>
           <div className="mt-4 rounded-2xl p-5" style={{ background: "linear-gradient(140deg,rgba(249,115,22,.15),rgba(139,92,246,.1))", border: "1px solid rgba(249,115,22,.18)" }}><div className="font-semibold flex items-center gap-2"><Sparkles size={17} color="#f97316"/>{tri(lang, "یادگیری متکی به منبع", "Grounded study AI", "Quellenbasiertes Lernen", "Kaynak temelli öğrenme")}</div><p className="text-sm leading-6 mt-2" style={{ color: "var(--text-secondary)" }}>{tri(lang, "پاسخ‌ها، فلش‌کارت‌ها و آزمون‌ها از جزوه‌های خودت ساخته می‌شوند. اگر پاسخ در منابع نباشد، دستیار باید این محدودیت را بگوید.", "Answers, cards and quizzes are generated from your own materials. If the sources do not support an answer, the assistant should say so.", "Antworten, Karten und Tests basieren auf deinen Materialien. Fehlt die Information, weist der Assistent darauf hin.", "Yanıtlar ve testler kendi kaynaklarından üretilir. Bilgi kaynaklarda yoksa asistan bunu belirtir.")}</p></div>
         </aside>
-      </div>
+      </div>}
 
-      <StudentStudyGroups lang={lang} />
-      <StudentStudyReport courses={courses.map(({ id, name }) => ({ id, name }))} lang={lang} calendar={calendar} />
-      <StudentThesisAssistant courses={courses.map(({ id, name }) => ({ id, name }))} lang={lang} />
-      <section id="business-upgrade" className="mt-7 rounded-2xl p-5 md:p-6" style={{ background: "linear-gradient(135deg,rgba(59,130,246,.11),rgba(249,115,22,.1))", border: "1px solid rgba(59,130,246,.24)" }}>
+          {studentView === "business" && <section id="business-upgrade" className="rounded-2xl p-5 md:p-6" style={{ background: "linear-gradient(135deg,rgba(59,130,246,.11),rgba(249,115,22,.1))", border: "1px solid rgba(59,130,246,.24)" }}>
         <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={{ background: "rgba(59,130,246,.15)", color: "#3b82f6" }}>{crmActive ? <Briefcase size={19}/> : <LockKeyhole size={19}/>}</span><div><h2 className="font-semibold">{tri(lang, "دانشجو هستی و بیزنس هم داری؟", "A student with a business too?", "Studierst du und hast ein Unternehmen?", "Öğrenci misin, işletmen de mi var?")}</h2><p className="mt-1 text-sm leading-6" style={{ color: "var(--text-secondary)" }}>{tri(lang, "اگر کسب‌وکار هم داری، ابزارهای CRM و ایجنت‌های تخصصی را به‌صورت افزونه فعال کن. تا آن زمان این بخش جدا از فضای دانشجویی می‌ماند.", "If you also run a business, activate CRM and specialist agents as an add-on. Until then, business tools stay separate from your study workspace.", "Wenn du zusätzlich ein Unternehmen führst, aktiviere CRM und Fachagenten als Add-on. Bis dahin bleiben die Business-Tools getrennt.", "İşletmen de varsa CRM ve uzman ajanları eklenti olarak etkinleştir. O zamana kadar işletme araçları öğrenci alanından ayrı kalır.")}</p></div></div>
         {crmActive ? <div className="mt-4 rounded-xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}><p className="text-sm font-medium" style={{ color: "#16a34a" }}>{activeIndustry ? tri(lang, "دسترسی بیزنسی و صنعت انتخابی فعال است.", "Business access and an industry are active.", "Businesszugang und Branche sind aktiv.", "İşletme erişimi ve sektör etkin.") : tri(lang, "CRM فعال است؛ یک صنعت انتخاب کن تا ابزارهای مرتبط در منو ظاهر شوند.", "CRM is active. Choose a business industry to reveal its tools.", "CRM ist aktiv. Wähle eine Branche für passende Tools.", "CRM etkin. İlgili araçlar için sektör seç.")}</p>{!activeIndustry && <Link href="/industry" className="mt-3 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-white" style={{ background: "#3b82f6" }}>{tri(lang, "انتخاب صنعت کسب‌وکار", "Choose business industry", "Branche auswählen", "İşletme sektörünü seç")}<ArrowRight size={15}/></Link>}</div> : <>
           <div className="mt-4 flex flex-wrap gap-2">{(["monthly", "quarterly", "semiannual", "annual"] as const).map((period) => <button key={period} onClick={() => setBillingPeriod(period)} className="rounded-lg px-3 py-1.5 text-xs" style={{ background: billingPeriod === period ? "#3b82f6" : "var(--surface-1)", color: billingPeriod === period ? "#fff" : "var(--text-secondary)", border: "1px solid var(--border)" }}>{period === "monthly" ? tri(lang, "ماهانه", "Monthly", "Monatlich", "Aylık") : period === "quarterly" ? tri(lang, "۳ ماهه", "3 months", "3 Monate", "3 ay") : period === "semiannual" ? tri(lang, "۶ ماهه", "6 months", "6 Monate", "6 ay") : tri(lang, "سالانه", "Annual", "Jährlich", "Yıllık")}</button>)}</div>
@@ -373,7 +403,9 @@ export default function StudentWorkspace() {
           {!businessPackages.length && <p className="mt-4 text-sm" style={{ color: "var(--text-secondary)" }}>{tri(lang, "پلن CRM هنوز در پکیج‌های فعال ادمین تعریف نشده است.", "No active CRM add-on is configured in Admin → Packages.", "Im Admin sind keine aktiven CRM-Tarife konfiguriert.", "Yönetici paketlerinde etkin CRM planı tanımlı değil.")}</p>}
         </>}
         <div className="mt-3 text-xs" style={{ color: "var(--text-secondary)" }}>{tri(lang, "پس از پرداخت موفق، منوی کسب‌وکار در پورتال ظاهر می‌شود؛ فعال‌سازی صنعت نیازمند CRM فعال است.", "After payment succeeds, business navigation appears in your portal. Industry activation requires active CRM.", "Nach erfolgreicher Zahlung erscheint die Business-Navigation. Eine Branche setzt aktives CRM voraus.", "Ödeme başarıyla tamamlanınca işletme menüsü görünür. Sektör için CRM etkin olmalı.")}</div>
-      </section>
+          </section>}
+        </div>
+      </div>
     </div>
 
     {showCourse && <Modal title={editingCourse ? tri(lang, "ویرایش درس", "Edit course", "Kurs bearbeiten", "Dersi düzenle") : t.addCourse} onClose={() => setShowCourse(false)}><form onSubmit={saveCourse} className="space-y-3"><Field label={tri(lang, "نام درس", "Course name", "Kursname", "Ders adı")} value={courseForm.name} onChange={(name) => setCourseForm((form) => ({ ...form, name }))} required autoFocus/><Field label={tri(lang, "کد درس", "Course code", "Kursnummer", "Ders kodu")} value={courseForm.courseCode} onChange={(courseCode) => setCourseForm((form) => ({ ...form, courseCode }))}/><Field label={tri(lang, "دانشگاه / دپارتمان", "University / department", "Universität / Fachbereich", "Üniversite / bölüm")} value={courseForm.institution} onChange={(institution) => setCourseForm((form) => ({ ...form, institution }))}/><div className="grid sm:grid-cols-2 gap-3"><Field label={tri(lang, "ترم", "Term", "Semester", "Dönem")} value={courseForm.term} onChange={(term) => setCourseForm((form) => ({ ...form, term }))}/><Field label={tri(lang, "استاد", "Instructor", "Dozent/in", "Eğitmen")} value={courseForm.instructor} onChange={(instructor) => setCourseForm((form) => ({ ...form, instructor }))}/></div><label className="block text-sm">{tri(lang, "توضیحات", "Description", "Beschreibung", "Açıklama")}<textarea value={courseForm.description} onChange={(e) => setCourseForm((form) => ({ ...form, description: e.target.value }))} rows={3} maxLength={2000} className="w-full rounded-xl p-3 mt-2 text-sm" style={{ background: "var(--surface-0)", border: "1px solid var(--border)" }}/></label><button disabled={busy} className="w-full rounded-xl p-3 text-white" style={{ background: "#f97316" }}>{busy ? t.loading : t.save}</button></form></Modal>}

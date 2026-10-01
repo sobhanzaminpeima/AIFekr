@@ -44,7 +44,7 @@ interface UserDetail {
   role: string;
   plan: string;
   credits: number;
-  planExpiry?: string;
+  planExpiry?: string | null;
   isBlocked: boolean;
   createdAt: string;
   lastLoginAt?: string;
@@ -68,8 +68,15 @@ interface ModuleRow {
 const PLAN_BADGE: Record<string, { label: string; color: string }> = {
   FREE: { label: "رایگان", color: "#71717a" },
   BASIC: { label: "پایه", color: "#3b82f6" },
+  ECHO: { label: "اکو", color: "#0ea5e9" },
+  PLUS: { label: "پلاس", color: "#6366f1" },
   PRO: { label: "حرفه‌ای", color: "#ea580c" },
+  ALPHA: { label: "آلفا", color: "#a855f7" },
   TEAM: { label: "تیمی", color: "#8b5cf6" },
+  STARTER_USD: { label: "Starter", color: "#3b82f6" },
+  PLUS_USD: { label: "Plus", color: "#6366f1" },
+  PRO_USD: { label: "Pro", color: "#ea580c" },
+  ULTRA_USD: { label: "Ultra", color: "#a855f7" },
 };
 
 const CRM_PLAN_LABEL: Record<string, { label: string; color: string }> = {
@@ -84,6 +91,13 @@ const PAYMENT_STATUS: Record<string, { label: string; color: string }> = {
   FAILED: { label: "ناموفق", color: "#ef4444" },
 };
 
+function toLocalDateTimeInput(value?: string | null): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
+
 export default function AdminUserDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -92,6 +106,8 @@ export default function AdminUserDetailPage() {
   const [loading, setLoading] = useState(true);
   const [commissionInput, setCommissionInput] = useState("");
   const [savingCommission, setSavingCommission] = useState(false);
+  const [planExpiryInput, setPlanExpiryInput] = useState("");
+  const [savingPlanExpiry, setSavingPlanExpiry] = useState(false);
   const [profileForm, setProfileForm] = useState({ firstName: "", lastName: "", country: "", currency: "", phone: "" });
   const [savingProfile, setSavingProfile] = useState(false);
   const [modules, setModules] = useState<ModuleRow[] | null>(null);
@@ -104,6 +120,7 @@ export default function AdminUserDetailPage() {
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "خطا در بارگذاری"); return; }
       setUser(data.user);
+      setPlanExpiryInput(toLocalDateTimeInput(data.user.planExpiry));
       setCommissionInput(data.user.commissionPercentOverride != null ? String(data.user.commissionPercentOverride) : "");
       setProfileForm({
         firstName: data.user.firstName || "",
@@ -164,6 +181,31 @@ export default function AdminUserDetailPage() {
       load();
     } finally {
       setSavingProfile(false);
+    }
+  }
+
+  async function savePlanExpiry() {
+    if (!user) return;
+    if (planExpiryInput && Number.isNaN(new Date(planExpiryInput).getTime())) {
+      toast.error("تاریخ انقضا معتبر نیست");
+      return;
+    }
+    if (!planExpiryInput && user.plan !== "FREE" && !window.confirm("تاریخ خالی یعنی پلن بدون انقضا و دسترسی نامحدود. ادامه می‌دهید؟")) return;
+
+    setSavingPlanExpiry(true);
+    try {
+      const planExpiry = planExpiryInput ? new Date(planExpiryInput).toISOString() : null;
+      const res = await fetch(`/api/admin/users/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planExpiry }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) { toast.error(data?.error || "خطا در ذخیره تاریخ انقضا"); return; }
+      toast.success("تاریخ انقضای پلن ذخیره شد");
+      await load();
+    } finally {
+      setSavingPlanExpiry(false);
     }
   }
 
@@ -263,6 +305,35 @@ export default function AdminUserDetailPage() {
           {user.isBlocked ? <UserCheck className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
           {user.isBlocked ? "آزادسازی کاربر" : "مسدودسازی کاربر"}
         </button>
+      </div>
+
+      {/* General AI-plan expiration is separate from CRM and industry access. */}
+      <div className="rounded-2xl p-5 space-y-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>پلن هوش مصنوعی و زمان انقضا</span>
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>پلن فعلی: {PLAN_BADGE[user.plan]?.label || user.plan}{user.planExpiry ? ` · انقضا: ${toJalali(user.planExpiry)}` : " · بدون تاریخ انقضا"}</p>
+          </div>
+          {user.plan !== "FREE" && (
+            <span className="px-2.5 py-1 rounded-full text-xs font-medium" style={{
+              background: !user.planExpiry ? "rgba(59,130,246,0.12)" : new Date(user.planExpiry).getTime() < Date.now() ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.12)",
+              color: !user.planExpiry ? "#3b82f6" : new Date(user.planExpiry).getTime() < Date.now() ? "#ef4444" : "#22c55e",
+            }}>
+              {!user.planExpiry ? "بدون انقضا" : new Date(user.planExpiry).getTime() < Date.now() ? "منقضی‌شده" : "فعال"}
+            </span>
+          )}
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+          <div className="flex-1">
+            <label htmlFor="user-plan-expiry" className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>تاریخ و ساعت انقضا (زمان محلی مرورگر)</label>
+            <input id="user-plan-expiry" type="datetime-local" value={planExpiryInput} onChange={(e) => setPlanExpiryInput(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          </div>
+          <button onClick={savePlanExpiry} disabled={savingPlanExpiry}
+            className="px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+            {savingPlanExpiry ? "در حال ذخیره..." : "ذخیره تاریخ انقضا"}
+          </button>
+        </div>
       </div>
 
       {/* Profile info — name split, country, display currency */}

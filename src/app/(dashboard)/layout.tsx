@@ -9,9 +9,11 @@ import MobileNavShell from "@/components/layout/MobileNavShell";
 import FloatingSupportWidget from "@/components/support/FloatingSupportWidget";
 import SessionWatchdog from "@/components/layout/SessionWatchdog";
 import TrialBanner from "@/components/layout/TrialBanner";
+import StudentTimerDock from "@/components/student/StudentTimerDock";
 import { getServerLang } from "@/lib/i18n/server";
 import { bizScope } from "@/lib/accounting/scope";
 import { isStudentWorkspaceEnabled } from "@/lib/student/access";
+import { shouldShowTrialBanner } from "@/lib/subscriptions/trialBanner";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
@@ -31,7 +33,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { id: true, name: true, credits: true, plan: true, isBlocked: true, industryPackId: true, crmPlan: true, crmPlanExpiry: true, onboardingDone: true, trialEndsAt: true, trialLimited: true, activeBusinessId: true },
+    select: { id: true, name: true, credits: true, plan: true, planExpiry: true, isBlocked: true, industryPackId: true, crmPlan: true, crmPlanExpiry: true, onboardingDone: true, trialEndsAt: true, trialLimited: true, activeBusinessId: true },
   });
 
   if (!user || user.isBlocked) redirect("/login");
@@ -48,6 +50,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   });
   const displayCredits = teamMembership?.team.credits ?? user.credits;
   const studentWorkspaceEnabled = await isStudentWorkspaceEnabled(user);
+  const showTrialBanner = shouldShowTrialBanner({ trialEndsAt: user.trialEndsAt, plan: user.plan, planExpiry: user.planExpiry });
 
   // tool: "support" tags the floating support assistant's own conversations
   // (see src/lib/orchestrator/support -- same reuse-Conversation/Message
@@ -75,9 +78,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
           />
         }
       >
-        {user.trialEndsAt && <TrialBanner lang={lang} trialEndsAt={user.trialEndsAt.toISOString()} trialLimited={user.trialLimited} />}
+        {showTrialBanner && user.trialEndsAt && <TrialBanner lang={lang} trialEndsAt={user.trialEndsAt.toISOString()} trialLimited={user.trialLimited} />}
         {children}
       </MobileNavShell>
+      {studentWorkspaceEnabled && <StudentTimerDock lang={lang} />}
       {/* Dashboard-only by design (Phase 1 decision) -- admin pages are on the
           orchestrator's DENY list anyway, and the public/marketing site has no
           session and a different threat model. */}

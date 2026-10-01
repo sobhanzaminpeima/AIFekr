@@ -3386,6 +3386,7 @@ model StudentCourse {
   exams       StudentExam[]
   tasks       StudentTask[]
   studySessions StudentStudySession[]
+  studyGroups StudentStudyGroup[]
 
   @@index([userId, updatedAt])
 }
@@ -3514,6 +3515,9 @@ model StudentStudySession {
   endedAt        DateTime?
   durationSeconds Int      @default(0)
   activeUserKey  String?   @unique
+  pausedAt       DateTime?
+  lastResumedAt  DateTime?
+  pauseHistory   String    @default("[]")
   createdAt      DateTime  @default(now())
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   course         StudentCourse? @relation(fields: [courseId], references: [id], onDelete: SetNull)
@@ -3529,10 +3533,13 @@ model StudentStudyGroup {
   name       String
   inviteCode String   @unique
   ownerId    String
+  courseId   String?
   createdAt  DateTime @default(now())
   owner      User     @relation("StudentStudyGroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  course     StudentCourse? @relation(fields: [courseId], references: [id], onDelete: SetNull)
   members    StudentStudyGroupMember[]
   messages   StudentStudyGroupMessage[]
+  @@index([courseId, createdAt])
   @@index([ownerId, createdAt])
 }
 

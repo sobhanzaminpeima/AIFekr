@@ -153,6 +153,7 @@ A full growth toolkit built on Meta's **Instagram API with Instagram Login** (`s
 
 ### ⚙️ Admin Panel
 - User management, conversation logs, credit top-ups
+- Per-user AI plan expiry management (including clearing an expiry for an intentionally unlimited plan)
 - Industry pack management
 - Site settings with DB persistence (name, currency, language, email)
 - Role-based access: ADMIN, SUPER_ADMIN
@@ -358,6 +359,21 @@ DATABASE_URL="file:/var/www/ai-platform/prisma/prod.db"
 JWT_SECRET="your-strong-256-bit-secret"
 ANTHROPIC_API_KEY="sk-ant-..."
 ```
+
+### Student workspace
+
+The `/student` workspace includes a persistent study timer that stays available
+while navigating the signed-in dashboard. Pauses and resumes are recorded with
+the study session and included in study reports. Study groups can optionally be
+associated with one of the student's own courses. The planner accepts exam and
+task dates using a locale-aware date input. See
+[`docs/student-module-status.md`](docs/student-module-status.md) for the module
+scope, migration, and verification details.
+
+The current student schema change is additive and lives in
+`prisma/migrations/20261003_student_timer_pauses_and_group_course/`. Back up the
+production database before applying it, and use the repository's deployment
+procedure against the production database URL rather than a developer database.
 
 ---
 
