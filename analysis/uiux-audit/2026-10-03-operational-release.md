@@ -31,4 +31,10 @@ The deployment script now seeds missing business bundles, uses a consistent onli
 
 JARVIS classification: browser-safe pricing/checkout/account capabilities on AIFekr. JARVIS is a separate repository/server process; its frontend and SSO permissions are not silently modified by this release.
 
-Production deployment needs an SSH account, project path and usable authentication method. No configured local SSH key/config was discovered. These were requested from the user while completing implementation and tests. Server-wide integrations, actual banking, outbound communications, paid provider generation and real production approval are not falsely reported as tested. After deployment, verify the actual domain, package rows, bank settings, private noindex, locale canonicals/sitemap, PM2 status and logs; submit/monitor Search Console separately.
+Production deployment completed on 2026-10-03 using the user-provided server access. Source commit a8d7d61 was built successfully on Linux in /var/www/aifekr-release-a8d7d61, tested on localhost port 3001, then activated as the existing ai-platform PM2 service on port 3000. PM2 reports online with zero restarts, and its process list was saved. The separate JARVIS services remained online and unchanged.
+
+The previous release and an online SQLite backup at /var/www/aifekr-db-backup-a8d7d61.db were preserved. Existing production configuration was copied privately. The schema and dependency lock matched the prior release, so no database migration was needed. Requested TRY/EUR bank settings were applied and missing business packages were seeded without replacing existing pricing or payment snapshots. Payment receipts remain in the shared production database.
+
+Live HTTPS checks returned 200 for the landing, pricing in all four languages, robots.txt and sitemap.xml. The packages API contains the new business bundles; unauthenticated receipt access returns 401. Browser verification on https://aifekr.com/pricing shows the new three bundles and term controls with no captured console errors. GitHub publication remains pending renewed account authentication; the earlier device code expired.
+
+Actual banking, outbound communications, paid provider generation and real production payment approval were not executed. Search Console submission and live external-provider certification remain separate work.
