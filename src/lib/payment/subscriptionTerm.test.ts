@@ -16,4 +16,7 @@ describe("subscription terms", () => {
   it("does not multiply one-time credit purchases", () => {
     expect(subscriptionTerm("CREDITS_test", "semiannual", 30)).toEqual({ months: 1, discount: 0, priceMultiplier: 1, days: 30 });
   });
+  it("charges the three-month offer once and grants 90 days", () => {
+    expect(subscriptionTerm("STUDENT_FIRST_THREE_MONTHS", "monthly", 90)).toEqual({months:3,discount:0,priceMultiplier:1,days:90});
+  });
 });

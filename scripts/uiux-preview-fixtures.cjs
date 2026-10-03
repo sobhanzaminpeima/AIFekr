@@ -16,8 +16,8 @@ async function main() {
   for (const [planCode, name, nameEn, priceUsd, credits] of [
     ["FREE", "رایگان", "Free", 0, 100], ["TEAM_STARTER", "تیم استارتر", "Team Starter", 2900, 1500], ["TEAM_GROWTH", "تیم رشد", "Team Growth", 7900, 5000],
     ["CRM_SOLO", "مدیریت مشتری فردی", "CRM Solo", 1900, 0], ["CRM_TEAM", "مدیریت مشتری تیمی", "CRM Team", 4900, 0],
-    ["STUDENT_FIRST_TWO_MONTHS", "آفر اولین اشتراک", "Student welcome offer", 8000, 1500], ["STUDENT_MONTHLY", "اشتراک دانشجویی", "Student subscription", 8000, 1500],
-  ]) await db.package.upsert({ where: { planCode }, update: {}, create: { planCode, name, nameEn, priceUsd, price: priceUsd * 1000, credits, market: "BOTH", duration: planCode === "STUDENT_FIRST_TWO_MONTHS" ? 60 : 30, features: JSON.stringify(features), featuresEn: JSON.stringify(english), isFeatured: planCode === "TEAM_GROWTH", teamSeatLimit: 5, crmSeatLimit: 5 } });
+    ["STUDENT_FIRST_THREE_MONTHS", "آفر اولین اشتراک", "Student welcome offer", 8000, 1500], ["STUDENT_MONTHLY", "اشتراک دانشجویی", "Student subscription", 8000, 1500],
+  ]) await db.package.upsert({ where: { planCode }, update: {}, create: { planCode, name, nameEn, priceUsd, price: priceUsd * 1000, credits, market: "BOTH", duration: planCode === "STUDENT_FIRST_THREE_MONTHS" ? 90 : 30, features: JSON.stringify(features), featuresEn: JSON.stringify(english), isFeatured: planCode === "TEAM_GROWTH", teamSeatLimit: 5, crmSeatLimit: 5 } });
   for (const [key, value] of [["default_language", "fa"], ["bank_iban", "GB82WEST12345698765432"], ["bank_holder", "AIFEKR PREVIEW - TEST ONLY"], ["bank_currency", "TRY"], ["bank_iban_eur", "GB82WEST12345698765432"]]) {
     await db.siteSetting.upsert({ where: { key }, update: { value }, create: { key, value } });
   }

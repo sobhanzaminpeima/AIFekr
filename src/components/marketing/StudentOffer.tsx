@@ -1,7 +1,7 @@
 "use client";
 import Link from "@/components/marketing/PublicLink";
 import { Check, GraduationCap } from "lucide-react";
-import { STUDENT_PLAN_CODE, STUDENT_MONTHLY_CODE, studentOfferCopy } from "@/lib/plans/studentOffer";
+import { STUDENT_PLAN_CODE, STUDENT_MONTHLY_CODE, STUDENT_OFFER, studentOfferCopy } from "@/lib/plans/studentOffer";
 import type { Lang } from "@/lib/i18n/server";
 
 export type StudentPackage = { planCode: string; price: number; priceUsd: number | null; credits: number; usdToTry?: number; rateDate?: string; isFallback?: boolean };
@@ -14,7 +14,7 @@ export default function StudentOffer({ lang, plan, onBuy, busy }: { lang: Lang; 
   const amount = currency === "IRT" ? plan.price / 10 : currency === "TRY" ? (plan.priceUsd ?? 0) / 100 * (plan.usdToTry ?? 49.123297) : (plan.priceUsd ?? 0) / 100;
   return <section className="student-offer my-6 rounded-2xl border p-5 sm:p-6" style={{ borderColor: "var(--border)", background: "var(--surface-1, #16181d)", color: "var(--text-primary, #f4f5f8)" }} aria-label={c.title}>
     <div className="flex flex-wrap items-center justify-between gap-4"><h2 className="flex items-center gap-2 text-2xl font-bold"><GraduationCap aria-hidden size={28}/>{c.title}</h2></div>
-    <div className="my-4 flex flex-wrap items-baseline gap-4"><strong className="text-3xl">{fmt(amount, currency)}</strong></div>
+    <div className="my-4 flex flex-wrap items-baseline gap-4" dir="ltr">{introductory && <del className="text-xl" style={{ color: "var(--text-muted)" }} aria-label={({fa:"قیمت عادی سه ماه",en:"Regular three-month price",de:"Regulärer Dreimonatspreis",tr:"Normal üç aylık fiyat"})[lang]}>{fmt(STUDENT_OFFER.originalUsdPrice, "USD")}</del>}<strong className="text-3xl">{fmt((plan.priceUsd ?? 0) / 100, "USD")}</strong></div>
     <p>{introductory ? c.period : ({fa:"اشتراک عادی: ماهانه ۸۰ دلار",en:"Regular subscription: $80/month",de:"Reguläres Abo: 80 USD/Monat",tr:"Normal abonelik: 80 USD/ay"})[lang]}</p>
     <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm" dir="ltr"><span>TRY: {fmt((plan.priceUsd ?? 0) / 100 * (plan.usdToTry ?? 49.123297), "TRY")}</span><span>USD: {plan.priceUsd == null ? "—" : fmt(plan.priceUsd / 100, "USD")}</span><span>{fmt(plan.price / 10, "IRT")}</span></div>
     <ul className="my-4 grid gap-3 sm:grid-cols-2">{c.features.slice(0,4).map(f => <li key={f} className="flex items-start gap-2 text-sm"><Check size={17} className="shrink-0 text-orange-500" aria-hidden/><span>{f}</span></li>)}</ul>

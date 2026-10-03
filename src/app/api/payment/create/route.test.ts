@@ -28,6 +28,22 @@ beforeEach(() => {
   mocks.create.mockResolvedValue({ id: "new-payment" });
 });
 describe("bank checkout period selection", () => {
+  it("charges only 80 USD for the new 90-day student offer", async () => {
+    expect((await POST(request("STUDENT_FIRST_THREE_MONTHS", "monthly", "EUR"))).status).toBe(200);
+    const data = mocks.create.mock.calls[0][0].data;
+    expect(data.transferMinor).toBe(7200);
+    expect(data.periodMonths).toBe(3);
+    expect(JSON.parse(data.entitlementSnapshot)).toMatchObject({days:90,credits:1000});
+  });
+  it("does not multiply the fixed student offer by another billing period", async () => {
+    expect((await POST(request("STUDENT_FIRST_THREE_MONTHS", "quarterly"))).status).toBe(400);
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+  it("does not grant another welcome offer after a historical student purchase", async () => {
+    mocks.findPending.mockResolvedValueOnce(null).mockResolvedValueOnce({id:"historical-student-payment"});
+    expect((await POST(request("STUDENT_FIRST_THREE_MONTHS", "monthly"))).status).toBe(409);
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
   it("rejects null JSON and unsupported currencies without creating an order", async () => {
     const req=new NextRequest("http://localhost/api/payment/create",{method:"POST",body:"null"});
     expect((await POST(req)).status).toBe(400);

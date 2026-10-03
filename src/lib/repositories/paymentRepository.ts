@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import type { Payment, User } from "@prisma/client";
-import { STUDENT_PLAN_CODE, STUDENT_MONTHLY_CODE } from "@/lib/plans/studentOffer";
+import { STUDENT_PLAN_CODE, STUDENT_MONTHLY_CODE, isStudentIntroPlan, STUDENT_OFFER } from "@/lib/plans/studentOffer";
 
 /**
  * Centralizes Payment reads/writes and the plan-activation transaction that
@@ -9,7 +9,7 @@ import { STUDENT_PLAN_CODE, STUDENT_MONTHLY_CODE } from "@/lib/plans/studentOffe
  */
 
 export function createPendingPayment(data: { userId: string; amount: number; plan: string; gateway: string; walletDiscountToman?: number; periodMonths?: number }) {
-  if (data.plan === STUDENT_PLAN_CODE) return prisma.$transaction(async tx => {
+  if (isStudentIntroPlan(data.plan)) return prisma.$transaction(async tx => {
     const prior = await tx.payment.findFirst({ where: { userId: data.userId, plan: { startsWith: "STUDENT_" }, status: { in: ["PENDING", "SUCCESS"] } }, select: { id: true } });
     if (prior) throw new Error("STUDENT_OFFER_ALREADY_USED");
     return tx.payment.create({ data: { ...data, status: "PENDING" } });
@@ -44,9 +44,10 @@ export async function activatePlanForPayment(
   const expiry = new Date();
   expiry.setDate(expiry.getDate() + (planInfo?.days || 30) * Math.max(1, payment.periodMonths ?? 1));
 
-  if ([STUDENT_PLAN_CODE, STUDENT_MONTHLY_CODE].includes(payment.plan)) {
+  if (isStudentIntroPlan(payment.plan) || payment.plan === STUDENT_MONTHLY_CODE) {
     // Student packages grant their stored credits once for the purchased term.
-    expiry.setTime(Date.now() + (payment.plan === STUDENT_PLAN_CODE ? 60 : 30) * 24 * 60 * 60 * 1000);
+    const days = payment.plan === STUDENT_PLAN_CODE ? STUDENT_OFFER.days : isStudentIntroPlan(payment.plan) ? 60 : 30 * Math.max(1, payment.periodMonths ?? 1);
+    expiry.setTime(Date.now() + days * 24 * 60 * 60 * 1000);
     return prisma.$transaction(async tx => {
       const claimed = await tx.payment.updateMany({ where: { id: payment.id, status: "PENDING" }, data: { status: "SUCCESS", refId, authority } });
       if (!claimed.count) {

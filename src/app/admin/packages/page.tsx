@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Package, Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Star, Check, Loader2 } from "lucide-react";
+import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Star, Check, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 
 type Pkg = {
@@ -91,7 +91,7 @@ export default function PackagesPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="rounded-xl border border-orange-500/30 p-4 text-sm leading-7">پکیج دانشجویی: قیمت پایه ماهانه ۸۰ دلار؛ آفر اولین اشتراک ۶۰ روز با مجموع ۸۰ دلار. قیمت دلاری به سنت ثبت می‌شود (۸۰۰۰). معادل تومان و لیر در نمایش و پرداخت از نرخ روز محاسبه می‌شود. اعتبار هر بسته قابل تنظیم است.</div>
+      <div className="rounded-xl border border-orange-500/30 p-4 text-sm leading-7">پکیج دانشجویی: قیمت پایه ماهانه ۸۰ دلار؛ آفر اولین اشتراک ۳ ماه (۹۰ روز) با مجموع ۸۰ دلار، به‌جای ۲۴۰ دلار. قیمت دلاری به سنت ثبت می‌شود (۸۰۰۰). معادل تومان و لیر در نمایش و پرداخت از نرخ روز محاسبه می‌شود. اعتبار هر بسته قابل تنظیم است.</div>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>مدیریت پکیج‌ها</h1>
@@ -175,7 +175,7 @@ export default function PackagesPage() {
               {[{ label: "نام فارسی", key: "name" }, { label: "نام انگلیسی", key: "nameEn" }].map(f => (
                 <div key={f.key}>
                   <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>{f.label}</label>
-                  <input aria-label={f.label} value={(form as any)[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                  <input aria-label={f.label} value={form[f.key as keyof typeof form]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
                     className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                 </div>
               ))}
@@ -184,7 +184,7 @@ export default function PackagesPage() {
               {[{ label: "قیمت (ریال)", key: "price" }, { label: "مدت (روز)", key: "duration" }, { label: "اعتبار", key: "credits" }].map(f => (
                 <div key={f.key}>
                   <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>{f.label}</label>
-                  <input aria-label={f.label} type="number" value={(form as any)[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: Number(e.target.value) }))}
+                  <input aria-label={f.label} type="number" value={form[f.key as keyof typeof form]} onChange={e => setForm(p => ({ ...p, [f.key]: Number(e.target.value) }))}
                     className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                 </div>
               ))}
