@@ -4,21 +4,24 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/db/prisma";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
-import { publicAlternates, pageJsonLd } from "@/lib/seo/site";
+import { pageMetadata, pageJsonLd } from "@/lib/seo/site";
 import JsonLd from "@/components/seo/JsonLd";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getServerLang();
-  const title = lang === "fa" ? "بازار بسته‌های صنعتی هوش مصنوعی — عوامل AI برای هر صنعت | AiFekr" : lang === "de" ? "Marktplatz für Branchen-KI-Pakete — KI-Agenten für jede Branche | AiFekr" : "AI Industry Packs Marketplace — AI Agents for Every Industry | AiFekr";
-  const description =
-    lang === "fa"
-      ? "تیم‌های عامل هوش مصنوعی اختصاصی برای هر صنعت — رستوران، مطب، املاک و بیشتر — دسترسی وابسته به ماژول‌های فعال و اتصال سرویس‌هاست."
-      : lang === "de"
-        ? "Spezialisierte KI-Agententeams für jede Branche — Restaurant, Praxis, Immobilien, Bau und mehr. Zugriff abhängig von aktiven Modulen und verbundenen Diensten."
-        : "Specialized AI agent teams for every industry — restaurants, clinics, real estate, construction and more. Access depends on active modules and connected services.";
-  return { title: { absolute: title }, description, alternates: publicAlternates(lang, "/industry"), openGraph: { title, description } };
+  return pageMetadata(lang, "/industry", {
+    fa: "هوش مصنوعی برای صنایع؛ بسته‌های تخصصی کسب‌وکار",
+    en: "Industry AI packs for business teams",
+    de: "KI-Branchenpakete für Unternehmen",
+    tr: "İşletmeler için sektörel yapay zekâ paketleri",
+  }, {
+    fa: "بسته‌های AI رستوران، کلینیک، املاک و صنایع دیگر را مقایسه کنید؛ ابزارهای فروش، محتوا و پیگیری مشتری براساس اشتراک و اتصال سرویس‌ها فعال می‌شوند.",
+    en: "Compare AI packs for restaurants, clinics, real estate and more. Sales, content and customer tools depend on your subscription and connected services.",
+    de: "KI-Pakete für Gastronomie, Praxen, Immobilien und weitere Branchen vergleichen. Vertriebs- und Kundentools hängen von Abo und Verbindungen ab.",
+    tr: "Restoran, klinik, emlak ve diğer sektörlerin yapay zekâ paketlerini karşılaştırın. Satış ve müşteri araçları aboneliğe ve hizmet bağlantılarına bağlıdır.",
+  });
 }
 
 const strings = {

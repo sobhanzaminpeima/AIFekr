@@ -46,7 +46,7 @@ async function getSettings(lang: string) {
 
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getServerLang();
-  const meta = pageMetadata(lang, "/about", {"fa":"درباره ما — عوامل هوش مصنوعی برای هر صنعت","en":"About Us — AI Agents for Every Industry","de":"Über uns — KI-Agenten für jede Branche","tr":"Hakkımızda — Her Sektör için Yapay Zekâ Ajanları"}, {"fa":"AiFekr پلتفرم هوش مصنوعی کسب‌وکار است: تیمی از عوامل AI تخصصی برای هر صنعت که فروش، حسابداری، محتوا و پشتیبانی شما را خودکار می‌کنند.","en":"AiFekr is the AI platform for business: a team of specialist AI agents per industry that automates your sales, accounting, content and support.","de":"AiFekr ist die KI-Plattform für Unternehmen: ein Team spezialisierter KI-Agenten pro Branche, das Vertrieb, Buchhaltung, Content und Support automatisiert.","tr":"AiFekr, işletmeler için yapay zekâ platformudur: her sektöre özel uzman yapay zekâ ajanları satış, muhasebe, içerik ve desteği otomatikleştirir."});
+  const meta = pageMetadata(lang, "/about", { fa: "درباره AIFekr؛ هوش مصنوعی برای کار و یادگیری", en: "About AIFekr: AI for work and learning", de: "Über AIFekr: KI für Arbeit und Lernen", tr: "AIFekr hakkında: iş ve öğrenim için yapay zekâ" }, { fa: "با AIFekr آشنا شوید: فضای یکپارچهٔ گفتگو، محتوا، CRM و مطالعه؛ با اعتبار مشخص، کنترل کاربر و بررسی خروجی‌های هوش مصنوعی.", en: "Meet AIFekr: a shared workspace for AI chat, content, CRM and learning, with clear credits, user control and review of AI output.", de: "AIFekr kennenlernen: ein gemeinsamer Bereich für KI-Chat, Inhalte, CRM und Lernen mit klaren Credits, Nutzerkontrolle und Prüfung der KI-Ausgaben.", tr: "AIFekr'i tanıyın: belirli krediler, kullanıcı kontrolü ve yapay zekâ çıktılarının incelenmesiyle sohbet, içerik, CRM ve öğrenim alanı." });
   return meta;
 }
 
@@ -65,14 +65,14 @@ export default async function AboutPage() {
     { icon: Rocket, title: "Vizyonumuz", desc: "Kullanıcının kontrolünde, araçlar ve iş akışları için bağlantılı bir alan." },
   ] : lang === "de"
     ? [
-        { icon: Target, title: "Unsere Mission", desc: "Einfacher, uneingeschränkter Zugang zu den leistungsstärksten KI-Tools für jedes iranische Unternehmen." },
+        { icon: Target, title: "Unsere Mission", desc: "KI-Werkzeuge für Arbeit und Lernen einfacher zugänglich machen, mit klaren Kapazitätsgrenzen." },
         { icon: Users, title: "Für wen?", desc: "Freelancer, Startups, Unternehmer und alle, die schneller mit KI arbeiten möchten." },
-        { icon: Rocket, title: "Unsere Vision", desc: "Der Nummer-eins KI-Begleiter für persischsprachige Unternehmen in der Region zu werden." },
+        { icon: Rocket, title: "Unsere Vision", desc: "Werkzeuge und Arbeitsabläufe verbinden, während Nutzer Entscheidungen und Ergebnisse kontrollieren." },
       ]
     : [
-        { icon: Target, title: "Our Mission", desc: "Simple, unrestricted access to the most powerful AI tools for every Iranian business." },
+        { icon: Target, title: "Our Mission", desc: "Make AI tools easier to use for work and learning, with clear capacity limits." },
         { icon: Users, title: "Who It's For", desc: "Freelancers, startups, business owners, and anyone who wants to work faster with AI." },
-        { icon: Rocket, title: "Our Vision", desc: "Becoming the number-one AI companion for Persian-speaking businesses in the region." },
+        { icon: Rocket, title: "Our Vision", desc: "Connect tools and workflows while users stay in control of decisions and results." },
       ];
 
   return (
@@ -85,15 +85,15 @@ export default async function AboutPage() {
           {lang === "tr" ? "Hikâyemiz" : lang === "de" ? "Unsere Geschichte" : isFa ? "داستان ما" : "Our Story"}
         </div>
         <h1 className="text-4xl md:text-5xl font-bold mb-6">{s.about_title}</h1>
-        <p className="text-lg leading-8" style={{ color: "rgba(255,255,255,0.75)" }}>{s.about_content}</p>
+        <p className="text-lg leading-8" style={{ color: "var(--text-secondary)" }}>{s.about_content}</p>
       </section>
 
       <section className="pb-24 px-6 max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
         {cards.map((item, i) => (
-          <div key={i} className="p-6 rounded-2xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <div key={i} className="p-6 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             <item.icon className="w-8 h-8 mb-4" style={{ color: "#ea580c" }} />
-            <h3 className="font-bold text-lg mb-2">{item.title}</h3>
-            <p className="text-sm leading-6" style={{ color: "rgba(255,255,255,0.6)" }}>{item.desc}</p>
+            <h2 className="font-bold text-lg mb-2">{item.title}</h2>
+            <p className="text-sm leading-6" style={{ color: "var(--text-secondary)" }}>{item.desc}</p>
           </div>
         ))}
       </section>

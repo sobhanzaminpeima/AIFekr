@@ -15,5 +15,8 @@ export function localizedPublicPath(path: string, lang: Lang): string {
   const suffix = suffixAt < 0 ? "" : path.slice(suffixAt);
   const bare = stripPublicLocale(pathname).path;
   if (!isPublicRoute(bare)) return path;
+  // Industry records currently have no Turkish translation. Link directly to
+  // their English page instead of sending every visitor through a redirect.
+  if (lang === "tr" && bare.startsWith("/industry/")) return `/en${bare}${suffix}`;
   return (lang === "fa" ? bare : `/${lang}${bare === "/" ? "" : bare}`) + suffix;
 }

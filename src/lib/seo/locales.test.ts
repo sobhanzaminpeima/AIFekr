@@ -26,4 +26,11 @@ describe("public locale URLs", () => {
     expect(PRIVATE_PREFIXES).toContain("/checkout");
     expect(PRIVATE_PREFIXES).toContain("/student");
   });
+  it("links Turkish visitors directly to the available English industry detail", () => {
+    expect(localizedPublicPath("/industry/restaurant?source=index#agents", "tr")).toBe("/en/industry/restaurant?source=index#agents");
+    expect(localizedPublicPath("/industry", "tr")).toBe("/tr/industry");
+    const alternates = publicAlternates("tr", "/industry/restaurant");
+    expect(alternates.canonical).toBe(alternates.languages.en);
+    expect(alternates.languages).not.toHaveProperty("tr");
+  });
 });
