@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Users, CreditCard, DollarSign, Bot, Wrench, GraduationCap,
+  LayoutDashboard, Users, CreditCard, DollarSign, Wrench, GraduationCap, Search,
   Activity, Settings, LogOut, Sparkles, Shield, MessageSquare,
   HelpCircle, Package, UserCog, Database, Cpu, Contact,
   ChevronDown, Factory, Building2, Tag, Globe, Coins, Rocket, BarChart2, Phone, ToggleRight, Wallet, Link2, Magnet,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const navGroups = [
   {
@@ -93,6 +93,9 @@ const roleNames: Record<string, string> = {
 export default function AdminSidebar({ adminName, role }: { adminName: string; role: string }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [search, setSearch] = useState("");
+  useEffect(() => { setSearch(""); }, [pathname]);
+  const visibleGroups = navGroups.map(group => ({ ...group, items: group.items.filter(item => `${group.label || ""} ${item.label}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())) })).filter(group => group.items.length > 0);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -101,7 +104,7 @@ export default function AdminSidebar({ adminName, role }: { adminName: string; r
 
   return (
     <aside
-      className="flex flex-col flex-shrink-0 transition-all duration-300"
+      className="admin-sidebar h-full min-h-0 flex flex-col flex-shrink-0 transition-all duration-300"
       style={{
         width: collapsed ? "60px" : "220px",
         background: "var(--surface-1)",
@@ -121,7 +124,7 @@ export default function AdminSidebar({ adminName, role }: { adminName: string; r
             </div>
           )}
         </div>
-        <button onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? "باز کردن منو" : "جمع کردن منو"} aria-expanded={!collapsed} className="flex-shrink-0 p-1 rounded-lg" style={{ color: "var(--text-muted)" }}>
+        <button onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? "باز کردن منو" : "جمع کردن منو"} aria-expanded={!collapsed} className="hidden md:block flex-shrink-0 p-1 rounded-lg" style={{ color: "var(--text-muted)" }}>
           <ChevronDown className={`w-4 h-4 transition-transform ${collapsed ? "rotate-90" : "-rotate-90"}`} />
         </button>
       </div>
@@ -142,8 +145,9 @@ export default function AdminSidebar({ adminName, role }: { adminName: string; r
       )}
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-4">
-        {navGroups.map((group, gi) => (
+      {!collapsed && <div className="px-3 pt-3 pb-1"><label className="flex items-center gap-2 rounded-xl px-3" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}><Search size={16} aria-hidden="true" style={{ color: "var(--text-muted)" }}/><input aria-label="جستجوی بخش‌های مدیریت" type="search" placeholder="جستجوی بخش‌ها…" value={search} onChange={e => setSearch(e.target.value)} className="min-w-0 w-full bg-transparent py-3 text-sm" style={{ color: "var(--text-primary)" }}/></label></div>}
+      <nav aria-label="بخش‌های مدیریت" className="min-h-0 flex-1 overflow-y-auto py-2 px-2 space-y-4">
+        {visibleGroups.map((group, gi) => (
           <div key={gi}>
             {group.label && !collapsed && (
               <div className="px-2 mb-1 text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
@@ -175,6 +179,7 @@ export default function AdminSidebar({ adminName, role }: { adminName: string; r
             </div>
           </div>
         ))}
+        {visibleGroups.length === 0 && <p className="px-3 py-4 text-sm" style={{ color: "var(--text-muted)" }}>بخشی پیدا نشد. عبارت دیگری جستجو کنید.</p>}
       </nav>
 
       {/* Footer */}

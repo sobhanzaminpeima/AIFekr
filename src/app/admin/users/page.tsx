@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Search, Filter, ChevronLeft, ChevronRight, MoreVertical, Ban, Coins, UserCheck, Trash2, Loader2, Repeat, Plus, Sparkles, X } from "lucide-react";
 import { toJalali, formatNumber } from "@/lib/utils/jalali";
 import toast from "react-hot-toast";
@@ -247,6 +248,7 @@ export default function AdminUsersPage() {
         <div className="flex items-center gap-2 flex-1 min-w-48 px-4 py-2.5 rounded-xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <Search className="w-4 h-4 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
           <input
+            aria-label="جستجوی کاربران"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder="جستجو بر اساس نام، ایمیل یا موبایل..."
@@ -257,6 +259,7 @@ export default function AdminUsersPage() {
         <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <Filter className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
           <select
+            aria-label="فیلتر پلن کاربران"
             value={planFilter}
             onChange={(e) => { setPlanFilter(e.target.value); setPage(1); }}
             className="text-sm bg-transparent outline-none"
@@ -278,7 +281,7 @@ export default function AdminUsersPage() {
             <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--primary)" }} />
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="admin-user-table w-full text-sm" aria-label="فهرست کاربران">
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
                 {["کاربر", "پلن", "اعتبار", "گفتگوها", "پرداخت‌ها", "تاریخ ثبت", "وضعیت", ""].map((h) => (
@@ -292,23 +295,23 @@ export default function AdminUsersPage() {
                 const openUp = idx >= users.length - 3;
                 return (
                   <tr key={user.id} style={{ borderBottom: "1px solid var(--border)" }} className="hover:bg-white/2 transition-colors">
-                    <td className="px-4 py-3 cursor-pointer" onClick={() => router.push(`/admin/users/${user.id}`)}>
-                      <div>
+                    <td data-label="کاربر" className="px-4 py-3">
+                      <Link href={`/admin/users/${user.id}`}>
                         <div className="font-medium" style={{ color: "var(--text-primary)" }}>{user.name || "بدون نام"}</div>
                         <div className="text-xs" style={{ color: "var(--text-muted)" }}>{user.email || "—"}</div>
                         {user.phone && <div className="text-xs" dir="ltr" style={{ color: "var(--text-muted)" }}>{user.phone}</div>}
-                      </div>
+                      </Link>
                     </td>
-                    <td className="px-4 py-3">
+                    <td data-label="پلن" className="px-4 py-3">
                       <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: badge.color + "22", color: badge.color }}>
                         {badge.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3" style={{ color: "var(--text-primary)" }}>{formatNumber(user.credits)}</td>
-                    <td className="px-4 py-3" style={{ color: "var(--text-secondary)" }}>{user._count.conversations}</td>
-                    <td className="px-4 py-3" style={{ color: "var(--text-secondary)" }}>{user._count.payments}</td>
-                    <td className="px-4 py-3 text-xs" style={{ color: "var(--text-muted)" }}>{toJalali(user.createdAt)}</td>
-                    <td className="px-4 py-3">
+                    <td data-label="اعتبار" className="px-4 py-3" style={{ color: "var(--text-primary)" }}>{formatNumber(user.credits)}</td>
+                    <td data-label="گفتگوها" className="px-4 py-3" style={{ color: "var(--text-secondary)" }}>{user._count.conversations}</td>
+                    <td data-label="پرداخت‌ها" className="px-4 py-3" style={{ color: "var(--text-secondary)" }}>{user._count.payments}</td>
+                    <td data-label="تاریخ ثبت" className="px-4 py-3 text-xs" style={{ color: "var(--text-muted)" }}>{toJalali(user.createdAt)}</td>
+                    <td data-label="وضعیت" className="px-4 py-3">
                       <span className="px-2 py-0.5 rounded-full text-xs" style={{
                         background: user.isBlocked ? "rgba(239,68,68,0.1)" : "rgba(34,197,94,0.1)",
                         color: user.isBlocked ? "var(--danger)" : "var(--success)",
@@ -317,7 +320,7 @@ export default function AdminUsersPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 relative" data-dropdown-root>
-                      <button onClick={() => setActionUserId(actionUserId === user.id ? null : user.id)} className="p-1 rounded-lg" style={{ color: "var(--text-muted)" }}>
+                      <button aria-label={`مدیریت ${user.name || "کاربر"}`} aria-expanded={actionUserId === user.id} onClick={() => setActionUserId(actionUserId === user.id ? null : user.id)} className="p-1 rounded-lg" style={{ color: "var(--text-muted)" }}>
                         <MoreVertical className="w-4 h-4" />
                       </button>
                       {actionUserId === user.id && planMenuUserId !== user.id && (
@@ -353,6 +356,7 @@ export default function AdminUsersPage() {
                   </tr>
                 );
               })}
+              {users.length === 0 && <tr><td colSpan={8} className="p-6 text-center" style={{ color: "var(--text-secondary)" }}>کاربری با این مشخصات پیدا نشد. جستجو یا فیلتر را تغییر دهید.</td></tr>}
             </tbody>
           </table>
         )}
