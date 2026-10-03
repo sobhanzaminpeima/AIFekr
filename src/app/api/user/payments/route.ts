@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },
     take: 30,
-    select: { id: true, amount: true, plan: true, status: true, gateway: true, refId: true, createdAt: true },
+    select: { id: true, amount: true, plan: true, status: true, gateway: true, refId: true, createdAt: true, transferCurrency: true, transferMinor: true, receiptAt: true, reviewNote: true },
   });
 
   return NextResponse.json({ payments });

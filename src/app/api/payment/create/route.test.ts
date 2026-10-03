@@ -1,58 +1,20 @@
-import { vi } from "vitest";
-
-const mocks = vi.hoisted(() => ({
-  requireAuth: vi.fn(),
-  createPayment: vi.fn(),
-  createPendingPayment: vi.fn(),
-  findPaymentById: vi.fn(),
-  markPaymentAuthority: vi.fn(),
-  markPaymentFailed: vi.fn(),
-  activatePlanForPayment: vi.fn(),
-  findPackage: vi.fn(),
-}));
-
-vi.mock("@/lib/auth/middleware", () => ({ requireAuth: mocks.requireAuth, unauthorizedResponse: () => Response.json({ error: "unauthorized" }, { status: 401 }) }));
-vi.mock("@/lib/db/prisma", () => ({ prisma: { package: { findUnique: mocks.findPackage }, user: { findUnique: vi.fn() }, $transaction: vi.fn() } }));
-vi.mock("@/lib/payment/zarinpal", () => ({ createPayment: mocks.createPayment }));
-vi.mock("@/lib/payment/nowpayments", () => ({ createUsdtInvoice: vi.fn() }));
-vi.mock("@/lib/utils/currency", () => ({ getFxRates: vi.fn() }));
-vi.mock("@/lib/repositories/paymentRepository", () => ({
-  createPendingPayment: mocks.createPendingPayment,
-  findPaymentById: mocks.findPaymentById,
-  markPaymentAuthority: mocks.markPaymentAuthority,
-  markPaymentFailed: mocks.markPaymentFailed,
-  activatePlanForPayment: mocks.activatePlanForPayment,
-}));
-
-import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it } from "vitest";
-import { POST } from "./route";
-
-beforeEach(() => {
-  vi.clearAllMocks();
-  mocks.requireAuth.mockResolvedValue({ id: "payment-test-user", email: "student@example.test", phone: null });
-  mocks.findPackage.mockResolvedValue({ planCode: "TEST_PLAN", isActive: true, market: "BOTH", price: 100_000_000, priceUsd: 1000, credits: 500, duration: 30, crmSeatLimit: 0, teamSeatLimit: 0 });
-  mocks.createPendingPayment.mockResolvedValue({ id: "payment-test-row" });
-  mocks.findPaymentById.mockResolvedValue({ id: "payment-test-row", userId: "payment-test-user" });
-  mocks.createPayment.mockResolvedValue({ ok: true, authority: "sandbox-authority", paymentUrl: "https://sandbox.example.test/pay" });
-  mocks.markPaymentAuthority.mockResolvedValue(undefined);
-});
-
-describe("POST /api/payment/create", () => {
-  it("builds a discounted quarterly checkout without contacting a real gateway in tests", async () => {
-    const response = await POST(new NextRequest("https://aifekr.test/api/payment/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: "TEST_PLAN", period: "quarterly", gateway: "zarinpal" }) }));
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ paymentUrl: "https://sandbox.example.test/pay", paymentId: "payment-test-row" });
-    expect(mocks.createPendingPayment).toHaveBeenCalledWith({ userId: "payment-test-user", amount: 28_500_000, plan: "TEST_PLAN", gateway: "zarinpal", walletDiscountToman: 0, periodMonths: 3 });
-    expect(mocks.createPayment).toHaveBeenCalledOnce();
-    expect(mocks.markPaymentAuthority).toHaveBeenCalledWith("payment-test-row", "sandbox-authority");
-  });
-
-  it("rejects unauthenticated payment creation before any package or gateway work", async () => {
-    mocks.requireAuth.mockResolvedValue(null);
-    const response = await POST(new NextRequest("https://aifekr.test/api/payment/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: "TEST_PLAN" }) }));
-    expect(response.status).toBe(401);
-    expect(mocks.createPayment).not.toHaveBeenCalled();
-    expect(mocks.createPendingPayment).not.toHaveBeenCalled();
-  });
+import {beforeEach,describe,it,expect,vi} from "vitest";
+const m=vi.hoisted(()=>({auth:vi.fn(),pkg:vi.fn(),find:vi.fn(),create:vi.fn()}));
+vi.mock("@/lib/auth/middleware",()=>({requireAuth:m.auth,unauthorizedResponse:()=>Response.json({}, {status:401})}));
+vi.mock("@/lib/db/prisma",()=>({prisma:{package:{findUnique:m.pkg},$transaction:async(fn:Function)=>fn({payment:{findFirst:m.find,create:m.create}})}}));
+vi.mock("@/lib/utils/rateLimit",()=>({rateLimit:()=>({allowed:true})}));
+vi.mock("@/lib/utils/currency",()=>({getFxRates:async()=>({usdToToman:100000,usdToTry:40,usdToEur:.9,rateDate:"2026-10-03"})}));
+vi.mock("@/lib/payment/bank",()=>({bankSettings:async()=>({iban:"TR210001009010583132105001",holder:"MEHRAD MOHARRAMZADEH",currency:"TRY",euroIban:"TR910001009010583132105002"}),validIban:()=>true}));
+import {NextRequest} from "next/server";
+import {POST} from "./route";
+const req=(body:unknown)=>new NextRequest("https://aifekr.test/api/payment/create",{method:"POST",body:JSON.stringify(body)});
+beforeEach(()=>{vi.clearAllMocks();m.auth.mockResolvedValue({id:"buyer"});m.pkg.mockResolvedValue({isActive:true,priceUsd:8000,price:80000000,credits:1000,duration:30});m.find.mockResolvedValue(null);m.create.mockResolvedValue({id:"order"});});
+describe("manual bank checkout",()=>{
+ it("requires authentication",async()=>{m.auth.mockResolvedValue(null);expect((await POST(req({plan:"TEAM_STARTER"}))).status).toBe(401);expect(m.create).not.toHaveBeenCalled();});
+ it("quotes the intro once and snapshots 60 days without activating",async()=>{const r=await POST(req({plan:"STUDENT_FIRST_TWO_MONTHS",period:"monthly"}));expect(await r.json()).toEqual({paymentId:"order",paymentUrl:"/checkout/order"});const data=m.create.mock.calls[0][0].data;expect(data).toMatchObject({status:"PENDING",gateway:"bank_transfer",transferCurrency:"TRY",transferMinor:320000,amount:8000000,periodMonths:2});expect(JSON.parse(data.entitlementSnapshot)).toMatchObject({credits:1000,days:60});});
+ it("uses the separate euro IBAN and euro amount",async()=>{await POST(req({plan:"STUDENT_MONTHLY",period:"monthly",currency:"EUR"}));const data=m.create.mock.calls[0][0].data;expect(data.transferMinor).toBe(7200);expect(JSON.parse(data.bankSnapshot).iban).toBe("TR910001009010583132105002");});
+ it("reuses an existing pending order",async()=>{m.find.mockResolvedValue({id:"pending"});expect(await (await POST(req({plan:"TEAM_STARTER"}))).json()).toMatchObject({paymentId:"pending"});expect(m.create).not.toHaveBeenCalled();});
+ it("rejects intro after an earlier student subscription",async()=>{m.find.mockResolvedValueOnce(null).mockResolvedValueOnce({id:"prior"});expect((await POST(req({plan:"STUDENT_FIRST_TWO_MONTHS",period:"monthly"}))).status).toBe(409);});
+ it("rejects unsupported intro billing terms",async()=>{expect((await POST(req({plan:"STUDENT_FIRST_TWO_MONTHS",period:"annual"}))).status).toBe(400);});
+ it("rejects inactive packages",async()=>{m.pkg.mockResolvedValue({isActive:false});expect((await POST(req({plan:"TEAM_STARTER"}))).status).toBe(400);});
 });

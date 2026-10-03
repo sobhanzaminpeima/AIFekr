@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   if (!paymentId || !status) return NextResponse.json({ ok: true }); // malformed — ack, nothing to do
 
   const payment = await findPaymentById(paymentId);
-  if (!payment) return NextResponse.json({ ok: true });
+  if (!payment || payment.gateway !== "usdt_trc20") return NextResponse.json({ ok: true });
 
   if (status === "failed" || status === "expired" || status === "refunded") {
     if (payment.status === "PENDING") await markPaymentFailed(paymentId);

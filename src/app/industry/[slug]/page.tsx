@@ -1,3 +1,4 @@
+import PublicShell from "@/components/marketing/PublicShell";
 import { notFound } from "next/navigation";
 import { absoluteUrl, pageJsonLd } from "@/lib/seo/site";
 import JsonLd from "@/components/seo/JsonLd";
@@ -22,10 +23,10 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const pack = await prisma.industryPack.findUnique({ where: { slug: params.slug } });
   if (!pack) return {};
   const lang = await getServerLang();
-  const name = lang === "de" ? (pack.nameDe || pack.nameEn || pack.name) : lang === "en" ? (pack.nameEn || pack.name) : pack.name;
-  const description = lang === "de" ? (pack.valuePropositionDe || pack.valuePropositionEn || pack.valueProposition) : lang === "en" ? (pack.valuePropositionEn || pack.valueProposition) : pack.valueProposition;
+  const name = lang === "de" ? (pack.nameDe || pack.nameEn || pack.name) : (lang === "en" || lang === "tr") ? (pack.nameEn || pack.name) : pack.name;
+  const description = lang === "de" ? (pack.valuePropositionDe || pack.valuePropositionEn || pack.valueProposition) : (lang === "en" || lang === "tr") ? (pack.valuePropositionEn || pack.valueProposition) : pack.valueProposition;
   const title = lang === "fa" ? `${name} — بسته عوامل هوش مصنوعی برای کسب‌وکار شما | AiFekr` : lang === "de" ? `${name} — KI-Agenten-Paket für Ihr Unternehmen | AiFekr` : `${name} — AI Agent Pack for Your Business | AiFekr`;
-  const filler = lang === "fa" ? " تیمی از عوامل هوش مصنوعی متخصص که ۲۴ ساعته برای کسب‌وکار شما کار می‌کنند." : lang === "de" ? " Ein Team spezialisierter KI-Agenten, das rund um die Uhr für Ihr Unternehmen arbeitet." : " A team of specialist AI agents working around the clock for your business.";
+  const filler = lang === "fa" ? " ابزارهای تخصصی AI با دسترسی وابسته به اشتراک و تنظیمات شما." : lang === "de" ? " Spezialisierte KI-Tools, abhängig von Abo und Konfiguration." : " Specialist AI tools, subject to subscription and configuration.";
   const snippet = description ? (description.length >= 110 ? description : (description.trim() + filler).slice(0, 160)) : filler.trim();
   return {
     title: { absolute: title },
@@ -67,7 +68,7 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
   if (!pack) notFound();
 
   const lang = await getServerLang();
-  const s = strings[lang === "tr" ? "en" : lang];
+  const s = lang === "tr" ? { agents: "Yapay zekâ ajanları", agent: "ajan", painPoints: "Ele alınan sorunlar", outcomes: "Olası sonuçlar", kpis: "Panel göstergeleri", included: "Etkin CRM aboneliğine dahil", activate: "Paketi etkinleştir", loginToActivate: "Etkinleştirmek için giriş yap", back: "Tüm paketlere dön", gold: "Altın", pro: "Profesyonel", registerFirst: "Kaydol ve etkinleştir", alreadyActive: "Paketiniz etkin", goToBusiness: "İşletme paneline git" } : strings[lang];
 
   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;
@@ -91,7 +92,7 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
   // content yet -- same convention as industry/page.tsx's `localized()`.
   function pick(fa: string, en: string | null, de: string | null): string {
     if (lang === "de") return de || en || fa;
-    if (lang === "en") return en || fa;
+    if ((lang === "en" || lang === "tr")) return en || fa;
     return fa;
   }
   function parseJson<T>(fa: string, en: string | null, de: string | null, fallback: T): T {
@@ -108,7 +109,7 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
   const valueProposition = pick(pack.valueProposition, pack.valuePropositionEn, pack.valuePropositionDe);
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--surface-0)" }}>
+    <PublicShell lang={lang}><div className="m-public-existing">
       <JsonLd data={pageJsonLd(lang, `/industry/${params.slug}`, "WebPage", name)} />
       {/* Hero */}
       <div className="p-8 md:p-12" style={{ background: `linear-gradient(135deg, ${pack.gradientFrom}, ${pack.gradientTo})` }}>
@@ -244,6 +245,6 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
           </Link>
         </div>
       </div>
-    </div>
+    </div></PublicShell>
   );
 }

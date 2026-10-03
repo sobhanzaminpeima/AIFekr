@@ -1,0 +1,23 @@
+const {PrismaClient}=require('@prisma/client');const jwt=require('jsonwebtoken');const assert=require('node:assert/strict');
+const base=process.env.QA_BASE_URL||'http://127.0.0.1:3006';const p=new PrismaClient();const ids=[];let orders=[];
+(async()=>{if(process.env.DATABASE_URL!=='file:/private/tmp/aifekr-test.db')throw Error('Isolated DB required');
+const make=async(role)=>{const u=await p.user.create({data:{email:`bank-${role}-${Date.now()}@qa.invalid`,role,onboardingDone:true,name:`QA ${role}`}});ids.push(u.id);return {u,cookie:'token='+jwt.sign({userId:u.id,role,plan:'FREE'},process.env.JWT_SECRET)};};
+const buyer=await make('USER'),other=await make('USER'),admin=await make('ADMIN');
+const call=(path,who,options={})=>fetch(base+path,{...options,headers:{cookie:who.cookie,...options.headers}});
+let r=await call('/api/payment/create',buyer,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan:'STUDENT_FIRST_TWO_MONTHS',period:'monthly',currency:'EUR'})});assert.equal(r.status,200);let d=await r.json(),id=d.paymentId;orders.push(id);
+assert.equal((await p.user.findUniqueOrThrow({where:{id:buyer.u.id}})).plan,'FREE');
+assert.equal((await call(`/api/payment/${id}`,other)).status,404);
+assert.equal((await call(`/api/admin/payments/${id}`,buyer,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'approve',note:''})})).status,403);
+let bad=new FormData();bad.append('receipt',new Blob(['<script>bad</script>'],{type:'image/png'}),'bad.png');assert.equal((await call(`/api/payment/${id}/receipt`,buyer,{method:'POST',body:bad})).status,400);
+const form=()=>{let f=new FormData();f.append('receipt',new Blob([Buffer.from('%PDF-1.4\nQA '+Date.now())],{type:'application/pdf'}),'receipt.pdf');return f;};
+r=await call(`/api/payment/${id}/receipt`,buyer,{method:'POST',body:form()});assert.equal(r.status,200);
+assert.equal((await call(`/api/payment/${id}/receipt`,other)).status,404);
+assert.equal((await call(`/api/payment/${id}/receipt`,buyer,{method:'POST',body:form()})).status,409);
+const before=await p.user.findUniqueOrThrow({where:{id:buyer.u.id}});assert.equal(before.plan,'FREE');
+assert.equal((await call(`/api/admin/payments/${id}`,admin,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'approve',note:'QA bank statement checked'})})).status,200);
+const after=await p.user.findUniqueOrThrow({where:{id:buyer.u.id}});assert.equal(after.plan,'STUDENT_FIRST_TWO_MONTHS');assert.equal(after.credits-before.credits,1000);
+assert.equal((await call(`/api/admin/payments/${id}`,admin,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'approve',note:''})})).status,409);
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');const browser=await chromium.launch({headless:true});
+try{for(const lang of ['fa','en','de','tr']){const context=await browser.newContext({viewport:{width:390,height:844}});await context.addCookies([{name:'token',value:buyer.cookie.slice(6),url:base},{name:'lang',value:lang,url:base}]);const page=await context.newPage();await page.goto(base+`/checkout/${id}`);await page.waitForSelector('p.text-3xl').catch(async e=>{console.log({url:page.url(),body:(await page.locator('body').innerText()).slice(0,800)});throw e;});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:`/private/tmp/aifekr-qa/bank-checkout-${lang}.png`,fullPage:true});await context.close();}}finally{await browser.close();}
+console.log('Bank checkout QA passed: owner access, invalid uploads, approval/replay, delayed activation, 4 languages/mobile');
+})().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{await p.notification.deleteMany({where:{userId:{in:ids}}});await p.userModuleOverride.deleteMany({where:{userId:{in:ids}}});await p.payment.deleteMany({where:{userId:{in:ids}}});await p.user.deleteMany({where:{id:{in:ids}}});await p.$disconnect();});

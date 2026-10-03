@@ -16,7 +16,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     where: { id: params.id },
     include: {
       _count: { select: { conversations: true, images: true, videos: true, payments: true } },
-      payments: { take: 5, orderBy: { createdAt: "desc" } },
+      payments: { take: 20, orderBy: { createdAt: "desc" }, select: {id:true,amount:true,plan:true,status:true,gateway:true,refId:true,createdAt:true,transferMinor:true,transferCurrency:true,receiptAt:true,reviewNote:true} },
       usageLogs: { take: 20, orderBy: { createdAt: "desc" } },
     },
   });

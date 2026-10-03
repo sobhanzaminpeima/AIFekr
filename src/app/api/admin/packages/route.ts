@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, unauthorizedResponse, forbiddenResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 
+import { getFxRates } from "@/lib/utils/currency";
+
 async function checkAdmin(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin) {
@@ -17,7 +19,8 @@ export async function GET(req: NextRequest) {
   const err = await checkAdmin(req); if (err) return err;
   try {
     const packages = await prisma.package.findMany({ orderBy: { sortOrder: "asc" } });
-    return NextResponse.json({ packages });
+    const rates = await getFxRates();
+    return NextResponse.json({ packages: packages.map(p => p.planCode.startsWith("STUDENT_") && p.priceUsd != null ? { ...p, price: Math.round(p.priceUsd / 100 * rates.usdToToman) * 10 } : p) });
   } catch (e) { return NextResponse.json({ error: "خطای سرور" }, { status: 500 }); }
 }
 

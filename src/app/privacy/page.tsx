@@ -1,6 +1,4 @@
-import Link from "next/link";
-import Image from "next/image";
-import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
+import PublicShell from "@/components/marketing/PublicShell";
 import { getServerLang } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 import { pageMetadata, pageJsonLd } from "@/lib/seo/site";
@@ -124,6 +122,18 @@ const SECTIONS_DE = [
   },
 ];
 
+const SECTIONS_TR = [
+  { title: "1. Toplanan bilgiler", body: "Kayıtta ad, e-posta veya telefon ve parola alınır. Kullanım sırasında sohbetler, üretilen içerikler, kredi ve ödeme kayıtları tutulur. İsteğe bağlı hesap bağlantıları için sınırlı erişim belirteçleri saklanır; banka kartı bilgileri sunucumuzda saklanmaz." },
+  { title: "2. Bilgilerin kullanımı", body: "Veriler hizmet sunumu, ödemeler, bildirimler ve destek için kullanılır. Yanıt üretmek için istek içeriği ilgili yapay zekâ sağlayıcılarına gönderilebilir." },
+  { title: "3. Paylaşım", body: "Kişisel bilgiler reklam için satılmaz veya kiralanmaz. İstekleri işlemek, ödeme yapmak veya yasal gereklilikleri karşılamak için ilgili sağlayıcılarla paylaşılabilir." },
+  { title: "4. Güvenlik", body: "Parolalar tek yönlü karma ile saklanır. Tarayıcı ve sunucu arasındaki iletişim HTTPS kullanır. Bağlı hesap belirteçleri API yanıtlarında tam olarak gösterilmez." },
+  { title: "5. Saklama", body: "Hesap ve hizmet verileri hizmet sunmak için saklanır. Hesap silme taleplerinde, yasal olarak gerekli ödeme kayıtları hariç ilgili kişisel verilerin kaldırılması için destekle iletişime geçin." },
+  { title: "6. Haklarınız", body: "Hesap ayarlarından bilgilerinizi inceleyip değiştirebilir, bağlantıları kaldırabilir veya destekten hesap silme talep edebilirsiniz." },
+  { title: "7. Çerezler", body: "Oturum, dil, tema ve para birimi tercihlerinde gerekli çerezler kullanılır. Üçüncü taraf reklam çerezleri kullanılmaz." },
+  { title: "8. Değişiklikler", body: "Politika güncellenebilir. Önemli değişiklikler e-posta veya platform bildirimiyle duyurulur." },
+  { title: "9. İletişim", body: "Gizlilik soruları veya silme talepleri için iletişim sayfasını kullanın." },
+];
+
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getServerLang();
   const meta = pageMetadata(lang, "/privacy", {"fa":"حریم خصوصی — نحوه نگهداری داده‌های شما","en":"Privacy Policy — How We Handle Your Data","de":"Datenschutz — So gehen wir mit Ihren Daten um","tr":"Gizlilik Politikası — Verilerinizi Nasıl Kullanırız"}, {"fa":"سیاست حریم خصوصی AiFekr: چه داده‌هایی جمع‌آوری می‌کنیم، چگونه از آن‌ها استفاده می‌کنیم و چه حقوقی دارید.","en":"AiFekr's privacy policy: what data we collect, how we use it and what rights you have.","de":"Datenschutzerklärung von AiFekr: welche Daten wir erheben, wie wir sie verwenden und welche Rechte Sie haben.","tr":"AiFekr gizlilik politikası: hangi verileri topladığımız, nasıl kullandığımız ve haklarınız."});
@@ -133,29 +143,15 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function PrivacyPage() {
   const lang = await getServerLang();
   const isFa = lang === "fa";
-  const SECTIONS = lang === "de" ? SECTIONS_DE : isFa ? SECTIONS_FA : SECTIONS_EN;
+  const SECTIONS = lang === "tr" ? SECTIONS_TR : lang === "de" ? SECTIONS_DE : isFa ? SECTIONS_FA : SECTIONS_EN;
 
   return (
-    <div className="min-h-screen" dir={lang === "fa" ? "rtl" : "ltr"} style={{ background: "#0a0a0f", color: "#f5f5f5" }}>
+    <PublicShell lang={lang}><div className="m-public-existing">
       <JsonLd data={pageJsonLd(lang, "/privacy")} />
-      <nav
-        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4"
-        style={{ background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
-      >
-        <Link href="/" className="flex items-center gap-2">
-          <Image src="/logo.svg" alt="AiFekr" width={32} height={32} className="rounded-lg" />
-          <span className="font-bold text-lg text-white">AiFekr</span>
-        </Link>
-        <div className="flex items-center gap-2">
-          <Link href="/terms" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{lang === "de" ? "Nutzungsbedingungen" : isFa ? "قوانین و مقررات" : "Terms of Service"}</Link>
-          <Link href="/privacy" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "#ea580c" }}>{lang === "de" ? "Datenschutzrichtlinie" : isFa ? "حریم خصوصی" : "Privacy Policy"}</Link>
-          <Link href="/login" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{lang === "de" ? "Anmelden" : isFa ? "ورود" : "Log in"}</Link>
-        </div>
-      </nav>
 
-      <section className="pt-40 pb-16 px-6 max-w-3xl mx-auto">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2">{lang === "de" ? "Datenschutzrichtlinie" : isFa ? "حریم خصوصی" : "Privacy Policy"}</h1>
-        <p className="text-sm mb-10" style={{ color: "rgba(255,255,255,0.5)" }}>{lang === "de" ? "Zuletzt aktualisiert: Juli 2026" : isFa ? "آخرین به‌روزرسانی: تیر ۱۴۰۵" : "Last updated: July 2026"}</p>
+      <section className="pt-12 pb-16 px-6 max-w-3xl mx-auto">
+        <h1 className="text-3xl md:text-4xl font-bold mb-2">{lang === "tr" ? "Gizlilik politikası" : lang === "de" ? "Datenschutzrichtlinie" : isFa ? "حریم خصوصی" : "Privacy Policy"}</h1>
+        <p className="text-sm mb-10" style={{ color: "rgba(255,255,255,0.5)" }}>{lang === "tr" ? "Son güncelleme: Temmuz 2026" : lang === "de" ? "Zuletzt aktualisiert: Juli 2026" : isFa ? "آخرین به‌روزرسانی: تیر ۱۴۰۵" : "Last updated: July 2026"}</p>
 
         <div className="space-y-8">
           {SECTIONS.map((s) => (
@@ -166,10 +162,6 @@ export default async function PrivacyPage() {
           ))}
         </div>
       </section>
-
-      <footer className="py-8 px-6 text-center" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        <SocialFooterLinks />
-      </footer>
-    </div>
+    </div></PublicShell>
   );
 }

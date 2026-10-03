@@ -1,11 +1,10 @@
-import Link from "next/link";
-import Image from "next/image";
+import PublicShell from "@/components/marketing/PublicShell";
 import { getServerLang } from "@/lib/i18n/server";
-import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
 import AiTeamPipeline from "@/components/landing/AiTeamPipeline";
 import type { Metadata } from "next";
 import { pageMetadata, pageJsonLd } from "@/lib/seo/site";
 import JsonLd from "@/components/seo/JsonLd";
+import { copy, text, features } from "@/lib/marketing/catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -141,33 +140,37 @@ const STR = {
   },
 };
 
+const STR_TR = {
+  heroEyebrow: "Bağlantılı yapay zekâ çalışma alanı", heroTitle: "İşiniz için uzman yapay zekâ rolleri", heroDesc: "İçerik akışı, işletme analizi ve koordinasyon için uzman roller. Çıktıları inceleyin; yayın ve bağlantılar izin ve kurulum gerektirir.", heroCta: "AIFekr ile başlayın",
+  pipelineTitle: "İçerik akışı: sekiz uzman rol", pipelineDesc: "Fikirden araştırmaya, yazımdan düzenlemeye ve SEO'ya. WordPress yayını için etkin bağlantı gerekir.",
+  agents: [
+    { title: "Fikir bulucu", desc: "İçerik fikirleri önerir." }, { title: "Stratejist", desc: "Hedefe uygun fikri değerlendirir." }, { title: "Araştırmacı", desc: "Araştırma kaynaklarını toplar; doğruluğu inceleyin." }, { title: "Yazar", desc: "İlk taslağı oluşturur." }, { title: "Editör", desc: "Taslağı inceler ve düzeltme önerir." }, { title: "SEO uzmanı", desc: "Başlık, açıklama ve anahtar kelimeleri hazırlar." }, { title: "Yayıncı", desc: "Yapılandırılmış WordPress bağlantısını kullanır." }, { title: "Eleştirmen", desc: "Sonucu değerlendirir ve öğrenilenleri kaydeder." },
+  ],
+  loopTitle: "Düzenleme geri bildirimi", loopDesc: "Editör değerlendirmesi, sınırlı sayıda yeniden yazım adımına yön verebilir.", memoryTitle: "Paylaşılan dersler", memoryDesc: "Akıştan çıkarılan kısa notlar sonraki çalışmalara bağlam sağlar.",
+  doctorEyebrow: "İşletme analizi", doctorTitle: "İşletme doktoru", doctorDesc: "İşletme bilgilerinizden AI destekli analiz ve eylem önerileri üretir. Gerçek bir danışmanın değerlendirmesinin yerini almaz.",
+  doctorFeatures: [{ title: "SWOT", desc: "Güçlü ve zayıf yönleri, fırsatları ve riskleri ele alır." }, { title: "Zorluklar", desc: "Geliştirme alanları önerir." }, { title: "Eylem planı", desc: "Aşamalı adımlar önerir." }, { title: "Takip", desc: "Sonraki kararlar için referans sağlar." }],
+  ceoTitle: "İşletme koordinatörü", ceoDesc: "Mevcut işletme verilerinizden bir özet ve öneriler oluşturur. Bağlı modüller ve izinler, kullanılabilir bağlamı belirler.",
+  ceoFeatures: [{ title: "İşletme özeti", desc: "Mevcut bilgileri bir araya getirir." }, { title: "Öneriler", desc: "Öncelikler ve eylem taslakları sunar." }, { title: "Takip taslakları", desc: "Göndermeden önce inceleyebileceğiniz mesajlar hazırlar." }, { title: "Zamanlanmış çalışma", desc: "Etkinleştirme, sunucu zamanlayıcısı ve e-posta yapılandırmasına bağlıdır." }],
+  finalCtaTitle: "Ekibinizi keşfedin", finalCtaDesc: "Erişim planınıza ve etkin modüllere bağlıdır.", finalCtaButton: "AIFekr ile başlayın",
+};
+
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getServerLang();
-  const meta = pageMetadata(lang, "/ai-team", {"fa":"تیم هوش مصنوعی شما — مدیرعامل، فروش، سئو و بیشتر","en":"Your AI Team — CEO, Sales, Accountant & SEO Agents","de":"Ihr KI-Team — CEO-, Vertriebs-, Buchhaltungs- & SEO-Agenten","tr":"Yapay Zekâ Ekibiniz — CEO, Satış, Muhasebe ve SEO"}, {"fa":"با عوامل AI تخصصی AiFekr آشنا شوید: مدیرعامل، فروش، حسابدار، سئو و محتوا — همه در یک تیم که ۲۴ ساعته کار می‌کند.","en":"Meet AiFekr's specialist AI agents: CEO, sales, accountant, SEO and content — one team that works around the clock.","de":"Lernen Sie die spezialisierten KI-Agenten von AiFekr kennen: CEO, Vertrieb, Buchhaltung, SEO und Content — ein Team, das rund um die Uhr arbeitet.","tr":"AiFekr'in uzman yapay zekâ ajanlarıyla tanışın: CEO, satış, muhasebe, SEO ve içerik — 7/24 çalışan tek bir ekip."});
+  const meta = pageMetadata(lang, "/ai-team", {"fa":"تیم هوش مصنوعی شما — مدیرعامل، فروش، سئو و بیشتر","en":"Your AI Team — CEO, Sales, Accountant & SEO Agents","de":"Ihr KI-Team — CEO-, Vertriebs-, Buchhaltungs- & SEO-Agenten","tr":"Yapay Zekâ Ekibiniz — CEO, Satış, Muhasebe ve SEO"}, {"fa":"با عوامل AI تخصصی AiFekr آشنا شوید: مدیرعامل، فروش، حسابدار، سئو و محتوا — در فضای کاری متصل، با دسترسی وابسته به پلن و تنظیمات.","en":"Meet AiFekr's specialist AI agents: CEO, sales, accountant, SEO and content — connected workspaces, subject to plan and configuration.","de":"Lernen Sie die spezialisierten KI-Agenten von AiFekr kennen: CEO, Vertrieb, Buchhaltung, SEO und Content — vernetzte Arbeitsbereiche, abhängig von Tarif und Konfiguration.","tr":"AiFekr'in uzman yapay zekâ ajanlarıyla tanışın: CEO, satış, muhasebe, SEO ve içerik — plan ve yapılandırmaya bağlı, bağlantılı çalışma alanları."});
   return meta;
 }
 
 export default async function AiTeamPage() {
   const lang = await getServerLang();
-  const s = STR[lang === "tr" ? "en" : lang];
-  const dir = lang === "fa" ? "rtl" : "ltr";
+  const s = lang === "tr" ? STR_TR : STR[lang];
+
 
   return (
-    <div className="min-h-screen" dir={dir} style={{ background: "#0a0a0f", color: "#f5f5f5" }}>
+    <PublicShell lang={lang}><div className="m-public-existing">
       <JsonLd data={pageJsonLd(lang, "/ai-team")} />
-      <header className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <Link href="/" className="flex items-center gap-2">
-          <Image src="/logo.svg" alt="AiFekr" width={28} height={28} className="rounded-lg" />
-          <span className="font-bold text-white">AiFekr</span>
-        </Link>
-        <Link href="/" className="text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>{s.back}</Link>
-      </header>
 
+      <div className="m-container m-notice"><h2>{text(lang, copy.requirements)}</h2><p>{text(lang, features.find(f => f.slug === "agents")!.requirement)}</p></div>
       <AiTeamPipeline s={s} />
-
-      <footer className="py-8 px-6 text-center text-sm" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.3)" }}>
-        <SocialFooterLinks />
-      </footer>
-    </div>
+    </div></PublicShell>
   );
 }

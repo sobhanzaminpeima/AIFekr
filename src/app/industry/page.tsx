@@ -1,3 +1,4 @@
+import PublicShell from "@/components/marketing/PublicShell";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db/prisma";
@@ -13,43 +14,43 @@ export async function generateMetadata(): Promise<Metadata> {
   const title = lang === "fa" ? "بازار بسته‌های صنعتی هوش مصنوعی — عوامل AI برای هر صنعت | AiFekr" : lang === "de" ? "Marktplatz für Branchen-KI-Pakete — KI-Agenten für jede Branche | AiFekr" : "AI Industry Packs Marketplace — AI Agents for Every Industry | AiFekr";
   const description =
     lang === "fa"
-      ? "تیم‌های عامل هوش مصنوعی اختصاصی برای هر صنعت — رستوران، مطب، املاک و بیشتر — آماده برای کار ۲۴/۷ با AiFekr."
+      ? "تیم‌های عامل هوش مصنوعی اختصاصی برای هر صنعت — رستوران، مطب، املاک و بیشتر — دسترسی وابسته به ماژول‌های فعال و اتصال سرویس‌هاست."
       : lang === "de"
-        ? "Spezialisierte KI-Agententeams für jede Branche — Restaurant, Praxis, Immobilien, Bau und mehr. Einsatzbereit rund um die Uhr mit AiFekr."
-        : "Specialized AI agent teams for every industry — restaurants, clinics, real estate, construction and more. Ready to work 24/7 with AiFekr.";
+        ? "Spezialisierte KI-Agententeams für jede Branche — Restaurant, Praxis, Immobilien, Bau und mehr. Zugriff abhängig von aktiven Modulen und verbundenen Diensten."
+        : "Specialized AI agent teams for every industry — restaurants, clinics, real estate, construction and more. Access depends on active modules and connected services.";
   return { title: { absolute: title }, description, alternates: { canonical: absoluteUrl("/industry") }, openGraph: { title, description } };
 }
 
 const strings = {
   fa: {
     title: "بازار بسته‌های صنعتی",
-    subtitle: "تیم‌های عامل هوش مصنوعی ویژه برای هر صنعت — آماده برای کار ۲۴/۷",
+    subtitle: "صنعت مناسب را انتخاب کنید؛ فعال‌سازی به اشتراک کسب‌وکار و دسترسی شما بستگی دارد.",
     empty: "بسته‌ای یافت نشد",
     emptySub: "لطفاً با ادمین تماس بگیرید",
     agents: "عامل AI",
-    included: "همراه پلن شما",
+    included: "نیازمند CRM فعال",
     view: "مشاهده بسته",
     gold: "طلایی",
     pro: "حرفه‌ای",
   },
   en: {
     title: "Industry AI Packs Marketplace",
-    subtitle: "Specialized AI agent teams for every industry — ready to work 24/7",
+    subtitle: "Choose an industry; activation depends on your business subscription and access.",
     empty: "No packs found",
     emptySub: "Please contact admin",
     agents: "AI agents",
-    included: "Included with your plan",
+    included: "Active CRM required",
     view: "View Pack",
     gold: "Gold",
     pro: "Professional",
   },
   de: {
     title: "Marktplatz für Branchen-KI-Pakete",
-    subtitle: "Spezialisierte KI-Agententeams für jede Branche — einsatzbereit rund um die Uhr",
+    subtitle: "Branche auswählen; Aktivierung abhängig von Business-Abo und Zugriff.",
     empty: "Keine Pakete gefunden",
     emptySub: "Bitte wenden Sie sich an den Administrator",
     agents: "KI-Agenten",
-    included: "In Ihrem Plan enthalten",
+    included: "Aktives CRM erforderlich",
     view: "Paket ansehen",
     gold: "Gold",
     pro: "Professionell",
@@ -68,13 +69,13 @@ interface Pack {
  * partially-translated row. */
 function localized(lang: "fa" | "en" | "de" | "tr", base: string, en: string | null, de: string | null): string {
   if (lang === "de") return de || en || base;
-  if (lang === "en") return en || base;
+  if ((lang === "en" || lang === "tr")) return en || base;
   return base;
 }
 
 export default async function IndustryPage() {
   const lang = await getServerLang();
-  const s = strings[lang === "tr" ? "en" : lang];
+  const s = lang === "tr" ? { title: "Sektörel yapay zekâ paketleri", subtitle: "Sektör seçin; etkinleştirme işletme aboneliğine ve erişiminize bağlıdır.", empty: "Paket bulunamadı", emptySub: "Güncel bilgi için bize ulaşın", agents: "Yapay zekâ ajanı", included: "Etkin CRM gerekir", view: "Paketi incele", gold: "Altın", pro: "Profesyonel" } : strings[lang];
 
   let packs: Pack[] = [];
   try {
@@ -82,7 +83,7 @@ export default async function IndustryPage() {
   } catch {}
 
   return (
-    <div className="min-h-screen p-8" style={{ background: "var(--surface-0)" }}>
+    <PublicShell lang={lang}><div className="m-public-existing">
       <JsonLd data={pageJsonLd(lang, "/industry", "CollectionPage")} />
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-12">
@@ -149,6 +150,6 @@ export default async function IndustryPage() {
           })}
         </div>
       </div>
-    </div>
+    </div></PublicShell>
   );
 }

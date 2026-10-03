@@ -9,6 +9,6 @@ export function canAutoPublish(plan: string): boolean {
 /// CRM: FREE/ECHO get a capped contact list to try the feature; PLUS and up
 /// get unlimited. -1 means unlimited, matching the convention in planLimits.ts.
 export function crmContactLimit(plan: string): number {
-  if (plan === "FREE" || plan === "ECHO") return 20;
+  if (plan === "FREE" || plan === "ECHO" || plan.startsWith("STUDENT_")) return 20;
   return -1;
 }

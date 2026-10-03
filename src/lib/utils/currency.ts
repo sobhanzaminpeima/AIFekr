@@ -10,14 +10,16 @@
 // defaults below — so pricing always renders something reasonable, never an
 // error, even if the FX API is unreachable.
 
-const USD_TO_TOMAN_FALLBACK = Number(process.env.USD_TO_TOMAN_RATE) || 650000;
-const USD_TO_EUR_FALLBACK = Number(process.env.USD_TO_EUR_RATE) || 0.92;
-const USD_TO_TRY_FALLBACK = Number(process.env.USD_TO_TRY_RATE) || 34;
+const USD_TO_TOMAN_FALLBACK = Number(process.env.USD_TO_TOMAN_RATE) || 163399.625272;
+const USD_TO_EUR_FALLBACK = Number(process.env.USD_TO_EUR_RATE) || 0.88731;
+const USD_TO_TRY_FALLBACK = Number(process.env.USD_TO_TRY_RATE) || 49.123297;
 
 export interface FxRates {
   usdToToman: number;
   usdToEur: number;
   usdToTry: number;
+  rateDate?: string;
+  isFallback?: boolean;
 }
 
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12h — FX rates don't need to be second-fresh for pack pricing display
@@ -55,7 +57,7 @@ async function fetchLiveRates(): Promise<FxRates> {
   // open.er-api.com's IRR rate is Iran's official Rial-per-USD figure — divide
   // by 10 for Toman (the everyday colloquial unit this app prices in).
   const freeCurrencyEur = await fetchFreeCurrencyApiEur();
-  return { usdToToman: data.rates.IRR / 10, usdToEur: freeCurrencyEur ?? data.rates.EUR, usdToTry: data.rates.TRY };
+  return { usdToToman: data.rates.IRR / 10, usdToEur: freeCurrencyEur ?? data.rates.EUR, usdToTry: data.rates.TRY, rateDate: new Date(data.time_last_update_unix * 1000).toISOString().slice(0, 10), isFallback: false };
 }
 
 /** Cached live FX rates, safe to call on every request — only actually hits the network once per CACHE_TTL_MS. */
@@ -72,7 +74,7 @@ export async function getFxRates(): Promise<FxRates> {
     // Keep serving the last known-good cached value past its TTL rather than
     // reverting to the static default the moment the API has one bad request.
     if (cache) return cache.rates;
-    return { usdToToman: USD_TO_TOMAN_FALLBACK, usdToEur: USD_TO_EUR_FALLBACK, usdToTry: USD_TO_TRY_FALLBACK };
+    return { usdToToman: USD_TO_TOMAN_FALLBACK, usdToEur: USD_TO_EUR_FALLBACK, usdToTry: USD_TO_TRY_FALLBACK, rateDate: "2026-10-02", isFallback: true };
   }
 }
 

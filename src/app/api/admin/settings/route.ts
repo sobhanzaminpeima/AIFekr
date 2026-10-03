@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 
+import { validIban } from "@/lib/payment/bank";
+
 async function checkAdmin(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user || !["ADMIN", "SUPER_ADMIN"].includes(user.role)) return null;
@@ -29,6 +31,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
+  for (const key of ["bank_iban", "bank_iban_eur"]) {
+    if (settings[key] !== undefined && !validIban(String(settings[key]))) return NextResponse.json({error:"Invalid IBAN"},{status:400});
+  }
   for (const [key, value] of Object.entries(settings)) {
     await prisma.siteSetting.upsert({
       where: { key },

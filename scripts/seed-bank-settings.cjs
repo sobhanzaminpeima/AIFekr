@@ -1,0 +1,3 @@
+require('@next/env').loadEnvConfig(process.cwd());
+const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();
+(async()=>{const values={bank_iban:'TR210001009010583132105001',bank_iban_eur:'TR910001009010583132105002',bank_holder:'MEHRAD MOHARRAMZADEH',bank_currency:'TRY'};for(const [key,value] of Object.entries(values))await p.siteSetting.upsert({where:{key},create:{key,value},update:{}});await p.siteSetting.upsert({where:{key:'payment_gateway'},create:{key:'payment_gateway',value:'bank_transfer'},update:{value:'bank_transfer'}});console.log('Bank settings seeded; existing bank edits preserved');})().catch(e=>{console.error(e.message);process.exitCode=1;}).finally(()=>p.$disconnect());

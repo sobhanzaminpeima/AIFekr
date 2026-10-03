@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 
   const payment = await findPaymentById(paymentId);
 
-  if (!payment || payment.status !== "PENDING") {
+  if (!payment || payment.gateway === "bank_transfer" || payment.status !== "PENDING") {
     return NextResponse.redirect(await failureRedirect());
   }
 

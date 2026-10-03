@@ -1,3 +1,4 @@
+export type BillingPeriod = "monthly" | "quarterly" | "semiannual" | "annual";
 // Phase 3 of the monetization overhaul: four billing periods per the master
 // prompt (monthly / 3mo / 6mo / yearly), each a straight discount off the
 // monthly price scaled by month count -- deeper discount the longer the

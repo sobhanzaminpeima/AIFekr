@@ -32,6 +32,7 @@ interface UsageStats {
 }
 
 interface PaymentRow {
+  transferCurrency: string; transferMinor: number; receiptAt: string | null; reviewNote: string | null;
   id: string;
   amount: number;
   plan: string;
@@ -58,7 +59,7 @@ export default function SettingsPage() {
   const { t, lang } = useTranslation();
   const isFa = lang === "fa";
   const dateLocale = lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US";
-  const STATUS_LABEL: Record<string, string> = { PENDING: t.settingsPage.statusPending, PAID: t.settingsPage.statusPaid, FAILED: t.settingsPage.statusFailed };
+  const STATUS_LABEL: Record<string, string> = { PENDING: t.settingsPage.statusPending, SUCCESS: t.settingsPage.statusPaid, REJECTED: tri(lang,"رد شده","Rejected","Abgelehnt","Reddedildi"), PAID: t.settingsPage.statusPaid, FAILED: t.settingsPage.statusFailed };
   const TYPE_LABEL: Record<string, string> = { chat: t.settingsPage.typeChat, image: t.settingsPage.typeImage, video: t.settingsPage.typeVideo, music: t.settingsPage.typeMusic, tool: t.settingsPage.typeTool };
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -355,9 +356,10 @@ export default function SettingsPage() {
                   <div className="text-xs" style={{ color: "var(--text-muted)" }}>{lang === "fa" ? toJalali(p.createdAt) : new Date(p.createdAt).toLocaleDateString(dateLocale)}</div>
                 </div>
                 <div className="text-left">
-                  <div style={{ color: "var(--text-primary)" }}>{(p.amount / 10).toLocaleString(dateLocale)} {lang === "fa" ? "ت" : lang === "de" ? "T" : "T"}</div>
-                  <div className="text-xs" style={{ color: p.status === "PAID" ? "var(--success)" : p.status === "FAILED" ? "var(--danger)" : "var(--text-muted)" }}>
+                  <div style={{ color: "var(--text-primary)" }}>{p.gateway === "bank_transfer" ? `${(p.transferMinor / 100).toLocaleString(dateLocale)} ${p.transferCurrency}` : `${p.amount.toLocaleString(dateLocale)} Toman`}</div>
+                  <div className="text-xs" style={{ color: p.status === "SUCCESS" ? "var(--success)" : p.status === "FAILED" ? "var(--danger)" : "var(--text-muted)" }}>
                     {STATUS_LABEL[p.status] || p.status}
+                    {p.gateway === "bank_transfer" && <a className="block text-orange-500" href={`/checkout/${p.id}`}>{tri(lang,"جزئیات و رسید","Details and receipt","Details und Beleg","Ayrıntılar ve dekont")}</a>}
                   </div>
                 </div>
               </div>

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import type { Payment, User } from "@prisma/client";
+import { STUDENT_PLAN_CODE, STUDENT_MONTHLY_CODE } from "@/lib/plans/studentOffer";
 
 /**
  * Centralizes Payment reads/writes and the plan-activation transaction that
@@ -8,6 +9,11 @@ import type { Payment, User } from "@prisma/client";
  */
 
 export function createPendingPayment(data: { userId: string; amount: number; plan: string; gateway: string; walletDiscountToman?: number; periodMonths?: number }) {
+  if (data.plan === STUDENT_PLAN_CODE) return prisma.$transaction(async tx => {
+    const prior = await tx.payment.findFirst({ where: { userId: data.userId, plan: { startsWith: "STUDENT_" }, status: { in: ["PENDING", "SUCCESS"] } }, select: { id: true } });
+    if (prior) throw new Error("STUDENT_OFFER_ALREADY_USED");
+    return tx.payment.create({ data: { ...data, status: "PENDING" } });
+  });
   return prisma.payment.create({ data: { ...data, status: "PENDING" } });
 }
 
@@ -37,6 +43,21 @@ export async function activatePlanForPayment(
 ): Promise<Date> {
   const expiry = new Date();
   expiry.setDate(expiry.getDate() + (planInfo?.days || 30) * Math.max(1, payment.periodMonths ?? 1));
+
+  if ([STUDENT_PLAN_CODE, STUDENT_MONTHLY_CODE].includes(payment.plan)) {
+    // Student packages grant their stored credits once for the purchased term.
+    expiry.setTime(Date.now() + (payment.plan === STUDENT_PLAN_CODE ? 60 : 30) * 24 * 60 * 60 * 1000);
+    return prisma.$transaction(async tx => {
+      const claimed = await tx.payment.updateMany({ where: { id: payment.id, status: "PENDING" }, data: { status: "SUCCESS", refId, authority } });
+      if (!claimed.count) {
+        const current = await tx.user.findUniqueOrThrow({ where: { id: payment.userId }, select: { planExpiry: true } });
+        return current.planExpiry || expiry;
+      }
+      await tx.user.update({ where: { id: payment.userId }, data: { plan: payment.plan, planExpiry: expiry, credits: { increment: planInfo?.credits || 0 }, trialLimited: false } });
+      await tx.userModuleOverride.upsert({ where: { userId_moduleKey: { userId: payment.userId, moduleKey: "student.workspace" } }, create: { userId: payment.userId, moduleKey: "student.workspace", enabled: true }, update: { enabled: true } });
+      return expiry;
+    });
+  }
 
   // CRM add-on plans are billed and activated separately from the AI-usage
   // `plan` field — buying CRM_SOLO/CRM_TEAM must never touch/overwrite a

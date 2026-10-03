@@ -1,6 +1,4 @@
-import Link from "next/link";
-import Image from "next/image";
-import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
+import PublicShell from "@/components/marketing/PublicShell";
 import { getServerLang } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 import { pageMetadata, pageJsonLd } from "@/lib/seo/site";
@@ -136,6 +134,19 @@ const SECTIONS_DE = [
   },
 ];
 
+const SECTIONS_TR = [
+  { title: "1. Koşulların kabulü", body: "AIFekr'e kayıt ve hizmet kullanımı bu koşulların kabulü anlamına gelir. Kabul etmiyorsanız hizmeti kullanmayın." },
+  { title: "2. Hizmetler", body: "Platform kredi temelli sohbet, görsel, video, müzik, SEO ve sosyal medya araçları sunar. WordPress ve Instagram gibi hesap bağlantıları isteğe bağlıdır ve izninizi gerektirir." },
+  { title: "3. Hesap", body: "Giriş bilgilerinizin gizliliğinden ve hesabınızdaki faaliyetlerden siz sorumlusunuz. Yetkisiz kullanım fark ederseniz destekle iletişime geçin." },
+  { title: "4. Krediler ve ödeme", body: "Plan ve kredi alımları mevcut ödeme seçenekleriyle yapılır. Satın alınan krediler tüketilene kadar geçerlidir. Fiyat değişiklikleri daha önce tamamlanmış alımları etkilemez." },
+  { title: "5. İade", body: "Tüketilen krediler için iade yapılmaz. Teknik hata sonucu çıktı almadan kredi düşülürse işlem bilgisiyle desteğe başvurun; inceleme sonrası telafi kredisi verilebilir." },
+  { title: "6. İzin verilen kullanım", body: "Yasa dışı, saldırgan veya fikri mülkiyet haklarını ihlal eden içerikler yasaktır. İhlallerde hesap erişimi durdurulabilir." },
+  { title: "7. Yapay zekâ çıktıları", body: "Çıktılar hatalı olabilir. Özellikle yayın ve otomasyon işlemlerinden önce içerikleri incelemek ve kullanımını değerlendirmek sizin sorumluluğunuzdur." },
+  { title: "8. Sorumluluk sınırı", body: "Kesintisiz erişim veya çıktıların yüzde yüz doğruluğu garanti edilmez. Yasal sınırlar içinde dolaylı zararlara ilişkin sorumluluk sınırlıdır." },
+  { title: "9. Değişiklikler", body: "Koşullar güncellenebilir. Güncelleme sonrasında hizmeti kullanmayı sürdürmek yeni koşulları kabul etmek anlamına gelir." },
+  { title: "10. İletişim", body: "Sorularınız için iletişim sayfasından destek ekibine ulaşın." },
+];
+
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getServerLang();
   const meta = pageMetadata(lang, "/terms", {"fa":"شرایط استفاده — قوانین، پرداخت و اعتبار","en":"Terms of Service — Rules, Payments & Credits","de":"Nutzungsbedingungen — Regeln, Zahlung & Credits","tr":"Kullanım Koşulları — Kurallar, Ödeme ve Krediler"}, {"fa":"شرایط و قوانین استفاده از پلتفرم هوش مصنوعی AiFekr، پرداخت‌ها و اعتبارها.","en":"Terms and conditions for using the AiFekr AI platform, payments and credits.","de":"Nutzungsbedingungen der KI-Plattform AiFekr, Zahlungen und Credits.","tr":"AiFekr yapay zekâ platformunun kullanım koşulları, ödemeler ve krediler."});
@@ -145,29 +156,15 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function TermsPage() {
   const lang = await getServerLang();
   const isFa = lang === "fa";
-  const SECTIONS = lang === "de" ? SECTIONS_DE : isFa ? SECTIONS_FA : SECTIONS_EN;
+  const SECTIONS = lang === "tr" ? SECTIONS_TR : lang === "de" ? SECTIONS_DE : isFa ? SECTIONS_FA : SECTIONS_EN;
 
   return (
-    <div className="min-h-screen" dir={lang === "fa" ? "rtl" : "ltr"} style={{ background: "#0a0a0f", color: "#f5f5f5" }}>
+    <PublicShell lang={lang}><div className="m-public-existing">
       <JsonLd data={pageJsonLd(lang, "/terms")} />
-      <nav
-        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4"
-        style={{ background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
-      >
-        <Link href="/" className="flex items-center gap-2">
-          <Image src="/logo.svg" alt="AiFekr" width={32} height={32} className="rounded-lg" />
-          <span className="font-bold text-lg text-white">AiFekr</span>
-        </Link>
-        <div className="flex items-center gap-2">
-          <Link href="/terms" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "#ea580c" }}>{lang === "de" ? "Nutzungsbedingungen" : isFa ? "قوانین و مقررات" : "Terms of Service"}</Link>
-          <Link href="/privacy" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{lang === "de" ? "Datenschutzrichtlinie" : isFa ? "حریم خصوصی" : "Privacy Policy"}</Link>
-          <Link href="/login" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{lang === "de" ? "Anmelden" : isFa ? "ورود" : "Log in"}</Link>
-        </div>
-      </nav>
 
-      <section className="pt-40 pb-16 px-6 max-w-3xl mx-auto">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2">{lang === "de" ? "AiFekr Nutzungsbedingungen" : isFa ? "قوانین و مقررات استفاده از AiFekr" : "AiFekr Terms of Service"}</h1>
-        <p className="text-sm mb-10" style={{ color: "rgba(255,255,255,0.5)" }}>{lang === "de" ? "Zuletzt aktualisiert: Juli 2026" : isFa ? "آخرین به‌روزرسانی: تیر ۱۴۰۵" : "Last updated: July 2026"}</p>
+      <section className="pt-12 pb-16 px-6 max-w-3xl mx-auto">
+        <h1 className="text-3xl md:text-4xl font-bold mb-2">{lang === "tr" ? "AIFekr kullanım koşulları" : lang === "de" ? "AiFekr Nutzungsbedingungen" : isFa ? "قوانین و مقررات استفاده از AiFekr" : "AiFekr Terms of Service"}</h1>
+        <p className="text-sm mb-10" style={{ color: "rgba(255,255,255,0.5)" }}>{lang === "tr" ? "Son güncelleme: Temmuz 2026" : lang === "de" ? "Zuletzt aktualisiert: Juli 2026" : isFa ? "آخرین به‌روزرسانی: تیر ۱۴۰۵" : "Last updated: July 2026"}</p>
 
         <div className="space-y-8">
           {SECTIONS.map((s) => (
@@ -178,10 +175,6 @@ export default async function TermsPage() {
           ))}
         </div>
       </section>
-
-      <footer className="py-8 px-6 text-center" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        <SocialFooterLinks />
-      </footer>
-    </div>
+    </div></PublicShell>
   );
 }

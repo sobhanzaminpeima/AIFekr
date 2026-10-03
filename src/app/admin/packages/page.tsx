@@ -91,6 +91,7 @@ export default function PackagesPage() {
 
   return (
     <div className="p-6 space-y-6">
+      <div className="rounded-xl border border-orange-500/30 p-4 text-sm leading-7">پکیج دانشجویی: قیمت پایه ماهانه ۸۰ دلار؛ آفر اولین اشتراک ۶۰ روز با مجموع ۸۰ دلار. قیمت دلاری به سنت ثبت می‌شود (۸۰۰۰). معادل تومان و لیر در نمایش و پرداخت از نرخ روز محاسبه می‌شود. اعتبار هر بسته قابل تنظیم است.</div>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>مدیریت پکیج‌ها</h1>

@@ -15,6 +15,7 @@ const CURRENCY_OPTIONS = [
 ];
 
 interface Payment {
+  transferMinor: number; transferCurrency: string; receiptAt: string | null;
   id: string;
   amount: number;
   plan: string;
@@ -508,8 +509,8 @@ export default function AdminUserDetailPage() {
                 return (
                   <tr key={p.id} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td className="px-4 py-2.5" style={{ color: "var(--text-primary)" }}>{PLAN_BADGE[p.plan]?.label || p.plan}</td>
-                    <td className="px-4 py-2.5" style={{ color: "var(--text-primary)" }}>{formatNumber(p.amount)}</td>
-                    <td className="px-4 py-2.5" style={{ color: "var(--text-secondary)" }}>{p.gateway}</td>
+                    <td className="px-4 py-2.5" style={{ color: "var(--text-primary)" }}>{p.gateway === "bank_transfer" ? `${p.transferMinor/100} ${p.transferCurrency}` : formatNumber(p.amount)}</td>
+                    <td className="px-4 py-2.5" style={{ color: "var(--text-secondary)" }}>{p.gateway}{p.receiptAt && <a className="block text-orange-500" href={`/api/payment/${p.id}/receipt`}>رسید</a>}<a className="block" href={`/admin/financial?userId=${user.id}`}>تاریخچه و بررسی</a></td>
                     <td className="px-4 py-2.5">
                       <span className="px-2 py-0.5 rounded-full text-xs" style={{ background: st.color + "22", color: st.color }}>{st.label}</span>
                     </td>

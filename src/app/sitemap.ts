@@ -1,3 +1,4 @@
+import { features, solutionCatalog } from "@/lib/marketing/catalog";
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/db/prisma";
 import { PUBLIC_PATHS, absoluteUrl } from "@/lib/seo/site";
@@ -14,6 +15,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: p.priority,
   }));
 
+  for (const path of ["/pricing", "/security", ...features.map(f => `/features/${f.slug}`), ...solutionCatalog.map(s => `/solutions/${s.slug}`)]) entries.push({ url: absoluteUrl(path), lastModified: now, changeFrequency: "monthly", priority: .7 });
   try {
     const packs = await prisma.industryPack.findMany({ where: { isActive: true }, select: { slug: true } });
     for (const pack of packs) {
