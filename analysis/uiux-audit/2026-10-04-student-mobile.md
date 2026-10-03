@@ -13,3 +13,9 @@ Executed verification:
 - TypeScript and targeted ESLint passed.
 
 JARVIS classification: browser-safe presentation change. Existing student routes and APIs remain available; this change adds no separate JARVIS backend or SSO behavior.
+
+## Deployment verification
+
+Deployed to /var/www/aifekr-release-47c83dd with the subsequent dd0f120 tutor change included. Native VPS builds stalled under swap/disk pressure and were stopped. The complete local production build passed (exit 0); only its platform-independent .next artifact was transferred, while Linux dependencies and private server configuration were retained. Compatibility was verified on an isolated loopback preview at port 3107 before promotion. Port 3001 was occupied by another service and was not used for the successful checks.
+
+Authenticated temporary USER checks passed for auth/me, courses, notes, exams, student SSR, tutor SSR, pricing and CSS assets on the preview. After activation, live HTTPS checks on aifekr.com passed for auth/me, courses, student navigation plus the new CSS, tutor composer height and pricing. Each temporary QA account and its student override was deleted in finally cleanup. PM2 service ai-platform was switched to the new release on port 3000 and saved; the prior release and separate JARVIS services were preserved. No schema migration or paid AI request was executed. GitHub push remains blocked by missing renewed account authentication.
