@@ -394,7 +394,7 @@ export default function SEOPage() {
         {platform === "aifekr" && (
           <div className="pt-2" style={{ borderTop: "1px solid var(--border)" }}>
             <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{t.seo.aifekrWebsiteIdLabel}</label>
-            <input value={aifekrWebsiteId} onChange={e => setAifekrWebsiteId(e.target.value)} dir="ltr" placeholder="website id"
+            <input aria-label={t.seo.aifekrWebsiteIdLabel} value={aifekrWebsiteId} onChange={e => setAifekrWebsiteId(e.target.value)} dir="ltr" placeholder="website id"
               className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           </div>
         )}
@@ -570,7 +570,7 @@ export default function SEOPage() {
             </div>
             <div>
               <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.seo.targetKeywordLabel}</label>
-              <input value={targetKeyword} onChange={e => setTargetKeyword(e.target.value)} placeholder={t.seo.targetKeywordPlaceholder}
+              <input aria-label={t.seo.targetKeywordLabel} value={targetKeyword} onChange={e => setTargetKeyword(e.target.value)} placeholder={t.seo.targetKeywordPlaceholder}
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
@@ -600,7 +600,7 @@ export default function SEOPage() {
           <>
             <div>
               <label className="block text-sm mb-1.5 font-medium" style={{ color: "var(--text-secondary)" }}>{t.seo.keywordLabel}</label>
-              <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder={t.seo.keywordPlaceholder}
+              <input aria-label={t.seo.keywordLabel} value={keyword} onChange={e => setKeyword(e.target.value)} placeholder={t.seo.keywordPlaceholder}
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
@@ -615,13 +615,13 @@ export default function SEOPage() {
           <>
             <div>
               <label className="block text-sm mb-1.5 font-medium" style={{ color: "var(--text-secondary)" }}>{t.seo.contentKeywordLabel}</label>
-              <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder={t.seo.keywordPlaceholder}
+              <input aria-label={t.seo.contentKeywordLabel} value={keyword} onChange={e => setKeyword(e.target.value)} placeholder={t.seo.keywordPlaceholder}
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div>
               <label className="block text-sm mb-1.5 font-medium" style={{ color: "var(--text-secondary)" }}>{t.seo.contentLabel}</label>
-              <textarea value={content} onChange={e => setContent(e.target.value)} rows={6} placeholder={t.seo.contentPlaceholder}
+              <textarea aria-label={t.seo.contentLabel} value={content} onChange={e => setContent(e.target.value)} rows={6} placeholder={t.seo.contentPlaceholder}
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
@@ -636,13 +636,13 @@ export default function SEOPage() {
           <>
             <div>
               <label className="block text-sm mb-1.5 font-medium" style={{ color: "var(--text-secondary)" }}>{t.seo.metaPageTopicLabel}</label>
-              <input value={pageTopic} onChange={e => setPageTopic(e.target.value)} placeholder={t.seo.metaPageTopicPlaceholder}
+              <input aria-label={t.seo.metaPageTopicLabel} value={pageTopic} onChange={e => setPageTopic(e.target.value)} placeholder={t.seo.metaPageTopicPlaceholder}
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div>
               <label className="block text-sm mb-1.5 font-medium" style={{ color: "var(--text-secondary)" }}>{t.seo.metaKeywordLabel}</label>
-              <input value={metaKeyword} onChange={e => setMetaKeyword(e.target.value)} placeholder={t.seo.metaKeywordPlaceholder}
+              <input aria-label={t.seo.metaKeywordLabel} value={metaKeyword} onChange={e => setMetaKeyword(e.target.value)} placeholder={t.seo.metaKeywordPlaceholder}
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/utils/rateLimit";
+import { isPublicRoute, stripPublicLocale } from "@/lib/seo/locales";
 
 // Path-prefix -> { limit, windowMs }. First match wins (checked in order).
 // Auth endpoints get the tightest limits (brute-force/OTP-spam protection);
@@ -47,6 +48,26 @@ function unverifiedUserId(req: NextRequest): string | null {
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  if (!pathname.startsWith("/api/")) {
+    const localized = stripPublicLocale(pathname);
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.delete("x-public-lang");
+    if (isPublicRoute(localized.path)) {
+      requestHeaders.set("x-public-lang", localized.lang);
+      if (pathname !== localized.path) {
+        const target = req.nextUrl.clone();
+        target.pathname = localized.path;
+        // Industry records currently contain Persian/English/German content only.
+        if (localized.lang === "tr" && localized.path.startsWith("/industry/")) {
+          target.pathname = `/en${localized.path}`;
+          return NextResponse.redirect(target, 308);
+        }
+        if (localized.lang === "fa") return NextResponse.redirect(target, 308);
+        return NextResponse.rewrite(target, { request: { headers: requestHeaders } });
+      }
+    }
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
   const rule = RULES.find((r) => pathname.startsWith(r.prefix));
   if (!rule) return NextResponse.next();
 
@@ -68,5 +89,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: "/api/:path*",
+  matcher: ["/api/:path*", "/((?!api|_next|.*\\..*).*)"],
 };

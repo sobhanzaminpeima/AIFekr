@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { verifyToken } from "@/lib/auth/jwt";
 import { prisma } from "@/lib/db/prisma";
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import AdminNavShell from "@/components/admin/AdminNavShell";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
@@ -23,11 +24,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") redirect("/chat");
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: "var(--surface-0)" }}>
-      <AdminSidebar adminName={user?.name || "ادمین"} role={user?.role || "ADMIN"} />
-      <main className="flex-1 overflow-y-auto">
-        {children}
-      </main>
+    <div className="platform-shell flex h-screen overflow-hidden" style={{ background: "var(--surface-0)" }}>
+      <AdminNavShell sidebar={<AdminSidebar adminName={user?.name || "ادمین"} role={user?.role || "ADMIN"} />}>{children}</AdminNavShell>
     </div>
   );
 }
+export const metadata = { robots: { index: false, follow: false } };

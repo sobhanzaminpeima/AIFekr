@@ -1,20 +1,86 @@
-import {beforeEach,describe,it,expect,vi} from "vitest";
-const m=vi.hoisted(()=>({auth:vi.fn(),pkg:vi.fn(),find:vi.fn(),create:vi.fn()}));
-vi.mock("@/lib/auth/middleware",()=>({requireAuth:m.auth,unauthorizedResponse:()=>Response.json({}, {status:401})}));
-vi.mock("@/lib/db/prisma",()=>({prisma:{package:{findUnique:m.pkg},$transaction:async(fn:Function)=>fn({payment:{findFirst:m.find,create:m.create}})}}));
-vi.mock("@/lib/utils/rateLimit",()=>({rateLimit:()=>({allowed:true})}));
-vi.mock("@/lib/utils/currency",()=>({getFxRates:async()=>({usdToToman:100000,usdToTry:40,usdToEur:.9,rateDate:"2026-10-03"})}));
-vi.mock("@/lib/payment/bank",()=>({bankSettings:async()=>({iban:"TR210001009010583132105001",holder:"MEHRAD MOHARRAMZADEH",currency:"TRY",euroIban:"TR910001009010583132105002"}),validIban:()=>true}));
-import {NextRequest} from "next/server";
-import {POST} from "./route";
-const req=(body:unknown)=>new NextRequest("https://aifekr.test/api/payment/create",{method:"POST",body:JSON.stringify(body)});
-beforeEach(()=>{vi.clearAllMocks();m.auth.mockResolvedValue({id:"buyer"});m.pkg.mockResolvedValue({isActive:true,priceUsd:8000,price:80000000,credits:1000,duration:30});m.find.mockResolvedValue(null);m.create.mockResolvedValue({id:"order"});});
-describe("manual bank checkout",()=>{
- it("requires authentication",async()=>{m.auth.mockResolvedValue(null);expect((await POST(req({plan:"TEAM_STARTER"}))).status).toBe(401);expect(m.create).not.toHaveBeenCalled();});
- it("quotes the intro once and snapshots 60 days without activating",async()=>{const r=await POST(req({plan:"STUDENT_FIRST_TWO_MONTHS",period:"monthly"}));expect(await r.json()).toEqual({paymentId:"order",paymentUrl:"/checkout/order"});const data=m.create.mock.calls[0][0].data;expect(data).toMatchObject({status:"PENDING",gateway:"bank_transfer",transferCurrency:"TRY",transferMinor:320000,amount:8000000,periodMonths:2});expect(JSON.parse(data.entitlementSnapshot)).toMatchObject({credits:1000,days:60});});
- it("uses the separate euro IBAN and euro amount",async()=>{await POST(req({plan:"STUDENT_MONTHLY",period:"monthly",currency:"EUR"}));const data=m.create.mock.calls[0][0].data;expect(data.transferMinor).toBe(7200);expect(JSON.parse(data.bankSnapshot).iban).toBe("TR910001009010583132105002");});
- it("reuses an existing pending order",async()=>{m.find.mockResolvedValue({id:"pending"});expect(await (await POST(req({plan:"TEAM_STARTER"}))).json()).toMatchObject({paymentId:"pending"});expect(m.create).not.toHaveBeenCalled();});
- it("rejects intro after an earlier student subscription",async()=>{m.find.mockResolvedValueOnce(null).mockResolvedValueOnce({id:"prior"});expect((await POST(req({plan:"STUDENT_FIRST_TWO_MONTHS",period:"monthly"}))).status).toBe(409);});
- it("rejects unsupported intro billing terms",async()=>{expect((await POST(req({plan:"STUDENT_FIRST_TWO_MONTHS",period:"annual"}))).status).toBe(400);});
- it("rejects inactive packages",async()=>{m.pkg.mockResolvedValue({isActive:false});expect((await POST(req({plan:"TEAM_STARTER"}))).status).toBe(400);});
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
+
+const mocks = vi.hoisted(() => ({
+  findPending: vi.fn(), create: vi.fn(), auth: vi.fn(), findPackage: vi.fn(), membership:vi.fn(), memberCount:vi.fn(),
+}));
+vi.mock("@/lib/auth/middleware", () => ({ requireAuth: mocks.auth, unauthorizedResponse: () => new Response(null, { status: 401 }) }));
+vi.mock("@/lib/utils/rateLimit", () => ({ rateLimit: () => ({ allowed: true }) }));
+vi.mock("@/lib/utils/currency", () => ({ getFxRates: async () => ({ usdToToman: 100, usdToTry: 40, usdToEur: 0.9, rateDate: "2026-10-03" }) }));
+vi.mock("@/lib/payment/bank", () => ({ bankSettings: async () => ({ iban: "GB82WEST12345698765432", euroIban: "GB82WEST12345698765432", holder: "Test", currency: "TRY" }), validIban: () => true }));
+vi.mock("@/lib/payment/bankErrors", () => ({ bankError: (_req: unknown, error: string, status: number) => Response.json({ error }, { status }) }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: {
+  package: { findUnique: mocks.findPackage },
+  teamMember:{findUnique:mocks.membership,count:mocks.memberCount},
+  $transaction: (fn: (tx: unknown) => unknown) => fn({ payment: { findFirst: mocks.findPending, create: mocks.create } }),
+} }));
+import { POST } from "./route";
+
+function request(plan: string, period: string, currency = "TRY") {
+  return new NextRequest("http://localhost/api/payment/create", { method: "POST", body: JSON.stringify({ plan, period, currency }) });
+}
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.auth.mockResolvedValue({ id: "buyer", role: "USER" });
+  mocks.findPackage.mockResolvedValue({ isActive: true, priceUsd: 8000, price: 80000, credits: 1000, duration: 30, teamSeatLimit:3,crmSeatLimit:3 });
+  mocks.membership.mockResolvedValue(null);mocks.memberCount.mockResolvedValue(0);
+  mocks.findPending.mockResolvedValue(null);
+  mocks.create.mockResolvedValue({ id: "new-payment" });
+});
+describe("bank checkout period selection", () => {
+  it("rejects null JSON and unsupported currencies without creating an order", async () => {
+    const req=new NextRequest("http://localhost/api/payment/create",{method:"POST",body:"null"});
+    expect((await POST(req)).status).toBe(400);
+    expect((await POST(request("TEAM_BUSINESS_START","monthly","BTC"))).status).toBe(400);
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+  it("blocks a member from buying a second owner's workspace", async () => {
+    mocks.membership.mockResolvedValue({team:{ownerId:"someone-else"}});
+    expect((await POST(request("TEAM_BUSINESS_START", "monthly"))).status).toBe(409);
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+  it("rejects a downgrade below the occupied seat count", async () => {
+    mocks.memberCount.mockResolvedValue(4);
+    expect((await POST(request("TEAM_BUSINESS_START", "monthly"))).status).toBe(409);
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+  it("allocates business credits for every purchased month and snapshots the bundle", async () => {
+    await POST(request("TEAM_BUSINESS_GROW", "quarterly"));
+    const snapshot = JSON.parse(mocks.create.mock.calls[0][0].data.entitlementSnapshot);
+    expect(snapshot).toMatchObject({ credits:3000, days:90, businessBundle:true });
+  });
+  it("defaults legacy module purchases without a period to one month", async () => {
+    const req = new NextRequest("http://localhost/api/payment/create", { method: "POST", body: JSON.stringify({ plan: "VOICE_MONTHLY" }) });
+    expect((await POST(req)).status).toBe(200);
+    expect(mocks.create.mock.calls[0][0].data.periodMonths).toBe(1);
+  });
+  it("matches pending orders by buyer, period, currency and payable amount", async () => {
+    const response = await POST(request("TEAM_STARTER", "quarterly", "EUR"));
+    expect(response.status).toBe(200);
+    expect(mocks.findPending).toHaveBeenCalledWith({ where: { userId: "buyer", plan: "TEAM_STARTER", periodMonths: 3, transferCurrency: "EUR", transferMinor: 20520, status: "PENDING", gateway: "bank_transfer" } });
+    expect(mocks.create.mock.calls[0][0].data.periodMonths).toBe(3);
+    expect(JSON.parse(mocks.create.mock.calls[0][0].data.entitlementSnapshot).days).toBe(90);
+  });
+  it("uses six months and the correct discount for regular student subscriptions", async () => {
+    await POST(request("STUDENT_MONTHLY", "semiannual"));
+    const data = mocks.create.mock.calls[0][0].data;
+    expect(data.periodMonths).toBe(6);
+    expect(data.transferMinor).toBe(1728000);
+    expect(JSON.parse(data.entitlementSnapshot).days).toBe(180);
+  });
+  it("reuses an exact pending order instead of creating a duplicate", async () => {
+    mocks.findPending.mockResolvedValue({ id: "same-order" });
+    const response = await POST(request("CRM_SOLO", "monthly"));
+    expect(await response.json()).toEqual({ paymentId: "same-order", paymentUrl: "/checkout/same-order" });
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+  it("rejects invalid billing terms before creating an order", async () => {
+    expect((await POST(request("TEAM_STARTER", "weekly"))).status).toBe(400);
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+  it("keeps unauthenticated purchases blocked", async () => {
+    mocks.auth.mockResolvedValue(null);
+    expect((await POST(request("TEAM_STARTER", "monthly"))).status).toBe(401);
+    expect(mocks.findPackage).not.toHaveBeenCalled();
+  });
 });

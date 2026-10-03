@@ -3870,12 +3870,12 @@ function OccupancyCalendarModal({ lang, propertyId, contacts, onClose }: { lang:
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>{tri(lang, "ورود", "Check-in", "Anreise", "Giriş")}</label>
-              <input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)}
+              <input aria-label={tri(lang, "ورود", "Check-in", "Anreise", "Giriş")} type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)}
                 className="w-full px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div>
               <label className="block text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>{tri(lang, "خروج", "Check-out", "Abreise", "Çıkış")}</label>
-              <input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)}
+              <input aria-label={tri(lang, "خروج", "Check-out", "Abreise", "Çıkış")} type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)}
                 className="w-full px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
           </div>
@@ -5321,12 +5321,12 @@ function ProjectDetailModal({ isFa, lang, t, project, onClose, onChanged }: { is
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "تاریخ شروع", "Start date", "Startdatum", "Başlangıç tarihi")}</label>
-              <input type="date" value={form.startDate} onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
+              <input aria-label={tri(lang, "تاریخ شروع", "Start date", "Startdatum", "Başlangıç tarihi")} type="date" value={form.startDate} onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div>
               <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "تاریخ پایان", "End date", "Enddatum", "Bitiş tarihi")}</label>
-              <input type="date" value={form.endDate} onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
+              <input aria-label={tri(lang, "تاریخ پایان", "End date", "Enddatum", "Bitiş tarihi")} type="date" value={form.endDate} onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
           </div>

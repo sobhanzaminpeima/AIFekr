@@ -3,7 +3,7 @@ import { copy, text, type Copy } from "@/lib/marketing/catalog";
 import { pageMetadata, pageJsonLd } from "@/lib/seo/site";
 import PublicShell from "@/components/marketing/PublicShell";
 import JsonLd from "@/components/seo/JsonLd";
-import Link from "next/link";
+import Link from "@/components/marketing/PublicLink";
 export const dynamic = "force-dynamic";
 export async function generateMetadata() { const lang = await getServerLang(); return pageMetadata(lang, "/security", { fa: copy.security[0], en: copy.security[1], de: copy.security[2], tr: copy.security[3] }, { fa: copy.noPromise[0], en: copy.noPromise[1], de: copy.noPromise[2], tr: copy.noPromise[3] }); }
 const sections: { title: Copy; body: Copy }[] = [

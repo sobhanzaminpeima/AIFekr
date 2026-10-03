@@ -1,10 +1,10 @@
 import PublicShell from "@/components/marketing/PublicShell";
-import Link from "next/link";
+import Link from "@/components/marketing/PublicLink";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db/prisma";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
-import { absoluteUrl, pageJsonLd } from "@/lib/seo/site";
+import { publicAlternates, pageJsonLd } from "@/lib/seo/site";
 import JsonLd from "@/components/seo/JsonLd";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
       : lang === "de"
         ? "Spezialisierte KI-Agententeams für jede Branche — Restaurant, Praxis, Immobilien, Bau und mehr. Zugriff abhängig von aktiven Modulen und verbundenen Diensten."
         : "Specialized AI agent teams for every industry — restaurants, clinics, real estate, construction and more. Access depends on active modules and connected services.";
-  return { title: { absolute: title }, description, alternates: { canonical: absoluteUrl("/industry") }, openGraph: { title, description } };
+  return { title: { absolute: title }, description, alternates: publicAlternates(lang, "/industry"), openGraph: { title, description } };
 }
 
 const strings = {

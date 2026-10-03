@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import Link from "@/components/marketing/PublicLink";
 import { useState } from "react";
 import { Sparkles, ArrowUpRight, Check, MessageSquare, BookOpen, BriefcaseBusiness } from "lucide-react";
 import type { Lang } from "@/lib/i18n/server";

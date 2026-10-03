@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("@/lib/plans/businessAccess", () => ({ hasBusinessBundle: vi.fn().mockResolvedValue(false) }));
 const findUniqueOverride = vi.fn();
 const findUniqueFlag = vi.fn();
 

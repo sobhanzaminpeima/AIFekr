@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import en from "./en";
 import fa from "./fa";
 import de from "./de";
@@ -15,6 +15,8 @@ function isLang(v: string | undefined): v is Lang {
 
 export async function getServerLang(): Promise<Lang> {
   try {
+    const publicLang = headers().get("x-public-lang") ?? undefined;
+    if (isLang(publicLang)) return publicLang;
     const cookieStore = await cookies();
     const lang = cookieStore.get("lang")?.value;
     if (isLang(lang)) return lang;

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRef } from "react";
 import Link from "next/link";
+import BillingPeriods from "@/components/billing/BillingPeriods";
 import { useRouter } from "next/navigation";
 import { BookOpen, Plus, Sparkles, FileText, CalendarDays, Layers3, ArrowLeft, ArrowRight, GraduationCap, Loader2, Upload, X, Brain, CheckCircle2, Briefcase, LockKeyhole, Pencil, Trash2, MessageCircle, CalendarRange, Home, ClipboardList, Users, BarChart3, UserRound } from "lucide-react";
 import { useTranslation, tri, type Lang } from "@/lib/i18n";
@@ -333,8 +334,8 @@ export default function StudentWorkspace() {
       {error && <div role="alert" className="mb-5 rounded-xl px-4 py-3 text-sm" style={{ background: "rgba(239,68,68,.12)", color: "#dc2626" }}>{error}</div>}
       {notice && <div role="status" className="mb-5 rounded-xl px-4 py-3 text-sm" style={{ background: "rgba(34,197,94,.12)", color: "#15803d" }}>{notice}</div>}
 
-      <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
-        <nav aria-label={tri(lang, "ناوبری فضای دانشجویی", "Student workspace navigation", "Navigation im Lernbereich", "Öğrenci alanı gezintisi")} className="lg:sticky lg:top-24">
+      <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
+        <nav aria-label={tri(lang, "ناوبری فضای دانشجویی", "Student workspace navigation", "Navigation im Lernbereich", "Öğrenci alanı gezintisi")} className="min-w-0 lg:sticky lg:top-24">
           <div className="flex snap-x gap-1.5 overflow-x-auto rounded-xl p-1.5 [scrollbar-width:none] lg:gap-2 lg:rounded-2xl lg:p-2 lg:flex-col lg:overflow-visible" style={{ ...card, padding: 8 }}>
             {[
               { id: "overview", label: tri(lang, "نمای کلی", "Overview", "Übersicht", "Genel Bakış"), icon: Home },
@@ -412,7 +413,7 @@ export default function StudentWorkspace() {
           {studentView === "business" && <section id="business-upgrade" className="rounded-2xl p-5 md:p-6" style={{ background: "linear-gradient(135deg,rgba(59,130,246,.11),rgba(249,115,22,.1))", border: "1px solid rgba(59,130,246,.24)" }}>
         <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={{ background: "rgba(59,130,246,.15)", color: "#3b82f6" }}>{crmActive ? <Briefcase size={19}/> : <LockKeyhole size={19}/>}</span><div><h2 className="font-semibold">{tri(lang, "دانشجو هستی و بیزنس هم داری؟", "A student with a business too?", "Studierst du und hast ein Unternehmen?", "Öğrenci misin, işletmen de mi var?")}</h2><p className="mt-1 text-sm leading-6" style={{ color: "var(--text-secondary)" }}>{tri(lang, "اگر کسب‌وکار هم داری، ابزارهای CRM و ایجنت‌های تخصصی را به‌صورت افزونه فعال کن. تا آن زمان این بخش جدا از فضای دانشجویی می‌ماند.", "If you also run a business, activate CRM and specialist agents as an add-on. Until then, business tools stay separate from your study workspace.", "Wenn du zusätzlich ein Unternehmen führst, aktiviere CRM und Fachagenten als Add-on. Bis dahin bleiben die Business-Tools getrennt.", "İşletmen de varsa CRM ve uzman ajanları eklenti olarak etkinleştir. O zamana kadar işletme araçları öğrenci alanından ayrı kalır.")}</p></div></div>
         {crmActive ? <div className="mt-4 rounded-xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}><p className="text-sm font-medium" style={{ color: "#16a34a" }}>{activeIndustry ? tri(lang, "دسترسی بیزنسی و صنعت انتخابی فعال است.", "Business access and an industry are active.", "Businesszugang und Branche sind aktiv.", "İşletme erişimi ve sektör etkin.") : tri(lang, "CRM فعال است؛ یک صنعت انتخاب کن تا ابزارهای مرتبط در منو ظاهر شوند.", "CRM is active. Choose a business industry to reveal its tools.", "CRM ist aktiv. Wähle eine Branche für passende Tools.", "CRM etkin. İlgili araçlar için sektör seç.")}</p>{!activeIndustry && <Link href="/industry" className="mt-3 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-white" style={{ background: "#3b82f6" }}>{tri(lang, "انتخاب صنعت کسب‌وکار", "Choose business industry", "Branche auswählen", "İşletme sektörünü seç")}<ArrowRight size={15}/></Link>}</div> : <>
-          <div className="mt-4 flex flex-wrap gap-2">{(["monthly", "quarterly", "semiannual", "annual"] as const).map((period) => <button key={period} onClick={() => setBillingPeriod(period)} className="rounded-lg px-3 py-1.5 text-xs" style={{ background: billingPeriod === period ? "#3b82f6" : "var(--surface-1)", color: billingPeriod === period ? "#fff" : "var(--text-secondary)", border: "1px solid var(--border)" }}>{period === "monthly" ? tri(lang, "ماهانه", "Monthly", "Monatlich", "Aylık") : period === "quarterly" ? tri(lang, "۳ ماهه", "3 months", "3 Monate", "3 ay") : period === "semiannual" ? tri(lang, "۶ ماهه", "6 months", "6 Monate", "6 ay") : tri(lang, "سالانه", "Annual", "Jährlich", "Yıllık")}</button>)}</div>
+          <div className="mt-4"><BillingPeriods lang={lang} value={billingPeriod} onChange={setBillingPeriod} disabled={!!purchasing}/></div>
           <div className="mt-3 grid gap-3 md:grid-cols-2">{businessPackages.map((pkg) => {
             const months = { monthly: 1, quarterly: 3, semiannual: 6, annual: 12 }[billingPeriod];
             const discount = { monthly: 0, quarterly: .05, semiannual: .1, annual: 2 / 12 }[billingPeriod];

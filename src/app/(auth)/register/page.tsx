@@ -108,20 +108,20 @@ function RegisterForm() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.firstNameLabel}</label>
-                <input type="text" value={form.firstName} onChange={e => setForm({ ...form, firstName: e.target.value })}
+                <input aria-label={t.auth.register.firstNameLabel} type="text" value={form.firstName} onChange={e => setForm({ ...form, firstName: e.target.value })}
                   placeholder={t.auth.register.firstNamePlaceholder} className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                   style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} required />
               </div>
               <div>
                 <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.lastNameLabel}</label>
-                <input type="text" value={form.lastName} onChange={e => setForm({ ...form, lastName: e.target.value })}
+                <input aria-label={t.auth.register.lastNameLabel} type="text" value={form.lastName} onChange={e => setForm({ ...form, lastName: e.target.value })}
                   placeholder={t.auth.register.lastNamePlaceholder} className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                   style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
               </div>
             </div>
             <div>
               <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.countryLabel}</label>
-              <select value={form.country} onChange={e => setForm({ ...form, country: e.target.value })}
+              <select aria-label={t.auth.register.countryLabel} value={form.country} onChange={e => setForm({ ...form, country: e.target.value })}
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
                 <option value="">{t.auth.register.countryPlaceholder}</option>
@@ -150,7 +150,7 @@ function RegisterForm() {
             </div>
             <div>
               <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.emailLabel}</label>
-              <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
+              <input aria-label={t.auth.register.emailLabel} type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
                 placeholder="example@email.com" dir="ltr" className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
@@ -185,7 +185,7 @@ function RegisterForm() {
             {form.password && (
               <div>
                 <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.confirmPasswordLabel}</label>
-                <input type="password" value={form.confirmPassword} onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
+                <input aria-label={t.auth.register.confirmPasswordLabel} type="password" value={form.confirmPassword} onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
                   placeholder="••••••••" dir="ltr" className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                   style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
               </div>

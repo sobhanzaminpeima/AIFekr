@@ -9,7 +9,7 @@ import {
   Briefcase, Search, ShoppingCart, Building2, Cpu,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
 import { formatNumber, toJalali } from "@/lib/utils/jalali";
 import { stripMemorySection } from "@/lib/agents/ceoMemoryFormat";
 import CreditCost from "@/components/ui/CreditCost";
@@ -328,6 +328,7 @@ export default function AiBosPage() {
               </span>
             )}
             <button
+              aria-label={tri(lang, "تازه‌سازی وضعیت", "Refresh status", "تحديث الحالة", "Durumu yenile")}
               onClick={() => { loadSnapshot(); loadTasks(); loadLastSession(); }}
               className="p-2 rounded-xl" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}
             >
@@ -521,7 +522,7 @@ export default function AiBosPage() {
                           <Check className="w-3.5 h-3.5" />
                         </button>
                       )}
-                      <button onClick={() => deleteTask(task.id)} className="p-1.5 rounded-lg" style={{ color: "var(--text-muted)" }}>
+                      <button aria-label={tri(lang, "حذف وظیفه", "Delete task", "Aufgabe löschen", "Görevi sil")} onClick={() => deleteTask(task.id)} className="p-1.5 rounded-lg" style={{ color: "var(--text-muted)" }}>
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -626,7 +627,7 @@ export default function AiBosPage() {
             )}
           </div>
           <div className="p-4 flex flex-wrap gap-2" style={{ borderBottom: "1px solid var(--border)" }}>
-            <select value={newMemCategory} onChange={(e) => setNewMemCategory(e.target.value)}
+            <select aria-label={tri(lang, "دسته‌بندی یادداشت", "Memory category", "Notizkategorie", "Not kategorisi")} value={newMemCategory} onChange={(e) => setNewMemCategory(e.target.value)}
               className="px-3 py-2 rounded-xl text-sm outline-none"
               style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
               {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -637,6 +638,7 @@ export default function AiBosPage() {
               className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none"
               style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             <button onClick={addMemory}
+              aria-label={tri(lang, "افزودن یادداشت", "Add memory", "Notiz hinzufügen", "Not ekle")}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white"
               style={{ background: "var(--primary)" }}>
               <Plus className="w-4 h-4" /> {s.addBtn}
@@ -657,7 +659,7 @@ export default function AiBosPage() {
                     </span>
                     <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{m.text}</p>
                   </div>
-                  <button onClick={() => deleteMemory(m.id)} className="p-1 rounded-lg flex-shrink-0" style={{ color: "var(--text-muted)" }}>
+                  <button aria-label={tri(lang, "حذف یادداشت", "Delete memory", "Notiz löschen", "Notu sil")} onClick={() => deleteMemory(m.id)} className="p-1 rounded-lg flex-shrink-0" style={{ color: "var(--text-muted)" }}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </li>

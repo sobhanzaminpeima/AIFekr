@@ -1,0 +1,66 @@
+import type { Lang } from "@/lib/i18n/server";
+
+export const destinations = [
+  ["/home", "خانه", "Home", "Startseite", "Ana sayfa"],
+  ["/chat", "گفتگوی هوشمند", "AI chat", "KI-Chat", "Yapay zekâ sohbeti"],
+  ["/agents", "ایجنت‌ها", "Agents", "Agenten", "Ajanlar"],
+  ["/create", "ساخت محتوا", "Create", "Erstellen", "Oluştur"],
+  ["/crm", "مدیریت مشتری", "CRM", "Kundenverwaltung", "Müşteri yönetimi"],
+  ["/sales", "ایجنت فروش", "Sales agent", "Vertriebsagent", "Satış ajanı"],
+  ["/voice-agent", "ایجنت صوتی", "Voice agent", "Sprachagent", "Ses ajanı"],
+  ["/lead-gen", "جذب مشتری", "Lead generation", "Leadgenerierung", "Potansiyel müşteriler"],
+  ["/seo", "سئو", "SEO", "SEO", "SEO"],
+  ["/seo/sites", "سایت‌های سئو", "SEO sites", "SEO-Websites", "SEO siteleri"],
+  ["/seo/agent-pipeline", "گردش کار سئو", "SEO workflow", "SEO-Workflow", "SEO iş akışı"],
+  ["/social", "شبکه‌های اجتماعی", "Social media", "Soziale Medien", "Sosyal medya"],
+  ["/website-designer", "طراح وبسایت", "Website designer", "Webseitenersteller", "Web sitesi tasarımcısı"],
+  ["/business-doctor", "دکتر کسب‌وکار", "Business doctor", "Geschäftsberater", "İşletme danışmanı"],
+  ["/ceo", "مشاور مدیرعامل", "CEO advisor", "CEO-Berater", "CEO danışmanı"],
+  ["/ceo/orchestrator", "هماهنگی تیم AI", "AI team orchestration", "KI-Team-Steuerung", "Yapay zekâ ekip yönetimi"],
+  ["/meeting", "اتاق جلسه", "Meeting room", "Besprechungsraum", "Toplantı odası"],
+  ["/accounting", "حسابداری", "Accounting", "Buchhaltung", "Muhasebe"],
+  ["/accounting/expenses", "هزینه‌ها", "Expenses", "Ausgaben", "Giderler"],
+  ["/accounting/bank", "حساب‌های بانکی", "Bank accounts", "Bankkonten", "Banka hesapları"],
+  ["/accounting/payroll", "حقوق و دستمزد", "Payroll", "Gehaltsabrechnung", "Bordro"],
+  ["/accounting/owner-statements", "صورت‌حساب مالکان", "Owner statements", "Eigentümerabrechnungen", "Mal sahibi hesapları"],
+  ["/accounting/automation", "خودکارسازی حسابداری", "Accounting automation", "Buchhaltungsautomatisierung", "Muhasebe otomasyonu"],
+  ["/accounting/assistant", "دستیار حسابداری", "Accounting assistant", "Buchhaltungsassistent", "Muhasebe asistanı"],
+  ["/accounting/close-period", "بستن دوره مالی", "Close accounting period", "Periode abschließen", "Dönem kapatma"],
+  ["/accounting/ledger-setup", "تنظیم دفتر کل", "Ledger setup", "Hauptbuch einrichten", "Defter kurulumu"],
+  ["/student", "فضای دانشجویی", "Student workspace", "Studierendenbereich", "Öğrenci alanı"],
+  ["/student/chat", "گفتگوی درسی", "Study chat", "Lernchat", "Ders sohbeti"],
+  ["/startup/builder", "سازنده استارتاپ", "Startup builder", "Startup-Builder", "Girişim oluşturucu"],
+  ["/startup/contact", "مشاوره استارتاپ", "Startup consultation", "Startup-Beratung", "Girişim danışmanlığı"],
+  ["/image/generate", "ساخت تصویر", "Generate image", "Bild erstellen", "Görsel oluştur"],
+  ["/video/generate", "ساخت ویدیو", "Generate video", "Video erstellen", "Video oluştur"],
+  ["/music/generate", "ساخت موسیقی", "Generate music", "Musik erstellen", "Müzik oluştur"],
+  ["/image/gallery", "ساخته‌های من", "My creations", "Meine Werke", "Eserlerim"],
+  ["/gallery", "گالری", "Gallery", "Galerie", "Galeri"],
+  ["/industry", "بسته‌های کسب‌وکار", "Business packs", "Branchenpakete", "İşletme paketleri"],
+  ["/referral", "دعوت و درآمد", "Invite & earn", "Einladen & verdienen", "Davet et ve kazan"],
+  ["/plans", "پلن‌ها و اشتراک", "Plans & subscriptions", "Tarife & Abos", "Paketler ve abonelikler"],
+  ["/credits", "خرید اعتبار", "Buy credits", "Credits kaufen", "Kredi satın al"],
+  ["/settings", "تنظیمات", "Settings", "Einstellungen", "Ayarlar"],
+  ["/organization/onboarding", "راه‌اندازی کسب‌وکار", "Business setup", "Unternehmen einrichten", "İşletme kurulumu"],
+  ["/tools/business-ideas", "ایده کسب‌وکار", "Business ideas", "Geschäftsideen", "İş fikirleri"],
+  ["/tools/trading", "تحلیل بازار", "Market analysis", "Marktanalyse", "Pazar analizi"],
+  ["/tools/drop-shipping", "دراپشیپینگ", "Dropshipping", "Dropshipping", "Stoksuz satış"],
+  ["/tools/math", "حل ریاضی", "Math solver", "Mathe-Löser", "Matematik çözücü"],
+  ["/tools/healthy-diet", "برنامه غذایی", "Diet plan", "Ernährungsplan", "Diyet planı"],
+  ["/tools/try-free-ai", "امتحان AI رایگان", "Try free AI", "Kostenlose KI testen", "Ücretsiz yapay zekâ dene"],
+  ["/assistants/teacher", "معلم", "Teacher", "Lehrer", "Öğretmen"],
+  ["/assistants/doctor", "پزشک", "Doctor", "Arzt", "Doktor"],
+  ["/assistants/translator", "مترجم", "Translator", "Übersetzer", "Çevirmen"],
+  ["/assistants/cooking", "آشپز", "Chef", "Koch", "Şef"],
+  ["/assistants/fitness-coach", "مربی بدنسازی", "Fitness coach", "Fitnesstrainer", "Fitness koçu"],
+  ["/assistants/travel-agent", "مشاور سفر", "Travel advisor", "Reiseberater", "Seyahat danışmanı"],
+  ["/assistants/code-expert", "کارشناس کد", "Code expert", "Code-Experte", "Kod uzmanı"],
+] as const;
+
+export function destinationLabel(destination: (typeof destinations)[number], lang: Lang) {
+  return destination[{ fa: 1, en: 2, de: 3, tr: 4 }[lang]];
+}
+
+export function findDestination(path: string) {
+  return [...destinations].sort((a, b) => b[0].length - a[0].length).find(item => path === item[0] || path.startsWith(item[0] + "/"));
+}

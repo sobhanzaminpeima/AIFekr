@@ -372,7 +372,7 @@ export default function AdminUsagePage() {
               ].map((f) => (
                 <div key={f.label}>
                   <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>{f.label}</label>
-                  <input
+                  <input aria-label={f.label}
                     type="number"
                     step={f.step}
                     value={f.value}

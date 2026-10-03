@@ -4,7 +4,7 @@ import { pageMetadata } from "@/lib/seo/site";
 
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getServerLang();
-  return pageMetadata(
+  return { ...pageMetadata(
     lang, "/register",
     { fa: "ثبت‌نام رایگان — تیم هوش مصنوعی خود را فعال کنید", en: "Sign Up Free — Activate Your AI Agent Team", de: "Kostenlos registrieren — KI-Agenten-Team aktivieren", tr: "Ücretsiz Kaydol — Yapay Zekâ Ekibinizi Etkinleştirin" },
     {
@@ -13,7 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
       de: "Erstellen Sie Ihr AiFekr-Konto in 30 Sekunden und aktivieren Sie das KI-Agenten-Team für Ihr Unternehmen. Keine Karte nötig.",
       tr: "30 saniyede AiFekr hesabınızı oluşturun ve işletmenize özel yapay zekâ ajan ekibini etkinleştirin. Kart gerekmez.",
     },
-  );
+  ), robots: { index: false, follow: true } };
 }
 
 export default function RegisterLayout({ children }: { children: React.ReactNode }) {

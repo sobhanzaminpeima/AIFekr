@@ -1,3 +1,5 @@
+import { hasBusinessBundle } from "@/lib/plans/businessAccess";
+import { getModule } from "./moduleRegistry";
 import { prisma } from "@/lib/db/prisma";
 
 /**
@@ -5,8 +7,9 @@ import { prisma } from "@/lib/db/prisma";
  * Priority order (fixed, do not reorder — confirmed with product owner):
  *   1. platform admin (ADMIN | SUPER_ADMIN) -> always true, bypasses everything.
  *   2. a UserModuleOverride row for (userId, moduleKey) -> its value is authoritative.
- *   3. the user's industry pack's IndustryModuleFlag for (industryPackId, moduleKey) -> its value is authoritative.
- *   4. no pack, or no matching flag row -> false (fail-safe hidden, never fail-open).
+ *   3. active paid business bundle -> registered capabilities enabled.
+ *   4. the user's industry pack's IndustryModuleFlag for (industryPackId, moduleKey) -> its value is authoritative.
+ *   5. no pack, or no matching flag row -> false (fail-safe hidden, never fail-open).
  *
  * No caching layer on purpose: every check is a cheap indexed read, and this
  * avoids the entire "admin changed a flag but the customer still sees stale
@@ -30,6 +33,8 @@ export async function isModuleEnabled(user: ModuleAccessUser, moduleKey: string)
     where: { userId_moduleKey: { userId: user.id, moduleKey } },
   });
   if (override) return override.enabled;
+
+  if (getModule(moduleKey) && await hasBusinessBundle(user.id)) return true;
 
   if (!user.industryPackId) return false;
 
@@ -65,6 +70,7 @@ export async function getModuleAccessMap(
       : Promise.resolve([]),
   ]);
 
+  const bundled = await hasBusinessBundle(user.id);
   const overrideMap = new Map(overrides.map((o) => [o.moduleKey, o.enabled]));
   const flagMap = new Map(flags.map((f) => [f.moduleKey, f.enabled]));
 
@@ -72,6 +78,8 @@ export async function getModuleAccessMap(
   for (const key of moduleKeys) {
     if (overrideMap.has(key)) {
       result[key] = overrideMap.get(key)!;
+    } else if (bundled && getModule(key)) {
+      result[key] = true;
     } else if (flagMap.has(key)) {
       result[key] = flagMap.get(key)!;
     } else {

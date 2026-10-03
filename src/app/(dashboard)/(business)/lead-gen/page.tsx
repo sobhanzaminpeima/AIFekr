@@ -10,6 +10,8 @@ import {
   BarChart3, Users, Flame, ChevronDown, HelpCircle,
 } from "lucide-react";
 import { useTranslation, tri } from "@/lib/i18n";
+import { readApiResponse } from "@/lib/utils/apiResponse";
+import WorkspaceError from "@/components/layout/WorkspaceError";
 import { LEAD_FIELD_KEYS, FIELD_LABELS, type LeadFieldsConfig, type LeadFieldKey } from "@/lib/leadgen/fields";
 import { downscaleImage } from "@/lib/image/downscaleImage";
 
@@ -83,6 +85,8 @@ export default function LeadGenPage() {
 
   const [plan, setPlan] = useState<string | null>(null);
   const [planLoaded, setPlanLoaded] = useState(false);
+  const [accessFailed, setAccessFailed] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [forms, setForms] = useState<LeadFormRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [report, setReport] = useState<Report | null>(null);
@@ -98,28 +102,33 @@ export default function LeadGenPage() {
   const appOrigin = typeof window !== "undefined" ? window.location.origin : "";
   const isPaid = plan !== null && plan !== "FREE";
 
-  useEffect(() => {
+  const loadAccess = useCallback(() => {
+    setPlanLoaded(false); setAccessFailed(false);
     fetch("/api/user/profile")
-      .then((r) => r.json())
+      .then((r) => readApiResponse<{ user?: { plan?: string } }>(r, "Unable to load access"))
       .then((d) => setPlan(d?.user?.plan ?? "FREE"))
-      .catch(() => setPlan("FREE"))
+      .catch(() => setAccessFailed(true))
       .finally(() => setPlanLoaded(true));
   }, []);
+  useEffect(() => { loadAccess(); }, [loadAccess]);
 
   const load = useCallback(() => {
     setLoading(true);
+    setLoadError("");
+    const failed = tri(lang, "دریافت داده‌ها انجام نشد؛ دوباره تلاش کنید.", "Unable to load data. Please retry.", "Daten konnten nicht geladen werden. Bitte erneut versuchen.", "Veriler yüklenemedi. Tekrar deneyin.");
     Promise.all([
-      fetch("/api/leadgen/forms").then((r) => (r.ok ? r.json() : { forms: [] })),
-      fetch("/api/leadgen/report").then((r) => (r.ok ? r.json() : null)),
-      fetch("/api/leadgen/connectors").then((r) => (r.ok ? r.json() : { connectors: [] })),
+      fetch("/api/leadgen/forms").then((r) => readApiResponse<{ forms: LeadFormRow[] }>(r, failed)),
+      fetch("/api/leadgen/report").then((r) => readApiResponse<Report>(r, failed)),
+      fetch("/api/leadgen/connectors").then((r) => readApiResponse<{ connectors: Connector[] }>(r, failed)),
     ])
       .then(([f, rep, con]) => {
         setForms(f.forms || []);
         setReport(rep);
         setConnectors(con.connectors || []);
       })
+      .catch((e) => setLoadError(e instanceof Error ? e.message : failed))
       .finally(() => setLoading(false));
-  }, []);
+  }, [lang]);
 
   useEffect(() => {
     if (isPaid) load();
@@ -259,6 +268,8 @@ export default function LeadGenPage() {
   const sourceLabel = (s: string) =>
     (SOURCE_LABELS[s] ? SOURCE_LABELS[s][lang === "tr" ? "en" : lang] : null) || s;
 
+  if (accessFailed) return <WorkspaceError reset={loadAccess}/>;
+  if (loadError) return <WorkspaceError reset={load}/>;
   if (!planLoaded) {
     return <div className="p-8 flex justify-center"><Loader2 className="w-6 h-6 animate-spin" /></div>;
   }
@@ -688,7 +699,7 @@ function EditModal({ form, lang, onClose, onSave }: {
 
           <div className="flex items-center gap-3">
             <label className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>{tri(lang, "رنگ", "Colour", "Farbe")}</label>
-            <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(f.accentColor) ? f.accentColor : "#ea580c"} onChange={(e) => set("accentColor", e.target.value)} />
+            <input aria-label={tri(lang, "رنگ", "Colour", "Farbe")} type="color" value={/^#[0-9a-fA-F]{6}$/.test(f.accentColor) ? f.accentColor : "#ea580c"} onChange={(e) => set("accentColor", e.target.value)} />
           </div>
           <Field label={tri(lang, "متن دکمه", "Button text", "Button-Text")} value={f.submitLabel || ""} onChange={(v) => set("submitLabel", v || null)} />
           <Field label={tri(lang, "پیام موفقیت", "Success message", "Erfolgsmeldung")} value={f.successMessage || ""} onChange={(v) => set("successMessage", v || null)} />

@@ -10,9 +10,9 @@ export async function GET() {
     select: {
       planCode: true, name: true, nameEn: true, price: true, priceUsd: true,
       market: true, duration: true, credits: true, isFeatured: true,
-      color: true, features: true, featuresEn: true,
+      color: true, features: true, featuresEn: true, teamSeatLimit:true, crmSeatLimit:true,
     },
   });
   const rates = await getFxRates();
-  return NextResponse.json({ packages: packages.map(p => p.planCode.startsWith("STUDENT_") && p.priceUsd != null ? { ...p, price: Math.round(p.priceUsd / 100 * rates.usdToToman) * 10, usdToTry: rates.usdToTry, rateDate: rates.rateDate, isFallback: rates.isFallback } : p) });
+  return NextResponse.json({ fxRates:rates, packages: packages.map(p => p.planCode.startsWith("STUDENT_") && p.priceUsd != null ? { ...p, price: Math.round(p.priceUsd / 100 * rates.usdToToman) * 10, usdToTry: rates.usdToTry, rateDate: rates.rateDate, isFallback: rates.isFallback } : p) });
 }

@@ -191,7 +191,7 @@ export default function LoginPage() {
                 <>
                   <div>
                     <label className="block text-sm mb-2" style={{ color: "var(--text-secondary)" }}>{t.auth.login.phoneLabel}</label>
-                    <input
+                    <input aria-label={t.auth.login.phoneLabel}
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
@@ -259,7 +259,7 @@ export default function LoginPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm mb-2" style={{ color: "var(--text-secondary)" }}>{t.auth.login.emailLabel}</label>
-                <input
+                <input aria-label={t.auth.login.emailLabel}
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}

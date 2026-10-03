@@ -14,20 +14,18 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
   echo "DATABASE_URL must be set (for example in .env.local)." >&2
   exit 1
 fi
-DATABASE_PATH="${DATABASE_URL#file:}"
 
 echo "==> Backing up the production database"
 BACKUP_DIR=".deploy-backup-$(date -u +%Y%m%d%H%M%S)"
 mkdir -p "$BACKUP_DIR"
-if [[ -n "$DATABASE_PATH" && -f "$DATABASE_PATH" ]]; then
-  cp "$DATABASE_PATH" "$BACKUP_DIR/prod.db"
-fi
+node scripts/backup-deployment-db.cjs "$BACKUP_DIR/prod.db"
 
 echo "==> Applying database migrations"
 npx prisma migrate deploy
 
 echo "==> Seeding missing packages (existing admin pricing is preserved)"
 node prisma/seed-packages.js
+node scripts/seed-business-packages.cjs
 
 echo "==> Regenerating Prisma client"
 npx prisma generate
@@ -39,4 +37,4 @@ echo "==> Restarting pm2 process: $APP_NAME"
 pm2 restart "$APP_NAME"
 
 echo "==> Done. Tailing recent logs (Ctrl+C to exit):"
-pm2 logs "$APP_NAME" --lines 50
+pm2 logs "$APP_NAME" --lines 50 --nostream

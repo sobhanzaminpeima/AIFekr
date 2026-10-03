@@ -145,25 +145,25 @@ export default function ContentPlanCard({ siteId }: { siteId: string }) {
 
         <div>
           <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "تم کلی بلاگ (وقتی صف موضوع‌ها خالی شد)", "Blog theme (used when the topic queue is empty)", "Blog-Thema (wenn die Themenliste leer ist)")}</label>
-          <input value={plan.theme} onChange={(e) => edit({ theme: e.target.value })} placeholder={tri(lang, "مثلاً: املاک و مستغلات در برلین", "e.g. Real estate in Berlin", "z. B. Immobilien in Berlin")} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={input} />
+          <input aria-label={tri(lang, "تم کلی بلاگ (وقتی صف موضوع‌ها خالی شد)", "Blog theme (used when the topic queue is empty)", "Blog-Thema (wenn die Themenliste leer ist)")} value={plan.theme} onChange={(e) => edit({ theme: e.target.value })} placeholder={tri(lang, "مثلاً: املاک و مستغلات در برلین", "e.g. Real estate in Berlin", "z. B. Immobilien in Berlin")} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={input} />
         </div>
         <div>
           <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "صف موضوع‌ها (هر خط یک مقاله، به ترتیب)", "Topic queue (one per line, written in order)", "Themenliste (eine pro Zeile, der Reihe nach)")}</label>
-          <textarea value={topicsText} onChange={(e) => { dirty.current = true; setTopicsText(e.target.value); }} rows={4} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none resize-y" style={input} />
+          <textarea aria-label={tri(lang, "صف موضوع‌ها (هر خط یک مقاله، به ترتیب)", "Topic queue (one per line, written in order)", "Themenliste (eine pro Zeile, der Reihe nach)")} value={topicsText} onChange={(e) => { dirty.current = true; setTopicsText(e.target.value); }} rows={4} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none resize-y" style={input} />
         </div>
         <div className="grid sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "تناوب انتشار", "How often", "Häufigkeit")}</label>
-            <select value={plan.frequency} onChange={(e) => edit({ frequency: e.target.value })} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={input}>{freqs.map((f) => <option key={f.v} value={f.v}>{f.label}</option>)}</select>
+            <select aria-label={tri(lang, "تناوب انتشار", "How often", "Häufigkeit")} value={plan.frequency} onChange={(e) => edit({ frequency: e.target.value })} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={input}>{freqs.map((f) => <option key={f.v} value={f.v}>{f.label}</option>)}</select>
           </div>
           <div>
             <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "مقصد انتشار", "What happens to a finished post", "Was mit dem fertigen Beitrag passiert")}</label>
-            <select value={plan.mode} onChange={(e) => edit({ mode: e.target.value })} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={input}>{modes.map((m) => <option key={m.v} value={m.v}>{m.label}</option>)}</select>
+            <select aria-label={tri(lang, "مقصد انتشار", "What happens to a finished post", "Was mit dem fertigen Beitrag passiert")} value={plan.mode} onChange={(e) => edit({ mode: e.target.value })} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={input}>{modes.map((m) => <option key={m.v} value={m.v}>{m.label}</option>)}</select>
           </div>
         </div>
         <div>
           <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "لحن برند (اختیاری)", "Brand voice (optional)", "Markenstimme (optional)")}</label>
-          <input value={plan.brandVoice} onChange={(e) => edit({ brandVoice: e.target.value })} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={input} />
+          <input aria-label={tri(lang, "لحن برند (اختیاری)", "Brand voice (optional)", "Markenstimme (optional)")} value={plan.brandVoice} onChange={(e) => edit({ brandVoice: e.target.value })} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={input} />
         </div>
 
         {needsWpWarning && (

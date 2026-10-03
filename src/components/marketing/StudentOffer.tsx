@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import Link from "@/components/marketing/PublicLink";
 import { Check, GraduationCap } from "lucide-react";
 import { STUDENT_PLAN_CODE, STUDENT_MONTHLY_CODE, studentOfferCopy } from "@/lib/plans/studentOffer";
 import type { Lang } from "@/lib/i18n/server";
@@ -12,12 +12,13 @@ export default function StudentOffer({ lang, plan, onBuy, busy }: { lang: Lang; 
   const fmt = (n: number, currency: string) => currency === "IRT" ? `${n.toLocaleString(lang)} ${lang === "fa" ? "تومان" : "Toman"}` : new Intl.NumberFormat(lang, { style: "currency", currency }).format(n);
   const currency = lang === "fa" ? "IRT" : lang === "tr" ? "TRY" : "USD";
   const amount = currency === "IRT" ? plan.price / 10 : currency === "TRY" ? (plan.priceUsd ?? 0) / 100 * (plan.usdToTry ?? 49.123297) : (plan.priceUsd ?? 0) / 100;
-  return <section className="my-8 rounded-3xl border p-5 sm:p-8" style={{ borderColor: "var(--primary, #ff8133)", background: "var(--surface-1, #16181d)", color: "var(--text-primary, #f4f5f8)" }} aria-label={c.title}>
+  return <section className="student-offer my-6 rounded-2xl border p-5 sm:p-6" style={{ borderColor: "var(--border)", background: "var(--surface-1, #16181d)", color: "var(--text-primary, #f4f5f8)" }} aria-label={c.title}>
     <div className="flex flex-wrap items-center justify-between gap-4"><h2 className="flex items-center gap-2 text-2xl font-bold"><GraduationCap aria-hidden size={28}/>{c.title}</h2></div>
     <div className="my-4 flex flex-wrap items-baseline gap-4"><strong className="text-3xl">{fmt(amount, currency)}</strong></div>
     <p>{introductory ? c.period : ({fa:"اشتراک عادی: ماهانه ۸۰ دلار",en:"Regular subscription: $80/month",de:"Reguläres Abo: 80 USD/Monat",tr:"Normal abonelik: 80 USD/ay"})[lang]}</p>
     <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm" dir="ltr"><span>TRY: {fmt((plan.priceUsd ?? 0) / 100 * (plan.usdToTry ?? 49.123297), "TRY")}</span><span>USD: {plan.priceUsd == null ? "—" : fmt(plan.priceUsd / 100, "USD")}</span><span>{fmt(plan.price / 10, "IRT")}</span></div>
-    <ul className="my-6 grid gap-3 sm:grid-cols-2">{c.features.map(f => <li key={f} className="flex items-start gap-2 text-sm"><Check size={17} className="shrink-0 text-orange-500" aria-hidden/><span>{f}</span></li>)}</ul>
+    <ul className="my-4 grid gap-3 sm:grid-cols-2">{c.features.slice(0,4).map(f => <li key={f} className="flex items-start gap-2 text-sm"><Check size={17} className="shrink-0 text-orange-500" aria-hidden/><span>{f}</span></li>)}</ul>
+    <details className="mb-4 text-sm"><summary className="cursor-pointer py-2">{({fa:"همهٔ امکانات دانشجویی",en:"All student features",de:"Alle Studierendenfunktionen",tr:"Tüm öğrenci özellikleri"})[lang]}</summary><ul className="my-3 grid gap-3 sm:grid-cols-2">{c.features.slice(4).map(f => <li key={f} className="flex items-start gap-2"><Check size={17} className="shrink-0 text-orange-500" aria-hidden/><span>{f}</span></li>)}</ul></details>
     <p className="mb-3 text-sm">{plan.credits > 0 && <strong>{plan.credits.toLocaleString(lang)} {({ fa: "کردیت برای کل دوره • ", en: "credits for the full term • ", de: "Credits für die gesamte Laufzeit • ", tr: "tüm dönem için kredi • " })[lang]}</strong>}{c.credit}</p>
     <p className="mb-3 text-xs opacity-80">{({ fa: "این خرید جایگزین اشتراک عمومی AI شما می‌شود؛ اشتراک CRM مستقل است. تمدید خودکار ندارد.", en: "This purchase replaces your general AI subscription; CRM is separate. No automatic renewal.", de: "Dieser Kauf ersetzt Ihr allgemeines KI-Abo; CRM bleibt separat. Keine automatische Verlängerung.", tr: "Bu satın alma genel yapay zekâ aboneliğinizin yerini alır; CRM ayrıdır. Otomatik yenileme yoktur." })[lang]}</p>
     <p className="mb-5 text-xs opacity-70">{c.rate} ({plan.rateDate || "2026-10-02"}) {plan.isFallback && ({fa:"نرخ ذخیره‌شده؛ دریافت نرخ زنده در دسترس نبود.",en:"Saved rate; live provider unavailable.",de:"Gespeicherter Kurs; Live-Anbieter nicht erreichbar.",tr:"Kayıtlı kur; canlı sağlayıcıya ulaşılamadı."})[lang]}</p>

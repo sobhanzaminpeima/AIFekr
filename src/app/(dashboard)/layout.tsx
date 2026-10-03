@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+export const metadata = { robots: { index: false, follow: false } };
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -66,7 +67,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   });
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: "var(--surface-0)" }}>
+    <div className="platform-shell flex h-screen overflow-hidden" style={{ background: "var(--surface-0)" }}>
       {/* Tells the user their session lapsed instead of letting an action fail
           silently — see the component's comment. */}
       <SessionWatchdog lang={lang} />

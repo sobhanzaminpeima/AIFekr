@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { readApiResponse } from "@/lib/utils/apiResponse";
+import WorkspaceError from "@/components/layout/WorkspaceError";
 import {
   Stethoscope, Building2, Send, ChevronRight, ChevronLeft,
   CheckCircle, Edit2, Users, TrendingUp, Target, Zap,
@@ -49,6 +51,8 @@ export default function BusinessDoctorPage() {
 
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [profileError, setProfileError] = useState("");
+  const [profileFailed, setProfileFailed] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
@@ -73,9 +77,12 @@ export default function BusinessDoctorPage() {
   // stage, time estimate, or cancel — users resent and paid twice).
   const abortRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
+  const loadProfile = useCallback(() => {
+    setLoadingProfile(true);
+    setProfileError("");
+    setProfileFailed(false);
     fetch("/api/business-profile")
-      .then((r) => r.json())
+      .then((r) => readApiResponse<{ profile: BusinessProfile | null }>(r, tri(lang, "دریافت مشخصات کسب‌وکار انجام نشد.", "Unable to load business profile.", "Unternehmensprofil konnte nicht geladen werden.", "İşletme profili yüklenemedi.")))
       .then((d) => {
         if (d.profile) {
           setProfile(d.profile);
@@ -85,9 +92,10 @@ export default function BusinessDoctorPage() {
           setEditMode(true);
         }
       })
-      .catch(() => {})
+      .catch((e) => { setProfileError(e instanceof Error ? e.message : "Unable to load business profile"); setProfileFailed(true); })
       .finally(() => setLoadingProfile(false));
-  }, []);
+  }, [lang]);
+  useEffect(() => { loadProfile(); }, [loadProfile]);
 
   useEffect(() => {
     if (result && resultRef.current) {
@@ -129,18 +137,20 @@ export default function BusinessDoctorPage() {
   async function saveProfile() {
     if (!form.name || !form.industry) return;
     setSaving(true);
+    setProfileError("");
     try {
       const res = await fetch("/api/business-profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      if (res.ok) {
+      await readApiResponse(res, tri(lang, "ذخیره انجام نشد؛ دوباره تلاش کنید.", "Save failed. Please retry.", "Speichern fehlgeschlagen. Bitte erneut versuchen.", "Kayıt başarısız. Tekrar deneyin."));
+      {
         setProfile(form);
         setEditMode(false);
         setStep(1);
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { setProfileError(e instanceof Error ? e.message : "Save failed"); }
     finally { setSaving(false); }
   }
 
@@ -187,6 +197,7 @@ export default function BusinessDoctorPage() {
   }
 
   const QUICK_QUESTIONS = s.quickQuestions;
+  if (profileFailed) return <WorkspaceError reset={loadProfile}/>;
 
   if (loadingProfile) {
     return (
@@ -199,6 +210,7 @@ export default function BusinessDoctorPage() {
   return (
     <div className="min-h-screen p-6" style={{ background: "var(--surface-0)" }} dir={isFa ? "rtl" : "ltr"}>
       <div className="max-w-4xl mx-auto">
+        {profileError && <div className="workspace-alert" role="alert">{profileError}</div>}
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">

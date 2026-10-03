@@ -1,0 +1,1421 @@
+[
+  {
+    "route": "/login",
+    "file": "src/app/(auth)/login/page.tsx",
+    "lines": 345,
+    "controls": 12,
+    "loading": true,
+    "error": true,
+    "empty": false,
+    "outlineNone": 4,
+    "headings": [
+      "{t.auth.login.subtitle}",
+      "{t.auth.login.otpTitle}"
+    ]
+  },
+  {
+    "route": "/register",
+    "file": "src/app/(auth)/register/page.tsx",
+    "lines": 242,
+    "controls": 11,
+    "loading": true,
+    "error": true,
+    "empty": false,
+    "outlineNone": 7,
+    "headings": [
+      "{t.auth.register.subtitle}"
+    ]
+  },
+  {
+    "route": "/accounting/accounts/[code]",
+    "file": "src/app/(dashboard)/(business)/accounting/accounts/[code]/page.tsx",
+    "lines": 95,
+    "controls": 0,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "<BookOpen className=\"w-5 h-5\" />{account.code} — {account.name}"
+    ]
+  },
+  {
+    "route": "/accounting/assistant",
+    "file": "src/app/(dashboard)/(business)/accounting/assistant/page.tsx",
+    "lines": 137,
+    "controls": 3,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "<Sparkles className=\"w-5 h-5\" style={{ color: \"var(--primary)\" }} />{tri(lang, \"دستیار هوشمند مالی\", \"AI finance assistant\", \"KI-Finanzassistent\")}"
+    ]
+  },
+  {
+    "route": "/accounting/automation",
+    "file": "src/app/(dashboard)/(business)/accounting/automation/page.tsx",
+    "lines": 337,
+    "controls": 16,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "{tri(lang, \"گزارش‌های زمان‌بندی‌شده و API خروجی BI\", \"Scheduled reports & BI export API\", \"Geplante Berichte & BI-Export-API\")}",
+      "{tri(lang, \"گزارش‌های زمان‌بندی‌شده\", \"Scheduled reports\", \"Geplante Berichte\")}",
+      "<KeyRound className=\"w-4 h-4\" />{tri(lang, \"توکن‌های API برای اتصال BI خارجی\", \"API tokens for external BI connections\", \"API-Token für externe BI-Anbindungen\")}"
+    ]
+  },
+  {
+    "route": "/accounting/bank",
+    "file": "src/app/(dashboard)/(business)/accounting/bank/page.tsx",
+    "lines": 239,
+    "controls": 7,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "{tri(lang, \"بانک و تطبیق\", \"Bank & reconciliation\", \"Bank & Abgleich\")}",
+      "<Landmark className=\"w-4 h-4\" />{tri(lang, \"حساب‌های بانکی\", \"Bank accounts\", \"Bankkonten\")}",
+      "{tri(lang, \"آپلود صورتحساب بانکی (CSV)\", \"Upload bank statement (CSV)\", \"Kontoauszug hochladen (CSV)\")}"
+    ]
+  },
+  {
+    "route": "/accounting/close-period",
+    "file": "src/app/(dashboard)/(business)/accounting/close-period/page.tsx",
+    "lines": 189,
+    "controls": 6,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "{tri(lang, \"دوره‌های مالی و بستن حساب‌ها\", \"Fiscal periods & closing\", \"Geschäftsperioden & Abschluss\")}",
+      "{tri(lang, \"ساخت دوره مالی جدید\", \"Create a new fiscal period\", \"Neue Geschäftsperiode erstellen\")}"
+    ]
+  },
+  {
+    "route": "/accounting/expenses",
+    "file": "src/app/(dashboard)/(business)/accounting/expenses/page.tsx",
+    "lines": 311,
+    "controls": 15,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "{tri(lang, \"هزینه‌ها و تأمین‌کنندگان\", \"Expenses & vendors\", \"Ausgaben & Lieferanten\")}",
+      "<Building2 className=\"w-4 h-4\" />{tri(lang, \"تأمین‌کنندگان\", \"Vendors\", \"Lieferanten\")} ({vendors.length})",
+      "{tri(lang, \"ثبت هزینه جدید\", \"Record a new expense\", \"Neue Ausgabe erfassen\")}"
+    ]
+  },
+  {
+    "route": "/accounting/ledger-setup",
+    "file": "src/app/(dashboard)/(business)/accounting/ledger-setup/page.tsx",
+    "lines": 219,
+    "controls": 11,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "{tri(lang, \"دفتر حساب‌ها، بودجه و مالیات\", \"Chart of accounts, budget & tax\", \"Kontenplan, Budget & Steuern\")}",
+      "<BookOpen className=\"w-4 h-4\" />{tri(lang, \"دفتر حساب‌ها\", \"Chart of accounts\", \"Kontenplan\")} ({accounts.length})",
+      "<Target className=\"w-4 h-4\" />{tri(lang, \"بودجه‌بندی\", \"Budgeting\", \"Budgetierung\")}"
+    ]
+  },
+  {
+    "route": "/accounting/owner-statements",
+    "file": "src/app/(dashboard)/(business)/accounting/owner-statements/page.tsx",
+    "lines": 714,
+    "controls": 32,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 3,
+    "headings": [
+      "{tri(lang, \"گزارش تسویه مالک (اجاره کوتاه‌مدت)\", \"Owner statements (short-term rental)\", \"Eigentümerabrechnungen (Kurzzeitvermietung)\")}",
+      "{tri(lang, \"ردیف‌های ماه\", \"This month's line items\", \"Positionen dieses Monats\")}",
+      "<Home className=\"w-4 h-4\" />{tri(lang, \"تاریخچه گزارش‌های این واحد\", \"Statement history for this unit\", \"Abrechnungsverlauf dieser Einheit\")}"
+    ]
+  },
+  {
+    "route": "/accounting",
+    "file": "src/app/(dashboard)/(business)/accounting/page.tsx",
+    "lines": 303,
+    "controls": 1,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "{tri(lang, \"داشبورد حسابداری\", \"Accounting Dashboard\", \"Buchhaltungs-Dashboard\")}",
+      "{tri(lang, \"روند درآمد و هزینه (۶ ماه اخیر)\", \"Revenue vs. expenses (last 6 months)\", \"Umsatz vs. Ausgaben (letzte 6 Monate)\")}",
+      "{tri(lang, \"ترکیب هزینه‌ها بر اساس دسته (این ماه)\", \"Expense breakdown by category (this month)\", \"Ausgaben nach Kategorie (dieser Monat)\")}"
+    ]
+  },
+  {
+    "route": "/accounting/payroll",
+    "file": "src/app/(dashboard)/(business)/accounting/payroll/page.tsx",
+    "lines": 310,
+    "controls": 13,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "{tri(lang, \"حقوق و دستمزد\", \"Payroll\", \"Gehaltsabrechnung\")}",
+      "{tri(lang, \"کارمندان\", \"Employees\", \"Mitarbeiter\")}",
+      "{tri(lang, \"ساخت لیست حقوق ماهانه\", \"Create monthly payroll run\", \"Monatliche Gehaltsabrechnung erstellen\")}"
+    ]
+  },
+  {
+    "route": "/business-doctor",
+    "file": "src/app/(dashboard)/(business)/business-doctor/page.tsx",
+    "lines": 614,
+    "controls": 28,
+    "loading": true,
+    "error": true,
+    "empty": false,
+    "outlineNone": 16,
+    "headings": [
+      "{s.title}",
+      "{s.basicInfoHeading}",
+      "{s.marketHeading}"
+    ]
+  },
+  {
+    "route": "/ceo/orchestrator",
+    "file": "src/app/(dashboard)/(business)/ceo/orchestrator/page.tsx",
+    "lines": 684,
+    "controls": 15,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 2,
+    "headings": [
+      "AI-BOS"
+    ]
+  },
+  {
+    "route": "/ceo",
+    "file": "src/app/(dashboard)/(business)/ceo/page.tsx",
+    "lines": 251,
+    "controls": 5,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 1,
+    "headings": [
+      "{t.ceo.title}",
+      "{t.ceo.readyTitle}"
+    ]
+  },
+  {
+    "route": "/crm",
+    "file": "src/app/(dashboard)/(business)/crm/page.tsx",
+    "lines": 5399,
+    "controls": 289,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 147,
+    "headings": [
+      "{c.header.title}",
+      "{selectedPipeline && localizedName(selectedPipeline, lang)}",
+      "{t.newDealModal.title}"
+    ]
+  },
+  {
+    "route": "/lead-gen",
+    "file": "src/app/(dashboard)/(business)/lead-gen/page.tsx",
+    "lines": 753,
+    "controls": 21,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/meeting",
+    "file": "src/app/(dashboard)/(business)/meeting/page.tsx",
+    "lines": 212,
+    "controls": 5,
+    "loading": true,
+    "error": true,
+    "empty": false,
+    "outlineNone": 1,
+    "headings": [
+      "{t.meeting.title}",
+      "{t.meeting.meetingLabel}: {topic.slice(0, 60)}{topic.length > 60 ? \"...\" : \"\"}"
+    ]
+  },
+  {
+    "route": "/sales",
+    "file": "src/app/(dashboard)/(business)/sales/page.tsx",
+    "lines": 263,
+    "controls": 4,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "{s.title}",
+      "{s.followUpsTitle}"
+    ]
+  },
+  {
+    "route": "/seo/agent-pipeline",
+    "file": "src/app/(dashboard)/(business)/seo/agent-pipeline/page.tsx",
+    "lines": 713,
+    "controls": 17,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 4,
+    "headings": [
+      "{s.title}",
+      "{tri(lang, \"انتخاب تصویر شاخص\", \"Choose Hero Image\", \"Hauptbild auswählen\")}",
+      "{previewPost.title}"
+    ]
+  },
+  {
+    "route": "/seo",
+    "file": "src/app/(dashboard)/(business)/seo/page.tsx",
+    "lines": 798,
+    "controls": 26,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 11,
+    "headings": [
+      "{t.seo.title}"
+    ]
+  },
+  {
+    "route": "/seo/sites",
+    "file": "src/app/(dashboard)/(business)/seo/sites/page.tsx",
+    "lines": 336,
+    "controls": 10,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 2,
+    "headings": [
+      "{tri(lang, \"مانیتور سئو\", \"SEO Monitor\", \"SEO-Monitor\")}"
+    ]
+  },
+  {
+    "route": "/social",
+    "file": "src/app/(dashboard)/(business)/social/page.tsx",
+    "lines": 2283,
+    "controls": 99,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 30,
+    "headings": [
+      "{t.social.title}",
+      "{t.social.resultTitle}",
+      "{t.social.igTitle}"
+    ]
+  },
+  {
+    "route": "/voice-agent",
+    "file": "src/app/(dashboard)/(business)/voice-agent/page.tsx",
+    "lines": 802,
+    "controls": 35,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "{tri(lang, \"مرکز تماس هوش مصنوعی\", \"AI Call Center\", \"KI-Callcenter\")}"
+    ]
+  },
+  {
+    "route": "/website-designer",
+    "file": "src/app/(dashboard)/(business)/website-designer/page.tsx",
+    "lines": 400,
+    "controls": 12,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 1,
+    "headings": [
+      "{s.title}",
+      "{s.generatedWebsiteTitle}"
+    ]
+  },
+  {
+    "route": "/agents",
+    "file": "src/app/(dashboard)/agents/page.tsx",
+    "lines": 208,
+    "controls": 0,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/assistants/[type]",
+    "file": "src/app/(dashboard)/assistants/[type]/page.tsx",
+    "lines": 84,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/chat/[id]",
+    "file": "src/app/(dashboard)/chat/[id]/page.tsx",
+    "lines": 5,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/chat",
+    "file": "src/app/(dashboard)/chat/page.tsx",
+    "lines": 5,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/checkout/[id]",
+    "file": "src/app/(dashboard)/checkout/[id]/page.tsx",
+    "lines": 2,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/create",
+    "file": "src/app/(dashboard)/create/page.tsx",
+    "lines": 10,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/credits",
+    "file": "src/app/(dashboard)/credits/page.tsx",
+    "lines": 362,
+    "controls": 1,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "{tri(lang, \"خرید کردیت\", \"Buy Credits\", \"Guthaben kaufen\", \"Kredi Satın Al\")}"
+    ]
+  },
+  {
+    "route": "/gallery",
+    "file": "src/app/(dashboard)/gallery/page.tsx",
+    "lines": 112,
+    "controls": 2,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "{tri(lang, \"گالری من\", \"My Gallery\", \"Meine Galerie\")}"
+    ]
+  },
+  {
+    "route": "/home",
+    "file": "src/app/(dashboard)/home/page.tsx",
+    "lines": 339,
+    "controls": 0,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "{tri(lang, \"فضای دانشجویی شما فعال است\", \"Your Student Workspace is active\", \"Ihr Lernbereich ist aktiv\", \"Öğrenci alanınız etkin\")}"
+    ]
+  },
+  {
+    "route": "/image/gallery",
+    "file": "src/app/(dashboard)/image/gallery/page.tsx",
+    "lines": 174,
+    "controls": 8,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "{tri(lang, \"گالری تصاویر\", \"Image Gallery\", \"Bildergalerie\")}"
+    ]
+  },
+  {
+    "route": "/image/generate",
+    "file": "src/app/(dashboard)/image/generate/page.tsx",
+    "lines": 55,
+    "controls": 0,
+    "loading": false,
+    "error": true,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "{s.title}"
+    ]
+  },
+  {
+    "route": "/music/generate",
+    "file": "src/app/(dashboard)/music/generate/page.tsx",
+    "lines": 240,
+    "controls": 8,
+    "loading": true,
+    "error": true,
+    "empty": false,
+    "outlineNone": 1,
+    "headings": [
+      "{s.title}"
+    ]
+  },
+  {
+    "route": "/organization/onboarding",
+    "file": "src/app/(dashboard)/organization/onboarding/page.tsx",
+    "lines": 61,
+    "controls": 13,
+    "loading": false,
+    "error": true,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "{tri(lang, \"فضای کاری هوشمند شما آماده است\", \"Your AI Business Workspace is ready\", \"Ihr KI-Arbeitsbereich ist bereit\", \"Yapay zeka çalışma alanınız hazır\")}",
+      "{tri(lang, \"افزودن کسب‌وکار\", \"Add a business\", \"Unternehmen hinzufügen\", \"İşletme ekle\")}",
+      "{tri(lang, \"هویت کسب‌وکار\", \"Business identity\", \"Unternehmensidentität\", \"İşletme kimliği\")}"
+    ]
+  },
+  {
+    "route": "/plans",
+    "file": "src/app/(dashboard)/plans/page.tsx",
+    "lines": 2,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/referral",
+    "file": "src/app/(dashboard)/referral/page.tsx",
+    "lines": 444,
+    "controls": 13,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 9,
+    "headings": [
+      "{tri(lang, \"استفاده از موجودی\", \"Using your balance\", \"Guthaben verwenden\", \"Bakiyenizi kullanma\")}",
+      "{tri(lang, \"درخواست برداشت جدید\", \"New payout request\", \"Neue Auszahlungsanfrage\", \"Yeni ödeme talebi\")}",
+      "{tri(lang, \"درخواست‌های برداشت\", \"Payout requests\", \"Auszahlungsanfragen\", \"Ödeme talepleri\")}"
+    ]
+  },
+  {
+    "route": "/settings",
+    "file": "src/app/(dashboard)/settings/page.tsx",
+    "lines": 485,
+    "controls": 13,
+    "loading": false,
+    "error": true,
+    "empty": true,
+    "outlineNone": 5,
+    "headings": [
+      "{t.settingsPage.title}",
+      "{t.settingsPage.personalInfo}",
+      "{t.settingsPage.appearanceLanguage}"
+    ]
+  },
+  {
+    "route": "/startup/builder",
+    "file": "src/app/(dashboard)/startup/builder/page.tsx",
+    "lines": 533,
+    "controls": 9,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 2,
+    "headings": []
+  },
+  {
+    "route": "/startup/contact",
+    "file": "src/app/(dashboard)/startup/contact/page.tsx",
+    "lines": 209,
+    "controls": 7,
+    "loading": true,
+    "error": true,
+    "empty": false,
+    "outlineNone": 5,
+    "headings": [
+      "{t.title}",
+      "{t.successTitle}"
+    ]
+  },
+  {
+    "route": "/student/chat",
+    "file": "src/app/(dashboard)/student/chat/page.tsx",
+    "lines": 5,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/student",
+    "file": "src/app/(dashboard)/student/page.tsx",
+    "lines": 26,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "ماژول دانشجویی برای حساب شما فعال نیست"
+    ]
+  },
+  {
+    "route": "/tools/business-ideas",
+    "file": "src/app/(dashboard)/tools/business-ideas/page.tsx",
+    "lines": 35,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/tools/drop-shipping",
+    "file": "src/app/(dashboard)/tools/drop-shipping/page.tsx",
+    "lines": 34,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/tools/healthy-diet",
+    "file": "src/app/(dashboard)/tools/healthy-diet/page.tsx",
+    "lines": 36,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/tools/math",
+    "file": "src/app/(dashboard)/tools/math/page.tsx",
+    "lines": 33,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/tools/trading",
+    "file": "src/app/(dashboard)/tools/trading/page.tsx",
+    "lines": 34,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/tools/try-free-ai",
+    "file": "src/app/(dashboard)/tools/try-free-ai/page.tsx",
+    "lines": 137,
+    "controls": 4,
+    "loading": true,
+    "error": true,
+    "empty": false,
+    "outlineNone": 2,
+    "headings": [
+      "{tri(lang, \"امتحان AI رایگان (آزمایشی)\", \"Try Free AI (Experimental)\", \"KI kostenlos testen (experimentell)\")}",
+      "{tri(lang, \"تولید متن\", \"Text Generation\", \"Textgenerierung\")}",
+      "{tri(lang, \"تولید تصویر\", \"Image Generation\", \"Bildgenerierung\")}"
+    ]
+  },
+  {
+    "route": "/video/generate",
+    "file": "src/app/(dashboard)/video/generate/page.tsx",
+    "lines": 361,
+    "controls": 14,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 1,
+    "headings": [
+      "{s.title}"
+    ]
+  },
+  {
+    "route": "/about",
+    "file": "src/app/about/page.tsx",
+    "lines": 112,
+    "controls": 0,
+    "loading": false,
+    "error": true,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "{s.about_title}"
+    ]
+  },
+  {
+    "route": "/admin/admins",
+    "file": "src/app/admin/admins/page.tsx",
+    "lines": 21,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/admin/affiliate",
+    "file": "src/app/admin/affiliate/page.tsx",
+    "lines": 218,
+    "controls": 6,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 2,
+    "headings": []
+  },
+  {
+    "route": "/admin/analytics",
+    "file": "src/app/admin/analytics/page.tsx",
+    "lines": 189,
+    "controls": 1,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "آنالیتیکس فیچرها",
+      "پرکاربردترین فیچرها (کل)",
+      "کاربران فعال روزانه (۱۴ روز)"
+    ]
+  },
+  {
+    "route": "/admin/categories",
+    "file": "src/app/admin/categories/page.tsx",
+    "lines": 123,
+    "controls": 9,
+    "loading": true,
+    "error": true,
+    "empty": false,
+    "outlineNone": 2,
+    "headings": [
+      "دسته‌بندی کسب‌وکار",
+      "{edit.id ? \"ویرایش دسته\" : \"دسته جدید\"}"
+    ]
+  },
+  {
+    "route": "/admin/chats",
+    "file": "src/app/admin/chats/page.tsx",
+    "lines": 140,
+    "controls": 1,
+    "loading": false,
+    "error": false,
+    "empty": true,
+    "outlineNone": 1,
+    "headings": [
+      "مدیریت چت‌ها"
+    ]
+  },
+  {
+    "route": "/admin/companies",
+    "file": "src/app/admin/companies/page.tsx",
+    "lines": 112,
+    "controls": 1,
+    "loading": true,
+    "error": false,
+    "empty": true,
+    "outlineNone": 1,
+    "headings": [
+      "مدیریت شرکت‌ها"
+    ]
+  },
+  {
+    "route": "/admin/credit-tiers",
+    "file": "src/app/admin/credit-tiers/page.tsx",
+    "lines": 159,
+    "controls": 8,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 5,
+    "headings": [
+      "تعرفه‌های خرید کردیت",
+      "افزودن تعرفه جدید"
+    ]
+  },
+  {
+    "route": "/admin/crm",
+    "file": "src/app/admin/crm/page.tsx",
+    "lines": 116,
+    "controls": 1,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 1,
+    "headings": [
+      "نمای کلی CRM مستأجران"
+    ]
+  },
+  {
+    "route": "/admin/dashboard",
+    "file": "src/app/admin/dashboard/page.tsx",
+    "lines": 210,
+    "controls": 1,
+    "loading": true,
+    "error": true,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "داشبورد مدیریت",
+      "درآمد ۳۰ روز گذشته",
+      "توزیع پلن‌ها"
+    ]
+  },
+  {
+    "route": "/admin/financial",
+    "file": "src/app/admin/financial/page.tsx",
+    "lines": 13,
+    "controls": 0,
+    "loading": false,
+    "error": true,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "{t(\"پرداخت‌ها و حسابداری\",\"Payments and accounting\",\"Zahlungen und Buchhaltung\",\"Ödemeler ve muhasebe\")}"
+    ]
+  },
+  {
+    "route": "/admin/generated-websites",
+    "file": "src/app/admin/generated-websites/page.tsx",
+    "lines": 134,
+    "controls": 1,
+    "loading": false,
+    "error": true,
+    "empty": true,
+    "outlineNone": 1,
+    "headings": [
+      "وبسایت‌های تولیدشده"
+    ]
+  },
+  {
+    "route": "/admin/industry-packs",
+    "file": "src/app/admin/industry-packs/page.tsx",
+    "lines": 154,
+    "controls": 11,
+    "loading": true,
+    "error": true,
+    "empty": false,
+    "outlineNone": 4,
+    "headings": [
+      "مدیریت بسته‌های صنعتی",
+      "{editPack.id ? \"ویرایش بسته\" : \"بسته جدید\"}"
+    ]
+  },
+  {
+    "route": "/admin/invites/manage",
+    "file": "src/app/admin/invites/manage/page.tsx",
+    "lines": 163,
+    "controls": 4,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/admin/invites",
+    "file": "src/app/admin/invites/page.tsx",
+    "lines": 443,
+    "controls": 12,
+    "loading": true,
+    "error": true,
+    "empty": false,
+    "outlineNone": 2,
+    "headings": [
+      "دعوت به AiFekr"
+    ]
+  },
+  {
+    "route": "/admin/lead-connectors",
+    "file": "src/app/admin/lead-connectors/page.tsx",
+    "lines": 163,
+    "controls": 5,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "اتصال‌های Meta Lead Ads",
+      "<Clock className=\"w-4 h-4 text-amber-500\" /> در انتظار ({pending.length})",
+      "همه‌ی اتصال‌ها ({others.length})"
+    ]
+  },
+  {
+    "route": "/admin/llm",
+    "file": "src/app/admin/llm/page.tsx",
+    "lines": 543,
+    "controls": 12,
+    "loading": false,
+    "error": true,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "مدیریت LLM",
+      "همه مدل‌ها",
+      "افزودن API سفارشی"
+    ]
+  },
+  {
+    "route": "/admin/logs",
+    "file": "src/app/admin/logs/page.tsx",
+    "lines": 199,
+    "controls": 2,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "لاگ‌ها و مانیتورینگ"
+    ]
+  },
+  {
+    "route": "/admin/models",
+    "file": "src/app/admin/models/page.tsx",
+    "lines": 170,
+    "controls": 2,
+    "loading": false,
+    "error": true,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "مدیریت مدل‌های AI"
+    ]
+  },
+  {
+    "route": "/admin/module-access",
+    "file": "src/app/admin/module-access/page.tsx",
+    "lines": 276,
+    "controls": 8,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 1,
+    "headings": [
+      "مدیریت دسترسی ماژول‌ها"
+    ]
+  },
+  {
+    "route": "/admin/packages",
+    "file": "src/app/admin/packages/page.tsx",
+    "lines": 245,
+    "controls": 16,
+    "loading": true,
+    "error": true,
+    "empty": false,
+    "outlineNone": 8,
+    "headings": [
+      "مدیریت پکیج‌ها",
+      "{editing ? \"ویرایش پکیج\" : \"افزودن پکیج جدید\"}"
+    ]
+  },
+  {
+    "route": "/admin",
+    "file": "src/app/admin/page.tsx",
+    "lines": 7,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/admin/prompts",
+    "file": "src/app/admin/prompts/page.tsx",
+    "lines": 334,
+    "controls": 22,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 11,
+    "headings": [
+      "{editing ? \"ویرایش پرامپت\" : \"افزودن پرامپت جدید\"}"
+    ]
+  },
+  {
+    "route": "/admin/provider-fallback",
+    "file": "src/app/admin/provider-fallback/page.tsx",
+    "lines": 266,
+    "controls": 2,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/admin/public-share",
+    "file": "src/app/admin/public-share/page.tsx",
+    "lines": 123,
+    "controls": 2,
+    "loading": false,
+    "error": true,
+    "empty": true,
+    "outlineNone": 1,
+    "headings": [
+      "بازدید روزانه (۱۴ روز اخیر)",
+      "سقف روزانه‌ی ساخت عکس"
+    ]
+  },
+  {
+    "route": "/admin/revenue",
+    "file": "src/app/admin/revenue/page.tsx",
+    "lines": 1,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/admin/settings",
+    "file": "src/app/admin/settings/page.tsx",
+    "lines": 263,
+    "controls": 8,
+    "loading": true,
+    "error": true,
+    "empty": false,
+    "outlineNone": 3,
+    "headings": [
+      "تنظیمات سایت",
+      "{section.label}"
+    ]
+  },
+  {
+    "route": "/admin/startup-inquiries",
+    "file": "src/app/admin/startup-inquiries/page.tsx",
+    "lines": 285,
+    "controls": 6,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 1,
+    "headings": []
+  },
+  {
+    "route": "/admin/student",
+    "file": "src/app/admin/student/page.tsx",
+    "lines": 5,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/admin/subscriptions",
+    "file": "src/app/admin/subscriptions/page.tsx",
+    "lines": 205,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "مدیریت اشتراک‌ها"
+    ]
+  },
+  {
+    "route": "/admin/system",
+    "file": "src/app/admin/system/page.tsx",
+    "lines": 150,
+    "controls": 1,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "مدیریت سیستم",
+      "دیتابیس و سرویس‌ها",
+      "آخرین خطاهای ثبت‌شده"
+    ]
+  },
+  {
+    "route": "/admin/tools",
+    "file": "src/app/admin/tools/page.tsx",
+    "lines": 75,
+    "controls": 1,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "مدیریت ابزارها و دستیارها",
+      "ابزارها",
+      "دستیارها"
+    ]
+  },
+  {
+    "route": "/admin/usage",
+    "file": "src/app/admin/usage/page.tsx",
+    "lines": 535,
+    "controls": 11,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "اکونومیک واحد (Unit Economics)"
+    ]
+  },
+  {
+    "route": "/admin/users/[id]",
+    "file": "src/app/admin/users/[id]/page.tsx",
+    "lines": 557,
+    "controls": 14,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 8,
+    "headings": [
+      "{user.name || \"بدون نام\"}"
+    ]
+  },
+  {
+    "route": "/admin/users",
+    "file": "src/app/admin/users/page.tsx",
+    "lines": 556,
+    "controls": 30,
+    "loading": true,
+    "error": true,
+    "empty": false,
+    "outlineNone": 15,
+    "headings": [
+      "مدیریت کاربران",
+      "افزودن کاربر جدید"
+    ]
+  },
+  {
+    "route": "/admin/voice-agent",
+    "file": "src/app/admin/voice-agent/page.tsx",
+    "lines": 253,
+    "controls": 8,
+    "loading": true,
+    "error": true,
+    "empty": true,
+    "outlineNone": 3,
+    "headings": [
+      "مرکز تماس هوش مصنوعی — مدیریت",
+      "کلیدهای Vapi (ایجنت صوتی)"
+    ]
+  },
+  {
+    "route": "/ai-team",
+    "file": "src/app/ai-team/page.tsx",
+    "lines": 176,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "{text(lang, copy.requirements)}"
+    ]
+  },
+  {
+    "route": "/contact",
+    "file": "src/app/contact/page.tsx",
+    "lines": 107,
+    "controls": 0,
+    "loading": false,
+    "error": true,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "{tri(lang, \"تماس با ما\", \"Contact Us\", \"Kontakt\", \"İletişim\")}"
+    ]
+  },
+  {
+    "route": "/f/[slug]",
+    "file": "src/app/f/[slug]/page.tsx",
+    "lines": 36,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/features/[slug]",
+    "file": "src/app/features/[slug]/page.tsx",
+    "lines": 32,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "{text(lang, f.title)}",
+      "{text(lang, copy.modules)}",
+      "{text(lang, copy.requirements)}"
+    ]
+  },
+  {
+    "route": "/industry/[slug]",
+    "file": "src/app/industry/[slug]/page.tsx",
+    "lines": 250,
+    "controls": 0,
+    "loading": false,
+    "error": true,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "{name}",
+      "{s.painPoints}",
+      "{s.outcomes}"
+    ]
+  },
+  {
+    "route": "/industry",
+    "file": "src/app/industry/page.tsx",
+    "lines": 155,
+    "controls": 0,
+    "loading": false,
+    "error": true,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": [
+      "{s.title}",
+      "{tri(lang, \"فضای دانشجویی AIFekr\", \"AIFekr Student Workspace\", \"AIFekr-Lernbereich\", \"AIFekr Öğrenci Alanı\")}"
+    ]
+  },
+  {
+    "route": "/o/[token]",
+    "file": "src/app/o/[token]/page.tsx",
+    "lines": 156,
+    "controls": 0,
+    "loading": true,
+    "error": true,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "{statement.property.title}"
+    ]
+  },
+  {
+    "route": "/owner/login",
+    "file": "src/app/owner/login/page.tsx",
+    "lines": 123,
+    "controls": 3,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 1,
+    "headings": []
+  },
+  {
+    "route": "/owner",
+    "file": "src/app/owner/page.tsx",
+    "lines": 207,
+    "controls": 1,
+    "loading": true,
+    "error": false,
+    "empty": true,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/p/[id]",
+    "file": "src/app/p/[id]/page.tsx",
+    "lines": 139,
+    "controls": 4,
+    "loading": true,
+    "error": true,
+    "empty": false,
+    "outlineNone": 3,
+    "headings": [
+      "{property.title}"
+    ]
+  },
+  {
+    "route": "/",
+    "file": "src/app/page.tsx",
+    "lines": 43,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "{text(lang, copy.hero).split(\"\\n\")[0]}<br/><em>{text(lang, copy.hero).split(\"\\n\")[1]}</em>",
+      "{text(lang, copy.modules)}",
+      "{text(lang, copy.useCases)}"
+    ]
+  },
+  {
+    "route": "/pricing",
+    "file": "src/app/pricing/page.tsx",
+    "lines": 21,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "{text(lang, copy.pricing)}",
+      "{text(lang, [\"شروع رایگان\", \"Start free\", \"Kostenlos starten\", \"Ücretsiz başlayın\"])}",
+      "{text(lang, [\"اشتراک کسب‌وکار و CRM\", \"Business & CRM subscriptions\", \"Business- & CRM-Abos\", \"İşletme ve CRM abonelikleri\"])}"
+    ]
+  },
+  {
+    "route": "/privacy",
+    "file": "src/app/privacy/page.tsx",
+    "lines": 167,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "{lang === \"tr\" ? \"Gizlilik politikası\" : lang === \"de\" ? \"Datenschutzrichtlinie\" : isFa ? \"حریم خصوصی\" : \"Privacy Policy\"}",
+      "{s.title}"
+    ]
+  },
+  {
+    "route": "/security",
+    "file": "src/app/security/page.tsx",
+    "lines": 15,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "{text(lang, copy.security)}",
+      "{text(lang, s.title)}"
+    ]
+  },
+  {
+    "route": "/share/1980s",
+    "file": "src/app/share/1980s/page.tsx",
+    "lines": 31,
+    "controls": 0,
+    "loading": false,
+    "error": true,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": []
+  },
+  {
+    "route": "/share/[token]",
+    "file": "src/app/share/[token]/page.tsx",
+    "lines": 111,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "{title}"
+    ]
+  },
+  {
+    "route": "/solutions/[slug]",
+    "file": "src/app/solutions/[slug]/page.tsx",
+    "lines": 31,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "{text(lang, solution.title)}",
+      "{text(lang, copy.ecosystem)}",
+      "{text(lang, copy.requirements)}"
+    ]
+  },
+  {
+    "route": "/student/[slug]",
+    "file": "src/app/student/[slug]/page.tsx",
+    "lines": 29,
+    "controls": 0,
+    "loading": false,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "{user.name || \"Student\"}"
+    ]
+  },
+  {
+    "route": "/terms",
+    "file": "src/app/terms/page.tsx",
+    "lines": 180,
+    "controls": 0,
+    "loading": false,
+    "error": true,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": [
+      "{lang === \"tr\" ? \"AIFekr kullanım koşulları\" : lang === \"de\" ? \"AiFekr Nutzungsbedingungen\" : isFa ? \"قوانین و مقررات استفاده از AiFekr\" : \"AiFekr Terms of Service\"}",
+      "{s.title}"
+    ]
+  },
+  {
+    "route": "/welcome",
+    "file": "src/app/welcome/page.tsx",
+    "lines": 163,
+    "controls": 2,
+    "loading": true,
+    "error": false,
+    "empty": false,
+    "outlineNone": 0,
+    "headings": []
+  }
+]

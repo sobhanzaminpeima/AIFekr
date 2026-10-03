@@ -274,7 +274,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
   const getProjectConvs = (pid: string) => conversations.filter((c) => c.projectId === pid);
 
   return (
-    <aside className="flex flex-col h-full w-[260px] flex-shrink-0"
+    <aside className="platform-sidebar flex flex-col h-full w-[260px] flex-shrink-0"
       style={{ background: "var(--surface-1)", borderLeft: lang === "fa" ? "1px solid var(--border)" : "none", borderRight: lang === "fa" ? "none" : "1px solid var(--border)" }}>
 
       {/* Logo */}
@@ -418,7 +418,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             the last thing in the list. */}
         <NavSection label={tri(lang, "بیشتر", "More", "Mehr", "Daha Fazla")} />
         {/* Tools */}
-        <button onClick={() => setToolsOpen(!toolsOpen)}
+        <button onClick={() => setToolsOpen(!toolsOpen)} aria-expanded={toolsOpen}
           className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-white/[0.05]"
           style={{ color: "var(--text-secondary)" }}>
           <span className="flex items-center gap-2 min-w-0"><Briefcase className="w-4 h-4 flex-shrink-0" /><span className="truncate">{t.nav.tools}</span></span>
@@ -427,7 +427,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         {toolsOpen && <div className="pr-4 space-y-0.5">{tools.map((t) => <NavItem key={t.href} icon={t.icon} label={t.label} href={t.href} active={isActive(t.href)} small />)}</div>}
 
         {/* Assistants */}
-        <button onClick={() => setAssistantsOpen(!assistantsOpen)}
+        <button onClick={() => setAssistantsOpen(!assistantsOpen)} aria-expanded={assistantsOpen}
           className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-white/[0.05]"
           style={{ color: "var(--text-secondary)" }}>
           <span className="flex items-center gap-2 min-w-0"><GraduationCap className="w-4 h-4 flex-shrink-0" /><span className="truncate">{t.nav.assistants}</span></span>
@@ -438,7 +438,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         {/* ── PROJECTS ─────────────────────── */}
         <div style={{ borderTop: "1px solid var(--border)", margin: "6px 0" }} />
         <div className="flex items-center justify-between px-3 py-1.5">
-          <button onClick={() => setProjectsOpen(!projectsOpen)}
+          <button onClick={() => setProjectsOpen(!projectsOpen)} aria-expanded={projectsOpen}
             className="flex items-center gap-2 text-sm font-medium"
             style={{ color: "var(--text-secondary)" }}>
             <FolderOpen className="w-4 h-4" />

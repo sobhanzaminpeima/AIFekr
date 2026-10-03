@@ -45,6 +45,8 @@ export function useTranslation() {
   const [lang, setLangState] = useState<Lang>(serverLang ?? "fa");
 
   useEffect(() => {
+    // URL-selected public language must not be replaced by an old account cookie.
+    if (serverLang) { setLangState(serverLang); return; }
     // Still runs: it picks up a language switch made after mount, and covers
     // any tree that has no provider above it. But only when a `lang` cookie
     // actually exists -- getLang() now returns null instead of a hardcoded
@@ -53,7 +55,7 @@ export function useTranslation() {
     // back to Persian right after hydration.
     const cookieLang = getLang();
     if (cookieLang) setLangState(cookieLang);
-  }, []);
+  }, [serverLang]);
 
   const t = TRANSLATIONS[lang];
   return { t, lang, setLang: (l: Lang) => { setLangState(l); setLang(l); } };

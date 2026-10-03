@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/marketing/PublicLink";
 import { notFound } from "next/navigation";
 import { ArrowUpRight } from "lucide-react";
 import { getServerLang } from "@/lib/i18n/server";

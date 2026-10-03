@@ -1,9 +1,9 @@
 import PublicShell from "@/components/marketing/PublicShell";
 import { notFound } from "next/navigation";
-import { absoluteUrl, pageJsonLd } from "@/lib/seo/site";
+import { publicAlternates, pageJsonLd } from "@/lib/seo/site";
 import JsonLd from "@/components/seo/JsonLd";
 import { cookies } from "next/headers";
-import Link from "next/link";
+import Link from "@/components/marketing/PublicLink";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db/prisma";
 import { verifyToken } from "@/lib/auth/jwt";
@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 // brand-name searches.
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const pack = await prisma.industryPack.findUnique({ where: { slug: params.slug } });
-  if (!pack) return {};
+  if (!pack?.isActive) notFound();
   const lang = await getServerLang();
   const name = lang === "de" ? (pack.nameDe || pack.nameEn || pack.name) : (lang === "en" || lang === "tr") ? (pack.nameEn || pack.name) : pack.name;
   const description = lang === "de" ? (pack.valuePropositionDe || pack.valuePropositionEn || pack.valueProposition) : (lang === "en" || lang === "tr") ? (pack.valuePropositionEn || pack.valueProposition) : pack.valueProposition;
@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   return {
     title: { absolute: title },
     description: snippet,
-    alternates: { canonical: absoluteUrl(`/industry/${params.slug}`) },
+    alternates: publicAlternates(lang, `/industry/${params.slug}`),
     openGraph: { title, description: snippet },
   };
 }
@@ -65,7 +65,7 @@ const strings = {
 
 export default async function PackDetailPage({ params }: { params: { slug: string } }) {
   const pack = await prisma.industryPack.findUnique({ where: { slug: params.slug } });
-  if (!pack) notFound();
+  if (!pack?.isActive) notFound();
 
   const lang = await getServerLang();
   const s = lang === "tr" ? { agents: "Yapay zekâ ajanları", agent: "ajan", painPoints: "Ele alınan sorunlar", outcomes: "Olası sonuçlar", kpis: "Panel göstergeleri", included: "Etkin CRM aboneliğine dahil", activate: "Paketi etkinleştir", loginToActivate: "Etkinleştirmek için giriş yap", back: "Tüm paketlere dön", gold: "Altın", pro: "Profesyonel", registerFirst: "Kaydol ve etkinleştir", alreadyActive: "Paketiniz etkin", goToBusiness: "İşletme paneline git" } : strings[lang];

@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { useTranslation, tri } from "@/lib/i18n";
 import { formatNumber, toJalali } from "@/lib/utils/jalali";
 import { toolFeatureLabel } from "@/lib/utils/credits";
+import WorkspaceError from "@/components/layout/WorkspaceError";
 
 interface CreditTier {
   id: string;
@@ -64,6 +65,8 @@ export default function CreditsPage() {
   const [wallets, setWallets] = useState<WalletBalances | null>(null);
   const [breakdown, setBreakdown] = useState<UsageBreakdownRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [buyingTierId, setBuyingTierId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -79,12 +82,13 @@ export default function CreditsPage() {
   }, []);
 
   useEffect(() => {
-    load().finally(() => setLoading(false));
+    setLoading(true); setLoadFailed(false);
+    load().catch(() => setLoadFailed(true)).finally(() => setLoading(false));
     const params = new URLSearchParams(window.location.search);
     if (params.get("payment") === "success") toast.success(tri(lang, "خرید کردیت با موفقیت انجام شد", "Credit purchase successful", "Guthabenkauf erfolgreich", "Kredi satın alma başarılı"));
     if (params.get("payment") === "failed") toast.error(tri(lang, "پرداخت ناموفق بود", "Payment failed", "Zahlung fehlgeschlagen", "Ödeme başarısız"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [load]);
+  }, [load, attempt]);
 
   async function buyTier(tierId: string) {
     setBuyingTierId(tierId);
@@ -111,6 +115,8 @@ export default function CreditsPage() {
       </div>
     );
   }
+
+  if (loadFailed) return <WorkspaceError reset={() => setAttempt(value => value + 1)}/>;
 
   return (
     <div className="min-h-screen p-6" style={{ background: "var(--surface-0)" }} dir={isFa ? "rtl" : "ltr"}>

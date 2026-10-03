@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { Handshake, Sparkles, Loader2, Send, Mail, Check, ListPlus } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
+import { readApiResponse } from "@/lib/utils/apiResponse";
 import CreditCost from "@/components/ui/CreditCost";
 
 const STR = {
@@ -71,6 +72,7 @@ interface FollowUpDraft {
 export default function SalesAgentPage() {
   const { lang } = useTranslation();
   const s = STR[lang === "tr" ? "en" : lang] || STR.en;
+  const requestFailed = tri(lang, "این عملیات انجام نشد؛ اتصال را بررسی و دوباره تلاش کنید.", "The action failed. Check your connection and retry.", "Aktion fehlgeschlagen. Verbindung prüfen und erneut versuchen.", "İşlem başarısız. Bağlantıyı kontrol edip tekrar deneyin.");
 
   const [running, setRunning] = useState(false);
   const [analysis, setAnalysis] = useState("");
@@ -114,6 +116,8 @@ export default function SalesAgentPage() {
           } catch {}
         }
       }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : requestFailed);
     } finally {
       setRunning(false);
     }
@@ -121,24 +125,31 @@ export default function SalesAgentPage() {
 
   const loadDrafts = useCallback(async () => {
     setLoadingDrafts(true);
+    setError("");
     try {
       const res = await fetch("/api/sales/followups");
-      const data = await res.json();
+      const data = await readApiResponse<{ drafts?: FollowUpDraft[] }>(res, requestFailed);
       setDrafts(data.drafts || []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : requestFailed);
     } finally {
       setLoadingDrafts(false);
     }
-  }, []);
+  }, [requestFailed]);
 
   async function sendDraft(d: FollowUpDraft) {
     setSendingId(d.contactId);
+    setError("");
     try {
       const res = await fetch("/api/sales/followups/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contactId: d.contactId, message: d.message }),
       });
-      if (res.ok) setSentIds((prev) => new Set(prev).add(d.contactId));
+      await readApiResponse(res, requestFailed);
+      setSentIds((prev) => new Set(prev).add(d.contactId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : requestFailed);
     } finally {
       setSendingId(null);
     }
@@ -146,6 +157,7 @@ export default function SalesAgentPage() {
 
   async function createTaskFromDraft(d: FollowUpDraft) {
     setCreatingTaskId(d.contactId);
+    setError("");
     try {
       const title = lang === "fa" ? `پیگیری با ${d.name}` : lang === "de" ? `Nachfassen bei ${d.name}` : `Follow up with ${d.name}`;
       const dueDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
@@ -154,7 +166,10 @@ export default function SalesAgentPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contactId: d.contactId, title, dueDate, draftMessage: d.message }),
       });
-      if (res.ok) setTaskCreatedIds((prev) => new Set(prev).add(d.contactId));
+      await readApiResponse(res, requestFailed);
+      setTaskCreatedIds((prev) => new Set(prev).add(d.contactId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : requestFailed);
     } finally {
       setCreatingTaskId(null);
     }
@@ -186,7 +201,7 @@ export default function SalesAgentPage() {
         </div>
 
         {error && (
-          <div className="rounded-xl p-3 text-sm" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>{error}</div>
+          <div role="alert" className="workspace-alert">{error}</div>
         )}
 
         {analysis && (

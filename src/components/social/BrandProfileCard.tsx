@@ -136,7 +136,7 @@ export default function BrandProfileCard({ lang, onSaved }: { lang: Lang; onSave
             <label className="text-xs font-semibold block mb-1" style={{ color: "var(--text-secondary)" }}>
               {tri(lang, "ستون‌های محتوا (۳ تا ۵ مورد، با ویرگول)", "Content pillars (3–5, comma separated)", "Content-Säulen (3–5, kommagetrennt)")}
             </label>
-            <input
+            <input aria-label={tri(lang, "ستون‌های محتوا (۳ تا ۵ مورد، با ویرگول)", "Content pillars (3–5, comma separated)", "Content-Säulen (3–5, kommagetrennt)")}
               value={pillarsText}
               onChange={(e) => setPillarsText(e.target.value)}
               placeholder={tri(lang, "آموزش، قبل و بعد، معرفی تیم", "education, before & after, meet the team", "Aufklärung, Vorher-Nachher, Team")}

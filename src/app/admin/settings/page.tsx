@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect } from "react";
 import { Settings, Save, Globe, Bell, Shield, Palette, DollarSign, FileText, RefreshCw, ToggleRight } from "lucide-react";
 import toast from "react-hot-toast";
+import { PAYMENT_ACCOUNTS } from "@/lib/payment/accounts";
 
 const SECTIONS = [
   {
@@ -45,9 +46,9 @@ const SECTIONS = [
       { key: "usd_to_aed", label: "نرخ تبدیل: ۱ دلار = چند درهم", type: "number", default: "3.67" },
       { key: "usd_to_eur", label: "نرخ تبدیل: ۱ دلار = چند یورو", type: "number", default: "0.92" },
       { key: "usd_to_gbp", label: "نرخ تبدیل: ۱ دلار = چند پوند", type: "number", default: "0.79" },
-      { key: "bank_iban", label: "IBAN", type: "text", default: "TR210001009010583132105001" },
-      { key: "bank_iban_eur", label: "IBAN یورو (زراعت به زراعت)", type: "text", default: "TR910001009010583132105002" },
-      { key: "bank_holder", label: "نام صاحب حساب", type: "text", default: "MEHRAD MOHARRAMZADEH" },
+      { key: "bank_iban", label: "IBAN لیر · TRY", type: "text", default: PAYMENT_ACCOUNTS.TRY },
+      { key: "bank_iban_eur", label: "IBAN یورو · EUR (از زراعت بدون کمیسیون)", type: "text", default: PAYMENT_ACCOUNTS.EUR },
+      { key: "bank_holder", label: "نام صاحب حساب", type: "text", default: PAYMENT_ACCOUNTS.holder },
       { key: "bank_currency", label: "ارز حساب بانکی", type: "select", default: "TRY", options: ["TRY", "USD", "EUR"] },
       { key: "payment_gateway", label: "درگاه پرداخت", type: "select", default: "zarinpal", options: ["bank_transfer"] },
       { key: "zarinpal_merchant", label: "کد Zarinpal Merchant", type: "text", default: "" },

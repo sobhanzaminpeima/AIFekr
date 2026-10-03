@@ -175,7 +175,7 @@ export default function PackagesPage() {
               {[{ label: "نام فارسی", key: "name" }, { label: "نام انگلیسی", key: "nameEn" }].map(f => (
                 <div key={f.key}>
                   <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>{f.label}</label>
-                  <input value={(form as any)[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                  <input aria-label={f.label} value={(form as any)[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
                     className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                 </div>
               ))}
@@ -184,7 +184,7 @@ export default function PackagesPage() {
               {[{ label: "قیمت (ریال)", key: "price" }, { label: "مدت (روز)", key: "duration" }, { label: "اعتبار", key: "credits" }].map(f => (
                 <div key={f.key}>
                   <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>{f.label}</label>
-                  <input type="number" value={(form as any)[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: Number(e.target.value) }))}
+                  <input aria-label={f.label} type="number" value={(form as any)[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: Number(e.target.value) }))}
                     className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                 </div>
               ))}

@@ -259,42 +259,42 @@ export default function CharacterCreationPanel({ lang, imageProvider }: { lang: 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>{tri(lang, "نام (الزامی)", "Name (required)", "Name (erforderlich)")}</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={tri(lang, "مثلاً آوا", "e.g. Ava", "z. B. Ava")}
+            <input aria-label={tri(lang, "نام (الزامی)", "Name (required)", "Name (erforderlich)")} value={name} onChange={(e) => setName(e.target.value)} placeholder={tri(lang, "مثلاً آوا", "e.g. Ava", "z. B. Ava")}
               className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           </div>
           <div>
             <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>{tri(lang, "عنوان/تگ‌لاین (اختیاری)", "Title/tagline (optional)", "Titel/Tagline (optional)")}</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tri(lang, "مثلاً «قهرمان داستان»", "e.g. \"The Protagonist\"", "z. B. „Die Hauptfigur“")}
+            <input aria-label={tri(lang, "عنوان/تگ‌لاین (اختیاری)", "Title/tagline (optional)", "Titel/Tagline (optional)")} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tri(lang, "مثلاً «قهرمان داستان»", "e.g. \"The Protagonist\"", "z. B. „Die Hauptfigur“")}
               className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           </div>
           <div>
             <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>{tri(lang, "نقش (اختیاری)", "Role (optional)", "Rolle (optional)")}</label>
-            <input value={role} onChange={(e) => setRole(e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <input aria-label={tri(lang, "نقش (اختیاری)", "Role (optional)", "Rolle (optional)")} value={role} onChange={(e) => setRole(e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           </div>
           <div>
             <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>{tri(lang, "سبک تولید", "Production style", "Produktionsstil")}</label>
-            <select value={genre} onChange={(e) => setGenre(e.target.value as Genre)} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <select aria-label={tri(lang, "سبک تولید", "Production style", "Produktionsstil")} value={genre} onChange={(e) => setGenre(e.target.value as Genre)} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
               {GENRES.map((g) => <option key={g.value} value={g.value}>{tri(lang, g.fa, g.en, g.de)}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>{tri(lang, "شخصیت (اختیاری، ۳-۶ کلمه)", "Personality (optional, 3-6 words)", "Persönlichkeit (optional, 3-6 Wörter)")}</label>
-            <input value={personality} onChange={(e) => setPersonality(e.target.value)} placeholder={tri(lang, "مثلاً آرام، باهوش، مصمم", "e.g. calm, sharp, determined", "z. B. ruhig, scharfsinnig, entschlossen")}
+            <input aria-label={tri(lang, "شخصیت (اختیاری، ۳-۶ کلمه)", "Personality (optional, 3-6 words)", "Persönlichkeit (optional, 3-6 Wörter)")} value={personality} onChange={(e) => setPersonality(e.target.value)} placeholder={tri(lang, "مثلاً آرام، باهوش، مصمم", "e.g. calm, sharp, determined", "z. B. ruhig, scharfsinnig, entschlossen")}
               className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           </div>
           <div>
             <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>{tri(lang, "الهام لباس/استایل (اختیاری)", "Wardrobe/style inspiration (optional)", "Kleidung/Stil-Inspiration (optional)")}</label>
-            <input value={wardrobe} onChange={(e) => setWardrobe(e.target.value)} placeholder={tri(lang, "مثلاً لباس شب ابریشمی", "e.g. silk evening wear", "z. B. seidene Abendgarderobe")}
+            <input aria-label={tri(lang, "الهام لباس/استایل (اختیاری)", "Wardrobe/style inspiration (optional)", "Kleidung/Stil-Inspiration (optional)")} value={wardrobe} onChange={(e) => setWardrobe(e.target.value)} placeholder={tri(lang, "مثلاً لباس شب ابریشمی", "e.g. silk evening wear", "z. B. seidene Abendgarderobe")}
               className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           </div>
           <div>
             <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>{tri(lang, "سن ظاهری (اختیاری)", "Age appearance (optional)", "Erscheinungsalter (optional)")}</label>
-            <input value={age} onChange={(e) => setAge(e.target.value)} placeholder={tri(lang, "مثلاً اواسط دهه‌ی ۳۰", "e.g. mid-30s", "z. B. Mitte 30")}
+            <input aria-label={tri(lang, "سن ظاهری (اختیاری)", "Age appearance (optional)", "Erscheinungsalter (optional)")} value={age} onChange={(e) => setAge(e.target.value)} placeholder={tri(lang, "مثلاً اواسط دهه‌ی ۳۰", "e.g. mid-30s", "z. B. Mitte 30")}
               className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           </div>
           <div>
             <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>{tri(lang, "نقل‌قول شاخص (اختیاری)", "Signature quote (optional)", "Signatur-Zitat (optional)")}</label>
-            <input value={quote} onChange={(e) => setQuote(e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <input aria-label={tri(lang, "نقل‌قول شاخص (اختیاری)", "Signature quote (optional)", "Signatur-Zitat (optional)")} value={quote} onChange={(e) => setQuote(e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           </div>
         </div>
 

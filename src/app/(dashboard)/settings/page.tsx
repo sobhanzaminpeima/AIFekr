@@ -3,12 +3,14 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
-import { Save, User, Lock, Trash2, CreditCard, BarChart3, Palette, Globe, Loader2, Users, UserPlus, Crown, X } from "lucide-react";
+import { Save, User, Lock, Trash2, CreditCard, BarChart3, Palette, Loader2, Users, UserPlus, Crown, X } from "lucide-react";
 import toast from "react-hot-toast";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
 import { useTranslation, tri } from "@/lib/i18n";
 import { formatNumber, toJalali } from "@/lib/utils/jalali";
+import WorkspaceLoading from "@/components/layout/WorkspaceLoading";
+import WorkspaceError from "@/components/layout/WorkspaceError";
 
 const AVATAR_EMOJIS = ["🙂", "😎", "🚀", "🧠", "🦊", "🐼", "🌟", "🔥", "🎯", "💼", "🧑‍💻", "👩‍💻"];
 
@@ -63,6 +65,9 @@ export default function SettingsPage() {
   const TYPE_LABEL: Record<string, string> = { chat: t.settingsPage.typeChat, image: t.settingsPage.typeImage, video: t.settingsPage.typeVideo, music: t.settingsPage.typeMusic, tool: t.settingsPage.typeTool };
 
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState("");
   const [currency, setCurrency] = useState("");
@@ -83,13 +88,14 @@ export default function SettingsPage() {
   const [teamUsage, setTeamUsage] = useState<TeamUsageRow[] | null>(null);
 
   function loadTeam() {
-    fetch("/api/team", { credentials: "include" }).then((r) => r.json()).then((d) => setTeam(d.team || null));
-    fetch("/api/team/usage?days=30", { credentials: "include" }).then((r) => r.json()).then((d) => setTeamUsage(d.breakdown || null));
+    fetch("/api/team", { credentials: "include" }).then((r) => r.json()).then((d) => setTeam(d.team || null)).catch(() => setTeam(null));
+    fetch("/api/team/usage?days=30", { credentials: "include" }).then((r) => r.json()).then((d) => setTeamUsage(d.breakdown || null)).catch(() => setTeamUsage(null));
   }
 
   useEffect(() => {
+    setLoading(true); setLoadFailed(false);
     fetch("/api/user/profile", { credentials: "include" })
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((d) => {
         if (d.user) {
           setProfile(d.user);
@@ -97,11 +103,11 @@ export default function SettingsPage() {
           setAvatar(d.user.avatar || "");
           setCurrency(d.user.currency || "");
         }
-      });
-    fetch("/api/user/usage", { credentials: "include" }).then((r) => r.json()).then(setUsage);
-    fetch("/api/user/payments", { credentials: "include" }).then((r) => r.json()).then((d) => setPayments(d.payments || []));
+      }).catch(() => setLoadFailed(true)).finally(() => setLoading(false));
+    fetch("/api/user/usage", { credentials: "include" }).then((r) => r.json()).then(setUsage).catch(() => setUsage(null));
+    fetch("/api/user/payments", { credentials: "include" }).then((r) => r.json()).then((d) => setPayments(d.payments || [])).catch(() => setPayments([]));
     loadTeam();
-  }, []);
+  }, [attempt]);
 
   async function sendInvite() {
     if (!inviteEmail.trim()) return;
@@ -188,9 +194,11 @@ export default function SettingsPage() {
     }
   }
 
+  if (loading) return <WorkspaceLoading/>;
+  if (loadFailed) return <WorkspaceError reset={() => setAttempt(value => value + 1)}/>;
   return (
-    <div dir={isFa ? "rtl" : "ltr"} className="p-6 max-w-2xl mx-auto space-y-5">
-      <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{t.settingsPage.title}</h1>
+    <div dir={isFa ? "rtl" : "ltr"} className="workspace-page max-w-3xl space-y-5">
+      <header className="workspace-heading"><h1 style={{ color: "var(--text-primary)" }}>{t.settingsPage.title}</h1></header>
 
       {/* Profile */}
       <section className="p-4 sm:p-5 rounded-2xl space-y-4 min-w-0 overflow-hidden" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
@@ -205,6 +213,8 @@ export default function SettingsPage() {
             {AVATAR_EMOJIS.map((e) => (
               <button
                 key={e}
+                aria-label={`${t.settingsPage.avatar}: ${e}`}
+                aria-pressed={avatar === e}
                 onClick={() => setAvatar(e)}
                 className="w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all"
                 style={{ background: avatar === e ? "var(--primary)" : "var(--surface-2)", border: "1px solid var(--border)" }}
@@ -216,8 +226,8 @@ export default function SettingsPage() {
         </div>
 
         <div>
-          <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.settingsPage.displayName}</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.settingsPage.namePlaceholder}
+          <label htmlFor="settings-display-name" className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.settingsPage.displayName}</label>
+          <input id="settings-display-name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t.settingsPage.namePlaceholder}
             className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
             style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         </div>

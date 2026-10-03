@@ -1055,6 +1055,7 @@ export default function ChatInterface({
         {!isMedia && (
           <select
             value={selectedModel}
+            aria-label={tri(lang, "مدل هوش مصنوعی", "AI model", "KI-Modell", "Yapay zekâ modeli")}
             onChange={(e) => setSelectedModel(e.target.value)}
             className="px-2.5 py-1.5 rounded-xl text-xs outline-none flex-shrink-0 max-w-[9rem]"
             style={pill}
@@ -1064,12 +1065,12 @@ export default function ChatInterface({
           </select>
         )}
         {mediaType === "image" && mode === "credits" && imageProviders.length > 0 && (
-          <select value={imageProvider} onChange={(e) => setImageProvider(e.target.value)} className="px-2.5 py-1.5 rounded-xl text-xs outline-none flex-shrink-0 max-w-[9rem]" style={pill}>
+          <select aria-label={tri(lang, "مدل ساخت تصویر", "Image model", "Bildmodell", "Görsel modeli")} value={imageProvider} onChange={(e) => setImageProvider(e.target.value)} className="px-2.5 py-1.5 rounded-xl text-xs outline-none flex-shrink-0 max-w-[9rem]" style={pill}>
             {imageProviders.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         )}
         {mediaType === "video" && videoProviders.length > 0 && (
-          <select value={videoProvider} onChange={(e) => setVideoProvider(e.target.value)} className="px-2.5 py-1.5 rounded-xl text-xs outline-none flex-shrink-0 max-w-[9rem]" style={pill}>
+          <select aria-label={tri(lang, "مدل ساخت ویدیو", "Video model", "Videomodell", "Video modeli")} value={videoProvider} onChange={(e) => setVideoProvider(e.target.value)} className="px-2.5 py-1.5 rounded-xl text-xs outline-none flex-shrink-0 max-w-[9rem]" style={pill}>
             {videoProviders.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         )}

@@ -53,6 +53,19 @@ export default function LanguageSwitcher({ className = "", iconOnly = false, dro
   const rootRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const languageLabel = { fa: "تغییر زبان", en: "Change language", de: "Sprache ändern", tr: "Dili değiştir" }[lang];
+
+  useEffect(() => {
+    if (!open) return;
+    menuRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    function closeWithEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      btnRef.current?.focus();
+    }
+    document.addEventListener("keydown", closeWithEscape);
+    return () => document.removeEventListener("keydown", closeWithEscape);
+  }, [open]);
 
   useEffect(() => {
     setLangState(getLang());
@@ -110,7 +123,9 @@ export default function LanguageSwitcher({ className = "", iconOnly = false, dro
       <button
         ref={btnRef}
         onClick={toggleOpen}
-        title="Change language"
+        title={languageLabel}
+        aria-label={languageLabel}
+        aria-expanded={open}
         className={`flex items-center justify-center transition-all ${iconOnly ? "w-8 h-8 rounded-lg" : "gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium"} ${className}`}
         style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
       >

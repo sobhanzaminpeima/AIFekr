@@ -1,5 +1,5 @@
 import PublicShell from "@/components/marketing/PublicShell";
-import Link from "next/link";
+import Link from "@/components/marketing/PublicLink";
 import { prisma } from "@/lib/db/prisma";
 import { Sparkles, Target, Users, Rocket } from "lucide-react";
 import { getServerLang } from "@/lib/i18n/server";

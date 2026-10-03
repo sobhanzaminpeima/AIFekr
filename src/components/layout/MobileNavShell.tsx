@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, MessageSquare, Sparkles, GalleryHorizontal, User } from "lucide-react";
-import CommandPalette from "@/components/ui/CommandPalette";
+import { Menu, X, MessageSquare, Sparkles, GalleryHorizontal, User, Search } from "lucide-react";
+import CommandPalette, { OPEN_COMMAND_PALETTE_EVENT } from "@/components/ui/CommandPalette";
 import NotificationBell from "@/components/layout/NotificationBell";
+import WorkspaceHeader from "./WorkspaceHeader";
+import WorkspaceGuide from "./WorkspaceGuide";
+import { tri } from "@/lib/i18n";
 
 /**
  * Fired whenever the mobile drawer opens or closes, so sibling `fixed`
@@ -24,6 +27,36 @@ export default function MobileNavShell({
 }: { sidebar: React.ReactNode; children: React.ReactNode; lang: "fa" | "en" | "de" | "tr" }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLButtonElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+
+  useEffect(() => { setOpen(false); mainRef.current?.scrollTo({ top: 0 }); }, [pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    drawerRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    const content = mainRef.current;
+    if (content) content.inert = true;
+    const media = window.matchMedia("(min-width: 768px)");
+    const onResize = () => { if (media.matches) setOpen(false); };
+    media.addEventListener("change", onResize);
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+      if (event.key !== "Tab") return;
+      const controls = Array.from(drawerRef.current?.querySelectorAll<HTMLElement>('a[href],button:not(:disabled),input:not(:disabled),select,[tabindex="0"]') || []).filter(item => item.getClientRects().length > 0);
+      const first = controls[0], last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      media.removeEventListener("change", onResize);
+      if (content) content.inert = false;
+      previous?.focus();
+    };
+  }, [open]);
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent(MOBILE_DRAWER_EVENT, { detail: { open } }));
@@ -32,12 +65,12 @@ export default function MobileNavShell({
   // Persian is the only RTL language here — anything else reads left-to-right.
   const dir = lang === "fa" ? "rtl" : "ltr";
 
-  // No Turkish nav labels yet -- falls back to English, same as elsewhere.
   const LABELS = {
     fa: { chat: "چت", agents: "ایجنت‌ها", gallery: "ساخته‌های من", settings: "تنظیمات" },
     en: { chat: "Chat", agents: "Agents", gallery: "My creations", settings: "Settings" },
     de: { chat: "Chat", agents: "Agenten", gallery: "Meine Werke", settings: "Einstellungen" },
-  }[lang === "tr" ? "en" : lang];
+    tr: { chat: "Sohbet", agents: "Ajanlar", gallery: "Eserlerim", settings: "Ayarlar" },
+  }[lang];
 
   const bottomItems = [
     { icon: MessageSquare, label: LABELS.chat, href: "/chat" },
@@ -52,6 +85,7 @@ export default function MobileNavShell({
 
   return (
     <>
+      <a href="#workspace-content" className="platform-skip">{tri(lang, "رفتن به محتوا", "Skip to content", "Zum Inhalt", "İçeriğe geç")}</a>
       {/* Mobile top bar */}
       <header
         className="md:hidden fixed top-0 inset-x-0 z-40 flex items-center justify-between px-3"
@@ -63,15 +97,18 @@ export default function MobileNavShell({
         }}
       >
         <button
+          ref={menuRef}
           onClick={() => setOpen(true)}
-          aria-label="Menu"
-          className="w-9 h-9 flex items-center justify-center rounded-lg"
+          aria-label={tri(lang, "باز کردن منو", "Open menu", "Menü öffnen", "Menüyü aç")}
+          aria-expanded={open}
+          aria-controls="mobile-workspace-menu"
+          className="w-11 h-11 flex items-center justify-center rounded-lg"
           style={{ color: "var(--text-primary)" }}
         >
           <Menu className="w-5 h-5" />
         </button>
-        <span className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>AiFekr</span>
-        <NotificationBell iconOnly dropUp={false} />
+        <Link href="/home" className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>AiFekr</Link>
+        <div className="flex items-center gap-1"><button className="workspace-icon-button" style={{ background: "transparent", border: 0 }} aria-label={tri(lang, "جستجوی بخش‌های پلتفرم", "Search platform", "Plattform durchsuchen", "Platformda ara")} onClick={() => window.dispatchEvent(new Event(OPEN_COMMAND_PALETTE_EVENT))}><Search size={19}/></button><NotificationBell iconOnly dropUp={false} /></div>
       </header>
 
       {/* Drawer backdrop */}
@@ -85,17 +122,24 @@ export default function MobileNavShell({
 
       {/* Drawer (mobile sidebar) */}
       <div
+        id="mobile-workspace-menu"
+        ref={drawerRef}
+        role={open ? "dialog" : undefined}
+        aria-modal={open ? true : undefined}
+        aria-label={tri(lang, "منوی پلتفرم", "Workspace menu", "Arbeitsbereich-Menü", "Çalışma alanı menüsü")}
+        aria-hidden={!open}
         dir={dir}
         className="md:hidden fixed top-0 bottom-0 z-50 w-[260px] transition-transform duration-300"
         style={{
           [dir === "rtl" ? "right" : "left"]: 0,
           transform: open ? "translateX(0)" : dir === "rtl" ? "translateX(100%)" : "translateX(-100%)",
+          visibility: open ? "visible" : "hidden",
         }}
       >
         <button
           onClick={() => setOpen(false)}
-          aria-label="Close"
-          className="absolute top-3 z-10 w-8 h-8 flex items-center justify-center rounded-lg"
+          aria-label={tri(lang, "بستن منو", "Close menu", "Menü schließen", "Menüyü kapat")}
+          className="absolute top-3 z-10 w-11 h-11 flex items-center justify-center rounded-lg"
           style={{
             [dir === "rtl" ? "left" : "right"]: 8,
             background: "var(--surface-2)",
@@ -123,17 +167,14 @@ export default function MobileNavShell({
           also scroll nested it inside another scroll container, which is
           what pushed the input bar and header off-screen on mobile. Every
           other page still relies on `main` itself scrolling. */}
-      <main className={`flex-1 pt-[calc(52px+env(safe-area-inset-top))] pb-[calc(56px+env(safe-area-inset-bottom))] md:pb-0 relative ${isChatPage ? "overflow-hidden md:pt-0" : "overflow-y-auto overscroll-y-contain md:pt-20"}`}>
+      <main id="workspace-content" ref={mainRef} tabIndex={-1} className={`platform-main flex-1 pt-[calc(52px+env(safe-area-inset-top))] pb-[calc(56px+env(safe-area-inset-bottom))] md:pb-0 relative ${isChatPage ? "overflow-hidden md:pt-0" : "overflow-y-auto overscroll-y-contain md:pt-0"}`}>
         {/* /chat renders its own compact search icon inline next to its header
             controls (see ChatInterface.tsx) — the floating trigger would sit
             directly above that row and read as a redundant, disconnected line. */}
-        {!isChatPage && (
-          <div className="hidden md:block fixed top-4 z-40" style={{ [dir === "rtl" ? "left" : "right"]: 16 }}>
-            <CommandPalette />
-          </div>
-        )}
-        {isChatPage && <CommandPalette hideTrigger />}
-        {children}
+        {!isChatPage && <WorkspaceHeader/>}
+        <CommandPalette hideTrigger />
+        {!isChatPage && <WorkspaceGuide/>}
+        <div className={isChatPage ? "h-full min-w-0" : "workspace-module-content"}>{children}</div>
       </main>
 
       {/* Mobile bottom bar */}
@@ -150,6 +191,8 @@ export default function MobileNavShell({
           <Link
             key={href}
             href={href}
+            aria-current={isActive(href) ? "page" : undefined}
+            onClick={() => setOpen(false)}
             className="flex flex-col items-center gap-0.5 px-3 py-1.5"
             style={{ color: isActive(href) ? "var(--primary)" : "var(--text-muted)" }}
           >

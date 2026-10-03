@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "@/components/billing/billing.css";
 import { Toaster } from "react-hot-toast";
 import { cookies } from "next/headers";
 import { LangProvider } from "@/lib/i18n/LangProvider";

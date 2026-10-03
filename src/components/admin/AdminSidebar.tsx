@@ -104,7 +104,7 @@ export default function AdminSidebar({ adminName, role }: { adminName: string; r
       className="flex flex-col flex-shrink-0 transition-all duration-300"
       style={{
         width: collapsed ? "60px" : "220px",
-        background: "#0d0d0d",
+        background: "var(--surface-1)",
         borderLeft: "1px solid var(--border)",
       }}
     >
@@ -121,7 +121,7 @@ export default function AdminSidebar({ adminName, role }: { adminName: string; r
             </div>
           )}
         </div>
-        <button onClick={() => setCollapsed(!collapsed)} className="flex-shrink-0 p-1 rounded-lg" style={{ color: "var(--text-muted)" }}>
+        <button onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? "باز کردن منو" : "جمع کردن منو"} aria-expanded={!collapsed} className="flex-shrink-0 p-1 rounded-lg" style={{ color: "var(--text-muted)" }}>
           <ChevronDown className={`w-4 h-4 transition-transform ${collapsed ? "rotate-90" : "-rotate-90"}`} />
         </button>
       </div>
@@ -157,6 +157,8 @@ export default function AdminSidebar({ adminName, role }: { adminName: string; r
                   <Link
                     key={item.href}
                     href={item.href}
+                    aria-label={item.label}
+                    aria-current={active ? "page" : undefined}
                     title={collapsed ? item.label : undefined}
                     className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-sm font-medium transition-all"
                     style={{

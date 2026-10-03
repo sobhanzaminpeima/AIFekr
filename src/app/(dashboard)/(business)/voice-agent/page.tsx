@@ -8,6 +8,7 @@ import {
 import toast from "react-hot-toast";
 import { useTranslation, tri, type Lang } from "@/lib/i18n";
 import { parseJsonResponse } from "@/lib/utils/fetchJson";
+import { readApiResponse } from "@/lib/utils/apiResponse";
 
 interface VoiceAgent {
   id: string; name: string; focus: string; vertical: string; businessType?: string | null; systemPrompt: string; voiceId: string | null;
@@ -85,32 +86,56 @@ export default function VoiceAgentPage() {
   }, []);
 
   const loadAgents = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
     const res = await fetch("/api/voice-agent/agents");
-    const data = await res.json();
+    const data = await readApiResponse<{ agents: VoiceAgent[]; voicePlan?: string }>(res, tri(lang, "دریافت دستیارها انجام نشد؛ دوباره تلاش کنید.", "Unable to load assistants. Retry.", "Assistenten konnten nicht geladen werden. Erneut versuchen.", "Asistanlar yüklenemedi. Tekrar deneyin."));
     setAgents(data.agents || []);
     setVoicePlan(data.voicePlan || "NONE");
-    setLoading(false);
-  }, []);
+    } catch { setError(tri(lang, "دریافت دستیارها انجام نشد؛ دوباره تلاش کنید.", "Unable to load assistants. Retry.", "Assistenten konnten nicht geladen werden. Erneut versuchen.", "Asistanlar yüklenemedi. Tekrar deneyin.")); }
+    finally { setLoading(false); }
+  }, [lang]);
   const loadProperties = useCallback(async () => {
-    const res = await fetch("/api/voice-agent/properties");
-    const data = await res.json();
-    setProperties(data.properties || []);
-  }, []);
+    setError("");
+    try {
+      const res = await fetch("/api/voice-agent/properties");
+      const data = await readApiResponse<{ properties: VoiceProperty[] }>(res, "Unable to load data.");
+      setProperties(data.properties || []);
+    } catch {
+      setError(tri(lang, "دریافت اطلاعات انجام نشد؛ دوباره تلاش کنید.", "Unable to load data. Retry.", "Daten konnten nicht geladen werden. Erneut versuchen.", "Veriler yüklenemedi. Tekrar deneyin."));
+    }
+  }, [lang]);
   const loadCalls = useCallback(async () => {
-    const res = await fetch("/api/voice-agent/calls");
-    const data = await res.json();
-    setCalls(data.calls || []);
-  }, []);
+    setError("");
+    try {
+      const res = await fetch("/api/voice-agent/calls");
+      const data = await readApiResponse<{ calls: VoiceCall[] }>(res, "Unable to load data.");
+      setCalls(data.calls || []);
+    } catch {
+      setError(tri(lang, "دریافت اطلاعات انجام نشد؛ دوباره تلاش کنید.", "Unable to load data. Retry.", "Daten konnten nicht geladen werden. Erneut versuchen.", "Veriler yüklenemedi. Tekrar deneyin."));
+    }
+  }, [lang]);
   const loadAppointments = useCallback(async () => {
-    const res = await fetch("/api/voice-agent/appointments");
-    const data = await res.json();
-    setAppointments(data.appointments || []);
-  }, []);
+    setError("");
+    try {
+      const res = await fetch("/api/voice-agent/appointments");
+      const data = await readApiResponse<{ appointments: VoiceAppointment[] }>(res, "Unable to load data.");
+      setAppointments(data.appointments || []);
+    } catch {
+      setError(tri(lang, "دریافت اطلاعات انجام نشد؛ دوباره تلاش کنید.", "Unable to load data. Retry.", "Daten konnten nicht geladen werden. Erneut versuchen.", "Veriler yüklenemedi. Tekrar deneyin."));
+    }
+  }, [lang]);
   const loadKnowledge = useCallback(async () => {
-    const res = await fetch("/api/voice-agent/knowledge");
-    const data = await res.json();
-    setKnowledgeEntries(data.entries || []);
-  }, []);
+    setError("");
+    try {
+      const res = await fetch("/api/voice-agent/knowledge");
+      const data = await readApiResponse<{ entries: VoiceKnowledgeEntry[] }>(res, "Unable to load data.");
+      setKnowledgeEntries(data.entries || []);
+    } catch {
+      setError(tri(lang, "دریافت اطلاعات انجام نشد؛ دوباره تلاش کنید.", "Unable to load data. Retry.", "Daten konnten nicht geladen werden. Erneut versuchen.", "Veriler yüklenemedi. Tekrar deneyin."));
+    }
+  }, [lang]);
 
   useEffect(() => { loadAgents(); }, [loadAgents]);
   useEffect(() => { if (tab === "knowledge") loadKnowledge(); }, [tab, loadKnowledge]);
@@ -124,7 +149,7 @@ export default function VoiceAgentPage() {
     let res: Response;
     try {
       res = await fetch("/api/payment/create", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: "VOICE_MONTHLY" }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: "VOICE_MONTHLY", period: "monthly" }),
       });
     } catch {
       // fetch() itself throwing (not an HTTP error status) means the request
@@ -276,7 +301,7 @@ export default function VoiceAgentPage() {
         ))}
       </div>
 
-      {voicePlan === "NONE" && (
+      {!loading && !error && voicePlan === "NONE" && (
         <div className="rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)" }}>
           <div>
             <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
@@ -293,7 +318,7 @@ export default function VoiceAgentPage() {
         </div>
       )}
 
-      {error && <p className="text-sm" style={{ color: "#ef4444" }}>{error}</p>}
+      {error && <div className="workspace-alert" role="alert">{error}<button className="workspace-button secondary" onClick={() => { if (tab === "agents") void loadAgents(); else if (tab === "properties") void loadProperties(); else if (tab === "calls") void loadCalls(); else if (tab === "appointments") void loadAppointments(); else void loadKnowledge(); }}>{tri(lang, "تلاش مجدد", "Retry", "Erneut versuchen", "Tekrar dene")}</button></div>}
 
       {tab === "agents" && (
         <AgentsTab
@@ -423,12 +448,12 @@ function AgentsTab({
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{tri(lang, "نام", "Name", "Name")}</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={tri(lang, "مثلاً خط فروش", "e.g. Sales Line", "z.B. Verkaufslinie")}
+              <input aria-label={tri(lang, "نام", "Name", "Name")} value={name} onChange={(e) => setName(e.target.value)} placeholder={tri(lang, "مثلاً خط فروش", "e.g. Sales Line", "z.B. Verkaufslinie")}
                 className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{tri(lang, "نوع کسب‌وکار", "Business Type", "Geschäftstyp")}</label>
-              <select value={vertical} onChange={(e) => { touchedVertical.current = true; setVertical(e.target.value); }}
+              <select aria-label={tri(lang, "نوع کسب‌وکار", "Business Type", "Geschäftstyp")} value={vertical} onChange={(e) => { touchedVertical.current = true; setVertical(e.target.value); }}
                 className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
                 {verticalOptions.map((v) => <option key={v.value} value={v.value}>{tri(lang, v.fa, v.en, v.de)}</option>)}
               </select>
@@ -441,7 +466,7 @@ function AgentsTab({
             {vertical !== "general" && (
               <div className="space-y-1">
                 <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{tri(lang, "تمرکز", "Focus", "Fokus")}</label>
-                <select value={focus} onChange={(e) => setFocus(e.target.value)}
+                <select aria-label={tri(lang, "تمرکز", "Focus", "Fokus")} value={focus} onChange={(e) => setFocus(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
                   {FOCUS_OPTIONS.map((f) => <option key={f.value} value={f.value}>{tri(lang, f.fa, f.en, f.de)}</option>)}
                 </select>
@@ -450,7 +475,7 @@ function AgentsTab({
             {vertical === "general" && (
               <div className="space-y-1">
                 <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{tri(lang, "نوع دقیق کسب‌وکار", "Business Type", "Geschäftstyp")}</label>
-                <input value={businessType} onChange={(e) => setBusinessType(e.target.value)}
+                <input aria-label={tri(lang, "نوع دقیق کسب‌وکار", "Business Type", "Geschäftstyp")} value={businessType} onChange={(e) => setBusinessType(e.target.value)}
                   placeholder={tri(lang, "مثلاً «کلینیک دندانپزشکی»، «دفتر وکالت»، «فروشگاه لوازم الکترونیکی»", "e.g. \"Dental clinic\", \"Law firm\", \"Online electronics store\"", "z.B. \"Zahnarztpraxis\", \"Anwaltskanzlei\", \"Online-Elektronikgeschäft\"")}
                   className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
               </div>

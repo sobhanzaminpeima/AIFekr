@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { Resend } from "resend";
+import { PAYMENT_ACCOUNTS } from "./accounts";
 export function validIban(input: string) {
   const value = input.replace(/\s/g, "").toUpperCase();
   if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(value)) return false;
@@ -11,7 +12,7 @@ export function validIban(input: string) {
 export async function bankSettings() {
   const rows = await prisma.siteSetting.findMany({ where: { key: { in: ["bank_iban","bank_holder","bank_currency","bank_iban_eur","admin_notification_email","admin_email"] } } });
   const map = Object.fromEntries(rows.map(r=>[r.key,r.value]));
-  return { iban: map.bank_iban || "TR210001009010583132105001", holder: map.bank_holder || "MEHRAD MOHARRAMZADEH", currency: map.bank_currency || "TRY", euroIban: map.bank_iban_eur || "TR910001009010583132105002", email: map.admin_notification_email || map.admin_email || "admin@aifekr.com" };
+  return { iban: map.bank_iban || PAYMENT_ACCOUNTS.TRY, holder: map.bank_holder || PAYMENT_ACCOUNTS.holder, currency: map.bank_currency || "TRY", euroIban: map.bank_iban_eur || PAYMENT_ACCOUNTS.EUR, email: map.admin_notification_email || map.admin_email || "admin@aifekr.com" };
 }
 // The database is the durable notification queue. Failed delivery never loses a receipt.
 export async function notifyReceipt(id: string) {

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Crown, Send, TrendingUp, DollarSign, Swords, Users, Package, AlertTriangle, LayoutDashboard } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import Link from "next/link";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
 import LongRunIndicator from "@/components/ui/LongRunIndicator";
 import CreditCost from "@/components/ui/CreditCost";
 
@@ -107,15 +107,16 @@ export default function CEOPage() {
   }
 
   return (
-    <div className="flex h-screen" style={{ background: "var(--surface-0)" }}>
+    <div className="ceo-workspace flex min-w-0 flex-col lg:flex-row" style={{ background: "var(--surface-0)" }}>
       {/* Left panel — categories */}
-      <div className="w-56 flex-shrink-0 p-4 space-y-2 overflow-y-auto" style={{ background: "var(--surface-1)", borderLeft: "1px solid var(--border)" }}>
+      <div className="ceo-categories w-full lg:w-56 flex-shrink-0 p-4 space-y-2 overflow-y-auto" style={{ background: "var(--surface-1)", borderInlineEnd: "1px solid var(--border)" }}>
         <div className="flex items-center gap-2 mb-4">
           <Crown className="w-5 h-5" style={{ color: "var(--primary)" }} />
           <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{t.ceo.categoryLabel}</span>
         </div>
         <button
           onClick={() => setSelectedCategory("")}
+          aria-pressed={!selectedCategory}
           className="w-full text-right px-3 py-2.5 rounded-xl text-sm transition-all"
           style={{
             background: !selectedCategory ? "rgba(234,88,12,0.15)" : "transparent",
@@ -131,6 +132,7 @@ export default function CEOPage() {
             <button
               key={cat.key}
               onClick={() => setSelectedCategory(cat.key)}
+              aria-pressed={active}
               className="w-full flex items-center gap-2 text-right px-3 py-2.5 rounded-xl text-sm transition-all"
               style={{
                 background: active ? `${cat.color}22` : "transparent",
@@ -158,9 +160,9 @@ export default function CEOPage() {
       </div>
 
       {/* Main chat area */}
-      <div className="flex-1 flex flex-col">
+      <div className="min-w-0 min-h-0 flex-1 flex flex-col">
         {/* Header */}
-        <div className="p-4 flex items-center justify-between gap-3" style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-1)" }}>
+        <div className="p-4 flex flex-wrap items-center justify-between gap-3" style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-1)" }}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(234,88,12,0.15)" }}>
               <Crown className="w-5 h-5" style={{ color: "var(--primary)" }} />
@@ -172,12 +174,13 @@ export default function CEOPage() {
           </div>
           <Link
             href="/ceo/orchestrator"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium flex-shrink-0"
+            className="flex max-w-full items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium"
             style={{ background: "rgba(234,88,12,0.15)", color: "var(--primary)" }}
           >
             <LayoutDashboard className="w-3.5 h-3.5" />
             {t.ceo.orchestratorLink}
           </Link>
+          <details className="lg:hidden w-full text-xs" style={{ color: "var(--text-secondary)" }}><summary className="cursor-pointer py-2">{t.ceo.sampleQuestionsLabel}</summary><div className="grid gap-2 mt-2">{t.ceo.sampleQuestions.map(q => <button key={q} onClick={() => setInput(q)} className="text-start rounded-xl px-3 py-2" style={{ background: "var(--surface-2)" }}>{q}</button>)}</div></details>
         </div>
 
         {/* Messages */}
@@ -230,11 +233,12 @@ export default function CEOPage() {
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(e); } }}
               placeholder={t.ceo.placeholder}
               rows={2}
-              className="flex-1 px-4 py-3 rounded-xl text-sm outline-none resize-none"
+              className="min-w-0 flex-1 px-4 py-3 rounded-xl text-sm outline-none resize-none"
               style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
             />
             <button
               type="submit"
+              aria-label={tri(lang, "ارسال سوال", "Send question", "Frage senden", "Soruyu gönder")}
               disabled={!input.trim() || loading}
               className="p-3 rounded-xl transition-all disabled:opacity-40"
               style={{ background: "var(--primary)" }}

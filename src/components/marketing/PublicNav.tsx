@@ -1,11 +1,12 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/marketing/PublicLink";
 import Image from "next/image";
 import { useRef, useState, useEffect } from "react";
 import { ArrowUpRight, ChevronDown, Menu, X } from "lucide-react";
 import type { Lang } from "@/lib/i18n/server";
 import { copy, features, solutionCatalog, text, type Copy } from "@/lib/marketing/catalog";
+import { localizedPublicPath, stripPublicLocale } from "@/lib/seo/locales";
 
 export default function PublicNav({ lang }: { lang: Lang }) {
   const [mobile, setMobile] = useState(false);
@@ -20,7 +21,7 @@ export default function PublicNav({ lang }: { lang: Lang }) {
     { id: "product", label: copy.product, links: features.filter(f => f.category === "work").map(f => ({ href: `/features/${f.slug}`, title: f.title, desc: f.desc })) },
     { id: "solutions", label: copy.solutions, links: solutionCatalog.map(s => ({ href: `/solutions/${s.slug}`, title: s.title })) },
     { id: "tools", label: copy.tools, links: features.filter(f => f.category !== "work").map(f => ({ href: `/features/${f.slug}`, title: f.title, desc: f.desc })) },
-    { id: "resources", label: copy.resources, links: [{ href: "/ai-team", title: features.find(f => f.slug === "agents")!.title }, { href: "/about", title: copy.about }, { href: "/contact", title: copy.contact }, { href: "/security", title: copy.security }] },
+    { id: "resources", label: copy.resources, links: [{ href: "/guides", title: ["راهنماهای کاربردی", "Practical guides", "Praxisleitfäden", "Uygulama rehberleri"] }, { href: "/ai-team", title: features.find(f => f.slug === "agents")!.title }, { href: "/about", title: copy.about }, { href: "/contact", title: copy.contact }, { href: "/security", title: copy.security }] },
   ];
   return <header className="m-nav-wrap"><nav className="m-nav" ref={nav} aria-label={text(lang, copy.menu)} onKeyDown={e => { if (e.key === "Escape") { if (mobile || open) nav.current?.querySelector<HTMLButtonElement>(mobile ? ".m-menu-toggle" : `[aria-controls="nav-${open}"]`)?.focus(); setOpen(null); setMobile(false); } }}>
     <Link className="m-brand" href="/" aria-label="AIFekr"><Image src="/logo.svg" alt="" width={36} height={36} priority /><span>AI<span>Fekr</span></span></Link>
@@ -36,7 +37,7 @@ export default function PublicNav({ lang }: { lang: Lang }) {
       <Link className="m-mobile-login" href="/login">{text(lang, copy.login)}</Link>
     </div>
     <div className="m-nav-actions">
-      <select aria-label={lang === "fa" ? "زبان" : lang === "de" ? "Sprache" : lang === "tr" ? "Dil" : "Language"} value={lang} onChange={e => { const next = e.target.value; document.cookie = `lang=${next}; path=/; max-age=31536000; SameSite=Lax`; try { localStorage.setItem("lang", next); } catch {} window.location.reload(); }}>
+      <select aria-label={lang === "fa" ? "زبان" : lang === "de" ? "Sprache" : lang === "tr" ? "Dil" : "Language"} value={lang} onChange={e => { const next = e.target.value as Lang; document.cookie = `lang=${next}; path=/; max-age=31536000; SameSite=Lax`; try { localStorage.setItem("lang", next); } catch {} window.location.assign(localizedPublicPath(stripPublicLocale(window.location.pathname).path, next) + window.location.search); }}>
         <option value="fa">فارسی</option><option value="en">EN</option><option value="de">DE</option><option value="tr">TR</option>
       </select>
       <Link className="m-desktop-login" href="/login">{text(lang, copy.login)}</Link>

@@ -9,6 +9,7 @@ import {
 import { useTranslation, tri, type Lang } from "@/lib/i18n";
 import { formatNumber } from "@/lib/utils/jalali";
 import { TEAMMATES, teammateInitial, departmentOf, type TeammateKey } from "@/lib/team/identity";
+import WorkspaceError from "@/components/layout/WorkspaceError";
 
 /**
  * The dashboard home, built as all three phase-1 directions at once rather than
@@ -86,14 +87,16 @@ export default function HomePage() {
   const dir = lang === "fa" ? "rtl" : "ltr";
   const [data, setData] = useState<HomeSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    setLoading(true);
     fetch("/api/home/summary", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => setData(j))
       .catch(() => setData(null))
       .finally(() => setLoading(false));
-  }, []);
+  }, [attempt]);
 
   if (loading) {
     return (
@@ -104,7 +107,7 @@ export default function HomePage() {
       </div>
     );
   }
-  if (!data) return null;
+  if (!data) return <WorkspaceError reset={() => setAttempt(value => value + 1)}/>;
 
   const nf = (n: number) => formatNumber(Math.round(n), lang);
 

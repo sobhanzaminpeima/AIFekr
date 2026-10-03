@@ -1,70 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import {
-  MessageSquare, Image as ImageIcon, Video, Music, GalleryHorizontal,
-  Stethoscope, Users as UsersIcon, Globe2, Share2, Rocket, Settings,
-  Crown, Gift, Search, TrendingUp,
-} from "lucide-react";
+import { Search } from "lucide-react";
 import { useTranslation, tri } from "@/lib/i18n";
-
-const ITEMS_FA = [
-  { href: "/chat", label: "چت هوش مصنوعی", icon: MessageSquare },
-  { href: "/business-doctor", label: "دکتر کسب‌وکار", icon: Stethoscope },
-  { href: "/ceo", label: "مشاور مدیرعامل", icon: TrendingUp },
-  { href: "/seo", label: "سئو", icon: Globe2 },
-  { href: "/social", label: "شبکه‌های اجتماعی", icon: Share2 },
-  { href: "/website-designer", label: "طراح وبسایت", icon: Globe2 },
-  { href: "/startup/builder", label: "سازنده استارتاپ", icon: Rocket },
-  { href: "/image/generate", label: "ساخت تصویر", icon: ImageIcon },
-  { href: "/video/generate", label: "ساخت ویدیو", icon: Video },
-  { href: "/music/generate", label: "ساخت موزیک", icon: Music },
-  { href: "/image/gallery", label: "گالری من", icon: GalleryHorizontal },
-  { href: "/meeting", label: "اتاق جلسه", icon: UsersIcon },
-  { href: "/industry", label: "بسته‌های کسب‌وکار", icon: Crown },
-  { href: "/referral", label: "دعوت و اعتبار", icon: Gift },
-  { href: "/plans", label: "پلن‌ها", icon: Crown },
-  { href: "/settings", label: "تنظیمات", icon: Settings },
-];
-
-const ITEMS_EN = [
-  { href: "/chat", label: "AI Chat", icon: MessageSquare },
-  { href: "/business-doctor", label: "Business Doctor", icon: Stethoscope },
-  { href: "/ceo", label: "CEO Advisor", icon: TrendingUp },
-  { href: "/seo", label: "SEO", icon: Globe2 },
-  { href: "/social", label: "Social Media", icon: Share2 },
-  { href: "/website-designer", label: "Website Designer", icon: Globe2 },
-  { href: "/startup/builder", label: "Startup Builder", icon: Rocket },
-  { href: "/image/generate", label: "Generate Image", icon: ImageIcon },
-  { href: "/video/generate", label: "Generate Video", icon: Video },
-  { href: "/music/generate", label: "Generate Music", icon: Music },
-  { href: "/image/gallery", label: "My Gallery", icon: GalleryHorizontal },
-  { href: "/meeting", label: "Meeting Room", icon: UsersIcon },
-  { href: "/industry", label: "Business Plans", icon: Crown },
-  { href: "/referral", label: "Invite & Earn", icon: Gift },
-  { href: "/plans", label: "Plans", icon: Crown },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
-
-const ITEMS_DE = [
-  { href: "/chat", label: "KI-Chat", icon: MessageSquare },
-  { href: "/business-doctor", label: "Geschäftsberater", icon: Stethoscope },
-  { href: "/ceo", label: "CEO-Berater", icon: TrendingUp },
-  { href: "/seo", label: "SEO", icon: Globe2 },
-  { href: "/social", label: "Soziale Medien", icon: Share2 },
-  { href: "/website-designer", label: "Webseitenersteller", icon: Globe2 },
-  { href: "/startup/builder", label: "Startup-Builder", icon: Rocket },
-  { href: "/image/generate", label: "Bild erstellen", icon: ImageIcon },
-  { href: "/video/generate", label: "Video erstellen", icon: Video },
-  { href: "/music/generate", label: "Musik erstellen", icon: Music },
-  { href: "/image/gallery", label: "Meine Galerie", icon: GalleryHorizontal },
-  { href: "/meeting", label: "Besprechungsraum", icon: UsersIcon },
-  { href: "/industry", label: "Geschäftspläne", icon: Crown },
-  { href: "/referral", label: "Einladen & Verdienen", icon: Gift },
-  { href: "/plans", label: "Pläne", icon: Crown },
-  { href: "/settings", label: "Einstellungen", icon: Settings },
-];
+import { destinations, destinationLabel } from "@/lib/navigation/destinations";
 
 // Custom event name pages can dispatch to open the palette from their own
 // header (e.g. a compact icon button next to page-specific controls)
@@ -75,9 +15,25 @@ export default function CommandPalette({ hideTrigger = false }: { hideTrigger?: 
   const router = useRouter();
   const { lang } = useTranslation();
   const isFa = lang === "fa";
-  const ITEMS = tri(lang, ITEMS_FA, ITEMS_EN, ITEMS_DE);
+  const ITEMS = destinations.map(item => ({ href: item[0], label: destinationLabel(item, lang), search: item.join(" ") }));
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState(0);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) {
+      dialogRef.current?.showModal();
+      inputRef.current?.focus();
+      setSelected(0);
+    } else {
+      dialogRef.current?.close();
+      setQuery("");
+    }
+  }, [open]);
+  useEffect(() => { setSelected(0); }, [query]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -98,7 +54,7 @@ export default function CommandPalette({ hideTrigger = false }: { hideTrigger?: 
     };
   }, []);
 
-  const filtered = ITEMS.filter((i) => i.label.toLowerCase().includes(query.toLowerCase()));
+  const filtered = ITEMS.filter((i) => i.search.toLowerCase().includes(query.toLowerCase()));
 
   function go(href: string) {
     setOpen(false);
@@ -110,49 +66,64 @@ export default function CommandPalette({ hideTrigger = false }: { hideTrigger?: 
     <>
       {!hideTrigger && (
         <button
+          ref={triggerRef}
+          aria-haspopup="dialog"
+          aria-label={tri(lang, "جستجوی بخش‌های پلتفرم", "Search platform", "Plattform durchsuchen", "Platformda ara")}
           onClick={() => setOpen(true)}
           className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm transition-colors min-w-[160px]"
           style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
         >
           <Search className="w-3.5 h-3.5 flex-shrink-0" />
-          <span className="flex-1 text-right truncate">{tri(lang, "جستجو...", "Search...", "Suchen...", "Ara...")}</span>
-          <kbd className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: "var(--surface-2)" }}>⌘K</kbd>
+          <span className="flex-1 text-start truncate">{tri(lang, "جستجو...", "Search...", "Suchen...", "Ara...")}</span>
+          <kbd className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: "var(--surface-2)" }}>Ctrl K</kbd>
         </button>
       )}
 
-      {open && (
-        <div
-          className="fixed inset-0 z-[100] flex items-start justify-center pt-32 px-4"
-          style={{ background: "rgba(0,0,0,0.6)" }}
-          onClick={() => setOpen(false)}
+        <dialog
+          ref={dialogRef}
+          className="command-dialog"
+          aria-label={tri(lang, "جستجوی بخش‌های پلتفرم", "Search platform", "Plattform durchsuchen", "Platformda ara")}
+          onCancel={() => setOpen(false)}
+          onClick={e => { if (e.target === e.currentTarget) setOpen(false); }}
           dir={isFa ? "rtl" : "ltr"}
         >
           <div
-            className="w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl"
+            className="w-full rounded-2xl overflow-hidden shadow-2xl"
             style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
               <Search className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
               <input
-                autoFocus
+                ref={inputRef}
+                aria-label={tri(lang, "نام بخش یا ابزار", "Section or tool name", "Bereich oder Werkzeug", "Bölüm veya araç adı")}
+                aria-controls="command-results"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && filtered[0] && go(filtered[0].href)}
+                onKeyDown={e => {
+                  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                    e.preventDefault();
+                    const next = filtered.length ? (selected + (e.key === "ArrowDown" ? 1 : -1) + filtered.length) % filtered.length : 0;
+                    setSelected(next);
+                    document.getElementById(`command-result-${next}`)?.scrollIntoView({ block: "nearest" });
+                  }
+                  if (e.key === "Enter" && filtered[selected]) { e.preventDefault(); go(filtered[selected].href); }
+                }}
                 placeholder={tri(lang, "کجا می‌خواهید بروید؟", "Where do you want to go?", "Wohin möchten Sie gehen?", "Nereye gitmek istiyorsunuz?")}
                 className="flex-1 bg-transparent text-sm outline-none"
                 style={{ color: "var(--text-primary)" }}
               />
             </div>
-            <div className="max-h-80 overflow-y-auto py-1.5">
-              {filtered.map(({ href, label, icon: Icon }) => (
+            <div id="command-results" className="max-h-80 overflow-y-auto py-1.5">
+              {filtered.map(({ href, label }, index) => (
                 <button
+                  id={`command-result-${index}`}
                   key={href}
                   onClick={() => go(href)}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:opacity-80"
-                  style={{ color: "var(--text-secondary)" }}
+                  style={{ color: index === selected ? "var(--text-primary)" : "var(--text-secondary)", background: index === selected ? "var(--surface-2)" : "transparent" }}
                 >
-                  <Icon className="w-4 h-4 flex-shrink-0" style={{ color: "var(--primary)" }} />
+                  <Search className="w-4 h-4 flex-shrink-0" style={{ color: "var(--primary)" }} />
                   {label}
                 </button>
               ))}
@@ -163,8 +134,7 @@ export default function CommandPalette({ hideTrigger = false }: { hideTrigger?: 
               )}
             </div>
           </div>
-        </div>
-      )}
+        </dialog>
     </>
   );
 }

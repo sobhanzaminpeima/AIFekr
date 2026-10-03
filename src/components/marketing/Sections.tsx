@@ -1,9 +1,15 @@
-import Link from "next/link";
+import Link from "@/components/marketing/PublicLink";
 import { ArrowUpRight, Sparkles, Users, Magnet, Share2, FileText, Image, Video, Mic, Landmark, Building2, GraduationCap, MessageSquare, Rocket, Globe, Calendar } from "lucide-react";
 import type { Lang } from "@/lib/i18n/server";
 import { features, solutionCatalog, text, copy, type Feature, type Copy } from "@/lib/marketing/catalog";
 import { getCreditCosts, getPublicIndustries } from "@/lib/marketing/data";
 import Reveal from "./MotionReveal";
+import { guides } from "@/lib/marketing/guides";
+export function GuideLinks({ lang, feature }: { lang: Lang; feature?: string }) {
+  const selected = feature ? guides.filter(guide => guide.related.includes(feature)) : guides;
+  if (!selected.length) return null;
+  return <div><h2 className="m-section-title">{text(lang, ["از ابزار تا نتیجه؛ راهنمای عملی", "From tools to tasks: practical guides", "Vom Tool zur Aufgabe: Praxisleitfäden", "Araçtan göreve: uygulama rehberleri"])}</h2><div className="m-guides-grid">{selected.map(guide => <article className="m-card" key={guide.slug}><h3>{text(lang, guide.title)}</h3><p>{text(lang, guide.description)}</p><Link className="m-text-link" href={`/guides/${guide.slug}`}>{text(lang, ["مطالعهٔ راهنما", "Read the guide", "Leitfaden lesen", "Rehberi oku"])}</Link></article>)}</div></div>;
+}
 
 const icons = { startup: Rocket, websites: Globe, meetings: Calendar, assistant: MessageSquare, agents: Sparkles, crm: Users, leads: Magnet, social: Share2, content: FileText, images: Image, video: Video, voice: Mic, accounting: Landmark, property: Building2, education: GraduationCap };
 export function FeatureCards({ lang, selected = features }: { lang: Lang; selected?: Feature[] }) {
@@ -28,7 +34,7 @@ export async function CreditExplanation({ lang }: { lang: Lang }) {
 }
 export const faqItems: { q: Copy; a: Copy }[] = [
   { q: ["AIFekr چیست؟", "What is AIFekr?", "Was ist AIFekr?", "AIFekr nedir?"], a: copy.intro },
-  { q: ["همهٔ ماژول‌ها در هر پلن هستند؟", "Does every plan include every module?", "Enthält jeder Tarif alle Module?", "Her plan tüm modülleri içerir mi?"], a: ["خیر. پلن عمومی، اشتراک CRM، ماژول دانشجویی و دسترسی‌های کسب‌وکار قواعد مستقل دارند. بسته و صفحهٔ پرداخت را بررسی کنید.", "No. General plans, CRM subscriptions, student access and business permissions have separate rules. Check the package and checkout.", "Nein. Allgemeine Tarife, CRM-Abos, Studierendenzugriff und Business-Berechtigungen haben eigene Regeln. Paket und Checkout prüfen.", "Hayır. Genel planlar, CRM abonelikleri, öğrenci erişimi ve işletme izinleri farklı kurallara sahiptir. Paketi ve ödeme adımını kontrol edin."] },
+  { q: ["همهٔ ماژول‌ها در هر پلن هستند؟", "Does every plan include every module?", "Enthält jeder Tarif alle Module?", "Her plan tüm modülleri içerir mi?"], a: ["پکیج‌های بیزنس جدید امکانات یکسان دارند و CRM هم در آن‌هاست؛ تفاوت در اعتبار و تعداد اعضاست. هزینهٔ تماس و سرویس‌های بیرونی جداست. اشتراک دانشجویی و CRM مستقل نیز موجودند.", "New business bundles include the same business tools and CRM; only credits and team size differ. Calls and external services have separate charges. Student and standalone CRM subscriptions also remain available.", "Neue Business-Pakete enthalten dieselben Tools und CRM; nur Credits und Teamgröße unterscheiden sich. Anrufe und externe Dienste separat. Studierenden- und separate CRM-Abos bleiben verfügbar.", "Yeni işletme paketleri aynı araçları ve CRM erişimini içerir; yalnızca krediler ve ekip büyüklüğü değişir. Arama ve dış hizmet ücretleri ayrıdır. Öğrenci ve bağımsız CRM abonelikleri de mevcuttur."] },
   { q: ["برای اتو دایرکت چه لازم است؟", "What does Instagram automation need?", "Was braucht Instagram-Automation?", "Instagram otomasyonu için ne gerekir?"], a: features.find(f => f.slug === "social")!.requirement },
   { q: ["دمو اعتبار مصرف می‌کند؟", "Does the demo use credits?", "Verbraucht die Demo Credits?", "Demo kredi kullanır mı?"], a: ["خیر؛ مثال‌ها نمایشی‌اند، به AI یا حساب خارجی درخواست نمی‌فرستند و دادهٔ مشتری واقعی ندارند.", "No. These examples are illustrative, do not call AI or connected accounts, and contain no real customer data.", "Nein. Beispiele sind illustrativ, rufen weder KI noch verbundene Konten auf und enthalten keine echten Kundendaten.", "Hayır. Örnekler temsili olup yapay zekâ veya bağlı hesaplara istek göndermez ve gerçek müşteri verisi içermez."] },
   { q: ["آیا AI جایگزین بررسی من است؟", "Can AI replace my review?", "Kann KI meine Prüfung ersetzen?", "Yapay zekâ incelememin yerini alır mı?"], a: ["خیر. خروجی می‌تواند اشتباه باشد. محتوا، امور مالی، پیام‌ها و کار دانشگاهی را پیش از استفاده بررسی کنید.", "No. Outputs can be incorrect. Review content, financial work, messages and academic work before use.", "Nein. Ergebnisse können falsch sein. Inhalte, Finanzdaten, Nachrichten und Hochschularbeiten vor Nutzung prüfen.", "Hayır. Çıktılar hatalı olabilir. İçerikleri, mali işleri, mesajları ve akademik çalışmaları kullanmadan önce inceleyin."] },

@@ -409,7 +409,7 @@ export default function StartupBuilderPage() {
                   {getFieldsForStage(activeStage, lang).map((field) => (
                     <div key={field.key}>
                       <label className="block text-xs font-medium mb-1" style={{ color: "var(--text-secondary)" }}>{field.label}</label>
-                      <input
+                      <input aria-label={field.label}
                         value={formData[field.key] || ""}
                         onChange={(e) => setFormData((p) => ({ ...p, [field.key]: e.target.value }))}
                         placeholder={field.placeholder}

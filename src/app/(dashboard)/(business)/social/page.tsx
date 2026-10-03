@@ -951,7 +951,7 @@ export default function SocialPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.social.brandName}</label>
-              <input
+              <input aria-label={t.social.brandName}
                 value={form.brandName}
                 onChange={(e) => setForm({ ...form, brandName: e.target.value })}
                 placeholder={t.social.brandNamePlaceholder}
@@ -961,7 +961,7 @@ export default function SocialPage() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.social.topic}</label>
-              <input
+              <input aria-label={t.social.topic}
                 value={form.topic}
                 onChange={(e) => setForm({ ...form, topic: e.target.value })}
                 placeholder={t.social.topicPlaceholder}
@@ -990,7 +990,7 @@ export default function SocialPage() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.social.tone}</label>
-              <select
+              <select aria-label={t.social.tone}
                 value={form.tone}
                 onChange={(e) => setForm({ ...form, tone: e.target.value })}
                 className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
@@ -2050,7 +2050,7 @@ export default function SocialPage() {
                   <label className="text-[11px] block mb-1" style={{ color: "var(--text-muted)" }}>
                     {tri(lang, "این کمپین فقط روی کدوم پست فعال باشه؟", "Which post should this campaign apply to?", "Auf welchen Beitrag soll diese Kampagne angewendet werden?")}
                   </label>
-                  <select
+                  <select aria-label={tri(lang, "این کمپین فقط روی کدوم پست فعال باشه؟", "Which post should this campaign apply to?", "Auf welchen Beitrag soll diese Kampagne angewendet werden?")}
                     value={newPostId} onChange={(e) => setNewPostId(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg text-sm outline-none"
                     style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}

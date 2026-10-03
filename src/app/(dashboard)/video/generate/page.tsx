@@ -237,7 +237,7 @@ export default function VideoGeneratePage() {
             <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
               {tri(lang, "مدل ویدیو", "Video Model", "Videomodell")}
             </label>
-            <select
+            <select aria-label={tri(lang, "مدل ویدیو", "Video Model", "Videomodell")}
               value={videoProvider}
               onChange={(e) => setVideoProvider(e.target.value)}
               disabled={isLoading}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useId } from "react";
 import { Send, Bot, Copy, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
@@ -25,6 +25,7 @@ export default function ToolPage({ title, description, systemPrompt, fields, pro
   const [values, setValues] = useState<Record<string, string>>({});
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
+  const formId = useId();
 
   async function handleSubmit() {
     const missingField = fields.find((f) => !values[f.key]?.trim());
@@ -76,8 +77,8 @@ export default function ToolPage({ title, description, systemPrompt, fields, pro
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <div>
+    <div className="workspace-page max-w-4xl space-y-6" dir={lang === "fa" ? "rtl" : "ltr"}>
+      <div className="workspace-heading">
         <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{title}</h1>
         <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{description}</p>
       </div>
@@ -88,8 +89,9 @@ export default function ToolPage({ title, description, systemPrompt, fields, pro
           <h2 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{tri(lang, "اطلاعات شما", "Your information", "Ihre Angaben")}</h2>
           {fields.map((field) => (
             <div key={field.key}>
-              <label className="block text-xs mb-1.5 font-medium" style={{ color: "var(--text-secondary)" }}>{field.label}</label>
+              <label htmlFor={`${formId}-${field.key}`} className="block text-xs mb-1.5 font-medium" style={{ color: "var(--text-secondary)" }}>{field.label}</label>
               <input
+                id={`${formId}-${field.key}`}
                 value={values[field.key] || ""}
                 onChange={(e) => setValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
                 placeholder={field.placeholder}
@@ -117,7 +119,7 @@ export default function ToolPage({ title, description, systemPrompt, fields, pro
               <h2 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{tri(lang, "نتیجه", "Result", "Ergebnis")}</h2>
             </div>
             {result && (
-              <button onClick={() => { navigator.clipboard.writeText(result); toast.success(tri(lang, "کپی شد", "Copied", "Kopiert")); }}
+              <button onClick={async () => { try { await navigator.clipboard.writeText(result); toast.success(tri(lang, "کپی شد", "Copied", "Kopiert", "Kopyalandı")); } catch { toast.error(tri(lang, "متن را انتخاب و کپی کنید", "Select and copy the text", "Text auswählen und kopieren", "Metni seçip kopyalayın")); } }}
                 className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg"
                 style={{ color: "var(--text-muted)", background: "var(--surface-2)" }}>
                 <Copy className="w-3 h-3" />

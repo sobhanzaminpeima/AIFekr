@@ -104,7 +104,7 @@ export default function MeetingPage() {
           <div className="rounded-2xl p-6 mb-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             <div className="mb-5">
               <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{t.meeting.topic}</label>
-              <textarea
+              <textarea aria-label={t.meeting.topic}
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 placeholder={t.meeting.topicPlaceholder}

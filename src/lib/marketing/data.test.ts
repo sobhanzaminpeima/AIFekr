@@ -1,6 +1,8 @@
+import { BUSINESS_CODES } from "@/lib/plans/business";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 const db = vi.hoisted(() => ({ packages: vi.fn(), industries: vi.fn() }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: { package: { findMany: db.packages }, industryPack: { findMany: db.industries } } }));
+vi.mock("@/lib/utils/currency", () => ({ getFxRates: async () => ({ usdToToman:100000 }) }));
 vi.mock("@/lib/utils/creditCosts", () => ({ getCreditCosts: vi.fn() }));
 import { getPublicPlans, getPublicIndustries, parseFeatures } from "./data";
 
@@ -19,9 +21,9 @@ describe("public database boundary", () => {
     db.packages.mockResolvedValue([{ ...plan, priceUsd: null }]);
     expect((await getPublicPlans("en", true))?.[0].price).toBeNull();
   });
-  it("converts Rial to Toman once", async () => {
+  it("uses the same USD price basis across public languages", async () => {
     db.packages.mockResolvedValue([{ ...plan, planCode: "CRM_SOLO", price: 1490000 }]);
-    expect((await getPublicPlans("fa", true))?.[0].price).toBe(149000);
+    expect((await getPublicPlans("fa", true))?.[0].price).toBe(19.99);
   });
   it("keeps database English fallback for German and Turkish", async () => {
     db.packages.mockResolvedValue([plan]);
@@ -34,7 +36,7 @@ describe("public database boundary", () => {
   it("uses real CRM and team package codes", async () => {
     db.packages.mockResolvedValue([]);
     await getPublicPlans("en", true);
-    expect(db.packages.mock.calls[0][0].where.planCode.in).toEqual(["CRM_SOLO", "CRM_TEAM", "TEAM_STARTER", "TEAM_GROWTH"]);
+    expect(db.packages.mock.calls[0][0].where.planCode.in).toEqual([...BUSINESS_CODES, "CRM_SOLO", "CRM_TEAM", "TEAM_STARTER", "TEAM_GROWTH"]);
   });
   it("handles missing industries without fake records", async () => {
     db.industries.mockRejectedValue(new Error("offline"));

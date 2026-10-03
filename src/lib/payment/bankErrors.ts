@@ -1,6 +1,11 @@
 import { NextRequest,NextResponse } from "next/server";
 import { tri } from "@/lib/i18n/tri";
 const messages:Record<string,[string,string,string,string]>={
+ "Invalid currency":["ارز پرداخت باید لیر یا یورو باشد.","Choose TRY or EUR for payment.","TRY oder EUR wählen.","Ödeme için TRY veya EUR seçin."],
+ "Package capacity unavailable":["ظرفیت این بسته تنظیم نشده؛ با پشتیبانی تماس بگیرید.","Package capacity unavailable; contact support.","Paketkapazität nicht verfügbar; Support kontaktieren.","Paket kapasitesi mevcut değil; destekle iletişime geçin."],
+ "Only the team owner can purchase a business bundle":["خرید پکیج بیزنس باید توسط مالک تیم انجام شود.","The team owner must purchase the business package.","Der Teaminhaber muss das Business-Paket kaufen.","İşletme paketini ekip sahibi satın almalıdır."],
+ "Choose a package that covers your current team members":["تعداد اعضای تیم از ظرفیت این بسته بیشتر است؛ بستهٔ بزرگ‌تری انتخاب کنید.","Choose a larger package to cover your current members.","Wählen Sie ein größeres Paket für Ihre Mitglieder.","Mevcut üyeleriniz için daha büyük bir paket seçin."],
+ "TEAM_CAPACITY_EXCEEDED":["اعضای فعلی از ظرفیت بسته بیشترند؛ پیش از تأیید، ظرفیت تیم بررسی شود.","Current members exceed the package capacity. Resolve team capacity before approval.","Mitglieder überschreiten die Kapazität. Vor Freigabe klären.","Üyeler paket kapasitesini aşıyor. Onaydan önce kapasiteyi düzenleyin."],
  "Unauthorized":["برای ادامه وارد حساب شوید.","Sign in to continue.","Bitte anmelden.","Devam etmek için giriş yapın."],
  "Forbidden":["این عملیات فقط برای ادمین است.","Administrator access required.","Administratorzugriff erforderlich.","Yönetici erişimi gerekli."],
  "Invalid request":["درخواست معتبر نیست.","Invalid request.","Ungültige Anfrage.","Geçersiz istek."],
