@@ -10,7 +10,11 @@ require(require.resolve('@next/env', {paths:[require.resolve('next/package.json'
  const entry=processes.find(p=>p.name==='ai-platform');if(!entry)throw new Error('Live process missing');
  const e=entry.pm2_env;
  const backup=path.join('/var/www/ai-platform','.deploy-backup-20261003-'+Date.now());fs.mkdirSync(backup,{mode:0o700});
- const config=cwd=>({apps:[{name:'ai-platform',script:e.pm_exec_path,args:e.args,cwd,interpreter:e.exec_interpreter,exec_mode:'fork',env:e.env||{}}]});
+ const config=cwd=>{
+   const env={...(e.env||{})};
+   if(cwd===stage){for(const key of Object.keys(env))if(/^pm_|^PM2_|^PWD$|^OLDPWD$|^INIT_CWD$|^NODE_APP_INSTANCE$/.test(key))delete env[key];delete env.DATABASE_URL;delete env.TELEGRAM_NOTIFICATIONS_ENABLED;}
+   return {apps:[{name:'ai-platform',script:cwd===stage?path.join(stage,'node_modules/next/dist/bin/next'):e.pm_exec_path,args:cwd===stage?['start','-p','3000']:e.args,cwd,interpreter:e.exec_interpreter,exec_mode:'fork',env}]};
+ };
  fs.writeFileSync(path.join(backup,'rollback.ecosystem.json'),JSON.stringify(config(e.pm_cwd)),{mode:0o600});
  fs.writeFileSync(path.join(backup,'release.ecosystem.json'),JSON.stringify(config(stage)),{mode:0o600});
  const url=process.env.DATABASE_URL;if(!url?.startsWith('file:'))throw new Error('Expected SQLite production database');
@@ -22,10 +26,13 @@ require(require.resolve('@next/env', {paths:[require.resolve('next/package.json'
  execFileSync(process.execPath,['scripts/seed-bank-settings.cjs'],{cwd:stage,stdio:'inherit'});
  execFileSync(process.execPath,['scripts/seed-student-package.cjs'],{cwd:stage,stdio:'inherit'});
  fs.appendFileSync(path.join(stage,'.env.local'),'\nTELEGRAM_NOTIFICATIONS_SINCE='+JSON.stringify(new Date().toISOString())+'\n');
- execFileSync('pm2',['startOrReload',path.join(backup,'release.ecosystem.json'),'--only','ai-platform','--update-env'],{stdio:'inherit'});
+ try {
+ execFileSync('pm2',['delete','ai-platform'],{stdio:'inherit'});
+ execFileSync('pm2',['start',path.join(backup,'release.ecosystem.json'),'--only','ai-platform'],{stdio:'inherit'});
  let healthy=false;
  for(let attempt=0;attempt<10;attempt++) { try { const response=await fetch('http://127.0.0.1:3000/pricing',{signal:AbortSignal.timeout(10000)});if(response.ok){healthy=true;break;} }catch{} await new Promise(r=>setTimeout(r,1000)); }
- if(!healthy){execFileSync('pm2',['startOrReload',path.join(backup,'rollback.ecosystem.json'),'--only','ai-platform','--update-env'],{stdio:'inherit'});throw new Error('Health check failed; previous process configuration restored.');}
+ if(!healthy)throw new Error('Release health check failed');
+ }catch(error){try{execFileSync('pm2',['delete','ai-platform'],{stdio:'inherit'});}catch{}execFileSync('pm2',['start',path.join(backup,'rollback.ecosystem.json'),'--only','ai-platform'],{stdio:'inherit'});throw new Error(error.message+'; previous process configuration restored.');}
  fs.writeFileSync('/etc/cron.d/aifekr-payment-notifications',`*/5 * * * * root cd ${stage} && /usr/bin/node scripts/payment-notifications-cron.cjs >> /var/log/aifekr-payment-notifications.log 2>&1\n`,{mode:0o644});
  execFileSync('pm2',['save'],{stdio:'inherit'});
  fs.writeFileSync('/tmp/aifekr-redesign-backup-path',backup,{mode:0o600});
