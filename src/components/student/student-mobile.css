@@ -1,0 +1,53 @@
+/* Student-only mobile layout; desktop workspace keeps its existing layout. */
+.student-workspace { min-width: 0; }
+.student-workspace :where(button, a, input, select, textarea):focus-visible,
+.student-modal :where(button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent, #f97316);
+  outline-offset: 3px;
+}
+@media (max-width: 639px) {
+  .student-workspace { padding: 16px 12px calc(100px + env(safe-area-inset-bottom)) !important; }
+  .student-workspace > div > header { gap: 12px; margin-bottom: 16px; }
+  .student-workspace h1 { font-size: 20px; line-height: 1.5; }
+  .student-workspace h2 { overflow-wrap: anywhere; }
+  .student-workspace .student-navigation {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+    overflow: visible;
+    padding: 6px !important;
+  }
+  .student-navigation > button {
+    min-width: 0;
+    min-height: 66px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 2px;
+    font-size: 11px;
+    text-align: center;
+    line-height: 1.5;
+  }
+  .student-navigation > button svg { width: 19px; height: 19px; flex-shrink: 0; }
+  .student-navigation > button span { overflow-wrap: anywhere; }
+  .student-workspace section { padding: 16px; }
+  .student-section-heading { flex-direction: column; align-items: stretch; }
+  .student-section-heading > button { justify-content: center; width: 100%; }
+  .student-course-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  .student-course-actions > button { min-width: 0; text-align: start; }
+  .student-workspace :where(input, select, textarea),
+  .student-modal :where(input, select, textarea) { min-width: 0; max-width: 100%; font-size: 16px; }
+  .student-workspace :where(button, a[href]) { min-height: 44px; }
+  .student-workspace :where(p, label, code) { overflow-wrap: anywhere; }
+  .student-modal { align-items: flex-end; padding: 0; }
+  .student-modal > [role="dialog"] {
+    max-height: calc(100dvh - 24px);
+    max-width: 100%;
+    border-radius: 24px 24px 0 0;
+    padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+    overscroll-behavior: contain;
+  }
+  .student-modal > [role="dialog"] > div:first-child { margin-bottom: 16px; }
+  .student-modal button { min-height: 44px; }
+  .student-modal button[aria-label="Close"] { width: 44px; display: grid; place-items: center; }
+}
