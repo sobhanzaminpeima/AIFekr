@@ -15,3 +15,5 @@
 - No database schema migration required.
 
 - Large rial subscription amounts do not overflow the database foreign-currency minor field; the provider adapter alone converts stored toman to rial. Captured payment amounts and bank cents are validated against the database integer range. Production build passed.
+
+Deployment verification: release bda26fe is live at /var/www/aifekr-release-bda26fe. PM2 ai-platform id 33 is online with zero restarts. HTTPS pricing and student landing return 200. The anonymous payment callback returns 307 to https://aifekr.com/plans?payment=failed, with no localhost link. Private avatar requests require login (401). A protected SQLite backup was saved before release; prior releases and dependencies remain available. Four deployment transfer archives were removed after verifying exact resolved paths. GitHub push remains unavailable because the local GitHub account is not authenticated.
