@@ -21,7 +21,7 @@ The complete simulated purchase used an isolated local database (`uiux-preview.d
 | Research assistant | All five modes returned real responses and saved notes: proposal, outline, methodology, literature and review. |
 | Assignment assistant | All five modes returned real responses and saved notes: understand, steps, outline, feedback and hint. |
 | Profile card | Synthetic photo upload persisted and appeared on the branded 1080×1920 card. Persian and English labels/card text checked. |
-| Mobile | Actual 390×844 viewport used; course, profile and admin screens fit the document width. Screenshots retained locally. |
+| Mobile | Actual 390×844 viewport used; all eight student tabs in the built production app had document width 390px with no horizontal overflow. Course, card and admin screenshots retained locally. |
 | Expired subscription | Course API and chat API denied access with HTTP 402 / SUBSCRIPTION_EXPIRED; no credit debit. |
 
 Final primary fixture: one course, two materials, 18 notes, nine flashcards, one quiz/attempt, one exam, eight tasks and one completed study session. Credits reconciled exactly: 1,700 after approval − 206 usage = 1,494 remaining. Additional purchases were not needed for the learning scenario.
@@ -47,4 +47,10 @@ Actual banking settlement, delivery to a real email inbox, microphone recording 
 
 Local evidence: `student-journey-quiz.png`, `student-journey-mobile.png`, `student-journey-card-mobile.png`, `student-journey-admin-mobile.png`, `student-journey-admin-account.png`; JSON records for HTTP checks, all AI modes and final account state. These fixtures and screenshots were excluded from the production source bundle.
 
-Deployment verification is recorded below after server promotion.
+## Deployment
+
+Code release **ad85cb9** deployed to `/var/www/aifekr-release-ad85cb9` after an isolated loopback preview passed. The existing ai-platform PM2 service now runs that release on port 3000, online with zero restarts; PM2 state saved. Previous release retained for rollback and a consistent SQLite backup retained privately with mode 600 at `/var/www/aifekr-db-before-student-journey-ad85cb9.db`. No migration or production user/payment mutation was required.
+
+Live HTTPS checks: landing, pricing, student registration offer and university industry page returned 200; anonymous student/admin/history APIs returned 401. The new Zarinpal merchant setting was preserved. Direct database verification found zero primary synthetic test-student accounts in production. Internal preview stopped; transfer archives and verification script removed. Separate JARVIS services stayed online.
+
+Source committed locally. GitHub push could not authenticate (`unable to get password from user`), so GitHub publication is **not** claimed.
