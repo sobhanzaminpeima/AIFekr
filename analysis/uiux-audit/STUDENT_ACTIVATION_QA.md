@@ -11,3 +11,5 @@ Browser QA with synthetic PERSONAL account: normal login; industry CTA linked to
 Also fixed onboarding Skip: it now saves onboardingDone rather than navigating into an endless welcome redirect. Onboarding completion is permitted as account recovery for expired users and grants no feature access.
 
 Validation: full suite 108 files / 780 tests passed; TypeScript and targeted lint passed. No database migration required.
+
+Deployment: source commit 1a95ff3 live in /var/www/aifekr-release-1a95ff3. PM2 ai-platform online with zero restarts; state saved. Live HTTPS landing, industry list, university detail and pricing returned 200; anonymous auth/me 401. Internal preview and transfer archives removed. No production user accounts or payments were edited during QA. GitHub publication remains unavailable because authentication is not configured.
