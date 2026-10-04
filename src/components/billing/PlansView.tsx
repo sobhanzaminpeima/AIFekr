@@ -1,5 +1,6 @@
 "use client";
 
+import BusinessPackageFeatures from "./BusinessPackageFeatures";
 import type { FxRates } from "@/lib/utils/currency";
 import { isBusinessBundle } from "@/lib/plans/business";
 import { useState, useEffect, useCallback } from "react";
@@ -109,8 +110,8 @@ export default function PlansView() {
           {!bundle && !introductory && term !== "monthly" && <p className="billing-effective">{format(total / PERIOD_MONTHS[term], usd)} / {t("ماه", "month", "Monat", "ay")}</p>}
           {!p.planCode.startsWith("CRM_") && <p className="billing-credits"><strong>{(p.credits * (bundle ? PERIOD_MONTHS[period] : 1)).toLocaleString(lang)}</strong> {t("اعتبار کل دوره", "term credits", "Credits im Zeitraum", "dönem kredisi")}</p>}
           {bundle && <p>{t("تعداد اعضا", "Team members", "Teammitglieder", "Ekip üyesi")}: {p.teamSeatLimit}</p>}
-          <ul className="billing-features">{features.slice(0,3).map(f => <li key={f}><Check size={15}/>{f}</li>)}</ul>
-          {features.length > 3 && <details className="billing-details"><summary>{t("همهٔ امکانات", "All features", "Alle Funktionen", "Tüm özellikler")}</summary><ul className="billing-features">{features.slice(3).map(f => <li key={f}><Check size={15}/>{f}</li>)}</ul></details>}
+          {bundle ? <BusinessPackageFeatures lang={lang} planCode={p.planCode}/> : <ul className="billing-features">{features.slice(0,3).map(f => <li key={f}><Check size={15}/>{f}</li>)}</ul>}
+          {!bundle && features.length > 3 && <details className="billing-details"><summary>{t("همهٔ امکانات", "All features", "Alle Funktionen", "Tüm özellikler")}</summary><ul className="billing-features">{features.slice(3).map(f => <li key={f}><Check size={15}/>{f}</li>)}</ul></details>}
           <button disabled={!!busy || total <= 0} onClick={() => void buy(p.planCode)} className="workspace-button billing-buy">{busy === p.planCode ? t("در حال آماده‌سازی…", "Preparing…", "Wird vorbereitet…", "Hazırlanıyor…") : t("ادامه و پرداخت", "Continue to payment", "Weiter zur Zahlung", "Ödemeye devam")}<ArrowUpRight size={17}/></button>
         </article>;
       })}</div>}
