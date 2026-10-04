@@ -10,7 +10,7 @@ import { subscriptionTerm } from "@/lib/payment/subscriptionTerm";
 import { STUDENT_PLAN_CODE } from "@/lib/plans/studentOffer";
 import { rateLimit } from "@/lib/utils/rateLimit";
 export async function POST(req: NextRequest) {
- const user=await requireAuth(req); if(!user)return unauthorizedResponse();
+ const user=await requireAuth(req); if(!user)return unauthorizedResponse(req);
  if(!rateLimit(`payment-create:${user.id}`,10,300000).allowed)return bankError(req,"Too many requests",429);
  let body;try{body=await req.json();}catch{return bankError(req,"Invalid request",400);}
  if(!body||typeof body!=="object"||Array.isArray(body))return bankError(req,"Invalid request",400);
@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
  const {plan}=body;
  const period = body.period ?? "monthly";
  if(typeof plan!=="string")return bankError(req,"Invalid plan",400);
+ if(plan.startsWith("STUDENT_")&&user.accountType!=="STUDENT")return NextResponse.json({error:"پکیج دانشجویی فقط برای حساب دانشجویی قابل خرید است.",code:"STUDENT_ACCOUNT_REQUIRED"},{status:403});
  const tier=plan.startsWith("CREDITS_")?await prisma.creditPricingTier.findUnique({where:{id:plan.slice(8)}}):null;
  const pkg=tier?{isActive:tier.isActive,price:tier.priceToman*10,priceUsd:null,credits:tier.creditsAmount,duration:30,crmSeatLimit:null,teamSeatLimit:null}:await prisma.package.findUnique({where:{planCode:plan}});
  if(!pkg?.isActive)return bankError(req,"Invalid plan",400);

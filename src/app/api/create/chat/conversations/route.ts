@@ -15,7 +15,7 @@ const VALID_TYPES = new Set(["image", "video", "music"]);
  */
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const type = req.nextUrl.searchParams.get("type") || "";
   if (!VALID_TYPES.has(type)) return NextResponse.json({ error: "نوع نامعتبر است" }, { status: 400 });
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { type, title } = await req.json().catch(() => ({}));
   if (!VALID_TYPES.has(type)) return NextResponse.json({ error: "نوع نامعتبر است" }, { status: 400 });

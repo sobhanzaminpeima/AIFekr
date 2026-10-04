@@ -21,7 +21,7 @@ async function checkModuleAccess(userId: string, role: string, workspaceUserId: 
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
   const lang = await getServerLang();
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
   const lang = await getServerLang();
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });

@@ -7,7 +7,7 @@ import { withToolCredits } from "@/lib/utils/withToolCredits";
 
 async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { text } = await req.json();
   if (!text) return NextResponse.json({ error: "متن خالی است" }, { status: 400 });

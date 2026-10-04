@@ -12,7 +12,7 @@ const token = signToken({ userId, role: "USER", plan: "FREE" });
 let courseId = "";
 
 beforeEach(async () => {
-  await prisma.user.create({ data: { id: userId, email: `${userId}@example.test` } });
+  await prisma.user.create({ data: { id: userId, email: `${userId}@example.test`, accountType: "STUDENT", plan: "STUDENT_MONTHLY", planExpiry: new Date(Date.now() + 86400000) } });
   const course = await prisma.studentCourse.create({ data: { userId, name: "History" } });
   courseId = course.id;
 });

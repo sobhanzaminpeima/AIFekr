@@ -6,6 +6,7 @@ const findUniqueFlag = vi.fn();
 
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
+    user:{findUnique:vi.fn().mockResolvedValue({plan:"FREE",planExpiry:null,trialEndsAt:null,voicePlan:"NONE",voicePlanExpiry:null})},
     userModuleOverride: { findUnique: (...args: unknown[]) => findUniqueOverride(...args), findMany: vi.fn().mockResolvedValue([]) },
     industryModuleFlag: { findUnique: (...args: unknown[]) => findUniqueFlag(...args), findMany: vi.fn().mockResolvedValue([]) },
   },

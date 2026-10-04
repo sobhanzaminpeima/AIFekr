@@ -6,6 +6,7 @@ import { resolveCrmWorkspace } from "@/lib/crm/workspace";
 import { getHomeSummary } from "@/lib/home/summary";
 import { getServerLang } from "@/lib/i18n/server";
 import { prisma } from "@/lib/db/prisma";
+import {hasVoiceAccess} from "@/lib/voice/workspace";
 import { isStudentWorkspaceEnabled } from "@/lib/student/access";
 
 /**
@@ -16,7 +17,7 @@ import { isStudentWorkspaceEnabled } from "@/lib/student/access";
  */
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const ws = await resolveCrmWorkspace(user.id);
   const lang = await getServerLang();
@@ -43,8 +44,9 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ...summary,
-    industryPack: pack,
+    industryPack: user.featureAccess&&(crmActive||studentEnabled)?pack:null,
+    agentAccess:{student:studentEnabled,voice:user.featureAccess&&hasVoiceAccess(user),business:user.featureAccess&&crmActive},
     studentWorkspace: { enabled: studentEnabled, courseCount: student[0], upcomingExamCount: student[1], pendingTaskCount: student[2] },
-    businessAccess: crmActive || !!pack,
+    businessAccess: user.featureAccess&&crmActive,
   });
 }

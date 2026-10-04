@@ -7,7 +7,7 @@ import { getAvailableCredits } from "@/lib/utils/teamCredits";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const settings = await voiceSettings();
   const configured = !!(settings.apiKey && settings.webhookSecret && settings.credentialId);
   // Customers cannot allocate another customer's/provider's purchased numbers.

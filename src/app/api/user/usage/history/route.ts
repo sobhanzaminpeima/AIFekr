@@ -21,7 +21,7 @@ const MAX_LIMIT = 200;
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const limitParam = parseInt(req.nextUrl.searchParams.get("limit") || "", 10);
   const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), MAX_LIMIT) : DEFAULT_LIMIT;

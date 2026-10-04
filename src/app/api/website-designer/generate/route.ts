@@ -65,7 +65,7 @@ Generate the COMPLETE HTML code block (start with triple backticks html, end wit
 
 async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   // Referral-trial accounts get everything except Video Generator and
   // Website Designer -- see prisma schema's User.trialLimited comment.

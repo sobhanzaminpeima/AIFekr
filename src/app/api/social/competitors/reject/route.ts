@@ -12,7 +12,7 @@ import { prisma } from "@/lib/db/prisma";
  */
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const body = await req.json().catch(() => null);
   const reason = typeof body?.reason === "string" ? body.reason.trim().slice(0, 300) : "";

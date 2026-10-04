@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 /** Audit history of a site (newest first) -- enough to draw the score trend. */
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const site = await prisma.seoSite.findFirst({ where: { id: params.id, userId: user.id } });
   if (!site) return NextResponse.json({ error: "Not found" }, { status: 404 });

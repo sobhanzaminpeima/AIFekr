@@ -10,7 +10,7 @@ import { instagramWorkspaceScope } from "@/lib/instagram/workspaceScope";
 // mode="auto" posts, just fired on demand instead of at scheduledFor.
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const businessId = await activeBusinessIdFor(user.id);
   const { postId } = await req.json();

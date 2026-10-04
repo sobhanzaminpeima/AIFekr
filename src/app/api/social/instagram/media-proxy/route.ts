@@ -25,7 +25,7 @@ const mediaProxyAgent = MEDIA_TUNNEL ? new ProxyAgent(MEDIA_TUNNEL) : null;
  */
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const target = req.nextUrl.searchParams.get("url");
   if (!target) return NextResponse.json({ error: "url الزامی است" }, { status: 400 });

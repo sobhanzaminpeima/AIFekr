@@ -8,7 +8,7 @@ import { rateLimit } from "@/lib/utils/rateLimit";
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   const limit = rateLimit(`student-group-join:${user.id}`, 10, 60_000);

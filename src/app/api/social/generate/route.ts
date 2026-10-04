@@ -92,7 +92,7 @@ ${data.industry ? `صنعت: ${data.industry}` : ""}
 
 async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   try {
     const body = await req.json();

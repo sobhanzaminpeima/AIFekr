@@ -54,7 +54,7 @@ async function crawlUrl(url: string) {
 
 async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const { tool, keyword, content, url, targetKeyword, language } = await req.json();
   // Fall back to the UI language the request actually carries, not a hardcoded
   // "fa" -- an en/de user whose client omitted `language` was served Persian.

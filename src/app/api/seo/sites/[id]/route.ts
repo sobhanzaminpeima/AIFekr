@@ -14,7 +14,7 @@ async function ownedSite(userId: string, id: string) {
 /** Rename, or change the automatic re-audit schedule. */
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const site = await ownedSite(user.id, params.id);
   if (!site) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -40,7 +40,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 /** Stops tracking a site and deletes its audit history. */
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const site = await ownedSite(user.id, params.id);
   if (!site) return NextResponse.json({ error: "Not found" }, { status: 404 });
   await prisma.seoSite.delete({ where: { id: site.id } });

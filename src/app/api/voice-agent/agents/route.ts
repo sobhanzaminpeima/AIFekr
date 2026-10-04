@@ -13,7 +13,7 @@ import { getAvailableCredits } from "@/lib/utils/teamCredits";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const businessId = await activeBusinessIdFor(user.id);
   const agents = await prisma.voiceAgent.findMany({
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const count = await countUserVoiceAgents(user.id);
   if (!hasVoiceAccess(user) && count >= FREE_VOICE_AGENT_LIMIT) {

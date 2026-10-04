@@ -28,7 +28,7 @@ const SAMPLE_ROWS: Record<string, string[][]> = {
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const lang = await getServerLang();
 
   const csv = `${HEADER_NOTE[lang]}\r\n${toCsv([[...PROPERTY_IMPORT_COLUMNS], ...SAMPLE_ROWS[lang]])}`;

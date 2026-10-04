@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 /** Returns the current user's team (as owner or member), or null if they have none. */
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const membership = await prisma.teamMember.findUnique({ where: { userId: user.id } });
   if (!membership) return NextResponse.json({ team: null });
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
 /** Owner can rename their team. */
 export async function PATCH(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const team = await prisma.team.findUnique({ where: { ownerId: user.id } });
   if (!team) return NextResponse.json({ error: "شما مالک هیچ تیمی نیستید" }, { status: 403 });

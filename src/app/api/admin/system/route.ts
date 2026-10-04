@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin) {
     const user = await requireAuth(req);
-    return user ? forbiddenResponse() : unauthorizedResponse();
+    return user ? forbiddenResponse() : unauthorizedResponse(req);
   }
 
   let database: { ok: boolean; latencyMs: number | null; error: string | null };

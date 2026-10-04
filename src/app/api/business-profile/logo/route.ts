@@ -20,7 +20,7 @@ const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/s
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const lang = await getServerLang();
 
   const form = await req.formData();
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const company = await prisma.company.findUnique({ where: { userId: user.id } });
   if (!company) return NextResponse.json({ success: true });

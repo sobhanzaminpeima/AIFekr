@@ -11,7 +11,7 @@ import { withToolCredits } from "@/lib/utils/withToolCredits";
 /** Streaming three-language cash-flow narrative (spec ۸ item ۴) — one language per call, following the caller's current UI language like the rest of the app. Read-only. */
 async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
   const lang = await getServerLang();
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });

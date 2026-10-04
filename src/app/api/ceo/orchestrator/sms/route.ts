@@ -9,7 +9,7 @@ import { sendSMS } from "@/lib/sms/smsir";
 // own; the CEO orchestrator only ever *drafts* messages for review.
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { contactId, message } = await req.json();
   if (!contactId || !message?.trim()) return NextResponse.json({ error: "ورودی نامعتبر" }, { status: 400 });

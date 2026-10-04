@@ -8,7 +8,7 @@ import { evaluateWithTypeSafe, isTypeSafeConfigured } from "@/lib/ai/typesafe";
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user || (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN")) {
-    return unauthorizedResponse();
+    return unauthorizedResponse(req);
   }
 
   const { searchParams } = new URL(req.url);

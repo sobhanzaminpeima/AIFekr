@@ -8,7 +8,7 @@ import { withToolCredits } from "@/lib/utils/withToolCredits";
 
 async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   // The orchestrator used to take no language at all -- every user got the
   // Persian briefing. It follows the reader's UI language now.

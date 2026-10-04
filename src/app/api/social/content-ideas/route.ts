@@ -25,7 +25,7 @@ import { getServerLang, type Lang } from "@/lib/i18n/server";
  */
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const lang = await getServerLang();
 
   const pipeline = await prisma.crmPipeline.findFirst({

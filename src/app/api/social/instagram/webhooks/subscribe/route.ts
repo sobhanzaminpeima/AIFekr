@@ -10,7 +10,7 @@ import { canAutoPublish } from "@/lib/utils/planGates";
 
 async function getConnection(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return { response: unauthorizedResponse() };
+  if (!user) return { response: unauthorizedResponse(req) };
   if (!canAutoPublish(user.plan)) {
     return { response: NextResponse.json({ error: "این قابلیت فقط برای پلن‌های Pro و Team فعال است" }, { status: 403 }) };
   }

@@ -22,7 +22,7 @@ function toCsv(rows: Record<string, unknown>[], columns: string[]): string {
 /** Exports the workspace's CRM contacts or deals as CSV — ?type=contacts (default) | deals. Bulk export is manager/owner-only — an AGENT exporting the full contact list would defeat the point of per-agent visibility. */
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
   const lang = await getServerLang();
   if (ws.isAgentRestricted) return NextResponse.json({ error: tri(lang, "فقط مدیر یا مالک می‌تواند خروجی کامل بگیرد", "Only a manager or owner can take a full export", "Nur ein Manager oder Eigentümer kann einen vollständigen Export erstellen") }, { status: 403 });

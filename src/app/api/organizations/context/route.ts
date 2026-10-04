@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 
 export async function PATCH(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const body = await req.json().catch(() => null);
   const businessId = typeof body?.businessId === "string" ? body.businessId : "";
   if (!businessId) return NextResponse.json({ error: "businessId is required" }, { status: 400 });

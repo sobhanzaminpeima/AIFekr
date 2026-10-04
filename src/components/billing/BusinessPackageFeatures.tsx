@@ -17,10 +17,10 @@ export default function BusinessPackageFeatures({ lang, planCode }: { lang: Lang
   return <div className="package-modules">
     <p className="package-modules-title">{text(lang, ["ماژول‌ها و ایجنت‌های این پکیج", "Included modules and agents", "Enthaltene Module und Agenten", "Dahil olan modüller ve ajanlar"])}</p>
     <ul className="package-module-list">
-      <li className={highlighted ? "package-call-center" : undefined}>
+      {highlighted&&<li className="package-call-center">
         <Headphones size={18} aria-hidden/>
         {highlighted ? <strong>{text(lang, ["مرکز تماس هوش مصنوعی", "AI Call Center", "KI-Callcenter", "Yapay Zekâ Çağrı Merkezi"])}</strong> : <span>{text(lang, ["مرکز تماس هوش مصنوعی", "AI Call Center", "KI-Callcenter", "Yapay Zekâ Çağrı Merkezi"])}</span>}
-      </li>
+      </li>}
       {modules.map((module, i) => <li key={i}><Check size={15} aria-hidden/><span>{text(lang, module)}</span></li>)}
     </ul>
   </div>;

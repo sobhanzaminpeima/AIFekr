@@ -8,7 +8,7 @@ import { prisma } from "@/lib/db/prisma";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const { id } = await params;
 
   const existing = await prisma.voiceKnowledgeBase.findUnique({ where: { id } });
@@ -31,7 +31,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const { id } = await params;
 
   const existing = await prisma.voiceKnowledgeBase.findUnique({ where: { id } });

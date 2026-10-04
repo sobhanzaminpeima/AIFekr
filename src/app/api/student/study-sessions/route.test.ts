@@ -21,7 +21,7 @@ beforeAll(async () => {
   if (!names.has("pauseHistory")) await prisma.$executeRawUnsafe('ALTER TABLE "StudentStudySession" ADD COLUMN "pauseHistory" TEXT NOT NULL DEFAULT \'[]\'');
 });
 beforeEach(async () => {
-  await prisma.user.create({ data: { id: userId, email: `${userId}@example.test` } });
+  await prisma.user.create({ data: { id: userId, email: `${userId}@example.test`, accountType: "STUDENT", plan: "STUDENT_MONTHLY", planExpiry: new Date(Date.now() + 86400000) } });
   await prisma.siteSetting.upsert({ where: { key: "student_workspace_enabled" }, create: { key: "student_workspace_enabled", value: "true" }, update: { value: "true" } });
 });
 afterEach(async () => { await prisma.user.deleteMany({ where: { id: userId } }); });
@@ -109,6 +109,6 @@ describe("student study sessions", () => {
 
   it("enforces the per-user student-module override", async () => {
     await prisma.userModuleOverride.create({ data: { userId, moduleKey: "student.workspace", enabled: false } });
-    expect((await POST(req("POST", {}))).status).toBe(503);
+    expect((await POST(req("POST", {}))).status).toBe(403);
   });
 });

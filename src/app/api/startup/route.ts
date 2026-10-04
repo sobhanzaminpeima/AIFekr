@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const projects = await prisma.startupProject.findMany({
     where: { userId: user.id },
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { name } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "نام پروژه الزامی است" }, { status: 400 });

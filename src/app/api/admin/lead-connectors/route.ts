@@ -18,7 +18,7 @@ const GRAPH_BASE = RELAY_BASE_URL
 
 export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req);
-  if (!admin) return unauthorizedResponse();
+  if (!admin) return unauthorizedResponse(req);
 
   const rows = await prisma.leadSource.findMany({
     where: { provider: "meta" },
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const admin = await requireAdmin(req);
-  if (!admin) return unauthorizedResponse();
+  if (!admin) return unauthorizedResponse(req);
 
   const { id, pageId, pageToken } = await req.json().catch(() => ({}));
   if (!id || !pageId?.trim() || !pageToken?.trim()) {
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const admin = await requireAdmin(req);
-  if (!admin) return unauthorizedResponse();
+  if (!admin) return unauthorizedResponse(req);
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id الزامی است" }, { status: 400 });
   await prisma.leadSource.deleteMany({ where: { id, provider: "meta" } });

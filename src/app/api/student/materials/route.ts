@@ -30,7 +30,7 @@ async function extractText(file: File): Promise<string> {
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   const courseId = new URL(req.url).searchParams.get("courseId");
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   const limit = rateLimit(`student-material:${user.id}`, 20, 60_000);

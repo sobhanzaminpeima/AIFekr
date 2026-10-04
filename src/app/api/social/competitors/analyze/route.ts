@@ -25,7 +25,7 @@ import { withToolCredits } from "@/lib/utils/withToolCredits";
  */
 async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const lang = await getServerLang();
 

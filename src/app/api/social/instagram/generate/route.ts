@@ -13,7 +13,7 @@ import type { Lang } from "@/lib/i18n";
 // user having to copy-paste pieces out of prose.
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { businessName, businessType, topic, language, model, propertyId } = await req.json();
   // German is a supported UI language, so it must survive this narrowing --

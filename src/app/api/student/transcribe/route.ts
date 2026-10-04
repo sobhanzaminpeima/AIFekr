@@ -13,7 +13,7 @@ const AUDIO_TYPES = new Set(["audio/mpeg", "audio/mp4", "audio/mp4a-latm", "audi
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   const limit = rateLimit(`student-transcribe:${user.id}`, 5, 60_000);

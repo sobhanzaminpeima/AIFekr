@@ -14,7 +14,7 @@ import { getWalletBalances } from "@/lib/utils/teamCredits";
  */
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 

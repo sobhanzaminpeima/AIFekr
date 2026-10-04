@@ -60,7 +60,7 @@ ${languageRule}
 
 async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   try {
     const { question, category, conversationId, history = [], lang: rawLang } = await req.json();

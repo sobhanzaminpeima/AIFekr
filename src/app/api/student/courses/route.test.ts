@@ -11,7 +11,7 @@ import { GET as getCourseDetail } from "./[id]/route";
 const userId = `student-course-api-${crypto.randomUUID()}`;
 const token = signToken({ userId, role: "USER", plan: "FREE" });
 
-beforeEach(async () => { await prisma.user.create({ data: { id: userId, email: `${userId}@example.test` } }); });
+beforeEach(async () => { await prisma.user.create({ data: { id: userId, email: `${userId}@example.test`, accountType: "STUDENT", plan: "STUDENT_MONTHLY", planExpiry: new Date(Date.now() + 86400000) } }); });
 afterEach(async () => { await prisma.studentCourse.deleteMany({ where: { userId } }); await prisma.user.deleteMany({ where: { id: userId } }); });
 afterAll(async () => prisma.$disconnect());
 
@@ -30,7 +30,7 @@ describe("POST /api/student/courses", () => {
   it("returns an owned course summary for the new student tutor and hides another student's course", async () => {
     const course = await prisma.studentCourse.create({ data: { userId, name: "Biology" } });
     const otherUserId = `${userId}-other`;
-    await prisma.user.create({ data: { id: otherUserId, email: `${otherUserId}@example.test` } });
+    await prisma.user.create({ data: { id: otherUserId, email: `${otherUserId}@example.test`, accountType: "STUDENT", plan: "STUDENT_MONTHLY", planExpiry: new Date(Date.now() + 86400000) } });
     try {
       const own = await getCourseDetail(new NextRequest(`https://aifekr.test/api/student/courses/${course.id}`, { headers: { Cookie: `token=${token}` } }), { params: { id: course.id } });
       expect(own.status).toBe(200);

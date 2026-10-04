@@ -9,7 +9,7 @@ const VALID_TOOLS = new Set(["image", "video", "music"]);
 /** Generalized version of /api/image/chat/messages -- see that file's doc comment. */
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { conversationId, role, content } = await req.json();
   if (!conversationId || !role || typeof content !== "string") {

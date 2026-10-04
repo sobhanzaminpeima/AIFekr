@@ -12,7 +12,7 @@ const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({ "&"
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   if (!rateLimit(`student-group-invite:${user.id}`, 10, 60_000).allowed) return NextResponse.json({ error: "تعداد دعوت‌ها بیش از حد مجاز است؛ کمی بعد دوباره تلاش کنید" }, { status: 429 });

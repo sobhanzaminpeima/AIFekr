@@ -1,7 +1,8 @@
 import { getDisabledProviders, refreshDisabledProviders } from "./providerConfig";
 import { PROVIDERS, getAvailableProviders, streamProvider, type ChatMessage, type Provider, type TokenUsage } from "./providers";
 
-const STALL_TIMEOUT_MS = 10_000; // 10s — applies to first token AND any gap between chunks
+const FIRST_TOKEN_TIMEOUT_MS = 8_000;
+const STREAM_GAP_TIMEOUT_MS = 30_000;
 
 /**
  * Wraps streamProvider with a *rolling* inactivity timeout (resets on every
@@ -22,6 +23,7 @@ async function streamWithStallGuard(
     let settled = false;
     let receivedAny = false;
     let timer: ReturnType<typeof setTimeout>;
+    const abort = new AbortController();
 
     const fail = (e: Error) => {
       (e as Error & { partial?: boolean }).partial = receivedAny;
@@ -33,14 +35,15 @@ async function streamWithStallGuard(
       timer = setTimeout(() => {
         if (settled) return;
         settled = true;
+        abort.abort();
         fail(
           new Error(
             receivedAny
-              ? `Timeout: stream stalled for ${STALL_TIMEOUT_MS / 1000}s mid-response`
-              : `Timeout: no token within ${STALL_TIMEOUT_MS / 1000}s`
+              ? `Timeout: stream stalled for ${STREAM_GAP_TIMEOUT_MS / 1000}s mid-response`
+              : `Timeout: no token within ${FIRST_TOKEN_TIMEOUT_MS / 1000}s`
           )
         );
-      }, STALL_TIMEOUT_MS);
+      }, receivedAny ? STREAM_GAP_TIMEOUT_MS : FIRST_TOKEN_TIMEOUT_MS);
     };
 
     arm();
@@ -49,7 +52,7 @@ async function streamWithStallGuard(
       receivedAny = true;
       onChunk(text);
       arm();
-    }, maxTokensOverride)
+    }, maxTokensOverride, abort.signal)
       .then((usage) => {
         if (settled) return;
         settled = true;
@@ -109,6 +112,7 @@ const PATTERNS: Record<QueryType, RegExp> = {
 };
 
 export function detectQueryType(message: string): QueryType {
+  if (/^(سلام|درود|hi|hello|hey|hallo|merhaba)[!.،\s]*$/i.test(message.trim())) return "fast";
   for (const [type, pattern] of Object.entries(PATTERNS) as [QueryType, RegExp][]) {
     if (type === "general") continue;
     if (pattern.test(message)) return type;
@@ -124,7 +128,7 @@ const ROUTING_TABLE: Record<QueryType, string[]> = {
   translation: ["claude", "gemini", "openrouter", "gpt5", "deepseek-v3", "groq", "cohere"],
   business:    ["claude", "gpt5", "openrouter", "gemini", "groq", "cohere"],
   complex:     ["claude", "gpt5", "openrouter", "deepseek-v3", "groq", "cohere"],
-  fast:        ["gemini", "claude", "deepseek-direct", "deepseek-v3", "groq", "cohere"],
+  fast:        ["groq", "gemini", "claude", "deepseek-direct", "deepseek-v3", "cohere"],
   general:     ["claude", "gpt5", "gemini", "openrouter", "deepseek-v3", "deepseek-direct", "groq", "cohere"],
 };
 
@@ -190,13 +194,10 @@ export async function routedStreamChat(
     console.warn(`[Router] ${primary.name} failed:`, error.message);
     onFallback?.({ from: primary, partial });
 
-    // A 429 is a token-budget refill, not a dead provider — worth a few
-    // wait-and-retry passes before moving on, especially with only 1-2
-    // providers enabled where there's no real fallback to fall back to.
-    // Escalating delay (20s/30s/40s) gives the rolling per-minute budget
-    // more room to actually clear between attempts.
-    if (isRetryableRateLimitError(error)) {
-      const retryDelaysMs = [20_000, 30_000, 40_000];
+    // Prefer an available fallback immediately; only a sole provider gets
+    // one short retry, so a rate limit does not add a 90-second wait.
+    if (isRetryableRateLimitError(error) && getEnabledProviders().every(p => p.id === primary.id)) {
+      const retryDelaysMs = [1_000];
       for (const delay of retryDelaysMs) {
         await sleep(delay);
         try {

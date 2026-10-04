@@ -10,7 +10,7 @@ async function authorize(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (admin) return { admin, error: null };
   const user = await import("@/lib/auth/middleware").then(({ requireAuth }) => requireAuth(req));
-  return { admin: null, error: user ? forbiddenResponse() : unauthorizedResponse() };
+  return { admin: null, error: user ? forbiddenResponse() : unauthorizedResponse(req) };
 }
 
 export async function GET(req: NextRequest) {

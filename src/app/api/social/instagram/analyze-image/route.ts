@@ -15,7 +15,7 @@ import { withToolCredits } from "@/lib/utils/withToolCredits";
  */
 async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { imageUrl, businessName, businessType, language } = await req.json();
   if (!imageUrl) return NextResponse.json({ error: "تصویر الزامی است" }, { status: 400 });

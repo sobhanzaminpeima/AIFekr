@@ -11,7 +11,7 @@ import { prisma } from "@/lib/db/prisma";
 // listed here — only providers that generate video from a plain text prompt.
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const providers = [
     { id: "qwen", name: "Qwen (HappyHorse T2V)", configured: qwen.isQwenVideoAvailable },

@@ -7,7 +7,7 @@ import { studentWorkspaceDisabledResponse } from "@/lib/student/access";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   const courseId = new URL(req.url).searchParams.get("courseId") || undefined;
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   let body: { title?: string; description?: string; courseId?: string | null; taskType?: string; dueAt?: string | null; priority?: number };

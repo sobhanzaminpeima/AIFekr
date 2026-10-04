@@ -7,7 +7,7 @@ import { instagramWorkspaceScope } from "@/lib/instagram/workspaceScope";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const { id } = await params;
 
   const campaign = await prisma.instagramCommentCampaign.findFirst({ where: { id, userId: user.id, ...instagramWorkspaceScope(await activeBusinessIdFor(user.id)) } });

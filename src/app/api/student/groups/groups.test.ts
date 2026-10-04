@@ -36,7 +36,7 @@ beforeAll(async () => {
   }
 });
 beforeEach(async () => {
-  await prisma.user.createMany({ data: [ownerId, memberId, outsiderId, inviteeId].map((id) => ({ id, email: `${id}@example.test` })) });
+  await prisma.user.createMany({ data: [ownerId, memberId, outsiderId, inviteeId].map((id) => ({ id, email: `${id}@example.test`, accountType: "STUDENT", plan: "STUDENT_MONTHLY", planExpiry: new Date(Date.now() + 86400000) })) });
   await prisma.siteSetting.upsert({ where: { key: "student_workspace_enabled" }, create: { key: "student_workspace_enabled", value: "true" }, update: { value: "true" } });
 });
 afterEach(async () => {

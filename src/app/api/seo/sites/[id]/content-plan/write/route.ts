@@ -17,7 +17,7 @@ import { STALE_RUN_MS } from "@/lib/seo/contentPlanCore";
  */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const lang = await getServerLang();
 
   const site = await prisma.seoSite.findFirst({ where: { id: params.id, userId: user.id }, include: { contentPlan: true } });

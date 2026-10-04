@@ -18,7 +18,7 @@ import { tri } from "@/lib/i18n/tri";
 /** ?propertyId=... returns that property's effective rule (property-specific, else workspace default, else null meaning the hardcoded 20% applies). Omit propertyId to list every rule in the workspace. */
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
   const lang = await getServerLang();
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
 /** { propertyId?: string, feePercent: number } — propertyId omitted/null sets the workspace-wide default instead of a specific unit. */
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
   const lang = await getServerLang();
   if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });

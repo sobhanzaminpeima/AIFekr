@@ -13,7 +13,7 @@ async function isMember(groupId: string, userId: string) {
 
 export async function GET(req: NextRequest, { params }: Context) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   if (!await isMember(params.id, user.id)) return NextResponse.json({ error: "به این گروه دسترسی ندارید" }, { status: 404 });
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest, { params }: Context) {
 
 export async function POST(req: NextRequest, { params }: Context) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   const limit = rateLimit(`student-group-message:${user.id}`, 30, 60_000);

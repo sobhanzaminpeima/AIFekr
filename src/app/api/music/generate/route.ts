@@ -13,7 +13,7 @@ import { getCreditCosts } from "@/lib/utils/creditCosts";
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   if (!(await isFeatureEnabled("music"))) {
     return NextResponse.json({ error: FEATURE_DISABLED_MESSAGE.music }, { status: 503 });

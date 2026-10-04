@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   if (user.plan === "FREE") return forbiddenResponse();
 
   const form = await prisma.leadForm.findFirst({ where: { id: params.id, userId: user.id } });

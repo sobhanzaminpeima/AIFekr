@@ -20,7 +20,7 @@ const STAGE_NAME_LOOKUP = new Map(ALL_TEMPLATES.flatMap((t) => t.stages.map((s) 
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
 
   const pipelines = await prisma.crmPipeline.findMany({
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
   const lang = await getServerLang();
   if (ws.isAgentRestricted) return NextResponse.json({ error: tri(lang, "فقط مدیر یا مالک می‌تواند پایپلاین بسازد", "Only a manager or owner can create a pipeline", "Nur ein Manager oder Inhaber kann eine Pipeline erstellen") }, { status: 403 });

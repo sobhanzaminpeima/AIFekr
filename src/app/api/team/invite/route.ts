@@ -11,7 +11,7 @@ const INVITE_EXPIRY_DAYS = 7;
 /** Owner invites a new seat by email. */
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const team = await prisma.team.findUnique({
     where: { ownerId: user.id },

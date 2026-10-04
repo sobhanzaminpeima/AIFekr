@@ -8,7 +8,7 @@ import { tri } from "@/lib/i18n/tri";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   // Was a 500 reading "GOOGLE_SEARCH_CONSOLE_CLIENT_ID تنظیم نشده" — Persian
   // regardless of UI language, framed as a server crash, and leaking an

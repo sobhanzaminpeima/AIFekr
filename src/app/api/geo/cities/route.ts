@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const countryId = req.nextUrl.searchParams.get("countryId");
   if (!countryId) return NextResponse.json({ error: "countryId الزامی است" }, { status: 400 });

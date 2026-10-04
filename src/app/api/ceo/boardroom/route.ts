@@ -143,7 +143,7 @@ async function runDeptAgent(dept: typeof DEPARTMENTS[0], snapshotText: string): 
 
 async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const session = await prisma.boardroomSession.create({
     data: { userId: user.id, status: "running" },
@@ -271,7 +271,7 @@ async function handlePost(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const session = await prisma.boardroomSession.findFirst({
     where: { userId: user.id },

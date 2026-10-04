@@ -10,7 +10,7 @@ import { prisma } from "@/lib/db/prisma";
 // separately, on demand, since some countries have 10k+ cities).
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const lang = req.nextUrl.searchParams.get("lang");
   const countries = await prisma.country.findMany({

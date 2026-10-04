@@ -10,7 +10,7 @@ import { instagramWorkspaceScope } from "@/lib/instagram/workspaceScope";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const businessId = await activeBusinessIdFor(user.id);
   const conn = await prisma.instagramConnection.findFirst({ where: { userId: user.id, ...instagramWorkspaceScope(businessId) } });
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const businessId = await activeBusinessIdFor(user.id);
   const conn = await prisma.instagramConnection.findFirst({ where: { userId: user.id, ...instagramWorkspaceScope(businessId) } });

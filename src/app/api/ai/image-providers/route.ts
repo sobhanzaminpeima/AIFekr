@@ -13,7 +13,7 @@ import { prisma } from "@/lib/db/prisma";
 // values are exposed here, just id/name/configured.
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const providers = [
     { id: "openai", name: "OpenAI (gpt-image)", configured: openaiImage.isOpenAIImageAvailable },

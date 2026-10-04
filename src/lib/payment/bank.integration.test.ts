@@ -38,17 +38,25 @@ it("activates the full business workspace atomically and expires module access",
  expect(await hasBusinessBundle(buyer)).toBe(false);
  await reviewBankPayment(p.id,admin,true,"Verified business transfer");
  const u=await prisma.user.findUniqueOrThrow({where:{id:buyer}});
- expect(u.plan).toBe("TEAM");expect(u.crmPlan).toBe("TEAM");expect(u.voicePlan).toBe("ACTIVE");
- expect(u.crmPlanExpiry).toEqual(u.planExpiry);expect(u.voicePlanExpiry).toEqual(u.planExpiry);
+ expect(u.plan).toBe("TEAM");expect(u.crmPlan).toBe("TEAM");expect(u.voicePlan).toBe("NONE");
+ expect(u.crmPlanExpiry).toEqual(u.planExpiry);expect(u.voicePlanExpiry).toBeNull();
  const team=await prisma.team.findUniqueOrThrow({where:{ownerId:buyer}});
  expect(team.maxSeats).toBe(3);expect(team.credits).toBe(12000);
  expect(await isModuleEnabled({id:buyer,role:"USER",industryPackId:null},"agent.leadMatcher")).toBe(true);
- expect(await getModuleAccessMap({id:buyer,role:"USER",industryPackId:null},["crm.property","agent.voiceCallCenter"])).toEqual({"crm.property":true,"agent.voiceCallCenter":true});
+ expect(await getModuleAccessMap({id:buyer,role:"USER",industryPackId:null},["crm.property","agent.voiceCallCenter"])).toEqual({"crm.property":true,"agent.voiceCallCenter":false});
  await expect(reviewBankPayment(p.id,admin,true,"")).rejects.toThrow("ALREADY_REVIEWED");
  expect((await prisma.team.findUniqueOrThrow({where:{ownerId:buyer}})).credits).toBe(12000);
  await prisma.user.update({where:{id:buyer},data:{planExpiry:new Date(Date.now()-86400000)}});
  expect(await hasBusinessBundle(buyer)).toBe(false);
  expect(await isModuleEnabled({id:buyer,role:"USER",industryPackId:null},"crm.property")).toBe(false);
+});
+
+it("includes AI Call Center in Growth and Scale",async()=>{
+ for(const plan of ["TEAM_BUSINESS_GROW","TEAM_BUSINESS_SCALE"]){const p=await purchase(plan);await prisma.payment.update({where:{id:p.id},data:{entitlementSnapshot:JSON.stringify({credits:1000,days:30,teamSeatLimit:plan.endsWith("GROW")?10:25,crmSeatLimit:10,businessBundle:true})}});await reviewBankPayment(p.id,admin,true,"");const u=await prisma.user.findUniqueOrThrow({where:{id:buyer}});expect(u.voicePlan).toBe("ACTIVE");expect(u.voicePlanExpiry).toEqual(u.planExpiry);}
+});
+it("preserves a separately paid voice add-on when buying Launch",async()=>{
+ const voice=await purchase("VOICE_MONTHLY");await prisma.payment.update({where:{id:voice.id},data:{entitlementSnapshot:JSON.stringify({credits:0,days:30})}});await reviewBankPayment(voice.id,admin,true,"");
+ const p=await purchase("TEAM_BUSINESS_START");await prisma.payment.update({where:{id:p.id},data:{entitlementSnapshot:JSON.stringify({credits:1000,days:30,teamSeatLimit:3,crmSeatLimit:3,businessBundle:true})}});await reviewBankPayment(p.id,admin,true,"");expect((await prisma.user.findUniqueOrThrow({where:{id:buyer}})).voicePlan).toBe("ACTIVE");
 });
 
 });

@@ -50,7 +50,8 @@ async function loadFromDb(): Promise<void> {
 }
 
 /** Forces a fresh read. Use in async entry points that must not see stale data. */
-export async function refreshDisabledProviders(): Promise<void> {
+export async function refreshDisabledProviders(force = false): Promise<void> {
+  if (!force && loadedAt && Date.now() - loadedAt < CACHE_TTL_MS) return;
   if (!inflight) inflight = loadFromDb().finally(() => { inflight = null; });
   await inflight;
 }
@@ -62,7 +63,7 @@ export function getDisabledProviders(): Set<string> {
 }
 
 export async function setProviderEnabled(providerId: string, enabled: boolean): Promise<string[]> {
-  await refreshDisabledProviders();
+  await refreshDisabledProviders(true);
   const next = new Set(cache);
   if (enabled) next.delete(providerId);
   else next.add(providerId);

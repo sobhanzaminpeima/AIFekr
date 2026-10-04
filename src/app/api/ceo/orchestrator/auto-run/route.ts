@@ -6,14 +6,14 @@ import { getServerLang } from "@/lib/i18n/server";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const u = await prisma.user.findUnique({ where: { id: user.id }, select: { ceoAutoRunEnabled: true, ceoAutoRunLang: true } });
   return NextResponse.json({ enabled: u?.ceoAutoRunEnabled ?? false, lang: u?.ceoAutoRunLang ?? "fa" });
 }
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const { enabled } = await req.json();
 
   // The daily briefing is emailed by a cron with no request, so it cannot read

@@ -38,7 +38,7 @@ async function extractText(file: File): Promise<string> {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   // Reject oversized uploads by declared Content-Length before buffering the
   // body at all — req.formData() below fully reads the request into memory,

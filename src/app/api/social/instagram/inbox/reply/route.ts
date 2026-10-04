@@ -10,7 +10,7 @@ import { canAutoPublish } from "@/lib/utils/planGates";
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   if (!canAutoPublish(user.plan)) {
     return NextResponse.json({ error: "این صندوق پیام در پلن‌های Pro و Team فعال است" }, { status: 403 });
   }

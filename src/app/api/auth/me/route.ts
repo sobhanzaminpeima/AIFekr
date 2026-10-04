@@ -5,6 +5,6 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   return NextResponse.json({ user }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } });
 }

@@ -9,7 +9,7 @@ import { instagramWorkspaceScope } from "@/lib/instagram/workspaceScope";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const campaigns = await prisma.instagramCommentCampaign.findMany({
     where: { userId: user.id, ...instagramWorkspaceScope(await activeBusinessIdFor(user.id)) },
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   if (!canAutoPublish(user.plan)) {
     return NextResponse.json({ error: "این قابلیت فقط برای پلن‌های پرو و تیم فعال است" }, { status: 403 });

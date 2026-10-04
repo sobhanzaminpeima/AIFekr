@@ -1,5 +1,32 @@
 [
-  {"planCode":"TEAM_BUSINESS_START","name":"شروع","nameEn":"Launch","priceUsd":14900,"credits":4000,"seats":3,"featured":false},
-  {"planCode":"TEAM_BUSINESS_GROW","name":"رشد","nameEn":"Growth","priceUsd":34900,"credits":12000,"seats":10,"featured":true},
-  {"planCode":"TEAM_BUSINESS_SCALE","name":"مقیاس","nameEn":"Scale","priceUsd":69900,"credits":30000,"seats":25,"featured":false}
+  {
+    "planCode": "TEAM_BUSINESS_START",
+    "name": "Ø´Ø±ÙˆØ¹",
+    "nameEn": "Launch",
+    "priceUsd": 14900,
+    "credits": 4000,
+    "seats": 3,
+    "featured": false,
+    "voiceIncluded": false
+  },
+  {
+    "planCode": "TEAM_BUSINESS_GROW",
+    "name": "Ø±Ø´Ø¯",
+    "nameEn": "Growth",
+    "priceUsd": 34900,
+    "credits": 12000,
+    "seats": 10,
+    "featured": true,
+    "voiceIncluded": true
+  },
+  {
+    "planCode": "TEAM_BUSINESS_SCALE",
+    "name": "Ù…Ù‚ÛŒØ§Ø³",
+    "nameEn": "Scale",
+    "priceUsd": 69900,
+    "credits": 30000,
+    "seats": 25,
+    "featured": false,
+    "voiceIncluded": true
+  }
 ]

@@ -195,7 +195,7 @@ Provide a practical, actionable response with sufficient technical detail.`;
 
 async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { stage, data, lang = "fa" } = await req.json();
   if (!stage || !STAGE_PROMPTS[stage]) {

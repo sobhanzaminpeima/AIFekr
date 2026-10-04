@@ -9,7 +9,7 @@ import { isTypeSafeConfigured } from "@/lib/ai/typesafe";
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user || (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN")) {
-    return unauthorizedResponse();
+    return unauthorizedResponse(req);
   }
   // The admin page used to keep its own hardcoded provider list -- eight
   // entries frozen at whatever the router looked like the day that page was
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user || (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN")) {
-    return unauthorizedResponse();
+    return unauthorizedResponse(req);
   }
 
   const { providerId, enabled } = await req.json();

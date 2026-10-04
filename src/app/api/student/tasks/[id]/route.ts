@@ -7,7 +7,7 @@ import { studentWorkspaceDisabledResponse } from "@/lib/student/access";
 
 export async function PATCH(req: NextRequest, context: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   let body: { title?: string; description?: string; dueAt?: string | null; priority?: number; completed?: boolean };
@@ -41,7 +41,7 @@ export async function PATCH(req: NextRequest, context: { params: { id: string } 
 
 export async function DELETE(req: NextRequest, context: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   const deleted = await prisma.studentTask.deleteMany({ where: { id: context.params.id, userId: user.id } });

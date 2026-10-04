@@ -8,7 +8,7 @@ import { verify } from "jsonwebtoken";
 
 export async function GET(req: NextRequest, context: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   const quiz = await prisma.studentQuiz.findFirst({ where: { id: context.params.id, course: { userId: user.id } } });
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest, context: { params: { id: string } })
 
 export async function POST(req: NextRequest, context: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   const quiz = await prisma.studentQuiz.findFirst({ where: { id: context.params.id, course: { userId: user.id } } });

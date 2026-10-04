@@ -5,6 +5,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { verifyToken } from "@/lib/auth/jwt";
 import { prisma } from "@/lib/db/prisma";
+import SubscriptionGate from "@/components/layout/SubscriptionGate";
+import {featureAccessExpired,teamFeatureExpiry} from "@/lib/subscriptions/access";
 import Sidebar from "@/components/layout/Sidebar";
 import MobileNavShell from "@/components/layout/MobileNavShell";
 import FloatingSupportWidget from "@/components/support/FloatingSupportWidget";
@@ -35,7 +37,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { id: true, name: true, credits: true, plan: true, planExpiry: true, isBlocked: true, industryPackId: true, crmPlan: true, crmPlanExpiry: true, onboardingDone: true, trialEndsAt: true, trialLimited: true, activeBusinessId: true },
+    select: { id: true, role:true, accountType:true, name: true, credits: true, plan: true, planExpiry: true, isBlocked: true, industryPackId: true, crmPlan: true, crmPlanExpiry: true, onboardingDone: true, trialEndsAt: true, trialLimited: true, activeBusinessId: true },
   });
 
   if (!user || user.isBlocked) redirect("/login");
@@ -48,8 +50,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // deduction already goes through the pool, see src/lib/utils/teamCredits.ts.
   const teamMembership = await prisma.teamMember.findUnique({
     where: { userId: user.id },
-    include: { team: { select: { credits: true } } },
+    include: { team: { select: { credits: true,planExpiry:true,owner:{select:{planExpiry:true}} } } },
   });
+  const teamExpiry=teamFeatureExpiry(teamMembership?.team);
+  const expired=featureAccessExpired(user,teamExpiry);
+  const expiresAt=(user.plan==="FREE"&&teamExpiry?teamExpiry:user.planExpiry||(user.plan==="FREE"?user.trialEndsAt:null))?.toISOString();
   const displayCredits = teamMembership?.team.credits ?? user.credits;
   const studentWorkspaceEnabled = await isStudentWorkspaceEnabled(user);
   const showTrialBanner = shouldShowTrialBanner({ trialEndsAt: user.trialEndsAt, plan: user.plan, planExpiry: user.planExpiry });
@@ -81,14 +86,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
         }
       >
         {showTrialBanner && user.trialEndsAt && <TrialBanner lang={lang} trialEndsAt={user.trialEndsAt.toISOString()} trialLimited={user.trialLimited} />}
-        {children}
+        <SubscriptionGate expired={expired} expiresAt={expiresAt} lang={lang} overlay={<>{studentWorkspaceEnabled&&<StudentTimerDock lang={lang}/>}<FloatingSupportWidget lang={lang}/></>}>{children}</SubscriptionGate>
       </MobileNavShell>
       <DashboardPullToRefresh lang={lang} />
-      {studentWorkspaceEnabled && <StudentTimerDock lang={lang} />}
       {/* Dashboard-only by design (Phase 1 decision) -- admin pages are on the
           orchestrator's DENY list anyway, and the public/marketing site has no
           session and a different threat model. */}
-      <FloatingSupportWidget lang={lang} />
     </div>
   );
 }

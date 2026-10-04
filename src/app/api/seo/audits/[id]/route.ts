@@ -9,7 +9,7 @@ import { diffAudits } from "@/lib/seo/siteAuditCore";
 /** One saved audit in full, with what changed since the audit before it. */
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const audit = await prisma.seoAudit.findFirst({ where: { id: params.id, userId: user.id }, include: { site: { select: { id: true, url: true, name: true } } } });
   if (!audit) return NextResponse.json({ error: "Not found" }, { status: 404 });

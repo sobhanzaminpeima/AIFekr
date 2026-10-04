@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 /** Manual grant/revoke of the Voice Agent add-on — for support cases (comped access, refund reversal, etc.), same escape hatch pattern as other admin plan overrides. */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   const admin = await requireAdmin(req);
-  if (!admin) return unauthorizedResponse();
+  if (!admin) return unauthorizedResponse(req);
   const { userId } = await params;
 
   const body = await req.json();

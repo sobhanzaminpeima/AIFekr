@@ -14,17 +14,14 @@ export interface StudentAccessUser {
  * Per-user overrides let admins enable/disable the module for one account.
  */
 export async function isStudentWorkspaceEnabled(user?: StudentAccessUser): Promise<boolean> {
-  if (user) {
-    const override = await prisma.userModuleOverride.findUnique({
-      where: { userId_moduleKey: { userId: user.id, moduleKey: STUDENT_WORKSPACE_MODULE_KEY } },
-      select: { enabled: true },
-    });
-    if (override) return override.enabled;
-  }
-
-  const setting = await prisma.siteSetting.findUnique({ where: { key: SETTING_KEY }, select: { value: true } });
-  // Defaults on so the additive module does not lock out existing accounts.
-  return setting?.value !== "false";
+  if(!user)return false;
+  const account=await prisma.user.findUnique({where:{id:user.id},select:{accountType:true,plan:true,planExpiry:true,isBlocked:true}});
+  if(!account||account.isBlocked||account.accountType!=="STUDENT"||!account.plan.startsWith("STUDENT_")||!account.planExpiry||account.planExpiry.getTime()<=Date.now())return false;
+  const [override,setting]=await Promise.all([
+    prisma.userModuleOverride.findUnique({where:{userId_moduleKey:{userId:user.id,moduleKey:STUDENT_WORKSPACE_MODULE_KEY}},select:{enabled:true}}),
+    prisma.siteSetting.findUnique({where:{key:SETTING_KEY},select:{value:true}}),
+  ]);
+  return override?.enabled??setting?.value!=="false";
 }
 
 export async function setStudentWorkspaceEnabled(enabled: boolean): Promise<void> {
@@ -37,5 +34,5 @@ export async function setStudentWorkspaceEnabled(enabled: boolean): Promise<void
 
 export async function studentWorkspaceDisabledResponse(user?: StudentAccessUser): Promise<NextResponse | null> {
   if (await isStudentWorkspaceEnabled(user)) return null;
-  return NextResponse.json({ error: "فضای دانشجویی موقتاً غیرفعال است" }, { status: 503 });
+  return NextResponse.json({ error: "ایجنت دانشجویی به حساب دانشجویی و پکیج دانشجویی فعال نیاز دارد." }, { status: 403 });
 }

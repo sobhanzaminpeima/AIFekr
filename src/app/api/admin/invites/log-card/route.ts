@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin) {
     const user = await requireAuth(req);
-    return user ? forbiddenResponse() : unauthorizedResponse();
+    return user ? forbiddenResponse() : unauthorizedResponse(req);
   }
 
   const { userId, language, inviteText, imageDataUrl } = await req.json().catch(() => ({}));
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin) {
     const user = await requireAuth(req);
-    return user ? forbiddenResponse() : unauthorizedResponse();
+    return user ? forbiddenResponse() : unauthorizedResponse(req);
   }
 
   const userId = req.nextUrl.searchParams.get("userId");

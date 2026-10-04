@@ -9,7 +9,7 @@ import type { Lang } from "@/lib/i18n/server";
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { url: rawUrl, language } = await req.json().catch(() => ({}));
   const lang: Lang = language === "de" ? "de" : language === "en" ? "en" : language === "tr" ? "tr" : "fa";

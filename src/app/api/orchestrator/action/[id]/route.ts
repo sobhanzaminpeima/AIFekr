@@ -40,7 +40,7 @@ async function loadAction(id: string) {
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const limit = rateLimit(`orchestrator-action:${user.id}`, 20, 60_000);
   if (!limit.allowed) {
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 /** Rejects a staged action. Nothing runs; the row is kept as a record that it was offered and declined. */
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { id } = await params;
   const action = await loadAction(id);
@@ -161,7 +161,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 /** Lets the client re-read one card's current state — e.g. after a reload, so a resolved action doesn't render a live button. */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { id } = await params;
   const action = await loadAction(id);

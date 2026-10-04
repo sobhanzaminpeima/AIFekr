@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 /** Owner revokes a pending invite. */
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const team = await prisma.team.findUnique({ where: { ownerId: user.id } });
   if (!team) return NextResponse.json({ error: "شما مالک هیچ تیمی نیستید" }, { status: 403 });

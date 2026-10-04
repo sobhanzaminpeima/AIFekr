@@ -33,6 +33,15 @@ export default function SessionWatchdog({ lang }: { lang: Lang }) {
     const patched: typeof window.fetch = async (input, init) => {
       const res = await original(input, init);
 
+      if (res.status === 402) {
+        const ownUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        if (new URL(ownUrl, window.location.origin).origin === window.location.origin) {
+          const data = await res.clone().json().catch(() => null);
+          if (data?.code === "SUBSCRIPTION_EXPIRED") window.dispatchEvent(new Event("aifekr:subscription-expired"));
+        }
+        return res;
+      }
+
       if (res.status !== 401 || handled) return res;
 
       // Only our own API — a 401 from a third-party endpoint says nothing about
@@ -49,6 +58,14 @@ export default function SessionWatchdog({ lang }: { lang: Lang }) {
       // The login and auth routes answer 401 as their normal "wrong password"
       // path — that is not an expired session.
       if (new URL(url, window.location.origin).pathname.startsWith("/api/auth/")) return res;
+
+      // Older endpoints can still report 401 for feature expiry. Keep the
+      // valid login and show renewal rather than sending the user to login.
+      const session = await original("/api/auth/me", { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null);
+      if (session?.user?.featureAccess === false) {
+        window.dispatchEvent(new Event("aifekr:subscription-expired"));
+        return res;
+      }
 
       handled = true;
       toast.error(

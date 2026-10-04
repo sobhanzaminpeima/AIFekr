@@ -23,7 +23,7 @@ const MODE_GUIDANCE: Record<string, string> = {
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   return NextResponse.json({ credits: await getThesisAssistCreditCost() });
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   if (!rateLimit(`student-thesis-assist:${user.id}`, 3, 60_000).allowed) return NextResponse.json({ error: "برای حفظ کیفیت، کمی بعد دوباره درخواست بدهید" }, { status: 429 });

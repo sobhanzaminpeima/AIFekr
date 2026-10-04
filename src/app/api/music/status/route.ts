@@ -9,7 +9,7 @@ import { refundCredits } from "@/lib/utils/teamCredits";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const predictionId = new URL(req.url).searchParams.get("predictionId");
   const musicId = new URL(req.url).searchParams.get("musicId");

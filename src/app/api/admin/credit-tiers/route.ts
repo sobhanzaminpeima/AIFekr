@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin) {
     const user = await requireAuth(req);
-    return user ? forbiddenResponse() : unauthorizedResponse();
+    return user ? forbiddenResponse() : unauthorizedResponse(req);
   }
   const tiers = await prisma.creditPricingTier.findMany({ orderBy: { sortOrder: "asc" } });
   return NextResponse.json({ tiers });
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin) {
     const user = await requireAuth(req);
-    return user ? forbiddenResponse() : unauthorizedResponse();
+    return user ? forbiddenResponse() : unauthorizedResponse(req);
   }
 
   const { creditsAmount, priceToman, discountPercent, badge, sortOrder } = await req.json();
@@ -42,7 +42,7 @@ export async function PUT(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin) {
     const user = await requireAuth(req);
-    return user ? forbiddenResponse() : unauthorizedResponse();
+    return user ? forbiddenResponse() : unauthorizedResponse(req);
   }
 
   const body = await req.json();
@@ -62,7 +62,7 @@ export async function DELETE(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin) {
     const user = await requireAuth(req);
-    return user ? forbiddenResponse() : unauthorizedResponse();
+    return user ? forbiddenResponse() : unauthorizedResponse(req);
   }
 
   const { id } = await req.json();

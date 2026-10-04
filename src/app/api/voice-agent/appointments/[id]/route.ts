@@ -9,7 +9,7 @@ const VALID_STATUSES = ["pending", "confirmed", "completed", "cancelled", "no_sh
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const { id } = await params;
 
   const existing = await prisma.voiceAppointment.findUnique({ where: { id } });

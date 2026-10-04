@@ -7,7 +7,7 @@ import { competitorsEnabled, discoverCompetitor, CompetitorLookupError } from "@
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   if (!competitorsEnabled()) {
     return NextResponse.json({ error: "این قابلیت هنوز فعال نشده است" }, { status: 503 });

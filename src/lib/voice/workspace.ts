@@ -1,3 +1,4 @@
+import {featureAccessExpired} from "@/lib/subscriptions/access";
 import { prisma } from "@/lib/db/prisma";
 
 /**
@@ -5,9 +6,10 @@ import { prisma } from "@/lib/db/prisma";
  * crmPlan pattern. Unlike CRM there's no team-seat sharing here (an agency account
  * runs its own agents), so this is just a thin plan check, not a workspace resolver.
  */
-export function hasVoiceAccess(user: { voicePlan?: string | null; voicePlanExpiry?: Date | null }): boolean {
+export function hasVoiceAccess(user: { voicePlan?: string | null; voicePlanExpiry?: Date | null; plan?:string;planExpiry?:Date|null;trialEndsAt?:Date|null }): boolean {
+  if(featureAccessExpired(user))return false;
   if (!user.voicePlan || user.voicePlan === "NONE") return false;
-  if (user.voicePlanExpiry && user.voicePlanExpiry.getTime() < Date.now()) return false;
+  if (user.voicePlanExpiry && user.voicePlanExpiry.getTime() <= Date.now()) return false;
   return true;
 }
 

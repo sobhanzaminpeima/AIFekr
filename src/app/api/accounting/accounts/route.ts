@@ -11,7 +11,7 @@ import { tri } from "@/lib/i18n/tri";
 /** Chart of accounts for the caller's workspace — seeds the default template on first access. */
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
   const lang = await getServerLang();
   if (!hasCrmAccess(ws)) {
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
 /** Adds a custom account alongside the seeded default chart. */
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
   const lang = await getServerLang();
   if (!hasCrmAccess(ws)) {

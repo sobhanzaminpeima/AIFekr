@@ -21,7 +21,7 @@ function request(plan: string, period: string, currency = "TRY") {
 }
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.auth.mockResolvedValue({ id: "buyer", role: "USER" });
+  mocks.auth.mockResolvedValue({ id: "buyer", role: "USER", accountType: "STUDENT" });
   mocks.findPackage.mockResolvedValue({ isActive: true, priceUsd: 8000, price: 80000, credits: 1000, duration: 30, teamSeatLimit:3,crmSeatLimit:3 });
   mocks.membership.mockResolvedValue(null);mocks.memberCount.mockResolvedValue(0);
   mocks.findPending.mockResolvedValue(null);

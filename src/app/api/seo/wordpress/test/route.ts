@@ -9,7 +9,7 @@ import { tri } from "@/lib/i18n/tri";
 /** Checks the saved WordPress connection: reachable, application password valid, allowed to publish, which SEO plugin. */
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const lang = await getServerLang();
 
   const conn = await loadWpConn(user.id);

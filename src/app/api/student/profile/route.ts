@@ -7,7 +7,7 @@ import { studentWorkspaceDisabledResponse } from "@/lib/student/access";
 
 export async function GET(req: NextRequest) {
   const auth = await requireAuth(req);
-  if (!auth) return unauthorizedResponse();
+  if (!auth) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(auth);
   if (unavailable) return unavailable;
   const user = await prisma.user.findUnique({ where: { id: auth.id }, select: { name: true, email: true, avatar: true, studentPublicSlug: true, studentProfilePublic: true } });
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const auth = await requireAuth(req);
-  if (!auth) return unauthorizedResponse();
+  if (!auth) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(auth);
   if (unavailable) return unavailable;
   let body: { slug?: unknown; isPublic?: unknown };

@@ -11,7 +11,7 @@ const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth(req);
-  if (!auth) return unauthorizedResponse();
+  if (!auth) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(auth);
   if (unavailable) return unavailable;
   let form: FormData;

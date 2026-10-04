@@ -80,7 +80,7 @@ ${hasProfile ? `راهنمای استفاده از اطلاعات بالا:
 
 async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   try {
     const body = await req.json();
@@ -149,7 +149,7 @@ async function handlePost(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const last = await prisma.businessAnalysis.findFirst({
     where: { userId: user.id },

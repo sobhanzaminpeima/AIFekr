@@ -15,7 +15,7 @@ const MANUAL_COOLDOWN_MS = 2 * 60 * 1000;
 /** Runs an audit now and saves it (with the change since the previous audit). */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const lang = await getServerLang();
 
   const site = await prisma.seoSite.findFirst({ where: { id: params.id, userId: user.id } });

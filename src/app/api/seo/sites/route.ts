@@ -14,7 +14,7 @@ import { tri } from "@/lib/i18n/tri";
 /** The user's tracked websites, newest first, with their latest score. */
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const businessId = await activeBusinessIdFor(user.id);
 
   const sites = await prisma.seoSite.findMany({
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 /** Adds a website to track. Accepts "mysite.com" as well as a full URL; only the site's origin is stored. */
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const lang = await getServerLang();
 
   const { url: raw, name } = await req.json().catch(() => ({}));

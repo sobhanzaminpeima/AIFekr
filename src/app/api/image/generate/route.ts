@@ -41,7 +41,7 @@ const OPENAI_IMAGE_MONTHLY_BUDGET_CAP = Number(process.env.OPENAI_IMAGE_MONTHLY_
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   if (!(await isFeatureEnabled("image"))) {
     return NextResponse.json({ error: FEATURE_DISABLED_MESSAGE.image }, { status: 503 });

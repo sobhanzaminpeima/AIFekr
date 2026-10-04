@@ -6,7 +6,7 @@ import { embedForStorage } from "@/lib/rag/retrieve";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const lessons = await prisma.contentAgentLesson.findMany({
     where: { userId: user.id },
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { agentKey, text } = await req.json();
   if (!agentKey || !text?.trim()) return NextResponse.json({ error: "ورودی نامعتبر" }, { status: 400 });
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { id } = await req.json();
   const lesson = await prisma.contentAgentLesson.findUnique({ where: { id } });

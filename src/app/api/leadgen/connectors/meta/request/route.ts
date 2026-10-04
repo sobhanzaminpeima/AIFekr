@@ -12,7 +12,7 @@ import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
 // wires up their Page token by hand from /admin/lead-connectors.
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   if (user.plan === "FREE") return forbiddenResponse();
 
   const body = await req.json().catch(() => ({}));

@@ -15,7 +15,7 @@ async function ownedSite(userId: string, id: string) {
 /** The site's blog-automation plan (defaults when none is saved yet), whether WordPress is connected, and the posts it produced. */
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const site = await ownedSite(user.id, params.id);
   if (!site) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 /** Saves the plan. Turning it on schedules the first post for the next scheduler tick. */
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const site = await ownedSite(user.id, params.id);
   if (!site) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const lang = await getServerLang();

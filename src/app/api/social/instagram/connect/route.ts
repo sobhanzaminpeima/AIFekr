@@ -8,7 +8,7 @@ import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   if (!getInstagramAppId()) {
     return NextResponse.json({ error: "INSTAGRAM_APP_ID تنظیم نشده — از داشبورد Meta، بخش Instagram API → API setup with Instagram login" }, { status: 500 });

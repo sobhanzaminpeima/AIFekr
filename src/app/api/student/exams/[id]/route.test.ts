@@ -9,7 +9,7 @@ const owner = `exam-owner-${crypto.randomUUID()}`, stranger = `exam-other-${cryp
 let examId: string;
 function request(userId: string | null, method: string, body?: unknown) { return new NextRequest(`https://aifekr.test/api/student/exams/${examId}`, { method, headers: userId ? { Cookie: `token=${signToken({ userId, role: "USER", plan: "FREE" })}`, "Content-Type": "application/json" } : {}, ...(body ? { body: JSON.stringify(body) } : {}) }); }
 beforeAll(async () => {
- await prisma.user.createMany({ data: [{id:owner},{id:stranger}] });
+ await prisma.user.createMany({ data: [owner, stranger].map(id => ({ id, accountType: "STUDENT", plan: "STUDENT_MONTHLY", planExpiry: new Date(Date.now() + 86400000) })) });
  const course = await prisma.studentCourse.create({ data: { userId: owner, name: "Physics" } });
  const exam = await prisma.studentExam.create({ data: { userId: owner, courseId: course.id, title: "Midterm", examAt: new Date("2026-11-01T12:00:00Z") } }); examId=exam.id;
 });

@@ -9,7 +9,7 @@ import { bizScope } from "@/lib/accounting/scope";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   if (user.plan === "FREE") return forbiddenResponse();
 
   const businessId = await activeBusinessIdFor(user.id);

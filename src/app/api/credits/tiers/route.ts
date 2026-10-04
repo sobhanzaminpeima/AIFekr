@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 /** Active credit-purchase tiers, for the user-facing /credits page. */
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const tiers = await prisma.creditPricingTier.findMany({
     where: { isActive: true },

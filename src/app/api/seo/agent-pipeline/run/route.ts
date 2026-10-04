@@ -10,7 +10,7 @@ import { runContentPipeline } from "@/lib/agents/runContentPipeline";
 
 async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   // The whole 8-agent chain used to be Persian-only with no language input at
   // all, so an English or German user got a Persian article out of it.

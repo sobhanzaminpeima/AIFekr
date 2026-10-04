@@ -7,7 +7,7 @@ import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const businessId = await activeBusinessIdFor(user.id);
   const appointments = await prisma.voiceAppointment.findMany({

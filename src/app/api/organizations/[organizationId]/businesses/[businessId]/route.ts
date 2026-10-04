@@ -5,7 +5,7 @@ import { deleteBusinessCompletely } from "@/lib/organization/deleteBusiness";
 
 export async function DELETE(req: NextRequest, { params }: { params: { organizationId: string; businessId: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const business = await prisma.businessWorkspace.findUnique({ where: { id: params.businessId }, select: { id: true, organizationId: true, name: true } });
   if (!business || business.organizationId !== params.organizationId) return NextResponse.json({ error: "Business not found" }, { status: 404 });

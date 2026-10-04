@@ -9,7 +9,7 @@ import { prisma } from "@/lib/db/prisma";
 // feed, so no cursor pagination for now.
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const [notifications, unreadCount] = await Promise.all([
     prisma.notification.findMany({
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 // Mark one notification as read ({ id }) or all of them ({ all: true }).
 export async function PATCH(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const body = await req.json().catch(() => ({}));
 

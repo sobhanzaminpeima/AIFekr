@@ -5,7 +5,7 @@ import { randomBytes } from "crypto";
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth(req);
-  if (!auth) return unauthorizedResponse();
+  if (!auth) return unauthorizedResponse(req);
 
   const { type, id } = await req.json();
 

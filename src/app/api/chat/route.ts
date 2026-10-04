@@ -13,7 +13,7 @@ import { rateLimit } from "@/lib/utils/rateLimit";
 import { getServerLang } from "@/lib/i18n/server";
 import { buildWorkspaceContext } from "@/lib/orchestrator/isolation";
 import { orchestrateTurn, buildComposerMessages, composerInstruction, type OrchestrationResult } from "@/lib/orchestrator/run";
-import { parseRoutingState, serializeRoutingState } from "@/lib/orchestrator/routing";
+import { parseRoutingState, serializeRoutingState, resolveIntent } from "@/lib/orchestrator/routing";
 import { callPlanner } from "@/lib/orchestrator/planner";
 import { buildProductKnowledgeBlock } from "@/lib/orchestrator/kb/productContext";
 import { logError } from "@/lib/logging/errorLog";
@@ -109,7 +109,7 @@ const MAX_AUTO_CREDIT_COST = Math.max(CREDIT_COSTS.chat, ...PROVIDERS.map((p) =>
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   // Credits already gate cost per-message, but that doesn't stop a scripted
   // burst hammering the LLM providers/DB in a tight loop — a light per-user
@@ -133,12 +133,11 @@ export async function POST(req: NextRequest) {
     // the most expensive one rather than the cheapest.
     const explicitProvider = typeof model === "string" ? PROVIDERS.find((p) => p.model === model) : undefined;
     const expectedCost = isCustomProviderModel(model) ? 3 : explicitProvider?.creditCost ?? MAX_AUTO_CREDIT_COST;
-    const availableCredits = await getAvailableCredits(user.id);
+    const [availableCredits,lang] = await Promise.all([getAvailableCredits(user.id),getServerLang()]);
     if (availableCredits < expectedCost) {
       return NextResponse.json({ error: "اعتبار کافی ندارید. لطفاً اعتبار خود را شارژ کنید" }, { status: 402 });
     }
 
-    const lang = await getServerLang();
 
     // Ground answers about AIFekr itself in the real knowledge base instead of
     // whatever the model happens to believe. No-ops (returns "") for every
@@ -150,9 +149,10 @@ export async function POST(req: NextRequest) {
     // Find or create conversation. An id passed by the client is only ever trusted once
     // it is confirmed to belong to this user -- otherwise one user could inject messages
     // into (and read/rewrite the routing state of) another user's conversation.
-    let convId: string | undefined = conversationId
-      ? (await prisma.conversation.findFirst({ where: { id: conversationId, userId: user.id }, select: { id: true } }))?.id
+    const ownedConversation = conversationId
+      ? (await prisma.conversation.findFirst({ where: { id: conversationId, userId: user.id }, select: { id: true,routingState:true } }))
       : undefined;
+    let convId=ownedConversation?.id;
     if (!convId) {
       const conv = await prisma.conversation.create({
         data: {
@@ -178,12 +178,13 @@ export async function POST(req: NextRequest) {
     // user's turn — a broken orchestrator must not break the main chat.
     let orchestration: OrchestrationResult | null = null;
     try {
+      const state=parseRoutingState(ownedConversation?.routingState);
+      if(resolveIntent(message,state.lastDomain).domains.length>0){
       const ctx = await buildWorkspaceContext({ id: user.id, plan: user.plan, voicePlan: user.voicePlan }, lang);
-      const conv = await prisma.conversation.findUnique({ where: { id: convId }, select: { routingState: true } });
       const result = await orchestrateTurn({
         message,
         ctx,
-        state: parseRoutingState(conv?.routingState),
+        state,
         conversationId: convId,
         callPlanner,
       });
@@ -193,6 +194,7 @@ export async function POST(req: NextRequest) {
           where: { id: convId },
           data: { routingState: serializeRoutingState(result.nextState) },
         });
+      }
       }
     } catch (err) {
       console.error("Orchestration pre-pass failed — answering as ordinary chat:", err);
@@ -366,7 +368,8 @@ export async function POST(req: NextRequest) {
     return new Response(stream, {
       headers: {
         "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
+        "Cache-Control": "no-cache, no-transform",
+        "X-Accel-Buffering": "no",
         Connection: "keep-alive",
         "X-Conversation-Id": convId,
       },

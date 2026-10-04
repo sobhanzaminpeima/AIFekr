@@ -235,7 +235,8 @@ export async function streamOpenAICompat(
   messages: ChatMessage[],
   systemPrompt: string,
   onChunk: (text: string) => void,
-  maxTokensOverride?: number
+  maxTokensOverride?: number,
+  signal?: AbortSignal
 ): Promise<TokenUsage | null> {
   const tokenCap = maxTokensOverride ? Math.min(maxTokensOverride, provider.maxOutputCeiling ?? provider.maxTokens) : provider.maxTokens;
 
@@ -286,6 +287,7 @@ export async function streamOpenAICompat(
 
   const res = await fetch(`${provider.baseURL}/chat/completions`, {
     method: "POST",
+    signal,
     headers,
     body,
   });
@@ -341,10 +343,12 @@ async function streamAnthropic(
   messages: ChatMessage[],
   systemPrompt: string,
   onChunk: (text: string) => void,
-  maxTokensOverride?: number
+  maxTokensOverride?: number,
+  signal?: AbortSignal
 ): Promise<TokenUsage | null> {
   const res = await fetch(`${provider.baseURL}/messages`, {
     method: "POST",
+    signal,
     headers: {
       "Content-Type": "application/json",
       "x-api-key": provider.apiKey,
@@ -411,10 +415,11 @@ export async function streamProvider(
   messages: ChatMessage[],
   systemPrompt: string,
   onChunk: (text: string) => void,
-  maxTokensOverride?: number
+  maxTokensOverride?: number,
+  signal?: AbortSignal
 ): Promise<TokenUsage | null> {
   if (provider.provider === "anthropic") {
-    return streamAnthropic(provider, messages, systemPrompt, onChunk, maxTokensOverride);
+    return streamAnthropic(provider, messages, systemPrompt, onChunk, maxTokensOverride, signal);
   }
-  return streamOpenAICompat(provider, messages, systemPrompt, onChunk, maxTokensOverride);
+  return streamOpenAICompat(provider, messages, systemPrompt, onChunk, maxTokensOverride, signal);
 }

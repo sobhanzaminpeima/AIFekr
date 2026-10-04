@@ -14,7 +14,7 @@ function fmtDate(d: Date): string {
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const lang = await getServerLang();
 
   const conn = await prisma.gscConnection.findUnique({ where: { userId: user.id } });

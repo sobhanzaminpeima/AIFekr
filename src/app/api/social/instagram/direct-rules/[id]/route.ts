@@ -13,7 +13,7 @@ async function loadOwnedRule(userId: string, businessId: string | null, id: stri
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const businessId = await activeBusinessIdFor(user.id);
   const { id } = await params;
   const rule = await loadOwnedRule(user.id, businessId, id);
@@ -47,7 +47,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const businessId = await activeBusinessIdFor(user.id);
   const { id } = await params;
   const rule = await loadOwnedRule(user.id, businessId, id);

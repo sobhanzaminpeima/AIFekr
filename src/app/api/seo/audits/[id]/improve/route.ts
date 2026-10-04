@@ -21,7 +21,7 @@ import { tri } from "@/lib/i18n/tri";
  */
 async function handlePost(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const lang = await getServerLang();
 
   const audit = await prisma.seoAudit.findFirst({ where: { id: params.id, userId: user.id }, include: { site: true } });

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const payments = await prisma.payment.findMany({
     where: { userId: user.id },

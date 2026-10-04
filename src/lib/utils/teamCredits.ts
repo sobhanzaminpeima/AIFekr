@@ -1,3 +1,4 @@
+import {featureAccessExpired,teamFeatureExpiry} from "@/lib/subscriptions/access";
 import { prisma } from "@/lib/db/prisma";
 import type { Prisma } from "@prisma/client";
 
@@ -68,14 +69,14 @@ async function mirrorWalletSpend(userId: string, amount: number, walletField: Wa
 }
 
 export async function getAvailableCredits(userId: string, db: Db = prisma): Promise<number> {
-  const membership = await db.teamMember.findUnique({
-    where: { userId },
-    include: { team: true },
-  });
-  if (membership) return membership.team.credits;
+  const [user,membership]=await Promise.all([
+    db.user.findUnique({where:{id:userId},select:{credits:true,plan:true,planExpiry:true,trialEndsAt:true}}),
+    db.teamMember.findUnique({where:{userId},include:{team:{include:{owner:{select:{planExpiry:true}}}}}}),
+  ]);
+  if(!user||featureAccessExpired(user,teamFeatureExpiry(membership?.team)))return 0;
+  if(membership){const expiry=teamFeatureExpiry(membership.team);return expiry&&expiry.getTime()<=Date.now()?0:membership.team.credits;}
+  return user.credits;
 
-  const user = await db.user.findUnique({ where: { id: userId }, select: { credits: true } });
-  return user?.credits ?? 0;
 }
 
 export interface WalletBalances {

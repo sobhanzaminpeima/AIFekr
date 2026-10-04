@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 
 export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req);
-  if (!admin) return unauthorizedResponse();
+  if (!admin) return unauthorizedResponse(req);
 
   const providers = await prisma.customAiProvider.findMany({ orderBy: { createdAt: "desc" } });
   // API keys never leave the server once saved — the admin list only needs
@@ -44,7 +44,7 @@ function isBlockedBaseUrl(url: string): boolean {
 
 export async function POST(req: NextRequest) {
   const admin = await requireAdmin(req);
-  if (!admin) return unauthorizedResponse();
+  if (!admin) return unauthorizedResponse(req);
 
   const { name, type = "chat", baseUrl, apiKey, model } = await req.json();
   if (!name?.trim() || !baseUrl?.trim() || !apiKey?.trim() || !model?.trim()) {
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const admin = await requireAdmin(req);
-  if (!admin) return unauthorizedResponse();
+  if (!admin) return unauthorizedResponse(req);
 
   const { id, enabled } = await req.json();
   if (!id) return NextResponse.json({ error: "id الزامی است" }, { status: 400 });
@@ -76,7 +76,7 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const admin = await requireAdmin(req);
-  if (!admin) return unauthorizedResponse();
+  if (!admin) return unauthorizedResponse(req);
 
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id الزامی است" }, { status: 400 });

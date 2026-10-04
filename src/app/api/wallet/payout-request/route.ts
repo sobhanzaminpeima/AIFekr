@@ -40,7 +40,7 @@ function validateMethodFields(method: Method, body: Record<string, unknown>): st
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const body = await req.json();
   const { amount, method } = body;

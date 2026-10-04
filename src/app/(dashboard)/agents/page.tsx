@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Sparkles, ArrowLeft, ArrowRight, HeartPulse, Briefcase, Handshake, Phone,
-  Crown, Search, Share2, Globe, Users, Calculator, Factory, Magnet,
+  GraduationCap, Crown, Search, Share2, Globe, Users, Calculator, Factory, Magnet,
 } from "lucide-react";
 import { useTranslation, tri, type Lang } from "@/lib/i18n";
 import { REAL_ESTATE_MODULES, type ModuleDefinition } from "@/lib/industry/moduleRegistry";
@@ -138,8 +138,10 @@ export default function MyAgentsPage() {
   const isFa = lang === "fa";
   const [loading, setLoading] = useState(true);
   const [access, setAccess] = useState<Record<string, boolean>>({});
+  const [agentAccess, setAgentAccess] = useState({ student: false, voice: false, business: false });
 
   useEffect(() => {
+    void fetch("/api/home/summary", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => { if (d?.agentAccess) setAgentAccess(d.agentAccess); }).catch(() => {});
     const keys = ALL_AGENT_MODULES.map((m) => m.key).join(",");
     fetch(`/api/crm/module-access?keys=${keys}`, { credentials: "include" })
       .then((r) => r.json())
@@ -176,7 +178,8 @@ export default function MyAgentsPage() {
           {tri(lang, "ایجنت‌های عمومی", "General-Purpose Agents", "Allgemeine Agenten")}
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {GENERAL_AGENTS.map((agent) => (
+          {agentAccess.student && <AgentCard href="/student" BackIcon={BackIcon} Icon={GraduationCap} department="strategy" lang={lang} label={tri(lang, "ایجنت دانشجویی", "Student Agent", "Studierenden-Agent", "Öğrenci ajanı")} description={tri(lang, "درس‌ها، برنامهٔ مطالعه، جزوه، فلش‌کارت، آزمون و دستیار پژوهش شما.", "Your courses, study planning, materials, flashcards, quizzes and research assistant.", "Kurse, Lernplanung, Materialien, Lernkarten, Quiz und Rechercheassistent.", "Dersler, çalışma planı, materyaller, bilgi kartları, testler ve araştırma asistanı.")} />}
+          {GENERAL_AGENTS.filter(a => a.key === "voice-agent" ? agentAccess.voice : agentAccess.business || a.key === "business-doctor").map((agent) => (
             <AgentCard key={agent.key} href={agent.href} BackIcon={BackIcon} Icon={agent.icon} department={agent.department} lang={lang}
               label={tri(lang, agent.labelFa, agent.labelEn, agent.labelDe)}
               description={tri(lang, agent.descriptionFa, agent.descriptionEn, agent.descriptionDe)} />

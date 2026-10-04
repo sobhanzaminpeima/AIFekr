@@ -55,6 +55,7 @@ export async function activatePlanForPayment(
         return current.planExpiry || expiry;
       }
       await tx.user.update({ where: { id: payment.userId }, data: { plan: payment.plan, accountType: "STUDENT", planExpiry: expiry, credits: { increment: planInfo?.credits || 0 }, trialLimited: false } });
+      const education=await tx.industryPack.findUnique({where:{slug:"university"},select:{id:true}});if(!education)throw new Error("STUDENT_INDUSTRY_NOT_CONFIGURED");await tx.user.update({where:{id:payment.userId},data:{industryPackId:education.id}});
       await tx.userModuleOverride.upsert({ where: { userId_moduleKey: { userId: payment.userId, moduleKey: "student.workspace" } }, create: { userId: payment.userId, moduleKey: "student.workspace", enabled: true }, update: { enabled: true } });
       return expiry;
     });

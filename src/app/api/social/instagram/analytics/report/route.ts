@@ -12,7 +12,7 @@ import { instagramWorkspaceScope } from "@/lib/instagram/workspaceScope";
 
 async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { language } = await req.json().catch(() => ({ language: "fa" }));
   const lang = language === "en" ? "en" : "fa";

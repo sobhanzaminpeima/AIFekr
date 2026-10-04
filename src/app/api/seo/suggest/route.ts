@@ -10,7 +10,7 @@ import { withToolCredits } from "@/lib/utils/withToolCredits";
 // to the site instead of parsing them out of prose.
 async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { url, targetKeyword } = await req.json();
   if (!url) return NextResponse.json({ error: "آدرس الزامی است" }, { status: 400 });

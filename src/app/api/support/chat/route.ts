@@ -42,7 +42,7 @@ interface SupportChatBody {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   // Its own limit, separate from /api/chat's -- this assistant costs no
   // credits, so credits can't do the defense-in-depth job rate limiting does
@@ -198,7 +198,7 @@ export async function POST(req: NextRequest) {
 /** Reopens a previous support-widget thread -- e.g. after the page reloads and the widget is given back its stored conversation id. */
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const conversationId = req.nextUrl.searchParams.get("conversationId");
   if (!conversationId) return NextResponse.json({ messages: [] });

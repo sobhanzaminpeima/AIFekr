@@ -57,7 +57,7 @@ const MEDIA_PROVIDERS = [
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user || (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN")) {
-    return unauthorizedResponse();
+    return unauthorizedResponse(req);
   }
 
   const providers = MEDIA_PROVIDERS.map((p) => {

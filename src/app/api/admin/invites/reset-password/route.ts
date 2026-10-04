@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin) {
     const user = await requireAuth(req);
-    return user ? forbiddenResponse() : unauthorizedResponse();
+    return user ? forbiddenResponse() : unauthorizedResponse(req);
   }
 
   const rl = rateLimit(`invite-reset-password:${admin.id}`, 20, 60 * 60 * 1000);

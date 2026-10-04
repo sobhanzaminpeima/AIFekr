@@ -15,7 +15,7 @@ import { getCreditCosts } from "@/lib/utils/creditCosts";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   await refreshDisabledProviders();
   const disabled = getDisabledProviders();

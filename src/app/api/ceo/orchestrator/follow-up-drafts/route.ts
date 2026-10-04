@@ -7,7 +7,7 @@ import { withToolCredits } from "@/lib/utils/withToolCredits";
 
 async function handleGet(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const lang = await getServerLang();
   const drafts = await generateFollowUpDrafts(user.id, lang);
   return NextResponse.json({ drafts });

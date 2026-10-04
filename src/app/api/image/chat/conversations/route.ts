@@ -14,7 +14,7 @@ import { prisma } from "@/lib/db/prisma";
  */
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const conversations = await prisma.conversation.findMany({
     where: { userId: user.id, tool: "image" },
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { title } = await req.json().catch(() => ({}));
   const conv = await prisma.conversation.create({

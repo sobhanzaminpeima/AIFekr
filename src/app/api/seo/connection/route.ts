@@ -6,7 +6,7 @@ import { encryptSecret } from "@/lib/crypto/secretBox";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const conn = await prisma.seoConnection.findUnique({ where: { userId: user.id } });
   // Never send the app password back to the client
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { platform, siteUrl, wpUsername, wpAppPassword } = await req.json();
   if (!["wordpress", "aifekr", "other"].includes(platform)) {
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   await prisma.seoConnection.deleteMany({ where: { userId: user.id } });
   return NextResponse.json({ success: true });
 }

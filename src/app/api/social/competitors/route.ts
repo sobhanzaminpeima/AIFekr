@@ -7,7 +7,7 @@ import { competitorsEnabled, discoverCompetitor, CompetitorLookupError, MAX_COMP
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const rows = await prisma.socialCompetitor.findMany({
     where: { userId: user.id },
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const body = await req.json().catch(() => null);
   const username = typeof body?.username === "string" ? body.username.replace(/^@/, "").trim() : "";
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id الزامی است" }, { status: 400 });
   await prisma.socialCompetitor.deleteMany({ where: { id, userId: user.id } });

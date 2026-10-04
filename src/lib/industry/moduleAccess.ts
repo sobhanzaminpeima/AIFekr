@@ -1,6 +1,9 @@
 import { hasBusinessBundle } from "@/lib/plans/businessAccess";
 import { getModule } from "./moduleRegistry";
 import { prisma } from "@/lib/db/prisma";
+import { isStudentWorkspaceEnabled } from "@/lib/student/access";
+import { hasVoiceAccess } from "@/lib/voice/workspace";
+import { featureAccessExpired } from "@/lib/subscriptions/access";
 
 /**
  * Single decision point for "is this CRM module / agent visible to this user".
@@ -28,6 +31,10 @@ function isPlatformAdmin(user: ModuleAccessUser): boolean {
 
 export async function isModuleEnabled(user: ModuleAccessUser, moduleKey: string): Promise<boolean> {
   if (isPlatformAdmin(user)) return true;
+  const account = await prisma.user.findUnique({ where: { id: user.id }, select: { plan: true, planExpiry: true, trialEndsAt: true, voicePlan: true, voicePlanExpiry: true } });
+  if (!account || featureAccessExpired(account)) return false;
+  if (moduleKey === "student.workspace") return isStudentWorkspaceEnabled(user);
+  if (moduleKey === "agent.voiceCallCenter") return hasVoiceAccess(account);
 
   const override = await prisma.userModuleOverride.findUnique({
     where: { userId_moduleKey: { userId: user.id, moduleKey } },
@@ -59,6 +66,9 @@ export async function getModuleAccessMap(
     return Object.fromEntries(moduleKeys.map((k) => [k, true]));
   }
 
+  const account = await prisma.user.findUnique({ where: { id: user.id }, select: { plan: true, planExpiry: true, trialEndsAt: true, voicePlan: true, voicePlanExpiry: true } });
+  if (!account || featureAccessExpired(account)) return Object.fromEntries(moduleKeys.map(k => [k, false]));
+  const student = moduleKeys.includes("student.workspace") ? await isStudentWorkspaceEnabled(user) : false;
   const [overrides, flags] = await Promise.all([
     prisma.userModuleOverride.findMany({
       where: { userId: user.id, moduleKey: { in: moduleKeys } },
@@ -76,6 +86,8 @@ export async function getModuleAccessMap(
 
   const result: Record<string, boolean> = {};
   for (const key of moduleKeys) {
+    if (key === "student.workspace") { result[key] = student; continue; }
+    if (key === "agent.voiceCallCenter") { result[key] = hasVoiceAccess(account); continue; }
     if (overrideMap.has(key)) {
       result[key] = overrideMap.get(key)!;
     } else if (bundled && getModule(key)) {

@@ -21,7 +21,7 @@ function normalizeKeywords(value: unknown): string {
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const businessId = await activeBusinessIdFor(user.id);
   const scope = { userId: user.id, ...instagramWorkspaceScope(businessId) };
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   if (!canAutoPublish(user.plan)) {
     return NextResponse.json({ error: "Auto Direct فقط برای پلن‌های Pro و Team فعال است" }, { status: 403 });
   }

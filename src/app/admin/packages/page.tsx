@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Star, Check, Loader2 } from "lucide-react";
+import {isBusinessBundle,businessIncludesVoice} from "@/lib/plans/business";
 import toast from "react-hot-toast";
 
 type Pkg = {
@@ -134,6 +135,8 @@ export default function PackagesPage() {
                 <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>
                   بازار: {MARKETS.find(m => m.value === (p.market || "IR"))?.label || p.market}
                 </div>
+                {isBusinessBundle(p.planCode)&&<p className="text-xs mb-3 font-semibold" style={{color:"var(--primary)"}}>{businessIncludesVoice(p.planCode)?"مرکز تماس هوش مصنوعی در این پکیج فعال می‌شود":"پکیج شروع: بدون مرکز تماس هوش مصنوعی"}</p>}
+                {p.planCode.startsWith("STUDENT_")&&<p className="text-xs mb-3 font-semibold" style={{color:"var(--primary)"}}>ایجنت دانشجویی · ویژهٔ حساب دانشجویی · صنعت دانشگاه / مدرسه</p>}
                 {(p.price > 0 || p.priceUsd != null) && <div className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>{p.duration} روز · {p.credits.toLocaleString("fa-IR")} اعتبار</div>}
                 <ul className="space-y-1 mb-4">
                   {p.features.split("\n").filter(Boolean).map((f, i) => (

@@ -20,11 +20,11 @@ import { tri } from "@/lib/i18n/tri";
  */
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const ws = await resolveCrmWorkspace(user.id);
   const lang = await getServerLang();
-  const owner = await prisma.user.findUnique({ where: { id: ws.workspaceUserId }, select: { voicePlan: true, voicePlanExpiry: true } });
+  const owner = await prisma.user.findUnique({ where: { id: ws.workspaceUserId }, select: { voicePlan: true, voicePlanExpiry: true,plan:true,planExpiry:true,trialEndsAt:true } });
   if (!owner || !hasVoiceAccess(owner)) {
     return NextResponse.json({ error: tri(lang, "افزونه Voice Agent برای این کسب‌وکار فعال نیست.", "The Voice Agent add-on is not enabled for this business.", "Das Voice-Agent-Add-on ist für dieses Unternehmen nicht aktiviert.") }, { status: 402 });
   }

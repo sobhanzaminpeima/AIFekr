@@ -30,7 +30,7 @@ export interface BusinessProfile {
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const company = await prisma.company.findUnique({ where: { userId: user.id } });
   if (!company) return NextResponse.json({ profile: null });
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const body: BusinessProfile = await req.json();
   const { name, industry, website, phone, email, address, size, revenue, ...extra } = body;

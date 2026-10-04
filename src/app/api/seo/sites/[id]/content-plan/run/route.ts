@@ -13,7 +13,7 @@ import { parseTopics, chooseTopic } from "@/lib/seo/contentPlanCore";
  */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const site = await prisma.seoSite.findFirst({ where: { id: params.id, userId: user.id }, include: { contentPlan: true } });
   const plan = site?.contentPlan;

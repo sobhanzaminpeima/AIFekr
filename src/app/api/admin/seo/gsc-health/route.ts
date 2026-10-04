@@ -15,7 +15,7 @@ import { getGscAccessToken, listGscSites, GscApiUnavailableError, GscReconnectRe
  */
 export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req);
-  if (!admin) return unauthorizedResponse();
+  if (!admin) return unauthorizedResponse(req);
 
   const configured = !!process.env.GOOGLE_SEARCH_CONSOLE_CLIENT_ID && !!process.env.GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET;
   const connections = await prisma.gscConnection.count();

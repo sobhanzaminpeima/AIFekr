@@ -23,7 +23,7 @@ import { logError } from "@/lib/logging/errorLog";
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const lang = await getServerLang();
   if (!hasVoiceAccess(user) && !["ADMIN","SUPER_ADMIN"].includes(user.role)) {
     return NextResponse.json({

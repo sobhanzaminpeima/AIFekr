@@ -1,4 +1,5 @@
-import { isBusinessBundle } from "@/lib/plans/business";
+import { isBusinessBundle, businessIncludesVoice } from "@/lib/plans/business";
+import {standaloneVoiceExpiry} from "./voiceEntitlement";
 import { prisma } from "@/lib/db/prisma";
 export async function reviewBankPayment(id:string,adminId:string,approve:boolean,note:string){
  return prisma.$transaction(async tx=>{
@@ -16,8 +17,9 @@ export async function reviewBankPayment(id:string,adminId:string,approve:boolean
  if(p.plan.startsWith("CREDITS_"))await tx.user.update({where:{id:u.id},data:{credits:{increment:entitlement.credits}}});
  else if(p.plan.startsWith("VOICE_"))await tx.user.update({where:{id:u.id},data:{voicePlan:"ACTIVE",voicePlanExpiry:expiry}});
  else {
+ const separateVoice=bundle&&!businessIncludesVoice(p.plan)?await standaloneVoiceExpiry(tx,u.id):null;
  const crm=p.plan.startsWith("CRM_"),team=p.plan==="TEAM"||p.plan.startsWith("TEAM_")||p.plan==="CRM_TEAM";
- await tx.user.update({where:{id:u.id},data:crm?{crmPlan:p.plan==="CRM_TEAM"?"TEAM":"SOLO",crmPlanExpiry:expiry}:{plan:team?"TEAM":p.plan,...(p.plan.startsWith("STUDENT_")?{accountType:"STUDENT"}:bundle?{accountType:"BUSINESS"}:{}),planExpiry:expiry,trialLimited:false,...(bundle?{crmPlan:"TEAM",crmPlanExpiry:expiry,voicePlan:"ACTIVE",voicePlanExpiry:expiry}:{}),...(!team?{credits:{increment:entitlement.credits}}:{})}});
+ await tx.user.update({where:{id:u.id},data:crm?{crmPlan:p.plan==="CRM_TEAM"?"TEAM":"SOLO",crmPlanExpiry:expiry}:{plan:team?"TEAM":p.plan,...(p.plan.startsWith("STUDENT_")?{accountType:"STUDENT"}:bundle?{accountType:"BUSINESS"}:{}),planExpiry:expiry,trialLimited:false,...(bundle?{crmPlan:"TEAM",crmPlanExpiry:expiry,...(businessIncludesVoice(p.plan)?{voicePlan:"ACTIVE",voicePlanExpiry:expiry}:separateVoice&&u.voicePlan==="ACTIVE"?{voicePlan:"ACTIVE",voicePlanExpiry:separateVoice}:{voicePlan:"NONE",voicePlanExpiry:null})}:{}),...(!team?{credits:{increment:entitlement.credits}}:{})}});
  if(team){
  const seats=crm?entitlement.crmSeatLimit||5:entitlement.teamSeatLimit||5;
  const existing=await tx.team.findUnique({where:{ownerId:u.id}});
@@ -25,7 +27,7 @@ export async function reviewBankPayment(id:string,adminId:string,approve:boolean
  const row=existing?await tx.team.update({where:{id:existing.id},data:{maxSeats:bundle?seats:Math.max(existing.maxSeats,seats),...(!crm?{credits:{increment:entitlement.credits},planExpiry:expiry}:{})}}):await tx.team.create({data:{ownerId:u.id,name:`Team ${u.name||"AIFekr"}`,maxSeats:seats,credits:crm?0:entitlement.credits,...(!crm?{planExpiry:expiry}:{})}});
  await tx.teamMember.upsert({where:{userId:u.id},create:{teamId:row.id,userId:u.id,role:"OWNER",...((crm||bundle)?{crmRole:"OWNER"}:{})},update:{...((crm||bundle)?{crmRole:"OWNER"}:{})}});
  }
- if(p.plan.startsWith("STUDENT_"))await tx.userModuleOverride.upsert({where:{userId_moduleKey:{userId:u.id,moduleKey:"student.workspace"}},create:{userId:u.id,moduleKey:"student.workspace",enabled:true},update:{enabled:true}});
+ if(p.plan.startsWith("STUDENT_")){const education=await tx.industryPack.findUnique({where:{slug:"university"},select:{id:true}});if(!education)throw new Error("STUDENT_INDUSTRY_NOT_CONFIGURED");await tx.user.update({where:{id:u.id},data:{industryPackId:education.id}});await tx.userModuleOverride.upsert({where:{userId_moduleKey:{userId:u.id,moduleKey:"student.workspace"}},create:{userId:u.id,moduleKey:"student.workspace",enabled:true},update:{enabled:true}});}
  }
  if(u.referredBy&&!u.referralRewarded&&u.referredBy!==u.id){
  const referrer=await tx.user.findUnique({where:{id:u.referredBy}});

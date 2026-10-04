@@ -13,7 +13,7 @@ import { prisma } from "@/lib/db/prisma";
  */
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const membership = await prisma.teamMember.findUnique({ where: { userId: user.id } });
   if (!membership) return NextResponse.json({ team: null });

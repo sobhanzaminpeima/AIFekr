@@ -15,7 +15,7 @@ import { prisma } from "@/lib/db/prisma";
  */
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { conversationId, role, content } = await req.json();
   if (!conversationId || !role || typeof content !== "string") {

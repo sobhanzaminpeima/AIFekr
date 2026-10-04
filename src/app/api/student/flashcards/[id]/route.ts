@@ -8,7 +8,7 @@ import { scheduleFlashcardReview, type FlashcardRating } from "@/lib/student/spa
 
 export async function PATCH(req: NextRequest, context: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   let body: { rating?: FlashcardRating };

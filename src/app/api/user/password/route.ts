@@ -8,7 +8,7 @@ import { updatePasswordHash } from "@/lib/repositories/userRepository";
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { currentPassword, newPassword } = await req.json();
   if (!newPassword || newPassword.length < 6) {

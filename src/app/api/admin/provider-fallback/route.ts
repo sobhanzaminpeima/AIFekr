@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   if (!admin) {
     const { requireAuth } = await import("@/lib/auth/middleware");
     const user = await requireAuth(req);
-    return user ? forbiddenResponse() : unauthorizedResponse();
+    return user ? forbiddenResponse() : unauthorizedResponse(req);
   }
 
   const { searchParams } = new URL(req.url);

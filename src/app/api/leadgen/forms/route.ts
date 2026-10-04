@@ -14,7 +14,7 @@ const MAX_FORMS_PER_TENANT = 50;
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   if (user.plan === "FREE") return forbiddenResponse();
 
   const businessId = await activeBusinessIdFor(user.id);
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   if (user.plan === "FREE") return forbiddenResponse();
 
   const count = await prisma.leadForm.count({ where: { userId: user.id } });

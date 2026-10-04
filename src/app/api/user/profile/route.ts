@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const [full, teamMembership] = await Promise.all([
     prisma.user.findUnique({
@@ -35,7 +35,7 @@ const VALID_LANGS = new Set(["fa", "en", "de"]);
 
 export async function PATCH(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { name, firstName, lastName, country, currency, language, avatar } = await req.json();
   const data: { name?: string; firstName?: string | null; lastName?: string | null; country?: string | null; currency?: string | null; language?: string; avatar?: string } = {};

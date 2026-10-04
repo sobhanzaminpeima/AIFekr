@@ -7,7 +7,7 @@ import { getBrandProfile } from "@/lib/social/brandProfile";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   return NextResponse.json({ profile: await getBrandProfile(user.id) });
 }
 
@@ -16,7 +16,7 @@ const clamp = (v: unknown, n: number): string | null =>
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "درخواست نامعتبر" }, { status: 400 });

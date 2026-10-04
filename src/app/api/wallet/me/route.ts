@@ -7,7 +7,7 @@ import { getReferralCommissionPercent } from "@/lib/utils/referralWallet";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const [walletUser, transactions, payoutRequests, commissionPercent] = await Promise.all([
     prisma.user.findUnique({ where: { id: user.id }, select: { walletBalance: true } }),

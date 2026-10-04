@@ -15,7 +15,7 @@ import { resolveCrmWorkspace, businessFilter } from "@/lib/crm/workspace";
  */
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
 
   const baseWhere = ws.isAgentRestricted

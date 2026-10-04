@@ -7,7 +7,7 @@ import { metaUnsubscribePageLeadgen } from "@/lib/leadgen/meta";
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   if (user.plan === "FREE") return forbiddenResponse();
 
   const src = await prisma.leadSource.findFirst({ where: { id: params.id, userId: user.id } });

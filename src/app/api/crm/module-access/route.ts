@@ -11,7 +11,7 @@ import { getModuleAccessMap } from "@/lib/industry/moduleAccess";
 // Scheduler, ...). ?keys=crm.property,crm.owner,crm.viewingScheduler
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
   const owner = await prisma.user.findUnique({ where: { id: ws.workspaceUserId }, select: { industryPackId: true } });
 

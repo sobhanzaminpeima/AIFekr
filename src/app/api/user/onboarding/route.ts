@@ -4,7 +4,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth(req);
-  if (!auth) return unauthorizedResponse();
+  if (!auth) return unauthorizedResponse(req);
 
   const { businessType, goal, experience } = await req.json();
 

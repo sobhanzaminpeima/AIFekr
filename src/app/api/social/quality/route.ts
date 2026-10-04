@@ -12,7 +12,7 @@ import { getServerLang } from "@/lib/i18n/server";
  */
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const body = await req.json().catch(() => null);
   if (!body || typeof body.caption !== "string") {

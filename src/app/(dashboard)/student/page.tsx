@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import StudentWorkspace from "@/components/student/StudentWorkspace";
@@ -17,8 +18,9 @@ export default async function StudentPage() {
   if (!await isStudentWorkspaceEnabled(user)) {
     return (
       <div className="mx-auto max-w-2xl p-8 text-center">
-        <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>ماژول دانشجویی برای حساب شما فعال نیست</h1>
-        <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>برای فعال‌سازی با مدیر پلتفرم تماس بگیرید.</p>
+        <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>ایجنت دانشجویی برای حساب شما فعال نیست</h1>
+        <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>این ایجنت فقط برای حساب دانشجویی با پکیج دانشجویی فعال قابل استفاده است.</p>
+        <Link href="/pricing" className="inline-block mt-4 rounded-xl px-4 py-2 text-white" style={{background:"var(--primary)"}}>مشاهده و تمدید پکیج دانشجویی</Link>
       </div>
     );
   }
