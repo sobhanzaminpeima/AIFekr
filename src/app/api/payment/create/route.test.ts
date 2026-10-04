@@ -100,3 +100,17 @@ describe("bank checkout period selection", () => {
     expect(mocks.findPackage).not.toHaveBeenCalled();
   });
 });
+
+describe("existing-account student purchase",()=>{
+  it("allows explicit student selection on the same account and snapshots its classification",async()=>{
+    mocks.auth.mockResolvedValue({id:"existing-buyer",role:"USER",accountType:"PERSONAL"});
+    const req=new NextRequest("http://localhost/api/payment/create",{method:"POST",body:JSON.stringify({plan:"STUDENT_FIRST_THREE_MONTHS",period:"monthly",selectStudentAccount:true})});
+    expect((await POST(req)).status).toBe(200);
+    const data=mocks.create.mock.calls[0][0].data;
+    expect(data.userId).toBe("existing-buyer");expect(JSON.parse(data.entitlementSnapshot).accountType).toBe("STUDENT");
+  });
+  it("does not silently classify a non-student account without explicit selection",async()=>{
+    mocks.auth.mockResolvedValue({id:"buyer",role:"USER",accountType:"BUSINESS"});
+    expect((await POST(request("STUDENT_FIRST_THREE_MONTHS","monthly"))).status).toBe(403);expect(mocks.create).not.toHaveBeenCalled();
+  });
+});

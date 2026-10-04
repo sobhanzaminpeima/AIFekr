@@ -44,17 +44,22 @@ export default function WelcomePage() {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({ businessType: "", goal: "", experience: "" });
   const [loading, setLoading] = useState(false);
+  const [error,setError] = useState("");
 
   async function finish(experience: string) {
     const final = { ...answers, experience };
     setLoading(true);
+    setError("");
+    try {
     const res = await fetch("/api/user/onboarding", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(final),
     });
     const data = await res.json();
+    if(!res.ok)throw new Error(data.error || tri(lang,"ذخیرهٔ اطلاعات انجام نشد؛ دوباره تلاش کنید.","Could not save. Please retry.","Speichern fehlgeschlagen. Bitte erneut versuchen.","Kaydedilemedi. Tekrar deneyin."));
     router.push(data.redirect || "/home");
+    } catch(e){setError(e instanceof Error?e.message:tri(lang,"خطا در ارتباط با سرور","Connection failed","Verbindung fehlgeschlagen","Bağlantı başarısız"));} finally {setLoading(false);}
   }
 
   const steps = [
@@ -145,13 +150,15 @@ export default function WelcomePage() {
           ))}
         </div>
 
+        {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
         {/* Skip */}
         <button
-          onClick={() => router.push("/home")}
+          disabled={loading}
+          onClick={() => void finish("skip")}
           style={{ marginTop: 24, background: "none", border: "none", color: "rgba(255,255,255,0.35)", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
         >
           {rtl ? <ArrowLeft size={13} /> : <ArrowRight size={13} />}{" "}
-          {tri(lang, "رد کردن و ورود به داشبورد", "Skip and go to the dashboard", "Überspringen und zum Dashboard")}
+          {tri(lang, "رد کردن و ورود به داشبورد", "Skip and go to the dashboard", "Überspringen und zum Dashboard", "Atla ve panele git")}
         </button>
       </div>
 

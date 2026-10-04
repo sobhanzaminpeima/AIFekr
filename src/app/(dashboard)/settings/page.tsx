@@ -2,6 +2,8 @@
 
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
+import StudentActivationLink from "@/components/student/StudentActivationLink";
 import { useState, useEffect } from "react";
 import { Save, User, Lock, Trash2, CreditCard, BarChart3, Palette, Loader2, Users, UserPlus, Crown, X } from "lucide-react";
 import toast from "react-hot-toast";
@@ -25,6 +27,9 @@ interface Profile {
   planExpiry: string | null;
   createdAt: string;
   authProvider: string;
+  accountType?: string;
+  studentWorkspaceEnabled?: boolean;
+  industryPack?: {name:string;nameEn:string|null;nameDe:string|null;slug:string}|null;
 }
 
 interface UsageStats {
@@ -224,6 +229,12 @@ export default function SettingsPage() {
             ))}
           </div>
         </div>
+
+        <section className="mb-5 rounded-2xl border p-4" style={{borderColor:"var(--border)"}}>
+          <h2 className="font-semibold">{tri(lang,"بسته‌ها و ایجنت‌های حساب من","My packages and agents","Meine Pakete und Agenten","Paketlerim ve ajanlarım")}</h2>
+          <p className="my-3 text-sm opacity-75">{profile?.industryPack ? (lang==="fa"?profile.industryPack.name:lang==="de"?(profile.industryPack.nameDe||profile.industryPack.nameEn||profile.industryPack.name):(profile.industryPack.nameEn||profile.industryPack.name)) : tri(lang,"هنوز بستهٔ صنعتی انتخاب نکرده‌اید","No industry pack selected yet","Noch kein Branchenpaket gewählt","Henüz sektör paketi seçilmedi")}</p>
+          <div className="flex flex-wrap gap-2"><Link href="/industry" className="rounded-xl border px-4 py-2 text-sm" style={{borderColor:"var(--border)"}}>{tri(lang,"مشاهدهٔ بسته‌های صنعتی","Browse industry packs","Branchenpakete ansehen","Sektör paketlerini gör")}</Link><StudentActivationLink className="rounded-xl bg-indigo-600 px-4 py-2 text-sm text-white">{profile?.studentWorkspaceEnabled?tri(lang,"ایجنت دانشجویی فعال — ورود","Student Agent active — open","Lernagent aktiv — öffnen","Öğrenci ajanı etkin — aç"):tri(lang,"فعال‌سازی بستهٔ دانشجویی","Activate student package","Studierendenpaket aktivieren","Öğrenci paketini etkinleştir")}</StudentActivationLink></div>
+        </section>
 
         <div>
           <label htmlFor="settings-display-name" className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.settingsPage.displayName}</label>

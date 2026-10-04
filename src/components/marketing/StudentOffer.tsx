@@ -1,5 +1,5 @@
 "use client";
-import Link from "@/components/marketing/PublicLink";
+import StudentActivationLink from "@/components/student/StudentActivationLink";
 import { Check, GraduationCap } from "lucide-react";
 import { STUDENT_PLAN_CODE, STUDENT_MONTHLY_CODE, STUDENT_OFFER, studentOfferCopy } from "@/lib/plans/studentOffer";
 import { formatPackageAmount, packageAmount } from "@/lib/marketing/packageCurrency";
@@ -24,7 +24,7 @@ export default function StudentOffer({ lang, plan, onBuy, busy }: { lang: Lang; 
     <p className="mb-3 text-sm">{plan.credits > 0 && <strong>{plan.credits.toLocaleString(lang)} {({ fa: "کردیت برای کل دوره • ", en: "credits for the full term • ", de: "Credits für die gesamte Laufzeit • ", tr: "tüm dönem için kredi • " })[lang]}</strong>}{c.credit}</p>
     <p className="mb-3 text-xs opacity-80">{({ fa: "این خرید جایگزین اشتراک عمومی AI شما می‌شود؛ اشتراک CRM مستقل است. تمدید خودکار ندارد.", en: "This purchase replaces your general AI subscription; CRM is separate. No automatic renewal.", de: "Dieser Kauf ersetzt Ihr allgemeines KI-Abo; CRM bleibt separat. Keine automatische Verlängerung.", tr: "Bu satın alma genel yapay zekâ aboneliğinizin yerini alır; CRM ayrıdır. Otomatik yenileme yoktur." })[lang]}</p>
     <p className="mb-5 text-xs opacity-70">{c.rate} ({plan.rateDate || "2026-10-02"}) {plan.isFallback && ({fa:"نرخ ذخیره‌شده؛ دریافت نرخ زنده در دسترس نبود.",en:"Saved rate; live provider unavailable.",de:"Gespeicherter Kurs; Live-Anbieter nicht erreichbar.",tr:"Kayıtlı kur; canlı sağlayıcıya ulaşılamadı."})[lang]}</p>
-    {introductory && !onBuy && <p className="mb-4"><Link href={`/register?plan=${STUDENT_MONTHLY_CODE}&period=monthly`} className="underline underline-offset-4">{({fa:"اشتراک عادی ماهانه",en:"Regular monthly subscription",de:"Reguläres Monatsabo",tr:"Normal aylık abonelik"})[lang]}</Link></p>}
-    {onBuy ? <button disabled={busy || amount <= 0} onClick={onBuy} className="rounded-xl bg-orange-500 px-6 py-3 font-semibold text-black disabled:opacity-50">{busy ? "…" : c.buy}</button> : <Link className="m-button" href={`/register?plan=${plan.planCode}&period=monthly`}>{c.buy}</Link>}
+    {introductory && !onBuy && <p className="mb-4"><StudentActivationLink plan={STUDENT_MONTHLY_CODE} intent="purchase" className="underline underline-offset-4">{({fa:"اشتراک عادی ماهانه",en:"Regular monthly subscription",de:"Reguläres Monatsabo",tr:"Normal aylık abonelik"})[lang]}</StudentActivationLink></p>}
+    {onBuy ? <button disabled={busy || amount <= 0} onClick={onBuy} className="rounded-xl bg-orange-500 px-6 py-3 font-semibold text-black disabled:opacity-50">{busy ? "…" : c.buy}</button> : <StudentActivationLink className="m-button" plan={plan.planCode} intent="purchase">{c.buy}</StudentActivationLink>}
   </section>;
 }

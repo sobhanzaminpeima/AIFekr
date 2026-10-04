@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
+import { isStudentWorkspaceEnabled } from "@/lib/student/access";
 import { prisma } from "@/lib/db/prisma";
 
 export async function GET(req: NextRequest) {
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
     prisma.user.findUnique({
       where: { id: user.id },
       select: {
-        id: true, name: true, firstName: true, lastName: true, country: true, currency: true,
+        id: true, accountType: true, industryPack: { select: { name: true, nameEn: true, nameDe: true, slug: true } }, name: true, firstName: true, lastName: true, country: true, currency: true,
         email: true, phone: true, avatar: true,
         plan: true, credits: true, planExpiry: true, createdAt: true,
         authProvider: true,
@@ -27,7 +28,8 @@ export async function GET(req: NextRequest) {
 
   const displayCredits = teamMembership?.team.credits ?? full?.credits ?? 0;
 
-  return NextResponse.json({ user: full ? { ...full, displayCredits } : full });
+  const studentWorkspaceEnabled = await isStudentWorkspaceEnabled(user);
+  return NextResponse.json({ user: full ? { ...full, displayCredits, studentWorkspaceEnabled } : full });
 }
 
 const VALID_CURRENCIES = new Set(["IRT", "USD", "EUR"]);

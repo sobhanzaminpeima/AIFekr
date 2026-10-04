@@ -1,3 +1,4 @@
+import StudentActivationLink from "@/components/student/StudentActivationLink";
 export const dynamic = "force-dynamic";
 
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
@@ -15,7 +16,7 @@ export default async function PublicStudentProfilePage({ params }: { params: { s
     <div className="mx-auto max-w-sm">
       <div className="mb-5 flex justify-end"><LanguageSwitcher /></div>
       <StudentBrandCard lang={lang} name={user.name} avatar={user.avatar} publicSlug={user.studentPublicSlug} />
-      <a href="/register?plan=STUDENT_FIRST_THREE_MONTHS" className="mt-6 flex items-center justify-center rounded-xl bg-orange-500 px-5 py-3 text-sm font-semibold text-white hover:bg-orange-400">{tri(lang, "من هم به AIFekr می‌پیوندم", "Join me at AIFekr", "Auch bei AIFekr mitmachen", "Ben de AIFekr'e katılıyorum")}</a>
+      <StudentActivationLink className="mt-6 flex items-center justify-center rounded-xl bg-orange-500 px-5 py-3 text-sm font-semibold text-white hover:bg-orange-400">{tri(lang, "من هم به AIFekr می‌پیوندم", "Join me at AIFekr", "Auch bei AIFekr mitmachen", "Ben de AIFekr'e katılıyorum")}</StudentActivationLink>
     </div>
   </main>;
 }

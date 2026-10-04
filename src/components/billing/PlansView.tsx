@@ -18,6 +18,9 @@ type Package = { planCode: string; name: string; nameEn: string; price: number; 
 
 export default function PlansView() {
   const { lang } = useTranslation();
+  const [accountType,setAccountType] = useState("");
+  const [selectStudentAccount,setSelectStudentAccount] = useState(false);
+  useEffect(()=>{fetch("/api/auth/me",{credentials:"include"}).then(r=>r.ok?r.json():null).then(d=>setAccountType(d?.user?.accountType||"PERSONAL")).catch(()=>setAccountType("PERSONAL"));},[]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [rates, setRates] = useState<FxRates | null>(null);
   const [audience, setAudience] = useState("business");
@@ -55,11 +58,12 @@ export default function PlansView() {
   useEffect(() => { void load(); }, [load]);
 
   async function buy(code: string) {
+    if(code.startsWith("STUDENT_")&&accountType!=="STUDENT"&&!selectStudentAccount){setError(t("برای ادامه، حساب دانشجویی را برای همین حساب انتخاب کنید.","Select student account for your existing account to continue.","Wählen Sie für Ihr bestehendes Konto das Studierendenkonto.","Devam etmek için mevcut hesabınızda öğrenci hesabını seçin."));return;}
     setBusy(code); setError("");
     try {
       const response = await fetch("/api/payment/create", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: code, period: code.startsWith("STUDENT_") ? "monthly" : period, currency }),
+        body: JSON.stringify({ plan: code, period: code.startsWith("STUDENT_") ? "monthly" : period, currency, ...(code.startsWith("STUDENT_") ? {selectStudentAccount:accountType==="STUDENT"||selectStudentAccount} : {}) }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
@@ -88,6 +92,8 @@ export default function PlansView() {
       {audience !== "students" && <BillingPeriods lang={lang} value={period} onChange={setPeriod} disabled={!!busy}/>}
       <label className="billing-currency">{t("ارز پرداخت", "Pay in", "Zahlungswährung", "Ödeme para birimi")}<select disabled={!!busy} value={currency} onChange={e => setCurrency(e.target.value)}><option value="TRY">TRY</option><option value="EUR">EUR</option></select></label>
     </div>
+    {audience === "students" && accountType !== "STUDENT" && <label className="my-4 flex items-start gap-3 rounded-2xl border p-4" style={{borderColor:"var(--border)"}}><input type="checkbox" checked={selectStudentAccount} onChange={e=>setSelectStudentAccount(e.target.checked)} className="mt-1 accent-orange-500"/><span><strong>{t("همین حساب را برای فضای دانشجویی انتخاب می‌کنم","Use my existing account as a student account","Mein bestehendes Konto als Studierendenkonto verwenden","Mevcut hesabımı öğrenci hesabı olarak kullan")}</strong><span className="mt-2 block text-sm opacity-75">{t("نیازی به ثبت‌نام دوباره نیست. پس از تأیید پرداخت، حساب شما در دستهٔ دانشجویان قرار می‌گیرد و ایجنت دانشجویی در دانشگاه/مدرسه فعال می‌شود.","No new registration. After payment approval, your account is classified as student and the Student Agent activates in University / School.","Keine erneute Registrierung. Nach Zahlungsbestätigung wird Ihr Konto als Studierendenkonto geführt und der Lernagent aktiviert.","Yeniden kayıt gerekmez. Ödeme onayından sonra hesabın öğrenci olarak sınıflandırılır ve Üniversite / Okul öğrenci ajanı etkinleşir.")}</span></span></label>}
+    {audience === "students" && <p className="billing-note">{t("این خرید جایگزین اشتراک عمومی AI شما می‌شود؛ CRM مستقل است. حساب، گفتگوها و فایل‌های شما باقی می‌مانند.","This replaces your general AI subscription; CRM is separate. Your account, chats and files remain.","Dieser Kauf ersetzt Ihr allgemeines KI-Abo; CRM bleibt separat. Konto, Chats und Dateien bleiben erhalten.","Bu satın alma genel AI aboneliğinin yerini alır; CRM ayrıdır. Hesabın, sohbetlerin ve dosyaların korunur.")}</p>}
     <p className="billing-note"><ShieldCheck size={17}/>{currency === "EUR" ? t("پرداخت یورو از حساب زراعت‌بانک بدون کمیسیون است. مبلغ نهایی در مرحله بعد؛ فعال‌سازی پس از تأیید رسید.", "Euro payments from a Ziraat Bank account are commission-free. Final amount at checkout; activation after receipt approval.", "Euro-Zahlungen vom Ziraat-Konto sind provisionsfrei. Endbetrag beim Checkout; Aktivierung nach Belegfreigabe.", "Ziraat Bankası hesabından euro ödemesi komisyonsuzdur. Son tutar ödeme adımında; dekont onayından sonra etkinleştirme.") : t("پرداخت بانکی با رسید؛ مبلغ نهایی در مرحله بعد و فعال‌سازی پس از تأیید ادمین.", "Bank transfer with receipt. Final amount at checkout; activation after admin approval.", "Überweisung mit Beleg. Endbetrag beim Checkout; Aktivierung nach Admin-Freigabe.", "Dekont ile havale. Son tutar ödeme adımında; yönetici onayından sonra etkinleştirme.")}</p>
     {rates && <p className="billing-note">{t("نرخ مرجع", "Reference rate", "Referenzkurs", "Referans kuru")}: {rates.rateDate} · {t("مبلغ دقیق در پرداخت تأیید می‌شود. شماره تلفن، تماس و سرویس‌های بیرونی هزینهٔ جدا دارند.", "Exact amount confirmed at checkout. Phone numbers, calls and external services have separate charges.", "Endbetrag beim Checkout. Telefonnummern, Anrufe und externe Dienste separat.", "Son tutar ödeme adımında doğrulanır. Telefon numarası, arama ve dış hizmet ücretleri ayrıdır.")}</p>}
     {error && <div className="workspace-alert" role="alert">{error}{!packages.length && <button className="workspace-button secondary" onClick={() => void load()}><RefreshCw size={16}/>{t("تلاش مجدد", "Retry", "Erneut versuchen", "Tekrar dene")}</button>}</div>}

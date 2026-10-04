@@ -22,6 +22,7 @@ const messages:Record<string,[string,string,string,string]>={
  "Invalid file format":["فرمت فایل معتبر نیست؛ فقط JPG، PNG یا PDF پذیرفته می‌شود.","Invalid format; only JPG, PNG or PDF accepted.","Ungültiges Format; nur JPG, PNG oder PDF.","Geçersiz biçim; yalnızca JPG, PNG veya PDF."],
  "Receipt already submitted or payment unavailable":["رسید قبلاً ثبت شده یا این سفارش قابل پرداخت نیست.","Receipt already submitted or order unavailable.","Beleg bereits eingereicht oder Bestellung nicht verfügbar.","Dekont zaten gönderilmiş veya sipariş mevcut değil."],
  "This receipt was already submitted":["این رسید قبلاً برای یک سفارش ثبت شده است.","This receipt was already submitted for an order.","Dieser Beleg wurde bereits eingereicht.","Bu dekont daha önce gönderilmiş."],
+ "STUDENT_ACCOUNT_REQUIRED":["برای خرید، حساب دانشجویی را برای همین حساب انتخاب کنید؛ ثبت‌نام دوباره لازم نیست.","Select student account for your existing account to purchase. No new registration is needed.","Wählen Sie für Ihr bestehendes Konto das Studierendenkonto. Keine erneute Registrierung nötig.","Satın almak için mevcut hesabını öğrenci hesabı olarak seç. Yeniden kayıt gerekmez."],
  "Not found":["سفارش پیدا نشد.","Order not found.","Bestellung nicht gefunden.","Sipariş bulunamadı."],
  "NOT_REVIEWABLE":["این سفارش رسید قابل بررسی ندارد.","This order has no reviewable receipt.","Kein prüfbarer Beleg vorhanden.","İncelenebilir dekont yok."],
  "ALREADY_REVIEWED":["این سفارش قبلاً بررسی شده است.","Order already reviewed.","Bestellung bereits geprüft.","Sipariş zaten incelenmiş."],

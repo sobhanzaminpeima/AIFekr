@@ -1,3 +1,4 @@
+import StudentActivationLink from "@/components/student/StudentActivationLink";
 import PublicShell from "@/components/marketing/PublicShell";
 import { notFound } from "next/navigation";
 import { publicAlternates, pageJsonLd } from "@/lib/seo/site";
@@ -189,14 +190,14 @@ export default async function PackDetailPage({ params }: { params: { slug: strin
               }}>
               {pack.tier === "gold" ? s.gold : s.pro}
             </span>
-            <div className="text-lg font-bold mb-1" style={{ color: pack.color }}>{hasBusinessSubscription ? s.included : tri(lang, "نیازمند اشتراک کسب‌وکار", "Business subscription required", "Business-Abo erforderlich", "İşletme aboneliği gerekli")}</div>
+            <div className="text-lg font-bold mb-1" style={{ color: pack.color }}>{pack.slug === "university" ? tri(lang,"ویژهٔ بستهٔ دانشجویی فعال","For active student packages","Für aktive Studierendenpakete","Etkin öğrenci paketleri için") : hasBusinessSubscription ? s.included : tri(lang, "نیازمند اشتراک کسب‌وکار", "Business subscription required", "Business-Abo erforderlich", "İşletme aboneliği gerekli")}</div>
             <div className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
               {hasBusinessSubscription
                 ? tri(lang, "پس از خرید اشتراک CRM، انتخاب صنعت هزینه جداگانه ندارد.", "Once CRM is active, selecting an industry has no separate charge.", "Mit aktivem CRM-Abo kostet die Branchenwahl nichts extra.", "CRM etkin olduktan sonra sektör seçimi için ek ücret alınmaz.")
                 : tri(lang, "ابتدا پلن CRM را تهیه کن؛ سپس بستهٔ صنعت و ابزارهای مرتبط در پورتال فعال می‌شوند.", "Choose a CRM plan first; then this industry pack and its related tools can be activated in your portal.", "Wähle zuerst einen CRM-Tarif; danach kannst du dieses Branchenpaket im Portal aktivieren.", "Önce CRM planı satın al; ardından bu sektör paketini portalında etkinleştir.")}
             </div>
 
-            {isCurrentPack ? (
+            {pack.slug === "university" ? <StudentActivationLink className="block w-full py-3 rounded-xl font-semibold text-white text-center" style={{ background: pack.color }}>{tri(lang,"ورود یا فعال‌سازی فضای دانشجویی","Open or activate Student Workspace","Lernbereich öffnen oder aktivieren","Öğrenci alanını aç veya etkinleştir")}</StudentActivationLink> : isCurrentPack ? (
               <div>
                 <div className="mb-3 text-sm font-medium py-2 rounded-xl" style={{ background: `${pack.color}20`, color: pack.color }}>
                   ✓ {s.alreadyActive}

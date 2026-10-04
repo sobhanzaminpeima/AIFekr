@@ -7,7 +7,7 @@ export function featureAccessExpired(user:{plan?:string;planExpiry?:Date|null;tr
 }
 export function isRecoveryApi(path:string):boolean{
  if(path==="/api/support/chat")return false;
- return ["/api/auth/","/api/payment/","/api/checkout/","/api/bank/","/api/admin/","/api/profile","/api/user/profile","/api/user/currency","/api/account","/api/support/","/api/packages","/api/plans","/api/notifications","/api/wallet","/api/credits/pricing"].some(p=>path===p||path.startsWith(p));
+ return ["/api/auth/","/api/payment/","/api/checkout/","/api/bank/","/api/admin/","/api/profile","/api/user/profile","/api/user/onboarding","/api/user/currency","/api/account","/api/support/","/api/packages","/api/plans","/api/notifications","/api/wallet","/api/credits/pricing"].some(p=>path===p||path.startsWith(p));
 }
 export function teamFeatureExpiry(team:{planExpiry?:Date|null;owner?:{planExpiry?:Date|null}}|undefined|null):Date|null{
  const dates=[team?.planExpiry,team?.owner?.planExpiry].filter((d):d is Date=>!!d);

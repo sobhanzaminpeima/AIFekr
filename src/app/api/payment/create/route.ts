@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
  const {plan}=body;
  const period = body.period ?? "monthly";
  if(typeof plan!=="string")return bankError(req,"Invalid plan",400);
- if(plan.startsWith("STUDENT_")&&user.accountType!=="STUDENT")return NextResponse.json({error:"پکیج دانشجویی فقط برای حساب دانشجویی قابل خرید است.",code:"STUDENT_ACCOUNT_REQUIRED"},{status:403});
+ if(plan.startsWith("STUDENT_")&&user.accountType!=="STUDENT"&&body.selectStudentAccount!==true)return bankError(req,"STUDENT_ACCOUNT_REQUIRED",403);
  const tier=plan.startsWith("CREDITS_")?await prisma.creditPricingTier.findUnique({where:{id:plan.slice(8)}}):null;
  const pkg=tier?{isActive:tier.isActive,price:tier.priceToman*10,priceUsd:null,credits:tier.creditsAmount,duration:30,crmSeatLimit:null,teamSeatLimit:null}:await prisma.package.findUnique({where:{planCode:plan}});
  if(!pkg?.isActive)return bankError(req,"Invalid plan",400);
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   const pending=await tx.payment.findFirst({where:{userId:user.id,plan,periodMonths:months,transferCurrency:bank.currency,transferMinor:minor,status:"PENDING",gateway:"bank_transfer"}});
   if(pending)return pending;
   if(intro&&await tx.payment.findFirst({where:{userId:user.id,plan:{startsWith:"STUDENT_"},status:{in:["PENDING","SUCCESS"]}}}))throw new Error("OFFER_USED");
-  return tx.payment.create({data:{userId:user.id,plan,status:"PENDING",gateway:"bank_transfer",amount:Math.round(total*rates.usdToToman),periodMonths:months,transferCurrency:bank.currency,transferMinor:minor,bankSnapshot:JSON.stringify({iban:bank.iban,holder:bank.holder,rateDate:rates.rateDate}),entitlementSnapshot:JSON.stringify({credits:pkg.credits * (isBusinessBundle(plan) ? months : 1),businessBundle:isBusinessBundle(plan),days,crmSeatLimit:pkg.crmSeatLimit,teamSeatLimit:pkg.teamSeatLimit})}});
+  return tx.payment.create({data:{userId:user.id,plan,status:"PENDING",gateway:"bank_transfer",amount:Math.round(total*rates.usdToToman),periodMonths:months,transferCurrency:bank.currency,transferMinor:minor,bankSnapshot:JSON.stringify({iban:bank.iban,holder:bank.holder,rateDate:rates.rateDate}),entitlementSnapshot:JSON.stringify({credits:pkg.credits * (isBusinessBundle(plan) ? months : 1),businessBundle:isBusinessBundle(plan),...(plan.startsWith("STUDENT_")?{accountType:"STUDENT"}:{}),days,crmSeatLimit:pkg.crmSeatLimit,teamSeatLimit:pkg.teamSeatLimit})}});
  });
  return NextResponse.json({paymentId:payment.id,paymentUrl:`/checkout/${payment.id}`});
  }catch(e){if(e instanceof Error&&e.message==="OFFER_USED")return bankError(req,"Student welcome offer already used",409);throw e;}

@@ -1,3 +1,4 @@
+import StudentActivationLink from "@/components/student/StudentActivationLink";
 import PublicShell from "@/components/marketing/PublicShell";
 import Link from "@/components/marketing/PublicLink";
 import type { Metadata } from "next";
@@ -96,7 +97,7 @@ export default async function IndustryPage() {
 
         <section className="mb-10 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6" style={{ background: "linear-gradient(120deg,rgba(249,115,22,.16),rgba(99,102,241,.12))", border: "1px solid rgba(249,115,22,.25)" }}>
           <div className="flex gap-4 items-start"><span className="text-4xl" aria-hidden="true">🎓</span><div><div className="text-xs font-semibold tracking-wide mb-1" style={{ color: "#fb923c" }}>{tri(lang, "آموزش و یادگیری", "EDUCATION & LEARNING", "BILDUNG & LERNEN", "EĞİTİM VE ÖĞRENME")}</div><h2 className="text-xl md:text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "فضای دانشجویی AIFekr", "AIFekr Student Workspace", "AIFekr-Lernbereich", "AIFekr Öğrenci Alanı")}</h2><p className="mt-2 max-w-2xl text-sm leading-6" style={{ color: "var(--text-secondary)" }}>{tri(lang, "محیطی جدا از ابزارهای بیزنسی برای درس‌ها، جزوه‌های PDF/DOCX، معلم AI، فلش‌کارت، آزمون و تقویم امتحان. برای دانشجوهایی که کسب‌وکار هم دارند، مسیر ارتقای CRM جداگانه در پورتال فراهم است.", "A dedicated learning space for courses, PDF/DOCX materials, a grounded AI tutor, flashcards, quizzes and exam planning—separate from business tools. Students with a business can explore a separate CRM upgrade in the portal.", "Ein eigener Lernbereich für Kurse, PDF/DOCX-Unterlagen, quellenbasierten KI-Tutor, Lernkarten, Tests und Prüfungsplanung – getrennt von Business-Tools. Ein CRM-Upgrade für Studierende mit eigenem Unternehmen ist im Portal separat verfügbar.", "Dersler, PDF/DOCX kaynakları, kaynak temelli AI öğretmeni, kartlar, testler ve sınav planlama için işletme araçlarından ayrı öğrenme alanı. İşletmesi olan öğrenciler portalda CRM yükseltmesini ayrıca inceleyebilir.")}</p></div></div>
-          <Link href="/register?student=1" className="shrink-0 rounded-xl px-5 py-3 text-sm font-semibold text-white" style={{ background: "#ea580c" }}>{tri(lang, "فضای دانشجویی", "Student workspace", "Lernbereich öffnen", "Öğrenci alanı")}</Link>
+          <StudentActivationLink className="shrink-0 rounded-xl px-5 py-3 text-sm font-semibold text-white" style={{ background: "#ea580c" }}>{tri(lang, "فضای دانشجویی", "Student workspace", "Lernbereich öffnen", "Öğrenci alanı")}</StudentActivationLink>
         </section>
 
         {packs.length === 0 && (
@@ -139,7 +140,7 @@ export default async function IndustryPage() {
 
                   <div className="flex items-center justify-between mt-4">
                     <span className="font-bold" style={{ color: pack.color }}>
-                      {s.included}
+                      {pack.slug === "university" ? tri(lang,"نیازمند بستهٔ دانشجویی فعال","Requires an active student package","Aktives Studierendenpaket erforderlich","Etkin öğrenci paketi gerekir") : s.included}
                     </span>
                     <Link href={`/industry/${pack.slug}`}
                       className="px-4 py-1.5 rounded-lg text-xs font-medium text-white transition-all"
