@@ -1,3 +1,4 @@
+import {activateStudentAsAdmin} from "@/lib/student/adminActivation";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
     return user ? forbiddenResponse() : unauthorizedResponse(req);
   }
 
-  const { name, firstName, lastName, country, email, phone, password, plan, credits } = await req.json();
+  const { name, firstName, lastName, country, email, phone, password, plan, credits, accountType, studentPackage } = await req.json();
 
   const composedName = firstName?.trim()
     ? `${firstName.trim()}${lastName?.trim() ? ` ${lastName.trim()}` : ""}`
@@ -110,8 +111,11 @@ export async function POST(req: NextRequest) {
     passwordHash: await hashPassword(password),
     credits: typeof credits === "number" ? credits : 200,
     plan: plan || "FREE",
+    accountType:["PERSONAL","STUDENT","BUSINESS"].includes(accountType)?accountType:"PERSONAL",
     referralCode,
   });
 
+  if(studentPackage===true||String(plan).startsWith("STUDENT_"))await activateStudentAsAdmin(user.id,admin.id);
+  await prisma.auditLog.create({data:{actorId:admin.id,action:"account_created",targetId:user.id}});
   return NextResponse.json({ user: { id: user.id, name: user.name, email: user.email, phone: user.phone } }, { status: 201 });
 }

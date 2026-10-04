@@ -32,6 +32,9 @@ interface UserDetail {
   trialStartsAt: string | null;
   trialEndsAt: string | null;
   realEstatePackage: boolean;
+  accountType?:string;
+  plan?:string;
+  planExpiry?:string|null;
 }
 
 interface SearchResult {
@@ -127,6 +130,8 @@ function InvitePageInner() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
 
+  const [studentBusy,setStudentBusy]=useState(false);
+  async function activateStudent(){if(!user)return;setStudentBusy(true);try{const response=await fetch(`/api/admin/users/${user.id}/module-overrides`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({moduleKey:"student.workspace",enabled:true})});const data=await response.json();if(!response.ok)throw new Error(data.error||"فعال‌سازی دانشجویی انجام نشد");setUser(current=>current?{...current,...data.user}:current);toast.success("پکیج دانشجویی فعال شد");}catch(error){toast.error(error instanceof Error?error.message:"خطا");}finally{setStudentBusy(false);}}
   const [password, setPassword] = useState<string | null>(null);
   const [generatingPassword, setGeneratingPassword] = useState(false);
   const [lang, setLang] = useState<Lang>("fa");
@@ -311,6 +316,8 @@ function InvitePageInner() {
           <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>کاربر: <strong style={{ color: "var(--text-primary)" }}>{user.name || username}</strong></p>
           </div>
+
+          <section className="rounded-2xl border p-4 space-y-3" style={{background:"var(--surface-1)",borderColor:"var(--border)"}}><h2 className="font-semibold">دعوت دانشجویی</h2><p className="text-sm opacity-70">پکیج دانشجویی، فضای دانشگاه و دسته‌بندی دانشجویان را برای همین حساب فعال کنید. مدت پیش‌فرض ۹۰ روز است؛ اعتبار حساب دانشجویی فعال حفظ می‌شود.</p><button disabled={studentBusy} onClick={()=>void activateStudent()} className="rounded-xl bg-indigo-600 px-4 py-3 text-white disabled:opacity-50">فعال‌سازی پکیج دانشجویی</button>{user.accountType==="STUDENT"&&<p className="text-xs">حساب دانشجویی · {user.planExpiry?new Date(user.planExpiry).toLocaleDateString("fa-IR"):"بدون تاریخ"}</p>}</section>
 
           {/* Credentials */}
           <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>

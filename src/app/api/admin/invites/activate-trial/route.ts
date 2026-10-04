@@ -1,3 +1,4 @@
+import {activateStudentAsAdmin} from "@/lib/student/adminActivation";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -39,12 +40,12 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const { userId, firstName, lastName, email, phone, trialDays, realEstatePackage, trialLimited } = body as {
-    userId?: string; firstName?: string; lastName?: string; email?: string; phone?: string; trialDays?: number; realEstatePackage?: boolean; trialLimited?: boolean;
+  const { userId, firstName, lastName, email, phone, trialDays, realEstatePackage, trialLimited, studentPackage } = body as {
+    userId?: string; firstName?: string; lastName?: string; email?: string; phone?: string; trialDays?: number; realEstatePackage?: boolean; trialLimited?: boolean; studentPackage?: boolean;
   };
   const name = firstName ? `${firstName.trim()}${lastName?.trim() ? ` ${lastName.trim()}` : ""}` : undefined;
 
-  const wantsRealEstate = realEstatePackage !== false; // ticked by default per spec
+  const wantsRealEstate = studentPackage!==true&&realEstatePackage !== false; // ticked by default per spec
   const isLimited = trialLimited === true; // the "referral trial" package -- video + website designer blocked
   const days = Number.isFinite(trialDays) && (trialDays as number) > 0 && (trialDays as number) <= 90 ? (trialDays as number) : 14;
 
@@ -76,8 +77,8 @@ export async function POST(req: NextRequest) {
     await prisma.user.update({
       where: { id: targetUserId },
       data: {
-        plan: "PRO",
-        planExpiry: trialEndsAt,
+        plan:studentPackage===true?undefined:"PRO",
+        planExpiry:studentPackage===true?undefined:trialEndsAt,
         trialPlan: isLimited ? "referral_trial" : "pro_trial_7d",
         trialStartsAt: now,
         trialEndsAt,
@@ -124,8 +125,8 @@ export async function POST(req: NextRequest) {
       phone: phone || undefined,
       passwordHash: await hashPassword(placeholderPassword),
       credits: 200,
-      plan: "PRO",
-      planExpiry: trialEndsAt,
+      plan:studentPackage===true?"FREE":"PRO",
+      planExpiry:studentPackage===true?null:trialEndsAt,
       trialPlan: isLimited ? "referral_trial" : "pro_trial_7d",
       trialStartsAt: now,
       trialEndsAt,
@@ -148,12 +149,14 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  if(studentPackage===true)await activateStudentAsAdmin(targetUserId,admin.id,days);
+
   await prisma.auditLog.create({
     data: {
       actorId: admin.id,
       action: "trial_activated",
       targetId: targetUserId,
-      metadata: JSON.stringify({ trialDays: days, realEstatePackage: wantsRealEstate, trialLimited: isLimited, isNewUser }),
+      metadata: JSON.stringify({ trialDays: days, realEstatePackage: wantsRealEstate, studentPackage:studentPackage===true, trialLimited: isLimited, isNewUser }),
     },
   });
 

@@ -1,3 +1,4 @@
+import {publicAppUrl} from "@/lib/utils/publicAppUrl";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -25,15 +26,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const lang = await getServerLang();
-  if (!hasVoiceAccess(user) && !["ADMIN","SUPER_ADMIN"].includes(user.role)) {
-    return NextResponse.json({
-      error: tri(lang,
-        "اتصال به شماره تلفن واقعی نیازمند افزونهٔ Voice Agent است (جدا از پلن اشتراک، از صفحهٔ «پلن‌ها» قابل خرید). ساخت و تست ایجنت بدون شماره رایگان است.",
-        "Connecting a real phone number requires the Voice Agent add-on (sold separately from your subscription, on the Plans page). Building and testing an agent without a number is free.",
-        "Für eine echte Telefonnummer ist das Voice-Agent-Add-on erforderlich (getrennt vom Abo, auf der Seite „Pläne“). Einen Agenten ohne Nummer erstellen und testen ist kostenlos."),
-      code: "voice_addon_required",
-    }, { status: 402 });
-  }
+  if(!["ADMIN","SUPER_ADMIN"].includes(user.role))return NextResponse.json({error:tri(lang,"راه‌اندازی شماره فقط توسط مدیر انجام می‌شود.","Phone setup is managed by the administrator.","Die Telefonnummer wird vom Administrator eingerichtet.","Telefon kurulumu yönetici tarafından yapılır.")},{status:403});
 
   const { id } = await params;
   const agent = await prisma.voiceAgent.findUnique({ where: { id } });
@@ -42,7 +35,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: tri(lang, "ایجنت یافت نشد", "Agent not found", "Agent nicht gefunden") }, { status: 404 });
   }
 
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
+  const appUrl = publicAppUrl();
 
   const body = await req.json().catch(()=>({}));
   const numberId = admin && typeof body.phoneNumberId === "string" ? body.phoneNumberId : agent.vapiPhoneNumberId;
@@ -81,6 +74,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       where: { id },
       data: { vapiAssistantId: assistant.id, vapiPhoneNumberId: phoneNumberId, phoneNumber },
     });
+    await prisma.auditLog.create({data:{actorId:user.id,action:"voice_number_connected",targetId:agent.userId,metadata:JSON.stringify({agentId:agent.id,phoneNumber})}});
     return NextResponse.json({ agent: updated });
   } catch (e) {
     if (e instanceof VapiNotConfiguredError) {

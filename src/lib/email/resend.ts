@@ -1,3 +1,4 @@
+import {publicAppUrl} from "@/lib/utils/publicAppUrl";
 import { Resend } from "resend";
 
 const hasResend = !!(process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== "re_your-key-here");
@@ -24,7 +25,7 @@ export async function sendWelcomeEmail(to: string, name: string): Promise<boolea
       <h2>سلام ${name}!</h2>
       <p>به <strong>${APP_NAME}</strong> خوش آمدید.</p>
       <p>می‌توانید همین الان از قابلیت‌های هوش مصنوعی استفاده کنید.</p>
-      <a href="${process.env.NEXT_PUBLIC_APP_URL}/chat"
+      <a href="${publicAppUrl()}/chat"
          style="display:inline-block;padding:12px 24px;background:#ea580c;color:white;border-radius:8px;text-decoration:none;">
         شروع کنید
       </a>
@@ -50,7 +51,7 @@ export async function sendPaymentConfirmEmail(
         <tr><td style="padding:8px;color:#666;">مبلغ:</td><td style="padding:8px;font-weight:bold;">${amount.toLocaleString()} تومان</td></tr>
         <tr><td style="padding:8px;color:#666;">کد پیگیری:</td><td style="padding:8px;font-weight:bold;">${refId}</td></tr>
       </table>
-      <a href="${process.env.NEXT_PUBLIC_APP_URL}/chat"
+      <a href="${publicAppUrl()}/chat"
          style="display:inline-block;padding:12px 24px;background:#ea580c;color:white;border-radius:8px;text-decoration:none;">
         استفاده از اشتراک
       </a>

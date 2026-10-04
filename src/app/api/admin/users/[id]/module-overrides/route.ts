@@ -1,3 +1,4 @@
+import {activateStudentAsAdmin} from "@/lib/student/adminActivation";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -55,6 +56,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "ماژول نامعتبر است" }, { status: 400 });
   }
 
+  if(moduleKey===STUDENT_WORKSPACE_MODULE_KEY&&enabled===true){
+    try{const user=await activateStudentAsAdmin(params.id,admin.id);
+    return NextResponse.json({user,override:{moduleKey,enabled:true}});}
+    catch{return NextResponse.json({error:"فعال‌سازی انجام نشد؛ وجود پکیج دانشجویی و بستهٔ دانشگاه را بررسی کنید."},{status:503});}
+  }
+
   if (enabled === null) {
     await prisma.userModuleOverride.deleteMany({ where: { userId: params.id, moduleKey } });
     return NextResponse.json({ cleared: true });
@@ -70,5 +77,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     update: { enabled },
   });
 
+  await prisma.auditLog.create({data:{actorId:admin.id,action:"module_override_updated",targetId:params.id,metadata:JSON.stringify({moduleKey,enabled})}});
   return NextResponse.json({ override });
 }

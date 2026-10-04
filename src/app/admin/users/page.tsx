@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Search, Filter, ChevronLeft, ChevronRight, MoreVertical, Ban, Coins, UserCheck, Trash2, Loader2, Repeat, Plus, Sparkles, X } from "lucide-react";
@@ -23,6 +23,8 @@ interface User {
 }
 
 const PLAN_BADGE: Record<string, { label: string; color: string }> = {
+  STUDENT_FIRST_THREE_MONTHS:{label:"دانشجویی ۳ ماهه",color:"#6366f1"},
+  STUDENT_MONTHLY:{label:"دانشجویی ماهانه",color:"#6366f1"},
   FREE: { label: "رایگان", color: "#71717a" },
   BASIC: { label: "پایه", color: "#3b82f6" },
   ECHO: { label: "اکو", color: "#0ea5e9" },
@@ -46,6 +48,7 @@ function planBadge(plan: string): { label: string; color: string } {
 
 export default function AdminUsersPage() {
   const router = useRouter();
+  const requestSequence=useRef(0);
   const [users, setUsers] = useState<User[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -57,13 +60,13 @@ export default function AdminUsersPage() {
   const [actionUserId, setActionUserId] = useState<string | null>(null);
   const [planMenuUserId, setPlanMenuUserId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [addForm, setAddForm] = useState({ firstName: "", lastName: "", country: "", email: "", phone: "", password: "", plan: "FREE" });
+  const [addForm, setAddForm] = useState({ firstName: "", lastName: "", country: "", email: "", phone: "", password: "", plan: "FREE",accountType:"PERSONAL",studentPackage:false });
   const [addSaving, setAddSaving] = useState(false);
 
   // "Invite to AIfekr" — activates the trial here, then hands off to the
   // dedicated /admin/invites page (credentials, referral link, invite text).
   const [inviteTarget, setInviteTarget] = useState<{ userId: string | null; name: string } | null>(null);
-  const INVITE_FORM_DEFAULT = { firstName: "", lastName: "", email: "", phone: "", country: "IR", trialDays: 14, realEstatePackage: true, trialLimited: false };
+  const INVITE_FORM_DEFAULT = { firstName: "", lastName: "", email: "", phone: "", country: "IR", trialDays: 14, realEstatePackage: true, trialLimited: false,studentPackage:false };
   const [inviteForm, setInviteForm] = useState(INVITE_FORM_DEFAULT);
   const [inviteSaving, setInviteSaving] = useState(false);
 
@@ -88,14 +91,14 @@ export default function AdminUsersPage() {
       // free-text phone here used to have no country context at all.
       const fullPhone = inviteForm.phone.trim() ? `${dialCodeFor(inviteForm.country)}${inviteForm.phone.trim()}` : undefined;
       const body = inviteTarget.userId
-        ? { userId: inviteTarget.userId, trialDays: inviteForm.trialDays, realEstatePackage: inviteForm.realEstatePackage, trialLimited: inviteForm.trialLimited }
+        ? { userId: inviteTarget.userId, trialDays: inviteForm.trialDays, studentPackage:inviteForm.studentPackage,realEstatePackage: inviteForm.realEstatePackage, trialLimited: inviteForm.trialLimited }
         : {
             firstName: inviteForm.firstName,
             lastName: inviteForm.lastName || undefined,
             email: inviteForm.email || undefined,
             phone: fullPhone,
             trialDays: inviteForm.trialDays,
-            realEstatePackage: inviteForm.realEstatePackage,
+            studentPackage:inviteForm.studentPackage,realEstatePackage: inviteForm.realEstatePackage,
             trialLimited: inviteForm.trialLimited,
           };
       const res = await fetch("/api/admin/invites/activate-trial", {
@@ -128,11 +131,13 @@ export default function AdminUsersPage() {
   }, [actionUserId]);
 
   const fetchUsers = useCallback(async () => {
+    const requestVersion=++requestSequence.current;
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: page.toString(), search, plan: planFilter, accountType: accountFilter });
       const res = await fetch(`/api/admin/users?${params}`);
       const data = await res.json();
+      if(requestVersion!==requestSequence.current)return;
       if (!res.ok) {
         setUsers([]);
         setTotal(0);
@@ -143,8 +148,9 @@ export default function AdminUsersPage() {
       setUsers(data.users ?? []);
       setTotal(data.total ?? 0);
       setTotalPages(data.totalPages ?? 1);
-    } finally {
-      setLoading(false);
+    } catch {if(requestVersion===requestSequence.current)toast.error("دریافت کاربران انجام نشد؛ دوباره تلاش کنید.");}
+    finally {
+      if(requestVersion===requestSequence.current)setLoading(false);
     }
   }, [page, search, planFilter, accountFilter]);
 
@@ -166,7 +172,7 @@ export default function AdminUsersPage() {
       }
       toast.success("کاربر ایجاد شد");
       setShowAdd(false);
-      setAddForm({ firstName: "", lastName: "", country: "", email: "", phone: "", password: "", plan: "FREE" });
+      setAddForm({ firstName: "", lastName: "", country: "", email: "", phone: "", password: "", plan: "FREE",accountType:"PERSONAL",studentPackage:false });
       fetchUsers();
     } finally {
       setAddSaving(false);
@@ -260,7 +266,7 @@ export default function AdminUsersPage() {
         </div>
         <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <Filter className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
-          <select aria-label="نوع حساب" value={accountFilter} onChange={e=>{setAccountFilter(e.target.value);setPage(1);}} className="rounded-xl px-3 py-2 text-sm" style={{background:"var(--surface-1)",color:"var(--text-primary)",border:"1px solid var(--border)"}}>
+          <select aria-label="نوع حساب" value={accountFilter} onChange={e=>{setAccountFilter(e.target.value);setPlanFilter("all");setPage(1);}} className="rounded-xl px-3 py-2 text-sm" style={{background:"var(--surface-1)",color:"var(--text-primary)",border:"1px solid var(--border)"}}>
             <option value="all">همهٔ کاربران</option><option value="STUDENT">دانشجویان</option><option value="BUSINESS">کسب‌وکارها</option><option value="PERSONAL">شخصی</option>
           </select>
           <select
@@ -274,7 +280,7 @@ export default function AdminUsersPage() {
             <option value="FREE">رایگان</option>
             <option value="BASIC">پایه</option>
             <option value="PRO">حرفه‌ای</option>
-            <option value="TEAM">تیمی</option>
+            <option value="TEAM">تیمی</option><option value="STUDENT_FIRST_THREE_MONTHS">دانشجویی ۳ ماهه</option><option value="STUDENT_MONTHLY">دانشجویی ماهانه</option>
           </select>
         </div>
       </div>
@@ -438,9 +444,10 @@ export default function AdminUsersPage() {
             </div>
             <div>
               <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>پلن</label>
-              <select value={addForm.plan} onChange={(e) => setAddForm((p) => ({ ...p, plan: e.target.value }))}
+              <select aria-label="نوع حساب جدید" value={addForm.accountType} onChange={e=>setAddForm(p=>({...p,accountType:e.target.value,studentPackage:e.target.value==="STUDENT",plan:e.target.value==="STUDENT"?"STUDENT_FIRST_THREE_MONTHS":p.plan.startsWith("STUDENT_")?"FREE":p.plan}))} className="w-full rounded-xl p-3 mb-3" style={{background:"var(--surface-2)"}}><option value="PERSONAL">شخصی</option><option value="BUSINESS">کسب‌وکار</option><option value="STUDENT">دانشجو + فعال‌سازی پکیج ۹۰ روزه</option></select>
+              <select disabled={addForm.studentPackage} value={addForm.plan} onChange={(e) => setAddForm((p) => ({ ...p, plan: e.target.value,accountType:e.target.value.startsWith("STUDENT_")?"STUDENT":p.accountType,studentPackage:e.target.value.startsWith("STUDENT_") }))}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                {Object.keys(PLAN_BADGE).map((p) => <option key={p} value={p}>{PLAN_BADGE[p].label}</option>)}
+                {Object.keys(PLAN_BADGE).filter(p=>p!=="STUDENT_MONTHLY").map((p) => <option key={p} value={p}>{PLAN_BADGE[p].label}</option>)}
               </select>
             </div>
             <div className="flex gap-3 pt-2">
@@ -517,6 +524,7 @@ export default function AdminUsersPage() {
               </div>
             </div>
 
+            <label className="flex items-center gap-2 rounded-xl p-3" style={{background:"var(--surface-2)"}}><input type="checkbox" checked={inviteForm.studentPackage} onChange={e=>setInviteForm(p=>({...p,studentPackage:e.target.checked,trialDays:e.target.checked?90:p.trialDays,realEstatePackage:e.target.checked?false:p.realEstatePackage}))}/> فعال‌سازی پکیج دانشجویی و فضای دانشگاه (به مدت انتخاب‌شده)</label>
             {/* The referral-link trial package: full Pro trial except Video
                 Generator and Website Designer, which show an upgrade prompt.
                 Independent of the "پکیج املاک کامل" checkbox above -- either

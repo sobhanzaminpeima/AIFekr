@@ -1,3 +1,4 @@
+import {publicAppUrl} from "@/lib/utils/publicAppUrl";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -32,7 +33,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if(voiceId!==undefined&&voiceId!==null&&typeof voiceId!=="string") return NextResponse.json({error:"Invalid voice"},{status:400});
   if(systemPrompt!==undefined&&(typeof systemPrompt!=="string"||!systemPrompt.trim()||systemPrompt.length>20000)) return NextResponse.json({error:"Invalid prompt"},{status:400});
   if(agent.vapiAssistantId && (systemPrompt!==undefined||name!==undefined||voiceId!==undefined||body.language!==undefined||body.timezone!==undefined)) {
-    try {await upsertVapiAssistant({name:typeof name==="string"?name:agent.name,systemPrompt:typeof systemPrompt==="string"?systemPrompt:agent.systemPrompt,voiceId:voiceId===undefined?agent.voiceId:voiceId,vertical:agent.vertical,language,timezone,serverUrl:`${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/vapi`},agent.vapiAssistantId);}
+    try {await upsertVapiAssistant({name:typeof name==="string"?name:agent.name,systemPrompt:typeof systemPrompt==="string"?systemPrompt:agent.systemPrompt,voiceId:voiceId===undefined?agent.voiceId:voiceId,vertical:agent.vertical,language,timezone,serverUrl:`${publicAppUrl()}/api/webhooks/vapi`},agent.vapiAssistantId);}
     catch{return NextResponse.json({error:"Provider update failed; saved settings unchanged. Retry."},{status:502});}
   }
   const updated = await prisma.voiceAgent.update({

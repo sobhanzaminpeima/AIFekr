@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     include: { _count: { select: { calls: true, appointments: true } } },
   });
   const settings=await voiceSettings();
-  return NextResponse.json({ agents, voicePlan: hasVoiceAccess(user)?"ACTIVE":"NONE", hasAccess: hasVoiceAccess(user), credits:await getAvailableCredits(user.id), creditsPerMinute:settings.creditsPerMinute,maxDurationSeconds:settings.maxDurationSeconds,configured:!!(settings.apiKey&&settings.webhookSecret&&settings.credentialId) });
+  return NextResponse.json({ agents:agents.map(({vapiAssistantId,vapiPhoneNumberId,...agent})=>({...agent,connected:!!(vapiAssistantId&&vapiPhoneNumberId&&agent.phoneNumber)})), voicePlan: hasVoiceAccess(user)?"ACTIVE":"NONE", hasAccess: hasVoiceAccess(user), credits:await getAvailableCredits(user.id), creditsPerMinute:settings.creditsPerMinute,maxDurationSeconds:settings.maxDurationSeconds,configured:!!(settings.apiKey&&settings.webhookSecret&&settings.credentialId) });
 }
 
 export async function POST(req: NextRequest) {

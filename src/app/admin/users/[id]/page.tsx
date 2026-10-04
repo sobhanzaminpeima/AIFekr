@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowRight, Loader2, MessageSquare, Image as ImageIcon, Video, Wallet, Ban, UserCheck } from "lucide-react";
 import { toJalali, formatNumber } from "@/lib/utils/jalali";
@@ -35,6 +35,7 @@ interface UsageLog {
 
 interface UserDetail {
   id: string;
+  accountType?:string;
   name?: string;
   firstName?: string | null;
   lastName?: string | null;
@@ -67,6 +68,8 @@ interface ModuleRow {
 }
 
 const PLAN_BADGE: Record<string, { label: string; color: string }> = {
+  STUDENT_FIRST_THREE_MONTHS:{label:"دانشجویی ۳ ماهه",color:"#6366f1"},
+  STUDENT_MONTHLY:{label:"دانشجویی ماهانه",color:"#6366f1"},
   FREE: { label: "رایگان", color: "#71717a" },
   BASIC: { label: "پایه", color: "#3b82f6" },
   ECHO: { label: "اکو", color: "#0ea5e9" },
@@ -104,6 +107,7 @@ export default function AdminUserDetailPage() {
   const router = useRouter();
   const id = params?.id as string;
   const [user, setUser] = useState<UserDetail | null>(null);
+  const [history,setHistory]=useState<{id:string;action:string;createdAt:string;actorId:string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [commissionInput, setCommissionInput] = useState("");
   const [savingCommission, setSavingCommission] = useState(false);
@@ -114,13 +118,14 @@ export default function AdminUserDetailPage() {
   const [modules, setModules] = useState<ModuleRow[] | null>(null);
   const [savingModuleKey, setSavingModuleKey] = useState<string | null>(null);
 
-  async function load() {
+  const load=useCallback(async()=>{
     setLoading(true);
     try {
       const res = await fetch(`/api/admin/users/${id}`);
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "خطا در بارگذاری"); return; }
       setUser(data.user);
+      setHistory(data.history||[]);
       setPlanExpiryInput(toLocalDateTimeInput(data.user.planExpiry));
       setCommissionInput(data.user.commissionPercentOverride != null ? String(data.user.commissionPercentOverride) : "");
       setProfileForm({
@@ -133,17 +138,17 @@ export default function AdminUserDetailPage() {
     } finally {
       setLoading(false);
     }
-  }
+  },[id]);
 
-  async function loadModules() {
+  const loadModules=useCallback(async()=>{
     try {
       const res = await fetch(`/api/admin/users/${id}/module-overrides`);
       const data = await res.json();
       if (res.ok) setModules(data.modules || []);
     } catch { /* module toggles are a nicety on this page, never block the rest of it */ }
-  }
+  },[id]);
 
-  useEffect(() => { if (id) { load(); loadModules(); } }, [id]);
+  useEffect(() => { if (id) { load(); loadModules(); } }, [id,load,loadModules]);
 
   // enabled: true/false sets an explicit per-user override; null clears it
   // back to whatever the user's industry pack defaults to.
@@ -155,7 +160,9 @@ export default function AdminUserDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ moduleKey, enabled }),
       });
-      if (!res.ok) { toast.error("خطا در بروزرسانی ماژول"); return; }
+      const data=await res.json();
+      if (!res.ok) { toast.error(data.error||"خطا در بروزرسانی ماژول"); return; }
+      if(moduleKey==="student.workspace"){await load();toast.success(enabled?"فضای دانشجویی فعال و کاربر به فهرست دانشجویان اضافه شد":"دسترسی دانشجویی به‌روزرسانی شد");}
       setModules((prev) => prev && prev.map((m) => (m.key === moduleKey ? { ...m, override: enabled } : m)));
     } finally {
       setSavingModuleKey(null);
@@ -262,7 +269,7 @@ export default function AdminUserDetailPage() {
     return <div className="p-6" style={{ color: "var(--text-secondary)" }}>کاربر یافت نشد</div>;
   }
 
-  const badge = PLAN_BADGE[user.plan] || PLAN_BADGE.FREE;
+  const badge = PLAN_BADGE[user.plan] || {label:user.plan,color:"#71717a"};
 
   return (
     <div className="p-6 space-y-6">
@@ -412,6 +419,12 @@ export default function AdminUserDetailPage() {
         </select>
       </div>
 
+      <section className="rounded-2xl border p-5 space-y-3" style={{borderColor:"var(--border)",background:"var(--surface-1)"}}>
+        <h2 className="font-semibold">حساب دانشجویی</h2><p className="text-sm opacity-70">فعال‌سازی فضای دانشگاه/مدرسه، پکیج ۹۰ روزه و اعتبار دانشجویی؛ کاربر در فیلتر دانشجویان نمایش داده می‌شود. اعتبار حساب فعال دوباره اضافه نمی‌شود.</p>
+        <p>نوع حساب: {user.accountType==="STUDENT"?"دانشجو":user.accountType==="BUSINESS"?"کسب‌وکار":"شخصی"}</p>
+        <button disabled={savingModuleKey!==null} onClick={()=>void setModuleOverride("student.workspace",true)} className="rounded-xl bg-indigo-600 px-4 py-3 text-white disabled:opacity-50">فعال‌سازی پکیج دانشجویی</button>
+      </section>
+      <section className="rounded-2xl border p-5 space-y-3" style={{borderColor:"var(--border)",background:"var(--surface-1)"}}><h2 className="font-semibold">تاریخچهٔ حساب</h2><p className="text-xs opacity-70">ثبت‌نام: {toJalali(user.createdAt)} · آخرین ورود: {user.lastLoginAt?toJalali(user.lastLoginAt):"ثبت نشده"}</p>{history.length===0?<p className="text-sm opacity-70">هنوز رویداد مدیریتی ثبت نشده است.</p>:<ol className="space-y-2">{history.map(event=><li key={event.id} className="rounded-xl p-3 text-sm" style={{background:"var(--surface-0)"}}><b>{{account_registered:"ثبت‌نام",last_login:"آخرین ورود",payment_pending:"درخواست خرید",payment_success:"پرداخت موفق",payment_failed:"پرداخت ناموفق",payment_rejected:"رسید ردشده",voice_number_connected:"راه‌اندازی شماره تماس",student_activated:"فعال‌سازی دانشجویی",account_updated:"ویرایش حساب",module_override_updated:"تغییر دسترسی ماژول",trial_activated:"فعال‌سازی دعوت",account_created:"ساخت حساب",voice_activated:"تغییر دسترسی تماس"}[event.action]||(event.action.startsWith("usage_")?`مصرف اعتبار · ${event.action.slice(6)}`:event.action)}</b><time className="block text-xs opacity-60">{toJalali(event.createdAt)}</time></li>)}</ol>}</section>
       {/* Per-user module toggles (e.g. enabling just "Property Management"
           for a real-estate user) -- independent of the pack-level defaults;
           "پیش‌فرض پکیج" clears the override and falls back to those. */}

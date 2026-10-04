@@ -21,5 +21,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
     : null;
 
   const user = await prisma.user.update({ where: { id: userId }, data: { voicePlan, voicePlanExpiry } });
+  await prisma.auditLog.create({data:{actorId:admin.id,action:"voice_activated",targetId:userId,metadata:JSON.stringify({voicePlan,days,voicePlanExpiry})}});
   return NextResponse.json({ voicePlan: user.voicePlan, voicePlanExpiry: user.voicePlanExpiry });
 }

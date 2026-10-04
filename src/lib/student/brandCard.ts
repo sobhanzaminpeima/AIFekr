@@ -3,6 +3,7 @@ import { tri } from "@/lib/i18n/tri";
 
 export function studentBrandCopy(lang: Lang) {
   return {
+    title:tri(lang,"کارت دانشجویی","Student card","Studierendenausweis","Öğrenci kartı"),
     statement: tri(lang, "من دانشجوی دانشگاه هوش مصنوعی AIFekr هستم", "I'm a student at AIFekr AI University", "Ich studiere an der AIFekr KI-Universität", "Ben AIFekr Yapay Zekâ Üniversitesi öğrencisiyim"),
     motto: tri(lang, "آینده را فقط نمی‌خوانم؛ می‌سازم.", "I don't just study the future. I build it.", "Ich lerne die Zukunft nicht nur. Ich gestalte sie.", "Geleceği sadece öğrenmiyorum. Onu inşa ediyorum."),
     community: tri(lang, "نسل تازهٔ یادگیری", "A new generation of learning", "Eine neue Generation des Lernens", "Öğrenmenin yeni nesli"),
@@ -29,11 +30,12 @@ export async function renderStudentBrandCard(input: { lang: Lang; name?: string 
   ctx.textAlign="center";ctx.textBaseline="middle";
   const text=(value:string,y:number,size:number,color="#ffffff",weight=600)=>{ctx.font=`${weight} ${size}px ${family}`;ctx.fillStyle=color;ctx.fillText(value,540,y,880)};
   text("AIFekr",158,78,"#ffffff",800);text(tri(input.lang,"دانشگاه هوش مصنوعی","AI UNIVERSITY","KI-UNIVERSITÄT","YAPAY ZEKÂ ÜNİVERSİTESİ"),232,26,"#c4c7ef",500);
+  text(copy.title,285,30,"#ffffff",700);
   ctx.fillStyle="rgba(255,150,70,.12)";ctx.beginPath();ctx.roundRect(200,310,680,72,36);ctx.fill();text(copy.community,346,28,"#ffc08b");
   ctx.save();ctx.shadowColor="rgba(134,115,255,.5)";ctx.shadowBlur=60;ctx.fillStyle="#25234c";ctx.beginPath();ctx.arc(540,640,170,0,Math.PI*2);ctx.fill();ctx.restore();
   let photoIncluded=false;
-  if(input.avatar && /^https:\/\//.test(input.avatar)){
-    try {const response=await fetch(input.avatar,{mode:"cors",credentials:"omit",signal:AbortSignal.timeout(8000)});if(!response.ok)throw new Error("PHOTO_UNAVAILABLE");const photo=await createImageBitmap(await response.blob());ctx.save();ctx.beginPath();ctx.arc(540,640,155,0,Math.PI*2);ctx.clip();const crop=Math.min(photo.width,photo.height);ctx.drawImage(photo,(photo.width-crop)/2,(photo.height-crop)/2,crop,crop,385,485,310,310);ctx.restore();photo.close();photoIncluded=true;}catch{/* Initials keep image export working when remote storage disallows CORS. */}
+  if(input.avatar){
+    try {const response=await fetch(`/api/student/profile/avatar${input.slug?`?slug=${encodeURIComponent(input.slug)}`:""}`,{credentials:"same-origin",signal:AbortSignal.timeout(8000)});if(!response.ok)throw new Error("PHOTO_UNAVAILABLE");const photo=await createImageBitmap(await response.blob());ctx.save();ctx.beginPath();ctx.arc(540,640,155,0,Math.PI*2);ctx.clip();const crop=Math.min(photo.width,photo.height);ctx.drawImage(photo,(photo.width-crop)/2,(photo.height-crop)/2,crop,crop,385,485,310,310);ctx.restore();photo.close();photoIncluded=true;}catch{/* Initials keep image export working when remote storage disallows CORS. */}
   }
   if(!photoIncluded)text((input.name || copy.fallbackName).trim().slice(0,1).toUpperCase(),642,108,"#ded8ff",700);
   ctx.strokeStyle="#a99cff";ctx.lineWidth=5;ctx.beginPath();ctx.arc(540,640,169,0,Math.PI*2);ctx.stroke();

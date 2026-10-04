@@ -1,3 +1,4 @@
+import {publicAppUrl} from "@/lib/utils/publicAppUrl";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
   const authority = searchParams.get("Authority");
   const paymentId = searchParams.get("paymentId");
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
+  const appUrl = publicAppUrl();
 
   // Credit top-ups redirect back to /credits instead of /plans -- resolved
   // up front from paymentId (works even for the early failure paths, before

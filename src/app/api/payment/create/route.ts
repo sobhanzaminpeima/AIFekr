@@ -1,3 +1,4 @@
+import {publicAppUrl} from "@/lib/utils/publicAppUrl";
 import { createPayment } from "@/lib/payment/zarinpal";
 import { isBusinessBundle } from "@/lib/plans/business";
 import { bankError } from "@/lib/payment/bankErrors";
@@ -46,18 +47,19 @@ export async function POST(req: NextRequest) {
  const amount=Math.round(total*rates.usdToToman);
  const currency=rial?"IRR":bank.currency;
  const gateway=rial?"zarinpal":"bank_transfer";
- const minor=rial?amount*10:Math.round(total*(bank.currency==="TRY"?rates.usdToTry:bank.currency==="EUR"?rates.usdToEur:1)*100);
- if(!Number.isSafeInteger(minor)||minor<=0)return bankError(req,"Package price unavailable",400);
+ // transferMinor is reserved for foreign-currency cents; rial is converted by the gateway adapter.
+ const minor=rial?0:Math.round(total*(bank.currency==="TRY"?rates.usdToTry:bank.currency==="EUR"?rates.usdToEur:1)*100);
+ if(!Number.isSafeInteger(amount)||amount<=0||amount>2147483647||!Number.isSafeInteger(minor)||minor>2147483647||(!rial&&minor<=0))return bankError(req,"Package price unavailable",400);
  try {
  const payment=await prisma.$transaction(async tx=>{
-  const pending=await tx.payment.findFirst({where:{userId:user.id,plan,periodMonths:months,transferCurrency:currency,transferMinor:minor,status:"PENDING",gateway}});
+  const pending=await tx.payment.findFirst({where:{userId:user.id,plan,...(rial?{amount}:{}),periodMonths:months,transferCurrency:currency,transferMinor:rial?undefined:minor,status:"PENDING",gateway}});
   if(pending&&(!rial||pending.authority))return pending;
   if(pending)throw new Error("PAYMENT_PROCESSING");
   if(intro&&await tx.payment.findFirst({where:{userId:user.id,plan:{startsWith:"STUDENT_"},status:{in:["PENDING","SUCCESS"]}}}))throw new Error("OFFER_USED");
   return tx.payment.create({data:{userId:user.id,plan,status:"PENDING",gateway,amount,periodMonths:months,transferCurrency:currency,transferMinor:minor,bankSnapshot:JSON.stringify({iban:bank.iban,holder:bank.holder,rateDate:rates.rateDate}),entitlementSnapshot:JSON.stringify({credits:pkg.credits * (isBusinessBundle(plan) ? months : 1),businessBundle:isBusinessBundle(plan),...(plan.startsWith("STUDENT_")?{accountType:"STUDENT"}:{}),days,crmSeatLimit:pkg.crmSeatLimit,teamSeatLimit:pkg.teamSeatLimit})}});
  });
  if(rial){
-  const callbackUrl=new URL("/api/payment/verify",process.env.NEXT_PUBLIC_APP_URL||req.nextUrl.origin);
+  const callbackUrl=new URL("/api/payment/verify",publicAppUrl());
   callbackUrl.searchParams.set("paymentId",payment.id);
   if(payment.authority)return NextResponse.json({paymentId:payment.id,paymentUrl:payment.bankSnapshot?JSON.parse(payment.bankSnapshot).paymentUrl:null});
   try{

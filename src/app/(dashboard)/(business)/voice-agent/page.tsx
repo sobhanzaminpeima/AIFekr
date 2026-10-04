@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Phone, Plus, X, Loader2, PhoneCall, CalendarDays, Settings2,
-  Trash2, PlayCircle, Home, MapPin, Clock, XCircle, User, BookOpen, Upload, Share2,
+  Trash2, Home, MapPin, Clock, XCircle, User, BookOpen, Upload, Share2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTranslation, tri, type Lang } from "@/lib/i18n";
@@ -12,7 +12,7 @@ import { readApiResponse } from "@/lib/utils/apiResponse";
 
 interface VoiceAgent {
   id: string; name: string; focus: string; vertical: string; businessType?: string | null; systemPrompt: string; voiceId: string | null;
-  language:Lang;timezone:string;openingHour:number;closingHour:number;appointmentMinutes:number;phoneNumber: string | null; vapiAssistantId: string | null; isActive: boolean;
+  language:Lang;timezone:string;openingHour:number;closingHour:number;appointmentMinutes:number;phoneNumber: string | null; connected: boolean; isActive: boolean;
   _count?: { calls: number; appointments: number };
 }
 interface VoiceProperty {
@@ -72,7 +72,6 @@ export default function VoiceAgentPage() {
   const [voiceInfo,setVoiceInfo]=useState<{credits?:number;creditsPerMinute?:number;maxDurationSeconds?:number;configured?:boolean}>({});
   const [showNewAgent, setShowNewAgent] = useState(false);
   const [showNewProperty, setShowNewProperty] = useState(false);
-  const [provisioningId, setProvisioningId] = useState<string | null>(null);
   const [expandedCallId, setExpandedCallId] = useState<string | null>(null);
   const loadAgents = useCallback(async () => {
     setLoading(true);
@@ -192,24 +191,6 @@ export default function VoiceAgentPage() {
     loadAgents();
   }
 
-  async function provisionAgent(id: string) {
-    setProvisioningId(id);
-    setError("");
-    try {
-      const res = await fetch(`/api/voice-agent/agents/${id}/provision`, { method: "POST" });
-      // parseJsonResponse, not res.json(): provisioning calls Vapi and can
-      // outlast the gateway timeout, which answers with an HTML error page —
-      // res.json() then threw "Unexpected token '<'" at the user (QA U01).
-      const data = await parseJsonResponse(res, lang);
-      if (!res.ok) throw new Error(data.error || tri(lang, "خطا در اتصال به Vapi", "Failed to connect to Vapi", "Verbindung zu Vapi fehlgeschlagen"));
-      loadAgents();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : tri(lang, "خطا", "Error", "Fehler"));
-    } finally {
-      setProvisioningId(null);
-    }
-  }
-
   async function createProperty(form: Record<string, unknown>) {
     setError("");
     const data = await mutate("/api/voice-agent/properties", {
@@ -325,7 +306,6 @@ export default function VoiceAgentPage() {
         <AgentsTab
           isFa={isFa} lang={lang} agents={agents} showNewAgent={showNewAgent} setShowNewAgent={setShowNewAgent}
           onCreate={createAgent} onDelete={deleteAgent} onToggleActive={toggleAgentActive}
-          onProvision={provisionAgent} provisioningId={provisioningId}
         />
       )}
       {tab === "properties" && (
@@ -348,11 +328,11 @@ export default function VoiceAgentPage() {
 }
 
 function AgentsTab({
-  isFa, lang, agents, showNewAgent, setShowNewAgent, onCreate, onDelete, onToggleActive, onProvision, provisioningId,
+  isFa, lang, agents, showNewAgent, setShowNewAgent, onCreate, onDelete, onToggleActive,
 }: {
   isFa: boolean; lang: Lang; agents: VoiceAgent[]; showNewAgent: boolean; setShowNewAgent: (v: boolean) => void;
   onCreate: (f: { name: string; focus: string; vertical: string; businessType?: string; language?:string; timezone?:string; openingHour?:number; closingHour?:number; appointmentMinutes?:number; id?:string; systemPrompt?:string }) => void; onDelete: (id: string) => void;
-  onToggleActive: (a: VoiceAgent) => void; onProvision: (id: string) => void; provisioningId: string | null;
+  onToggleActive: (a: VoiceAgent) => void;
 }) {
   const [editing,setEditing]=useState<VoiceAgent|null>(null);
   const [prompt,setPrompt]=useState("");
@@ -422,12 +402,7 @@ function AgentsTab({
             </div>
 
             <div className="flex items-center gap-2 pt-1">
-              <button onClick={() => onProvision(a.id)} disabled={provisioningId === a.id}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium disabled:opacity-50"
-                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                {provisioningId === a.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PlayCircle className="w-3.5 h-3.5" />}
-                {a.vapiAssistantId ? tri(lang, "همگام‌سازی با Vapi", "Sync to Vapi", "Mit Vapi synchronisieren") : tri(lang, "اتصال شماره تلفن", "Connect phone number", "Telefonnummer verbinden")}
-              </button>
+              <p className="flex-1 rounded-xl px-3 py-2 text-xs" style={{background:"var(--surface-2)",color:"var(--text-secondary)"}}>{a.connected?tri(lang,"سرویس تماس آماده است","Calling service is ready","Telefondienst ist bereit","Arama hizmeti hazır"):tri(lang,"در انتظار راه‌اندازی توسط تیم AIFekr","Awaiting setup by the AIFekr team","Einrichtung durch das AIFekr-Team ausstehend","AIFekr ekibinin kurulumunu bekliyor")}</p>
               <button aria-label={tri(lang,"ویرایش دستیار","Edit assistant","Assistent bearbeiten","Asistanı düzenle")} onClick={()=>{setEditing(a);setName(a.name);setPrompt(a.systemPrompt);setVertical(a.vertical);setLanguage(a.language);setTimezone(a.timezone);setOpeningHour(a.openingHour);setClosingHour(a.closingHour);setAppointmentMinutes(a.appointmentMinutes);setShowNewAgent(true);}} className="p-2 rounded-xl" style={{background:"var(--surface-2)"}}><Settings2 className="w-4 h-4"/></button>
               <button aria-label={tri(lang,"حذف دستیار","Delete assistant","Assistent löschen","Asistanı sil")} onClick={() => onDelete(a.id)} className="p-2 rounded-xl" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
                 <Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} />

@@ -8,7 +8,7 @@ import { prisma } from "@/lib/db/prisma";
  * inline in each admin route.
  */
 
-const ADMIN_EDITABLE_USER_FIELDS = ["name", "firstName", "lastName", "country", "currency", "email", "phone", "plan", "credits", "isBlocked", "planExpiry", "role", "crmPlan", "crmPlanExpiry", "commissionPercentOverride"] as const;
+const ADMIN_EDITABLE_USER_FIELDS = ["accountType", "name", "firstName", "lastName", "country", "currency", "email", "phone", "plan", "credits", "isBlocked", "planExpiry", "role", "crmPlan", "crmPlanExpiry", "commissionPercentOverride"] as const;
 
 export class PhoneAlreadyInUseError extends Error {
   constructor() {
@@ -17,6 +17,7 @@ export class PhoneAlreadyInUseError extends Error {
 }
 
 export async function updateUserAsAdmin(userId: string, body: Record<string, unknown>) {
+  if(body.accountType!==undefined&&!["PERSONAL","STUDENT","BUSINESS"].includes(String(body.accountType)))throw new Error("INVALID_ACCOUNT_TYPE");
   const data: Record<string, unknown> = {};
   for (const key of ADMIN_EDITABLE_USER_FIELDS) {
     if (key in body) data[key] = body[key];

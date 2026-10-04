@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Sparkles, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import {STUDENT_PLAN_CODE} from "@/lib/plans/studentOffer";
 import { accountTypeFor } from "@/lib/auth/accountAudience";
 import { useTranslation, tri } from "@/lib/i18n";
 import { COUNTRIES, dialCodeFor, registrationPhone } from "@/lib/constants/countries";
@@ -61,7 +62,7 @@ function RegisterForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           firstName: form.firstName, lastName: form.lastName || undefined, country: form.country || undefined,
-          language: registerLang, selectedPlan: planCode || undefined, accountType,
+          language: registerLang, selectedPlan: planCode || (accountType==="STUDENT"?STUDENT_PLAN_CODE:undefined), accountType,
           email: form.email || undefined, phone: composedPhone || undefined, password: form.password || undefined,
           industryPackSlug: packSlug || undefined, ref: refCode || undefined,
         }),
@@ -72,7 +73,8 @@ function RegisterForm() {
       // The just-chosen language cookie only takes effect on the NEXT
       // navigation's server render -- a client-side route push would still
       // render the old language for a flash. A full reload picks it up cleanly.
-      window.location.href = planCode ? `/plans?plan=${planCode}&period=${encodeURIComponent(billingPeriod)}&autobuy=1` : "/chat";
+      const purchasePlan=planCode||(accountType==="STUDENT"?STUDENT_PLAN_CODE:"");
+      window.location.href = purchasePlan ? `/plans?plan=${purchasePlan}&period=${encodeURIComponent(billingPeriod||"monthly")}&autobuy=1` : "/chat";
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t.auth.register.errGeneric);
     } finally {

@@ -1,3 +1,4 @@
+import {publicAppUrl} from "@/lib/utils/publicAppUrl";
 import { prisma } from "@/lib/db/prisma";
 import { Resend } from "resend";
 import { PAYMENT_ACCOUNTS } from "./accounts";
@@ -22,18 +23,20 @@ export async function notifyReceipt(id: string) {
     let telegramError: string | null = null;
     try {
       if (!process.env.TELEGRAM_BOT_TOKEN || !process.env.TELEGRAM_ADMIN_CHAT_ID) throw new Error("Telegram destination is not configured");
-      const response = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:process.env.TELEGRAM_ADMIN_CHAT_ID,text:`AIFekr: new payment receipt\nOrder: ${id}\n${payment.transferMinor/100} ${payment.transferCurrency}\n${process.env.NEXT_PUBLIC_APP_URL || "https://aifekr.com"}/admin/financial`}),signal:AbortSignal.timeout(10000)});
+      const response = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:process.env.TELEGRAM_ADMIN_CHAT_ID,text:`AIFekr: new payment receipt\nOrder: ${id}\n${payment.transferMinor/100} ${payment.transferCurrency}\n${publicAppUrl()}/admin/financial`}),signal:AbortSignal.timeout(10000)});
       const result = await response.json(); if(!result.ok) throw new Error("Telegram delivery failed");
     } catch(e) { telegramError=e instanceof Error?e.message:"Telegram delivery failed"; }
     await prisma.payment.update({where:{id},data:{telegramError,...(!telegramError?{telegramSentAt:new Date()}: {})}});
   }
   if (payment.notificationSentAt) return;
   const settings = await bankSettings();
+  const admins=await prisma.user.findMany({where:{role:{in:["ADMIN","SUPER_ADMIN"]},isBlocked:false,email:{not:null}},select:{email:true}});
+  const recipients=Array.from(new Set([settings.email,...admins.map(a=>a.email)].filter((email):email is string=>typeof email==="string"&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))));
   let error: string | null = null;
   try {
     if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM) throw new Error("Email provider is not configured");
-    const result = await new Resend(process.env.RESEND_API_KEY).emails.send({from:process.env.RESEND_FROM,to:settings.email,subject:`AIFekr: payment receipt ${id}`,html:`<p>A new bank-transfer receipt requires review.</p><p>Payment: ${id}</p><p>Amount: ${payment.transferMinor/100} ${payment.transferCurrency}</p><p><a href="${process.env.NEXT_PUBLIC_APP_URL || "https://aifekr.com"}/admin/financial">Review in dashboard</a></p>`});
-    if (result.error) throw new Error(result.error.message);
+    const result = await new Resend(process.env.RESEND_API_KEY).emails.send({from:process.env.RESEND_FROM,to:recipients[0],bcc:recipients.slice(1),subject:`AIFekr: payment receipt ${id}`,html:`<p>A new bank-transfer receipt requires review.</p><p>Payment: ${id}</p><p>Amount: ${payment.transferMinor/100} ${payment.transferCurrency}</p><p><a href="${publicAppUrl()}/admin/financial">Review in dashboard</a></p>`});
+    if (result.error||!result.data?.id) throw new Error(result.error?.message||"Email provider did not accept the message");
   } catch(e) { error = e instanceof Error ? e.message : "Delivery failed"; }
   await prisma.payment.update({where:{id},data:{notificationAttempts:{increment:1},notificationError:error,...(!error?{notificationSentAt:new Date()}: {})}});
 }
