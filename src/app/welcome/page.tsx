@@ -54,7 +54,7 @@ export default function WelcomePage() {
     const res = await fetch("/api/user/onboarding", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(final),
+      body: JSON.stringify({ ...final, selectedPlan: new URLSearchParams(window.location.search).get("plan"), period: new URLSearchParams(window.location.search).get("period") }),
     });
     const data = await res.json();
     if(!res.ok)throw new Error(data.error || tri(lang,"ذخیرهٔ اطلاعات انجام نشد؛ دوباره تلاش کنید.","Could not save. Please retry.","Speichern fehlgeschlagen. Bitte erneut versuchen.","Kaydedilemedi. Tekrar deneyin."));

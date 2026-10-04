@@ -11,6 +11,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (unavailable) return unavailable;
   let body: unknown;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 });
   if (!body || typeof body !== "object") return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 });
   const { title, examAt } = body as Record<string, unknown>;
   if (typeof title !== "string" || !title.trim() || title.trim().length > 200 || typeof examAt !== "string" || !examAt || Number.isNaN(new Date(examAt).getTime())) return NextResponse.json({ error: "عنوان و تاریخ معتبر الزامی است" }, { status: 400 });

@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
   if (unavailable) return unavailable;
   let body: { name?: string; courseCode?: string; institution?: string; term?: string; instructor?: string; description?: string; color?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 });
   if ([body.name, body.courseCode, body.institution, body.term, body.instructor, body.description].some((value) => value !== undefined && typeof value !== "string")) return NextResponse.json({ error: "فیلدهای درس باید متن باشند" }, { status: 400 });
   const name = body.name?.trim();
   if (!name || name.length > 120) return NextResponse.json({ error: "نام درس الزامی است و باید کمتر از ۱۲۰ نویسه باشد" }, { status: 400 });

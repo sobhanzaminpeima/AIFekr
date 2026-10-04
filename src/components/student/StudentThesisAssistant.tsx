@@ -1,5 +1,7 @@
 "use client";
 
+import StudyAnswer from "./StudyAnswer";
+
 import { useEffect, useState } from "react";
 import { BookOpenCheck, Loader2, Sparkles } from "lucide-react";
 import { tri, type Lang } from "@/lib/i18n";
@@ -7,7 +9,7 @@ import { tri, type Lang } from "@/lib/i18n";
 type Course = { id: string; name: string };
 const MODES = ["proposal", "outline", "methodology", "literature", "review"] as const;
 
-export default function StudentThesisAssistant({ courses, lang }: { courses: Course[]; lang: Lang }) {
+export default function StudentThesisAssistant({ courses, lang, onSaved }: { courses: Course[]; lang: Lang; onSaved?: () => void | Promise<void> }) {
   const [courseId, setCourseId] = useState("");
   const [mode, setMode] = useState<(typeof MODES)[number]>("proposal");
   const [prompt, setPrompt] = useState("");
@@ -31,6 +33,7 @@ export default function StudentThesisAssistant({ courses, lang }: { courses: Cou
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "درخواست انجام نشد");
       setAnswer(`${data.answer}\n\n${tri(lang, `ذخیره شد در یادداشت درس · ${data.creditsUsed} اعتبار`, `Saved to course notes · ${data.creditsUsed} credits`, `In Kursnotizen gespeichert · ${data.creditsUsed} Credits`, `Ders notlarına kaydedildi · ${data.creditsUsed} kredi`)}`);
+      await onSaved?.();
     } catch (e) { setError(e instanceof Error ? e.message : "درخواست ناموفق بود"); }
     finally { setBusy(false); }
   }
@@ -42,6 +45,6 @@ export default function StudentThesisAssistant({ courses, lang }: { courses: Cou
       <label className="block text-sm">{tri(lang, "موضوع، سؤال، rubic یا بخشی از پیش‌نویس", "Topic, question, rubric, or draft excerpt", "Thema, Frage, Kriterien oder Textauszug", "Konu, soru, değerlendirme ölçütü veya taslak")}<textarea required minLength={10} maxLength={12000} rows={5} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={tri(lang, "رشته، مقطع، موضوع و محدودیت‌های استاد را بنویس…", "Include your field, degree level, topic, and instructor requirements…", "Fach, Abschluss, Thema und Vorgaben…", "Alanını, düzeyini, konunu ve danışman koşullarını yaz…")} className="mt-1.5 w-full rounded-lg p-3 text-sm" style={{ background: "var(--surface-0)", border: "1px solid var(--border)" }}/></label>
       <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs font-medium" style={{ color: "#8b5cf6" }}>{loading ? tri(lang, "در حال دریافت هزینه…", "Loading cost…", "Kosten werden geladen…", "Maliyet yükleniyor…") : tri(lang, `هزینهٔ این اجرا: ${credits} اعتبار · فقط در صورت پاسخ موفق`, `Cost: ${credits} credits · charged only on success`, `Kosten: ${credits} Credits · nur bei Erfolg`, `Maliyet: ${credits} kredi · yalnızca başarılı olursa`)}</p><button disabled={busy || loading || !courseId || prompt.trim().length < 10} className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm text-white disabled:opacity-50" style={{ background: "#8b5cf6" }}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}{tri(lang, "شروع راهنمایی پژوهش", "Start research coaching", "Betreuung starten", "Danışmanlığı başlat")}</button></div>
     </form>
-    {error && <p role="alert" className="mt-3 text-sm text-red-500">{error}</p>}{answer && <div className="mt-4 whitespace-pre-wrap rounded-xl p-4 text-sm leading-7" style={{ background: "var(--surface-0)", border: "1px solid var(--border)" }}>{answer}</div>}
+    {error && <p role="alert" className="mt-3 text-sm text-red-500">{error}</p>}{answer && <div className="mt-4 whitespace-pre-wrap rounded-xl p-4 text-sm leading-7" style={{ background: "var(--surface-0)", border: "1px solid var(--border)" }}><StudyAnswer>{answer}</StudyAnswer></div>}
   </section>;
 }

@@ -11,19 +11,8 @@ export async function GET(req: NextRequest) {
 
   const since = new Date(Date.now() - 30 * 24 * 3_600_000);
 
-  const rows = await (prisma as any).$queryRaw`
-    SELECT type, COUNT(*) as count, SUM(credits) as totalCredits
-    FROM UsageLog
-    WHERE userId = ${user.id} AND createdAt >= ${since.toISOString()}
-    GROUP BY type
-    ORDER BY totalCredits DESC
-  `;
-
-  const byType = (rows as any[]).map((r) => ({
-    type: r.type,
-    count: typeof r.count === "bigint" ? Number(r.count) : r.count,
-    totalCredits: typeof r.totalCredits === "bigint" ? Number(r.totalCredits) : r.totalCredits,
-  }));
+  const rows = await prisma.usageLog.groupBy({ by: ["type"], where: { userId: user.id, createdAt: { gte: since } }, _count: { _all: true }, _sum: { credits: true }, orderBy: { _sum: { credits: "desc" } } });
+  const byType = rows.map((row) => ({ type: row.type, count: row._count._all, totalCredits: row._sum.credits || 0 }));
 
   const totalCredits = byType.reduce((sum, r) => sum + r.totalCredits, 0);
   const creditsRemaining = await getAvailableCredits(user.id);

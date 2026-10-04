@@ -21,6 +21,7 @@ export async function PATCH(req: NextRequest) {
   if (unavailable) return unavailable;
   let body: { slug?: unknown; isPublic?: unknown };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 });
   if (typeof body.slug !== "string" || typeof body.isPublic !== "boolean") return NextResponse.json({ error: "شناسهٔ عمومی و وضعیت انتشار معتبر نیست" }, { status: 400 });
   const slug = body.slug.trim().toLowerCase();
   if (slug && !/^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])?$/.test(slug)) return NextResponse.json({ error: "شناسه باید ۳ تا ۳۰ حرف کوچک انگلیسی، عدد یا خط تیره باشد" }, { status: 400 });

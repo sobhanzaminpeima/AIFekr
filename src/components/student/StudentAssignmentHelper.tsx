@@ -1,12 +1,14 @@
 "use client";
 
+import StudyAnswer from "./StudyAnswer";
+
 import { useState } from "react";
 import { Clipboard, Loader2, Sparkles } from "lucide-react";
 import { tri, type Lang } from "@/lib/i18n";
 
 type Mode = "understand" | "steps" | "outline" | "feedback" | "hint";
 
-export default function StudentAssignmentHelper({ courseId, lang }: { courseId: string; lang: Lang }) {
+export default function StudentAssignmentHelper({ courseId, lang, onSaved }: { courseId: string; lang: Lang; onSaved?: () => void | Promise<void> }) {
   const [mode, setMode] = useState<Mode>("understand");
   const [prompt, setPrompt] = useState("");
   const [answer, setAnswer] = useState("");
@@ -27,6 +29,7 @@ export default function StudentAssignmentHelper({ courseId, lang }: { courseId: 
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "درخواست ناموفق بود");
       setAnswer(body.answer); setCredits(body.creditsUsed);
+      await onSaved?.();
     } catch (e) { setError(e instanceof Error ? e.message : "درخواست ناموفق بود"); }
     finally { setBusy(false); }
   }
@@ -64,7 +67,7 @@ export default function StudentAssignmentHelper({ courseId, lang }: { courseId: 
             <Clipboard size={13} />{copied ? tri(lang, "کپی شد", "Copied", "Kopiert", "Kopyalandı") : tri(lang, "کپی", "Copy", "Kopieren", "Kopyala")}
           </button>
         </div>
-        <div className="text-sm leading-7 whitespace-pre-wrap">{answer}</div>
+        <StudyAnswer>{answer}</StudyAnswer>
         <p className="mt-3 border-t pt-2 text-xs" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>{tri(lang, "این پاسخ در یادداشت‌های همین درس ذخیره شد.", "This response was saved in this course’s notes.", "Diese Antwort wurde in den Notizen dieses Kurses gespeichert.", "Bu yanıt bu dersin notlarına kaydedildi.")}</p>
       </div>}
     </section>

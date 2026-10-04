@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, unauthorizedResponse, forbiddenResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { isStudentWorkspaceEnabled, setStudentWorkspaceEnabled } from "@/lib/student/access";
+import { getStudentWorkspaceDefault, setStudentWorkspaceEnabled, STUDENT_WORKSPACE_MODULE_KEY } from "@/lib/student/access";
 import { getThesisAssistCreditCost, setThesisAssistCreditCost } from "@/lib/student/costs";
 
 async function authorize(req: NextRequest) {
@@ -16,23 +16,25 @@ async function authorize(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const { admin, error } = await authorize(req);
   if (!admin) return error;
-  const [enabled, thesisAssistCreditCost, courses, materials, notes, flashcards, quizzes, attempts, exams, tasks, activeUsers, aiRuns, aiCredits, scores] = await Promise.all([
-    isStudentWorkspaceEnabled(),
+  const enabled = await getStudentWorkspaceDefault();
+  const studentUsage = { type: { in: ["chat", "tool"] }, OR: [{ metadata: { contains: '"feature":"student"' } }, { metadata: { contains: '"feature":"student.' } }] };
+  const [thesisAssistCreditCost, courses, materials, notes, flashcards, quizzes, attempts, exams, tasks, activeUsers, aiRuns, aiCredits, scores] = await Promise.all([
     getThesisAssistCreditCost(),
     prisma.studentCourse.count(), prisma.studentMaterial.count(), prisma.studentNote.count(),
     prisma.studentFlashcard.count(), prisma.studentQuiz.count(), prisma.studentQuizAttempt.count(),
     prisma.studentExam.count(),
     prisma.studentTask.count(),
-    prisma.studentCourse.findMany({ distinct: ["userId"], select: { userId: true } }),
-    prisma.usageLog.count({ where: { type: "chat", metadata: { contains: '"feature":"student"' } } }),
-    prisma.usageLog.aggregate({ where: { type: "chat", metadata: { contains: '"feature":"student"' } }, _sum: { credits: true } }),
+    prisma.user.count({ where: { accountType: "STUDENT", plan: { startsWith: "STUDENT_" }, planExpiry: { gt: new Date() }, isBlocked: false,
+      OR: [{ moduleOverrides: { some: { moduleKey: STUDENT_WORKSPACE_MODULE_KEY, enabled: true } } }, ...(enabled ? [{ moduleOverrides: { none: { moduleKey: STUDENT_WORKSPACE_MODULE_KEY } } }] : [])] } }),
+    prisma.usageLog.count({ where: studentUsage }),
+    prisma.usageLog.aggregate({ where: studentUsage, _sum: { credits: true } }),
     prisma.studentQuizAttempt.aggregate({ _avg: { score: true, total: true } }),
   ]);
   const recentCourses = await prisma.studentCourse.findMany({
     orderBy: { updatedAt: "desc" }, take: 8,
     select: { id: true, name: true, updatedAt: true, user: { select: { id: true, name: true, email: true } }, _count: { select: { materials: true, quizzes: true, notes: true } } },
   });
-  return NextResponse.json({ enabled, thesisAssistCreditCost, stats: { activeUsers: activeUsers.length, courses, materials, notes, flashcards, quizzes, attempts, exams, tasks, aiRuns, aiCredits: aiCredits._sum.credits ?? 0, averageScore: scores._avg.total ? Math.round(((scores._avg.score || 0) / scores._avg.total) * 100) : null }, recentCourses });
+  return NextResponse.json({ enabled, thesisAssistCreditCost, stats: { activeUsers, courses, materials, notes, flashcards, quizzes, attempts, exams, tasks, aiRuns, aiCredits: aiCredits._sum.credits ?? 0, averageScore: scores._avg.total ? Math.round(((scores._avg.score || 0) / scores._avg.total) * 100) : null }, recentCourses });
 }
 
 export async function PATCH(req: NextRequest) {

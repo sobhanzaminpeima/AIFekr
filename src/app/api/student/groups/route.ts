@@ -29,6 +29,8 @@ export async function POST(req: NextRequest) {
   if (!limit.allowed) return NextResponse.json({ error: "ساخت گروه بیش از حد مجاز است" }, { status: 429 });
   let body: { name?: string; courseId?: string | null };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 });
+  if (["title","content","question","answer","name","inviteCode","message","email","description"].some((key) => (body as Record<string, unknown>)[key] !== undefined && typeof (body as Record<string, unknown>)[key] !== "string")) return NextResponse.json({ error: "فیلدهای متنی معتبر نیستند" }, { status: 400 });
   const name = body.name?.trim();
   if (!name || name.length > 80) return NextResponse.json({ error: "نام گروه باید بین ۱ تا ۸۰ نویسه باشد" }, { status: 400 });
   if (body.courseId) {

@@ -4,6 +4,13 @@ import { proposeStudySessions } from "@/lib/student/planner";
 describe("proposeStudySessions", () => {
   const now = new Date("2026-09-30T10:00:00.000Z");
 
+  it("never proposes a session earlier than the current time", () => {
+    const late = new Date("2026-09-30T20:00:00.000Z");
+    const sessions = proposeStudySessions([{ id: "future", title: "Final", courseId: "c", courseName: "Biology", examAt: new Date("2026-10-10T10:00:00Z") }], late);
+    expect(sessions.length).toBe(6);
+    expect(sessions.every((session) => session.dueAt > late)).toBe(true);
+  });
+
   it("creates editable review sessions only before the exam within the horizon", () => {
     const sessions = proposeStudySessions([{
       id: "exam-1", title: "Midterm", courseId: "course-1", courseName: "Economics",

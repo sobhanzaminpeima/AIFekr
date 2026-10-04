@@ -26,7 +26,9 @@ export async function POST(req: NextRequest) {
   if (unavailable) return unavailable;
   let body: { title?: string; description?: string; courseId?: string | null; taskType?: string; dueAt?: string | null; priority?: number };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }
-  const title = body.title?.trim();
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 });
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  if (body.description !== undefined && typeof body.description !== "string") return NextResponse.json({ error: "توضیحات باید متن باشد" }, { status: 400 });
   const description = body.description?.trim() || "";
   const taskType = body.taskType || "assignment";
   const dueAt = body.dueAt ? new Date(body.dueAt) : null;

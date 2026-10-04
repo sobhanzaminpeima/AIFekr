@@ -7,6 +7,7 @@ import { studentWorkspaceDisabledResponse, isStudentWorkspaceEnabled } from "@/l
 import { notify } from "@/lib/notifications/create";
 import { sendEmail } from "@/lib/email/resend";
 import { rateLimit } from "@/lib/utils/rateLimit";
+import { publicAppUrl } from "@/lib/utils/publicAppUrl";
 
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
 
@@ -18,6 +19,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!rateLimit(`student-group-invite:${user.id}`, 10, 60_000).allowed) return NextResponse.json({ error: "تعداد دعوت‌ها بیش از حد مجاز است؛ کمی بعد دوباره تلاش کنید" }, { status: 429 });
   let body: { email?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 });
+  if (["title","content","question","answer","name","inviteCode","message","email","description"].some((key) => (body as Record<string, unknown>)[key] !== undefined && typeof (body as Record<string, unknown>)[key] !== "string")) return NextResponse.json({ error: "فیلدهای متنی معتبر نیستند" }, { status: 400 });
   const email = body.email?.trim().toLowerCase();
   if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: "ایمیل معتبر وارد کنید" }, { status: 400 });
 
@@ -39,7 +42,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     added = true;
   }
 
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://aifekr.com").replace(/\/$/, "");
+  const appUrl = publicAppUrl();
   const groupName = escapeHtml(group.name);
   const senderName = escapeHtml(user.name || user.email || "یک دانشجو");
   const emailHtml = invitee

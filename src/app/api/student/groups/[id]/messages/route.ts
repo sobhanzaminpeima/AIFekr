@@ -31,6 +31,8 @@ export async function POST(req: NextRequest, { params }: Context) {
   if (!await isMember(params.id, user.id)) return NextResponse.json({ error: "به این گروه دسترسی ندارید" }, { status: 404 });
   let body: { content?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 });
+  if (["title","content","question","answer","name","inviteCode","message","email","description"].some((key) => (body as Record<string, unknown>)[key] !== undefined && typeof (body as Record<string, unknown>)[key] !== "string")) return NextResponse.json({ error: "فیلدهای متنی معتبر نیستند" }, { status: 400 });
   const content = body.content?.trim();
   if (!content || content.length > 2000) return NextResponse.json({ error: "متن پیام باید بین ۱ تا ۲۰۰۰ نویسه باشد" }, { status: 400 });
   const message = await prisma.studentStudyGroupMessage.create({ data: { groupId: params.id, userId: user.id, content }, include: { user: { select: { id: true, name: true } } } });

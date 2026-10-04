@@ -12,6 +12,8 @@ export async function PATCH(req: NextRequest, context: { params: { id: string } 
   if (unavailable) return unavailable;
   let body: { title?: string; description?: string; dueAt?: string | null; priority?: number; completed?: boolean };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 });
+  if (["title","content","question","answer","name","inviteCode","message","email","description"].some((key) => (body as Record<string, unknown>)[key] !== undefined && typeof (body as Record<string, unknown>)[key] !== "string")) return NextResponse.json({ error: "فیلدهای متنی معتبر نیستند" }, { status: 400 });
   const data: { title?: string; description?: string; dueAt?: Date | null; priority?: number; completedAt?: Date | null } = {};
   if (body.title !== undefined) {
     const title = body.title.trim();

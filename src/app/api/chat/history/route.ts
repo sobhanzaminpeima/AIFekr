@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     // Verify conversation belongs to this user
     const conv = await prisma.conversation.findFirst({
       where: { id: conversationId, userId: user.id },
-      select: { id: true, title: true, projectId: true },
+      select: { id: true, title: true, projectId: true, tool: true },
     });
 
     if (!conv) return NextResponse.json({ error: "Not found" }, { status: 404 });

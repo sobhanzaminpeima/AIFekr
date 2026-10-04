@@ -50,8 +50,11 @@ export async function GET(req: NextRequest) {
     select: { startedAt: true, durationSeconds: true }, orderBy: { startedAt: "asc" },
   });
   const byDay = new Map<string, number>();
+  let dayFormatter: Intl.DateTimeFormat;
+  try { dayFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: search.get("timeZone") || "UTC", year: "numeric", month: "2-digit", day: "2-digit" }); }
+  catch { return NextResponse.json({ error: "Invalid time zone" }, { status: 400 }); }
   for (const row of byDayRows) {
-    const day = row.startedAt.toISOString().slice(0, 10);
+    const day = dayFormatter.format(row.startedAt);
     byDay.set(day, (byDay.get(day) || 0) + row.durationSeconds);
   }
   const courseIds = courseTotals.map((item) => item.courseId).filter((id): id is string => Boolean(id));
@@ -82,6 +85,7 @@ export async function POST(req: NextRequest) {
   if (unavailable) return unavailable;
   let body: { courseId?: string | null };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 });
   if (body.courseId) {
     const course = await prisma.studentCourse.findFirst({ where: { id: body.courseId, userId: user.id }, select: { id: true } });
     if (!course) return NextResponse.json({ error: "درس پیدا نشد" }, { status: 404 });
@@ -107,6 +111,7 @@ export async function PATCH(req: NextRequest) {
   if (unavailable) return unavailable;
   let body: { action?: "pause" | "resume" | "stop" } = {};
   try { body = await req.json(); } catch { /* Empty body remains backward-compatible with stop. */ }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 });
   const action = body.action || "stop";
   if (!["pause", "resume", "stop"].includes(action)) return NextResponse.json({ error: "عملیات زمان‌سنج معتبر نیست" }, { status: 400 });
   const session = await prisma.studentStudySession.findFirst({ where: { userId: user.id, activeUserKey: user.id, endedAt: null } });

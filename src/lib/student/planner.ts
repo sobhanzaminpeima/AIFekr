@@ -22,7 +22,7 @@ export function proposeStudySessions(exams: ExamForPlanning[], now = new Date(),
       const day = new Date(today);
       day.setUTCDate(today.getUTCDate() + offset);
       day.setUTCHours(18, 0, 0, 0);
-      if (day >= exam.examAt) continue;
+      if (day <= now || day >= exam.examAt) continue;
       const key = `${exam.id}:${day.toISOString().slice(0, 10)}`;
       if (seen.has(key)) continue;
       seen.add(key);

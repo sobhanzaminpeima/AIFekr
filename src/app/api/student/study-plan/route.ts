@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
   if (unavailable) return unavailable;
   let body: { examId?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 });
   if (!body.examId) return NextResponse.json({ error: "ابتدا امتحان مورد نظر برای برنامه را انتخاب کنید" }, { status: 400 });
   const selectedExam = await prisma.studentExam.findFirst({ where: { id: body.examId, userId: user.id, examAt: { gt: new Date() } }, include: { course: { select: { name: true } } } });
   if (!selectedExam) return NextResponse.json({ error: "امتحان پیدا نشد یا در گذشته است" }, { status: 404 });

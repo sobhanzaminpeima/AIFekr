@@ -9,14 +9,15 @@ import Link from "next/link";
 type CourseData = { course: { id: string; name: string } };
 type MaterialsData = { materials: { title: string; content: string }[] };
 
-export default function StudentTutorChat({ courseId }: { courseId?: string }) {
+export default function StudentTutorChat({ courseId, conversationId }: { courseId?: string; conversationId?: string }) {
   const { lang } = useTranslation();
   const [prompt, setPrompt] = useState("You are a supportive study tutor for a student. Help them understand concepts step by step, ask guiding questions, and never claim you used course materials unless they are supplied in the conversation. Promote academic integrity; guide rather than write graded submissions.");
   const [status, setStatus] = useState("");
   const [contextReady, setContextReady] = useState(!courseId);
 
   useEffect(() => {
-    if (!courseId) return;
+    if (!courseId) { setContextReady(true); return; }
+    setContextReady(false);
     let cancelled = false;
     async function loadContext() {
       try {
@@ -43,6 +44,6 @@ export default function StudentTutorChat({ courseId }: { courseId?: string }) {
 
   return <div className="flex h-[calc(100dvh-8rem-env(safe-area-inset-bottom))] min-h-0 flex-col md:h-[calc(100dvh-4rem)]">
     <div className="flex items-center justify-between gap-3 border-b px-4 py-2" style={{ borderColor: "var(--border)" }}><div className="text-xs" style={{ color: "var(--text-secondary)" }}>{status || tri(lang, "دستیار آموزشی AIFekr", "AIFekr study tutor", "AIFekr-Lerncoach", "AIFekr çalışma eğitmeni")}</div><Link href="/student" className="text-xs" style={{ color: "#f97316" }}>{tri(lang, "بازگشت به فضای دانشجویی", "Back to student workspace", "Zum Lernbereich", "Öğrenci alanına dön")}</Link></div>
-    <div className="min-h-0 flex-1">{contextReady ? <ChatInterface systemPrompt={prompt} title={tri(lang, "دستیار آموزشی", "Study tutor", "Lerncoach", "Çalışma eğitmeni")} /> : <div className="grid h-full place-items-center text-sm" style={{ color: "var(--text-secondary)" }}>{tri(lang, "در حال اتصال جزوه‌های این درس…", "Loading this course's materials…", "Kursmaterialien werden geladen…", "Ders kaynakları yükleniyor…")}</div>}</div>
+    <div className="min-h-0 flex-1">{contextReady ? <ChatInterface conversationId={conversationId} studentTutor studentCourseId={courseId} systemPrompt={prompt} title={tri(lang, "دستیار آموزشی", "Study tutor", "Lerncoach", "Çalışma eğitmeni")} /> : <div className="grid h-full place-items-center text-sm" style={{ color: "var(--text-secondary)" }}>{tri(lang, "در حال اتصال جزوه‌های این درس…", "Loading this course's materials…", "Kursmaterialien werden geladen…", "Ders kaynakları yükleniyor…")}</div>}</div>
   </div>;
 }

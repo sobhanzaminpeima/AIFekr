@@ -15,6 +15,8 @@ export async function POST(req: NextRequest) {
   if (!limit.allowed) return NextResponse.json({ error: "تعداد تلاش برای عضویت بیش از حد مجاز است" }, { status: 429 });
   let body: { inviteCode?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 });
+  if (["title","content","question","answer","name","inviteCode","message","email","description"].some((key) => (body as Record<string, unknown>)[key] !== undefined && typeof (body as Record<string, unknown>)[key] !== "string")) return NextResponse.json({ error: "فیلدهای متنی معتبر نیستند" }, { status: 400 });
   const inviteCode = body.inviteCode?.trim();
   if (!inviteCode || inviteCode.length > 64) return NextResponse.json({ error: "کد دعوت معتبر نیست" }, { status: 400 });
   const group = await prisma.studentStudyGroup.findUnique({ where: { inviteCode }, select: { id: true } });

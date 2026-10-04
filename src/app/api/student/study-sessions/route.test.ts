@@ -28,6 +28,12 @@ afterEach(async () => { await prisma.user.deleteMany({ where: { id: userId } });
 afterAll(async () => prisma.$disconnect());
 
 describe("student study sessions", () => {
+  it("groups a late UTC session by the student's local day", async () => {
+    await prisma.studentStudySession.create({ data: { userId, startedAt: new Date("2026-10-04T22:30:00Z"), endedAt: new Date("2026-10-04T22:40:00Z"), durationSeconds: 600 } });
+    const data = await (await GET(req("GET", undefined, "?days=366&timeZone=Europe%2FBucharest"))).json();
+    expect(data.byDay).toContainEqual({ day: "2026-10-05", seconds: 600 });
+    expect((await GET(req("GET", undefined, "?timeZone=invalid-zone"))).status).toBe(400);
+  });
   it("records a server-timed session and returns a course/day report", async () => {
     const started = await POST(req("POST", { courseId: null }));
     expect(started.status).toBe(201);

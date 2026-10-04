@@ -30,6 +30,7 @@ export async function POST(req: NextRequest, context: { params: { id: string } }
   }
   let body: { answers?: unknown; attemptToken?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 });
   const questions = JSON.parse(quiz.questions) as { topic: string; explanation: string; correctIndex: number }[];
   if (!Array.isArray(body.answers) || body.answers.length !== questions.length || body.answers.some((answer) => answer !== null && (!Number.isInteger(answer) || Number(answer) < 0 || Number(answer) > 3))) {
     return NextResponse.json({ error: "پاسخ آزمون معتبر نیست" }, { status: 400 });

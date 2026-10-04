@@ -9,6 +9,11 @@ export interface StudentAccessUser {
   role?: string;
 }
 
+export async function getStudentWorkspaceDefault(): Promise<boolean> {
+  const setting = await prisma.siteSetting.findUnique({ where: { key: SETTING_KEY }, select: { value: true } });
+  return setting?.value !== "false";
+}
+
 /**
  * The site setting is the default for accounts without an explicit override.
  * Per-user overrides let admins enable/disable the module for one account.

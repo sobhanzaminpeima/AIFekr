@@ -327,10 +327,14 @@ export default function ChatInterface({
   conversationId,
   systemPrompt,
   title,
+  studentCourseId,
+  studentTutor = false,
 }: {
   conversationId?: string;
   systemPrompt?: string;
   title?: string;
+  studentCourseId?: string;
+  studentTutor?: boolean;
 }) {
   const { t, lang } = useTranslation();
   const router = useRouter();
@@ -450,6 +454,11 @@ export default function ChatInterface({
     fetch(`/api/chat/history?conversationId=${id}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
+        if (data?.conversation?.tool?.startsWith("student:") && !studentTutor) {
+          const courseId = data.conversation.tool.slice(8);
+          router.push(`/student/chat?conversationId=${encodeURIComponent(id)}${courseId ? `&courseId=${encodeURIComponent(courseId)}` : ""}`);
+          return;
+        }
         if (data?.messages?.length) {
           const restored: Message[] = data.messages.map((m: { id: string; role: "user" | "assistant"; content: string; timestamp: string }) => {
             const stored = parseStoredMedia(m.content);
@@ -482,7 +491,7 @@ export default function ChatInterface({
         }
       })
       .catch(() => {});
-  }, []);
+  }, [router, studentTutor]);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -542,6 +551,8 @@ export default function ChatInterface({
           conversationId: currentConvId,
           model: selectedModel,
           systemPrompt,
+          studentCourseId,
+          studentTutor,
           expertMode,
           history: messages.slice(-10).filter((m) => !m.media).map((m) => ({ role: m.role, content: m.content })),
         }),
@@ -557,7 +568,7 @@ export default function ChatInterface({
       const isNewConversation = !!convId && !currentConvId;
       if (isNewConversation) {
         setCurrentConvId(convId);
-        window.history.replaceState(null, "", `/chat/${convId}`);
+        window.history.replaceState(null, "", studentTutor ? `/student/chat?conversationId=${encodeURIComponent(convId)}${studentCourseId ? `&courseId=${encodeURIComponent(studentCourseId)}` : ""}` : `/chat/${convId}`);
       }
 
       if (convId) window.dispatchEvent(new CustomEvent(CHAT_HISTORY_UPDATED_EVENT, { detail: { id: convId, ...(isNewConversation ? { title: text.slice(0, 50) } : {}), updatedAt: new Date().toISOString() } }));
@@ -940,7 +951,12 @@ export default function ChatInterface({
     "Planen Sie eine Reise in eine neue Stadt",
     "Wie erstelle ich ein Geschäftsmodell für mein Startup?",
   ];
-  const starterPrompts = tri(lang, STARTER_PROMPTS_FA, STARTER_PROMPTS_EN, STARTER_PROMPTS_DE);
+  const starterPrompts = studentTutor ? tri(lang,
+    ["مفاهیم مهم این درس را با مثال توضیح بده", "از جزوهٔ من سه سؤال تمرینی بپرس", "برای مرور این درس یک برنامه پیشنهاد بده"],
+    ["Explain the key concepts with examples", "Ask me three practice questions from my notes", "Suggest a revision plan for this course"],
+    ["Erkläre die wichtigsten Konzepte mit Beispielen", "Stelle drei Übungsfragen aus meinen Unterlagen", "Schlage einen Lernplan für diesen Kurs vor"],
+    ["Temel kavramları örneklerle açıkla", "Notlarımdan üç alıştırma sorusu sor", "Bu ders için tekrar planı öner"])
+    : tri(lang, STARTER_PROMPTS_FA, STARTER_PROMPTS_EN, STARTER_PROMPTS_DE);
 
   const pill = { background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" } as const;
   const activeTab = MEDIA_TABS.find((tab) => tab.id === mediaType)!;

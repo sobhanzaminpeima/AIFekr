@@ -40,7 +40,8 @@ export default function StudentStudyReport({ courses, lang, calendar }: { course
   const [now, setNow] = useState(Date.now());
   const baseLocale = lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : lang === "tr" ? "tr-TR" : "en-US";
   const dateLocale = `${baseLocale}-u-ca-${calendar === "persian" ? "persian" : "gregory"}`;
-  const dateLabel = useMemo(() => (value: string) => new Intl.DateTimeFormat(dateLocale, { dateStyle: "medium" }).format(new Date(value)), [dateLocale]);
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const dateLabel = useMemo(() => (value: string) => new Intl.DateTimeFormat(dateLocale, { dateStyle: "medium" }).format(new Date(value.length === 10 ? `${value}T12:00:00` : value)), [dateLocale]);
   const monthLabel = useMemo(() => (key: string) => {
     const [year, month] = key.split("-").map(Number);
     return new Intl.DateTimeFormat(dateLocale, { month: "short" }).format(new Date(Date.UTC(year, month - 1, 15)));
@@ -48,10 +49,10 @@ export default function StudentStudyReport({ courses, lang, calendar }: { course
 
   const load = useCallback(async () => {
     setError("");
-    try { setReport(await request<Report>(`/api/student/study-sessions?days=${days}&page=0`)); }
+    try { setReport(await request<Report>(`/api/student/study-sessions?days=${days}&page=0&timeZone=${encodeURIComponent(timeZone)}`)); }
     catch (e) { setError(e instanceof Error ? e.message : "Could not load study report"); }
     finally { setLoading(false); }
-  }, [days]);
+  }, [days, timeZone]);
   useEffect(() => { setLoading(true); void load(); }, [load]);
   useEffect(() => { if (!report?.active) return; const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(timer); }, [report?.active?.id]);
   useEffect(() => { const refresh = () => void load(); window.addEventListener("student-timer-updated", refresh); return () => window.removeEventListener("student-timer-updated", refresh); }, [load]);
@@ -82,7 +83,7 @@ export default function StudentStudyReport({ courses, lang, calendar }: { course
     if (!report?.hasMore) return;
     setLoadingMore(true); setError("");
     try {
-      const next = await request<Report>(`/api/student/study-sessions?days=${days}&page=${report.page + 1}`);
+      const next = await request<Report>(`/api/student/study-sessions?days=${days}&page=${report.page + 1}&timeZone=${encodeURIComponent(timeZone)}`);
       setReport((current) => current ? { ...next, sessions: [...current.sessions, ...next.sessions] } : next);
     } catch (e) { setError(e instanceof Error ? e.message : "Could not load older sessions"); }
     finally { setLoadingMore(false); }
@@ -94,13 +95,13 @@ export default function StudentStudyReport({ courses, lang, calendar }: { course
     try {
       const allSessions: Session[] = [];
       for (let page = 0; page * report.pageSize < report.sessionCount; page += 1) {
-        const data = await request<Report>(`/api/student/study-sessions?days=${days}&page=${page}`);
+        const data = await request<Report>(`/api/student/study-sessions?days=${days}&page=${page}&timeZone=${encodeURIComponent(timeZone)}`);
         allSessions.push(...data.sessions);
       }
       const rows = [["Date", "Course", "Started", "Ended", "Duration (minutes)", "Pause count", "Pause intervals (JSON)"], ...allSessions.map((s) => { let pauses: PauseEntry[] = []; try { pauses = JSON.parse(s.pauseHistory || "[]"); } catch { pauses = []; } return [new Date(s.startedAt).toISOString().slice(0, 10), s.course?.name || "Unassigned", new Date(s.startedAt).toISOString(), s.endedAt ? new Date(s.endedAt).toISOString() : "", String(Math.round(s.durationSeconds / 60)), String(pauses.length), JSON.stringify(pauses)]; })];
       const csv = "\uFEFF" + rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\r\n");
       const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-      const anchor = document.createElement("a"); anchor.href = url; anchor.download = `aifekr-study-report-${days}d.csv`; anchor.click(); URL.revokeObjectURL(url);
+      const anchor = document.createElement("a"); anchor.href = url; anchor.download = `aifekr-study-report-${days}d.csv`; document.body.appendChild(anchor); anchor.click(); anchor.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
     } catch (e) { setError(e instanceof Error ? e.message : "Could not export study report"); }
     finally { setExporting(false); }
   }

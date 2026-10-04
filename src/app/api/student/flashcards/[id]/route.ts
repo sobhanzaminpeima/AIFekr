@@ -13,6 +13,7 @@ export async function PATCH(req: NextRequest, context: { params: { id: string } 
   if (unavailable) return unavailable;
   let body: { rating?: FlashcardRating };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 });
   if (!body.rating || !["hard", "good", "easy"].includes(body.rating)) return NextResponse.json({ error: "درجهٔ مرور معتبر نیست" }, { status: 400 });
   const flashcard = await prisma.studentFlashcard.findFirst({ where: { id: context.params.id, userId: user.id }, select: { id: true, masteryLevel: true, reviewCount: true } });
   if (!flashcard) return NextResponse.json({ error: "فلش‌کارت پیدا نشد" }, { status: 404 });

@@ -22,6 +22,8 @@ export async function POST(req: NextRequest) {
   if (unavailable) return unavailable;
   let body: { courseId?: string; title?: string; content?: string; id?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 });
+  if (["title","content","question","answer","name","inviteCode","message","email","description"].some((key) => (body as Record<string, unknown>)[key] !== undefined && typeof (body as Record<string, unknown>)[key] !== "string")) return NextResponse.json({ error: "فیلدهای متنی معتبر نیستند" }, { status: 400 });
   const title = body.title?.trim();
   const content = body.content?.trim();
   if (!body.courseId || !title || !content || title.length > 200 || content.length > 20_000) return NextResponse.json({ error: "درس، عنوان و یادداشت معتبر الزامی است" }, { status: 400 });

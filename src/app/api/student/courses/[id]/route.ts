@@ -25,6 +25,7 @@ export async function PATCH(req: NextRequest, context: { params: { id: string } 
   if (unavailable) return unavailable;
   let body: { name?: string; courseCode?: string | null; institution?: string | null; term?: string | null; instructor?: string | null; description?: string | null; color?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 });
   const data: Record<string, string | null> = {};
   const limits: Record<string, number> = { name: 120, courseCode: 40, institution: 160, term: 80, instructor: 120, description: 2000 };
   for (const key of Object.keys(limits)) {
