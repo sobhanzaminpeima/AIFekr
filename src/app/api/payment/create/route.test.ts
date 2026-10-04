@@ -2,14 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({
-  findPending: vi.fn(), create: vi.fn(), auth: vi.fn(), findPackage: vi.fn(), membership:vi.fn(), memberCount:vi.fn(),
+  findPending: vi.fn(), create: vi.fn(), auth: vi.fn(), findPackage: vi.fn(), membership:vi.fn(), memberCount:vi.fn(), gateway:vi.fn(), update:vi.fn(), updateMany:vi.fn(),
 }));
+vi.mock("@/lib/payment/zarinpal",()=>({createPayment:mocks.gateway}));
 vi.mock("@/lib/auth/middleware", () => ({ requireAuth: mocks.auth, unauthorizedResponse: () => new Response(null, { status: 401 }) }));
 vi.mock("@/lib/utils/rateLimit", () => ({ rateLimit: () => ({ allowed: true }) }));
 vi.mock("@/lib/utils/currency", () => ({ getFxRates: async () => ({ usdToToman: 100, usdToTry: 40, usdToEur: 0.9, rateDate: "2026-10-03" }) }));
-vi.mock("@/lib/payment/bank", () => ({ bankSettings: async () => ({ iban: "GB82WEST12345698765432", euroIban: "GB82WEST12345698765432", holder: "Test", currency: "TRY" }), validIban: () => true }));
+vi.mock("@/lib/payment/bank", () => ({ bankSettings: async () => ({ iban: "TR210001009010583132105001", euroIban: "TR910001009010583132105002", holder: "Test", currency: "EUR" }), validIban: () => true }));
 vi.mock("@/lib/payment/bankErrors", () => ({ bankError: (_req: unknown, error: string, status: number) => Response.json({ error }, { status }) }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: {
+  payment:{update:mocks.update,updateMany:mocks.updateMany},
   package: { findUnique: mocks.findPackage },
   teamMember:{findUnique:mocks.membership,count:mocks.memberCount},
   $transaction: (fn: (tx: unknown) => unknown) => fn({ payment: { findFirst: mocks.findPending, create: mocks.create } }),
@@ -25,6 +27,7 @@ beforeEach(() => {
   mocks.findPackage.mockResolvedValue({ isActive: true, priceUsd: 8000, price: 80000, credits: 1000, duration: 30, teamSeatLimit:3,crmSeatLimit:3 });
   mocks.membership.mockResolvedValue(null);mocks.memberCount.mockResolvedValue(0);
   mocks.findPending.mockResolvedValue(null);
+  mocks.gateway.mockResolvedValue({ok:true,authority:"A-test",paymentUrl:"https://www.zarinpal.com/pg/StartPay/A-test"});
   mocks.create.mockResolvedValue({ id: "new-payment" });
 });
 describe("bank checkout period selection", () => {
@@ -113,4 +116,29 @@ describe("existing-account student purchase",()=>{
     mocks.auth.mockResolvedValue({id:"buyer",role:"USER",accountType:"BUSINESS"});
     expect((await POST(request("STUDENT_FIRST_THREE_MONTHS","monthly"))).status).toBe(403);expect(mocks.create).not.toHaveBeenCalled();
   });
+});
+
+describe("currency routing",()=>{
+ it("routes IRR through Zarinpal with a toman amount and captured entitlements",async()=>{
+  const response=await POST(request("TEAM_BUSINESS_GROW","quarterly","IRR"));
+  expect(response.status).toBe(200);
+  expect((await response.json()).paymentUrl).toContain("zarinpal.com");
+  const data=mocks.create.mock.calls[0][0].data;
+  expect(data.gateway).toBe("zarinpal");expect(data.transferCurrency).toBe("IRR");
+  expect(data.transferMinor).toBe(data.amount*10);
+  expect(mocks.gateway.mock.calls[0][0].amount).toBe(data.amount);
+  expect(JSON.parse(data.entitlementSnapshot)).toMatchObject({credits:3000,days:90,businessBundle:true});
+  expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({authority:"A-test"})}));
+ });
+ it("fails without activating entitlements when the gateway rejects a request",async()=>{
+  mocks.gateway.mockResolvedValue({ok:false});
+  expect((await POST(request("STUDENT_FIRST_THREE_MONTHS","monthly","IRR"))).status).toBe(503);
+  expect(mocks.updateMany).toHaveBeenCalledWith(expect.objectContaining({data:{status:"FAILED"}}));
+ });
+ it("keeps TRY and EUR on bank transfer without calling the gateway",async()=>{
+  await POST(request("VOICE_MONTHLY","monthly","TRY"));await POST(request("VOICE_MONTHLY","monthly","EUR"));
+  expect(mocks.create.mock.calls.map(c=>c[0].data.transferCurrency)).toEqual(["TRY","EUR"]);
+  expect(mocks.gateway).not.toHaveBeenCalled();
+  expect(mocks.create.mock.calls.map(c=>JSON.parse(c[0].data.bankSnapshot).iban)).toEqual(["TR210001009010583132105001","TR910001009010583132105002"]);
+ });
 });

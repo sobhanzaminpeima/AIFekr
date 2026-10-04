@@ -1,6 +1,6 @@
 import { afterAll,beforeAll,describe,expect,it } from "vitest";
 import { prisma } from "@/lib/db/prisma";
-import { reviewBankPayment } from "./reviewBankPayment";
+import { reviewBankPayment, settleVerifiedPayment } from "./reviewBankPayment";
 import { validIban } from "./bank";
 describe.runIf(process.env.RUN_BANK_INTEGRATION === "1")("bank transaction integration",()=>{
 let buyer:string,referrer:string,admin:string;
@@ -57,6 +57,17 @@ it("includes AI Call Center in Growth and Scale",async()=>{
 it("preserves a separately paid voice add-on when buying Launch",async()=>{
  const voice=await purchase("VOICE_MONTHLY");await prisma.payment.update({where:{id:voice.id},data:{entitlementSnapshot:JSON.stringify({credits:0,days:30})}});await reviewBankPayment(voice.id,admin,true,"");
  const p=await purchase("TEAM_BUSINESS_START");await prisma.payment.update({where:{id:p.id},data:{entitlementSnapshot:JSON.stringify({credits:1000,days:30,teamSeatLimit:3,crmSeatLimit:3,businessBundle:true})}});await reviewBankPayment(p.id,admin,true,"");expect((await prisma.user.findUniqueOrThrow({where:{id:buyer}})).voicePlan).toBe("ACTIVE");
+});
+
+it("binds verified gateway activation to its authority and grants credits only once",async()=>{
+ const p=await purchase("CREDITS_test",false);
+ await prisma.payment.update({where:{id:p.id},data:{gateway:"zarinpal",authority:"TEST_VERIFIED_GATEWAY",entitlementSnapshot:JSON.stringify({credits:750,days:30})}});
+ const before=await prisma.user.findUniqueOrThrow({where:{id:buyer}});
+ await expect(settleVerifiedPayment(p.id,"WRONG_AUTHORITY","123")).rejects.toThrow("NOT_REVIEWABLE");
+ expect(await settleVerifiedPayment(p.id,"TEST_VERIFIED_GATEWAY","123")).toBe(true);
+ expect(await settleVerifiedPayment(p.id,"TEST_VERIFIED_GATEWAY","123")).toBe(false);
+ const after=await prisma.user.findUniqueOrThrow({where:{id:buyer}});
+ expect(after.credits-before.credits).toBe(750);expect(after.plan).toBe(before.plan);expect(after.planExpiry).toEqual(before.planExpiry);
 });
 
 });

@@ -54,8 +54,10 @@ export async function createPayment(req: PaymentRequest): Promise<PaymentResult>
     return { ok: true, authority: fakeAuthority, paymentUrl: `${req.callbackUrl}${separator}Authority=${fakeAuthority}&Status=OK` };
   }
 
+  if(!merchant||merchant==="your-merchant-id")return {ok:false,error:"Zarinpal is not configured"};
   const res = await fetch(`${base}/request.json`, {
     method: "POST",
+    signal: AbortSignal.timeout(15000),
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       merchant_id: merchant,
@@ -103,8 +105,10 @@ export async function verifyPayment(req: VerifyRequest): Promise<VerifyResult> {
     return { ok: true, refId: `DEV_REF_${Date.now()}` };
   }
 
+  if(!merchant||merchant==="your-merchant-id")return {ok:false,error:"Zarinpal is not configured"};
   const res = await fetch(`${base}/verify.json`, {
     method: "POST",
+    signal: AbortSignal.timeout(15000),
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       merchant_id: merchant,

@@ -139,7 +139,7 @@ export default function VoiceAgentPage() {
     let res: Response;
     try {
       res = await fetch("/api/payment/create", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: "VOICE_MONTHLY", period: "monthly" }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: "VOICE_MONTHLY", period: "monthly", currency: lang === "fa" ? "IRR" : "TRY" }),
       });
     } catch {
       // fetch() itself throwing (not an HTTP error status) means the request

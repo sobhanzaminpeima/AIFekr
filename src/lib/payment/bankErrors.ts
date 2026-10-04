@@ -1,7 +1,9 @@
 import { NextRequest,NextResponse } from "next/server";
 import { tri } from "@/lib/i18n/tri";
 const messages:Record<string,[string,string,string,string]>={
- "Invalid currency":["ارز پرداخت باید لیر یا یورو باشد.","Choose TRY or EUR for payment.","TRY oder EUR wählen.","Ödeme için TRY veya EUR seçin."],
+ "Payment gateway unavailable":["درگاه زرین‌پال در دسترس نیست؛ دوباره تلاش کنید.","Zarinpal unavailable; please retry.","Zarinpal nicht verfügbar; erneut versuchen.","Zarinpal kullanılamıyor; tekrar deneyin."],
+ "Payment is processing":["درخواست پرداخت در حال پردازش است؛ کمی صبر کنید.","Payment is processing; please wait.","Zahlung wird verarbeitet; bitte warten.","Ödeme işleniyor; lütfen bekleyin."],
+ "Invalid currency":["ارز پرداخت باید ریال، لیر یا یورو باشد.","Choose IRR, TRY or EUR for payment.","IRR, TRY oder EUR wählen.","Ödeme için IRR, TRY veya EUR seçin."],
  "Package capacity unavailable":["ظرفیت این بسته تنظیم نشده؛ با پشتیبانی تماس بگیرید.","Package capacity unavailable; contact support.","Paketkapazität nicht verfügbar; Support kontaktieren.","Paket kapasitesi mevcut değil; destekle iletişime geçin."],
  "Only the team owner can purchase a business bundle":["خرید پکیج بیزنس باید توسط مالک تیم انجام شود.","The team owner must purchase the business package.","Der Teaminhaber muss das Business-Paket kaufen.","İşletme paketini ekip sahibi satın almalıdır."],
  "Choose a package that covers your current team members":["تعداد اعضای تیم از ظرفیت این بسته بیشتر است؛ بستهٔ بزرگ‌تری انتخاب کنید.","Choose a larger package to cover your current members.","Wählen Sie ein größeres Paket für Ihre Mitglieder.","Mevcut üyeleriniz için daha büyük bir paket seçin."],

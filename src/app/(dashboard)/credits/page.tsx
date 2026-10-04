@@ -97,7 +97,7 @@ export default function CreditsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ tierId }),
+        body: JSON.stringify({ tierId, currency: lang === "fa" ? "IRR" : "TRY" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);

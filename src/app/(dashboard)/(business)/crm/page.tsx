@@ -187,7 +187,7 @@ export default function CrmPage() {
     setUpgrading(true);
     try {
       const res = await fetch("/api/payment/create", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: planCode }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: planCode, currency: lang === "fa" ? "IRR" : "TRY" }),
       });
       const data = await res.json();
       if (!res.ok || !data.paymentUrl) throw new Error(data.error || c.errors.paymentStartFailed);

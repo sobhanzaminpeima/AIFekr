@@ -4,9 +4,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { verifyPayment } from "@/lib/payment/zarinpal";
 import { sendPaymentConfirmEmail } from "@/lib/email/resend";
-import { redirect } from "next/navigation";
+import { settleVerifiedPayment } from "@/lib/payment/reviewBankPayment";
 import { REFERRAL_BONUS_CREDITS } from "@/lib/utils/credits";
-import { findPaymentById, markPaymentFailed, activatePlanForPayment } from "@/lib/repositories/paymentRepository";
+import { findPaymentById, activatePlanForPayment } from "@/lib/repositories/paymentRepository";
 import { grantReferralReward } from "@/lib/utils/referralWallet";
 import { logError } from "@/lib/logging/errorLog";
 
@@ -32,15 +32,24 @@ export async function GET(req: NextRequest) {
 
   const payment = await findPaymentById(paymentId);
 
-  if (!payment || payment.gateway === "bank_transfer" || payment.status !== "PENDING") {
+  if (!payment || payment.gateway !== "zarinpal" || payment.authority !== authority || !["PENDING","SUCCESS"].includes(payment.status)) {
     return NextResponse.redirect(await failureRedirect());
   }
+
+  if(payment.status==="SUCCESS")return NextResponse.redirect(`${appUrl}${payment.plan.startsWith("CREDITS_")?"/credits":"/plans"}?payment=success`);
 
   const result = await verifyPayment({ authority, amount: payment.amount });
 
   if (!result.ok) {
-    await markPaymentFailed(paymentId);
+    await prisma.payment.updateMany({where:{id:paymentId,status:"PENDING",authority},data:{status:"FAILED"}});
     return NextResponse.redirect(await failureRedirect());
+  }
+
+  const snapshot=JSON.parse(payment.entitlementSnapshot||"{}");
+  if(snapshot.credits!=null){
+    const applied=await settleVerifiedPayment(payment.id,authority,result.refId||"");
+    if(applied&&payment.user.email)sendPaymentConfirmEmail(payment.user.email,payment.user.name||"کاربر",payment.plan,payment.amount,result.refId||"").catch(err=>logError({source:"/api/payment/verify",error:err,userId:payment.userId}));
+    return NextResponse.redirect(`${appUrl}${payment.plan.startsWith("CREDITS_")?"/credits":"/plans"}?payment=success&ref=${result.refId}`);
   }
 
   // Success — activate plan. TEAM credits are pooled on a Team row, not on

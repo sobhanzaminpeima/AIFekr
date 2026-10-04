@@ -306,7 +306,7 @@ export default function StudentWorkspace() {
   async function buyBusinessAddon(planCode: "CRM_SOLO" | "CRM_TEAM") {
     setPurchasing(planCode); setError("");
     try {
-      const data = await api<{ paymentUrl?: string; activatedByWallet?: boolean }>("/api/payment/create", { method: "POST", body: JSON.stringify({ plan: planCode, period: billingPeriod, gateway: lang === "fa" ? "zarinpal" : "usdt_trc20" }) });
+      const data = await api<{ paymentUrl?: string; activatedByWallet?: boolean }>("/api/payment/create", { method: "POST", body: JSON.stringify({ plan: planCode, period: billingPeriod, currency: lang === "fa" ? "IRR" : "TRY" }) });
       if (data.activatedByWallet) { setCrmActive(true); setNotice(tri(lang, "اشتراک CRM با موجودی کیف پول فعال شد؛ حالا صنعت کسب‌وکارت را انتخاب کن.", "CRM is active via wallet. Choose your business industry next.", "CRM wurde mit dem Guthaben aktiviert. Wähle jetzt deine Branche.", "CRM cüzdan bakiyesiyle etkinleştirildi. Şimdi sektörünü seç.")); router.refresh(); }
       else if (data.paymentUrl) window.location.assign(data.paymentUrl);
       else throw new Error(tri(lang, "درگاه پرداخت پاسخ معتبری نداد", "Payment provider returned no checkout URL", "Kein Checkout-Link vom Zahlungsanbieter", "Ödeme sağlayıcısı bir bağlantı döndürmedi"));

@@ -2,11 +2,20 @@ import { isBusinessBundle, businessIncludesVoice } from "@/lib/plans/business";
 import {standaloneVoiceExpiry} from "./voiceEntitlement";
 import { prisma } from "@/lib/db/prisma";
 export async function reviewBankPayment(id:string,adminId:string,approve:boolean,note:string){
+ return settlePayment(id,{adminId,approve,note});
+}
+export async function settleVerifiedPayment(id:string,authority:string,refId:string){
+ return settlePayment(id,{authority,refId,approve:true});
+}
+async function settlePayment(id:string,review:{adminId?:string;approve:boolean;note?:string;authority?:string;refId?:string}){
+ const {adminId,approve,note}=review;
  return prisma.$transaction(async tx=>{
  const p=await tx.payment.findUnique({where:{id},include:{user:true}});
- if(!p||p.gateway!=="bank_transfer"||!p.receiptAt)throw new Error("NOT_REVIEWABLE");
- const claimed=await tx.payment.updateMany({where:{id,status:"PENDING"},data:{status:approve?"SUCCESS":"REJECTED",reviewBy:adminId,reviewAt:new Date(),reviewNote:note,refId:approve?`BANK-${id}`:null}});
- if(!claimed.count)throw new Error("ALREADY_REVIEWED");
+ if(!p)throw new Error("NOT_REVIEWABLE");
+ if(review.authority){if(p.gateway!=="zarinpal"||p.authority!==review.authority)throw new Error("NOT_REVIEWABLE");}
+ else if(p.gateway!=="bank_transfer"||!p.receiptAt)throw new Error("NOT_REVIEWABLE");
+ const claimed=await tx.payment.updateMany({where:{id,status:"PENDING"},data:{status:approve?"SUCCESS":"REJECTED",reviewBy:adminId,reviewAt:adminId?new Date():undefined,reviewNote:note,refId:approve?(review.refId||`BANK-${id}`):null}});
+ if(!claimed.count){if(review.authority&&p.status==="SUCCESS")return false;throw new Error("ALREADY_REVIEWED");}
  if(!approve)return;
  const entitlement=JSON.parse(p.entitlementSnapshot) as {credits:number;days:number;teamSeatLimit?:number;crmSeatLimit?:number;businessBundle?:boolean};
  if(!Number.isInteger(entitlement.credits)||entitlement.credits<0||!Number.isFinite(entitlement.days)||entitlement.days<=0)throw new Error("INVALID_ENTITLEMENT");
@@ -29,6 +38,7 @@ export async function reviewBankPayment(id:string,adminId:string,approve:boolean
  }
  if(p.plan.startsWith("STUDENT_")){const education=await tx.industryPack.findUnique({where:{slug:"university"},select:{id:true}});if(!education)throw new Error("STUDENT_INDUSTRY_NOT_CONFIGURED");await tx.user.update({where:{id:u.id},data:{industryPackId:education.id}});await tx.userModuleOverride.upsert({where:{userId_moduleKey:{userId:u.id,moduleKey:"student.workspace"}},create:{userId:u.id,moduleKey:"student.workspace",enabled:true},update:{enabled:true}});}
  }
+ if(p.walletDiscountToman>0){await tx.user.update({where:{id:u.id},data:{walletBalance:{decrement:p.walletDiscountToman}}});await tx.walletTransaction.create({data:{userId:u.id,type:"redeem_at_checkout",amount:-p.walletDiscountToman,relatedPaymentId:p.id}});}
  if(u.referredBy&&!u.referralRewarded&&u.referredBy!==u.id){
  const referrer=await tx.user.findUnique({where:{id:u.referredBy}});
  if(referrer){
@@ -41,5 +51,6 @@ export async function reviewBankPayment(id:string,adminId:string,approve:boolean
  if(first.count){await tx.user.update({where:{id:referrer.id},data:{walletBalance:{increment:commission}}});await tx.walletTransaction.create({data:{userId:referrer.id,type:"commission",amount:commission,relatedPaymentId:p.id,relatedUserId:u.id,note:`${percent}% bank purchase commission`}});}
  }
  }
+ return true;
  });
 }
