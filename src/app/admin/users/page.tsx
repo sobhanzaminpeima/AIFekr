@@ -14,6 +14,7 @@ interface User {
   email?: string;
   phone?: string;
   plan: string;
+  accountType: string;
   credits: number;
   isBlocked: boolean;
   createdAt: string;
@@ -50,6 +51,7 @@ export default function AdminUsersPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState("");
+  const [accountFilter, setAccountFilter] = useState("all");
   const [planFilter, setPlanFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [actionUserId, setActionUserId] = useState<string | null>(null);
@@ -128,7 +130,7 @@ export default function AdminUsersPage() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: page.toString(), search, plan: planFilter });
+      const params = new URLSearchParams({ page: page.toString(), search, plan: planFilter, accountType: accountFilter });
       const res = await fetch(`/api/admin/users?${params}`);
       const data = await res.json();
       if (!res.ok) {
@@ -144,7 +146,7 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, planFilter]);
+  }, [page, search, planFilter, accountFilter]);
 
   async function addUser() {
     if (!addForm.firstName.trim()) return toast.error("نام الزامی است");
@@ -258,6 +260,9 @@ export default function AdminUsersPage() {
         </div>
         <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <Filter className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
+          <select aria-label="نوع حساب" value={accountFilter} onChange={e=>{setAccountFilter(e.target.value);setPage(1);}} className="rounded-xl px-3 py-2 text-sm" style={{background:"var(--surface-1)",color:"var(--text-primary)",border:"1px solid var(--border)"}}>
+            <option value="all">همهٔ کاربران</option><option value="STUDENT">دانشجویان</option><option value="BUSINESS">کسب‌وکارها</option><option value="PERSONAL">شخصی</option>
+          </select>
           <select
             aria-label="فیلتر پلن کاربران"
             value={planFilter}
@@ -297,7 +302,7 @@ export default function AdminUsersPage() {
                   <tr key={user.id} style={{ borderBottom: "1px solid var(--border)" }} className="hover:bg-white/2 transition-colors">
                     <td data-label="کاربر" className="px-4 py-3">
                       <Link href={`/admin/users/${user.id}`}>
-                        <div className="font-medium" style={{ color: "var(--text-primary)" }}>{user.name || "بدون نام"}</div>
+                        <div className="font-medium" style={{ color: "var(--text-primary)" }}>{user.name || "بدون نام"}</div><small className="block text-xs" style={{color:"var(--text-muted)"}}>{user.accountType==="STUDENT"?"دانشجو":user.accountType==="BUSINESS"?"کسب‌وکار":"شخصی"}</small>
                         <div className="text-xs" style={{ color: "var(--text-muted)" }}>{user.email || "—"}</div>
                         {user.phone && <div className="text-xs" dir="ltr" style={{ color: "var(--text-muted)" }}>{user.phone}</div>}
                       </Link>

@@ -5,7 +5,9 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { resolveCrmWorkspace, businessFilter } from "@/lib/crm/workspace";
 import { hasVoiceAccess } from "@/lib/voice/workspace";
-import { createOutboundCall, VapiNotConfiguredError } from "@/lib/voice/vapiClient";
+import { createOutboundCall, VapiNotConfiguredError, VapiRejectedError } from "@/lib/voice/vapiClient";
+import { reserveVoiceCall, settleVoiceCall } from "@/lib/voice/billing";
+import { voiceSettings } from "@/lib/voice/settings";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
@@ -28,11 +30,11 @@ export async function POST(req: NextRequest) {
   }
 
   const { contactId, agentId } = await req.json().catch(() => ({}));
-  if (!contactId) return NextResponse.json({ error: tri(lang, "شناسه مخاطب الزامی است", "Contact ID is required", "Kontakt-ID ist erforderlich") }, { status: 400 });
+  if (typeof contactId!=="string" || !contactId || (agentId!==undefined&&typeof agentId!=="string")) return NextResponse.json({ error: tri(lang, "شناسه مخاطب الزامی است", "Contact ID is required", "Kontakt-ID ist erforderlich") }, { status: 400 });
 
   const contact = await prisma.crmContact.findUnique({ where: { id: contactId } });
   // An AI call may only be placed to a contact of the ACTIVE business, never to a sibling business's.
-  if (!contact || contact.userId !== ws.workspaceUserId || (ws.businessId && contact.businessId !== ws.businessId)) {
+  if (!contact || contact.userId !== ws.workspaceUserId || contact.businessId !== (ws.businessId || null)) {
     return NextResponse.json({ error: tri(lang, "مخاطب یافت نشد", "Contact not found", "Kontakt nicht gefunden") }, { status: 404 });
   }
   if (!contact.phone) {
@@ -46,33 +48,32 @@ export async function POST(req: NextRequest) {
         orderBy: { createdAt: "asc" },
       });
 
-  if (!agent || agent.userId !== ws.workspaceUserId) {
+  if (!agent || !agent.isActive || agent.userId !== ws.workspaceUserId || agent.businessId !== (ws.businessId || null)) {
     return NextResponse.json({ error: tri(lang, "ایجنت صوتی نامعتبر است", "Invalid voice agent", "Ungültiger Voice Agent") }, { status: 400 });
   }
   if (!agent.vapiAssistantId || !agent.vapiPhoneNumberId) {
     return NextResponse.json({ error: tri(lang, "ابتدا یک ایجنت صوتی را به شماره تلفن متصل کنید (تب ایجنت صوتی).", "First connect a voice agent to a phone number (Voice Agent tab).", "Verbinden Sie zuerst einen Voice Agent mit einer Telefonnummer (Tab Voice Agent).") }, { status: 400 });
   }
 
+  const number=contact.phone.startsWith("09") ? `+98${contact.phone.slice(1)}` : contact.phone.replace(/[\s()-]/g,"");
+  if(!/^\+[1-9]\d{6,14}$/.test(number)) return NextResponse.json({error:"شمارهٔ مخاطب باید همراه کد کشور باشد."},{status:400});
+  const settings=await voiceSettings();
+  let reservation;
+  try { reservation=await reserveVoiceCall(agent,null,settings.creditsPerMinute,settings.maxDurationSeconds,"outbound",contact.id,number); }
+  catch { return NextResponse.json({error:"کریدت کافی نیست یا تماس قبلی با این مخاطب هنوز در حال انجام است."},{status:402}); }
+  let providerAccepted=false;
   try {
-    const call = await createOutboundCall(agent.vapiAssistantId, agent.vapiPhoneNumberId, contact.phone);
-    await prisma.voiceCallLog.create({
-      data: {
-        userId: ws.workspaceUserId,
-        businessId: agent.businessId ?? ws.businessId,
-        agentId: agent.id,
-        contactId: contact.id,
-        vapiCallId: call.id,
-        callerPhone: contact.phone,
-        direction: "outbound",
-        status: "in_progress",
-      },
-    });
+    const call = await createOutboundCall(agent.vapiAssistantId, agent.vapiPhoneNumberId, number, reservation.id);
+    providerAccepted=true;
+    await prisma.voiceCallLog.update({where:{id:reservation.id},data:{vapiCallId:call.id}});
     return NextResponse.json({ ok: true, callId: call.id });
   } catch (e) {
+    if(!providerAccepted&&(e instanceof VapiRejectedError||e instanceof VapiNotConfiguredError)) await settleVoiceCall(reservation.id,0,{status:"failed"});
+    else await prisma.voiceCallLog.updateMany({where:{id:reservation.id,billingStatus:"pending"},data:{status:"awaiting_report"}});
     if (e instanceof VapiNotConfiguredError) {
       return NextResponse.json({ error: e.message }, { status: 503 });
     }
-    const msg = e instanceof Error ? e.message : tri(lang, "خطای نامشخص در برقراری تماس", "Unknown error placing the call", "Unbekannter Fehler beim Anrufaufbau");
+    const msg = tri(lang, "تماس انجام نشد؛ تنظیمات و موجودی Vapi را بررسی کنید.", "Call failed. Check Vapi configuration and balance.", "Anruf fehlgeschlagen. Vapi-Konfiguration und Guthaben prüfen.");
     return NextResponse.json({ error: msg }, { status: 502 });
   }
 }

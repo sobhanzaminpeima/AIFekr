@@ -2,6 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
+import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
+import { looksLikeInjectionAttempt } from "@/lib/ai/promptSafety";
 import { prisma } from "@/lib/db/prisma";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -10,11 +12,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
 
   const existing = await prisma.voiceKnowledgeBase.findUnique({ where: { id } });
-  if (!existing || existing.userId !== user.id) return NextResponse.json({ error: "یافت نشد" }, { status: 404 });
+  if (!existing || (existing.userId !== user.id || existing.businessId !== await activeBusinessIdFor(user.id))) return NextResponse.json({ error: "یافت نشد" }, { status: 404 });
 
-  const body = await req.json();
+  const body = await req.json().catch(()=>null);
+  if(!body) return NextResponse.json({error:"Invalid request"},{status:400});
   const { title, content } = body;
 
+  if([title,content].some(v=>v!==undefined&&(typeof v!=="string"||v.length>100000||looksLikeInjectionAttempt(v)))) return NextResponse.json({error:"Invalid knowledge content"},{status:400});
   const updated = await prisma.voiceKnowledgeBase.update({
     where: { id },
     data: {
@@ -31,7 +35,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { id } = await params;
 
   const existing = await prisma.voiceKnowledgeBase.findUnique({ where: { id } });
-  if (!existing || existing.userId !== user.id) return NextResponse.json({ error: "یافت نشد" }, { status: 404 });
+  if (!existing || (existing.userId !== user.id || existing.businessId !== await activeBusinessIdFor(user.id))) return NextResponse.json({ error: "یافت نشد" }, { status: 404 });
 
   await prisma.voiceKnowledgeBase.delete({ where: { id } });
   return NextResponse.json({ ok: true });

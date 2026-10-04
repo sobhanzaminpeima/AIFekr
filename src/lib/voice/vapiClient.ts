@@ -14,7 +14,7 @@
  * number" and "make a live call" are blocked until then.
  */
 
-import { prisma } from "@/lib/db/prisma";
+import { voiceSettings } from "./settings";
 
 const VAPI_BASE_URL = "https://api.vapi.ai";
 
@@ -25,22 +25,14 @@ export class VapiNotConfiguredError extends Error {
   }
 }
 
-async function requireApiKey(): Promise<string> {
-  try {
-    const row = await prisma.siteSetting.findUnique({ where: { key: "vapi_private_key" } });
-    if (row?.value) return row.value;
-  } catch {
-    // DB unreachable or table not migrated yet — fall through to env var.
-  }
-  const key = process.env.VAPI_API_KEY;
-  if (!key) throw new VapiNotConfiguredError();
-  return key;
-}
+export class VapiRejectedError extends Error {}
 
 async function vapiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const key = await requireApiKey();
+  const { apiKey: key } = await voiceSettings();
+  if (!key) throw new VapiNotConfiguredError();
   const res = await fetch(`${VAPI_BASE_URL}${path}`, {
     ...init,
+    signal: AbortSignal.timeout(15000),
     headers: {
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
@@ -48,9 +40,9 @@ async function vapiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Vapi API error ${res.status}: ${body || res.statusText}`);
+    throw new VapiRejectedError(`Vapi request failed (${res.status}). Check provider credentials, configuration and balance.`);
   }
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
@@ -62,6 +54,8 @@ export interface VapiAssistantConfig {
   serverUrl: string;
   /** "real_estate" | "general" — which tool set to register. Defaults to "real_estate" for back-compat. */
   vertical?: string | null;
+  language?: string;
+  timezone?: string;
 }
 
 export interface VapiAssistant {
@@ -176,7 +170,7 @@ const GENERAL_TOOLS = [
 ];
 
 export function buildVoiceAgentTools(vertical?: string | null) {
-  return vertical === "general" ? GENERAL_TOOLS : REAL_ESTATE_TOOLS;
+  return vertical === "real_estate" ? REAL_ESTATE_TOOLS : GENERAL_TOOLS;
 }
 
 /**
@@ -188,16 +182,22 @@ export function buildVoiceAgentTools(vertical?: string | null) {
  * documented, supported path instead of a hand-rolled streaming shim.
  */
 export async function upsertVapiAssistant(config: VapiAssistantConfig, assistantId?: string | null): Promise<VapiAssistant> {
+  const settings = await voiceSettings();
+  if (!settings.webhookSecret || !settings.credentialId) throw new Error("Configure the Vapi webhook secret and credential ID before connecting a number.");
   const payload = {
     name: config.name,
+    firstMessage: ({fa:"سلام، من دستیار هوش مصنوعی مجموعه هستم. چطور می‌توانم کمک کنم؟",en:"Hello, I am the AI assistant. How can I help you?",de:"Hallo, ich bin der KI-Assistent. Wie kann ich helfen?",tr:"Merhaba, yapay zekâ asistanıyım. Size nasıl yardımcı olabilirim?"} as Record<string,string>)[config.language || "fa"],
     model: {
-      provider: "anthropic",
-      model: "claude-sonnet-5",
-      messages: [{ role: "system", content: config.systemPrompt }],
+      provider: "openai",
+      model: settings.model,
+      messages: [{ role: "system", content: `${config.systemPrompt}\nCurrent timezone: ${config.timezone || "Europe/Istanbul"}. Language: ${config.language || "fa"}. Always use knowledge tools for factual answers and confirm caller details before booking. Never claim a pending appointment is confirmed.` }],
       tools: buildVoiceAgentTools(config.vertical),
     },
-    voice: config.voiceId ? { provider: "playht", voiceId: config.voiceId } : undefined,
-    serverUrl: config.serverUrl,
+    voice: { provider: "11labs", model: config.language === "fa" ? "eleven_v3" : "eleven_flash_v2_5", voiceId: config.voiceId || settings.voiceId },
+    transcriber: { provider: "openai", model: "gpt-4o-mini-transcribe", language: config.language || "fa" },
+    maxDurationSeconds: settings.maxDurationSeconds,
+    serverMessages: ["tool-calls", "end-of-call-report", "status-update"],
+    server: { url: config.serverUrl, credentialId: settings.credentialId },
   };
 
   if (assistantId) {
@@ -215,26 +215,32 @@ export interface VapiPhoneNumber {
   number: string;
 }
 
-/** Buys a free Vapi trial number (or your imported Twilio number, depending on account setup) and binds it to the assistant. */
-export async function provisionPhoneNumber(assistantId: string): Promise<VapiPhoneNumber> {
-  return vapiFetch<VapiPhoneNumber>("/phone-number", {
-    method: "POST",
-    body: JSON.stringify({ provider: "vapi", assistantId }),
-  });
+/** Connect a number already imported/purchased in the administrator's Vapi account. */
+export async function listPhoneNumbers(): Promise<VapiPhoneNumber[]> {
+  return vapiFetch<VapiPhoneNumber[]>("/phone-number");
 }
-
-export async function releasePhoneNumber(phoneNumberId: string): Promise<void> {
-  await vapiFetch(`/phone-number/${phoneNumberId}`, { method: "DELETE" });
+export async function connectPhoneNumber(id: string, serverUrl: string): Promise<VapiPhoneNumber> {
+  const settings = await voiceSettings();
+  return vapiFetch<VapiPhoneNumber>(`/phone-number/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ assistantId: null, squadId: null, server: { url: serverUrl, credentialId: settings.credentialId } }) });
+}
+export async function releasePhoneNumber(id: string): Promise<void> {
+  // Retain the paid phone number; detach it instead of deleting it at the provider.
+  await vapiFetch(`/phone-number/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ assistantId: null, squadId: null, server: null }) });
 }
 
 /** Places an outbound call from an existing agent's number to a lead's phone. */
-export async function createOutboundCall(assistantId: string, phoneNumberId: string, customerNumber: string): Promise<{ id: string }> {
+export async function createOutboundCall(assistantId: string, phoneNumberId: string, customerNumber: string, reservationId: string): Promise<{ id: string }> {
+  const settings = await voiceSettings();
   return vapiFetch<{ id: string }>("/call", {
     method: "POST",
     body: JSON.stringify({
       assistantId,
       phoneNumberId,
+      metadata: { reservationId },
+      assistantOverrides: { maxDurationSeconds: settings.maxDurationSeconds },
       customer: { number: customerNumber },
     }),
   });
 }
+
+export async function getVapiCall(id: string): Promise<Record<string, unknown>> { return vapiFetch(`/call/${encodeURIComponent(id)}`); }

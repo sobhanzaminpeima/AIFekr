@@ -1,7 +1,6 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prisma";
 import { signToken, signRefreshToken } from "@/lib/auth/jwt";
 import { hashPassword } from "@/lib/auth/password";
 import { findUserByEmail, findUserByPhone, findUserByReferralCode, createUser } from "@/lib/repositories/userRepository";
@@ -9,7 +8,10 @@ import { generateUniqueReferralCode } from "@/lib/utils/referralCode";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
-const VALID_LANGS = new Set(["fa", "en", "de"]);
+import { accountTypeFor } from "@/lib/auth/accountAudience";
+import { registrationPhone, COUNTRIES } from "@/lib/constants/countries";
+
+const VALID_LANGS = new Set(["fa", "en", "de", "tr"]);
 
 export async function POST(req: NextRequest) {
   // Every message below was hardcoded Persian regardless of which language the
@@ -22,8 +24,15 @@ export async function POST(req: NextRequest) {
   const lang = VALID_LANGS.has(bodyForLang?.language) ? bodyForLang.language : await getServerLang();
 
   try {
-    const { name, firstName, lastName, country, language, email, phone, password, ref } = bodyForLang;
+    const { name, firstName, lastName, country, language, password, ref, selectedPlan, accountType } = bodyForLang;
 
+    const email = typeof bodyForLang.email === "string" ? bodyForLang.email.trim().toLowerCase() : undefined;
+    let phone: string | undefined;
+    if (country && !COUNTRIES.some(c => c.code === country)) return NextResponse.json({ error: "Invalid country" }, { status: 400 });
+    try { phone = typeof bodyForLang.phone === "string" ? registrationPhone(bodyForLang.phone, country || "OTHER") || undefined : undefined; }
+    catch { return NextResponse.json({ error: tri(lang, "شماره موبایل معتبر وارد کنید", "Enter a valid phone number", "Gültige Telefonnummer eingeben", "Geçerli telefon numarası girin") }, { status: 400 }); }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: "Invalid email" }, { status: 400 });
+    if ([name, firstName, lastName, password].some(v => v != null && typeof v !== "string")) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
     // firstName/lastName are the primary fields going forward; `name` (kept
     // for every existing caller that reads user.name) is derived from them
     // when they're present, falling back to the legacy single-field input.
@@ -78,6 +87,7 @@ export async function POST(req: NextRequest) {
       passwordHash: password ? await hashPassword(password) : undefined,
       credits: 200,
       plan: "FREE",
+      accountType: accountTypeFor(selectedPlan, accountType),
       referralCode,
       referredBy,
     });

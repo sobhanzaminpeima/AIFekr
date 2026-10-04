@@ -14,6 +14,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
   const { voicePlan, days } = body;
   if (!["NONE", "ACTIVE"].includes(voicePlan)) return NextResponse.json({ error: "voicePlan نامعتبر" }, { status: 400 });
 
+  if(days!==undefined&&(!Number.isInteger(days)||days<1||days>3650)) return NextResponse.json({error:"مدت اشتراک نامعتبر است"},{status:400});
+  if(!await prisma.user.findUnique({where:{id:userId},select:{id:true}})) return NextResponse.json({error:"کاربر یافت نشد"},{status:404});
   const voicePlanExpiry = voicePlan === "ACTIVE"
     ? new Date(Date.now() + (typeof days === "number" ? days : 30) * 24 * 60 * 60 * 1000)
     : null;

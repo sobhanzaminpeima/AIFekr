@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
+import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
 import { prisma } from "@/lib/db/prisma";
 import { looksLikeInjectionAttempt } from "@/lib/ai/promptSafety";
 
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
   const agentId = typeof agentIdField === "string" && agentIdField ? agentIdField : undefined;
   if (agentId) {
     const agent = await prisma.voiceAgent.findUnique({ where: { id: agentId } });
-    if (!agent || agent.userId !== user.id) return NextResponse.json({ error: "ایجنت نامعتبر است" }, { status: 400 });
+    if (!agent || (agent.userId !== user.id || agent.businessId !== await activeBusinessIdFor(user.id))) return NextResponse.json({ error: "ایجنت نامعتبر است" }, { status: 400 });
   }
 
   let text: string;
@@ -98,7 +99,7 @@ export async function POST(req: NextRequest) {
   }
 
   const entry = await prisma.voiceKnowledgeBase.create({
-    data: { userId: user.id, agentId: agentId || undefined, title: title.slice(0, 300), content: text.slice(0, 100000) },
+    data: { userId: user.id, businessId: await activeBusinessIdFor(user.id), agentId: agentId || undefined, title: title.slice(0, 300), content: text.slice(0, 100000) },
   });
 
   return NextResponse.json({ entry });

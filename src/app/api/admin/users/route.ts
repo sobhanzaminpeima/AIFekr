@@ -15,13 +15,15 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const page = parseInt(searchParams.get("page") || "1");
+  const page = Math.max(1, Math.floor(Number(searchParams.get("page"))) || 1);
   const limit = 20;
   const search = searchParams.get("search") || "";
   const plan = searchParams.get("plan") || "";
   const status = searchParams.get("status") || "";
 
   const where: Record<string, unknown> = {};
+  const audience = searchParams.get("accountType");
+  if (["PERSONAL","STUDENT","BUSINESS"].includes(audience || "")) where.accountType = audience;
 
   if (search) {
     // No `mode: "insensitive"` here -- this project is on SQLite, whose Prisma
@@ -56,6 +58,7 @@ export async function GET(req: NextRequest) {
         phone: true,
         role: true,
         plan: true,
+        accountType: true,
         credits: true,
         isBlocked: true,
         planExpiry: true,

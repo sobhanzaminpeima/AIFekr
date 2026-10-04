@@ -17,7 +17,7 @@ export async function reviewBankPayment(id:string,adminId:string,approve:boolean
  else if(p.plan.startsWith("VOICE_"))await tx.user.update({where:{id:u.id},data:{voicePlan:"ACTIVE",voicePlanExpiry:expiry}});
  else {
  const crm=p.plan.startsWith("CRM_"),team=p.plan==="TEAM"||p.plan.startsWith("TEAM_")||p.plan==="CRM_TEAM";
- await tx.user.update({where:{id:u.id},data:crm?{crmPlan:p.plan==="CRM_TEAM"?"TEAM":"SOLO",crmPlanExpiry:expiry}:{plan:team?"TEAM":p.plan,planExpiry:expiry,trialLimited:false,...(bundle?{crmPlan:"TEAM",crmPlanExpiry:expiry,voicePlan:"ACTIVE",voicePlanExpiry:expiry}:{}),...(!team?{credits:{increment:entitlement.credits}}:{})}});
+ await tx.user.update({where:{id:u.id},data:crm?{crmPlan:p.plan==="CRM_TEAM"?"TEAM":"SOLO",crmPlanExpiry:expiry}:{plan:team?"TEAM":p.plan,...(p.plan.startsWith("STUDENT_")?{accountType:"STUDENT"}:bundle?{accountType:"BUSINESS"}:{}),planExpiry:expiry,trialLimited:false,...(bundle?{crmPlan:"TEAM",crmPlanExpiry:expiry,voicePlan:"ACTIVE",voicePlanExpiry:expiry}:{}),...(!team?{credits:{increment:entitlement.credits}}:{})}});
  if(team){
  const seats=crm?entitlement.crmSeatLimit||5:entitlement.teamSeatLimit||5;
  const existing=await tx.team.findUnique({where:{ownerId:u.id}});

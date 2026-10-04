@@ -12,7 +12,7 @@ import { readApiResponse } from "@/lib/utils/apiResponse";
 
 interface VoiceAgent {
   id: string; name: string; focus: string; vertical: string; businessType?: string | null; systemPrompt: string; voiceId: string | null;
-  phoneNumber: string | null; vapiAssistantId: string | null; isActive: boolean;
+  language:Lang;timezone:string;openingHour:number;closingHour:number;appointmentMinutes:number;phoneNumber: string | null; vapiAssistantId: string | null; isActive: boolean;
   _count?: { calls: number; appointments: number };
 }
 interface VoiceProperty {
@@ -22,7 +22,7 @@ interface VoiceProperty {
 }
 interface VoiceCall {
   id: string; callerPhone: string | null; direction: string; status: string; outcome: string | null;
-  summary: string | null; transcript: string | null; durationSec: number | null; createdAt: string;
+  summary: string | null; transcript: string | null; durationSec: number | null; createdAt: string; creditsCharged:number; reservedCredits:number; billingStatus:string;
   agent?: { name: string };
 }
 interface VoiceAppointment {
@@ -42,7 +42,9 @@ const FOCUS_OPTIONS = [
 
 const VERTICAL_OPTIONS = [
   { value: "real_estate", fa: "املاک", en: "Real Estate", de: "Immobilien" },
-  { value: "general", fa: "سایر کسب‌وکارها", en: "Any Business (General)", de: "Jedes Geschäft (Allgemein)" },
+  { value: "general", fa: "کسب‌وکار عمومی", en: "General business", de: "Allgemeines Geschäft" },
+  { value: "reception", fa: "ریسپشن و پذیرش", en: "Reception", de: "Empfang" },
+  { value: "clinic", fa: "کلینیک و نوبت‌دهی", en: "Clinic appointments", de: "Kliniktermine" },
 ];
 
 const APPOINTMENT_STATUSES = ["pending", "confirmed", "completed", "cancelled", "no_show"];
@@ -67,24 +69,11 @@ export default function VoiceAgentPage() {
   const [appointments, setAppointments] = useState<VoiceAppointment[]>([]);
   const [knowledgeEntries, setKnowledgeEntries] = useState<VoiceKnowledgeEntry[]>([]);
 
+  const [voiceInfo,setVoiceInfo]=useState<{credits?:number;creditsPerMinute?:number;maxDurationSeconds?:number;configured?:boolean}>({});
   const [showNewAgent, setShowNewAgent] = useState(false);
   const [showNewProperty, setShowNewProperty] = useState(false);
   const [provisioningId, setProvisioningId] = useState<string | null>(null);
   const [expandedCallId, setExpandedCallId] = useState<string | null>(null);
-  // Section 2, item 4 — the real-estate vertical (property search/viewing
-  // tools) must only be offered when the customer's industry pack includes
-  // it; a non-real-estate customer still gets the (unrelated) generic
-  // voice agent, just without this vertical option — same access system as
-  // every other real-estate module, not a one-off check.
-  const [realEstateVerticalEnabled, setRealEstateVerticalEnabled] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/crm/module-access?keys=agent.voiceCallCenter")
-      .then((r) => r.json())
-      .then((d) => setRealEstateVerticalEnabled(!!d.access?.["agent.voiceCallCenter"]))
-      .catch(() => setRealEstateVerticalEnabled(false));
-  }, []);
-
   const loadAgents = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -93,6 +82,7 @@ export default function VoiceAgentPage() {
     const data = await readApiResponse<{ agents: VoiceAgent[]; voicePlan?: string }>(res, tri(lang, "دریافت دستیارها انجام نشد؛ دوباره تلاش کنید.", "Unable to load assistants. Retry.", "Assistenten konnten nicht geladen werden. Erneut versuchen.", "Asistanlar yüklenemedi. Tekrar deneyin."));
     setAgents(data.agents || []);
     setVoicePlan(data.voicePlan || "NONE");
+    setVoiceInfo(data as typeof voiceInfo);
     } catch { setError(tri(lang, "دریافت دستیارها انجام نشد؛ دوباره تلاش کنید.", "Unable to load assistants. Retry.", "Assistenten konnten nicht geladen werden. Erneut versuchen.", "Asistanlar yüklenemedi. Tekrar deneyin.")); }
     finally { setLoading(false); }
   }, [lang]);
@@ -170,27 +160,35 @@ export default function VoiceAgentPage() {
     }
   }
 
-  async function createAgent(form: { name: string; focus: string; vertical: string; businessType?: string }) {
+  const mutationInFlight=useRef(false);
+  async function mutate(url:string, init:RequestInit) {
+    if(mutationInFlight.current)return null;
+    mutationInFlight.current=true;setError("");
+    try {const res=await fetch(url,init);const data=await parseJsonResponse(res,lang);if(!res.ok)throw new Error(data.error||tri(lang,"عملیات انجام نشد","Operation failed","Vorgang fehlgeschlagen","İşlem başarısız"));return data;}
+    catch(e){const message=e instanceof Error?e.message:tri(lang,"اتصال انجام نشد","Connection failed","Verbindung fehlgeschlagen","Bağlantı başarısız");setError(message);toast.error(message);return null;}
+    finally{mutationInFlight.current=false;}
+  }
+
+  async function createAgent(form: { name: string; focus: string; vertical: string; businessType?: string; language?:string; timezone?:string; openingHour?:number; closingHour?:number; appointmentMinutes?:number; id?:string; systemPrompt?:string }) {
     setError("");
-    const res = await fetch("/api/voice-agent/agents", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
+    const data = await mutate(form.id?`/api/voice-agent/agents/${form.id}`:"/api/voice-agent/agents", {
+      method: form.id?"PATCH":"POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
     });
-    const data = await res.json();
-    if (!res.ok) { setError(data.error || tri(lang, "خطا", "Error", "Fehler")); return; }
+    if(!data)return;
     setShowNewAgent(false);
     loadAgents();
   }
 
   async function deleteAgent(id: string) {
     if (!confirm(tri(lang, "این ایجنت حذف شود؟", "Delete this agent?", "Diesen Agenten löschen?"))) return;
-    await fetch(`/api/voice-agent/agents/${id}`, { method: "DELETE" });
+    if(!await mutate(`/api/voice-agent/agents/${id}`, { method: "DELETE" }))return;
     loadAgents();
   }
 
   async function toggleAgentActive(agent: VoiceAgent) {
-    await fetch(`/api/voice-agent/agents/${agent.id}`, {
+    if(!await mutate(`/api/voice-agent/agents/${agent.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive: !agent.isActive }),
-    });
+    }))return;
     loadAgents();
   }
 
@@ -214,11 +212,10 @@ export default function VoiceAgentPage() {
 
   async function createProperty(form: Record<string, unknown>) {
     setError("");
-    const res = await fetch("/api/voice-agent/properties", {
+    const data = await mutate("/api/voice-agent/properties", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
     });
-    const data = await res.json();
-    if (!res.ok) { setError(data.error || tri(lang, "خطا", "Error", "Fehler")); return; }
+    if(!data)return;
     setShowNewProperty(false);
     loadProperties();
     if (data.matchedLeads?.length) {
@@ -233,31 +230,28 @@ export default function VoiceAgentPage() {
 
   async function deleteProperty(id: string) {
     if (!confirm(tri(lang, "این ملک حذف شود؟", "Delete this property?", "Diese Immobilie löschen?"))) return;
-    await fetch(`/api/voice-agent/properties/${id}`, { method: "DELETE" });
+    if(!await mutate(`/api/voice-agent/properties/${id}`, { method: "DELETE" }))return;
     loadProperties();
   }
 
   async function createKnowledge(form: { title: string; content: string; agentId?: string }) {
     setError("");
-    const res = await fetch("/api/voice-agent/knowledge", {
+    const data = await mutate("/api/voice-agent/knowledge", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
     });
-    const data = await res.json();
-    if (!res.ok) { setError(data.error || tri(lang, "خطا", "Error", "Fehler")); return; }
+    if(!data)return;
     loadKnowledge();
   }
 
   async function deleteKnowledge(id: string) {
     if (!confirm(tri(lang, "این مورد حذف شود؟", "Delete this entry?", "Diesen Eintrag löschen?"))) return;
-    await fetch(`/api/voice-agent/knowledge/${id}`, { method: "DELETE" });
+    if(!await mutate(`/api/voice-agent/knowledge/${id}`, { method: "DELETE" }))return;
     loadKnowledge();
   }
 
   async function updateAppointmentStatus(id: string, status: string) {
-    setAppointments((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
-    await fetch(`/api/voice-agent/appointments/${id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
-    }).catch(() => loadAppointments());
+    const data=await mutate(`/api/voice-agent/appointments/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({status})});
+    if(data)await loadAppointments();
   }
 
   if (loading) {
@@ -271,7 +265,7 @@ export default function VoiceAgentPage() {
   // Properties are a real-estate-only concept — hide that tab when the user
   // has no real-estate-vertical agent (defaults to shown before any agent
   // exists, since we can't yet know which vertical they'll pick).
-  const showPropertiesTab = agents.length === 0 || agents.some((a) => a.vertical !== "general");
+  const showPropertiesTab = agents.length === 0 || agents.some((a) => a.vertical === "real_estate");
 
   return (
     <div dir={isFa ? "rtl" : "ltr"} className="p-6 max-w-6xl mx-auto space-y-6">
@@ -284,6 +278,13 @@ export default function VoiceAgentPage() {
           <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{tri(lang, "پاسخگویی تلفنی هوشمند برای هر کسب‌وکار — از املاک تا هر صنعت دیگر", "AI phone agents for any business — real estate and beyond", "KI-Telefonagenten für jedes Unternehmen — Immobilien und darüber hinaus")}</p>
         </div>
       </div>
+
+      <section className="rounded-2xl border p-4 space-y-2" style={{borderColor:"var(--border)",background:"var(--surface-1)"}}>
+        <h2 className="font-semibold">{tri(lang,"راه‌اندازی در ۴ قدم","Set up in 4 steps","Einrichtung in 4 Schritten","4 adımda kurulum")}</h2>
+        <p className="text-sm">{tri(lang,"۱. سناریو و زبان را انتخاب کنید · ۲. ساعت پذیرش و دانش‌نامه را تکمیل کنید · ۳. از ادمین شمارهٔ اختصاصی بگیرید · ۴. تماس آزمایشی بگیرید و نتیجه و نوبت را بررسی کنید.","1. Choose scenario/language · 2. Set reception hours and knowledge · 3. Ask admin to assign your number · 4. Test a call and review the result and booking.","1. Szenario/Sprache wählen · 2. Öffnungszeiten und Wissen einrichten · 3. Nummer durch Admin zuweisen · 4. Testanruf und Termin prüfen.","1. Senaryo/dil seçin · 2. Saatleri ve bilgi tabanını hazırlayın · 3. Yöneticiden numara alın · 4. Test araması ve randevuyu kontrol edin.")}</p>
+        <p className="text-xs">{tri(lang,"کریدت موجود","Available credits","Verfügbare Credits","Mevcut kredi")}: {voiceInfo.credits??"—"} · {voiceInfo.creditsPerMinute??10} {tri(lang,"کریدت در دقیقه؛ به نسبت ثانیه محاسبه می‌شود","credits/minute, billed by the second","Credits/Minute, sekundengenau abgerechnet","kredi/dakika, saniyeye göre hesaplanır")} · {tri(lang,"سقف تماس","Call limit","Anruflimit","Arama sınırı")}: {Math.round((voiceInfo.maxDurationSeconds??300)/60)} min</p>
+        {!voiceInfo.configured&&<p className="text-xs">{tri(lang,"اتصال تلفن توسط ادمین هنوز تکمیل نشده است؛ می‌توانید سناریو و دانش‌نامه را آماده کنید.","Admin has not completed telephony setup yet. You can prepare your scenario and knowledge base.","Telefonie noch nicht durch Admin eingerichtet. Szenario und Wissen können vorbereitet werden.","Yönetici telefon kurulumunu tamamlamadı. Senaryo ve bilgi tabanını hazırlayabilirsiniz.")}</p>}
+      </section>
 
       <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-6 px-6 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "thin" }}>
         {[
@@ -305,7 +306,7 @@ export default function VoiceAgentPage() {
         <div className="rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)" }}>
           <div>
             <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-              {tri(lang, "اتصال شماره تلفن واقعی و تماس نامحدود بخشی از افزونه Voice Agent است", "Real phone numbers and unlimited calling are part of the Voice Agent add-on", "Echte Telefonnummern und unbegrenzte Anrufe sind Teil des Voice-Agent-Add-ons")}
+              {tri(lang, "اتصال شماره تلفن واقعی و تماس با مصرف کریدت بخشی از افزونه Voice Agent است", "Real phone numbers and credit-based calling are part of the Voice Agent add-on", "Echte Telefonnummern und creditbasierte Anrufe sind Teil des Voice-Agent-Add-ons")}
             </p>
             <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
               {tri(lang, "می‌توانید ۱ ایجنت رایگان بسازید و تنظیمات را آماده کنید؛ برای شماره تلفن واقعی ارتقا دهید.", "You can create 1 free agent and configure it; upgrade to connect a real phone number.", "Sie können 1 kostenlosen Agenten erstellen und konfigurieren; upgraden Sie für eine echte Telefonnummer.")}
@@ -325,7 +326,6 @@ export default function VoiceAgentPage() {
           isFa={isFa} lang={lang} agents={agents} showNewAgent={showNewAgent} setShowNewAgent={setShowNewAgent}
           onCreate={createAgent} onDelete={deleteAgent} onToggleActive={toggleAgentActive}
           onProvision={provisionAgent} provisioningId={provisioningId}
-          realEstateVerticalEnabled={realEstateVerticalEnabled}
         />
       )}
       {tab === "properties" && (
@@ -348,32 +348,29 @@ export default function VoiceAgentPage() {
 }
 
 function AgentsTab({
-  isFa, lang, agents, showNewAgent, setShowNewAgent, onCreate, onDelete, onToggleActive, onProvision, provisioningId, realEstateVerticalEnabled,
+  isFa, lang, agents, showNewAgent, setShowNewAgent, onCreate, onDelete, onToggleActive, onProvision, provisioningId,
 }: {
   isFa: boolean; lang: Lang; agents: VoiceAgent[]; showNewAgent: boolean; setShowNewAgent: (v: boolean) => void;
-  onCreate: (f: { name: string; focus: string; vertical: string; businessType?: string }) => void; onDelete: (id: string) => void;
+  onCreate: (f: { name: string; focus: string; vertical: string; businessType?: string; language?:string; timezone?:string; openingHour?:number; closingHour?:number; appointmentMinutes?:number; id?:string; systemPrompt?:string }) => void; onDelete: (id: string) => void;
   onToggleActive: (a: VoiceAgent) => void; onProvision: (id: string) => void; provisioningId: string | null;
-  realEstateVerticalEnabled: boolean;
 }) {
+  const [editing,setEditing]=useState<VoiceAgent|null>(null);
+  const [prompt,setPrompt]=useState("");
   const [name, setName] = useState("");
   const [focus, setFocus] = useState("general");
   const [vertical, setVertical] = useState("general");
+  const [language,setLanguage]=useState(lang);
+  const [timezone,setTimezone]=useState(lang==="fa"?"Asia/Tehran":"Europe/Istanbul");
+  const [openingHour,setOpeningHour]=useState(9);
+  const [closingHour,setClosingHour]=useState(18);
+  const [appointmentMinutes,setAppointmentMinutes]=useState(30);
   const [businessType, setBusinessType] = useState("");
-  const verticalOptions = realEstateVerticalEnabled ? VERTICAL_OPTIONS : VERTICAL_OPTIONS.filter((v) => v.value === "general");
-
-  // Module access resolves asynchronously after mount — once it does, default
-  // a still-untouched form to real_estate (nicer for the common case: a
-  // real-estate customer's very first agent) without fighting a user who
-  // already picked something.
-  const touchedVertical = useRef(false);
-  useEffect(() => {
-    if (!touchedVertical.current && realEstateVerticalEnabled) setVertical("real_estate");
-  }, [realEstateVerticalEnabled]);
+  const verticalOptions = VERTICAL_OPTIONS;
 
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <button onClick={() => setShowNewAgent(true)}
+        <button onClick={() => {setEditing(null);setPrompt("");setName("");setShowNewAgent(true);}}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "#f59e0b" }}>
           <Plus className="w-4 h-4" /> {tri(lang, "ایجنت جدید", "New Agent", "Neuer Agent")}
         </button>
@@ -393,8 +390,8 @@ function AgentsTab({
               <div>
                 <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{a.name}</p>
                 <p className="text-xs mt-0.5 flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
-                  <span>{a.vertical === "general" && a.businessType ? a.businessType : (VERTICAL_OPTIONS.find((v) => v.value === a.vertical)?.[isFa ? "fa" : lang === "de" ? "de" : "en"] || a.vertical)}</span>
-                  {a.vertical !== "general" && (
+                  <span>{a.vertical !== "real_estate" && a.businessType ? a.businessType : (VERTICAL_OPTIONS.find((v) => v.value === a.vertical)?.[isFa ? "fa" : lang === "de" ? "de" : "en"] || a.vertical)}</span>
+                  {a.vertical === "real_estate" && (
                     <>
                       <span>·</span>
                       <span>{FOCUS_OPTIONS.find((f) => f.value === a.focus)?.[isFa ? "fa" : lang === "de" ? "de" : "en"]}</span>
@@ -431,7 +428,8 @@ function AgentsTab({
                 {provisioningId === a.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PlayCircle className="w-3.5 h-3.5" />}
                 {a.vapiAssistantId ? tri(lang, "همگام‌سازی با Vapi", "Sync to Vapi", "Mit Vapi synchronisieren") : tri(lang, "اتصال شماره تلفن", "Connect phone number", "Telefonnummer verbinden")}
               </button>
-              <button onClick={() => onDelete(a.id)} className="p-2 rounded-xl" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+              <button aria-label={tri(lang,"ویرایش دستیار","Edit assistant","Assistent bearbeiten","Asistanı düzenle")} onClick={()=>{setEditing(a);setName(a.name);setPrompt(a.systemPrompt);setVertical(a.vertical);setLanguage(a.language);setTimezone(a.timezone);setOpeningHour(a.openingHour);setClosingHour(a.closingHour);setAppointmentMinutes(a.appointmentMinutes);setShowNewAgent(true);}} className="p-2 rounded-xl" style={{background:"var(--surface-2)"}}><Settings2 className="w-4 h-4"/></button>
+              <button aria-label={tri(lang,"حذف دستیار","Delete assistant","Assistent löschen","Asistanı sil")} onClick={() => onDelete(a.id)} className="p-2 rounded-xl" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
                 <Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} />
               </button>
             </div>
@@ -441,7 +439,7 @@ function AgentsTab({
 
       {showNewAgent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)" }} onClick={() => setShowNewAgent(false)}>
-          <div className="w-full max-w-md p-6 rounded-2xl space-y-4" style={{ background: "var(--surface-0)", border: "1px solid var(--border)" }} onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto p-6 rounded-2xl space-y-4" style={{ background: "var(--surface-0)", border: "1px solid var(--border)" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <p className="font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "ایجنت صوتی جدید", "New Voice Agent", "Neuer Sprachagent")}</p>
               <button onClick={() => setShowNewAgent(false)}><X className="w-4 h-4" /></button>
@@ -453,17 +451,17 @@ function AgentsTab({
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{tri(lang, "نوع کسب‌وکار", "Business Type", "Geschäftstyp")}</label>
-              <select aria-label={tri(lang, "نوع کسب‌وکار", "Business Type", "Geschäftstyp")} value={vertical} onChange={(e) => { touchedVertical.current = true; setVertical(e.target.value); }}
+              <select aria-label={tri(lang, "نوع کسب‌وکار", "Business Type", "Geschäftstyp")} disabled={!!editing} value={vertical} onChange={(e) => {  setVertical(e.target.value); }}
                 className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
                 {verticalOptions.map((v) => <option key={v.value} value={v.value}>{tri(lang, v.fa, v.en, v.de)}</option>)}
               </select>
               <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                {vertical === "general"
+                {vertical !== "real_estate"
                   ? tri(lang, "برای هر کسب‌وکاری مناسب است — از دانش‌نامه و رزرو وقت عمومی استفاده می‌کند.", "Works for any business — uses the knowledge base and generic appointment booking.", "Für jedes Geschäft — nutzt die Wissensdatenbank und allgemeine Terminbuchung.")
                   : tri(lang, "برای آژانس‌های املاک — شامل جستجوی ملک و رزرو بازدید.", "For real-estate agencies — includes property search and viewing bookings.", "Für Immobilienagenturen — umfasst Immobiliensuche und Besichtigungsbuchungen.")}
               </p>
             </div>
-            {vertical !== "general" && (
+            {vertical === "real_estate" && (
               <div className="space-y-1">
                 <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{tri(lang, "تمرکز", "Focus", "Fokus")}</label>
                 <select aria-label={tri(lang, "تمرکز", "Focus", "Fokus")} value={focus} onChange={(e) => setFocus(e.target.value)}
@@ -472,7 +470,7 @@ function AgentsTab({
                 </select>
               </div>
             )}
-            {vertical === "general" && (
+            {vertical !== "real_estate" && (
               <div className="space-y-1">
                 <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{tri(lang, "نوع دقیق کسب‌وکار", "Business Type", "Geschäftstyp")}</label>
                 <input aria-label={tri(lang, "نوع دقیق کسب‌وکار", "Business Type", "Geschäftstyp")} value={businessType} onChange={(e) => setBusinessType(e.target.value)}
@@ -480,9 +478,17 @@ function AgentsTab({
                   className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
               </div>
             )}
-            <button onClick={() => onCreate({ name, focus, vertical, businessType: vertical === "general" ? businessType : undefined })} disabled={!name.trim()}
+            <div className="grid grid-cols-2 gap-3">
+              <label className="text-xs">{tri(lang,"زبان تماس","Call language","Anrufsprache","Arama dili")}<select aria-label="Call language" value={language} onChange={e=>setLanguage(e.target.value as Lang)} className="block w-full rounded-lg p-2" style={{background:"var(--surface-2)"}}>{["fa","en","de","tr"].map(l=><option key={l}>{l}</option>)}</select></label>
+              <label className="text-xs">{tri(lang,"منطقهٔ زمانی","Timezone","Zeitzone","Saat dilimi")}<select aria-label="Timezone" value={timezone} onChange={e=>setTimezone(e.target.value)} className="block w-full rounded-lg p-2" style={{background:"var(--surface-2)"}}>{["Asia/Tehran","Europe/Istanbul","Asia/Nicosia","Europe/Berlin","Europe/London","Asia/Dubai","America/New_York"].map(z=><option key={z}>{z}</option>)}</select></label>
+              <label className="text-xs">{tri(lang,"ساعت شروع","Opening hour","Öffnung","Açılış saati")}<input aria-label="Opening hour" type="number" min="0" max="23" value={openingHour} onChange={e=>setOpeningHour(Number(e.target.value))} className="block w-full rounded-lg p-2" style={{background:"var(--surface-2)"}}/></label>
+              <label className="text-xs">{tri(lang,"ساعت پایان","Closing hour","Schließung","Kapanış saati")}<input aria-label="Closing hour" type="number" min="1" max="24" value={closingHour} onChange={e=>setClosingHour(Number(e.target.value))} className="block w-full rounded-lg p-2" style={{background:"var(--surface-2)"}}/></label>
+              <label className="text-xs col-span-2">{tri(lang,"مدت نوبت (دقیقه)","Appointment length (minutes)","Termindauer (Minuten)","Randevu süresi (dakika)")}<select aria-label="Appointment length" value={appointmentMinutes} onChange={e=>setAppointmentMinutes(Number(e.target.value))} className="block w-full rounded-lg p-2" style={{background:"var(--surface-2)"}}>{[15,30,45,60].map(n=><option key={n}>{n}</option>)}</select></label>
+            </div>
+            {editing&&<label className="block text-xs">{tri(lang,"دستورالعمل دستیار","Assistant instructions","Assistentenanweisungen","Asistan talimatları")}<textarea aria-label="Assistant instructions" value={prompt} onChange={e=>setPrompt(e.target.value)} rows={6} className="block w-full rounded-xl p-3 mt-2" style={{background:"var(--surface-2)"}}/></label>}
+            <button onClick={() => onCreate({ id:editing?.id,systemPrompt:editing?prompt:undefined,name, focus, vertical, language, timezone, openingHour, closingHour, appointmentMinutes, businessType: vertical !== "real_estate" ? businessType : undefined })} disabled={!name.trim()}
               className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "#f59e0b" }}>
-              {tri(lang, "ساخت ایجنت", "Create Agent", "Agent erstellen")}
+              {editing?tri(lang,"ذخیره تغییرات","Save changes","Änderungen speichern","Değişiklikleri kaydet"):tri(lang, "ساخت ایجنت", "Create Agent", "Agent erstellen")}
             </button>
           </div>
         </div>
@@ -492,7 +498,7 @@ function AgentsTab({
 }
 
 function KnowledgeTab({
-  isFa, lang, t, agents, entries, onCreate, onDelete, onUploaded,
+  lang, t, agents, entries, onCreate, onDelete, onUploaded,
 }: {
   isFa: boolean; lang: Lang; t: ReturnType<typeof useTranslation>["t"]; agents: VoiceAgent[]; entries: VoiceKnowledgeEntry[];
   onCreate: (f: { title: string; content: string; agentId?: string }) => void; onDelete: (id: string) => void;
@@ -627,7 +633,7 @@ function KnowledgeTab({
 }
 
 function PropertiesTab({
-  isFa, lang, properties, showNew, setShowNew, onCreate, onDelete,
+  lang, properties, showNew, setShowNew, onCreate, onDelete,
 }: {
   isFa: boolean; lang: Lang; properties: VoiceProperty[]; showNew: boolean; setShowNew: (v: boolean) => void;
   onCreate: (f: Record<string, unknown>) => void; onDelete: (id: string) => void;
@@ -749,7 +755,7 @@ function PropertiesTab({
   );
 }
 
-function CallsTab({ isFa, lang, calls, expandedCallId, setExpandedCallId }: {
+function CallsTab({ lang, calls, expandedCallId, setExpandedCallId }: {
   isFa: boolean; lang: Lang; calls: VoiceCall[]; expandedCallId: string | null; setExpandedCallId: (id: string | null) => void;
 }) {
   if (calls.length === 0) {
@@ -773,6 +779,7 @@ function CallsTab({ isFa, lang, calls, expandedCallId, setExpandedCallId }: {
               </div>
             </div>
             <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
+              <span>{c.billingStatus==="settled"?`${c.creditsCharged} ${tri(lang,"کریدت مصرفی","credits used","verbrauchte Credits","kullanılan kredi")}`:`${c.reservedCredits} ${tri(lang,"کریدت رزرو","reserved credits","reservierte Credits","rezerve kredi")}`}</span>
               {c.durationSec != null && <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {c.durationSec}s</span>}
               <span className="px-2 py-0.5 rounded-full" style={{ background: "var(--surface-2)" }}>{c.status}</span>
             </div>
@@ -791,7 +798,7 @@ function CallsTab({ isFa, lang, calls, expandedCallId, setExpandedCallId }: {
   );
 }
 
-function AppointmentsTab({ isFa, lang, appointments, onUpdateStatus }: {
+function AppointmentsTab({ lang, appointments, onUpdateStatus }: {
   isFa: boolean; lang: Lang; appointments: VoiceAppointment[]; onUpdateStatus: (id: string, status: string) => void;
 }) {
   if (appointments.length === 0) {

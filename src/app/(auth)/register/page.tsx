@@ -1,21 +1,22 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Sparkles, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { useTranslation } from "@/lib/i18n";
-import { COUNTRIES, dialCodeFor } from "@/lib/constants/countries";
+import { accountTypeFor } from "@/lib/auth/accountAudience";
+import { useTranslation, tri } from "@/lib/i18n";
+import { COUNTRIES, dialCodeFor, registrationPhone } from "@/lib/constants/countries";
 
 const LANG_OPTIONS: { code: "fa" | "en" | "de" | "tr"; label: string }[] = [
   { code: "fa", label: "فارسی" },
   { code: "en", label: "English" },
   { code: "de", label: "Deutsch" },
+  { code: "tr", label: "Türkçe" },
 ];
 
 function RegisterForm() {
-  const router = useRouter();
   const params = useSearchParams();
   const { t, lang } = useTranslation();
   const isFa = lang === "fa";
@@ -26,6 +27,7 @@ function RegisterForm() {
 
   const [form, setForm] = useState({ firstName: "", lastName: "", country: "IR", email: "", phone: "", password: "", confirmPassword: "" });
   const [registerLang, setRegisterLang] = useState<"fa" | "en" | "de" | "tr">(lang);
+  const [accountType, setAccountType] = useState(accountTypeFor(planCode, packSlug ? "BUSINESS" : "PERSONAL"));
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [packName, setPackName] = useState("");
@@ -48,12 +50,9 @@ function RegisterForm() {
     if (form.password && form.password.length < 6) return toast.error(t.auth.register.errPasswordShort);
     if (!agreed) return toast.error(t.auth.register.errMustAgree);
 
-    // Iran's phone stays exactly as typed (existing convention everywhere
-    // else in the app); other countries get their dial code composed in,
-    // since this is the first place those numbers get any prefix at all.
-    const composedPhone = form.phone && form.country !== "IR" && dialCodeFor(form.country)
-      ? `${dialCodeFor(form.country)}${form.phone.replace(/^0+/, "")}`
-      : form.phone;
+    let composedPhone: string;
+    try { composedPhone = registrationPhone(form.phone, form.country); }
+    catch { return toast.error(tri(lang, "شماره موبایل معتبر وارد کنید", "Enter a valid phone number", "Gültige Telefonnummer eingeben", "Geçerli telefon numarası girin")); }
 
     setLoading(true);
     try {
@@ -62,7 +61,7 @@ function RegisterForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           firstName: form.firstName, lastName: form.lastName || undefined, country: form.country || undefined,
-          language: registerLang,
+          language: registerLang, selectedPlan: planCode || undefined, accountType,
           email: form.email || undefined, phone: composedPhone || undefined, password: form.password || undefined,
           industryPackSlug: packSlug || undefined, ref: refCode || undefined,
         }),
@@ -105,6 +104,14 @@ function RegisterForm() {
 
         <div className="glass rounded-2xl p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
+            <label className="block text-sm" style={{color:"var(--text-secondary)"}}>
+              {tri(lang,"نوع حساب","Account type","Kontotyp","Hesap türü")}
+              <select aria-label={tri(lang,"نوع حساب","Account type","Kontotyp","Hesap türü")} value={accountType} disabled={/^(STUDENT_|TEAM_|CRM_)/.test(planCode)} onChange={e=>setAccountType(accountTypeFor(null,e.target.value))} className="mt-2 w-full rounded-xl p-3" style={{background:"var(--surface-2)",color:"var(--text-primary)"}}>
+                <option value="PERSONAL">{tri(lang,"شخصی","Personal","Privat","Kişisel")}</option>
+                <option value="STUDENT">{tri(lang,"دانشجو","Student","Studierende","Öğrenci")}</option>
+                <option value="BUSINESS">{tri(lang,"کسب‌وکار","Business","Unternehmen","İşletme")}</option>
+              </select>
+            </label>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.firstNameLabel}</label>
@@ -130,7 +137,7 @@ function RegisterForm() {
             </div>
             <div>
               <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.languageLabel}</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {LANG_OPTIONS.map((l) => (
                   <button
                     key={l.code}
@@ -157,17 +164,13 @@ function RegisterForm() {
             <div>
               <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.phoneLabel}</label>
               <div className="flex gap-2" dir="ltr">
-                {/* Iran keeps its existing plain "09..." convention unchanged
-                    (every phone-based flow already assumes that exact format) --
-                    the dial-code prefix is only shown for other countries,
-                    which previously had no phone-format handling at all. */}
-                {form.country !== "IR" && dialCodeFor(form.country) && (
+                {dialCodeFor(form.country) && (
                   <span className="flex items-center px-3 rounded-xl text-sm flex-shrink-0" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
                     {dialCodeFor(form.country)}
                   </span>
                 )}
                 <input type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })}
-                  placeholder={form.country === "IR" ? "09123456789" : "123456789"} dir="ltr" className="flex-1 min-w-0 px-4 py-3 rounded-xl text-sm outline-none"
+                  placeholder={form.country === "IR" ? "9123456789" : "123456789"} dir="ltr" className="flex-1 min-w-0 px-4 py-3 rounded-xl text-sm outline-none"
                   style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
               </div>
             </div>

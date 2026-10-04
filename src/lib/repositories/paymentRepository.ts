@@ -54,7 +54,7 @@ export async function activatePlanForPayment(
         const current = await tx.user.findUniqueOrThrow({ where: { id: payment.userId }, select: { planExpiry: true } });
         return current.planExpiry || expiry;
       }
-      await tx.user.update({ where: { id: payment.userId }, data: { plan: payment.plan, planExpiry: expiry, credits: { increment: planInfo?.credits || 0 }, trialLimited: false } });
+      await tx.user.update({ where: { id: payment.userId }, data: { plan: payment.plan, accountType: "STUDENT", planExpiry: expiry, credits: { increment: planInfo?.credits || 0 }, trialLimited: false } });
       await tx.userModuleOverride.upsert({ where: { userId_moduleKey: { userId: payment.userId, moduleKey: "student.workspace" } }, create: { userId: payment.userId, moduleKey: "student.workspace", enabled: true }, update: { enabled: true } });
       return expiry;
     });
@@ -130,7 +130,7 @@ export async function activatePlanForPayment(
     const existingTeam = await prisma.team.findUnique({ where: { ownerId: payment.userId } });
     await prisma.$transaction([
       prisma.payment.update({ where: { id: payment.id }, data: { status: "SUCCESS", refId, authority } }),
-      prisma.user.update({ where: { id: payment.userId }, data: { plan: "TEAM", planExpiry: expiry, trialLimited: false } }),
+      prisma.user.update({ where: { id: payment.userId }, data: { plan: "TEAM", accountType: "BUSINESS", planExpiry: expiry, trialLimited: false } }),
       existingTeam
         ? prisma.team.update({
             where: { id: existingTeam.id },

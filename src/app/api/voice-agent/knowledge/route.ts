@@ -5,7 +5,6 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { looksLikeInjectionAttempt } from "@/lib/ai/promptSafety";
 import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
-import { bizScope } from "@/lib/accounting/scope";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -16,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   const businessId = await activeBusinessIdFor(user.id);
   const entries = await prisma.voiceKnowledgeBase.findMany({
-    where: { userId: user.id, ...bizScope(businessId), ...(agentId ? { agentId } : {}) },
+    where: { userId: user.id, businessId, ...(agentId ? { agentId } : {}) },
     orderBy: { updatedAt: "desc" },
     take: 200,
   });
@@ -27,10 +26,11 @@ export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 
-  const body = await req.json();
+  const body = await req.json().catch(()=>null);
+  if(!body) return NextResponse.json({error:"Invalid request"},{status:400});
   const { title, content, agentId } = body;
-  if (!title?.trim()) return NextResponse.json({ error: "عنوان الزامی است" }, { status: 400 });
-  if (!content?.trim()) return NextResponse.json({ error: "محتوا الزامی است" }, { status: 400 });
+  if ((typeof title!=="string" || !title.trim() || title.length>300)) return NextResponse.json({ error: "عنوان الزامی است" }, { status: 400 });
+  if ((typeof content!=="string" || !content.trim() || content.length>100000)) return NextResponse.json({ error: "محتوا الزامی است" }, { status: 400 });
   // This content reaches a live call assistant's context verbatim (via the
   // search_knowledge_base tool) — reject anything that looks like an attempt
   // to override the assistant's instructions rather than silently storing it.
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
   if (agentId) {
     const agent = await prisma.voiceAgent.findUnique({ where: { id: agentId } });
-    if (!agent || agent.userId !== user.id) return NextResponse.json({ error: "ایجنت نامعتبر است" }, { status: 400 });
+    if (!agent || (agent.userId !== user.id || agent.businessId !== await activeBusinessIdFor(user.id))) return NextResponse.json({ error: "ایجنت نامعتبر است" }, { status: 400 });
   }
 
   const entry = await prisma.voiceKnowledgeBase.create({

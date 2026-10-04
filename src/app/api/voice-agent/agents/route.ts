@@ -4,21 +4,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { hasVoiceAccess, countUserVoiceAgents, FREE_VOICE_AGENT_LIMIT } from "@/lib/voice/workspace";
-import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
-import { bizScope } from "@/lib/accounting/scope";
 
-const DEFAULT_PROMPTS: Record<string, string> = {
-  general: "شما یک دستیار صوتی هوشمند یک آژانس املاک هستید. مؤدب، کوتاه و کاربردی صحبت کنید. ابتدا بپرسید تماس‌گیرنده به دنبال خرید، فروش یا اجاره ملک است، سپس بودجه و منطقه مورد نظر را جویا شوید و از ابزار جستجوی ملک برای پیشنهاد گزینه مناسب استفاده کنید. در پایان، وقت بازدید پیشنهاد دهید. برای سوالاتی که به یک ملک خاص مربوط نیست (ساعات کاری، مدارک لازم، شرایط پرداخت و مشابه آن) از ابزار جستجوی دانش‌نامه استفاده کنید.",
-  buy: "شما دستیار صوتی بخش خرید ملک یک آژانس املاک هستید. به تماس‌گیرندگانی که قصد خرید ملک دارند کمک کنید: نوع ملک، بودجه، منطقه و تعداد اتاق را بپرسید، با ابزار جستجوی ملک گزینه مناسب پیدا کنید و وقت بازدید رزرو کنید.",
-  sell: "شما دستیار صوتی بخش فروش ملک یک آژانس املاک هستید. از مالکانی که می‌خواهند ملک خود را بفروشند، مشخصات ملک و انتظار قیمتی را جویا شوید و اطلاعات را برای پیگیری توسط کارشناس ثبت کنید.",
-  rent: "شما دستیار صوتی بخش اجاره ملک یک آژانس املاک هستید. نیاز مستأجر (نوع ملک، بودجه ماهانه، منطقه) را جویا شوید، با ابزار جستجوی ملک گزینه مناسب پیدا کنید و وقت بازدید رزرو کنید.",
-};
-
-function buildGeneralDefaultPrompt(businessType?: string | null) {
-  const businessLabel = businessType?.trim() ? businessType.trim() : "این کسب‌وکار";
-  return `شما دستیار صوتی ${businessLabel} هستید. مؤدب، کوتاه و کاربردی صحبت کنید. به سوالات تماس‌گیرنده با استفاده از ابزار جستجوی دانش‌نامه پاسخ دهید و در صورت نیاز، وقت پیگیری یا تماس مجدد را با نام، شماره تماس و زمان دلخواه رزرو کنید.`;
-}
+import { scenarioPrompt, VOICE_SCENARIOS } from "@/lib/voice/scenarios";
+import { getServerLang } from "@/lib/i18n/server";
+import { voiceSettings } from "@/lib/voice/settings";
+import { getAvailableCredits } from "@/lib/utils/teamCredits";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -26,11 +17,12 @@ export async function GET(req: NextRequest) {
 
   const businessId = await activeBusinessIdFor(user.id);
   const agents = await prisma.voiceAgent.findMany({
-    where: { userId: user.id, ...bizScope(businessId) },
+    where: { userId: user.id, businessId },
     orderBy: { createdAt: "desc" },
     include: { _count: { select: { calls: true, appointments: true } } },
   });
-  return NextResponse.json({ agents, voicePlan: user.voicePlan, hasAccess: hasVoiceAccess(user) });
+  const settings=await voiceSettings();
+  return NextResponse.json({ agents, voicePlan: hasVoiceAccess(user)?"ACTIVE":"NONE", hasAccess: hasVoiceAccess(user), credits:await getAvailableCredits(user.id), creditsPerMinute:settings.creditsPerMinute,maxDurationSeconds:settings.maxDurationSeconds,configured:!!(settings.apiKey&&settings.webhookSecret&&settings.credentialId) });
 }
 
 export async function POST(req: NextRequest) {
@@ -45,38 +37,43 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const body = await req.json();
+  const body = await req.json().catch(()=>null);
+  if(!body) return NextResponse.json({error:"Invalid request"},{status:400});
   const { name, focus, systemPrompt, voiceId, vertical, businessType } = body;
-  if (!name?.trim()) return NextResponse.json({ error: "نام ایجنت الزامی است" }, { status: 400 });
+  if (typeof name!=="string" || !name.trim() || name.length>150) return NextResponse.json({ error: "نام ایجنت الزامی است" }, { status: 400 });
 
-  // Section 2, item 4 — the real_estate vertical (property tools) is
-  // industry-pack-gated same as every other real-estate module; a direct
-  // API call from a non-real-estate customer must fall back to "general",
-  // not just be blocked by the UI hiding the option.
-  let resolvedVertical = vertical === "general" ? "general" : "real_estate";
-  if (resolvedVertical === "real_estate") {
-    const owner = await prisma.user.findUnique({ where: { id: user.id }, select: { industryPackId: true } });
-    const allowed = await isModuleEnabled({ id: user.id, role: user.role, industryPackId: owner?.industryPackId ?? null }, "agent.voiceCallCenter");
-    if (!allowed) resolvedVertical = "general";
-  }
-  const resolvedFocus = resolvedVertical === "general"
+  if(voiceId!==undefined&&voiceId!==null&&(typeof voiceId!=="string"||voiceId.length>200)) return NextResponse.json({error:"Invalid voice"},{status:400});
+  const resolvedVertical = VOICE_SCENARIOS.includes(vertical) ? vertical : "general";
+  const language=["fa","en","de","tr"].includes(body.language)?body.language:await getServerLang();
+  const timezone=typeof body.timezone==="string"?body.timezone:"Europe/Istanbul";
+  try {new Intl.DateTimeFormat("en",{timeZone:timezone}).format();}catch{return NextResponse.json({error:"Invalid timezone"},{status:400});}
+  const openingHour=body.openingHour??9, closingHour=body.closingHour??18, appointmentMinutes=body.appointmentMinutes??30;
+  if(!Number.isInteger(openingHour)||!Number.isInteger(closingHour)||openingHour<0||closingHour>24||openingHour>=closingHour||![15,30,45,60].includes(appointmentMinutes)) return NextResponse.json({error:"Invalid reception schedule"},{status:400});
+  if(systemPrompt!==undefined&&(typeof systemPrompt!=="string"||systemPrompt.length>20000)) return NextResponse.json({error:"Invalid prompt"},{status:400});
+  const resolvedFocus = resolvedVertical !== "real_estate"
     ? "general"
     : (["buy", "sell", "rent", "general"].includes(focus) ? focus : "general");
-  const resolvedBusinessType = resolvedVertical === "general" && typeof businessType === "string" && businessType.trim()
+  const resolvedBusinessType = resolvedVertical !== "real_estate" && typeof businessType === "string" && businessType.trim()
     ? businessType.trim().slice(0, 200)
     : null;
 
-  const agent = await prisma.voiceAgent.create({
+  const businessId=await activeBusinessIdFor(user.id);
+  const agent = await prisma.$transaction(async tx=>{
+    if(await tx.voiceAgent.count({where:{userId:user.id}})>=(hasVoiceAccess(user)?100:FREE_VOICE_AGENT_LIMIT))return null;
+    return tx.voiceAgent.create({
     data: {
       userId: user.id,
-      businessId: await activeBusinessIdFor(user.id),
+      businessId,
       name: name.trim(),
+      language, timezone, openingHour, closingHour, appointmentMinutes,
       focus: resolvedFocus,
       vertical: resolvedVertical,
       businessType: resolvedBusinessType,
-      systemPrompt: systemPrompt?.trim() || (resolvedVertical === "general" ? buildGeneralDefaultPrompt(resolvedBusinessType) : DEFAULT_PROMPTS[resolvedFocus]),
+      systemPrompt: systemPrompt?.trim() || scenarioPrompt(resolvedVertical, resolvedBusinessType || name.trim(), language),
       voiceId: voiceId || undefined,
     },
   });
+  });
+  if(!agent)return NextResponse.json({error:"Voice assistant limit reached"},{status:402});
   return NextResponse.json({ agent });
 }

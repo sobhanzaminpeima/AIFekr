@@ -1,0 +1,17 @@
+ALTER TABLE "User" ADD COLUMN "accountType" TEXT NOT NULL DEFAULT 'PERSONAL';
+ALTER TABLE "VoiceAgent" ADD COLUMN "language" TEXT NOT NULL DEFAULT 'fa';
+ALTER TABLE "VoiceAgent" ADD COLUMN "timezone" TEXT NOT NULL DEFAULT 'Europe/Istanbul';
+ALTER TABLE "VoiceAgent" ADD COLUMN "appointmentMinutes" INTEGER NOT NULL DEFAULT 30;
+ALTER TABLE "VoiceAgent" ADD COLUMN "openingHour" INTEGER NOT NULL DEFAULT 9;
+ALTER TABLE "VoiceAgent" ADD COLUMN "closingHour" INTEGER NOT NULL DEFAULT 18;
+ALTER TABLE "VoiceAgent" ADD COLUMN "provisioningAt" DATETIME;
+ALTER TABLE "VoiceCallLog" ADD COLUMN "reservedCredits" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "VoiceCallLog" ADD COLUMN "creditsCharged" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "VoiceCallLog" ADD COLUMN "billingStatus" TEXT NOT NULL DEFAULT 'pending';
+ALTER TABLE "VoiceCallLog" ADD COLUMN "creditTeamId" TEXT;
+ALTER TABLE "VoiceCallLog" ADD COLUMN "creditsPerMinute" INTEGER NOT NULL DEFAULT 10;
+ALTER TABLE "VoiceAppointment" ADD COLUMN "toolCallId" TEXT;
+CREATE UNIQUE INDEX "VoiceAppointment_toolCallId_key" ON "VoiceAppointment"("toolCallId");
+CREATE UNIQUE INDEX "VoiceAgent_vapiPhoneNumberId_key" ON "VoiceAgent"("vapiPhoneNumberId");
+UPDATE "User" SET "accountType" = 'STUDENT' WHERE "plan" LIKE 'STUDENT_%';
+UPDATE "User" SET "accountType" = 'BUSINESS' WHERE "accountType" <> 'STUDENT' AND ("plan" = 'TEAM' OR "crmPlan" <> 'NONE' OR EXISTS (SELECT 1 FROM "Team" WHERE "Team"."ownerId" = "User"."id"));

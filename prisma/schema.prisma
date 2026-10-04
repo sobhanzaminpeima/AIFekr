@@ -21,6 +21,8 @@ model User {
   /// ISO 3166-1 alpha-2 country code (e.g. "IR", "DE", "US") — collected at
   /// registration and editable from the admin panel.
   country                   String?
+  /// Registration audience; independent from paid entitlements.
+  accountType               String    @default("PERSONAL")
   /// "fa" | "en" | "de" — chosen at registration. The `lang` cookie is the
   /// live, changeable-anytime preference (LanguageSwitcher), but it's just a
   /// browser cookie: gone on a new device/browser or if cleared. This column
@@ -2247,10 +2249,16 @@ model VoiceAgent {
   systemPrompt      String
   /// Vapi voice id (e.g. "jennifer") — cosmetic, defaults server-side if unset.
   voiceId           String?
+  language          String   @default("fa")
+  timezone          String   @default("Europe/Istanbul")
+  appointmentMinutes Int     @default(30)
+  openingHour       Int      @default(9)
+  closingHour       Int      @default(18)
+  provisioningAt    DateTime?
   /// E.164 phone number assigned to this agent once provisioned via Vapi.
   phoneNumber       String?
   vapiAssistantId   String?
-  vapiPhoneNumberId String?
+  vapiPhoneNumberId String?  @unique
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -2501,6 +2509,11 @@ model VoiceCallLog {
   recordingUrl String?
   /// Call cost in USD, as reported by Vapi.
   cost         Float?
+  reservedCredits Int       @default(0)
+  creditsCharged Int        @default(0)
+  billingStatus String      @default("pending")
+  creditTeamId String?
+  creditsPerMinute Int      @default(10)
   createdAt    DateTime  @default(now())
   endedAt      DateTime?
 
@@ -2528,6 +2541,7 @@ model VoiceAppointment {
   scheduledAt DateTime
   status      String   @default("pending") // pending | confirmed | completed | cancelled | no_show
   notes       String?
+  toolCallId  String?  @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

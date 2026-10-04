@@ -25,7 +25,7 @@ export function normalizePhone(raw: string | null | undefined): string | null {
  * far worse than leaving contactId null, so this only returns a match when
  * the normalized digits line up exactly. Returns null on no match.
  */
-export async function matchCrmContactByPhone(userId: string, callerPhone: string | null | undefined): Promise<string | null> {
+export async function matchCrmContactByPhone(userId: string, callerPhone: string | null | undefined, businessId?: string | null): Promise<string | null> {
   const normalized = normalizePhone(callerPhone);
   if (!normalized) return null;
 
@@ -36,7 +36,7 @@ export async function matchCrmContactByPhone(userId: string, callerPhone: string
   // number (duplicate contacts) — most-recently-updated wins, rather than
   // whatever order SQLite happens to return rows in.
   const candidates = await prisma.crmContact.findMany({
-    where: { userId, phone: { not: null } },
+    where: { userId, ...(businessId !== undefined ? {businessId} : {}), phone: { not: null } },
     select: { id: true, phone: true },
     orderBy: { updatedAt: "desc" },
   });

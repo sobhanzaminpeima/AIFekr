@@ -20,6 +20,7 @@ export const COUNTRIES: CountryOption[] = [
   { code: "TJ", fa: "تاجیکستان", en: "Tajikistan", de: "Tadschikistan", dialCode: "+992" },
   { code: "TR", fa: "ترکیه", en: "Turkey", de: "Türkei", dialCode: "+90" },
   { code: "CY", fa: "قبرس", en: "Cyprus", de: "Zypern", dialCode: "+357" },
+  { code: "CY-NORTH", fa: "قبرس شمالی", en: "Northern Cyprus", de: "Nordzypern", tr: "Kuzey Kıbrıs", dialCode: "+90" },
   { code: "AE", fa: "امارات متحده عربی", en: "United Arab Emirates", de: "Vereinigte Arabische Emirate", dialCode: "+971" },
   { code: "IQ", fa: "عراق", en: "Iraq", de: "Irak", dialCode: "+964" },
   { code: "SA", fa: "عربستان سعودی", en: "Saudi Arabia", de: "Saudi-Arabien", dialCode: "+966" },
@@ -49,4 +50,21 @@ export function countryLabel(code: string | null | undefined, lang: "fa" | "en" 
   const c = COUNTRIES.find((c) => c.code === code);
   if (!c) return code || "";
   return c[lang] ?? c.en;
+}
+
+/** Preserve local Iranian login identifiers; compose other countries once. */
+export function registrationPhone(raw: string, country: string): string {
+  let phone = raw.trim().replace(/[۰-۹٠-٩]/g, c => String(c.charCodeAt(0) - (c >= "۰" ? 1776 : 1632))).replace(/[\s()-]/g, "");
+  if (!phone) return "";
+  if (phone.startsWith("00")) phone = `+${phone.slice(2)}`;
+  if (country === "IR") {
+    if (phone.startsWith("+98")) phone = `0${phone.slice(3).replace(/^0+/, "")}`;
+    else if (/^9\d{9}$/.test(phone)) phone = `0${phone}`;
+    if (!/^09\d{9}$/.test(phone)) throw new Error("Invalid Iranian mobile number (+98 9xxxxxxxxx)");
+    return phone;
+  }
+  const prefix = dialCodeFor(country);
+  if (!phone.startsWith("+") && prefix) phone = `${prefix}${phone.replace(/^0+/, "")}`;
+  if (!/^\+[1-9]\d{6,14}$/.test(phone) || (prefix && !phone.startsWith(prefix))) throw new Error("Invalid international phone number");
+  return phone;
 }
