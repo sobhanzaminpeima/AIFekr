@@ -4,7 +4,7 @@ import { BUSINESS_CODES } from "./business";
 export async function hasBusinessBundle(userId: string): Promise<boolean> {
   const payment = await prisma.payment.findFirst({
     where: {
-      status: "SUCCESS", gateway: "bank_transfer", plan: { in: BUSINESS_CODES },
+      status: "SUCCESS", gateway: { in: ["bank_transfer", "zarinpal"] }, plan: { in: BUSINESS_CODES },
       user: { plan: "TEAM", planExpiry: { gt: new Date() }, OR: [
         { id: userId }, { ownedTeam: { members: { some: { userId } } } },
       ] },

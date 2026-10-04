@@ -50,7 +50,7 @@ const SECTIONS = [
       { key: "bank_iban_eur", label: "IBAN یورو · EUR (از زراعت بدون کمیسیون)", type: "text", default: PAYMENT_ACCOUNTS.EUR },
       { key: "bank_holder", label: "نام صاحب حساب", type: "text", default: PAYMENT_ACCOUNTS.holder },
       { key: "bank_currency", label: "ارز حساب بانکی", type: "select", default: "TRY", options: ["TRY", "USD", "EUR"] },
-      { key: "payment_gateway", label: "درگاه پرداخت", type: "select", default: "zarinpal", options: ["bank_transfer"] },
+      { key: "payment_gateway", label: "درگاه پرداخت", type: "select", default: "zarinpal", options: ["zarinpal", "bank_transfer"] },
       { key: "zarinpal_merchant", label: "کد Zarinpal Merchant", type: "text", default: "" },
       { key: "zarinpal_sandbox", label: "حالت آزمایشی زرین‌پال (Sandbox)", type: "toggle", default: "false" },
       { key: "stripe_key", label: "Stripe Public Key", type: "text", default: "" },

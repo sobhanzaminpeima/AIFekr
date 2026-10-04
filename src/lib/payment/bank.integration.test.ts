@@ -70,4 +70,15 @@ it("binds verified gateway activation to its authority and grants credits only o
  expect(after.credits-before.credits).toBe(750);expect(after.plan).toBe(before.plan);expect(after.planExpiry).toEqual(before.planExpiry);
 });
 
+it("enables business modules and call center for a verified Zarinpal Growth purchase",async()=>{
+ const {hasBusinessBundle}=await import("@/lib/plans/businessAccess");
+ const p=await purchase("TEAM_BUSINESS_GROW",false);
+ await prisma.payment.update({where:{id:p.id},data:{gateway:"zarinpal",authority:"TEST_BUSINESS_GATEWAY",entitlementSnapshot:JSON.stringify({credits:3000,days:90,teamSeatLimit:10,crmSeatLimit:10,businessBundle:true})}});
+ const before=await prisma.team.findUniqueOrThrow({where:{ownerId:buyer}});
+ await settleVerifiedPayment(p.id,"TEST_BUSINESS_GATEWAY","456");
+ const after=await prisma.team.findUniqueOrThrow({where:{ownerId:buyer}});
+ expect(after.credits-before.credits).toBe(3000);expect(await hasBusinessBundle(buyer)).toBe(true);
+ const u=await prisma.user.findUniqueOrThrow({where:{id:buyer}});expect(u.accountType).toBe("BUSINESS");expect(u.crmPlan).toBe("TEAM");expect(u.voicePlan).toBe("ACTIVE");
+});
+
 });
