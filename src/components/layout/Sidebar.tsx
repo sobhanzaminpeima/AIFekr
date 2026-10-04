@@ -21,6 +21,7 @@ import { DEPARTMENTS as TEAM_DEPARTMENTS } from "@/lib/team/identity";
 import { formatNumber } from "@/lib/utils/jalali";
 import { OPEN_CONVERSATION_EVENT } from "@/components/chat/ChatInterface";
 import OrganizationSwitcher from "@/components/organization/OrganizationSwitcher";
+import { CHAT_HISTORY_UPDATED_EVENT, type ChatHistoryItem } from "@/lib/chat/history";
 import { useLiveCredits } from "@/lib/credits/live";
 
 // A history click used to be a plain <Link href="/chat/[id]"> -- since the
@@ -129,6 +130,22 @@ const DEPARTMENTS: {
 export default function Sidebar({ user, conversations = [], onNewChat }: SidebarProps) {
   // Live balance: the layout renders it once, so without this it stays stale after credits are spent.
   const liveCredits = useLiveCredits(user?.credits ?? 0);
+  const [historyItems, setHistoryItems] = useState(conversations);
+  useEffect(() => { setHistoryItems(conversations); }, [conversations]);
+  useEffect(() => {
+    function onHistoryUpdated(event: Event) {
+      const item = (event as CustomEvent<ChatHistoryItem>).detail;
+      if (!item?.id) return;
+      setHistoryItems(previous => {
+        const existing = previous.find(c => c.id === item.id);
+        return [{ ...existing, ...item }, ...previous.filter(c => c.id !== item.id)].slice(0, 30);
+      });
+      setActivePath(`/chat/${item.id}`);
+    }
+    window.addEventListener(CHAT_HISTORY_UPDATED_EVENT, onHistoryUpdated);
+    return () => window.removeEventListener(CHAT_HISTORY_UPDATED_EVENT, onHistoryUpdated);
+  }, []);
+
   const pathname = usePathname();
   // Mirrors the URL for highlighting the active history item. A client-side
   // conversation switch (see openConversationClick) changes the URL via
@@ -270,8 +287,8 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
     window.location.href = "/login";
   }
 
-  const freeConvs = conversations.filter((c) => !c.projectId);
-  const getProjectConvs = (pid: string) => conversations.filter((c) => c.projectId === pid);
+  const freeConvs = historyItems.filter((c) => !c.projectId);
+  const getProjectConvs = (pid: string) => historyItems.filter((c) => c.projectId === pid);
 
   return (
     <aside className="platform-sidebar flex flex-col h-full w-[260px] flex-shrink-0"

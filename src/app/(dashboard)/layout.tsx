@@ -14,7 +14,7 @@ import SessionWatchdog from "@/components/layout/SessionWatchdog";
 import TrialBanner from "@/components/layout/TrialBanner";
 import StudentTimerDock from "@/components/student/StudentTimerDock";
 import { getServerLang } from "@/lib/i18n/server";
-import { bizScope } from "@/lib/accounting/scope";
+import { chatHistoryWhere } from "@/lib/chat/history";
 import { isStudentWorkspaceEnabled } from "@/lib/student/access";
 import { shouldShowTrialBanner } from "@/lib/subscriptions/trialBanner";
 import DashboardPullToRefresh from "@/components/layout/DashboardPullToRefresh";
@@ -65,7 +65,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // way via Conversation.tool). Excluded here so a user's "where do I find
   // invoices" threads never show up mixed into their real chat history.
   const conversations = await prisma.conversation.findMany({
-    where: { userId: user.id, tool: { not: "support" }, ...bizScope(user.activeBusinessId) },
+    where: chatHistoryWhere(user.id, user.activeBusinessId),
     select: { id: true, title: true, updatedAt: true, projectId: true },
     orderBy: { updatedAt: "desc" },
     take: 30,

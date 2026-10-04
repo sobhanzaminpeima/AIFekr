@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { CHAT_HISTORY_UPDATED_EVENT } from "@/lib/chat/history";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
 import {
@@ -559,6 +560,8 @@ export default function ChatInterface({
         window.history.replaceState(null, "", `/chat/${convId}`);
       }
 
+      if (convId) window.dispatchEvent(new CustomEvent(CHAT_HISTORY_UPDATED_EVENT, { detail: { id: convId, ...(isNewConversation ? { title: text.slice(0, 50) } : {}), updatedAt: new Date().toISOString() } }));
+
       const reader = response.body?.getReader();
       if (!reader) throw new Error(t.common.error);
 
@@ -642,6 +645,7 @@ export default function ChatInterface({
       const id = data?.conversation?.id as string | undefined;
       if (!id) return null;
       setCurrentConvId(id);
+      window.dispatchEvent(new CustomEvent(CHAT_HISTORY_UPDATED_EVENT, { detail: { id, title: titleText.slice(0, 50), updatedAt: new Date().toISOString() } }));
       window.history.replaceState(null, "", `/chat/${id}`);
       return id;
     } catch {

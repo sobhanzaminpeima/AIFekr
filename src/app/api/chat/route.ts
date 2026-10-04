@@ -165,6 +165,9 @@ export async function POST(req: NextRequest) {
       convId = conv.id;
     }
 
+    // Keep resumed chats at the top even when the provider fails or is cancelled.
+    await prisma.conversation.update({ where: { id: convId }, data: { updatedAt: new Date() } });
+
     // Save user message
     await prisma.message.create({
       data: { conversationId: convId, role: "user", content: message },
