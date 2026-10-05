@@ -9,8 +9,11 @@ export const legacyRules={lessonPercent:100,quizScore:60,finalRequired:false,fin
 export const courseConfiguration=z.object({requirements:completionRules.optional(),audience:z.string().max(1000).default("University students"),teachingStyle:z.string().max(1000).default("Practical"),depth:z.string().max(1000).default("Intermediate"),chapterCount:z.number().int().min(3).max(12).default(6),instructions:z.string().max(6000).default(""),learningObjectives:z.array(z.string().trim().min(3).max(500)).max(15).default([])});
 export function requirements(config:string){return completionRules.parse(JSON.parse(config).requirements||legacyRules);}
 export function progressPercent(progress:{completed:string;quizPassed:string;finalPassed:boolean;state:string},content:ReturnType<typeof parseCourseContent>,rules:ReturnType<typeof completionRules.parse>){
+  return progressPercentForIds(progress,courseLessons(content).map(l=>l.id),rules);
+}
+export function progressPercentForIds(progress:{completed:string;quizPassed:string;finalPassed:boolean;state:string},ids:string[],rules:ReturnType<typeof completionRules.parse>){
   if(progress.state==="COMPLETED")return 100;
-  const ids=courseLessons(content).map(l=>l.id),done=new Set<string>(JSON.parse(progress.completed)),passed=new Set<string>(JSON.parse(progress.quizPassed));
+  const done=new Set<string>(JSON.parse(progress.completed)),passed=new Set<string>(JSON.parse(progress.quizPassed));
   return Math.min(99,Math.floor((ids.filter(id=>done.has(id)).length+ids.filter(id=>passed.has(id)).length+(rules.finalRequired&&progress.finalPassed?1:0))/(ids.length*2+(rules.finalRequired?1:0))*100));
 }
 export async function snapshotPublished(tx:Prisma.TransactionClient,course:Awaited<ReturnType<typeof tx.aiCourse.findUniqueOrThrow>>){
@@ -18,7 +21,7 @@ export async function snapshotPublished(tx:Prisma.TransactionClient,course:Await
   const content=parseCourseContent(course.content),rules=requirements(course.configuration);
   if(rules.finalRequired&&!content.finalAssessment?.length&&!content.finalAssessmentQuestions?.length)throw new CourseError("FINAL_ASSESSMENT_REQUIRED",409);
   const targets=await tx.aiCourseMajor.findMany({where:{courseId:course.id},select:{majorId:true}});
-  const published=await tx.aiCourseVersion.upsert({where:{courseId_version:{courseId:course.id,version:course.version}},create:{courseId:course.id,version:course.version,title:course.title,description:course.description,language:course.language,difficulty:course.difficulty,durationMinutes:course.durationMinutes,topic:course.topic,skills:course.skills,coverUrl:course.coverUrl,prerequisites:course.prerequisites,majorIds:JSON.stringify(targets.map(t=>t.majorId)),content:course.content,requirements:JSON.stringify(rules),metadata:JSON.stringify({fieldOfStudy:course.fieldOfStudy,durationMinutes:course.durationMinutes,skills:JSON.parse(course.skills),difficulty:course.difficulty})},update:{}});if(course.status==="PUBLISHED")await tx.aiCourse.update({where:{id:course.id},data:{publishedVersionId:published.id}});return published;
+  const published=await tx.aiCourseVersion.upsert({where:{courseId_version:{courseId:course.id,version:course.version}},create:{courseId:course.id,version:course.version,title:course.title,description:course.description,language:course.language,difficulty:course.difficulty,durationMinutes:course.durationMinutes,topic:course.topic,skills:course.skills,coverUrl:course.coverUrl,prerequisites:course.prerequisites,majorIds:JSON.stringify(targets.map(t=>t.majorId)),content:course.content,requirements:JSON.stringify(rules),metadata:JSON.stringify({moduleCount:content.chapters.length,lessonIds:courseLessons(content).map(l=>l.id),fieldOfStudy:course.fieldOfStudy,durationMinutes:course.durationMinutes,skills:JSON.parse(course.skills),difficulty:course.difficulty})},update:{}});if(course.status==="PUBLISHED")await tx.aiCourse.update({where:{id:course.id},data:{publishedVersionId:published.id}});return published;
 }
 export async function enroll(userId:string,courseId:string){return prisma.$transaction(async tx=>{
   const prior=await tx.aiCourseProgress.findFirst({where:{userId,courseId,versionId:{not:null},state:{not:"ARCHIVED"}},orderBy:{createdAt:"desc"}});if(prior)return prior;

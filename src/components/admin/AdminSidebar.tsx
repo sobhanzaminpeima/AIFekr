@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import {useTranslation,tri} from "@/lib/i18n";
+import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, CreditCard, DollarSign, Wrench, GraduationCap, Search,
@@ -86,6 +88,8 @@ const navGroups = [
   },
 ];
 
+const sidebarLabels:Record<string,[string,string,string]>={"داشبورد": ["Dashboard", "Dashboard", "Panel"], "مدیریت کاربران": ["User management", "Benutzerverwaltung", "Kullanıcı yönetimi"], "کاربران": ["Users", "Benutzer", "Kullanıcılar"], "مدیران سیستم": ["Administrators", "Administratoren", "Yöneticiler"], "ایجنت صوتی": ["AI contact center", "KI-Kontaktzentrum", "AI çağrı merkezi"], "مدیریت محتوا": ["Content management", "Inhaltsverwaltung", "İçerik yönetimi"], "مدیریت چت‌ها": ["Chats", "Chats", "Sohbetler"], "وبسایت‌های تولیدشده": ["Generated websites", "Erstellte Websites", "Oluşturulan siteler"], "سوالات آماده": ["Prompt library", "Prompt-Bibliothek", "Prompt kütüphanesi"], "لینک عمومی دهه ۸۰": ["Public sharing", "Öffentliche Freigaben", "Herkese açık paylaşım"], "استعلام استارتاپ": ["Startup inquiries", "Startup-Anfragen", "Girişim talepleri"], "آموزش و دانشجویی": ["Education & students", "Bildung & Studierende", "Eğitim ve öğrenciler"], "فضای دانشجویی": ["Student workspace", "Studierendenbereich", "Öğrenci alanı"], "تولید و مدیریت دوره‌ها": ["Courses & AI generator", "Kurse & KI-Generator", "Kurslar ve AI oluşturucu"], "آکادمی، رشته‌ها و گواهی‌ها": ["Academy, majors & certificates", "Akademie, Fächer & Zertifikate", "Akademi, bölümler ve sertifikalar"], "هوش مصنوعی": ["Artificial intelligence", "Künstliche Intelligenz", "Yapay zekâ"], "مدیریت LLM": ["AI models", "KI-Modelle", "AI modelleri"], "مصرف و هزینه": ["Usage & costs", "Nutzung & Kosten", "Kullanım ve maliyet"], "آنالیتیکس فیچرها": ["Feature analytics", "Funktionsanalysen", "Özellik analizi"], "ابزارها": ["Tools", "Werkzeuge", "Araçlar"], "بیزنس و صنعت": ["Business & industry", "Unternehmen & Industrie", "İş ve sektör"], "بسته‌های صنعتی": ["Industry packages", "Branchenpakete", "Sektör paketleri"], "مدیریت دسترسی ماژول‌ها": ["Module access", "Modulzugriff", "Modül erişimi"], "شرکت‌ها": ["Companies", "Unternehmen", "Şirketler"], "اتصال‌های Meta Lead": ["Meta Lead connections", "Meta-Lead-Verbindungen", "Meta Lead bağlantıları"], "دسته‌بندی‌ها": ["Categories", "Kategorien", "Kategoriler"], "مالی و اشتراک": ["Finance & subscriptions", "Finanzen & Abonnements", "Finans ve abonelik"], "مدیریت پکیج": ["Packages", "Pakete", "Paketler"], "تعرفه‌های کردیت": ["Credit pricing", "Credit-Tarife", "Kredi fiyatları"], "اشتراک‌ها": ["Subscriptions", "Abonnements", "Abonelikler"], "مدیریت مالی": ["Finance", "Finanzen", "Finans"], "افیلیت مارکتینگ": ["Affiliate marketing", "Affiliate-Marketing", "Satış ortaklığı"], "سیستم": ["System", "System", "Sistem"], "تنظیمات سایت": ["Site settings", "Website-Einstellungen", "Site ayarları"], "مدیریت سیستم": ["System management", "Systemverwaltung", "Sistem yönetimi"], "لاگ‌ها": ["Logs", "Protokolle", "Kayıtlar"], "ادمین": ["Admin", "Admin", "Yönetici"], "سوپر ادمین": ["Super admin", "Super-Admin", "Üst yönetici"], "مدیر محتوا": ["Moderator", "Moderator", "Moderatör"], "پنل مدیریت": ["Administration", "Verwaltung", "Yönetim"], "باز کردن منو": ["Open menu", "Menü öffnen", "Menüyü aç"], "جمع کردن منو": ["Collapse menu", "Menü einklappen", "Menüyü daralt"], "جستجوی بخش‌های مدیریت": ["Search administration", "Verwaltung durchsuchen", "Yönetimde ara"], "جستجوی بخش‌ها…": ["Search sections…", "Bereiche suchen…", "Bölümlerde ara…"], "بخش‌های مدیریت": ["Administration sections", "Verwaltungsbereiche", "Yönetim bölümleri"], "بخشی پیدا نشد. عبارت دیگری جستجو کنید.": ["No matching section. Try another search.", "Kein passender Bereich. Anders suchen.", "Bölüm bulunamadı. Başka bir arama dene."], "بازگشت به اپ": ["Back to workspace", "Zurück zum Arbeitsbereich", "Çalışma alanına dön"], "خروج": ["Log out", "Abmelden", "Çıkış"]};
+
 const roleNames: Record<string, string> = {
   ADMIN: "ادمین",
   SUPER_ADMIN: "سوپر ادمین",
@@ -93,11 +97,13 @@ const roleNames: Record<string, string> = {
 };
 
 export default function AdminSidebar({ adminName, role }: { adminName: string; role: string }) {
+  const {lang}=useTranslation();
+  const label=(value:string)=>{const words=sidebarLabels[value];return words?tri(lang,value,...words):value;};
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [search, setSearch] = useState("");
   useEffect(() => { setSearch(""); }, [pathname]);
-  const visibleGroups = navGroups.map(group => ({ ...group, items: group.items.filter(item => `${group.label || ""} ${item.label}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())) })).filter(group => group.items.length > 0);
+  const visibleGroups = navGroups.map(group=>({...group,label:group.label?label(group.label):null,items:group.items.map(item=>({...item,label:label(item.label)}))})).map(group => ({ ...group, items: group.items.filter(item => `${group.label || ""} ${item.label}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())) })).filter(group => group.items.length > 0);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -110,7 +116,7 @@ export default function AdminSidebar({ adminName, role }: { adminName: string; r
       style={{
         width: collapsed ? "60px" : "220px",
         background: "var(--surface-1)",
-        borderLeft: "1px solid var(--border)",
+        borderInlineEnd: "1px solid var(--border)",
       }}
     >
       {/* Logo */}
@@ -121,12 +127,12 @@ export default function AdminSidebar({ adminName, role }: { adminName: string; r
           </div>
           {!collapsed && (
             <div className="overflow-hidden">
-              <div className="font-bold text-sm truncate" style={{ color: "var(--text-primary)" }}>هوشمند AI</div>
-              <div className="text-xs" style={{ color: "var(--primary)" }}>پنل مدیریت</div>
+              <div className="font-bold text-sm truncate" style={{ color: "var(--text-primary)" }}>AIFekr</div>
+              <div className="text-xs" style={{ color: "var(--primary)" }}>{label("پنل مدیریت")}</div>
             </div>
           )}
         </div>
-        <button onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? "باز کردن منو" : "جمع کردن منو"} aria-expanded={!collapsed} className="hidden md:block flex-shrink-0 p-1 rounded-lg" style={{ color: "var(--text-muted)" }}>
+        <button onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? label("باز کردن منو") : label("جمع کردن منو")} aria-expanded={!collapsed} className="hidden md:block flex-shrink-0 p-1 rounded-lg" style={{ color: "var(--text-muted)" }}>
           <ChevronDown className={`w-4 h-4 transition-transform ${collapsed ? "rotate-90" : "-rotate-90"}`} />
         </button>
       </div>
@@ -140,15 +146,16 @@ export default function AdminSidebar({ adminName, role }: { adminName: string; r
             </div>
             <div className="overflow-hidden">
               <div className="text-xs font-medium truncate" style={{ color: "var(--text-primary)" }}>{adminName}</div>
-              <div className="text-xs" style={{ color: "var(--text-muted)" }}>{roleNames[role] || role}</div>
+              <div className="text-xs" style={{ color: "var(--text-muted)" }}>{label(roleNames[role] || role)}</div>
             </div>
           </div>
         </div>
       )}
 
+      {!collapsed&&<div className="px-3 pt-3"><LanguageSwitcher/></div>}
       {/* Nav */}
-      {!collapsed && <div className="px-3 pt-3 pb-1"><label className="flex items-center gap-2 rounded-xl px-3" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}><Search size={16} aria-hidden="true" style={{ color: "var(--text-muted)" }}/><input aria-label="جستجوی بخش‌های مدیریت" type="search" placeholder="جستجوی بخش‌ها…" value={search} onChange={e => setSearch(e.target.value)} className="min-w-0 w-full bg-transparent py-3 text-sm" style={{ color: "var(--text-primary)" }}/></label></div>}
-      <nav aria-label="بخش‌های مدیریت" className="min-h-0 flex-1 overflow-y-auto py-2 px-2 space-y-4">
+      {!collapsed && <div className="px-3 pt-3 pb-1"><label className="flex items-center gap-2 rounded-xl px-3" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}><Search size={16} aria-hidden="true" style={{ color: "var(--text-muted)" }}/><input aria-label={label("جستجوی بخش‌های مدیریت")} type="search" placeholder={label("جستجوی بخش‌ها…")} value={search} onChange={e => setSearch(e.target.value)} className="min-w-0 w-full bg-transparent py-3 text-sm" style={{ color: "var(--text-primary)" }}/></label></div>}
+      <nav aria-label={label("بخش‌های مدیریت")} className="min-h-0 flex-1 overflow-y-auto py-2 px-2 space-y-4">
         {visibleGroups.map((group, gi) => (
           <div key={gi}>
             {group.label && !collapsed && (
@@ -181,28 +188,28 @@ export default function AdminSidebar({ adminName, role }: { adminName: string; r
             </div>
           </div>
         ))}
-        {visibleGroups.length === 0 && <p className="px-3 py-4 text-sm" style={{ color: "var(--text-muted)" }}>بخشی پیدا نشد. عبارت دیگری جستجو کنید.</p>}
+        {visibleGroups.length === 0 && <p className="px-3 py-4 text-sm" style={{ color: "var(--text-muted)" }}>{label("بخشی پیدا نشد. عبارت دیگری جستجو کنید.")}</p>}
       </nav>
 
       {/* Footer */}
       <div className="p-2 space-y-1" style={{ borderTop: "1px solid var(--border)" }}>
         <Link
           href="/chat"
-          title={collapsed ? "بازگشت به اپ" : undefined}
+          title={collapsed ? label("بازگشت به اپ") : undefined}
           className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-sm transition-all"
           style={{ color: "var(--text-secondary)", background: "var(--surface-2)", justifyContent: collapsed ? "center" : undefined }}
         >
           <Sparkles className="w-4 h-4 flex-shrink-0" />
-          {!collapsed && "بازگشت به اپ"}
+          {!collapsed && label("بازگشت به اپ")}
         </Link>
         <button
           onClick={handleLogout}
-          title={collapsed ? "خروج" : undefined}
+          title={collapsed ? label("خروج") : undefined}
           className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-sm transition-all"
           style={{ color: "var(--danger)", background: "rgba(239,68,68,0.1)", justifyContent: collapsed ? "center" : undefined }}
         >
           <LogOut className="w-4 h-4 flex-shrink-0" />
-          {!collapsed && "خروج"}
+          {!collapsed && label("خروج")}
         </button>
       </div>
     </aside>

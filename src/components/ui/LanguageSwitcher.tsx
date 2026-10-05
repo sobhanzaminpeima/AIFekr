@@ -37,6 +37,7 @@ function applyLang(lang: Lang) {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
+    keepalive: true,
     body: JSON.stringify({ language: lang }),
   }).catch(() => {});
   window.location.reload();

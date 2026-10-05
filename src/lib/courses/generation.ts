@@ -97,7 +97,7 @@ export async function runReservedCourseJob(job:AiCourseGenerationJob){
     }
     let timer: ReturnType<typeof setTimeout> | undefined;
     const generated = await Promise.race([
-      buildCourse(course,Date.now()+180_000,job.phase==="CONTENT"?{approved:true,maxLessons:8,checkpoint:JSON.parse(job.checkpoint),save:async(key,value)=>{
+      buildCourse(course,Date.now()+180_000,job.phase==="CONTENT"?{approved:true,maxLessons:4,checkpoint:JSON.parse(job.checkpoint),save:async(key,value)=>{
         // Serialize checkpoint writes across lesson workers without overwriting other lessons.
         await prisma.$transaction(async tx=>{const active=await tx.aiCourseGenerationJob.findUniqueOrThrow({where:{id:job.id}});if(active.status!=="GENERATING")throw Error("JOB_NO_LONGER_ACTIVE");await tx.aiCourseGenerationJob.update({where:{id:job.id},data:{checkpoint:JSON.stringify({...JSON.parse(active.checkpoint),[key]:value})}});});
       }}:undefined),

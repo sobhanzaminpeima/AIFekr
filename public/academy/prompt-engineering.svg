@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title description">
+ <title id="title">AIFekr Prompt Engineering</title><desc id="description">A structured path from task and context to output, evaluation and improvement.</desc>
+ <defs><linearGradient id="surface" x2="1" y2="1"><stop stop-color="#16191f"/><stop offset="1" stop-color="#080a0f"/></linearGradient><linearGradient id="accent"><stop stop-color="#f97316"/><stop offset="1" stop-color="#fb923c"/></linearGradient></defs>
+ <rect width="1280" height="720" rx="32" fill="url(#surface)"/>
+ <path d="M0 610H1280M1080 0V720M960 0V720" stroke="#ffffff" stroke-opacity=".04"/>
+ <rect x="72" y="64" width="48" height="48" rx="14" fill="#f97316"/><text x="96" y="99" text-anchor="middle" font-family="Arial,sans-serif" font-size="31" font-weight="700" fill="#fff">A</text>
+ <text x="139" y="99" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#f8fafc">AIFekr Student Academy</text>
+ <text x="74" y="193" font-family="Arial,sans-serif" font-size="17" letter-spacing="4" fill="#fb923c">AI LITERACY · PRACTICAL LEARNING</text>
+ <text x="68" y="286" font-family="Arial,sans-serif" font-size="75" font-weight="700" fill="#f8fafc">PROMPT</text><text x="68" y="371" font-family="Arial,sans-serif" font-size="75" font-weight="700" fill="#f8fafc">ENGINEERING</text>
+ <text x="74" y="431" font-family="Arial,sans-serif" font-size="26" fill="#a9b3c1">Design clearly. Test carefully. Improve deliberately.</text>
+ <g font-family="Arial,sans-serif" font-size="20" font-weight="700"><rect x="74" y="515" width="174" height="62" rx="16" fill="#20252e" stroke="#3d4654"/><text x="161" y="554" text-anchor="middle" fill="#e2e8f0">TASK</text><path d="M267 546H307M299 538L307 546L299 554" fill="none" stroke="#fb923c" stroke-width="3"/><rect x="328" y="515" width="174" height="62" rx="16" fill="#20252e" stroke="#3d4654"/><text x="415" y="554" text-anchor="middle" fill="#e2e8f0">CONTEXT</text><path d="M521 546H561M553 538L561 546L553 554" fill="none" stroke="#fb923c" stroke-width="3"/><rect x="582" y="515" width="174" height="62" rx="16" fill="url(#accent)"/><text x="669" y="554" text-anchor="middle" fill="#111827">OUTPUT</text></g>
+ <g transform="translate(880 234)"><rect width="316" height="268" rx="28" fill="#1b2028" stroke="#424b59"/><circle cx="36" cy="33" r="5" fill="#f97316"/><circle cx="55" cy="33" r="5" fill="#4b5563"/><circle cx="74" cy="33" r="5" fill="#4b5563"/><path d="M30 67H286" stroke="#3d4654"/><path d="M36 105H126M36 138H238M36 171H193M36 204H254" stroke="#b0bbc9" stroke-width="8" stroke-linecap="round"/><path d="M36 105H126" stroke="#fb923c" stroke-width="8" stroke-linecap="round"/></g>
+ <text x="74" y="664" font-family="Arial,sans-serif" font-size="18" fill="#8290a3">GUIDED LESSONS · REAL ASSESSMENTS · VERIFIED COMPLETION</text>
+</svg>
