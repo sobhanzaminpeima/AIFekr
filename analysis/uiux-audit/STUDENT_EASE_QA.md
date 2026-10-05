@@ -9,3 +9,7 @@ Local browser verification: closing the entire checkout tab and reopening Home r
 Automated validation: 121 test files, 846 tests passed with isolated bank and voice integration flags; TypeScript and targeted lint passed. Production build passed. An initial suite run without JWT_SECRET failed setup; the corrected isolated run is the reported result. No schema migration is required.
 
 Synthetic accounts, payments, receipts and screenshots are local QA artifacts only and excluded from deployment. No real bank settlement or user-study difficulty percentage is claimed. Local proof: student-ease-overview-fa-mobile.png and student-ease-payments-fa-mobile.png.
+
+Deployment: code commit **1b0f97d** pushed to GitHub main and deployed. Server preview passed before activating the release. The application is online with zero unexpected restarts. Database and uploads preserved; no schema migrations or production user/payment mutations. A consistent backup and rollback version retained privately. Temporary preview and transfer archives removed.
+
+HTTPS origin checks with a validated domain certificate: landing, pricing and student solution returned 200; anonymous payment history and student course APIs returned 401. The workstation's external request returned 403 and another external request timed out; those attempts are not counted as passing public-edge checks.
