@@ -20,7 +20,8 @@ const FLAG: Record<Lang, string> = { fa: "🇮🇷", en: "🇬🇧", de: "🇩�
 
 function getLang(): Lang {
   if (typeof window === "undefined") return "fa";
-  const v = localStorage.getItem("lang");
+  const cookieLang = document.cookie.split(";").map(v => v.trim()).find(v => v.startsWith("lang="))?.slice(5);
+  const v = cookieLang || localStorage.getItem("lang");
   return v === "en" || v === "fa" || v === "de" || v === "tr" ? v : "fa";
 }
 
@@ -168,7 +169,7 @@ export default function LanguageSwitcher({ className = "", iconOnly = false, dro
             </button>
           ))}
         </div>,
-        document.body
+        btnRef.current?.closest("dialog") || document.body
       )}
     </div>
   );
