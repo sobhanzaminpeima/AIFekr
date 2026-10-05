@@ -21,6 +21,31 @@ import type { Prisma } from "@prisma/client";
 /** Accepts either the shared client or an interactive-transaction client. */
 type Db = Prisma.TransactionClient | typeof prisma;
 
+/** Durable jobs use the same guarded debit and UsageLog as synchronous AI actions.
+ * The payer snapshot prevents refunding a different wallet after a team change. */
+export async function reserveLoggedCredits(tx: Prisma.TransactionClient, userId: string, amount: number, usage: UsageRecord) {
+  if (!Number.isSafeInteger(amount) || amount < 0) throw new Error("Invalid credit cost");
+  if (await getAvailableCredits(userId, tx) < amount) return null;
+  const membership = await tx.teamMember.findUnique({ where: { userId } });
+  const wallet = membership
+    ? await tx.team.findUniqueOrThrow({ where: { id: membership.teamId }, select: { aiCredits: true } })
+    : await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { aiCredits: true } });
+  if (!await deductCredits(userId, amount, tx)) return null;
+  const mirroredAi = Math.min(amount, Math.max(0, wallet.aiCredits));
+  await mirrorWalletSpend(userId, amount, "aiCredits", tx);
+  const log = await tx.usageLog.create({ data: { userId, type: usage.type, credits: amount, requestId: usage.requestId, metadata: JSON.stringify({ ...usage.metadata, payerTeamId: membership?.teamId || null }) } });
+  return { usageLogId: log.id, payerTeamId: membership?.teamId || null, mirroredAi };
+}
+
+/** Caller must atomically claim the durable job's refund before calling this. */
+export async function refundLoggedReservation(tx: Prisma.TransactionClient, reservation: { userId: string; payerTeamId: string | null; credits: number; mirroredAi: number; usageLogId: string }, metadata: Record<string, unknown>) {
+  const data = { credits: { increment: reservation.credits }, aiCredits: { increment: reservation.mirroredAi } };
+  if (reservation.payerTeamId) await tx.team.update({ where: { id: reservation.payerTeamId }, data });
+  else await tx.user.update({ where: { id: reservation.userId }, data });
+  await tx.usageLog.update({ where: { id: reservation.usageLogId }, data: { metadata: JSON.stringify({ ...metadata, status: "REFUNDED" }) } });
+  await tx.usageLog.create({ data: { userId: reservation.userId, type: "course_generation", credits: -reservation.credits, requestId: `${reservation.usageLogId}:refund`, metadata: JSON.stringify({ ...metadata, status: "REFUNDED", originalTransactionId: reservation.usageLogId, creditDelta: reservation.credits }) } });
+}
+
 /**
  * Phase 2 of the monetization overhaul: `credits` is being split into three
  * wallets (aiCredits / mediaCredits / voiceMinutes) per the user's explicit

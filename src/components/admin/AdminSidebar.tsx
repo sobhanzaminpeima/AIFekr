@@ -40,6 +40,7 @@ const navGroups = [
     label: "آموزش و دانشجویی",
     items: [
       { icon: GraduationCap, label: "فضای دانشجویی", href: "/admin/student" },
+      { icon: Sparkles, label: "تولید و مدیریت دوره‌ها", href: "/admin/ai-courses" },
     ],
   },
   {

@@ -28,6 +28,7 @@ export const destinations = [
   ["/accounting/close-period", "بستن دوره مالی", "Close accounting period", "Periode abschließen", "Dönem kapatma"],
   ["/accounting/ledger-setup", "تنظیم دفتر کل", "Ledger setup", "Hauptbuch einrichten", "Defter kurulumu"],
   ["/student", "فضای دانشجویی", "Student workspace", "Studierendenbereich", "Öğrenci alanı"],
+  ["/learn", "دوره‌های دانشگاه AIFekr", "AIFekr course library", "AIFekr-Kursbibliothek", "AIFekr kurs kütüphanesi"],
   ["/student?view=courses&tool=upload", "آپلود جزوه، عکس و ویس دانشجو", "Upload student notes, photos or audio", "Studienmaterial, Fotos oder Audio hochladen", "Öğrenci not, fotoğraf ve ses yükle"],
   ["/student?view=courses&tool=practice", "آزمون تمرینی دانشجو", "Student practice quiz", "Studierenden-Übungstest", "Öğrenci deneme sınavı"],
   ["/student?view=courses&tool=review", "مرور و فلش‌کارت دانشجو", "Student review and flashcards", "Studierenden-Wiederholung und Lernkarten", "Öğrenci tekrar ve kartları"],

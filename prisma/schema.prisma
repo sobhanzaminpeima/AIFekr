@@ -7,6 +7,67 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Shared, administrator-reviewed course catalog. JSON content is strictly validated.
+model AiCourse {
+  id           String   @id @default(cuid())
+  creatorId    String
+  fieldOfStudy String
+  title        String
+  description  String
+  language     String   @default("en")
+  status       String   @default("DRAFT")
+  content      String?
+  version      Int      @default(0)
+  activeJobId  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  publishedAt DateTime?
+  jobs         AiCourseGenerationJob[]
+  progress     AiCourseProgress[]
+  @@index([status, language])
+}
+
+/// Idempotency and lease record; credits are held in the existing User/Team wallets.
+model AiCourseGenerationJob {
+  id             String   @id @default(cuid())
+  courseId       String
+  userId         String
+  idempotencyKey String
+  requestHash    String
+  status         String   @default("GENERATING")
+  credits        Int
+  usageLogId     String   @unique
+  payerTeamId    String?
+  mirroredAi     Float    @default(0)
+  previousStatus String
+  failureCode    String?
+  provider       String?
+  model          String?
+  createdAt      DateTime @default(now())
+  expiresAt      DateTime
+  completedAt    DateTime?
+  course         AiCourse @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  @@unique([userId, idempotencyKey])
+  @@index([status, expiresAt])
+}
+
+model AiCourseProgress {
+  id             String   @id @default(cuid())
+  userId         String
+  courseId       String
+  version        Int
+  completed      String   @default("[]")
+  quizPassed     String   @default("[]")
+  completedAt    DateTime?
+  certificateId  String?  @unique
+  certificateTitle String?
+  certificateName String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  course         AiCourse @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  @@unique([userId, courseId, version])
+}
+
 model User {
   id                        String    @id @default(cuid())
   email                     String?   @unique

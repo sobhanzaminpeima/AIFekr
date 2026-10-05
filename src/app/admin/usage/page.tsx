@@ -29,6 +29,7 @@ interface UsageStats {
 }
 
 const CREDIT_COST_LABELS: Record<string, string> = {
+  AI_COURSE_GENERATION: "تولید دورهٔ هوش مصنوعی (Course Generation)",
   chat: "چت (هر پیام)",
   image_standard: "تصویر — استاندارد",
   image_hd: "تصویر — HD",

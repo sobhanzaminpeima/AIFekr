@@ -131,11 +131,12 @@ export default function AdminLogsPage() {
                     <td className="px-4 py-3 text-xs" style={{ color: "var(--text-secondary)" }}>{log.userName}</td>
                     <td className="px-4 py-3">
                       <span className="px-2 py-0.5 rounded-full text-xs" style={{ background: "rgba(234,88,12,0.1)", color: "var(--primary)" }}>
-                        {log.type}
+                        {log.type === "course_generation" ? "AI Course Generation" : log.type}
                       </span>
+                      {log.type === "course_generation" && (() => { try { const metadata = JSON.parse(log.metadata || "{}"); return <p className="mt-2 text-xs">{metadata.courseTitle} · {metadata.status}</p>; } catch { return null; } })()}
                     </td>
                     <td className="px-4 py-3 text-xs" style={{ color: "var(--text-secondary)" }}>{log.model || "—"}</td>
-                    <td className="px-4 py-3 text-xs" style={{ color: "var(--text-primary)" }}>{log.credits}</td>
+                    <td className="px-4 py-3 text-xs" style={{ color: "var(--text-primary)" }}>{log.type === "course_generation" ? `${-log.credits} Credits` : log.credits}</td>
                   </tr>
                 ))}
               </tbody>

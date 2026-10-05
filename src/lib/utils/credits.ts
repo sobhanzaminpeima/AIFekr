@@ -5,6 +5,7 @@
 export const REFERRAL_BONUS_CREDITS = 100;
 
 export const CREDIT_COSTS = {
+  AI_COURSE_GENERATION: 100,
   chat: 1,
   image_standard: 5,
   image_hd: 10,

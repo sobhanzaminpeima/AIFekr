@@ -34,6 +34,12 @@ export async function POST(req: NextRequest) {
   for (const key of ["bank_iban", "bank_iban_eur"]) {
     if (settings[key] !== undefined && !validIban(String(settings[key]))) return NextResponse.json({error:"Invalid IBAN"},{status:400});
   }
+  if (settings.creditCosts !== undefined) {
+    try {
+      const costs = JSON.parse(String(settings.creditCosts));
+      if (!costs || typeof costs !== "object" || Array.isArray(costs) || Object.values(costs).some(value => !Number.isSafeInteger(value) || Number(value) < 0 || Number(value) > 1000000)) throw new Error("Invalid costs");
+    } catch { return NextResponse.json({ error: "Credit costs must be nonnegative whole numbers" }, { status: 400 }); }
+  }
   for (const [key, value] of Object.entries(settings)) {
     await prisma.siteSetting.upsert({
       where: { key },
