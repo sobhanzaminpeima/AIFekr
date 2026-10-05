@@ -12,7 +12,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const input = inputSchema.safeParse(await req.json().catch(() => null));
   if (!input.success) return NextResponse.json({ error: "INVALID_REQUEST" }, { status: 400 });
   try {
-    const job = await generateCourse(admin.id, params.id, input.data);
+    const job = await generateCourse(admin.id, params.id, {...input.data,phase:"BLUEPRINT"});
     return NextResponse.json({ job: courseJobView(job) }, { status: job.status === "GENERATING" ? 202 : 200, headers: { "Cache-Control": "private, no-store" } });
   } catch (error) { return courseError(error); }
 }

@@ -1,0 +1,13 @@
+BEGIN IMMEDIATE;
+ALTER TABLE "AiCourseVersion" ADD COLUMN "difficulty" TEXT NOT NULL DEFAULT 'BEGINNER';
+ALTER TABLE "AiCourseVersion" ADD COLUMN "durationMinutes" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "AiCourseVersion" ADD COLUMN "topic" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "AiCourseVersion" ADD COLUMN "skills" TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE "AiCourseVersion" ADD COLUMN "coverUrl" TEXT;
+ALTER TABLE "AiCourseVersion" ADD COLUMN "prerequisites" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "AiCourseVersion" ADD COLUMN "majorIds" TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE "AiCourse" ADD COLUMN "publishedVersionId" TEXT CONSTRAINT "AiCourse_publishedVersionId_fkey" REFERENCES "AiCourseVersion"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+UPDATE "AiCourse" SET "publishedVersionId"=(SELECT "id" FROM "AiCourseVersion" WHERE "courseId"="AiCourse"."id" AND "version"="AiCourse"."version") WHERE "status"='PUBLISHED';
+UPDATE "AiCourseVersion" SET "difficulty"=COALESCE(json_extract("metadata",'$.difficulty'),'BEGINNER'),"durationMinutes"=COALESCE(json_extract("metadata",'$.durationMinutes'),0),"skills"=COALESCE(json_extract("metadata",'$.skills'),'[]');
+UPDATE "AiCourseVersion" SET "majorIds"=COALESCE((SELECT json_group_array("majorId") FROM "AiCourseMajor" WHERE "courseId"="AiCourseVersion"."courseId"),'[]');
+COMMIT;

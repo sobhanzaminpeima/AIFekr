@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import WelcomeLanguage from "@/components/WelcomeLanguage";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
@@ -13,34 +14,36 @@ import type { Lang } from "@/lib/i18n";
 
 const BUSINESS_TYPES: { id: string; emoji: string; label: Record<Lang, string> }[] = [
   { id: "student", emoji: "🎓", label: { fa: "دانشجو / یادگیرنده", en: "Student / learner", de: "Studierende / Lernende", tr: "Öğrenci / öğrenen" } },
-  { id: "retail", emoji: "🛍️", label: { fa: "فروشگاه / خرده‌فروشی", en: "Shop / retail", de: "Laden / Einzelhandel", tr: "Shop / retail" } },
-  { id: "services", emoji: "💼", label: { fa: "خدمات / مشاوره", en: "Services / consulting", de: "Dienstleistung / Beratung", tr: "Services / consulting" } },
-  { id: "restaurant", emoji: "☕", label: { fa: "رستوران / کافه", en: "Restaurant / café", de: "Restaurant / Café", tr: "Restaurant / café" } },
-  { id: "tech", emoji: "💻", label: { fa: "فناوری / نرم‌افزار", en: "Technology / software", de: "Technologie / Software", tr: "Technology / software" } },
-  { id: "production", emoji: "🏭", label: { fa: "تولید / صنعت", en: "Manufacturing / industry", de: "Produktion / Industrie", tr: "Manufacturing / industry" } },
-  { id: "other", emoji: "✨", label: { fa: "سایر", en: "Something else", de: "Sonstiges", tr: "Something else" } },
+  { id: "retail", emoji: "🛍️", label: { fa: "فروشگاه / خرده‌فروشی", en: "Shop / retail", de: "Laden / Einzelhandel", tr: "Mağaza / perakende" } },
+  { id: "services", emoji: "💼", label: { fa: "خدمات / مشاوره", en: "Services / consulting", de: "Dienstleistung / Beratung", tr: "Hizmet / danışmanlık" } },
+  { id: "restaurant", emoji: "☕", label: { fa: "رستوران / کافه", en: "Restaurant / café", de: "Restaurant / Café", tr: "Restoran / kafe" } },
+  { id: "tech", emoji: "💻", label: { fa: "فناوری / نرم‌افزار", en: "Technology / software", de: "Technologie / Software", tr: "Teknoloji / yazılım" } },
+  { id: "production", emoji: "🏭", label: { fa: "تولید / صنعت", en: "Manufacturing / industry", de: "Produktion / Industrie", tr: "Üretim / sanayi" } },
+  { id: "other", emoji: "✨", label: { fa: "سایر", en: "Something else", de: "Sonstiges", tr: "Diğer" } },
 ];
 
 const GOALS: { id: string; emoji: string; label: Record<Lang, string> }[] = [
   { id: "study", emoji: "📚", label: { fa: "مطالعه، درس و آمادگی امتحان", en: "Study, courses and exam prep", de: "Lernen, Kurse und Prüfungsvorbereitung", tr: "Ders, çalışma ve sınav hazırlığı" } },
-  { id: "content", emoji: "✍️", label: { fa: "تولید محتوا و مقاله", en: "Content and article writing", de: "Content- und Artikelerstellung", tr: "Content and article writing" } },
-  { id: "analysis", emoji: "📊", label: { fa: "آنالیز و مشاوره کسب‌وکار", en: "Business analysis and advice", de: "Geschäftsanalyse und Beratung", tr: "Business analysis and advice" } },
-  { id: "social", emoji: "📱", label: { fa: "مدیریت شبکه اجتماعی", en: "Social media management", de: "Social-Media-Management", tr: "Social media management" } },
-  { id: "startup", emoji: "🚀", label: { fa: "ساخت استارتاپ / ایده", en: "Building a startup or idea", de: "Ein Startup oder eine Idee aufbauen", tr: "Building a startup or idea" } },
-  { id: "chat", emoji: "🤖", label: { fa: "دستیار هوشمند برای سوالات", en: "A smart assistant for questions", de: "Ein intelligenter Assistent für Fragen", tr: "A smart assistant for questions" } },
-  { id: "image", emoji: "🎨", label: { fa: "تولید تصویر و ویدئو", en: "Image and video generation", de: "Bild- und Videoerstellung", tr: "Image and video generation" } },
+  { id: "content", emoji: "✍️", label: { fa: "تولید محتوا و مقاله", en: "Content and article writing", de: "Content- und Artikelerstellung", tr: "İçerik ve makale yazımı" } },
+  { id: "analysis", emoji: "📊", label: { fa: "آنالیز و مشاوره کسب‌وکار", en: "Business analysis and advice", de: "Geschäftsanalyse und Beratung", tr: "İş analizi ve danışmanlık" } },
+  { id: "social", emoji: "📱", label: { fa: "مدیریت شبکه اجتماعی", en: "Social media management", de: "Social-Media-Management", tr: "Sosyal medya yönetimi" } },
+  { id: "startup", emoji: "🚀", label: { fa: "ساخت استارتاپ / ایده", en: "Building a startup or idea", de: "Ein Startup oder eine Idee aufbauen", tr: "Girişim veya fikir geliştirme" } },
+  { id: "chat", emoji: "🤖", label: { fa: "دستیار هوشمند برای سوالات", en: "A smart assistant for questions", de: "Ein intelligenter Assistent für Fragen", tr: "Sorular için akıllı asistan" } },
+  { id: "image", emoji: "🎨", label: { fa: "تولید تصویر و ویدئو", en: "Image and video generation", de: "Bild- und Videoerstellung", tr: "Görsel ve video oluşturma" } },
 ];
 
 const EXPERIENCES: { id: string; label: Record<Lang, string> }[] = [
-  { id: "none", label: { fa: "تازه‌کار — هرگز از AI استفاده نکردم", en: "New to this — I have never used AI", de: "Neu dabei — ich habe noch nie KI genutzt", tr: "New to this — I have never used AI" } },
-  { id: "some", label: { fa: "کمی آشنا — ChatGPT را امتحان کردم", en: "Somewhat familiar — I have tried ChatGPT", de: "Etwas vertraut — ich habe ChatGPT ausprobiert", tr: "Somewhat familiar — I have tried ChatGPT" } },
-  { id: "pro", label: { fa: "حرفه‌ای — به طور منظم از AI استفاده می‌کنم", en: "Experienced — I use AI regularly", de: "Erfahren — ich nutze KI regelmäßig", tr: "Experienced — I use AI regularly" } },
+  { id: "none", label: { fa: "تازه‌کار — هرگز از AI استفاده نکردم", en: "New to this — I have never used AI", de: "Neu dabei — ich habe noch nie KI genutzt", tr: "Yeni başladım — hiç yapay zekâ kullanmadım" } },
+  { id: "some", label: { fa: "کمی آشنا — ChatGPT را امتحان کردم", en: "Somewhat familiar — I have tried ChatGPT", de: "Etwas vertraut — ich habe ChatGPT ausprobiert", tr: "Biraz biliyorum — ChatGPT denedim" } },
+  { id: "pro", label: { fa: "حرفه‌ای — به طور منظم از AI استفاده می‌کنم", en: "Experienced — I use AI regularly", de: "Erfahren — ich nutze KI regelmäßig", tr: "Deneyimliyim — düzenli kullanıyorum" } },
 ];
 
 export default function WelcomePage() {
   const router = useRouter();
   const { lang } = useTranslation();
   const rtl = lang === "fa";
+  const [languageChosen,setLanguageChosen]=useState(false);
+  useEffect(()=>setLanguageChosen(new URLSearchParams(window.location.search).get("langChosen")==="1"),[]);
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({ businessType: "", goal: "", experience: "" });
   const [loading, setLoading] = useState(false);
@@ -74,7 +77,7 @@ export default function WelcomePage() {
       key: "goal" as const,
     },
     {
-      question: tri(lang, "تجربه شما با هوش مصنوعی چقدر است؟", "How much experience do you have with AI?", "Wie viel Erfahrung haben Sie mit KI?"),
+      question: tri(lang, "تجربه شما با هوش مصنوعی چقدر است؟", "How much experience do you have with AI?", "Wie viel Erfahrung haben Sie mit KI?", "Yapay zekâ deneyiminiz ne kadar?"),
       options: EXPERIENCES,
       key: "experience" as const,
     },
@@ -92,6 +95,7 @@ export default function WelcomePage() {
     }
   }
 
+  if(!languageChosen)return <WelcomeLanguage/>;
   return (
     <div
       dir={rtl ? "rtl" : "ltr"}
@@ -163,7 +167,7 @@ export default function WelcomePage() {
       </div>
 
       <p style={{ marginTop: 24, color: "rgba(255,255,255,0.25)", fontSize: 12 }}>
-        {tri(lang, "این اطلاعات فقط برای راهنمایی بهتر استفاده می‌شود", "This is only used to guide you better", "Diese Angaben dienen nur einer besseren Beratung")}
+        {tri(lang, "این اطلاعات فقط برای راهنمایی بهتر استفاده می‌شود", "This is only used to guide you better", "Diese Angaben dienen nur einer besseren Beratung", "Bu bilgiler yalnızca daha iyi yönlendirme için kullanılır")}
       </p>
     </div>
   );

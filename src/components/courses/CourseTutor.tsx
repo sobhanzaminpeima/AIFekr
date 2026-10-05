@@ -1,0 +1,10 @@
+"use client";
+import {useEffect,useState} from "react";
+import {tri,useTranslation} from "@/lib/i18n";
+export default function CourseTutor({courseId,lessonId}:{courseId:string;lessonId:string}){
+ const {lang}=useTranslation(),t=(fa:string,en:string,de:string,tr:string)=>tri(lang,fa,en,de,tr),[cost,setCost]=useState<number|null>(null),[prompt,setPrompt]=useState(""),[answer,setAnswer]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
+ useEffect(()=>{fetch(`/api/learn/courses/${courseId}/tutor`).then(r=>r.json()).then(d=>setCost(d.cost)).catch(()=>{});},[courseId]);
+ useEffect(()=>{setAnswer("");setError("");},[lessonId]);
+ async function ask(e:React.FormEvent){e.preventDefault();setBusy(true);setError("");try{const r=await fetch(`/api/learn/courses/${courseId}/tutor`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({lessonId,prompt,expectedCredits:cost})}),d=await r.json();if(!r.ok){if(d.required!==undefined)setCost(d.required);throw Error(d.code||d.error);}setAnswer(d.text);}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ return <details className="rounded-xl border border-slate-500/30 p-4"><summary className="cursor-pointer font-semibold">{t("مربی همین درس","This lesson's AI tutor","KI-Tutor dieser Lektion","Bu dersin yapay zekâ eğitmeni")}</summary><form onSubmit={ask} className="mt-4 space-y-3"><textarea maxLength={3000} aria-label="Question for course tutor" required value={prompt} onChange={e=>setPrompt(e.target.value)} className="min-h-28 w-full rounded-lg border border-slate-500/30 bg-transparent p-3" placeholder={t("این مفهوم را ساده‌تر توضیح بده…","Explain this concept more simply…","Erkläre dieses Konzept einfacher…","Bu kavramı daha basit açıkla…")}/><button disabled={busy||cost===null||lessonId==="final"} className="min-h-11 rounded-lg bg-orange-500 px-4 py-2 text-sm text-white disabled:opacity-50">{t("پرسیدن","Ask","Fragen","Sor")} · {cost} {t("اعتبار","Credits","Credits","Kredi")}</button></form>{error&&<p role="alert" className="mt-3 text-sm">{error}</p>}{answer&&<p className="mt-5 whitespace-pre-wrap text-sm leading-7">{answer}</p>}</details>;
+}

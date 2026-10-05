@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowRight, Loader2, MessageSquare, Image as ImageIcon, Video, Wallet, Ban, UserCheck } from "lucide-react";
 import { toJalali, formatNumber } from "@/lib/utils/jalali";
 import toast from "react-hot-toast";
+import AdminAcademy from "@/components/courses/AdminAcademy";
 import { COUNTRIES, dialCodeFor } from "@/lib/constants/countries";
 
 const CURRENCY_OPTIONS = [
@@ -273,6 +274,7 @@ export default function AdminUserDetailPage() {
 
   return (
     <div className="p-6 space-y-6">
+      <AdminAcademy userId={id}/>
       <button
         onClick={() => router.push("/admin/users")}
         className="flex items-center gap-1.5 text-sm"

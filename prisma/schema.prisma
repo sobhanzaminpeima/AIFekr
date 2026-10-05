@@ -24,6 +24,20 @@ model AiCourse {
   publishedAt DateTime?
   jobs         AiCourseGenerationJob[]
   progress     AiCourseProgress[]
+  difficulty   String @default("BEGINNER")
+  durationMinutes Int @default(60)
+  topic        String @default("")
+  skills       String @default("[]")
+  prerequisites String @default("")
+  coverUrl     String?
+  configuration String @default("{}")
+  blueprint    String?
+  blueprintApprovedAt DateTime?
+  majors       AiCourseMajor[]
+  publishedVersionId String?
+  publishedVersion AiCourseVersion? @relation("PublishedAcademyVersion",fields:[publishedVersionId],references:[id],onDelete:Restrict)
+  revisions AiCourseRevision[]
+  versions     AiCourseVersion[] @relation("AcademyCourseVersions")
   @@index([status, language])
 }
 
@@ -47,6 +61,8 @@ model AiCourseGenerationJob {
   expiresAt      DateTime
   completedAt    DateTime?
   course         AiCourse @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  phase          String @default("FULL")
+  checkpoint     String @default("{}")
   @@unique([userId, idempotencyKey])
   @@index([status, expiresAt])
 }
@@ -64,8 +80,145 @@ model AiCourseProgress {
   certificateName String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  versionId      String?
+  startedAt      DateTime?
+  lastActivityAt DateTime?
+  state          String @default("NOT_STARTED")
+  finalPassed    Boolean @default(false)
   course         AiCourse @relation(fields: [courseId], references: [id], onDelete: Restrict)
   @@unique([userId, courseId, version])
+}
+
+model AcademicMajor {
+  id String @id @default(cuid())
+  name String
+  slug String @unique
+  description String @default("")
+  faculty String @default("")
+  status String @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  specializations AcademicSpecialization[]
+  profiles StudentAcademicProfile[]
+  courses AiCourseMajor[]
+}
+
+model AcademicSpecialization {
+  id String @id @default(cuid())
+  majorId String
+  name String
+  status String @default("ACTIVE")
+  major AcademicMajor @relation(fields:[majorId], references:[id], onDelete:Restrict)
+  @@unique([majorId,name])
+}
+
+model StudentAcademicProfile {
+  userId String @id
+  majorId String?
+  specializationId String?
+  educationLevel String @default("")
+  institution String @default("")
+  faculty String @default("")
+  academicYear Int?
+  expectedGraduationYear Int?
+  interests String @default("[]")
+  learningGoals String @default("")
+  updatedAt DateTime @updatedAt
+  major AcademicMajor? @relation(fields:[majorId],references:[id],onDelete:Restrict)
+}
+
+model AiCourseMajor {
+  id String @id @default(cuid())
+  courseId String
+  majorId String
+  relevance String @default("PRIMARY")
+  specializationId String?
+  course AiCourse @relation(fields:[courseId],references:[id],onDelete:Restrict)
+  major AcademicMajor @relation(fields:[majorId],references:[id],onDelete:Restrict)
+  @@unique([courseId,majorId])
+}
+
+/// Immutable published educational and assessment requirements.
+model AiCourseVersion {
+  publishedFor AiCourse[] @relation("PublishedAcademyVersion")
+  difficulty String @default("BEGINNER")
+  durationMinutes Int @default(0)
+  topic String @default("")
+  skills String @default("[]")
+  coverUrl String?
+  prerequisites String @default("")
+  majorIds String @default("[]")
+  notes AiCourseLessonNote[]
+  id String @id @default(cuid())
+  courseId String
+  version Int
+  title String
+  description String
+  language String
+  content String
+  requirements String
+  metadata String @default("{}")
+  publishedAt DateTime @default(now())
+  course AiCourse @relation("AcademyCourseVersions",fields:[courseId],references:[id],onDelete:Restrict)
+  @@unique([courseId,version])
+}
+
+model AiCourseAssessmentAttempt {
+  id String @id @default(cuid())
+  enrollmentId String
+  userId String
+  versionId String
+  assessmentId String
+  requestKey String
+  answers String
+  score Float
+  passed Boolean
+  createdAt DateTime @default(now())
+  @@unique([enrollmentId,requestKey])
+  @@index([userId,createdAt])
+  @@index([enrollmentId,assessmentId])
+}
+
+model AiCourseCompletion {
+  id String @id @default(cuid())
+  enrollmentId String @unique
+  userId String
+  courseId String
+  versionId String
+  score Float?
+  completedAt DateTime @default(now())
+  certificate AiCourseCertificate?
+}
+
+model AiCourseCertificate {
+  verificationCount Int @default(0)
+  lastVerifiedAt DateTime?
+  id String @id @default(cuid())
+  completionId String @unique
+  verificationCode String @unique
+  studentName String
+  courseTitle String
+  version Int
+  learningArea String
+  durationMinutes Int
+  skills String
+  status String @default("ACTIVE")
+  issuedAt DateTime @default(now())
+  revokedAt DateTime?
+  revokedBy String?
+  revocationReason String?
+  completion AiCourseCompletion @relation(fields:[completionId],references:[id],onDelete:Restrict)
+  @@index([status,issuedAt])
+}
+
+model AcademyLearningPath {
+  id String @id @default(cuid())
+  title String
+  description String @default("")
+  majorId String?
+  status String @default("DRAFT")
+  courses String @default("[]")
+  updatedAt DateTime @updatedAt
 }
 
 model User {
@@ -3656,4 +3809,29 @@ model StudentStudyGroupMessage {
   group     StudentStudyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([groupId, createdAt])
+}
+
+/// Private notes scoped to an enrolled immutable academy lesson.
+model AiCourseLessonNote {
+  version AiCourseVersion @relation(fields:[versionId],references:[id],onDelete:Restrict)
+  id String @id @default(cuid())
+  userId String
+  versionId String
+  lessonId String
+  content String @default("")
+  updatedAt DateTime @updatedAt
+  @@unique([userId, versionId, lessonId])
+}
+/// Immutable administrator draft revisions, separate from published learning versions.
+model AiCourseRevision {
+  course AiCourse @relation(fields:[courseId],references:[id],onDelete:Restrict)
+  id String @id @default(cuid())
+  courseId String
+  version Int
+  actorId String
+  reason String
+  metadata String
+  content String
+  createdAt DateTime @default(now())
+  @@unique([courseId, version])
 }

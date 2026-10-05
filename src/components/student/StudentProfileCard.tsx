@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import StudentBrandCard from "./StudentBrandCard";
+import AcademicProfile from "@/components/courses/AcademicProfile";
 import { BadgeCheck, Copy, Loader2, Save, Upload } from "lucide-react";
 import { tri, type Lang } from "@/lib/i18n";
 
@@ -50,7 +51,7 @@ export default function StudentProfileCard({ lang }: { lang: Lang }) {
   const cardStyle: React.CSSProperties = { background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 18 };
   if (loading) return <section className="mb-6 rounded-2xl p-6 text-center" style={cardStyle}><Loader2 className="inline animate-spin" /></section>;
 
-  return <section className="mb-6 rounded-2xl p-5 md:p-6" style={cardStyle}>
+  return <><AcademicProfile/><section className="mb-6 mt-6 rounded-2xl p-5 md:p-6" style={cardStyle}>
     <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
       <div><h2 className="text-lg font-semibold flex items-center gap-2"><BadgeCheck size={19} color="#f97316" />{tri(lang, "کارت دانشجویی", "Student card", "Studierendenausweis", "Öğrenci kartı")}</h2><p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>{tri(lang, "کارت عضویتت در جامعهٔ یادگیری AIFekr را بساز و با افتخار به اشتراک بگذار.", "Create your AIFekr learning community card and share it with pride.", "Erstelle deine Karte der AIFekr-Lerngemeinschaft und teile sie mit Stolz.", "AIFekr öğrenme topluluğu kartını oluştur ve gururla paylaş.")}</p></div>
       <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs" style={{ borderColor: "var(--border)" }}><Upload size={15} />{tri(lang, "بارگذاری عکس", "Upload photo", "Foto hochladen", "Fotoğraf yükle")}<input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={(event) => void upload(event.target.files?.[0])} /></label>
@@ -64,5 +65,5 @@ export default function StudentProfileCard({ lang }: { lang: Lang }) {
       </div>
       <StudentBrandCard lang={lang} name={profile?.name} avatar={profile?.avatar} publicSlug={isPublic && profile?.studentProfilePublic ? profile.studentPublicSlug : null} />
     </div>
-  </section>;
+  </section></>;
 }

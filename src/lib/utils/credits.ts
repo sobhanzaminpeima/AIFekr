@@ -209,10 +209,26 @@ export const TOOL_FEATURES: Record<string, string> = {
   "crm.agency-report": "CRM — گزارش آژانس",
   "student.ocr": "دانشجو — OCR تصویر و اسلاید",
   "student.transcribe": "دانشجو — رونویسی صوت درس",
+  "student.academy-tutor": "دانشجو — مربی دورهٔ آکادمی",
+  "student.academy-description": "آکادمی — بازتولید معرفی",
+  "student.academy-chapter": "آکادمی — بازتولید فصل",
+  "student.academy-lesson": "آکادمی — بازتولید درس",
+  "student.academy-quiz": "آکادمی — بازتولید آزمون",
+  "student.academy-examples": "آکادمی — بازتولید مثال‌ها",
+  "student.academy-summary": "آکادمی — بازتولید خلاصه",
+  "student.academy-flashcards": "آکادمی — بازتولید فلش‌کارت‌ها",
 };
 
 /** English names of the tool features, used in the credit ledger for every non-Persian language. */
 export const TOOL_FEATURES_EN: Record<string, string> = {
+  "student.academy-tutor": "Student — Academy course tutor",
+  "student.academy-description": "Academy — regenerate description",
+  "student.academy-chapter": "Academy — regenerate chapter",
+  "student.academy-lesson": "Academy — regenerate lesson",
+  "student.academy-quiz": "Academy — regenerate quiz",
+  "student.academy-examples": "Academy — regenerate examples",
+  "student.academy-summary": "Academy — regenerate summary",
+  "student.academy-flashcards": "Academy — regenerate flashcards",
   "accounting.ask": "Accounting — finance assistant", "accounting.cash-flow-narrative": "Accounting — cash-flow summary",
   "accounting.owner-statement-assist": "Accounting — owner statement assist", "accounting.propose": "Accounting — categorisation proposal",
   "business-doctor": "Business doctor", "ceo.boardroom": "CEO — boardroom", "ceo.question": "CEO — question",

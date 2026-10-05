@@ -16,6 +16,7 @@ import { useTranslation, tri, type Lang } from "@/lib/i18n";
 import StudentPlanner from "@/components/student/StudentPlanner";
 import StudentAssignmentHelper from "@/components/student/StudentAssignmentHelper";
 import StudentProfileCard from "@/components/student/StudentProfileCard";
+import AcademyOverview from "@/components/courses/AcademyOverview";
 import StudentStudyGroups from "@/components/student/StudentStudyGroups";
 import StudentStudyReport from "@/components/student/StudentStudyReport";
 import StudentThesisAssistant from "@/components/student/StudentThesisAssistant";
@@ -451,6 +452,7 @@ export default function StudentWorkspace() {
             onReview={() => { setStudentView("courses"); void runAI("flashcards"); }}
             onQuiz={() => { setStudentView("courses"); void runAI("quiz"); }} />}
           {studentView === "overview" && <>
+            <AcademyOverview/>
             <Link href="/learn" className="mb-5 flex min-h-12 items-center gap-3 rounded-xl border border-orange-400/30 bg-orange-400/5 p-4"><GraduationCap size={22}/><span>{tri(lang, "دوره‌های آمادهٔ دانشگاه AIFekr — شروع و ادامهٔ یادگیری", "AIFekr course library — start or continue learning", "AIFekr-Kursbibliothek — Lernen starten oder fortsetzen", "AIFekr kurs kütüphanesi — öğrenmeye başla veya devam et")}</span></Link>
             <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
               {[

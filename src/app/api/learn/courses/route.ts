@@ -1,11 +1,17 @@
-export const dynamic = "force-dynamic";
-import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
-import { studentWorkspaceDisabledResponse } from "@/lib/student/access";
-import { prisma } from "@/lib/db/prisma";
-export async function GET(req: NextRequest) {
-  const user = await requireAuth(req); if (!user) return unauthorizedResponse(req);
-  const denied = await studentWorkspaceDisabledResponse(user); if (denied) return denied;
-  const courses = await prisma.aiCourse.findMany({ where: { status: "PUBLISHED" }, orderBy: { publishedAt: "desc" }, take: 100, select: { id: true, title: true, fieldOfStudy: true, description: true, language: true, version: true } });
-  return NextResponse.json({ courses }, { headers: { "Cache-Control": "private, no-store" } });
+export const dynamic="force-dynamic";
+import {NextRequest,NextResponse} from "next/server";
+import {requireAuth,unauthorizedResponse} from "@/lib/auth/middleware";
+import {studentWorkspaceDisabledResponse} from "@/lib/student/access";
+import {prisma} from "@/lib/db/prisma";
+export async function GET(req:NextRequest){
+ const user=await requireAuth(req);if(!user)return unauthorizedResponse(req);const denied=await studentWorkspaceDisabledResponse(user);if(denied)return denied;
+ const profile=await prisma.studentAcademicProfile.findUnique({where:{userId:user.id},include:{major:true}});
+ const major=req.nextUrl.searchParams.get("major"),search=req.nextUrl.searchParams.get("search")?.slice(0,200),difficulty=req.nextUrl.searchParams.get("difficulty"),topic=req.nextUrl.searchParams.get("topic")?.slice(0,200);
+ const cursor=req.nextUrl.searchParams.get("cursor"),filter=req.nextUrl.searchParams.get("filter");
+ const versionFilters={...(major?{majorIds:{contains:JSON.stringify(major)}}:{}),...(["BEGINNER","INTERMEDIATE","ADVANCED"].includes(difficulty||"")?{difficulty:difficulty!}:{}),...(topic?{topic:{contains:topic}}:{})};
+ const records=await prisma.aiCourse.findMany({where:{AND:[{OR:[{publishedVersionId:{not:null}},{progress:{some:{userId:user.id,versionId:{not:null}}}}]},...(search?[{OR:[{publishedVersion:{is:{OR:[{title:{contains:search}},{description:{contains:search}},{skills:{contains:search}},{topic:{contains:search}}]}}},{AND:[{progress:{some:{userId:user.id}}},{OR:[{title:{contains:search}},{description:{contains:search}}]}]}]}]:[]),...(Object.keys(versionFilters).length?[{publishedVersion:{is:versionFilters}}]:[]),...(filter==="recommended"?[{OR:[{publishedVersion:{is:{majorIds:"[]"}}},...(profile?.majorId?[{publishedVersion:{is:{majorIds:{contains:JSON.stringify(profile.majorId)}}}}]:[])]}]:[]),...(["progress","completed"].includes(filter||"")?[{progress:{some:{userId:user.id,state:filter==="completed"?"COMPLETED":"IN_PROGRESS"}}}]:[])]},orderBy:filter==="popular"?[{progress:{_count:"desc"}},{id:"desc"}]:filter==="new"?[{createdAt:"desc"},{id:"desc"}]:[{publishedVersion:{publishedAt:"desc"}},{id:"desc"}],...(cursor?{cursor:{id:cursor},skip:1}:{}),take:26,select:{publishedVersionId:true,id:true,title:true,fieldOfStudy:true,description:true,language:true,version:true,difficulty:true,durationMinutes:true,topic:true,skills:true,coverUrl:true,prerequisites:true,majors:{select:{majorId:true,relevance:true}},_count:{select:{progress:true}},progress:{where:{userId:user.id,state:{not:"ARCHIVED"}},orderBy:{createdAt:"desc"},select:{versionId:true,id:true,state:true,version:true,completed:true,completedAt:true,certificateId:true}}}});
+ const courses=records.slice(0,25);
+ const snapshots=await prisma.aiCourseVersion.findMany({where:{id:{in:courses.flatMap(c=>{const id=c.progress[0]?.versionId||c.publishedVersionId;return id?[id]:[];})}},select:{id:true,title:true,description:true,language:true,metadata:true,difficulty:true,durationMinutes:true,topic:true,skills:true,coverUrl:true,prerequisites:true,majorIds:true}});
+ const ranked=courses.map(c=>{const v=snapshots.find(v=>v.id===(c.progress[0]?.versionId||c.publishedVersionId)),m=v?JSON.parse(v.metadata):{},targets:string[]=v?JSON.parse(v.majorIds):[];return {...c,...(v?{title:v.title,description:v.description,language:v.language,fieldOfStudy:m.fieldOfStudy||c.fieldOfStudy,difficulty:v.difficulty,durationMinutes:v.durationMinutes,topic:v.topic,skills:v.skills,coverUrl:v.coverUrl,prerequisites:v.prerequisites,majors:targets.map(majorId=>({majorId,relevance:"PRIMARY"}))}:{}),recommended:!!c.progress.length||targets.length===0||targets.includes(profile?.majorId||"")};}).sort((a,b)=>Number(b.recommended)-Number(a.recommended));
+ return NextResponse.json({courses:ranked,nextCursor:records.length>25?courses[courses.length-1].id:null,profile,majors:await prisma.academicMajor.findMany({where:{status:"ACTIVE"},select:{id:true,name:true}})},{headers:{"Cache-Control":"private, no-store"}});
 }

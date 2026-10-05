@@ -6,6 +6,7 @@ import { getCreditCosts } from "@/lib/utils/creditCosts";
 import { getAvailableCredits } from "@/lib/utils/teamCredits";
 import { COURSE_ACTION, reconcileCourseJobs } from "@/lib/courses/generation";
 import { courseBrief } from "@/lib/courses/content";
+import {courseConfiguration,completionRules} from "@/lib/courses/academy";
 export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req); if (!admin) return forbiddenResponse();
   await reconcileCourseJobs();
@@ -18,6 +19,6 @@ export async function POST(req: NextRequest) {
   const admin = await requireAdmin(req); if (!admin) return forbiddenResponse();
   const parsed = courseBrief.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "INVALID_COURSE_BRIEF" }, { status: 400 });
-  const course = await prisma.aiCourse.create({ data: { ...parsed.data, creatorId: admin.id } });
+  const course = await prisma.aiCourse.create({ data: { ...parsed.data, creatorId: admin.id,configuration:JSON.stringify(courseConfiguration.parse({requirements:completionRules.parse({})})) } });
   return NextResponse.json({ course }, { status: 201 });
 }

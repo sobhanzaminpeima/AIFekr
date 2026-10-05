@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     prisma.user.findUnique({
       where: { id: user.id },
       select: {
-        id: true, accountType: true, industryPack: { select: { name: true, nameEn: true, nameDe: true, slug: true } }, name: true, firstName: true, lastName: true, country: true, currency: true,
+        id: true, accountType: true, industryPack: { select: { name: true, nameEn: true, nameDe: true, slug: true } }, name: true, firstName: true, lastName: true, country: true, currency: true, language: true,
         email: true, phone: true, avatar: true,
         plan: true, credits: true, planExpiry: true, createdAt: true,
         authProvider: true,
@@ -32,8 +32,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ user: full ? { ...full, displayCredits, studentWorkspaceEnabled } : full });
 }
 
-const VALID_CURRENCIES = new Set(["IRT", "USD", "EUR"]);
-const VALID_LANGS = new Set(["fa", "en", "de"]);
+const VALID_CURRENCIES = new Set(["IRT", "USD", "EUR", "TRY"]);
+const VALID_LANGS = new Set(["fa", "en", "de", "tr"]);
 
 export async function PATCH(req: NextRequest) {
   const user = await requireAuth(req);
@@ -69,5 +69,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const updated = await prisma.user.update({ where: { id: user.id }, data });
-  return NextResponse.json({ success: true, user: { name: updated.name, firstName: updated.firstName, lastName: updated.lastName, country: updated.country, currency: updated.currency, avatar: updated.avatar } });
+  const response = NextResponse.json({ success: true, user: { name: updated.name, firstName: updated.firstName, lastName: updated.lastName, country: updated.country, currency: updated.currency, language: updated.language, avatar: updated.avatar } });
+  if(data.language)response.cookies.set("lang",data.language,{path:"/",sameSite:"lax",secure:req.nextUrl.protocol==="https:",maxAge:31536000});
+  return response;
 }
