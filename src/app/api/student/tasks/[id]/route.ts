@@ -33,7 +33,10 @@ export async function PATCH(req: NextRequest, context: { params: { id: string } 
     if (!Number.isInteger(body.priority) || body.priority < 1 || body.priority > 3) return NextResponse.json({ error: "اولویت معتبر نیست" }, { status: 400 });
     data.priority = body.priority;
   }
-  if (body.completed !== undefined) data.completedAt = body.completed ? new Date() : null;
+  if (body.completed !== undefined) {
+    if (typeof body.completed !== "boolean") return NextResponse.json({ error: "وضعیت تکمیل معتبر نیست" }, { status: 400 });
+    data.completedAt = body.completed ? new Date() : null;
+  }
   if (Object.keys(data).length === 0) return NextResponse.json({ error: "تغییری برای ذخیره ارسال نشده است" }, { status: 400 });
   const result = await prisma.studentTask.updateMany({ where: { id: context.params.id, userId: user.id }, data });
   if (result.count === 0) return NextResponse.json({ error: "کار پیدا نشد" }, { status: 404 });

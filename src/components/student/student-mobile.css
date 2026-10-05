@@ -40,14 +40,16 @@
   .student-workspace :where(button, a[href]) { min-height: 44px; }
   .student-workspace :where(p, label, code) { overflow-wrap: anywhere; }
   .student-modal { align-items: flex-end; padding: 0; }
-  .student-modal > [role="dialog"] {
+  .student-modal > [data-student-dialog] {
     max-height: calc(100dvh - 24px);
     max-width: 100%;
     border-radius: 24px 24px 0 0;
     padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
     overscroll-behavior: contain;
   }
-  .student-modal > [role="dialog"] > div:first-child { margin-bottom: 16px; }
+  .student-modal > [data-student-dialog] > div:first-child { margin-bottom: 16px; }
   .student-modal button { min-height: 44px; }
   .student-modal button[aria-label="Close"] { width: 44px; display: grid; place-items: center; }
 }
+
+.student-modal::backdrop{background:transparent}.student-modal [data-student-dialog]{overscroll-behavior:contain}.student-feature-finder :where(button,input):focus-visible{outline:2px solid var(--accent,#f97316);outline-offset:3px}

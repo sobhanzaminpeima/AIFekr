@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { verifyToken } from "@/lib/auth/jwt";
 import { prisma } from "@/lib/db/prisma";
+import PendingPaymentNotice from "@/components/billing/PendingPaymentNotice";
 import SubscriptionGate from "@/components/layout/SubscriptionGate";
 import {featureAccessExpired,teamFeatureExpiry} from "@/lib/subscriptions/access";
 import Sidebar from "@/components/layout/Sidebar";
@@ -56,6 +57,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const expired=featureAccessExpired(user,teamExpiry);
   const expiresAt=(user.plan==="FREE"&&teamExpiry?teamExpiry:user.planExpiry||(user.plan==="FREE"?user.trialEndsAt:null))?.toISOString();
   const displayCredits = teamMembership?.team.credits ?? user.credits;
+  const pendingPaymentCount = await prisma.payment.count({ where: { userId: user.id, status: "PENDING" } });
   const studentWorkspaceEnabled = await isStudentWorkspaceEnabled(user);
   const showTrialBanner = shouldShowTrialBanner({ trialEndsAt: user.trialEndsAt, plan: user.plan, planExpiry: user.planExpiry });
 
@@ -80,12 +82,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
         lang={lang}
         sidebar={
           <Sidebar
-            user={{ ...user, credits: displayCredits, studentWorkspaceEnabled }}
+            user={{ ...user, credits: displayCredits, studentWorkspaceEnabled, pendingPaymentCount }}
             conversations={conversations.map((c) => ({ ...c, updatedAt: c.updatedAt.toISOString() }))}
           />
         }
       >
         {showTrialBanner && user.trialEndsAt && <TrialBanner lang={lang} trialEndsAt={user.trialEndsAt.toISOString()} trialLimited={user.trialLimited} />}
+        <PendingPaymentNotice count={pendingPaymentCount} lang={lang} />
         <SubscriptionGate expired={expired} expiresAt={expiresAt} lang={lang} overlay={<>{studentWorkspaceEnabled&&<StudentTimerDock lang={lang}/>}<FloatingSupportWidget lang={lang}/></>}>{children}</SubscriptionGate>
       </MobileNavShell>
       <DashboardPullToRefresh lang={lang} />

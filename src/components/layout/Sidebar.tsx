@@ -6,7 +6,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, MessageSquare, GalleryHorizontal,
-  ChevronDown, ChevronLeft, Settings, LogOut, Wallet, Crown,
+  ChevronDown, ChevronLeft, Settings, LogOut, Wallet, Crown, CreditCard,
   Briefcase, TrendingUp, ShoppingCart, Calculator, Salad,
   GraduationCap, Stethoscope, Languages, ChefHat, Dumbbell, Plane, Code2,
   Plus, History, HeartPulse, Search, Share2, Globe, Factory, Users,
@@ -43,7 +43,7 @@ function openConversationClick(pathname: string, id: string) {
 interface Project { id: string; name: string; color: string; icon: string; conversationCount: number; }
 
 interface SidebarProps {
-  user?: { name?: string | null; credits: number; plan: string; industryPackId?: string | null; crmPlan?: string | null; crmPlanExpiry?: string | Date | null; studentWorkspaceEnabled?: boolean } | null;
+  user?: { name?: string | null; credits: number; plan: string; industryPackId?: string | null; crmPlan?: string | null; crmPlanExpiry?: string | Date | null; studentWorkspaceEnabled?: boolean; pendingPaymentCount?: number } | null;
   conversations?: { id: string; title?: string | null; updatedAt: string; projectId?: string | null }[];
   onNewChat?: () => void;
 }
@@ -314,6 +314,8 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         <NavItem icon={LayoutDashboard} label={tri(lang, "خانه", "Home", "Startseite", "Ana Sayfa")} href="/home" active={isActive("/home")} />
         <NavItem icon={MessageSquare} label={t.nav.chat} href="/chat" active={isActive("/chat")} />
         {user?.studentWorkspaceEnabled !== false && <NavItem icon={GraduationCap} label={t.nav.studentWorkspace} href="/student" active={isActive("/student")} />}
+
+        <NavItem icon={CreditCard} label={`${tri(lang, "پرداخت‌ها و فعال‌سازی", "Payments & activation", "Zahlungen und Aktivierung", "Ödemeler ve etkinleştirme")}${user?.pendingPaymentCount ? ` (${user.pendingPaymentCount.toLocaleString(lang)})` : ""}`} href="/payments" active={isActive("/payments")} />
 
         {/* ── BUSINESS SECTION ─────────────────── */}
         {hasBusinessAccess ? (

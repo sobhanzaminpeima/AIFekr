@@ -1,9 +1,11 @@
 "use client";
+import { checkoutStage } from "@/lib/payment/checkoutStage";
 import { isStudentIntroPlan } from "@/lib/plans/studentOffer";
 
 import { BUSINESS_PACKAGES } from "@/lib/plans/business";
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, Copy, CreditCard, ShieldCheck, UploadCloud, FileText, Clock3, CircleCheck, CircleX, RefreshCw, Loader2 } from "lucide-react";
 import { useTranslation, tri } from "@/lib/i18n";
 import { readBankDetails, formatIban, receiptFileError } from "@/lib/payment/presentation";
@@ -12,28 +14,54 @@ type Payment = { id: string; plan: string; status: string; periodMonths: number;
 
 export default function CheckoutView({ params }: { params: { id: string } }) {
   const { lang } = useTranslation();
+  const router = useRouter();
+  const previousStatus = useRef<string | null>(null);
+  const requestId = useRef(0);
+  const currentPaymentId = useRef(params.id);
+  currentPaymentId.current = params.id;
   const [payment, setPayment] = useState<Payment | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [transferAcknowledged, setTransferAcknowledged] = useState(false);
+  const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  const [preview, setPreview] = useState("");
   const [copied, setCopied] = useState("");
   const copyTimer = useRef<ReturnType<typeof setTimeout>>();
   const t = useCallback((fa: string, en: string, de: string, tr: string) => tri(lang, fa, en, de, tr), [lang]);
 
-  const load = useCallback(async () => {
-    setLoading(true); setError("");
+  const load = useCallback(async (background = false) => {
+    const id = ++requestId.current;
+    if (!background) { setLoading(true); setError(""); }
     try {
       const response = await fetch(`/api/payment/${params.id}`, { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
-      setPayment(data.payment);
+      if (id !== requestId.current) return;
+      if (previousStatus.current === "PENDING" && data.payment.status !== "PENDING") router.refresh();
+      previousStatus.current = data.payment.status;
+      setPayment(data.payment); setLastChecked(new Date()); setError("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("دریافت پرداخت ممکن نشد", "Unable to load payment", "Zahlung nicht verfügbar", "Ödeme yüklenemedi"));
-    } finally { setLoading(false); }
-  }, [params.id, t]);
-  useEffect(() => { void load(); }, [load]);
+      if (id === requestId.current) setError(e instanceof Error ? e.message : t("دریافت پرداخت ممکن نشد", "Unable to load payment", "Zahlung nicht verfügbar", "Ödeme yüklenemedi"));
+    } finally { if (!background && id === requestId.current) setLoading(false); }
+  }, [params.id, t, router]);
+  useEffect(() => { setPayment(null); setFile(null); setTransferAcknowledged(false); previousStatus.current = null; }, [params.id]);
+  useEffect(() => { void load(); return () => { requestId.current += 1; }; }, [load]);
   useEffect(() => () => { clearTimeout(copyTimer.current); }, []);
+  useEffect(() => {
+    if (!file || !file.type.startsWith("image/")) { setPreview(""); return; }
+    const url = URL.createObjectURL(file); setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  useEffect(() => {
+    if (payment?.status !== "PENDING" || !payment.receiptAt) return;
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void load(true); }, 15000);
+    const refresh = () => { if (document.visibilityState === "visible") void load(true); };
+    document.addEventListener("visibilitychange", refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
+  }, [payment?.status, payment?.receiptAt, load]);
+
 
   async function copy(value: string, key: string) {
     try {
@@ -62,7 +90,8 @@ export default function CheckoutView({ params }: { params: { id: string } }) {
       const response = await fetch(`/api/payment/${params.id}/receipt`, { method: "POST", body });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
-      setFile(null); await load();
+      if (currentPaymentId.current !== params.id) return;
+      setFile(null); await load(); router.refresh();
     } catch (e) { setError(e instanceof Error ? e.message : t("ارسال رسید ممکن نشد", "Upload failed", "Hochladen fehlgeschlagen", "Yükleme başarısız")); }
     finally { setBusy(false); }
   }
@@ -71,20 +100,23 @@ export default function CheckoutView({ params }: { params: { id: string } }) {
   const approved = payment?.status === "SUCCESS";
   const pendingReview = payment?.status === "PENDING" && !!payment.receiptAt;
   const canUpload = payment?.status === "PENDING" && !payment.receiptAt && !!bank;
+  const stage = payment ? checkoutStage(payment, transferAcknowledged) : "transfer";
+  const studentPayment = !!payment?.plan.startsWith("STUDENT_");
   const businessPackage = BUSINESS_PACKAGES.find(p => p.planCode === payment?.plan);
   let entitlement: {credits?:number;teamSeatLimit?:number} = {};
   try { entitlement = JSON.parse(payment?.entitlementSnapshot || "{}"); } catch {}
   const planName = businessPackage ? `${t("پکیج بیزنس", "Business package", "Business-Paket", "İşletme paketi")} ${lang === "fa" ? businessPackage.name : businessPackage.nameEn}` : (payment && isStudentIntroPlan(payment.plan)) ? t("آفر اولین اشتراک دانشجویی", "Student welcome offer", "Studierenden-Willkommensangebot", "Öğrenci hoş geldin teklifi") : payment?.plan.startsWith("STUDENT_") ? t("اشتراک دانشجویی", "Student subscription", "Studierendenabo", "Öğrenci aboneliği") : payment?.plan.startsWith("CRM_") ? t("اشتراک مدیریت مشتری", "CRM subscription", "CRM-Abonnement", "CRM aboneliği") : payment?.plan.startsWith("CREDITS_") ? t("خرید اعتبار AI", "AI credit top-up", "KI-Guthaben", "Yapay zekâ kredisi") : t("اشتراک AI تیم", "Team AI subscription", "Team-KI-Abonnement", "Ekip yapay zekâ aboneliği");
-  const statusText = approved ? t("پرداخت تأیید شد؛ اشتراک فعال است.", "Payment approved. Your subscription is active.", "Zahlung bestätigt. Ihr Abo ist aktiv.", "Ödeme onaylandı. Aboneliğiniz etkin.") : payment?.status === "REJECTED" ? t("رسید تأیید نشد. توضیح بررسی را ببینید.", "Receipt rejected. Check the review note.", "Beleg abgelehnt. Lesen Sie den Prüfhinweis.", "Dekont reddedildi. İnceleme notunu okuyun.") : pendingReview ? t("رسید ثبت شد؛ منتظر بررسی ادمین است.", "Receipt received. Awaiting admin review.", "Beleg erhalten. Prüfung ausstehend.", "Dekont alındı. Yönetici incelemesi bekleniyor.") : t("این پرداخت دیگر قابل ارسال رسید نیست.", "This payment no longer accepts receipts.", "Für diese Zahlung können keine Belege mehr eingereicht werden.", "Bu ödeme artık dekont kabul etmiyor.");
+  const statusText = approved ? t("پرداخت تأیید شده؛ برای دیدن پکیج وارد پنل شو.", "Payment approved. Open your workspace to view your package.", "Zahlung bestätigt. Dein Paket findest du im Arbeitsbereich.", "Ödeme onaylandı. Paketini görmek için paneli aç.") : payment?.status === "REJECTED" ? t("رسید تأیید نشد. توضیح بررسی را ببینید.", "Receipt rejected. Check the review note.", "Beleg abgelehnt. Lesen Sie den Prüfhinweis.", "Dekont reddedildi. İnceleme notunu okuyun.") : pendingReview ? t("رسید ثبت شد؛ منتظر بررسی ادمین است.", "Receipt received. Awaiting admin review.", "Beleg erhalten. Prüfung ausstehend.", "Dekont alındı. Yönetici incelemesi bekleniyor.") : t("این پرداخت دیگر قابل ارسال رسید نیست.", "This payment no longer accepts receipts.", "Für diese Zahlung können keine Belege mehr eingereicht werden.", "Bu ödeme artık dekont kabul etmiyor.");
 
   return <div className="workspace-page checkout-page" dir={lang === "fa" ? "rtl" : "ltr"}>
-    <Link className="workspace-back" href="/plans"><ArrowLeft size={16}/>{t("بازگشت به پلن‌ها", "Back to plans", "Zurück zu Tarifen", "Paketlere dön")}</Link>
+    <Link className="workspace-back" href="/payments"><ArrowLeft size={16}/>{t("همهٔ پرداخت‌ها و فعال‌سازی", "All payments & activation", "Alle Zahlungen und Aktivierung", "Tüm ödemeler ve etkinleştirme")}</Link>
     <header className="workspace-heading"><span className="workspace-eyebrow">AIFekr / {t("پرداخت", "Checkout", "Zahlung", "Ödeme")}</span><h1>{t("پرداخت بانکی", "Bank transfer", "Banküberweisung", "Banka havalesi")}</h1><p>{t("اطلاعات حساب، مبلغ و رسید؛ همه در یک‌جا.", "Account details, amount and receipt. All in one place.", "Kontodaten, Betrag und Beleg. Alles an einem Ort.", "Hesap bilgileri, tutar ve dekont. Hepsi bir arada.")}</p></header>
-    <ol className="checkout-steps" aria-label={t("مراحل پرداخت", "Payment steps", "Zahlungsschritte", "Ödeme adımları")}>{[t("انتقال مبلغ", "Transfer", "Überweisen", "Havale"), t("ارسال رسید", "Upload receipt", "Beleg senden", "Dekont yükle"), t("تأیید و فعال‌سازی", "Review & activation", "Prüfung & Aktivierung", "Onay ve etkinleştirme")].map((label, index) => <li key={label} className={approved || (pendingReview && index < 2) ? "complete" : ""} aria-current={(!payment?.receiptAt && index === 0) || (pendingReview && index === 2) ? "step" : undefined}><span>{approved || (pendingReview && index < 2) ? <Check size={14}/> : (index + 1).toLocaleString(lang)}</span>{label}</li>)}</ol>
+    <ol className="checkout-steps" aria-label={t("مراحل پرداخت", "Payment steps", "Zahlungsschritte", "Ödeme adımları")}>{[t("انتقال مبلغ", "Transfer", "Überweisen", "Havale"), t("ارسال رسید", "Upload receipt", "Beleg senden", "Dekont yükle"), t("تأیید و فعال‌سازی", "Review & activation", "Prüfung & Aktivierung", "Onay ve etkinleştirme")].map((label, index) => <li key={label} className={approved || (pendingReview && index < 2) || (stage === "receipt" && index === 0) ? "complete" : ""} aria-current={((stage === "transfer" && index === 0) || (stage === "receipt" && index === 1)) || (pendingReview && index === 2) ? "step" : undefined}><span>{approved || (pendingReview && index < 2) || (stage === "receipt" && index === 0) ? <Check size={14}/> : (index + 1).toLocaleString(lang)}</span>{label}</li>)}</ol>
     {error && <div className="workspace-alert" role="alert">{error}{!payment && <button className="workspace-button secondary" onClick={() => void load()}><RefreshCw size={16}/>{t("تلاش مجدد", "Retry", "Erneut versuchen", "Tekrar dene")}</button>}</div>}
     {loading && !payment && <div className="checkout-grid" aria-busy="true"><div className="skeleton h-72 rounded-3xl"/><div className="skeleton h-72 rounded-3xl"/></div>}
-    {payment && <div className="checkout-grid">
+    {payment && <div className={`checkout-grid ${canUpload ? "" : "is-status"}`}>
       <section className="checkout-transfer" aria-label={t("اطلاعات انتقال", "Transfer details", "Überweisungsdaten", "Havale bilgileri")}>
+        <details open={canUpload && stage === "transfer"} className="checkout-bank-details"><summary>{t("اطلاعات انتقال بانکی", "Bank transfer details", "Überweisungsdaten", "Havale bilgileri")}</summary><div className="mt-3">
         {bank ? <div className="bank-card">
           <div className="bank-card-top"><span>AIFekr <small> / BANK TRANSFER</small></span><CreditCard size={27} aria-hidden/></div>
           <div className="bank-chip" aria-hidden><i/><i/><i/></div>
@@ -95,21 +127,25 @@ export default function CheckoutView({ params }: { params: { id: string } }) {
         <span className="sr-only" role="status">{copied && t("کپی شد", "Copied", "Kopiert", "Kopyalandı")}</span>
         <p className="billing-note"><ShieldCheck size={18}/>{t("مبلغ دقیق را منتقل کنید. اشتراک فقط پس از بررسی و تأیید ادمین فعال می‌شود.", "Transfer the exact amount. Your subscription activates only after admin approval.", "Überweisen Sie den genauen Betrag. Aktivierung erst nach Admin-Freigabe.", "Tam tutarı havale edin. Abonelik yalnızca yönetici onayından sonra etkinleşir.")}</p>
         {payment.transferCurrency === "EUR" && <p className="checkout-bank-notice">{t("برای پرداخت یورو، انتقال از حساب یورویی زراعت‌بانک به این حساب زراعت‌بانک بدون کمیسیون است. اگر از بانک دیگری پرداخت می‌کنید، هزینهٔ انتقال را با بانک خود بررسی کنید.", "For euro payments, transfers from a Ziraat Bank euro account to this Ziraat account are commission-free. Check transfer fees with your bank when paying from another bank.", "Euro-Überweisungen von einem Ziraat-Eurokonto auf dieses Ziraat-Konto sind provisionsfrei. Bei anderen Banken prüfen Sie die Überweisungsgebühren.", "Euro ödemelerinde Ziraat Bankası euro hesabından bu Ziraat hesabına transfer komisyonsuzdur. Başka bankalardan öderken transfer ücretlerini bankanızdan kontrol edin.")}</p>}
+        </div></details>
+        {canUpload && stage === "transfer" && <button type="button" className="workspace-button billing-buy mt-4" onClick={() => setTransferAcknowledged(true)}>{t("انتقال را انجام دادم؛ ارسال رسید", "I transferred the amount · upload receipt", "Überwiesen · Beleg hochladen", "Havale yaptım · dekont yükle")}</button>}
       </section>
       <section className="checkout-summary">
         <div className="checkout-summary-heading"><span className="workspace-eyebrow">{t("خلاصه سفارش", "Order summary", "Bestellübersicht", "Sipariş özeti")}</span><h2>{planName}</h2>{payment.periodMonths > 0 && !payment.plan.startsWith("CREDITS_") && <p>{payment.periodMonths.toLocaleString(lang)} {t("ماه", "months", "Monate", "ay")}</p>}{businessPackage && <p>{t("تمام امکانات بیزنس و CRM", "All business features and CRM", "Alle Geschäftsfunktionen und CRM", "Tüm işletme özellikleri ve CRM")} · {entitlement.teamSeatLimit} {t("عضو", "members", "Mitglieder", "üye")} · {entitlement.credits?.toLocaleString(lang)} {t("اعتبار کل دوره", "term credits", "Credits im Zeitraum", "dönem kredisi")}</p>}<div className="checkout-amount" dir="ltr">{new Intl.NumberFormat(lang, { style: "currency", currency: payment.transferCurrency, minimumFractionDigits: 2 }).format(payment.transferMinor / 100)}</div></div>
         {canUpload ? <form onSubmit={upload} className="checkout-upload-form">
+          <h3 className="mb-2 font-semibold">{t("پرداخت کرده‌ای؟ رسید را اینجا بفرست", "Already paid? Send your receipt here", "Schon bezahlt? Beleg hier senden", "Ödedin mi? Dekontunu buradan gönder")}</h3>
+          <p className="mb-4 text-sm" style={{ color: "var(--text-secondary)" }}>{t("عکس یا PDF رسید بانک کافی است. بعد از ارسال، وضعیت همین صفحه خودکار به‌روز می‌شود.", "A bank receipt photo or PDF is enough. This page checks the review status automatically.", "Foto oder PDF des Bankbelegs genügt. Der Prüfstatus wird automatisch aktualisiert.", "Banka dekontunun fotoğrafı veya PDF yeterli. İnceleme durumu otomatik güncellenir.")}</p>
           <label className={`receipt-dropzone ${file ? "has-file" : ""}`} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); if (!busy) selectFile(e.dataTransfer.files[0] || null); }}>
-            {file ? <FileText size={30}/> : <UploadCloud size={32}/>}
+            {preview ? <img src={preview} alt={t("پیش‌نمایش رسید انتخاب‌شده", "Selected receipt preview", "Vorschau des Belegs", "Seçilen dekont önizlemesi")} className="receipt-preview"/> : file ? <FileText size={30}/> : <UploadCloud size={32}/>}
             <strong>{file ? file.name : t("رسید را انتخاب کنید یا اینجا رها کنید", "Choose a receipt or drop it here", "Beleg auswählen oder hier ablegen", "Dekont seçin veya buraya bırakın")}</strong>
             <span>{file ? `${(file.size / 1024).toFixed(0)} KB · ${t("برای تغییر کلیک کنید", "Click to change", "Zum Ändern klicken", "Değiştirmek için tıklayın")}` : "JPG, PNG, PDF · 5 MB"}</span>
             <input disabled={busy} type="file" accept="image/jpeg,image/png,application/pdf" aria-label={t("انتخاب رسید پرداخت", "Choose payment receipt", "Zahlungsbeleg auswählen", "Ödeme dekontu seç")} onChange={e => { selectFile(e.target.files?.[0] || null); e.target.value = ""; }}/>
           </label>
           <button disabled={!file || busy} className="workspace-button billing-buy">{busy ? <Loader2 size={18} className="animate-spin"/> : <UploadCloud size={18}/>} {busy ? t("در حال ارسال…", "Uploading…", "Wird hochgeladen…", "Yükleniyor…") : t("ارسال رسید برای بررسی", "Submit receipt for review", "Beleg zur Prüfung senden", "Dekontu incelemeye gönder")}</button>
           <p className="checkout-upload-caption">{t("ارسال رسید به معنی تأیید پرداخت نیست.", "Uploading a receipt does not confirm payment.", "Ein hochgeladener Beleg bestätigt keine Zahlung.", "Dekont yüklemek ödeme onayı değildir.")}</p>
-        </form> : <div className={`checkout-status ${approved ? "approved" : payment.status === "REJECTED" ? "rejected" : ""}`} role="status">{approved ? <CircleCheck size={30}/> : payment.status === "REJECTED" ? <CircleX size={30}/> : <Clock3 size={30}/>}<h3>{statusText}</h3>{payment.reviewNote && <p>{payment.reviewNote}</p>}{payment.receiptAt && <a className="workspace-button secondary" href={`/api/payment/${payment.id}/receipt`}><FileText size={16}/>{t("دانلود رسید", "Download receipt", "Beleg herunterladen", "Dekont indir")}</a>}{pendingReview && <button className="workspace-button secondary" disabled={loading} onClick={() => void load()}><RefreshCw size={16} className={loading ? "animate-spin" : ""}/>{t("بررسی وضعیت", "Refresh status", "Status aktualisieren", "Durumu yenile")}</button>}</div>}
+        </form> : <div className={`checkout-status ${approved ? "approved" : payment.status === "REJECTED" ? "rejected" : ""}`} role="status">{approved ? <CircleCheck size={30}/> : payment.status === "REJECTED" ? <CircleX size={30}/> : <Clock3 size={30}/>}<h3>{statusText}</h3>{pendingReview && <><p>{t("رسیدت دریافت شده و کار دیگری لازم نیست. دوباره پرداخت نکن. زمان تأیید به بررسی ادمین بستگی دارد.", "Your receipt is received. No further action is needed; do not pay again. Approval depends on admin review.", "Dein Beleg ist eingegangen. Keine weitere Zahlung nötig. Die Freigabe erfolgt nach Prüfung.", "Dekontun alındı. Başka işlem gerekmiyor; tekrar ödeme yapma. Onay yönetici incelemesine bağlı.")}</p><p>{t("وضعیت هر ۱۵ ثانیه در این صفحه بررسی می‌شود. می‌توانی خارج شوی و از منو ← پرداخت‌ها و فعال‌سازی برگردی.", "Status checks every 15 seconds while this page is visible. You can leave and return through Payments & activation in the menu.", "Der Status wird auf dieser sichtbaren Seite alle 15 Sekunden geprüft. Über den Zahlungsverlauf kannst du zurückkehren.", "Bu sayfa görünürken durum 15 saniyede bir kontrol edilir. Çıkıp ödeme geçmişinden dönebilirsin.")}</p>{lastChecked && <small>{t("آخرین بررسی:", "Last checked:", "Zuletzt geprüft:", "Son kontrol:")} {lastChecked.toLocaleTimeString(lang)}</small>}</>}{approved && <Link className="workspace-button billing-buy" href={studentPayment ? "/student" : "/home"}>{studentPayment ? t("شروع یادگیری در فضای دانشجویی", "Start learning in your student workspace", "Lernen im Studierendenbereich starten", "Öğrenci alanında öğrenmeye başla") : t("ورود به پنل", "Open workspace", "Arbeitsbereich öffnen", "Panele git")}</Link>}{payment.status === "REJECTED" && <Link className="workspace-button secondary" href="/contact">{t("پیگیری با پشتیبانی", "Contact support", "Support kontaktieren", "Destekle iletişime geç")}</Link>}{payment.reviewNote && <p>{payment.reviewNote}</p>}{payment.receiptAt && <a className="workspace-button secondary" href={`/api/payment/${payment.id}/receipt`}><FileText size={16}/>{t("دانلود رسید", "Download receipt", "Beleg herunterladen", "Dekont indir")}</a>}{pendingReview && <button className="workspace-button secondary" disabled={loading} onClick={() => void load()}><RefreshCw size={16} className={loading ? "animate-spin" : ""}/>{t("بررسی وضعیت", "Refresh status", "Status aktualisieren", "Durumu yenile")}</button>}</div>}
       </section>
     </div>}
-    <Link className="workspace-back" href="/settings">{t("تاریخچه حساب و پرداخت‌ها", "Account & payment history", "Konto- und Zahlungsverlauf", "Hesap ve ödeme geçmişi")}</Link>
+    <Link className="workspace-back" href="/payments">{t("تاریخچه حساب و پرداخت‌ها", "Account & payment history", "Konto- und Zahlungsverlauf", "Hesap ve ödeme geçmişi")}</Link>
   </div>;
 }

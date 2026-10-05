@@ -9,5 +9,5 @@ describe("immediate subscription expiry",()=>{
  it("uses the shared team subscription for free team members",()=>{expect(featureAccessExpired({plan:"FREE"},new Date(now-1),now)).toBe(true);expect(featureAccessExpired({plan:"FREE"},new Date(now+1),now)).toBe(false)});
  it("permits a paid team member after their earlier trial expired",()=>{expect(featureAccessExpired({plan:"FREE",trialEndsAt:new Date(0)},new Date(now+1),now)).toBe(false)});
  it("does not let the owner's stale team expiry bypass their expiry",()=>{expect(featureAccessExpired({plan:"TEAM",planExpiry:new Date(now-1)},new Date(now+1),now)).toBe(true)});
- it("keeps renewal and account recovery available while feature APIs close",()=>{for(const p of ["/api/chat","/api/image/generate","/api/student/ai","/api/voice-agent/agents","/api/crm/contacts"])expect(isRecoveryApi(p)).toBe(false);for(const p of ["/api/payment/create","/api/auth/me","/api/user/profile","/api/admin/users"])expect(isRecoveryApi(p)).toBe(true)});
+ it("keeps renewal and account recovery available while feature APIs close",()=>{for(const p of ["/api/chat","/api/image/generate","/api/student/ai","/api/voice-agent/agents","/api/crm/contacts"])expect(isRecoveryApi(p)).toBe(false);for(const p of ["/api/payment/create","/api/auth/me","/api/user/profile","/api/user/payments","/api/admin/users"])expect(isRecoveryApi(p)).toBe(true)});
 });
