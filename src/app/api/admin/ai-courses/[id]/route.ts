@@ -6,10 +6,13 @@ import { courseContentSchema } from "@/lib/courses/content";
 import { reconcileCourseJobs } from "@/lib/courses/generation";
 import { courseBrief } from "@/lib/courses/content";
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  if (!await requireAdmin(req)) return forbiddenResponse();
+  const admin = await requireAdmin(req); if (!admin) return forbiddenResponse();
   await reconcileCourseJobs();
   const course = await prisma.aiCourse.findUnique({ where: { id: params.id }, include: { jobs: { orderBy: { createdAt: "desc" }, take: 10 } } });
-  return course ? NextResponse.json({ course }, { headers: { "Cache-Control": "private, no-store" } }) : NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  const requestKey = req.nextUrl.searchParams.get("requestKey");
+  if (requestKey && !/^[a-zA-Z0-9_-]{16,100}$/.test(requestKey)) return NextResponse.json({ error: "INVALID_REQUEST_KEY" }, { status: 400 });
+  const request = requestKey ? await prisma.aiCourseGenerationJob.findFirst({ where: { userId: admin.id, courseId: params.id, idempotencyKey: requestKey }, select: { status: true } }) : null;
+  return course ? NextResponse.json({ course, actorId: admin.id, requestStatus: request?.status || null }, { headers: { "Cache-Control": "private, no-store" } }) : NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
 }
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const admin = await requireAdmin(req); if (!admin) return forbiddenResponse();

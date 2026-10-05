@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslation, tri } from "@/lib/i18n";
 import type { CourseContent } from "@/lib/courses/content";
 
-type Course = { id: string; title: string; fieldOfStudy: string; description: string; language: string; status: string; version: number; activeJobId: string | null; content: string | null; jobs?: { id: string; status: string; credits: number }[] };
+type Course = { id: string; title: string; fieldOfStudy: string; description: string; language: string; status: string; version: number; activeJobId: string | null; content: string | null; jobs?: { id: string; status: string; credits: number; userId: string; idempotencyKey: string }[] };
 async function api(url: string, init?: RequestInit) {
   const response = await fetch(url, { ...init, headers: { "Content-Type": "application/json" } });
   const body = await response.json();
@@ -31,6 +31,18 @@ export default function AdminCourses() {
   const detail = useCallback(async () => {
     if (!selected) { setCourse(null); setDraft(null); return; }
     const data = await api(`/api/admin/ai-courses/${selected}`); setCourse(data.course); setDraft(data.course.content ? JSON.parse(data.course.content) : null);
+    const storageKey = `aifekr:course-generation:${data.actorId}:${selected}`;
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      let key: string | null = null;
+      try { key = JSON.parse(stored).idempotencyKey; } catch { localStorage.removeItem(storageKey); }
+      if (key && /^[a-zA-Z0-9_-]{16,100}$/.test(key)) {
+        const known = data.course.jobs?.find((job: NonNullable<Course["jobs"]>[number]) => job.userId === data.actorId && job.idempotencyKey === key);
+        const status = known?.status || (await api(`/api/admin/ai-courses/${selected}?requestKey=${encodeURIComponent(key)}`)).requestStatus;
+        // Refresh keeps in-flight keys; only a proven terminal server state clears them.
+        if (status && status !== "GENERATING") localStorage.removeItem(storageKey);
+      }
+    }
     setBrief({ fieldOfStudy: data.course.fieldOfStudy, title: data.course.title, description: data.course.description, language: data.course.language });
   }, [selected]);
   useEffect(() => { void load().catch(() => setNotice(t("بارگذاری ناموفق بود", "Could not load courses", "Kurse konnten nicht geladen werden", "Kurslar yüklenemedi"))); }, [load, lang]); // eslint-disable-line react-hooks/exhaustive-deps
