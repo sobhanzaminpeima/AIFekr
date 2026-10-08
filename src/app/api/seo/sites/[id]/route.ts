@@ -8,7 +8,7 @@ import { nextAuditDate } from "@/lib/seo/siteAuditCore";
 const FREQUENCIES = new Set(["daily", "weekly", "monthly"]);
 
 async function ownedSite(userId: string, id: string) {
-  return prisma.seoSite.findFirst({ where: { id, userId } });
+  return prisma.seoSite.findFirst({ where: { id, userId, archivedAt: null } });
 }
 
 /** Rename, or change the automatic re-audit schedule. */
@@ -37,12 +37,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json({ site: updated });
 }
 
-/** Stops tracking a site and deletes its audit history. */
+/** Stops tracking. Retain sites with billed research as archived history. */
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const site = await ownedSite(user.id, params.id);
   if (!site) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (await prisma.seoResearchJob.count({ where: { siteId: site.id } })) {
+    await prisma.seoSite.update({ where: { id: site.id }, data: { archivedAt: new Date(), autoAudit: false, nextAuditAt: null } });
+    return NextResponse.json({ ok: true, archived: true });
+  }
   await prisma.seoSite.delete({ where: { id: site.id } });
   return NextResponse.json({ ok: true });
 }

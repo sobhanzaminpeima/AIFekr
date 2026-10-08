@@ -53,6 +53,7 @@ const navGroups = [
       { icon: Coins, label: "مصرف و هزینه", href: "/admin/usage" },
       { icon: BarChart2, label: "آنالیتیکس فیچرها", href: "/admin/analytics" },
       { icon: Wrench, label: "ابزارها", href: "/admin/tools" },
+      { icon: Search, label: "SEO Intelligence", href: "/admin/seo-intelligence" },
     ],
   },
   {

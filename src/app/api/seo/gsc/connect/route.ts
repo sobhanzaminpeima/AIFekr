@@ -5,6 +5,7 @@ import { getGscOAuthUrl } from "@/lib/googleSearchConsole";
 import { createGscState } from "@/lib/seo/gscState";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
+import { publicAppUrl } from "@/lib/utils/publicAppUrl";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
     }, { status: 503 });
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
+  const appUrl = publicAppUrl();
   const redirectUri = `${appUrl}/api/seo/gsc/callback`;
   const url = getGscOAuthUrl(redirectUri, createGscState(user.id));
   return NextResponse.redirect(url);

@@ -1,0 +1,1 @@
+ALTER TABLE "SeoSite" ADD COLUMN "archivedAt" DATETIME;

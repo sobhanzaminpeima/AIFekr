@@ -2053,6 +2053,9 @@ model SeoSite {
   lastAuditAt DateTime?
   nextAuditAt DateTime?
   lastScore   Int?
+  verificationToken String?
+  verifiedAt DateTime?
+  archivedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -2060,11 +2063,45 @@ model SeoSite {
   audits      SeoAudit[]
   contentPlan SeoContentPlan?
   rankSnapshots SeoRankSnapshot[]
+  researchJobs SeoResearchJob[]
 
   @@unique([userId, url])
   @@index([userId])
   @@index([businessId])
   @@index([autoAudit, nextAuditAt])
+}
+
+/// Durable SEO provider work using the existing User/Team credit wallet.
+model SeoResearchJob {
+  id String @id
+  siteId String
+  userId String
+  businessId String?
+  organizationId String?
+  idempotencyKey String
+  inputHash String
+  action String
+  input String
+  status String @default("QUEUED")
+  result String?
+  errorCode String?
+  credits Int
+  estimatedCostUsd Float
+  actualCostUsd Float?
+  providerTaskId String?
+  payerTeamId String?
+  mirroredAi Int
+  usageLogId String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  startedAt DateTime?
+  completedAt DateTime?
+  refundedAt DateTime?
+  site SeoSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  @@unique([userId, idempotencyKey])
+  @@index([businessId, createdAt])
+  @@index([siteId, createdAt])
+  @@index([status, expiresAt])
 }
 
 /// One saved audit of a site (several pages crawled). `pages` and `siteChecks`

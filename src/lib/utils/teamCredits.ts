@@ -38,12 +38,12 @@ export async function reserveLoggedCredits(tx: Prisma.TransactionClient, userId:
 }
 
 /** Caller must atomically claim the durable job's refund before calling this. */
-export async function refundLoggedReservation(tx: Prisma.TransactionClient, reservation: { userId: string; payerTeamId: string | null; credits: number; mirroredAi: number; usageLogId: string }, metadata: Record<string, unknown>) {
+export async function refundLoggedReservation(tx: Prisma.TransactionClient, reservation: { userId: string; payerTeamId: string | null; credits: number; mirroredAi: number; usageLogId: string }, metadata: Record<string, unknown>, usageType = "course_generation") {
   const data = { credits: { increment: reservation.credits }, aiCredits: { increment: reservation.mirroredAi } };
   if (reservation.payerTeamId) await tx.team.update({ where: { id: reservation.payerTeamId }, data });
   else await tx.user.update({ where: { id: reservation.userId }, data });
   await tx.usageLog.update({ where: { id: reservation.usageLogId }, data: { metadata: JSON.stringify({ ...metadata, status: "REFUNDED" }) } });
-  await tx.usageLog.create({ data: { userId: reservation.userId, type: "course_generation", credits: -reservation.credits, requestId: `${reservation.usageLogId}:refund`, metadata: JSON.stringify({ ...metadata, status: "REFUNDED", originalTransactionId: reservation.usageLogId, creditDelta: reservation.credits }) } });
+  await tx.usageLog.create({ data: { userId: reservation.userId, type: usageType, credits: -reservation.credits, requestId: `${reservation.usageLogId}:refund`, metadata: JSON.stringify({ ...metadata, status: "REFUNDED", originalTransactionId: reservation.usageLogId, creditDelta: reservation.credits }) } });
 }
 
 /**

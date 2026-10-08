@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const businessId = await activeBusinessIdFor(user.id);
 
   const sites = await prisma.seoSite.findMany({
-    where: { userId: user.id, ...bizScope(businessId) },
+    where: { userId: user.id, ...bizScope(businessId), archivedAt: null },
     orderBy: { createdAt: "desc" },
   });
   return NextResponse.json({ sites, limit: siteLimitFor(user.plan) });
@@ -38,12 +38,18 @@ export async function POST(req: NextRequest) {
   const url = new URL(normalized).origin + "/"; // a site is tracked by its origin; pages are discovered by the audit
 
   const limit = siteLimitFor(user.plan);
-  const count = await prisma.seoSite.count({ where: { userId: user.id } });
+  const count = await prisma.seoSite.count({ where: { userId: user.id, archivedAt: null } });
   if (count >= limit) {
     return NextResponse.json({ error: tri(lang, `پلن شما حداکثر ${limit} وب‌سایت را پشتیبانی می‌کند.`, `Your plan supports up to ${limit} website(s).`, `Ihr Tarif unterstützt bis zu ${limit} Website(s).`, `Planınız en fazla ${limit} web sitesini destekler.`), code: "SITE_LIMIT" }, { status: 402 });
   }
 
   const existing = await prisma.seoSite.findUnique({ where: { userId_url: { userId: user.id, url } } });
+  if (existing?.archivedAt) {
+    const activeBusinessId = await activeBusinessIdFor(user.id);
+    if (existing.businessId && existing.businessId !== activeBusinessId) return NextResponse.json({ code: "SITE_IN_ANOTHER_WORKSPACE" }, { status: 409 });
+    const site = await prisma.seoSite.update({ where: { id: existing.id }, data: { archivedAt: null, verifiedAt: null, autoAudit: true, nextAuditAt: nextAuditDate("weekly", new Date()) } });
+    return NextResponse.json({ site }, { status: 201 });
+  }
   if (existing) return NextResponse.json({ error: tri(lang, "این وب‌سایت قبلاً اضافه شده است.", "This website is already added.", "Diese Website wurde bereits hinzugefügt.", "Bu web sitesi zaten eklenmiş.") }, { status: 409 });
 
   const site = await prisma.seoSite.create({

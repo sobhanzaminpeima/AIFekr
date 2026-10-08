@@ -1,0 +1,103 @@
+"use client";
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useTranslation, tri } from "@/lib/i18n";
+import { Search, Globe, ShieldCheck, Loader2, ArrowUpRight, Clock, BarChart3 } from "lucide-react";
+import toast from "react-hot-toast";
+import ResearchResult from "./ResearchResult";
+import SeoMarketFields from "./SeoMarketFields";
+import RankHistory from "./RankHistory";
+type Site = { id: string; name: string; url: string; verifiedAt: string | null; lastScore: number | null };
+type Job = { id: string; action: string; status: string; input: string; result: string | null; createdAt: string; credits: number; errorCode: string | null; refundedAt: string | null };
+type Action = "keywords" | "rank" | "competitors" | "backlinks" | "referringDomains" | "keywordGap" | "aiVisibility" | "backlinkHistory";
+export default function SeoIntelligence() {
+  const { lang } = useTranslation();
+  const text = useCallback((fa: string, en: string, de: string, tr: string) => tri(lang, fa, en, de, tr), [lang]);
+  const [sites, setSites] = useState<Site[]>([]); const [siteId, setSiteId] = useState(""); const [jobs, setJobs] = useState<Job[]>([]);
+  const [provider, setProvider] = useState<{ configured: boolean; enabled: boolean; maxRows: number } | null>(null);
+  const [action, setAction] = useState<Action>("keywords"); const [keyword, setKeyword] = useState("");
+  const [locationCode, setLocation] = useState("2840"); const [languageCode, setLanguage] = useState("en"); const [device, setDevice] = useState("desktop");
+  const [quote, setQuote] = useState<{ credits: number } | null>(null); const [busy, setBusy] = useState(false); const [error, setError] = useState("");
+  const [verification, setVerification] = useState<{ token: string; dnsName: string; fileUrl: string } | null>(null);
+  const [method, setMethod] = useState("dns"); const [requestId, setRequestId] = useState("");
+  const [competitorDomain, setCompetitor] = useState(""); const [platform, setPlatform] = useState("google");
+  const [markets, setMarkets] = useState<{ location_code: number; location_name: string; available_languages: { language_code: string; language_name: string; available_platforms?: string[] }[] }[]>([]);
+  const site = sites.find(s => s.id === siteId);
+  const needsMarket = !["backlinks", "referringDomains", "backlinkHistory"].includes(action);
+  const supportedMarkets = action === "aiVisibility" ? markets.map(market => ({ ...market, available_languages: market.available_languages.filter(language => language.available_platforms?.includes(platform)) })).filter(market => market.available_languages.length) : markets;
+  const marketSignature = JSON.stringify(supportedMarkets);
+  useEffect(() => {
+    const available: typeof markets = JSON.parse(marketSignature);
+    if (!available.length) return;
+    const selected = available.find(market => String(market.location_code) === locationCode) || available[0];
+    if (String(selected.location_code) !== locationCode) setLocation(String(selected.location_code));
+    if (!selected.available_languages.some(language => language.language_code === languageCode)) setLanguage(selected.available_languages[0].language_code);
+  }, [marketSignature, locationCode, languageCode]);
+  const baseLabels: Record<string, string> = { keywords: text("کلمات کلیدی", "Keyword explorer", "Keyword-Suche", "Anahtar kelime araştırması"), rank: text("رتبه زنده", "Live rank check", "Live-Rangprüfung", "Canlı sıralama kontrolü"), competitors: text("رقبای دامنه", "Domain competitors", "Domain-Wettbewerber", "Alan adı rakipleri"), backlinks: text("خلاصه بک‌لینک", "Backlink summary", "Backlink-Übersicht", "Geri bağlantı özeti"), referringDomains: text("دامنه‌های ارجاع‌دهنده", "Referring domains", "Verweisende Domains", "Yönlendiren alan adları") };
+  const loadSites = useCallback(async () => {
+    const r = await fetch("/api/seo/intelligence/sites"); if (!r.ok) throw Error(); const d = await r.json(); setSites(d.sites); setProvider(d.provider); setSiteId(old => old || d.sites[0]?.id || "");
+  }, []);
+  const labels: Record<Action, string> = { ...baseLabels, keywordGap: text("شکاف کلمات رقبا", "Competitor keyword gaps", "Keyword-Lücken", "Rakip kelime boşlukları"), aiVisibility: text("حضور در جست‌وجوی AI", "AI search evidence", "KI-Suchnachweise", "AI arama kanıtları"), backlinkHistory: text("روند بک‌لینک", "Backlink history", "Backlink-Verlauf", "Geri bağlantı geçmişi") } as Record<Action, string>;
+  useEffect(() => { loadSites().catch(() => setError(text("دسترسی به فضای سئو ممکن نیست.", "SEO workspace is unavailable.", "SEO-Bereich nicht verfügbar.", "SEO alanı kullanılamıyor."))); }, [loadSites, text]);
+  useEffect(() => {
+    setMarkets([]);
+    if (!provider?.configured || !provider.enabled) return;
+    const controller = new AbortController();
+    fetch(`/api/seo/intelligence/markets?kind=${action === "aiVisibility" ? "ai" : "labs"}`, { signal: controller.signal }).then(async r => {
+      if (!r.ok) return;
+      const available = (await r.json()).markets;
+      if (!controller.signal.aborted) setMarkets(available);
+    }).catch(() => {});
+    return () => controller.abort();
+  }, [provider?.configured, provider?.enabled, action]);
+  const loadJobs = useCallback(async () => { if (!siteId) return; const r = await fetch(`/api/seo/intelligence/research?siteId=${encodeURIComponent(siteId)}`); if (!r.ok) return; setJobs((await r.json()).jobs); }, [siteId]);
+  useEffect(() => { setJobs([]); setVerification(null); loadJobs(); }, [loadJobs]);
+  const hasPendingJob = jobs.some(job => job.status === "QUEUED" || job.status === "RUNNING");
+  useEffect(() => { if (!hasPendingJob) return; const timer = setInterval(loadJobs, 7000); return () => clearInterval(timer); }, [loadJobs, hasPendingJob]);
+  const pendingKey = `seo:pending:${JSON.stringify([siteId, action, keyword, locationCode, languageCode, device, competitorDomain, platform])}`;
+  useEffect(() => { setQuote(null); let id = crypto.randomUUID(); try { id = sessionStorage.getItem(pendingKey) || id; sessionStorage.setItem(pendingKey, id); } catch {} setRequestId(id); }, [pendingKey]);
+  async function research(confirm: boolean) {
+    setBusy(true); setError("");
+    if (confirm) { try { sessionStorage.setItem(pendingKey, requestId); } catch {} }
+    try {
+      const input = { siteId, action, keyword, locationCode: Number(locationCode), languageCode, device, competitorDomain, platform, rows: Math.min(provider?.maxRows || 50, action === "rank" ? 10 : action === "backlinkHistory" ? 30 : 50) };
+      const r = await fetch("/api/seo/intelligence/research", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input, preview: !confirm, ...(confirm ? { confirmedCredits: quote?.credits, idempotencyKey: requestId } : {}) }) });
+      const d = await r.json(); if (!r.ok) { setError(d.code === "INSUFFICIENT_CREDITS" ? text("اعتبار کافی ندارید؛ از بخش اعتبار حساب شارژ کنید.", "Insufficient credits. Add credits from your account.", "Nicht genug Credits. Guthaben im Konto aufladen.", "Yetersiz kredi. Hesabınıza kredi ekleyin.") : d.code === "PRICING_NOT_CONFIGURED" ? text("تعرفه این ابزار هنوز توسط مدیر فعال نشده است.", "Pricing for this tool has not been configured by your administrator.", "Preise für dieses Werkzeug wurden noch nicht konfiguriert.", "Bu aracın fiyatı yönetici tarafından yapılandırılmadı.") : text("درخواست انجام نشد. اتصال، تأیید سایت و تنظیمات بازار را بررسی کنید.", "Request could not proceed. Check connection, website verification and market settings.", "Anfrage fehlgeschlagen. Verbindung, Website-Verifizierung und Markt prüfen.", "İstek tamamlanamadı. Bağlantı, site doğrulaması ve pazar ayarlarını kontrol edin.")); return; }
+      if (confirm) { setQuote(null); try { sessionStorage.removeItem(pendingKey); } catch {} setRequestId(crypto.randomUUID()); await loadJobs(); toast.success(text("درخواست ثبت شد؛ نتیجه در تاریخچه می‌ماند.", "Job queued; results remain in history.", "Auftrag eingereiht; Ergebnisse bleiben im Verlauf.", "İş sıraya alındı; sonuçlar geçmişte kalır.")); } else setQuote(d.quote);
+    } catch { setError(text("ارتباط قطع شد؛ با همان درخواست دوباره تلاش کنید.", "Connection interrupted. Retry the same request.", "Verbindung unterbrochen. Dieselbe Anfrage erneut versuchen.", "Bağlantı kesildi. Aynı isteği tekrar deneyin.")); } finally { setBusy(false); }
+  }
+  async function verify(check: boolean) {
+    setBusy(true); try {
+      const r = await fetch("/api/seo/intelligence/sites", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ siteId, verify: check, method }) }); const d = await r.json(); if (!r.ok) throw Error();
+      if (!check) setVerification(d); else { await loadSites(); setVerification(null); toast.success(text("مالکیت سایت تأیید شد", "Website verified", "Website verifiziert", "Site doğrulandı")); }
+    } catch { toast.error(text("توکن تأیید پیدا نشد؛ تنظیمات DNS یا فایل را بررسی کنید.", "Verification token not found; check DNS or file.", "Verifizierungstoken nicht gefunden; DNS oder Datei prüfen.", "Doğrulama kodu bulunamadı; DNS veya dosyayı kontrol edin.")); } finally { setBusy(false); }
+  }
+  const field = "w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3 focus:outline-none focus:ring-2 focus:ring-orange-400";
+  if (!provider && !error) return <div className="p-8" role="status"><Loader2 className="animate-spin text-orange-400" /><span className="sr-only">{text("در حال بارگذاری سئو", "Loading SEO workspace", "SEO-Bereich wird geladen", "SEO alanı yükleniyor")}</span></div>;
+  return <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-8" dir={lang === "fa" ? "rtl" : "ltr"}>
+    <header className="flex flex-wrap justify-between gap-4"><div><div className="flex items-center gap-2 text-orange-400 text-sm"><Search size={18} />AIFekr SEO Intelligence</div><h1 className="mt-2 text-2xl font-bold">{text("از داده واقعی به اقدام درست", "Turn real evidence into action", "Mit echten Daten gezielt handeln", "Gerçek veriden doğru eyleme")}</h1><p className="mt-2 text-sm text-[var(--text-secondary)]">{text("بررسی سایت، تحقیق و پیگیری نتایج در یک فضای کار", "Website health, research and saved results in one workspace", "Website-Zustand, Recherche und Ergebnisse in einem Bereich", "Site sağlığı, araştırma ve kayıtlı sonuçlar tek alanda")}</p></div><Link className="flex items-center gap-2 text-sm" href="/seo/sites"><Globe size={18} />{text("مدیریت وب‌سایت‌ها", "Manage websites", "Websites verwalten", "Siteleri yönet")}</Link></header>
+    <nav className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[["/seo/sites", text("وب‌سایت و بررسی", "Websites & audits", "Websites & Audits", "Siteler ve denetimler")], ["/seo", text("محتوا و اتصال‌ها", "Content & integrations", "Inhalte & Integrationen", "İçerik ve bağlantılar")], ["/seo/agent-pipeline", text("تیم محتوای سئو", "SEO content team", "SEO-Inhaltsteam", "SEO içerik ekibi")], ["/credits", text("اعتبار و مصرف", "Credits & usage", "Credits & Nutzung", "Kredi ve kullanım")]].map(([href, label]) => <Link key={href} href={href} className="rounded-xl border border-[var(--border)] p-4 text-sm hover:border-orange-400/50 flex items-center justify-between gap-2">{label}<ArrowUpRight size={16} /></Link>)}</nav>
+    {error && <p role="alert" className="rounded-xl border border-red-400/30 p-4 text-sm text-red-500">{error}</p>}
+    {!provider?.configured || !provider.enabled ? <div className="rounded-2xl border border-orange-400/20 p-5 text-sm">{text("سرویس داده‌های جست‌وجو هنوز فعال نشده است. بررسی فنی و ابزارهای محتوای موجود همچنان در دسترس هستند.", "Search data is not enabled yet. Existing technical audits and content tools remain available.", "Suchdaten sind noch nicht aktiviert. Bestehende Audits und Inhaltstools bleiben verfügbar.", "Arama verileri henüz etkin değil. Teknik denetimler ve içerik araçları kullanılabilir.")}</div> : null}
+    {!sites.length ? <section className="rounded-2xl border border-[var(--border)] p-8 text-center"><Globe className="mx-auto mb-3 text-orange-400" /><p>{text("اول وب‌سایت خود را اضافه کنید", "Add your website first", "Zuerst Ihre Website hinzufügen", "Önce sitenizi ekleyin")}</p><Link href="/seo/sites" className="mt-4 inline-block rounded-xl bg-orange-500 px-5 py-2 text-black">{text("افزودن سایت", "Add website", "Website hinzufügen", "Site ekle")}</Link></section> : <>
+      <section className="rounded-2xl border border-[var(--border)] p-5 space-y-4"><label className="block space-y-2"><span className="text-sm">{text("وب‌سایت", "Website", "Website", "Site")}</span><select disabled={busy} className={field} value={siteId} onChange={e => setSiteId(e.target.value)}>{sites.map(s => <option key={s.id} value={s.id}>{s.name || s.url}</option>)}</select></label><div className="flex flex-wrap items-center gap-4 text-sm"><span className="flex items-center gap-2"><ShieldCheck size={16} />{site?.verifiedAt ? text("مالکیت تأیید شده", "Ownership verified", "Eigentum verifiziert", "Sahiplik doğrulandı") : text("نیازمند تأیید مالکیت", "Ownership verification required", "Eigentumsnachweis erforderlich", "Sahiplik doğrulaması gerekli")}</span>{site?.lastScore !== null && <span>{text("امتیاز بررسی فنی", "Technical audit score", "Technischer Audit-Score", "Teknik denetim puanı")}: {site?.lastScore ?? "—"}/100</span>}{!site?.verifiedAt && <button onClick={() => verify(false)} disabled={busy} className="text-orange-400">{text("تأیید سایت", "Verify website", "Website verifizieren", "Siteyi doğrula")}</button>}</div>
+        {verification && <div className="space-y-3 rounded-xl bg-[var(--surface-1)] p-4 text-sm"><p>{text("این مقدار را در رکورد TXT زیر یا داخل فایل تأیید قرار دهید:", "Add this value to the TXT record below or the verification file:", "Diesen Wert im TXT-Eintrag oder in der Verifizierungsdatei hinterlegen:", "Bu değeri aşağıdaki TXT kaydına veya doğrulama dosyasına ekleyin:")}</p><code dir="ltr" className="block break-all select-all">{verification.token}</code><p dir="ltr" className="break-all">TXT: {verification.dnsName}</p><p dir="ltr" className="break-all">{verification.fileUrl}</p><select disabled={busy} className={field} value={method} onChange={e => setMethod(e.target.value)}><option value="dns">DNS TXT</option><option value="file">{text("فایل تأیید", "Verification file", "Verifizierungsdatei", "Doğrulama dosyası")}</option></select><button disabled={busy} onClick={() => verify(true)} className="rounded-lg bg-orange-500 px-4 py-2 text-black">{text("بررسی تأیید", "Check verification", "Verifizierung prüfen", "Doğrulamayı kontrol et")}</button></div>}
+      </section>
+      <section className="rounded-2xl border border-[var(--border)] p-5 space-y-4"><div className="flex flex-wrap gap-2" role="group" aria-label={text("ابزارهای سئو", "SEO tools", "SEO-Werkzeuge", "SEO araçları")}>{Object.entries(labels).map(([key, label]) => <button disabled={busy} key={key} onClick={() => setAction(key as Action)} aria-pressed={action === key} className={`rounded-xl px-4 py-2 text-sm ${action === key ? "bg-orange-500 text-black" : "bg-[var(--surface-1)]"}`}>{label}</button>)}</div>
+      {["keywords", "rank"].includes(action) && <label className="block space-y-2"><span>{text("کلمه کلیدی", "Keyword", "Keyword", "Anahtar kelime")}</span><input disabled={busy} className={field} value={keyword} onChange={e => setKeyword(e.target.value)} /></label>}
+      {action === "keywordGap" && <label className="block space-y-2"><span>{text("دامنه رقیب", "Competitor domain", "Wettbewerber-Domain", "Rakip alan adı")}</span><input disabled={busy} className={field} dir="ltr" value={competitorDomain} placeholder="example.com" onChange={e => setCompetitor(e.target.value)} /></label>}
+      {action === "aiVisibility" && <div className="space-y-3"><label className="block space-y-2"><span>{text("پلتفرم جست‌وجو", "Search platform", "Suchplattform", "Arama platformu")}</span><select disabled={busy} className={field} value={platform} onChange={e => setPlatform(e.target.value)}><option value="google">Google AI Overview</option><option value="chat_gpt">ChatGPT · US / English</option></select></label><p className="text-sm text-[var(--text-secondary)]">{text("این نتایج نمونه‌های مشاهده‌شده سرویس هستند؛ امتیاز کلی حضور یا تضمین دیده‌شدن نیستند.", "These are provider-observed samples, not an overall visibility score or a guarantee of exposure.", "Dies sind beobachtete Stichproben, kein allgemeiner Sichtbarkeitswert oder eine Garantie.", "Bunlar sağlayıcının gözlemlediği örneklerdir; genel görünürlük puanı veya gösterim garantisi değildir.")}</p></div>}
+      {needsMarket && provider?.enabled && provider.configured && supportedMarkets.length > 0 && <SeoMarketFields markets={supportedMarkets} locationCode={locationCode} languageCode={languageCode} device={device} rank={action === "rank"} busy={busy} onLocation={setLocation} onLanguage={setLanguage} onDevice={setDevice} />}
+      <p className="text-xs text-[var(--text-secondary)]">{text("کشور بازار هدف مستقل از زبان رابط است. بررسی رتبه فقط ۱۰ نتیجه اول را پوشش می‌دهد.", "Target market is independent of interface language. Rank checks cover only the first 10 results.", "Der Zielmarkt ist unabhängig von der Oberflächensprache. Rangprüfungen erfassen die ersten 10 Ergebnisse.", "Hedef pazar arayüz dilinden bağımsızdır. Sıralama kontrolü ilk 10 sonucu kapsar.")}</p>
+      {quote && <div role="status" className="rounded-xl bg-orange-400/10 p-4"><strong>{quote.credits} {text("اعتبار", "credits", "Credits", "kredi")}</strong><p className="mt-1 text-sm">{text("با تأیید، اعتبار رزرو می‌شود. در صورت خطا بازگردانده خواهد شد.", "Confirmation reserves credits. Failed jobs are refunded.", "Bestätigung reserviert Credits. Fehlgeschlagene Aufträge werden erstattet.", "Onay kredileri ayırır. Başarısız işler iade edilir.")}</p></div>}
+      <button disabled={busy || !provider?.enabled || !site?.verifiedAt || (needsMarket && !supportedMarkets.length)} onClick={() => research(!!quote)} className="rounded-xl bg-orange-500 px-6 py-3 font-semibold text-black disabled:opacity-40">{busy ? <Loader2 className="animate-spin" /> : quote ? text("تأیید و اجرا", "Confirm & run", "Bestätigen & ausführen", "Onayla ve çalıştır") : text("محاسبه هزینه", "Calculate cost", "Kosten berechnen", "Maliyeti hesapla")}</button>
+      </section>
+      <section className="space-y-3"><h2 className="font-semibold flex items-center gap-2"><Clock size={18} />{text("نتایج و تاریخچه", "Results & history", "Ergebnisse & Verlauf", "Sonuçlar ve geçmiş")}</h2>{!jobs.length && <p className="rounded-xl border border-[var(--border)] p-5 text-sm text-[var(--text-secondary)]">{text("با اولین بررسی، نتایج واقعی اینجا ذخیره می‌شوند.", "Your first research results will be saved here.", "Ihre ersten Rechercheergebnisse werden hier gespeichert.", "İlk araştırma sonuçlarınız burada saklanır.")}</p>}{jobs.map(job => <details key={job.id} className="rounded-xl border border-[var(--border)] p-4"><summary className="cursor-pointer text-sm flex flex-wrap gap-3"><BarChart3 size={18} /><strong>{labels[job.action as Action]}</strong><span>{job.status === "QUEUED" ? text("در صف", "Queued", "In Warteschlange", "Sırada") : job.status === "RUNNING" ? text("در حال بررسی", "Running", "Wird ausgeführt", "Çalışıyor") : job.status === "SUCCEEDED" ? text("تکمیل شد", "Completed", "Abgeschlossen", "Tamamlandı") : text("ناموفق", "Failed", "Fehlgeschlagen", "Başarısız")}</span><time>{new Date(job.createdAt).toLocaleString(lang)}</time><span>{job.credits} {text("اعتبار", "credits", "Credits", "kredi")}</span></summary>{job.refundedAt && <p className="mt-3 text-sm text-green-400">{text("اعتبار بازگردانده شد", "Credits refunded", "Credits erstattet", "Krediler iade edildi")}</p>}{job.result && <ResearchResult action={job.action} result={job.result} />}</details>)}</section>
+      <RankHistory siteId={siteId} revision={jobs.map(job => `${job.id}:${job.status}`).join(",")} />
+    </>}
+  </main>;
+}
+
+
+
+

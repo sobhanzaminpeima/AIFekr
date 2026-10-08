@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 export type OrganizationRole = "OWNER" | "ADMIN" | "MANAGER" | "MEMBER" | "VIEWER";
 export type OrganizationPermission =
   | "organization.manage" | "business.manage" | "team.manage" | "billing.manage"
-  | "crm.view" | "crm.edit" | "content.manage" | "social.manage" | "analytics.view";
+  | "crm.view" | "crm.edit" | "content.manage" | "social.manage" | "analytics.view" | "seo.view" | "seo.manage";
 
 export type OrganizationContext = {
   organizationId: string;
@@ -15,11 +15,11 @@ export type OrganizationContext = {
 };
 
 const ROLE_PERMISSIONS: Record<OrganizationRole, OrganizationPermission[]> = {
-  OWNER: ["organization.manage", "business.manage", "team.manage", "billing.manage", "crm.view", "crm.edit", "content.manage", "social.manage", "analytics.view"],
-  ADMIN: ["business.manage", "team.manage", "billing.manage", "crm.view", "crm.edit", "content.manage", "social.manage", "analytics.view"],
-  MANAGER: ["crm.view", "crm.edit", "content.manage", "social.manage", "analytics.view"],
-  MEMBER: ["crm.view", "content.manage"],
-  VIEWER: ["crm.view", "analytics.view"],
+  OWNER: ["organization.manage", "business.manage", "team.manage", "billing.manage", "crm.view", "crm.edit", "content.manage", "social.manage", "analytics.view", "seo.view", "seo.manage"],
+  ADMIN: ["business.manage", "team.manage", "billing.manage", "crm.view", "crm.edit", "content.manage", "social.manage", "analytics.view", "seo.view", "seo.manage"],
+  MANAGER: ["crm.view", "crm.edit", "content.manage", "social.manage", "analytics.view", "seo.view", "seo.manage"],
+  MEMBER: ["crm.view", "content.manage", "seo.view"],
+  VIEWER: ["crm.view", "analytics.view", "seo.view"],
 };
 
 function permissionsFrom(raw: string | null | undefined): Set<string> {

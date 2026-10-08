@@ -5,9 +5,10 @@ import { exchangeGscCode } from "@/lib/googleSearchConsole";
 import { requireAuth } from "@/lib/auth/middleware";
 import { verifyGscState } from "@/lib/seo/gscState";
 import { encryptSecret } from "@/lib/crypto/secretBox";
+import { publicAppUrl } from "@/lib/utils/publicAppUrl";
 
 export async function GET(req: NextRequest) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
+  const appUrl = publicAppUrl();
   const { searchParams } = new URL(req.url);
   const code = searchParams.get("code");
   // The state is a signed, expiring token issued to one user (see gscState.ts).

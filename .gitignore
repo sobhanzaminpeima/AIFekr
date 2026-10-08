@@ -81,3 +81,9 @@ tsc-errors.txt
 /.freebuff/
 /.mcp.json
 /Claude outputs/
+
+# Isolated SEO preview/build output; configuration lives in the existing DB.
+/.next-seo-dev/
+/.next-seo-build/
+/.next-seo-release/
+!/docs/seo-intelligence-audit.md

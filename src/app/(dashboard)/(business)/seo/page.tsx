@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Search, Globe, FileText, Tag, Copy, Check, ExternalLink, Zap, Loader2, Link2, Sparkles, BarChart3, MousePointerClick, Eye, TrendingUp, ChevronDown, AlertTriangle, XCircle, CheckCircle2 } from "lucide-react";
+import { Search, Globe, FileText, Tag, Copy, Check, ExternalLink, Zap, Loader2, Link2, Sparkles, BarChart3, MousePointerClick, Eye, TrendingUp, ChevronDown, AlertTriangle, XCircle, CheckCircle2, ArrowUpRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
 import Link from "next/link";
@@ -328,6 +328,9 @@ export default function SEOPage() {
 
   return (
     <div className="flex flex-col h-full p-4 gap-4 max-w-4xl mx-auto w-full">
+      <Link href="/seo/intelligence" className="rounded-xl border border-orange-400/25 bg-orange-400/10 px-4 py-3 text-sm flex items-center justify-between gap-3">
+        <span><strong>SEO Intelligence</strong> · {tri(lang, "داده‌های واقعی، رتبه و بک‌لینک", "Real data, ranks and backlinks", "Echte Daten, Ränge und Backlinks", "Gerçek veriler, sıralama ve geri bağlantılar")}</span><ArrowUpRight className="h-4 w-4 shrink-0" />
+      </Link>
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{t.seo.title}</h1>
