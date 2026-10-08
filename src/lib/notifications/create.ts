@@ -8,11 +8,11 @@ import { prisma } from "@/lib/db/prisma";
  */
 export async function notify(
   userId: string,
-  { type, title, body, link }: { type: string; title: string; body?: string; link?: string }
+  { type, title, body, link, email }: { type: string; title: string; body?: string; link?: string; email?:boolean }
 ): Promise<void> {
   try {
     await prisma.notification.create({
-      data: { userId, type, title, body: body || undefined, link: link || undefined },
+      data: { userId, type, title, body: body || undefined, link: link || undefined,...(email?{emailPending:true}:{}) },
     });
   } catch (e) {
     console.error("notify() failed:", e);

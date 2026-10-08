@@ -299,6 +299,7 @@ model User {
   /// Onboarding wizard completed
   onboardingDone            Boolean   @default(false)
   /// Referral system
+  referralDiscountPercent   Int       @default(0)
   referralCode              String?   @unique
   referredBy                String?
   /// True once the referral signup bonus has been granted to both this user and their referrer — prevents double-granting on plan renewals.
@@ -610,6 +611,11 @@ model OrganizationAuditLog {
 /// post published/failed, etc). `type` is kept an open string (not an enum)
 /// so new notification kinds can be added without a migration.
 model Notification {
+  emailPending Boolean @default(false)
+  emailSentAt DateTime?
+  emailAttempts Int @default(0)
+  emailClaimedAt DateTime?
+  emailError String?
   telegramSentAt DateTime?
   telegramError String?
   id        String   @id @default(cuid())
@@ -822,6 +828,9 @@ model GeneratedMusic {
 }
 
 model Payment {
+  promoCode String?
+  promoPercent Int @default(0)
+  originalAmount Int?
   id                  String   @id @default(cuid())
   userId              String
   amount              Int
@@ -2097,6 +2106,11 @@ model SeoResearchJob {
   startedAt DateTime?
   completedAt DateTime?
   refundedAt DateTime?
+  notificationSentAt DateTime?
+  notificationAttempts Int @default(0)
+  notificationError String?
+  notificationClaimedAt DateTime?
+  notificationCreatedAt DateTime?
   site SeoSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
   @@unique([userId, idempotencyKey])
   @@index([businessId, createdAt])

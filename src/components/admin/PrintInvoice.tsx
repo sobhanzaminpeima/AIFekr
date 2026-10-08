@@ -1,0 +1,1 @@
+"use client";import {useTranslation,tri} from "@/lib/i18n";export default function PrintInvoice(){const {lang}=useTranslation();return <button className="workspace-button print:hidden" onClick={()=>window.print()}>{tri(lang,"چاپ / ذخیره PDF","Print / save PDF","Drucken / PDF speichern","Yazdır / PDF kaydet")}</button>;}

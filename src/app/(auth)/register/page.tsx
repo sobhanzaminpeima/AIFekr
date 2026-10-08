@@ -22,6 +22,7 @@ function RegisterForm() {
   const { t, lang } = useTranslation();
   const isFa = lang === "fa";
   const packSlug = params.get("pack") || "";
+  const [promoCode,setPromoCode]=useState(params.get("promo")||params.get("ref")||"");
   const refCode = params.get("ref") || "";
   const planCode = params.get("plan") || "";
   const billingPeriod = params.get("period") || "";
@@ -64,7 +65,7 @@ function RegisterForm() {
           firstName: form.firstName, lastName: form.lastName || undefined, country: form.country || undefined,
           language: registerLang, selectedPlan: planCode || (accountType==="STUDENT"?STUDENT_PLAN_CODE:undefined), accountType,
           email: form.email || undefined, phone: composedPhone || undefined, password: form.password || undefined,
-          industryPackSlug: packSlug || undefined, ref: refCode || undefined,
+          industryPackSlug: packSlug || undefined, ref: refCode || undefined, promoCode:promoCode||undefined,
         }),
       });
       const data = await res.json();
@@ -106,6 +107,8 @@ function RegisterForm() {
 
         <div className="glass rounded-2xl p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
+                  <label className="block text-sm">{tri(lang,"کد دعوت / Promo (اختیاری)","Invitation / promo code (optional)","Einladungs- / Promo-Code (optional)","Davet / promosyon kodu (isteğe bağlı)")}<input value={promoCode} onChange={e=>setPromoCode(e.target.value)} maxLength={30} dir="ltr" className="block w-full rounded-xl p-3 mt-2 border" style={{background:"var(--surface-2)",borderColor:"var(--border)"}}/><span className="block text-xs mt-2 opacity-70">{tri(lang,"کد و لینک رفرال یکسان‌اند؛ تخفیف فعال برای اولین خرید در پرداخت نمایش داده می‌شود.","Code and referral link share the same attribution. Any active welcome discount appears at checkout.","Code und Empfehlungslink nutzen dieselbe Zuordnung. Ein aktiver Willkommensrabatt erscheint beim Kauf.","Kod ve referans bağlantısı aynı davet sahibine bağlanır. Etkin ilk satın alma indirimi ödeme adımında gösterilir.")}</span></label>
+
             <label className="block text-sm" style={{color:"var(--text-secondary)"}}>
               {tri(lang,"نوع حساب","Account type","Kontotyp","Hesap türü")}
               <select aria-label={tri(lang,"نوع حساب","Account type","Kontotyp","Hesap türü")} value={accountType} disabled={/^(STUDENT_|TEAM_|CRM_)/.test(planCode)} onChange={e=>setAccountType(accountTypeFor(null,e.target.value))} className="mt-2 w-full rounded-xl p-3" style={{background:"var(--surface-2)",color:"var(--text-primary)"}}>
@@ -141,7 +144,8 @@ function RegisterForm() {
               <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.languageLabel}</label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {LANG_OPTIONS.map((l) => (
-                  <button
+
+          <button
                     key={l.code}
                     type="button"
                     onClick={() => setRegisterLang(l.code)}

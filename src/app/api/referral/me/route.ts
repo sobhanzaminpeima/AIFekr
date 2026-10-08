@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   if (!auth) return unauthorizedResponse(req);
 
   const [user, invitedUsers, walletEarnedAgg, commissionPercent] = await Promise.all([
-    prisma.user.findUnique({ where: { id: auth.id }, select: { referralCode: true, walletBalance: true } }),
+    prisma.user.findUnique({ where: { id: auth.id }, select: { referralCode: true, referralDiscountPercent:true, walletBalance: true } }),
     prisma.user.findMany({
       where: { referredBy: auth.id },
       select: { id: true, name: true, email: true, referralRewarded: true, createdAt: true },
@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     currency: auth.currency ?? null,
     referralCode: user?.referralCode ?? null,
+    discountPercent:user?.referralDiscountPercent??0,
     invitedCount: invitedUsers.length,
     walletBalance: user?.walletBalance || 0,
     walletEarnedTotal: walletEarnedAgg._sum.amount || 0,

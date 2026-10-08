@@ -1,3 +1,4 @@
+import { encryptSecret } from "@/lib/crypto/secretBox";
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, forbiddenResponse } from "@/lib/auth/middleware";
@@ -19,6 +20,6 @@ export async function POST(req: NextRequest) {
     if(key==="vapi_credits_per_minute" && (!Number.isInteger(Number(value)) || Number(value)<1 || Number(value)>10000)) return NextResponse.json({error:"Invalid credit rate"},{status:400});
     if(key==="vapi_max_duration_seconds" && (!Number.isInteger(Number(value)) || Number(value)<60 || Number(value)>1800)) return NextResponse.json({error:"Call duration must be 60–1800 seconds"},{status:400});
   }
-  await prisma.$transaction(Object.entries(body).map(([key,value])=>prisma.siteSetting.upsert({where:{key},create:{key,value:String(value).trim()},update:{value:String(value).trim()}})));
+  await prisma.$transaction(Object.entries(body).map(([key,value])=>prisma.siteSetting.upsert({where:{key},create:{key,value:["vapi_private_key","vapi_webhook_secret"].includes(key)?encryptSecret(String(value).trim()):String(value).trim()},update:{value:["vapi_private_key","vapi_webhook_secret"].includes(key)?encryptSecret(String(value).trim()):String(value).trim()}})));
   return NextResponse.json({ok:true});
 }

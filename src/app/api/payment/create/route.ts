@@ -1,3 +1,4 @@
+import { referralDiscount, applyPromo } from "@/lib/utils/referralPromo";
 import {publicAppUrl} from "@/lib/utils/publicAppUrl";
 import { createPayment } from "@/lib/payment/zarinpal";
 import { isBusinessBundle } from "@/lib/plans/business";
@@ -43,7 +44,9 @@ export async function POST(req: NextRequest) {
  if(body.currency === "EUR") { bank.currency="EUR"; bank.iban=bank.euroIban; }
  if(!rial&&(!validIban(bank.iban)||!["TRY","EUR"].includes(bank.currency)))return bankError(req,"Bank account is unavailable",503);
  const usd=pkg.priceUsd!=null?pkg.priceUsd/100:pkg.price/10/rates.usdToToman;
- const total=usd*priceMultiplier*(1-discount);
+ const promo=tier?{percent:0,code:null}:await referralDiscount(user.id);
+ const originalTotal=usd*priceMultiplier*(1-discount);
+ const total=applyPromo(originalTotal,promo.percent);
  const amount=Math.round(total*rates.usdToToman);
  const currency=rial?"IRR":bank.currency;
  const gateway=rial?"zarinpal":"bank_transfer";
@@ -55,8 +58,9 @@ export async function POST(req: NextRequest) {
   const pending=await tx.payment.findFirst({where:{userId:user.id,plan,...(rial?{amount}:{}),periodMonths:months,transferCurrency:currency,transferMinor:rial?undefined:minor,status:"PENDING",gateway}});
   if(pending&&(!rial||pending.authority))return pending;
   if(pending)throw new Error("PAYMENT_PROCESSING");
+  if(promo.percent>0 && await tx.payment.findFirst({where:{userId:user.id,status:"PENDING",promoPercent:{gt:0}}}))throw new Error("PROMO_ORDER_PENDING");
   if(intro&&await tx.payment.findFirst({where:{userId:user.id,plan:{startsWith:"STUDENT_"},status:{in:["PENDING","SUCCESS"]}}}))throw new Error("OFFER_USED");
-  return tx.payment.create({data:{userId:user.id,plan,status:"PENDING",gateway,amount,periodMonths:months,transferCurrency:currency,transferMinor:minor,bankSnapshot:JSON.stringify({iban:bank.iban,holder:bank.holder,rateDate:rates.rateDate}),entitlementSnapshot:JSON.stringify({credits:pkg.credits * (isBusinessBundle(plan) ? months : 1),businessBundle:isBusinessBundle(plan),...(plan.startsWith("STUDENT_")?{accountType:"STUDENT"}:{}),days,crmSeatLimit:pkg.crmSeatLimit,teamSeatLimit:pkg.teamSeatLimit})}});
+  return tx.payment.create({data:{promoCode:promo.code,promoPercent:promo.percent,originalAmount:originalTotal*rates.usdToToman<=2147483647?Math.round(originalTotal*rates.usdToToman):null,userId:user.id,plan,status:"PENDING",gateway,amount,periodMonths:months,transferCurrency:currency,transferMinor:minor,bankSnapshot:JSON.stringify({iban:bank.iban,holder:bank.holder,rateDate:rates.rateDate}),entitlementSnapshot:JSON.stringify({credits:pkg.credits * (isBusinessBundle(plan) ? months : 1),businessBundle:isBusinessBundle(plan),...(plan.startsWith("STUDENT_")?{accountType:"STUDENT"}:{}),days,crmSeatLimit:pkg.crmSeatLimit,teamSeatLimit:pkg.teamSeatLimit})}});
  });
  if(rial){
   const callbackUrl=new URL("/api/payment/verify",publicAppUrl());
@@ -73,5 +77,5 @@ export async function POST(req: NextRequest) {
   }
  }
  return NextResponse.json({paymentId:payment.id,paymentUrl:`/checkout/${payment.id}`});
- }catch(e){if(e instanceof Error&&e.message==="PAYMENT_PROCESSING")return bankError(req,"Payment is processing",409);if(e instanceof Error&&e.message==="OFFER_USED")return bankError(req,"Student welcome offer already used",409);throw e;}
+ }catch(e){if(e instanceof Error&&e.message==="PROMO_ORDER_PENDING")return bankError(req,"Complete or cancel the existing discounted order first",409);if(e instanceof Error&&e.message==="PAYMENT_PROCESSING")return bankError(req,"Payment is processing",409);if(e instanceof Error&&e.message==="OFFER_USED")return bankError(req,"Student welcome offer already used",409);throw e;}
 }

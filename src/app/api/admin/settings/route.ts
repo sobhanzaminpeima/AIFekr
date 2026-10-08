@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   const settings = await prisma.siteSetting.findMany();
   const map: Record<string, string> = {};
-  for (const s of settings) if (s.key !== "seoIntelligenceProvider") map[s.key] = s.value;
+  for (const s of settings) if (s.key !== "seoIntelligenceProvider" && !s.key.startsWith("telnyx_") && !["vapi_private_key","vapi_webhook_secret"].includes(s.key)) map[s.key] = s.value;
   return NextResponse.json({ settings: map });
 }
 
@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
     if (settings[key] !== undefined && !validIban(String(settings[key]))) return NextResponse.json({error:"Invalid IBAN"},{status:400});
   }
   if (Object.hasOwn(settings, "seoIntelligenceProvider")) return NextResponse.json({ error: "Use the dedicated SEO provider settings endpoint" }, { status: 400 });
+  if(Object.keys(settings).some(key=>key.startsWith("telnyx_")||["vapi_private_key","vapi_webhook_secret"].includes(key)))return NextResponse.json({error:"Use dedicated voice provider settings"},{status:400});
   if (settings.creditCosts !== undefined) {
     try {
       const costs = JSON.parse(String(settings.creditCosts));

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Star, Check, Loader2 } from "lucide-react";
 import {isBusinessBundle,businessIncludesVoice} from "@/lib/plans/business";
+import {useTranslation,tri} from "@/lib/i18n";
 import toast from "react-hot-toast";
 
 type Pkg = {
@@ -21,6 +22,7 @@ const MARKETS = [
 ];
 
 export default function PackagesPage() {
+  const {lang}=useTranslation();
   const [packages, setPackages] = useState<Pkg[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -226,7 +228,7 @@ export default function PackagesPage() {
             </div>
             <div>
               <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>امکانات — فارسی (هر خط یک امکان)</label>
-              <textarea value={form.features} onChange={e => setForm(p => ({ ...p, features: e.target.value }))} rows={5}
+              <button type="button" onClick={()=>setForm(p=>({...p,features:Array.from(new Set([...p.features.split("\n"),"SEO Intelligence؛ داده‌های واقعی، رتبه و بک‌لینک (با اعتبار پکیج)"].filter(Boolean))).join("\n"),featuresEn:Array.from(new Set([...p.featuresEn.split("\n"),"SEO Intelligence: real data, rankings and backlinks (package credits)"].filter(Boolean))).join("\n")}))} className="block text-orange-400 text-xs mb-2">{tri(lang,"افزودن SEO Intelligence به امکانات پکیج","Add SEO Intelligence to package features","SEO Intelligence zum Paket hinzufügen","Pakete SEO Intelligence ekle")}</button><textarea value={form.features} onChange={e => setForm(p => ({ ...p, features: e.target.value }))} rows={5}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div>

@@ -49,3 +49,5 @@
   .admin-stat-card { padding: 14px; }
   .admin-stat-value { font-size: clamp(17px, 4.5vw, 22px); overflow-wrap: anywhere; }
 }
+
+@media print { body:has(.admin-invoice) {background:white!important;color:black!important;} body:has(.admin-invoice) aside,body:has(.admin-invoice) nav,body:has(.admin-invoice) button{display:none!important;} body:has(.admin-invoice) .admin-shell,body:has(.admin-invoice) .admin-shell > div{display:block!important;height:auto!important;overflow:visible!important;} .admin-invoice,.admin-invoice *{color:black!important;box-shadow:none!important;background:transparent!important;} }

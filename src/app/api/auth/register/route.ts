@@ -1,3 +1,4 @@
+import { resolvePromo } from "@/lib/utils/referralPromo";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -67,6 +68,8 @@ export async function POST(req: NextRequest) {
       const referrer = await findUserByReferralCode(ref);
       if (referrer) referredBy = referrer.id;
     }
+
+    if(bodyForLang.promoCode){const promo=await resolvePromo(bodyForLang.promoCode);if(!promo)return NextResponse.json({error:tri(lang,"کد دعوت معتبر نیست","Invalid invitation code","Ungültiger Einladungscode","Geçersiz davet kodu")},{status:400});if(referredBy && referredBy!==promo.id)return NextResponse.json({error:tri(lang,"کد و لینک دعوت به دو نفر متفاوت تعلق دارند","Invitation link and code belong to different people","Einladungslink und Code gehören verschiedenen Personen","Davet bağlantısı ve kod farklı kişilere ait")},{status:400});referredBy=promo.id;}
 
     // Every user gets their own referral code at signup — name-based when
     // possible (e.g. "sobhan"), falling back to a random code on collision

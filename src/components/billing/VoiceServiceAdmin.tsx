@@ -1,4 +1,5 @@
 "use client";
+import TelnyxAdmin from "./TelnyxAdmin";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 type Agent = {id:string;name:string;user:{name:string|null;email:string|null};vapiPhoneNumberId:string|null};
@@ -45,6 +46,7 @@ export default function VoiceServiceAdmin() {
       <li>اتصال را بررسی کنید، ایجنت مشتری و شماره را انتخاب و متصل کنید. هر شماره فقط برای یک ایجنت است.</li>
       <li>مشتری سناریو، زبان، ساعت پذیرش و دانش‌نامه را آماده کند؛ سپس یک تماس آزمایشی واقعی با شماره انجام دهید.</li>
     </ol>
+    <TelnyxAdmin/>
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{([
       ["vapi_private_key","کلید خصوصی Vapi","password"],["vapi_webhook_secret","رمز وب‌هوک (حداقل ۳۲ کاراکتر)","password"],["vapi_credential_id","Vapi Credential ID","text"],["vapi_model","مدل OpenAI در Vapi","text"],["vapi_voice_id","شناسهٔ صدای ElevenLabs","text"],["vapi_credits_per_minute","کریدت هر دقیقه","number"],["vapi_max_duration_seconds","حداکثر مدت تماس (ثانیه)","number"]
     ]).map(([key,label,type])=><label key={key} className="text-xs space-y-2"><span>{label}</span><input aria-label={label} type={type} value={form[key]||""} onChange={e=>setForm({...form,[key]:e.target.value})} placeholder={type==="password"?"خالی = حفظ مقدار ذخیره‌شده":""} dir="ltr" className="block w-full rounded-xl p-3" style={{background:"var(--surface-2)",color:"var(--text-primary)"}}/></label>)}</div>

@@ -87,3 +87,6 @@ tsc-errors.txt
 /.next-seo-build/
 /.next-seo-release/
 !/docs/seo-intelligence-audit.md
+
+/.next-commerce-release/
+!/docs/admin-commerce-seo-voice.md

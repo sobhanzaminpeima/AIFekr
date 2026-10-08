@@ -1,3 +1,5 @@
+import { notify } from "@/lib/notifications/create";
+import { tri } from "@/lib/i18n/tri";
 import { prisma } from "@/lib/db/prisma";
 import { runContentPipeline } from "@/lib/agents/runContentPipeline";
 import { reserveToolCredits } from "@/lib/utils/toolCredits";
@@ -75,6 +77,7 @@ export async function runContentPlan(planId: string, opts: RunOptions = {}): Pro
     return { ok: true, postId, runId: run.id, status: publishResult.status, url: publishResult.url };
   } catch (e) {
     await gate.release();
+    await notify(plan.userId,{type:"seo_content_failed",title:tri(langOf(plan.lang),"تولید محتوای سئو انجام نشد","SEO content generation failed","SEO-Inhaltserstellung fehlgeschlagen","SEO içerik üretimi başarısız"),link:"/seo/agent-pipeline",email:true});
     await prisma.contentPipelineRun.update({ where: { id: run.id }, data: { status: "failed" } }).catch(() => {});
     const message = (e instanceof Error ? e.message : String(e)).slice(0, 300);
     await finish({ lastError: message, nextRunAt: retryAt(6 * 60 * 60 * 1000) });

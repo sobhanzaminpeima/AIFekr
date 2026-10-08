@@ -1,3 +1,5 @@
+import { notify } from "@/lib/notifications/create";
+import { tri } from "@/lib/i18n/tri";
 import { prisma } from "@/lib/db/prisma";
 import { runSiteAudit } from "@/lib/seo/siteAudit";
 import { diffAudits, isNotable, nextAuditDate, type AuditDiff, type AuditSnapshot, type StoredIssue, type StoredPage } from "@/lib/seo/siteAuditCore";
@@ -34,6 +36,7 @@ export async function auditAndSave(siteId: string, source: "manual" | "auto", la
   if (!outcome.ok) {
     // Keep the schedule moving even when the site is down, so a dead site is not retried every cron tick.
     if (site.autoAudit) await prisma.seoSite.update({ where: { id: site.id }, data: { nextAuditAt: nextAuditDate(site.frequency, now) } });
+    await notify(site.userId,{type:"seo_audit_failed",title:tri(lang,"بررسی سئو انجام نشد","SEO audit failed","SEO-Audit fehlgeschlagen","SEO denetimi başarısız"),link:"/seo/sites",email:true});
     return { ok: false, failure: outcome.failure };
   }
   const r = outcome.result;
@@ -59,5 +62,6 @@ export async function auditAndSave(siteId: string, source: "manual" | "auto", la
   const old = await prisma.seoAudit.findMany({ where: { siteId }, orderBy: { createdAt: "desc" }, skip: KEEP_AUDITS_PER_SITE, select: { id: true } });
   if (old.length) await prisma.seoAudit.deleteMany({ where: { id: { in: old.map((o) => o.id) } } });
 
+  await notify(site.userId,{type:"seo_audit_completed",title:tri(lang,`گزارش سئو آماده است · امتیاز ${r.score}`,`SEO report ready · score ${r.score}`,`SEO-Bericht bereit · Score ${r.score}`,`SEO raporu hazır · skor ${r.score}`),body:site.name||site.url,link:"/seo/sites",email:true});
   return { ok: true, auditId: audit.id, score: r.score, diff, notable: diff ? isNotable(diff) : false };
 }

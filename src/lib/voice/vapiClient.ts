@@ -244,3 +244,5 @@ export async function createOutboundCall(assistantId: string, phoneNumberId: str
 }
 
 export async function getVapiCall(id: string): Promise<Record<string, unknown>> { return vapiFetch(`/call/${encodeURIComponent(id)}`); }
+
+export async function importTelnyxNumber(number:string,credentialId:string){return vapiFetch<VapiPhoneNumber>("/phone-number",{method:"POST",body:JSON.stringify({provider:"telnyx",number,credentialId,name:"AIFekr Telnyx"})});}

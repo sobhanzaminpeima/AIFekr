@@ -31,7 +31,9 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    ".next-seo-dev/types/**/*.ts",
+    ".next-commerce-release/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
@@ -42,6 +44,7 @@
     ".next-academy-dev",
     ".next-seo-dev",
     ".next-seo-build",
-    ".next-seo-release"
+    ".next-seo-release",
+    ".next-commerce-release"
   ]
 }

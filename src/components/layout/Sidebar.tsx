@@ -400,7 +400,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
                       style={{ borderInlineStart: `1px solid ${dept.tint}` }}
                     >
                       {items.map((i) => (
-                        <NavItem key={i.href} icon={i.icon} label={i.label} href={i.href} active={isActive(i.href)} accent={dept.color} small />
+                        <div key={i.href}><NavItem icon={i.icon} label={i.label} href={i.href} active={isActive(i.href)} accent={dept.color} small />{i.href === "/seo" && <Link href="/seo/intelligence" aria-current={pathname === "/seo/intelligence" ? "page" : undefined} className="ms-4 my-1 block rounded-xl p-2 text-xs" style={{background:"rgba(249,115,22,.1)",border:"1px solid rgba(249,115,22,.25)",color:"var(--text-primary)"}}><strong className="block text-orange-400">SEO Intelligence</strong><span className="block mt-1">{tri(lang,"داده‌های واقعی، رتبه و بک‌لینک","Real data, rankings and backlinks","Echte Daten, Rankings und Backlinks","Gerçek veriler, sıralama ve geri bağlantılar")}</span></Link>}</div>
                       ))}
                     </div>
                   )}
@@ -431,6 +431,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         <NavItem icon={GalleryHorizontal} label={t.nav.gallery} href="/image/gallery" active={isActive("/image/gallery")} />
         <NavItem icon={Rocket} label={t.nav.startupBuilder} href="/startup/builder" active={isActive("/startup")} />
 
+        {!hasPack && <Link href="/seo/intelligence" className="block mx-2 my-2 rounded-xl p-3" style={{background:"rgba(249,115,22,.1)",border:"1px solid rgba(249,115,22,.25)"}}><strong className="block text-xs text-orange-400">SEO Intelligence</strong><span className="block text-[11px] mt-1">{tri(lang,"داده‌های واقعی، رتبه و بک‌لینک","Real data, rankings and backlinks","Echte Daten, Rankings und Backlinks","Gerçek veriler, sıralama ve geri bağlantılar")}</span></Link>}
         {/* Generic AI toys sit BELOW the business the customer is paying
             for. They used to outrank it: Tools and Assistants were above
             "My Business", so the eleven modules that are the product were

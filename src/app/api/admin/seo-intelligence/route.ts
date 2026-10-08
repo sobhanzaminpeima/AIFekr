@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 export async function GET(req: NextRequest) {
   if (!await requireAdmin(req)) return unauthorizedResponse(req);
   const [jobs, config] = await Promise.all([
-    prisma.seoResearchJob.findMany({ orderBy: { createdAt: "desc" }, take: 100, select: { id: true, userId: true, action: true, status: true, credits: true, estimatedCostUsd: true, actualCostUsd: true, errorCode: true, createdAt: true, refundedAt: true } }),
+    prisma.seoResearchJob.findMany({ orderBy: { createdAt: "desc" }, take: 100, select: { id: true, userId: true, action: true, status: true, credits: true, estimatedCostUsd: true, actualCostUsd: true, errorCode: true, createdAt: true, refundedAt: true, notificationSentAt:true, notificationAttempts:true, notificationError:true } }),
     getSeoProviderConfig(),
   ]);
   return NextResponse.json({ config: publicSeoConfig(config), jobs });

@@ -1,3 +1,6 @@
+import { cookies } from "next/headers";
+import { verifyToken } from "@/lib/auth/jwt";
+import { referralDiscount } from "@/lib/utils/referralPromo";
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
@@ -14,5 +17,6 @@ export async function GET() {
     },
   });
   const rates = await getFxRates();
-  return NextResponse.json({ fxRates:rates, packages: packages.map(p => p.planCode.startsWith("STUDENT_") && p.priceUsd != null ? { ...p, price: Math.round(p.priceUsd / 100 * rates.usdToToman) * 10, usdToTry: rates.usdToTry, rateDate: rates.rateDate, isFallback: rates.isFallback } : p) });
+  const token=cookies().get("token")?.value;const auth=token?verifyToken(token):null;const promo=auth?await referralDiscount(auth.userId):{percent:0,code:null};
+  return NextResponse.json({ promo, fxRates:rates, packages: packages.map(p => p.planCode.startsWith("STUDENT_") && p.priceUsd != null ? { ...p, price: Math.round(p.priceUsd / 100 * rates.usdToToman) * 10, usdToTry: rates.usdToTry, rateDate: rates.rateDate, isFallback: rates.isFallback } : p) });
 }

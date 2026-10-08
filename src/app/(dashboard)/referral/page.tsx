@@ -16,6 +16,7 @@ interface InvitedUser {
 interface ReferralData {
   currency?: string | null;
   referralCode: string | null;
+  discountPercent:number;
   invitedCount: number;
   walletBalance: number;
   walletEarnedTotal: number;
@@ -201,10 +202,11 @@ export default function ReferralPage() {
             <h2 className="text-lg font-bold mb-4" style={{ color: "var(--text-primary)" }}>
               {tri(lang, "دوستت را به AiFekr دعوت کن", "Invite your friend to AiFekr", "Lade deinen Freund zu AiFekr ein", "Arkadaşınızı AiFekr'e davet edin")}
             </h2>
-            <div className="flex gap-2 mb-2">
-              <input readOnly value={link} className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none"
+              <div className="rounded-xl border p-3 mb-3"><p className="text-sm">{tri(lang,"کد دعوت شما","Your invitation code","Dein Einladungscode","Davet kodunuz")}: <strong dir="ltr">{data?.referralCode}</strong></p><p className="text-xs mt-2">{tri(lang,"کد و لینک دعوت به همین حساب متصل‌اند.","Code and invitation link are connected to this account.","Code und Einladungslink sind mit diesem Konto verbunden.","Kod ve davet bağlantısı bu hesaba bağlıdır.")} {data?.discountPercent||0}% {tri(lang,"تخفیف اولین خرید","first purchase discount","Rabatt auf den ersten Kauf","ilk satın alma indirimi")}</p><button type="button" onClick={()=>void navigator.clipboard.writeText(data?.referralCode||"")} className="mt-2 text-orange-400 text-sm">{tri(lang,"کپی کد","Copy code","Code kopieren","Kodu kopyala")}</button></div>
+            <div className="flex flex-col sm:flex-row gap-2 mb-2">
+              <input readOnly value={link} className="min-w-0 flex-1 px-4 py-2.5 rounded-xl text-sm outline-none"
                 style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-              <button onClick={copyLink} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white flex-shrink-0"
+<button onClick={copyLink} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white flex-shrink-0"
                 style={{ background: copied ? "#10b981" : "var(--primary)" }}>
                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 {copied ? tri(lang, "کپی شد", "Copied", "Kopiert", "Kopyalandı") : tri(lang, "کپی لینک", "Copy link", "Link kopieren", "Bağlantıyı kopyala")}

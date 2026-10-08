@@ -1,3 +1,4 @@
+import { notify } from "@/lib/notifications/create";
 import { prisma } from "@/lib/db/prisma";
 import { routedStreamChat } from "@/lib/ai/router";
 import {
@@ -238,6 +239,7 @@ export async function runContentPipeline(o: PipelineOptions): Promise<{ postId: 
   // there can't retroactively turn a successful article into a
   // "failed" run.
   await prisma.contentPipelineRun.update({ where: { id: run.id }, data: { status: "done" } });
+  await notify(user.id,{type:"seo_content_completed",title:tri(lang,"محتوای سئو آماده است","SEO content is ready","SEO-Inhalt ist bereit","SEO içeriği hazır"),body:titleLine,link:"/seo/agent-pipeline",email:true});
   send({ type: "runDone", runId: run.id, postId: post.id });
 
   try {

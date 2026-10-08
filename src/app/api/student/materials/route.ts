@@ -1,3 +1,5 @@
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n/tri";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -15,7 +17,7 @@ async function extractText(file: File): Promise<string> {
   const buf = Buffer.from(await file.arrayBuffer());
   const name = file.name.toLowerCase();
   if (name.endsWith(".pdf") || file.type === "application/pdf") {
-    const mod = (await import("pdf-parse")) as unknown as ((b: Buffer) => Promise<{ text: string }>) | { default: (b: Buffer) => Promise<{ text: string }> };
+    const mod = (await import("pdf-parse/lib/pdf-parse.js")) as unknown as ((b: Buffer) => Promise<{ text: string }>) | { default: (b: Buffer) => Promise<{ text: string }> };
     return (typeof mod === "function" ? mod : mod.default)(buf).then((result) => result.text || "");
   }
   if (name.endsWith(".docx") || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
@@ -92,6 +94,7 @@ export async function POST(req: NextRequest) {
   if (typeof ocrTextField === "string") content = [content, ocrTextField.trim()].filter(Boolean).join("\n\n[متن OCR تصاویر اسلاید]\n");
   content = content.trim().slice(0, MAX_TEXT);
   title = title.slice(0, 200);
+  if(file instanceof File && file.name.toLowerCase().endsWith(".pdf") && !content){const lang=await getServerLang();return NextResponse.json({code:"SCANNED_PDF",error:tri(lang,"این PDF اسکن‌شده است. گزینهٔ «PDF اسکن‌شده / OCR» را فعال کنید و دوباره اضافه کنید.","This PDF has no selectable text. Enable Scanned PDF / OCR and retry.","Dieses PDF enthält keinen auswählbaren Text. Gescanntes PDF / OCR aktivieren und erneut versuchen.","Bu PDF seçilebilir metin içermiyor. Taranmış PDF / OCR seçeneğini etkinleştirin ve yeniden deneyin.")},{status:422});}
   if (!title || !content) return NextResponse.json({ error: "عنوان و محتوای قابل‌خواندن الزامی است" }, { status: 400 });
   if (looksLikeInjectionAttempt(content) || looksLikeInjectionAttempt(title)) return NextResponse.json({ error: "محتوا شامل الگوی دستور ناامن است و پذیرفته نشد" }, { status: 400 });
   const material = await prisma.studentMaterial.create({ data: { userId: user.id, courseId, title, content, source } });

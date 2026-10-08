@@ -1,8 +1,9 @@
+vi.mock("@/lib/utils/referralPromo",()=>({referralDiscount:mocks.promo,applyPromo:(amount:number,percent:number)=>amount*(1-percent/100)}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({
-  findPending: vi.fn(), create: vi.fn(), auth: vi.fn(), findPackage: vi.fn(), membership:vi.fn(), memberCount:vi.fn(), gateway:vi.fn(),fx:vi.fn(), update:vi.fn(), updateMany:vi.fn(),
+  promo:vi.fn(), findPending: vi.fn(), create: vi.fn(), auth: vi.fn(), findPackage: vi.fn(), membership:vi.fn(), memberCount:vi.fn(), gateway:vi.fn(),fx:vi.fn(), update:vi.fn(), updateMany:vi.fn(),
 }));
 vi.mock("@/lib/payment/zarinpal",()=>({createPayment:mocks.gateway}));
 vi.mock("@/lib/auth/middleware", () => ({ requireAuth: mocks.auth, unauthorizedResponse: () => new Response(null, { status: 401 }) }));
@@ -22,7 +23,7 @@ function request(plan: string, period: string, currency = "TRY") {
   return new NextRequest("http://localhost/api/payment/create", { method: "POST", body: JSON.stringify({ plan, period, currency }) });
 }
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.clearAllMocks();mocks.promo.mockResolvedValue({percent:0,code:null});
   mocks.fx.mockResolvedValue({usdToToman:100,usdToTry:40,usdToEur:0.9,rateDate:"2026-10-03"});
   mocks.auth.mockResolvedValue({ id: "buyer", role: "USER", accountType: "STUDENT" });
   mocks.findPackage.mockResolvedValue({ isActive: true, priceUsd: 8000, price: 80000, credits: 1000, duration: 30, teamSeatLimit:3,crmSeatLimit:3 });
@@ -150,3 +151,7 @@ describe("currency routing",()=>{
  });
 
 });
+
+it("applies the server promo to EUR without reducing included features",async()=>{mocks.promo.mockResolvedValue({percent:10,code:"influencer"});expect((await POST(request("STUDENT_FIRST_THREE_MONTHS","monthly","EUR"))).status).toBe(200);const data=mocks.create.mock.calls[0][0].data;expect(data.transferMinor).toBe(6480);expect(data.promoPercent).toBe(10);expect(data.originalAmount).toBe(8000);expect(JSON.parse(data.entitlementSnapshot)).toMatchObject({days:90,credits:1000});});
+it("applies the server promo to rial gateway requests",async()=>{mocks.promo.mockResolvedValue({percent:10,code:"influencer"});expect((await POST(request("STUDENT_FIRST_THREE_MONTHS","monthly","IRR"))).status).toBe(200);expect(mocks.gateway.mock.calls[0][0].amount).toBe(7200);});
+it("prevents multiple pending welcome-discount orders",async()=>{mocks.promo.mockResolvedValue({percent:10,code:"influencer"});mocks.findPending.mockResolvedValueOnce(null).mockResolvedValueOnce({id:"other-promo-order"});expect((await POST(request("STUDENT_FIRST_THREE_MONTHS","monthly","EUR"))).status).toBe(409);expect(mocks.create).not.toHaveBeenCalled();});

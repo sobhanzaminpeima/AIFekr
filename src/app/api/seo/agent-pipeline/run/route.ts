@@ -1,3 +1,4 @@
+import { notify } from "@/lib/notifications/create";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -61,6 +62,7 @@ async function handlePost(req: NextRequest) {
       try {
         await runContentPipeline({ userId: user.id, runId: run.id, topic, brandVoice, lang, publishMode: "publish", send });
       } catch (err) {
+        await notify(user.id,{type:"seo_content_failed",title:tri(lang,"تولید محتوای سئو انجام نشد","SEO content generation failed","SEO-Inhaltserstellung fehlgeschlagen","SEO içerik üretimi başarısız"),link:"/seo/agent-pipeline",email:true});
         console.error("Agent pipeline error:", err);
         await prisma.contentPipelineRun.update({ where: { id: run.id }, data: { status: "failed" } }).catch(() => {});
         send({ type: "error", message: tri(lang, "خطا در اجرای زنجیره agent ها. لطفاً دوباره تلاش کنید.", "The agent chain failed. Please try again.", "Die Agenten-Kette ist fehlgeschlagen. Bitte versuchen Sie es erneut.") });

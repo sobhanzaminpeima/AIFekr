@@ -19,7 +19,7 @@ async function extractText(file: File): Promise<string> {
   if (name.endsWith(".pdf") || file.type === "application/pdf") {
     // pdf-parse (CJS, `export =`) — import * as gives the function itself
     // under interop, with `.default` as a fallback across bundler configs.
-    const pdfParseModule = (await import("pdf-parse")) as unknown as
+    const pdfParseModule = (await import("pdf-parse/lib/pdf-parse.js")) as unknown as
       | ((b: Buffer) => Promise<{ text: string }>)
       | { default: (b: Buffer) => Promise<{ text: string }> };
     const pdfParse = typeof pdfParseModule === "function" ? pdfParseModule : pdfParseModule.default;

@@ -26,6 +26,7 @@ export default function PlansView() {
   const [audience, setAudience] = useState("business");
   const [period, setPeriod] = useState<BillingPeriod>("monthly");
   const [currency, setCurrency] = useState(lang==="fa"?"IRR":"TRY");
+  const [promo,setPromo]=useState<{percent:number;code:string|null}>({percent:0,code:null});
   const [busy, setBusy] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -50,7 +51,7 @@ export default function PlansView() {
       if (!response.ok) throw new Error();
       const data = await response.json();
       setPackages(data.packages || []);
-      setRates(data.fxRates || null);
+      setRates(data.fxRates || null);setPromo(data.promo||{percent:0,code:null});
     } catch {
       setError(t("دریافت پلن‌ها ممکن نشد. دوباره تلاش کنید.", "Unable to load plans. Please retry.", "Tarife konnten nicht geladen werden. Bitte erneut versuchen.", "Paketler yüklenemedi. Lütfen tekrar deneyin."));
     } finally { setLoading(false); }
@@ -104,14 +105,15 @@ export default function PlansView() {
         const introductory = isStudentIntroPlan(p.planCode);
         const term = student ? "monthly" : period;
         const usd = p.priceUsd != null;
-        const total = periodPrice(usd ? p.priceUsd! / 100 : Math.round(p.price / 10), term, usd ? "en" : "fa");
+        const originalTotal = periodPrice(usd ? p.priceUsd! / 100 : Math.round(p.price / 10), term, usd ? "en" : "fa");
+        const total=originalTotal*(1-promo.percent/100);
         const features = parseFeatures(lang === "fa" ? p.features : p.featuresEn || p.features);
         return <article key={p.planCode} className={`billing-plan ${p.isFeatured || selectedPlan === p.planCode ? "featured" : ""}`}>
           <div className="billing-plan-top"><span className="workspace-eyebrow">{student ? "STUDENT" : p.planCode.startsWith("CRM_") ? "CRM" : "TEAM AI"}</span>{p.isFeatured && <span className="billing-badge">{t("پیشنهادی", "Recommended", "Empfohlen", "Önerilen")}</span>}</div>
           <h2>{introductory ? t("پکیج دانشجویی سه‌ماهه", "Three-month student package", "Studierendenpaket für drei Monate", "Üç aylık öğrenci paketi") : lang === "fa" ? p.name : p.nameEn || p.name}</h2>
           <p className="billing-plan-purpose">{student ? t("فضای مطالعه و ابزارهای هوشمند", "Study workspace and AI tools", "Lernbereich und KI-Werkzeuge", "Çalışma alanı ve yapay zekâ araçları") : p.planCode.startsWith("CRM_") ? t("مدیریت مشتری؛ اعتبار AI جداگانه", "Customer management; AI credits separate", "Kundenverwaltung; KI-Credits separat", "Müşteri yönetimi; yapay zekâ kredileri ayrı") : t("تیم کامل AI و CRM در یک اشتراک", "Complete AI team and CRM in one subscription", "Team-Abo mit gemeinsamen KI-Credits", "Ortak yapay zekâ kredili ekip aboneliği")}</p>
           {introductory && <p className="billing-effective"><del>{format(STUDENT_OFFER.originalUsdPrice, true)}</del></p>}
-          <div className="billing-price">{format(bundle ? total / PERIOD_MONTHS[period] : total, usd)}{bundle && <small> / {t("ماه", "month", "Monat", "ay")}</small>}</div>
+          {promo.percent>0&&<p className="text-sm text-green-400"><del className="me-2 opacity-60">{format(originalTotal,usd)}</del>{promo.percent}% · {promo.code}</p>}<div className="billing-price">{format(bundle ? total / PERIOD_MONTHS[period] : total, usd)}{bundle && <small> / {t("ماه", "month", "Monat", "ay")}</small>}</div>
           <p className="billing-price-caption">{bundle ? `${format(total, usd)} · ${text(lang, PERIOD_LABELS[period])}` : introductory ? t("۳ ماه (۹۰ روز)", "3 months (90 days)", "3 Monate (90 Tage)", "3 ay (90 gün)") : text(lang, PERIOD_LABELS[term])} · {t("مبلغ کل دوره", "total for the term", "Gesamtbetrag", "dönem toplamı")}</p>
           {!bundle && !introductory && term !== "monthly" && <p className="billing-effective">{format(total / PERIOD_MONTHS[term], usd)} / {t("ماه", "month", "Monat", "ay")}</p>}
           {!p.planCode.startsWith("CRM_") && <p className="billing-credits"><strong>{(p.credits * (bundle ? PERIOD_MONTHS[period] : 1)).toLocaleString(lang)}</strong> {t("اعتبار کل دوره", "term credits", "Credits im Zeitraum", "dönem kredisi")}</p>}
