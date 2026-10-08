@@ -97,7 +97,3 @@ export default function SeoIntelligence() {
     </>}
   </main>;
 }
-
-
-
-

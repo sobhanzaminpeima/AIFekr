@@ -38,4 +38,3 @@ export default function ResearchResult({ action, result }: { action: string; res
   }
   return <div className="mt-4"><p className="mb-3 text-xs text-[var(--text-secondary)]">{text("منبع: DataForSEO · مقادیر نامشخص با — نمایش داده می‌شوند.", "Source: DataForSEO · Unavailable values appear as —.", "Quelle: DataForSEO · Nicht verfügbare Werte werden als — angezeigt.", "Kaynak: DataForSEO · Kullanılamayan değerler — olarak gösterilir.")}</p><div className="overflow-x-auto"><table className="w-full text-sm text-start"><thead><tr>{columns.map(column => <th key={column} className="p-3 text-start whitespace-nowrap font-medium text-[var(--text-secondary)]">{column}</th>)}</tr></thead><tbody>{rows.map((item, index) => <tr key={index} className="border-t border-[var(--border)]">{cells(item).map((cell, i) => <td key={i} className="p-3 min-w-24 max-w-xs break-words">{metric(cell)}</td>)}</tr>)}</tbody></table></div></div>;
 }
-
