@@ -26,7 +26,10 @@ export async function POST(req: NextRequest) {
         "Zu viele Anmeldeversuche — bitte warten Sie einen Moment") }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } });
     }
 
-    const { email, password } = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body.email !== "string" || typeof body.password !== "string") return NextResponse.json({ error: "Invalid login input" }, { status: 400 });
+    const email = body.email.trim().toLowerCase();
+    const password = body.password;
 
     if (!email || !password) {
       return NextResponse.json({ error: tri(lang,

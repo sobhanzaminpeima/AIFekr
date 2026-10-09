@@ -26,6 +26,18 @@ describe("POST /api/auth/login", () => {
     expect(response.headers.get("set-cookie")).toContain("HttpOnly");
   });
 
+  it("accepts the registered email with different capitalization and surrounding whitespace", async () => {
+    const response = await POST(new NextRequest("https://aifekr.test/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: `  ${email.toUpperCase()}  `, password: "Safe-test-password-938!" }) }));
+    expect(response.status).toBe(200);
+    expect((await response.json()).user.id).toBe(userId);
+  });
+
+  it("rejects non-string credentials as an invalid request", async () => {
+    const response = await POST(new NextRequest("https://aifekr.test/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: {}, password: "Safe-test-password-938!" }) }));
+    expect(response.status).toBe(400);
+    expect(response.headers.get("set-cookie")).toBeNull();
+  });
+
   it("rejects an incorrect password without issuing a session", async () => {
     const response = await POST(new NextRequest("https://aifekr.test/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password: "incorrect" }) }));
     expect(response.status).toBe(401);
