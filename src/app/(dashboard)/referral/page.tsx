@@ -61,6 +61,9 @@ export default function ReferralPage() {
   const isFa = lang === "fa";
   const [data, setData] = useState<ReferralData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [customCode, setCustomCode] = useState("");
+  const [codeSaving, setCodeSaving] = useState(false);
+  const [codeMessage, setCodeMessage] = useState("");
   const [copied, setCopied] = useState(false);
   const [tab, setTab] = useState<"invite" | "stats" | "wallet" | "transactions" | "payout">("invite");
   const [fxRates, setFxRates] = useState<FxRates | null>(null);
@@ -80,7 +83,9 @@ export default function ReferralPage() {
   const loadReferral = useCallback(async () => {
     const r = await fetch("/api/referral/me");
     const d = await r.json();
+    if (!r.ok) throw Error("Referral load failed");
     setData(d);
+    setCustomCode(d.referralCode || "");
   }, []);
 
   const loadWallet = useCallback(async () => {
@@ -101,6 +106,21 @@ export default function ReferralPage() {
   const link = data?.referralCode && typeof window !== "undefined"
     ? `${window.location.origin}/register?ref=${data.referralCode}`
     : "";
+
+  async function saveCode(e: React.FormEvent) {
+    e.preventDefault();setCodeSaving(true);setCodeMessage("");
+    try {
+      const response = await fetch("/api/referral/me", {method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:customCode})});
+      const result = await response.json();
+      if (!response.ok) {
+        setCodeMessage(result.code === "CODE_UNAVAILABLE" ? tri(lang,"این کد قبلاً انتخاب شده است.","This code is already taken.","Dieser Code ist bereits vergeben.","Bu kod zaten alınmış.") : result.code === "INVALID_CODE" ? tri(lang,"کد باید ۳ تا ۳۰ حرف انگلیسی، عدد، خط تیره یا زیرخط باشد.","Use 3–30 Latin letters, digits, hyphens or underscores.","3–30 lateinische Buchstaben, Ziffern, Bindestriche oder Unterstriche verwenden.","3–30 Latin harfi, rakam, tire veya alt çizgi kullanın.") : tri(lang,"ذخیره نشد؛ دوباره تلاش کنید.","Unable to save. Please retry.","Speichern fehlgeschlagen. Erneut versuchen.","Kaydedilemedi. Tekrar deneyin."));return;
+      }
+      setData(previous=>previous?{...previous,referralCode:result.referralCode}:previous);
+      setCustomCode(result.referralCode);setCopied(false);
+      setCodeMessage(tri(lang,"کد دعوت ذخیره شد.","Invitation code saved.","Einladungscode gespeichert.","Davet kodu kaydedildi."));
+    } catch {setCodeMessage(tri(lang,"خطای اتصال؛ دوباره تلاش کنید.","Connection error. Please retry.","Verbindungsfehler. Erneut versuchen.","Bağlantı hatası. Tekrar deneyin."));}
+    finally {setCodeSaving(false);}
+  }
 
   async function copyLink() {
     if (!link) return;
@@ -212,6 +232,12 @@ export default function ReferralPage() {
                 {copied ? tri(lang, "کپی شد", "Copied", "Kopiert", "Kopyalandı") : tri(lang, "کپی لینک", "Copy link", "Link kopieren", "Bağlantıyı kopyala")}
               </button>
             </div>
+            <form onSubmit={saveCode} className="my-4 space-y-2">
+              <label htmlFor="custom-referral-code" className="block text-sm font-medium">{tri(lang,"کد دعوت شخصی شما","Your personal invitation code","Ihr persönlicher Einladungscode","Kişisel davet kodunuz")}</label>
+              <div className="flex flex-wrap gap-2"><input id="custom-referral-code" value={customCode} onChange={e=>setCustomCode(e.target.value)} placeholder="sobhan" minLength={3} maxLength={30} pattern="[A-Za-z0-9][A-Za-z0-9_-]{2,29}" required dir="ltr" autoCapitalize="none" className="min-w-0 flex-1 rounded-xl px-3 py-2 text-sm" style={{background:"var(--surface-1)",color:"var(--text-primary)",border:"1px solid var(--border)"}}/><button disabled={codeSaving} type="submit" className="rounded-xl bg-orange-500 px-4 py-2 text-sm text-black disabled:opacity-50">{codeSaving?"…":tri(lang,"ذخیره کد","Save code","Code speichern","Kodu kaydet")}</button></div>
+              <p className="text-xs opacity-75">{tri(lang,"مثلاً sobhan؛ کد باید یکتا باشد. لینک‌های قبلی شما همچنان کار می‌کنند.","For example, sobhan. Your code must be unique; previous links still work.","Zum Beispiel sobhan. Der Code muss eindeutig sein; frühere Links funktionieren weiterhin.","Örneğin sobhan. Kod benzersiz olmalıdır; eski bağlantılar çalışmaya devam eder.")}</p>
+              {codeMessage&&<p className="text-sm" role="status">{codeMessage}</p>}
+            </form>
             {data?.referralCode && (
               <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>{tri(lang, "کد شما:", "Your code:", "Ihr Code:", "Kodunuz:")} {data.referralCode}</p>
             )}

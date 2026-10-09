@@ -44,7 +44,7 @@ export async function ocrImages(images: { name: string; mimeType: string; data: 
         const response = await fetch(`${provider!.baseURL}/chat/completions`, {
           method: "POST", signal: controller.signal,
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${provider!.apiKey}` },
-          body: JSON.stringify({ model: provider!.model, messages: [{ role: "user", content }], temperature: 0, max_tokens: 6000 }),
+          body: JSON.stringify({ model: provider!.model, messages: [{ role: "user", content }], temperature: 0, ...(provider!.provider === "openai" ? { max_completion_tokens: 6000 } : { max_tokens: 6000 }) }),
         });
         if (!response.ok) throw new Error(`VISION_PROVIDER_${response.status}`);
         const result = await response.json();

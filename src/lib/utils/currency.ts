@@ -22,7 +22,7 @@ export interface FxRates {
   isFallback?: boolean;
 }
 
-const CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12h — FX rates don't need to be second-fresh for pack pricing display
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1h — FX rates don't need to be second-fresh for pack pricing display
 let cache: { rates: FxRates; fetchedAt: number } | null = null;
 
 /**
@@ -50,10 +50,10 @@ async function fetchFreeCurrencyApiEur(): Promise<number | null> {
 }
 
 async function fetchLiveRates(): Promise<FxRates> {
-  const res = await fetch("https://open.er-api.com/v6/latest/USD", { signal: AbortSignal.timeout(5000) });
+  const res = await fetch("https://open.er-api.com/v6/latest/USD", { cache: "no-store", signal: AbortSignal.timeout(5000) });
   if (!res.ok) throw new Error(`FX API ${res.status}`);
   const data = await res.json();
-  if (data.result !== "success" || !data.rates?.IRR || !data.rates?.EUR || !data.rates?.TRY) throw new Error("FX API malformed response");
+  if (data.result !== "success" || ![data.rates?.IRR, data.rates?.EUR, data.rates?.TRY].every(v => typeof v === "number" && Number.isFinite(v) && v > 0) || !Number.isFinite(data.time_last_update_unix)) throw new Error("FX API malformed response");
   // open.er-api.com's IRR rate is Iran's official Rial-per-USD figure — divide
   // by 10 for Toman (the everyday colloquial unit this app prices in).
   const freeCurrencyEur = await fetchFreeCurrencyApiEur();
@@ -73,7 +73,7 @@ export async function getFxRates(): Promise<FxRates> {
     console.error("FX rate fetch failed, using fallback:", err);
     // Keep serving the last known-good cached value past its TTL rather than
     // reverting to the static default the moment the API has one bad request.
-    if (cache) return cache.rates;
+    if (cache) return { ...cache.rates, isFallback: true };
     return { usdToToman: USD_TO_TOMAN_FALLBACK, usdToEur: USD_TO_EUR_FALLBACK, usdToTry: USD_TO_TRY_FALLBACK, rateDate: "2026-10-02", isFallback: true };
   }
 }

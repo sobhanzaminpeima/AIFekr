@@ -44,9 +44,9 @@ export async function activatePlanForPayment(
   const expiry = new Date();
   expiry.setDate(expiry.getDate() + (planInfo?.days || 30) * Math.max(1, payment.periodMonths ?? 1));
 
-  if (isStudentIntroPlan(payment.plan) || payment.plan === STUDENT_MONTHLY_CODE) {
+  if (isStudentIntroPlan(payment.plan) || payment.plan === STUDENT_PLAN_CODE || payment.plan === STUDENT_MONTHLY_CODE) {
     // Student packages grant their stored credits once for the purchased term.
-    const days = payment.plan === STUDENT_PLAN_CODE ? STUDENT_OFFER.days : isStudentIntroPlan(payment.plan) ? 60 : 30 * Math.max(1, payment.periodMonths ?? 1);
+    const days = payment.plan === STUDENT_PLAN_CODE ? STUDENT_OFFER.days : payment.plan === "STUDENT_FIRST_THREE_MONTHS" ? 90 : isStudentIntroPlan(payment.plan) ? 60 : 30 * Math.max(1, payment.periodMonths ?? 1);
     expiry.setTime(Date.now() + days * 24 * 60 * 60 * 1000);
     return prisma.$transaction(async tx => {
       const claimed = await tx.payment.updateMany({ where: { id: payment.id, status: "PENDING" }, data: { status: "SUCCESS", refId, authority } });

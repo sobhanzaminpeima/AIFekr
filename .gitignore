@@ -90,3 +90,6 @@ tsc-errors.txt
 
 /.next-commerce-release/
 !/docs/admin-commerce-seo-voice.md
+
+# Reviewed bilingual Telnyx support documentation.
+!/docs/telnyx/

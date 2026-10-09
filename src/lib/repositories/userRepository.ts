@@ -16,7 +16,7 @@ export function findUserByPhone(phone: string) {
 }
 
 export function findUserByReferralCode(code: string) {
-  return prisma.user.findUnique({ where: { referralCode: code }, select: { id: true } });
+  return prisma.$queryRaw<{id:string}[]>`SELECT id FROM User WHERE lower(referralCode) = ${code.toLowerCase()} UNION SELECT userId AS id FROM ReferralCodeAlias WHERE lower(code) = ${code.toLowerCase()}`.then(rows => rows.length === 1 ? rows[0] : null);
 }
 
 export function createUser(data: Prisma.UserCreateInput) {

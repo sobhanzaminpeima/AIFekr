@@ -7,13 +7,13 @@ import {useTranslation,tri} from "@/lib/i18n";
 import toast from "react-hot-toast";
 
 type Pkg = {
-  id: string; planCode: string; name: string; nameEn: string; price: number; priceUsd: number | null;
+  id: string; planCode: string; name: string; nameEn: string; price: number; priceUsd: number | null; priceTry: number | null;
   market: string; duration: number;
   credits: number; isActive: boolean; isFeatured: boolean; color: string;
   features: string; featuresEn: string | null; sortOrder: number; teamSeatLimit: number | null;
 };
 
-const EMPTY_FORM = { planCode: "", name: "", nameEn: "", price: 0, priceUsd: "" as number | "", market: "IR", duration: 30, credits: 1000, color: "#ea580c", features: "", featuresEn: "", sortOrder: 0, teamSeatLimit: "" as number | "" };
+const EMPTY_FORM = { planCode: "", name: "", nameEn: "", price: 0, priceUsd: "" as number | "", priceTry: "" as number | "", market: "IR", duration: 30, credits: 1000, color: "#ea580c", features: "", featuresEn: "", sortOrder: 0, teamSeatLimit: "" as number | "" };
 
 const MARKETS = [
   { value: "IR", label: "ایران (ریال)" },
@@ -47,7 +47,7 @@ export default function PackagesPage() {
     setEditing(p);
     setForm({
       planCode: p.planCode, name: p.name, nameEn: p.nameEn,
-      price: p.price, priceUsd: p.priceUsd ?? "", market: p.market || "IR",
+      price: p.price, priceUsd: p.priceUsd ?? "", priceTry: p.priceTry ?? "", market: p.market || "IR",
       duration: p.duration, credits: p.credits, color: p.color,
       features: p.features, featuresEn: p.featuresEn ?? "", sortOrder: p.sortOrder, teamSeatLimit: p.teamSeatLimit ?? "",
     });
@@ -94,7 +94,7 @@ export default function PackagesPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="rounded-xl border border-orange-500/30 p-4 text-sm leading-7">پکیج دانشجویی: قیمت پایه ماهانه ۸۰ دلار؛ آفر اولین اشتراک ۳ ماه (۹۰ روز) با مجموع ۸۰ دلار، به‌جای ۲۴۰ دلار. قیمت دلاری به سنت ثبت می‌شود (۸۰۰۰). معادل تومان و لیر در نمایش و پرداخت از نرخ روز محاسبه می‌شود. اعتبار هر بسته قابل تنظیم است.</div>
+      <div className="rounded-xl border border-orange-500/30 p-4 text-sm leading-7">پکیج دانشجویی: یک ماه ₺1,199.99 و سه ماه ₺2,799.99 (۲۲٪ تخفیف). قیمت پایه لیر به قروش ثبت می‌شود؛ معادل دلار و تومان با نرخ روز محاسبه می‌شود. اعتبار هر بسته قابل تنظیم است.</div>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>مدیریت پکیج‌ها</h1>
@@ -186,6 +186,7 @@ export default function PackagesPage() {
               ))}
             </div>
             <div className="grid grid-cols-3 gap-3">
+              <div><label className="block text-sm mb-1">{tri(lang,"قیمت پایه لیر (قروش؛ 119999 = ₺1,199.99)","TRY base (kurus; 119999 = ₺1,199.99)","TRY-Basis (Kurus; 119999 = ₺1.199,99)","TRY tabanı (kuruş; 119999 = ₺1.199,99)")}</label><input type="number" min="1" step="1" value={form.priceTry} onChange={e=>setForm(p=>({...p,priceTry:e.target.value === "" ? "" : Number(e.target.value)}))} className="w-full p-2 rounded-lg bg-transparent border"/><p className="text-xs mt-1 opacity-70">{tri(lang,"اگر تعیین شود، دلار و تومان از نرخ روز محاسبه می‌شوند.","When set, USD and Toman use current rates.","USD und Toman verwenden aktuelle Kurse.","Belirlenirse USD ve Toman güncel kurdan hesaplanır.")}</p></div>
               {[{ label: "قیمت (ریال)", key: "price" }, { label: "مدت (روز)", key: "duration" }, { label: "اعتبار", key: "credits" }].map(f => (
                 <div key={f.key}>
                   <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>{f.label}</label>

@@ -22,7 +22,10 @@ export async function GET(req: NextRequest) {
   const plan = searchParams.get("plan") || "";
   const status = searchParams.get("status") || "";
 
+  const sort = searchParams.get("sort") || "newest";
+  const recent = searchParams.get("recent") === "7d";
   const where: Record<string, unknown> = {};
+  if (recent) where.createdAt = { gte: new Date(Date.now() - 7 * 86400000) };
   const audience = searchParams.get("accountType");
   if (["PERSONAL","STUDENT","BUSINESS"].includes(audience || "")) where.accountType = audience;
 
@@ -51,7 +54,7 @@ export async function GET(req: NextRequest) {
       where,
       skip: (page - 1) * limit,
       take: limit,
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: sort === "oldest" ? "asc" : "desc" }, { id: sort === "oldest" ? "asc" : "desc" }],
       select: {
         id: true,
         name: true,

@@ -8,8 +8,8 @@ import { POST } from "./route";
 const req=(body:unknown)=>new NextRequest("https://aifekr.test/api/user/onboarding",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
 beforeEach(()=>{vi.clearAllMocks();mocks.auth.mockResolvedValue({id:"student",accountType:"STUDENT"});mocks.pack.mockResolvedValue({isActive:true});mocks.enabled.mockResolvedValue(false);});
 describe("onboarding preserves purchase intent",()=>{
- it("keeps a selected student package and its fixed period",async()=>{const data=await(await POST(req({businessType:"student",selectedPlan:"STUDENT_FIRST_THREE_MONTHS",period:"semiannual"}))).json();expect(data.redirect).toBe("/plans?plan=STUDENT_FIRST_THREE_MONTHS&period=monthly");});
- it("takes unpaid students to checkout even when introduction is skipped",async()=>{const data=await(await POST(req({}))).json();expect(data.redirect).toContain("STUDENT_FIRST_THREE_MONTHS");});
+ it("keeps a selected student package and its fixed period",async()=>{const data=await(await POST(req({businessType:"student",selectedPlan:"STUDENT_QUARTERLY",period:"semiannual"}))).json();expect(data.redirect).toBe("/plans?plan=STUDENT_QUARTERLY&period=monthly");});
+ it("takes unpaid students to checkout even when introduction is skipped",async()=>{const data=await(await POST(req({}))).json();expect(data.redirect).toContain("STUDENT_QUARTERLY");});
  it("takes an already active student straight to their workspace",async()=>{mocks.enabled.mockResolvedValue(true);const data=await(await POST(req({businessType:"student"}))).json();expect(data.redirect).toBe("/student");});
  it("keeps business purchase period",async()=>{mocks.auth.mockResolvedValue({id:"b",accountType:"BUSINESS"});const data=await(await POST(req({selectedPlan:"TEAM_BUSINESS_GROW",period:"quarterly"}))).json();expect(data.redirect).toBe("/plans?plan=TEAM_BUSINESS_GROW&period=quarterly");});
  it("does not redirect to arbitrary external URLs",async()=>{mocks.auth.mockResolvedValue({id:"b",accountType:"BUSINESS"});mocks.pack.mockResolvedValue(null);expect((await(await POST(req({selectedPlan:"//evil.test"}))).json()).redirect).toBe("/chat");});

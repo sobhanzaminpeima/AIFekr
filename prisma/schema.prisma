@@ -222,8 +222,15 @@ model AcademyLearningPath {
 }
 
 model User {
+  referralCodeAliases ReferralCodeAlias[]
+  @@index([signupNotifiedAt, createdAt])
   id                        String    @id @default(cuid())
   email                     String?   @unique
+  /// Durable new-account alert to support; historical users are marked in migration.
+  signupNotifiedAt           DateTime?
+  signupNotificationClaimedAt DateTime?
+  signupNotificationAttempts Int       @default(0)
+  signupNotificationError    String?
   phone                     String?   @unique
   passwordHash              String?
   name                      String?
@@ -1749,6 +1756,14 @@ model CrmProject {
 /// changes what users see and pay. planCode must match one of the values
 /// stored on User.plan (currently BASIC | PRO | TEAM — FREE has no row
 /// here since it isn't purchasable).
+model ReferralCodeAlias {
+  code String @id
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@index([userId])
+}
+
 model Package {
   id           String   @id @default(cuid())
   planCode     String   @unique
@@ -1758,6 +1773,8 @@ model Package {
   price        Int
   /// Price in USD cents (e.g. 1900 = $19.00). Null means Iran-only plan.
   priceUsd     Int?
+  /// Optional TRY base in kurus. Other currencies use current FX rates.
+  priceTry     Int?
   /// Market segment: "IR" (Iran only) | "INTL" (international only) | "BOTH"
   market       String   @default("IR")
   duration     Int      @default(30)

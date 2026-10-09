@@ -318,7 +318,7 @@ export default function LoginPage() {
             <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
           </div>
           <a
-            href="/api/auth/google"
+            href={`/api/auth/google?${new URLSearchParams({redirect:getSafeRedirect()||"",language:lang})}`}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-medium text-sm transition-all"
             style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
           >

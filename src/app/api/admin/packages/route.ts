@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, unauthorizedResponse, forbiddenResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 
+import { convertedPackage } from "@/lib/plans/packagePricing";
 import { getFxRates } from "@/lib/utils/currency";
 
 async function checkAdmin(req: NextRequest) {
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
   try {
     const packages = await prisma.package.findMany({ orderBy: { sortOrder: "asc" } });
     const rates = await getFxRates();
-    return NextResponse.json({ packages: packages.map(p => p.planCode.startsWith("STUDENT_") && p.priceUsd != null ? { ...p, price: Math.round(p.priceUsd / 100 * rates.usdToToman) * 10 } : p) });
+    return NextResponse.json({ packages: packages.map(p => convertedPackage(p, rates)) });
   } catch (e) { return NextResponse.json({ error: "خطای سرور" }, { status: 500 }); }
 }
 
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest) {
         // Null, not 0: null means "Iran-only plan" per the schema, while 0
         // would advertise a genuinely free USD plan.
         priceUsd: body.priceUsd === "" || body.priceUsd == null ? null : Number(body.priceUsd),
+        priceTry: body.priceTry === "" || body.priceTry == null ? null : Number(body.priceTry),
         market: body.market || "IR",
         duration: Number(body.duration) || 30,
         credits: Number(body.credits) || 1000,
@@ -73,6 +75,7 @@ export async function PUT(req: NextRequest) {
         price: Number(data.price),
         // See the POST handler's note -- same three fields were unwritable here.
         priceUsd: data.priceUsd === "" || data.priceUsd == null ? null : Number(data.priceUsd),
+        ...(data.priceTry !== undefined ? { priceTry: data.priceTry === "" || data.priceTry == null ? null : Number(data.priceTry) } : {}),
         market: data.market || "IR",
         duration: Number(data.duration),
         credits: Number(data.credits),

@@ -82,12 +82,23 @@ describe("bank checkout period selection", () => {
     expect(mocks.create.mock.calls[0][0].data.periodMonths).toBe(3);
     expect(JSON.parse(mocks.create.mock.calls[0][0].data.entitlementSnapshot).days).toBe(90);
   });
-  it("uses six months and the correct discount for regular student subscriptions", async () => {
-    await POST(request("STUDENT_MONTHLY", "semiannual"));
-    const data = mocks.create.mock.calls[0][0].data;
-    expect(data.periodMonths).toBe(6);
-    expect(data.transferMinor).toBe(1728000);
-    expect(JSON.parse(data.entitlementSnapshot).days).toBe(180);
+  it("rejects extra multipliers on the fixed monthly student package", async () => {
+    expect((await POST(request("STUDENT_MONTHLY", "semiannual"))).status).toBe(400);
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+  it.each([["STUDENT_MONTHLY",119999,1,30],["STUDENT_QUARTERLY",279999,3,90]])("charges the exact TRY price and snapshots term for %s",async(plan,priceTry,months,days)=>{
+    mocks.findPackage.mockResolvedValue({isActive:true,priceTry,priceUsd:8000,price:80000,credits:1000,duration:days});
+    expect((await POST(request(plan as string,"monthly"))).status).toBe(200);
+    const data=mocks.create.mock.calls[0][0].data;
+    expect(data.transferMinor).toBe(priceTry);
+    expect(data.periodMonths).toBe(months);
+    expect(JSON.parse(data.entitlementSnapshot)).toMatchObject({days,credits:1000});
+    expect(mocks.findPending).toHaveBeenCalledTimes(1); // renewable; no introductory restriction
+  });
+  it("converts TRY student base to EUR without an intermediate USD-cent rounding",async()=>{
+    mocks.findPackage.mockResolvedValue({isActive:true,priceTry:279999,priceUsd:8000,price:80000,credits:1000,duration:90});
+    await POST(request("STUDENT_QUARTERLY","monthly","EUR"));
+    expect(mocks.create.mock.calls[0][0].data.transferMinor).toBe(Math.round(279999/40*.9));
   });
   it("reuses an exact pending order instead of creating a duplicate", async () => {
     mocks.findPending.mockResolvedValue({ id: "same-order" });

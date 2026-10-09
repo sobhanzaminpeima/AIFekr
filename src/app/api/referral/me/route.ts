@@ -1,3 +1,5 @@
+import { changeReferralCode } from "@/lib/utils/changeReferralCode";
+import { rateLimit } from "@/lib/utils/rateLimit";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
@@ -38,4 +40,25 @@ export async function GET(req: NextRequest) {
       createdAt: u.createdAt,
     })),
   });
+}
+
+export async function PATCH(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (!auth) return unauthorizedResponse(req);
+  if (!rateLimit(`referral-code:${auth.id}`, 10, 60000).allowed) return NextResponse.json({code:"RATE_LIMITED"},{status:429});
+  const body = await req.json().catch(() => null);
+  try {
+    const result = await prisma.$transaction(async tx => {
+      const changed = await changeReferralCode(tx, auth.id, body?.code);
+      await tx.auditLog.create({ data: { actorId: auth.id, action: "referral_code_changed", targetId: auth.id, metadata: JSON.stringify(changed) } });
+      return changed;
+    });
+    return NextResponse.json({referralCode:result.code});
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message === "INVALID_CODE") return NextResponse.json({code:message},{status:400});
+    if (message === "CODE_UNAVAILABLE" || (error as {code?:string})?.code === "P2002") return NextResponse.json({code:"CODE_UNAVAILABLE"},{status:409});
+    console.error("Referral code change failed");
+    return NextResponse.json({code:"SERVER_ERROR"},{status:500});
+  }
 }

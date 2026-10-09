@@ -52,6 +52,15 @@ describe("activatePlanForPayment billing term", () => {
     expect(Math.round((expiry.getTime() - Date.now()) / DAY_MS)).toBe(30);
     expect((await prisma.user.findUniqueOrThrow({ where: { id: USER_ID } })).credits).toBe(1000);
   });
+  it("activates a renewable quarterly student plan for 90 days with credits only once", async () => {
+    await prisma.user.update({where:{id:USER_ID},data:{credits:0}});
+    const pending=await createPendingPayment({userId:USER_ID,amount:1000,plan:"STUDENT_QUARTERLY",gateway:"zarinpal",periodMonths:3});
+    const payment=await findPaymentById(pending.id);
+    const expiry=await activatePlanForPayment(payment!,"quarterly-ref",`auth-${pending.id}`,{credits:1000,days:90});
+    await activatePlanForPayment(payment!,"quarterly-ref",`auth-${pending.id}`,{credits:1000,days:90});
+    expect(Math.round((expiry.getTime()-Date.now())/DAY_MS)).toBe(90);
+    expect((await prisma.user.findUniqueOrThrow({where:{id:USER_ID}})).credits).toBe(1000);
+  });
   it("grants one package duration for a monthly payment", async () => {
     const expiry = await activate(undefined);
     expect(Math.round((expiry.getTime() - Date.now()) / DAY_MS)).toBe(30);

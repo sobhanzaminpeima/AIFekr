@@ -10,7 +10,8 @@ import { prisma } from "@/lib/db/prisma";
 import { getFxRates } from "@/lib/utils/currency";
 import { bankSettings, validIban } from "@/lib/payment/bank";
 import { subscriptionTerm } from "@/lib/payment/subscriptionTerm";
-import { STUDENT_PLAN_CODE } from "@/lib/plans/studentOffer";
+import { isStudentIntroPlan } from "@/lib/plans/studentOffer";
+import { packageUsdPrice } from "@/lib/plans/packagePricing";
 import { rateLimit } from "@/lib/utils/rateLimit";
 export async function POST(req: NextRequest) {
  const user=await requireAuth(req); if(!user)return unauthorizedResponse(req);
@@ -33,8 +34,8 @@ export async function POST(req: NextRequest) {
   const activeMembers=await prisma.teamMember.count({where:{team:{ownerId:user.id}}});
   if(activeMembers>seats)return bankError(req,"Choose a package that covers your current team members",409);
  }
- const intro=plan===STUDENT_PLAN_CODE;
- if(intro && period!=="monthly")return bankError(req,"Invalid billing period",400);
+ const intro=isStudentIntroPlan(plan);
+ if(plan.startsWith("STUDENT_") && period!=="monthly")return bankError(req,"Invalid billing period",400);
  if(!intro&&!tier&&!["monthly","quarterly","semiannual","annual"].includes(period))return bankError(req,"Invalid billing period",400);
  const {months,discount,priceMultiplier,days}=subscriptionTerm(plan,period,pkg.duration);
  const rates=await getFxRates();
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
  bank.currency=body.currency==="EUR"?"EUR":"TRY";
  if(body.currency === "EUR") { bank.currency="EUR"; bank.iban=bank.euroIban; }
  if(!rial&&(!validIban(bank.iban)||!["TRY","EUR"].includes(bank.currency)))return bankError(req,"Bank account is unavailable",503);
- const usd=pkg.priceUsd!=null?pkg.priceUsd/100:pkg.price/10/rates.usdToToman;
+ const usd=packageUsdPrice(pkg,rates);
  const promo=tier?{percent:0,code:null}:await referralDiscount(user.id);
  const originalTotal=usd*priceMultiplier*(1-discount);
  const total=applyPromo(originalTotal,promo.percent);

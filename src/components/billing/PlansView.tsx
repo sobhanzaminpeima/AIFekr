@@ -12,9 +12,9 @@ import { parseFeatures } from "@/lib/marketing/features";
 import { packageAmount, formatPackageAmount } from "@/lib/marketing/packageCurrency";
 import { periodPrice } from "@/lib/marketing/pricing";
 import { PERIOD_MONTHS, type BillingPeriod } from "@/lib/payment/period";
-import { isStudentIntroPlan, STUDENT_OFFER } from "@/lib/plans/studentOffer";
+import { isStudentIntroPlan, STUDENT_PLAN_CODE, STUDENT_OFFER } from "@/lib/plans/studentOffer";
 
-type Package = { planCode: string; name: string; nameEn: string; price: number; priceUsd: number | null; duration: number; credits: number; isFeatured: boolean; features: string | null; featuresEn: string | null; teamSeatLimit:number | null };
+type Package = { planCode: string; name: string; nameEn: string; price: number; priceUsd: number | null; priceTry?: number | null; usdAmount?: number; duration: number; credits: number; isFeatured: boolean; features: string | null; featuresEn: string | null; teamSeatLimit:number | null };
 
 export default function PlansView() {
   const { lang } = useTranslation();
@@ -102,18 +102,19 @@ export default function PlansView() {
       : <div className="billing-grid">{visible.map(p => {
         const bundle = isBusinessBundle(p.planCode);
         const student = p.planCode.startsWith("STUDENT_");
-        const introductory = isStudentIntroPlan(p.planCode);
+        const introductory = isStudentIntroPlan(p.planCode) || p.planCode === STUDENT_PLAN_CODE;
         const term = student ? "monthly" : period;
         const usd = p.priceUsd != null;
-        const originalTotal = periodPrice(usd ? p.priceUsd! / 100 : Math.round(p.price / 10), term, usd ? "en" : "fa");
+        const originalTotal = student && usd ? (p.usdAmount ?? p.priceUsd! / 100) : periodPrice(usd ? (p.usdAmount ?? p.priceUsd! / 100) : Math.round(p.price / 10), term, usd ? "en" : "fa");
         const total=originalTotal*(1-promo.percent/100);
         const features = parseFeatures(lang === "fa" ? p.features : p.featuresEn || p.features);
         return <article key={p.planCode} className={`billing-plan ${p.isFeatured || selectedPlan === p.planCode ? "featured" : ""}`}>
           <div className="billing-plan-top"><span className="workspace-eyebrow">{student ? "STUDENT" : p.planCode.startsWith("CRM_") ? "CRM" : "TEAM AI"}</span>{p.isFeatured && <span className="billing-badge">{t("پیشنهادی", "Recommended", "Empfohlen", "Önerilen")}</span>}</div>
           <h2>{introductory ? t("پکیج دانشجویی سه‌ماهه", "Three-month student package", "Studierendenpaket für drei Monate", "Üç aylık öğrenci paketi") : lang === "fa" ? p.name : p.nameEn || p.name}</h2>
           <p className="billing-plan-purpose">{student ? t("فضای مطالعه و ابزارهای هوشمند", "Study workspace and AI tools", "Lernbereich und KI-Werkzeuge", "Çalışma alanı ve yapay zekâ araçları") : p.planCode.startsWith("CRM_") ? t("مدیریت مشتری؛ اعتبار AI جداگانه", "Customer management; AI credits separate", "Kundenverwaltung; KI-Credits separat", "Müşteri yönetimi; yapay zekâ kredileri ayrı") : t("تیم کامل AI و CRM در یک اشتراک", "Complete AI team and CRM in one subscription", "Team-Abo mit gemeinsamen KI-Credits", "Ortak yapay zekâ kredili ekip aboneliği")}</p>
-          {introductory && <p className="billing-effective"><del>{format(STUDENT_OFFER.originalUsdPrice, true)}</del></p>}
+          {introductory && <p className="billing-effective"><del>{format(STUDENT_OFFER.originalLiraPrice / (rates?.usdToTry ?? 49.123297), true)}</del> · 22% {t("تخفیف", "off", "Rabatt", "indirim")}</p>}
           {promo.percent>0&&<p className="text-sm text-green-400"><del className="me-2 opacity-60">{format(originalTotal,usd)}</del>{promo.percent}% · {promo.code}</p>}<div className="billing-price">{format(bundle ? total / PERIOD_MONTHS[period] : total, usd)}{bundle && <small> / {t("ماه", "month", "Monat", "ay")}</small>}</div>
+          {student && rates && <p className="billing-note" dir="ltr">₺{((p.priceTry ?? Math.round(originalTotal * rates.usdToTry * 100)) / 100).toLocaleString("en-US", {minimumFractionDigits:2,maximumFractionDigits:2})} · ${originalTotal.toFixed(2)} · {Math.round(originalTotal * rates.usdToToman).toLocaleString(lang)} {t("تومان", "Toman", "Toman", "Toman")}</p>}
           <p className="billing-price-caption">{bundle ? `${format(total, usd)} · ${text(lang, PERIOD_LABELS[period])}` : introductory ? t("۳ ماه (۹۰ روز)", "3 months (90 days)", "3 Monate (90 Tage)", "3 ay (90 gün)") : text(lang, PERIOD_LABELS[term])} · {t("مبلغ کل دوره", "total for the term", "Gesamtbetrag", "dönem toplamı")}</p>
           {!bundle && !introductory && term !== "monthly" && <p className="billing-effective">{format(total / PERIOD_MONTHS[term], usd)} / {t("ماه", "month", "Monat", "ay")}</p>}
           {!p.planCode.startsWith("CRM_") && <p className="billing-credits"><strong>{(p.credits * (bundle ? PERIOD_MONTHS[period] : 1)).toLocaleString(lang)}</strong> {t("اعتبار کل دوره", "term credits", "Credits im Zeitraum", "dönem kredisi")}</p>}

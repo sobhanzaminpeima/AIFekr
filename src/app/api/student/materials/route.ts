@@ -17,8 +17,8 @@ async function extractText(file: File): Promise<string> {
   const buf = Buffer.from(await file.arrayBuffer());
   const name = file.name.toLowerCase();
   if (name.endsWith(".pdf") || file.type === "application/pdf") {
-    const mod = (await import("pdf-parse/lib/pdf-parse.js")) as unknown as ((b: Buffer) => Promise<{ text: string }>) | { default: (b: Buffer) => Promise<{ text: string }> };
-    return (typeof mod === "function" ? mod : mod.default)(buf).then((result) => result.text || "");
+    const mod = (await import("pdf-parse/lib/pdf-parse.js")) as unknown as ((b: Uint8Array) => Promise<{ text: string }>) | { default: (b: Uint8Array) => Promise<{ text: string }> };
+    return (typeof mod === "function" ? mod : mod.default)(new Uint8Array(buf)).then((result) => result.text || "");
   }
   if (name.endsWith(".docx") || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
     const mammoth = await import("mammoth");
@@ -82,6 +82,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "فقط فایل PDF، DOCX و PPTX پشتیبانی می‌شود" }, { status: 415 });
     }
     try { content = await extractText(file); } catch (error) {
+      console.error("Student material extraction failed", error instanceof Error ? { name: error.name, message: error.message } : "unknown parser failure");
       if (error instanceof Error && ["TOO_MANY_SLIDES", "PPTX_EXPANDED_LIMIT"].includes(error.message)) return NextResponse.json({ error: error.message === "TOO_MANY_SLIDES" ? "فایل حداکثر می‌تواند ۵۰۰ اسلاید داشته باشد" : "حجم بازشدهٔ محتوای اسلایدها بیش از حد مجاز است" }, { status: 413 });
       return NextResponse.json({ error: error instanceof Error && error.message === "UNSUPPORTED_TYPE" ? "فقط فایل PDF، DOCX و PPTX پشتیبانی می‌شود" : "استخراج متن فایل ناموفق بود" }, { status: 422 });
     }

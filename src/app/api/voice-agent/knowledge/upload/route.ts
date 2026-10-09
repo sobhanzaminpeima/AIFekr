@@ -20,10 +20,10 @@ async function extractText(file: File): Promise<string> {
     // pdf-parse (CJS, `export =`) — import * as gives the function itself
     // under interop, with `.default` as a fallback across bundler configs.
     const pdfParseModule = (await import("pdf-parse/lib/pdf-parse.js")) as unknown as
-      | ((b: Buffer) => Promise<{ text: string }>)
-      | { default: (b: Buffer) => Promise<{ text: string }> };
+      | ((b: Uint8Array) => Promise<{ text: string }>)
+      | { default: (b: Uint8Array) => Promise<{ text: string }> };
     const pdfParse = typeof pdfParseModule === "function" ? pdfParseModule : pdfParseModule.default;
-    const result = await pdfParse(buf);
+    const result = await pdfParse(new Uint8Array(buf));
     return result.text || "";
   }
 

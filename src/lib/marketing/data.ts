@@ -1,3 +1,4 @@
+import { packageUsdPrice } from "@/lib/plans/packagePricing";
 import { BUSINESS_CODES } from "@/lib/plans/business";
 import { prisma } from "@/lib/db/prisma";
 import type { Lang } from "@/lib/i18n/server";
@@ -11,9 +12,9 @@ import { parseFeatures } from "./features";
 export async function getPublicPlans(lang: Lang, business: boolean | "student" = false): Promise<PublicPlan[] | null> {
   const codes = business === "student" ? ["STUDENT_MONTHLY"] : business ? [...BUSINESS_CODES, "CRM_SOLO", "CRM_TEAM", "TEAM_STARTER", "TEAM_GROWTH"] : ["FREE"];
   try {
-    const rows = await prisma.package.findMany({ where: { isActive: true, planCode: { in: codes } }, select: { planCode: true, name: true, nameEn: true, price: true, priceUsd: true, credits: true, duration: true, features: true, featuresEn: true, isFeatured: true, crmSeatLimit: true, teamSeatLimit: true } });
+    const rows = await prisma.package.findMany({ where: { isActive: true, planCode: { in: codes } }, select: { planCode: true, name: true, nameEn: true, price: true, priceUsd: true, priceTry: true, credits: true, duration: true, features: true, featuresEn: true, isFeatured: true, crmSeatLimit: true, teamSeatLimit: true } });
     const rates = await getFxRates();
-    return sortByPlanLadder(rows, codes).map(p => ({ planCode: p.planCode, name: lang === "fa" ? p.name : p.nameEn || p.name, price: p.priceUsd != null ? p.priceUsd / 100 : p.planCode === "FREE" ? 0 : p.price > 0 ? p.price / 10 / rates.usdToToman : null, credits: p.credits, duration: p.duration, features: parseFeatures(lang === "fa" ? p.features : p.featuresEn || p.features), featured: p.isFeatured, crmSeats: p.crmSeatLimit, teamSeats: p.teamSeatLimit }));
+    return sortByPlanLadder(rows, codes).map(p => ({ planCode: p.planCode, name: lang === "fa" ? p.name : p.nameEn || p.name, price: p.planCode === "FREE" ? 0 : (p.priceTry ?? p.priceUsd ?? p.price) > 0 ? packageUsdPrice(p, rates) : null, credits: p.credits, duration: p.duration, features: parseFeatures(lang === "fa" ? p.features : p.featuresEn || p.features), featured: p.isFeatured, crmSeats: p.crmSeatLimit, teamSeats: p.teamSeatLimit }));
   } catch { return null; }
 }
 export async function getPublicIndustries() {

@@ -23,6 +23,7 @@ interface User {
 }
 
 const PLAN_BADGE: Record<string, { label: string; color: string }> = {
+  STUDENT_QUARTERLY:{label:"دانشجویی ۳ ماهه",color:"#6366f1"},
   STUDENT_FIRST_THREE_MONTHS:{label:"دانشجویی ۳ ماهه",color:"#6366f1"},
   STUDENT_MONTHLY:{label:"دانشجویی ماهانه",color:"#6366f1"},
   FREE: { label: "رایگان", color: "#71717a" },
@@ -55,6 +56,8 @@ export default function AdminUsersPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState("");
   const [accountFilter, setAccountFilter] = useState("all");
+  const [sort, setSort] = useState("newest");
+  const [recent, setRecent] = useState("all");
   const [planFilter, setPlanFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [actionUserId, setActionUserId] = useState<string | null>(null);
@@ -134,7 +137,7 @@ export default function AdminUsersPage() {
     const requestVersion=++requestSequence.current;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: page.toString(), search, plan: planFilter, accountType: accountFilter });
+      const params = new URLSearchParams({ page: page.toString(), search, plan: planFilter, accountType: accountFilter, sort, recent });
       const res = await fetch(`/api/admin/users?${params}`);
       const data = await res.json();
       if(requestVersion!==requestSequence.current)return;
@@ -152,7 +155,7 @@ export default function AdminUsersPage() {
     finally {
       if(requestVersion===requestSequence.current)setLoading(false);
     }
-  }, [page, search, planFilter, accountFilter]);
+  }, [page, search, planFilter, accountFilter, sort, recent]);
 
   async function addUser() {
     if (!addForm.firstName.trim()) return toast.error("نام الزامی است");
@@ -253,6 +256,8 @@ export default function AdminUsersPage() {
 
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
+        <label className="text-sm">ترتیب ثبت‌نام<select aria-label="ترتیب ثبت‌نام" value={sort} onChange={e=>{setSort(e.target.value);setPage(1);}} className="block rounded-xl px-3 py-2" style={{background:"var(--surface-1)",color:"var(--text-primary)",border:"1px solid var(--border)"}}><option value="newest">جدیدترین کاربران</option><option value="oldest">قدیمی‌ترین کاربران</option></select></label>
+        <label className="text-sm">زمان ثبت‌نام<select aria-label="زمان ثبت‌نام" value={recent} onChange={e=>{setRecent(e.target.value);setPage(1);}} className="block rounded-xl px-3 py-2" style={{background:"var(--surface-1)",color:"var(--text-primary)",border:"1px solid var(--border)"}}><option value="all">همهٔ کاربران</option><option value="7d">کاربران جدید ۷ روز اخیر</option></select></label>
         <div className="flex items-center gap-2 flex-1 min-w-48 px-4 py-2.5 rounded-xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <Search className="w-4 h-4 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
           <input
@@ -280,7 +285,7 @@ export default function AdminUsersPage() {
             <option value="FREE">رایگان</option>
             <option value="BASIC">پایه</option>
             <option value="PRO">حرفه‌ای</option>
-            <option value="TEAM">تیمی</option><option value="STUDENT_FIRST_THREE_MONTHS">دانشجویی ۳ ماهه</option><option value="STUDENT_MONTHLY">دانشجویی ماهانه</option>
+            <option value="TEAM">تیمی</option><option value="STUDENT_QUARTERLY">دانشجویی ۳ ماهه</option><option value="STUDENT_MONTHLY">دانشجویی ماهانه</option>
           </select>
         </div>
       </div>
@@ -444,7 +449,7 @@ export default function AdminUsersPage() {
             </div>
             <div>
               <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>پلن</label>
-              <select aria-label="نوع حساب جدید" value={addForm.accountType} onChange={e=>setAddForm(p=>({...p,accountType:e.target.value,studentPackage:e.target.value==="STUDENT",plan:e.target.value==="STUDENT"?"STUDENT_FIRST_THREE_MONTHS":p.plan.startsWith("STUDENT_")?"FREE":p.plan}))} className="w-full rounded-xl p-3 mb-3" style={{background:"var(--surface-2)"}}><option value="PERSONAL">شخصی</option><option value="BUSINESS">کسب‌وکار</option><option value="STUDENT">دانشجو + فعال‌سازی پکیج ۹۰ روزه</option></select>
+              <select aria-label="نوع حساب جدید" value={addForm.accountType} onChange={e=>setAddForm(p=>({...p,accountType:e.target.value,studentPackage:e.target.value==="STUDENT",plan:e.target.value==="STUDENT"?"STUDENT_QUARTERLY":p.plan.startsWith("STUDENT_")?"FREE":p.plan}))} className="w-full rounded-xl p-3 mb-3" style={{background:"var(--surface-2)"}}><option value="PERSONAL">شخصی</option><option value="BUSINESS">کسب‌وکار</option><option value="STUDENT">دانشجو + فعال‌سازی پکیج ۹۰ روزه</option></select>
               <select disabled={addForm.studentPackage} value={addForm.plan} onChange={(e) => setAddForm((p) => ({ ...p, plan: e.target.value,accountType:e.target.value.startsWith("STUDENT_")?"STUDENT":p.accountType,studentPackage:e.target.value.startsWith("STUDENT_") }))}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
                 {Object.keys(PLAN_BADGE).filter(p=>p!=="STUDENT_MONTHLY").map((p) => <option key={p} value={p}>{PLAN_BADGE[p].label}</option>)}

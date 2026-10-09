@@ -3,7 +3,7 @@ import { subscriptionTerm } from "./subscriptionTerm";
 import { periodPrice } from "@/lib/marketing/pricing";
 
 describe("subscription terms", () => {
-  it.each(["TEAM_STARTER", "CRM_SOLO", "STUDENT_MONTHLY"])("aligns advertised price and activation duration for %s", plan => {
+  it.each(["TEAM_STARTER", "CRM_SOLO"])("aligns advertised price and activation duration for %s", plan => {
     for (const period of ["monthly", "quarterly", "semiannual"] as const) {
       const term = subscriptionTerm(plan, period, 30);
       expect(term.days).toBe(30 * term.months);
