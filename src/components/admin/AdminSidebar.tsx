@@ -17,6 +17,9 @@ const navGroups = [
     label: null,
     items: [
       { icon: LayoutDashboard, label: "داشبورد", href: "/admin/dashboard" },
+      {icon:Activity,label:"AIFekr FIT",href:"/admin/fitness"},
+      {icon:Coins,label:"Currencies & rates",href:"/admin/billing/rates"},
+      {icon:Tag,label:"Subscription promotions",href:"/admin/billing/promotions"},
     ],
   },
   {

@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  if(auth.accountType==="FITNESS")return NextResponse.json({redirect:"/fitness"});
   // Return recommended tool based on answers
   let redirect = "/chat";
   if (businessType === "student" || goal === "study") redirect = "/student";

@@ -1,4 +1,3 @@
-import { BUSINESS_CODES } from "@/lib/plans/business";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 const db = vi.hoisted(() => ({ packages: vi.fn(), industries: vi.fn() }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: { package: { findMany: db.packages }, industryPack: { findMany: db.industries } } }));
@@ -14,7 +13,7 @@ describe("public database boundary", () => {
     const result = await getPublicPlans("en", true);
     expect(result?.[0]).toMatchObject({ price: 19.99, features: ["English feature"], credits: 300 });
     expect(db.packages.mock.calls[0][0].where.isActive).toBe(true);
-    expect(db.packages.mock.calls[0][0].where.planCode.in).toContain("CRM_SOLO");
+    expect(db.packages.mock.calls[0][0].where).toMatchObject({publicVisible:true,publicationStatus:"PUBLISHED",category:"BUSINESS"});
     expect(result?.[0]).not.toHaveProperty("userId");
   });
   it("does not label missing paid prices free", async () => {
@@ -33,10 +32,10 @@ describe("public database boundary", () => {
     db.packages.mockRejectedValue(new Error("offline"));
     expect(await getPublicPlans("en", true)).toBeNull();
   });
-  it("uses real CRM and team package codes", async () => {
+  it("admits dynamically configured business plans without a hardcoded code list", async () => {
     db.packages.mockResolvedValue([]);
     await getPublicPlans("en", true);
-    expect(db.packages.mock.calls[0][0].where.planCode.in).toEqual([...BUSINESS_CODES, "CRM_SOLO", "CRM_TEAM", "TEAM_STARTER", "TEAM_GROWTH"]);
+    expect(db.packages.mock.calls[0][0].where).not.toHaveProperty("planCode");
   });
   it("handles missing industries without fake records", async () => {
     db.industries.mockRejectedValue(new Error("offline"));

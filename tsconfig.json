@@ -25,15 +25,15 @@
       "@/*": [
         "./src/*"
       ]
-    }
+    },
+    "target": "ES2020"
   },
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
     ".next/types/**/*.ts",
-    ".next-seo-dev/types/**/*.ts",
-    ".next-commerce-release/types/**/*.ts"
+    ".next-fit-release/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
@@ -45,6 +45,9 @@
     ".next-seo-dev",
     ".next-seo-build",
     ".next-seo-release",
-    ".next-commerce-release"
+    ".next-commerce-release",
+    ".next-pricing-release",
+    ".next-fit-release",
+    "tmp"
   ]
 }

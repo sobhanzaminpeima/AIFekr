@@ -222,6 +222,12 @@ model AcademyLearningPath {
 }
 
 model User {
+  fitnessProfile FitnessProfile?
+  fitnessSessions FitnessSession[]
+  fitnessDiary FitnessDiary[]
+  fitnessTrainer FitnessTrainer?
+  billingQuotes BillingQuote[]
+
   referralCodeAliases ReferralCodeAlias[]
   @@index([signupNotifiedAt, createdAt])
   id                        String    @id @default(cuid())
@@ -1765,6 +1771,22 @@ model ReferralCodeAlias {
 }
 
 model Package {
+  category String @default("PERSONAL")
+  publicationStatus String @default("PUBLISHED")
+  publicVisible Boolean @default(true)
+  description String @default("")
+  baseCurrency String @default("USD")
+  termPrices String @default("{}")
+  entitlements String @default("{}")
+  badge String @default("")
+  studentEligibility String @default("ACCOUNT_TYPE")
+  creditAllocation String @default("TERM")
+  mediaCredits Int @default(0)
+  voiceMinutes Int @default(0)
+  crmContactLimit Int @default(0)
+  trialEligible Boolean @default(false)
+  promoEligible Boolean @default(false)
+
   id           String   @id @default(cuid())
   planCode     String   @unique
   name         String
@@ -3902,4 +3924,167 @@ model AiCourseRevision {
   content String
   createdAt DateTime @default(now())
   @@unique([courseId, version])
+}
+
+model BillingExchangeRate {
+  id String @id @default(cuid())
+  source String @default("USD")
+  target String
+  rate String
+  provider String
+  rateType String
+  approvedBy String?
+  validUntil DateTime
+  createdAt DateTime @default(now())
+  @@index([target,createdAt])
+}
+model BillingQuote {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  planCode String
+  period String
+  currency String
+  amountMinor Int
+  amountToman Int
+  snapshot String
+  paymentId String? @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([userId,expiresAt])
+}
+model FitnessProfile {
+  userId String @id
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  age Int
+  goal String
+  level String @default("BEGINNER")
+  equipment String @default("[]")
+  limitations String @default("")
+  dietaryPreferences String @default("")
+  allergens String @default("")
+  consentAt DateTime
+  entitlementExpiry DateTime?
+  updatedAt DateTime @updatedAt
+}
+model FitnessTrainer {
+  id String @id @default(cuid())
+  slug String @unique
+  userId String? @unique
+  user User? @relation(fields:[userId],references:[id],onDelete:SetNull)
+  name String
+  type String @default("HUMAN")
+  status String @default("DEMO")
+  biography String
+  specializations String @default("[]")
+  languages String @default("[]")
+  country String @default("")
+  timezone String @default("UTC")
+  image String
+  certifications String @default("[]")
+  consentAt DateTime?
+  priceMinor Int @default(0)
+  currency String @default("USD")
+  capacity Int @default(0)
+  programs FitnessProgram[]
+  products FitnessProduct[]
+  createdAt DateTime @default(now())
+}
+model FitnessExercise {
+  id String @id @default(cuid())
+  slug String @unique
+  name String
+  instructions String
+  equipment String
+  category String
+  videoUrl String?
+  active Boolean @default(true)
+}
+model FitnessProgram {
+  id String @id @default(cuid())
+  trainerId String?
+  trainer FitnessTrainer? @relation(fields:[trainerId],references:[id],onDelete:SetNull)
+  title String
+  description String
+  level String
+  status String @default("DRAFT")
+  version Int @default(1)
+  content String
+  minutes Int @default(30)
+  sessions FitnessSession[]
+  createdAt DateTime @default(now())
+}
+model FitnessSession {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  programId String
+  program FitnessProgram @relation(fields:[programId],references:[id])
+  programSnapshot String
+  clientKey String
+  status String @default("IN_PROGRESS")
+  revision Int @default(0)
+  recovery Int @default(3)
+  sets FitnessSetLog[]
+  startedAt DateTime @default(now())
+  completedAt DateTime?
+  @@unique([userId,clientKey])
+  @@index([userId,startedAt])
+}
+model FitnessSetLog {
+  id String @id @default(cuid())
+  sessionId String
+  session FitnessSession @relation(fields:[sessionId],references:[id],onDelete:Cascade)
+  exerciseId String
+  setNumber Int
+  repetitions Int
+  weightGrams Int @default(0)
+  rpe Int?
+  rir Int?
+  completed Boolean @default(true)
+  @@unique([sessionId,exerciseId,setNumber])
+}
+model FitnessDiary {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  day DateTime
+  kind String
+  content String
+  createdAt DateTime @default(now())
+  @@index([userId,day])
+}
+model FitnessProduct {
+  id String @id @default(cuid())
+  trainerId String
+  trainer FitnessTrainer @relation(fields:[trainerId],references:[id])
+  title String
+  kind String
+  status String @default("DRAFT")
+  priceMinor Int
+  currency String @default("USD")
+  inventory Int @default(0)
+  description String
+  digitalAsset String?
+  createdAt DateTime @default(now())
+}
+
+model BillingPromotion {
+  id String @id @default(cuid())
+  name String
+  enabled Boolean @default(false)
+  configuration String
+  startsAt DateTime
+  endsAt DateTime
+  maxRedemptions Int @default(1000)
+  redemptions BillingPromotionRedemption[]
+}
+model BillingPromotionRedemption {
+  id String @id @default(cuid())
+  promotionId String
+  promotion BillingPromotion @relation(fields:[promotionId],references:[id])
+  userId String
+  paymentId String @unique
+  createdAt DateTime @default(now())
+  @@unique([promotionId,userId])
 }

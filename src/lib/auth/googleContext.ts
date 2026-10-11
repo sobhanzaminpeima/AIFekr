@@ -8,7 +8,7 @@ export function googleContext(params: URLSearchParams) {
   const language = params.get("language") || "";
   const ref = params.get("ref") || "";
   const promoCode = params.get("promo") || "";
-  return { selectedPlan: /^[A-Z0-9_]{1,80}$/.test(plan) ? plan : "", period: ["monthly","quarterly","semiannual","annual"].includes(params.get("period")||"") ? params.get("period")! : "monthly", language: ["fa","en","de","tr"].includes(language) ? language : "", accountType: ["PERSONAL","BUSINESS","STUDENT"].includes(params.get("accountType")||"") ? params.get("accountType")! : "PERSONAL", ref: ref.slice(0,100), promoCode: promoCode.slice(0,100), redirect: safeGoogleRedirect(params.get("redirect")) };
+  return { selectedPlan: /^[A-Z0-9_]{1,80}$/.test(plan) ? plan : "", period: ["monthly","quarterly","semiannual","annual"].includes(params.get("period")||"") ? params.get("period")! : "monthly", language: ["fa","en","de","tr"].includes(language) ? language : "", accountType: ["PERSONAL","BUSINESS","STUDENT","FITNESS"].includes(params.get("accountType")||"") ? params.get("accountType")! : "PERSONAL", ref: ref.slice(0,100), promoCode: promoCode.slice(0,100), redirect: safeGoogleRedirect(params.get("redirect")) };
 }
 export function readGoogleContext(raw: string | undefined) {
   try { const parsed = JSON.parse(raw || "{}"); return googleContext(new URLSearchParams({plan:parsed.selectedPlan||"",period:parsed.period||"",language:parsed.language||"",accountType:parsed.accountType||"",ref:parsed.ref||"",promo:parsed.promoCode||"",redirect:parsed.redirect||""})); } catch { return googleContext(new URLSearchParams()); }

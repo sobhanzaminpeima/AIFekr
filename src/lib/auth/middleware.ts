@@ -38,13 +38,15 @@ export async function requireAuth(req: NextRequest) {
       // on the shared auth user object so any route can read it without a
       // separate query, the same way plan/credits already work.
       currency: true,
+      fitnessProfile:{select:{entitlementExpiry:true}},
     },
   });
 
   if (!user || user.isBlocked) return null;
 
+  if(user.accountType==="FITNESS"&&!req.nextUrl.pathname.startsWith("/api/fitness")&&!isRecoveryApi(req.nextUrl.pathname)&&!req.nextUrl.pathname.startsWith("/api/billing"))return null;
   const expired=featureAccessExpired(user,teamFeatureExpiry(user.teamMembership?.team));
-  if(expired&&!isRecoveryApi(req.nextUrl.pathname)){
+  if(expired&&!isRecoveryApi(req.nextUrl.pathname)&&!(req.nextUrl.pathname.startsWith("/api/fitness")&&user.fitnessProfile?.entitlementExpiry&&user.fitnessProfile.entitlementExpiry>new Date())){
     accessDenials.set(req,true);return null;
   }
   return { ...user, subscriptionStatus:expired?"expired" as const:"active" as const, featureAccess:!expired };

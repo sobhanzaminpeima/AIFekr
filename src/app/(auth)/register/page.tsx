@@ -112,7 +112,7 @@ function RegisterForm() {
             <label className="block text-sm" style={{color:"var(--text-secondary)"}}>
               {tri(lang,"نوع حساب","Account type","Kontotyp","Hesap türü")}
               <select aria-label={tri(lang,"نوع حساب","Account type","Kontotyp","Hesap türü")} value={accountType} disabled={/^(STUDENT_|TEAM_|CRM_)/.test(planCode)} onChange={e=>setAccountType(accountTypeFor(null,e.target.value))} className="mt-2 w-full rounded-xl p-3" style={{background:"var(--surface-2)",color:"var(--text-primary)"}}>
-                <option value="PERSONAL">{tri(lang,"شخصی","Personal","Privat","Kişisel")}</option>
+                <option value="FITNESS">AIFekr FIT</option><option value="PERSONAL">{tri(lang,"شخصی","Personal","Privat","Kişisel")}</option>
                 <option value="STUDENT">{tri(lang,"دانشجو","Student","Studierende","Öğrenci")}</option>
                 <option value="BUSINESS">{tri(lang,"کسب‌وکار","Business","Unternehmen","İşletme")}</option>
               </select>

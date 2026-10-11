@@ -17,9 +17,17 @@ async function settlePayment(id:string,review:{adminId?:string;approve:boolean;n
  const claimed=await tx.payment.updateMany({where:{id,status:"PENDING"},data:{status:approve?"SUCCESS":"REJECTED",reviewBy:adminId,reviewAt:adminId?new Date():undefined,reviewNote:note,refId:approve?(review.refId||`BANK-${id}`):null}});
  if(!claimed.count){if(review.authority&&p.status==="SUCCESS")return false;throw new Error("ALREADY_REVIEWED");}
  if(!approve)return;
- const entitlement=JSON.parse(p.entitlementSnapshot) as {credits:number;days:number;teamSeatLimit?:number;crmSeatLimit?:number;businessBundle?:boolean};
+ const entitlement=JSON.parse(p.entitlementSnapshot) as {credits:number;days:number;teamSeatLimit?:number;crmSeatLimit?:number;businessBundle?:boolean;category?:string;mediaCredits?:number;voiceMinutes?:number;entitlements?:{modules?:string[]};quote?:{bonus?:{id:string;days:number;credits:number}|null}};
  if(!Number.isInteger(entitlement.credits)||entitlement.credits<0||!Number.isFinite(entitlement.days)||entitlement.days<=0)throw new Error("INVALID_ENTITLEMENT");
  const u=p.user;
+ if(entitlement.quote?.bonus){const bonus=entitlement.quote.bonus;const reservation=await tx.billingPromotionRedemption.findUniqueOrThrow({where:{paymentId:p.id}});if(reservation.userId!==u.id||reservation.promotionId!==bonus.id)throw Error("INVALID_PROMOTION_RESERVATION");entitlement.days+=bonus.days;entitlement.credits+=bonus.credits;}
+
+ if(entitlement.category==="FITNESS"){
+ const profile=await tx.fitnessProfile.findUnique({where:{userId:u.id}});if(!profile)throw Error("FITNESS_ONBOARDING_REQUIRED");const expires=new Date(Math.max(Date.now(),profile.entitlementExpiry?.getTime()||0)+entitlement.days*86400000);await tx.fitnessProfile.update({where:{userId:u.id},data:{entitlementExpiry:expires}});await tx.user.update({where:{id:u.id},data:{credits:{increment:entitlement.credits}}});await tx.auditLog.create({data:{actorId:adminId||u.id,action:"fitness_subscription_activated",targetId:u.id,metadata:JSON.stringify({paymentId:p.id,expires})}});return true;
+ }
+
+ if(entitlement.mediaCredits||entitlement.voiceMinutes)await tx.user.update({where:{id:u.id},data:{mediaCredits:{increment:entitlement.mediaCredits||0},voiceMinutes:{increment:entitlement.voiceMinutes||0}}});
+ for(const key of entitlement.entitlements?.modules||[]){if(key==="fitness.workspace")continue;await tx.userModuleOverride.upsert({where:{userId_moduleKey:{userId:u.id,moduleKey:key}},create:{userId:u.id,moduleKey:key,enabled:true},update:{enabled:true}});}
  const bundle=isBusinessBundle(p.plan)&&entitlement.businessBundle===true;
  const oldExpiry=p.plan.startsWith("CRM_")?u.crmPlanExpiry:p.plan.startsWith("VOICE_")?u.voicePlanExpiry:u.planExpiry;
  const expiry=new Date(Math.max(Date.now(),oldExpiry?.getTime()||0)+entitlement.days*86400000);

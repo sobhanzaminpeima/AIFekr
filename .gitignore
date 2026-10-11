@@ -93,3 +93,7 @@ tsc-errors.txt
 
 # Reviewed bilingual Telnyx support documentation.
 !/docs/telnyx/
+
+/.next-fit-release/
+!/docs/fit-pricing-audit.md
+!/docs/fit-pricing-release.md

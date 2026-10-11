@@ -1,3 +1,4 @@
+import { prisma } from "@/lib/db/prisma";
 // IndustryPack.price is stored in USD (the base currency the packs were
 // authored in — see prisma/seed.ts). Convert to the viewer's local currency:
 // fa -> Toman/Rial, de -> EUR, en -> USD unchanged.
@@ -10,7 +11,7 @@
 // defaults below — so pricing always renders something reasonable, never an
 // error, even if the FX API is unreachable.
 
-const USD_TO_TOMAN_FALLBACK = Number(process.env.USD_TO_TOMAN_RATE) || 163399.625272;
+const USD_TO_TOMAN_FALLBACK = 0;
 const USD_TO_EUR_FALLBACK = Number(process.env.USD_TO_EUR_RATE) || 0.88731;
 const USD_TO_TRY_FALLBACK = Number(process.env.USD_TO_TRY_RATE) || 49.123297;
 
@@ -53,15 +54,14 @@ async function fetchLiveRates(): Promise<FxRates> {
   const res = await fetch("https://open.er-api.com/v6/latest/USD", { cache: "no-store", signal: AbortSignal.timeout(5000) });
   if (!res.ok) throw new Error(`FX API ${res.status}`);
   const data = await res.json();
-  if (data.result !== "success" || ![data.rates?.IRR, data.rates?.EUR, data.rates?.TRY].every(v => typeof v === "number" && Number.isFinite(v) && v > 0) || !Number.isFinite(data.time_last_update_unix)) throw new Error("FX API malformed response");
-  // open.er-api.com's IRR rate is Iran's official Rial-per-USD figure — divide
-  // by 10 for Toman (the everyday colloquial unit this app prices in).
+  if (data.result !== "success" || ![data.rates?.EUR, data.rates?.TRY].every(v => typeof v === "number" && Number.isFinite(v) && v > 0) || !Number.isFinite(data.time_last_update_unix)) throw new Error("FX API malformed response");
+  // Never use an official/interbank IRR rate for free-market toman billing.
   const freeCurrencyEur = await fetchFreeCurrencyApiEur();
-  return { usdToToman: data.rates.IRR / 10, usdToEur: freeCurrencyEur ?? data.rates.EUR, usdToTry: data.rates.TRY, rateDate: new Date(data.time_last_update_unix * 1000).toISOString().slice(0, 10), isFallback: false };
+  return { usdToToman: 0, usdToEur: freeCurrencyEur ?? data.rates.EUR, usdToTry: data.rates.TRY, rateDate: new Date(data.time_last_update_unix * 1000).toISOString().slice(0, 10), isFallback: false };
 }
 
 /** Cached live FX rates, safe to call on every request — only actually hits the network once per CACHE_TTL_MS. */
-export async function getFxRates(): Promise<FxRates> {
+async function getProviderRates(): Promise<FxRates> {
   const now = Date.now();
   if (cache && now - cache.fetchedAt < CACHE_TTL_MS) return cache.rates;
 
@@ -81,6 +81,7 @@ export async function getFxRates(): Promise<FxRates> {
 /** Synchronous formatter for callers that already have rates (e.g. client components that fetched /api/fx-rate once). */
 export function formatPackPriceSync(usd: number, lang: "fa" | "en" | "de" | "tr", rates: FxRates): string {
   if (lang === "fa") {
+    if(!rates.usdToToman)return "نرخ بازار آزاد باید تأیید شود";
     // Rial = Toman * 10 (Iran's official currency unit; Toman is the everyday
     // colloquial unit). Rounded to the nearest 10,000 Rial for a clean number.
     const rial = Math.round((usd * rates.usdToToman * 10) / 10000) * 10000;
@@ -102,3 +103,6 @@ export async function formatPackPrice(usd: number, lang: "fa" | "en" | "de" | "t
   const rates = await getFxRates();
   return formatPackPriceSync(usd, lang, rates);
 }
+
+/** Only explicitly approved free-market toman rates may be used in billing. */
+export async function getFxRates():Promise<FxRates>{const rates=await getProviderRates();try{const r=await prisma.billingExchangeRate.findFirst({where:{source:"USD",target:"IRT",rateType:"FREE_MARKET",approvedBy:{not:null},validUntil:{gt:new Date()}},orderBy:{createdAt:"desc"}});return {...rates,usdToToman:r?Number(r.rate):0};}catch{return {...rates,usdToToman:0};}}
