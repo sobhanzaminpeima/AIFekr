@@ -42,6 +42,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   });
 
   if (!user || user.isBlocked) redirect("/login");
+  if (user.accountType === "FITNESS" && !["ADMIN", "SUPER_ADMIN"].includes(user.role)) redirect("/fitness");
 
   // Redirect new users to onboarding wizard (welcome is outside this layout group)
   if (!user.onboardingDone) redirect("/welcome");

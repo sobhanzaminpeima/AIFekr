@@ -11,7 +11,7 @@ Baseline upstream 8c88d94. Additive migration 20261011140000_fit_dynamic_billing
 - Independent FIT profile/expiry, adults-only consent, AI and demo badges, FIKA/FIKO/Gel4re/Misagh supplied boards, searchable directory and comparison, eight editable starter templates, exercise instructions, immutable workout snapshots, real set logs, completion guards, optimistic offline draft synchronization, rest timer, diary and real history.
 - FIT coach uses existing provider router and existing guarded credit ledger, with visible maximum cost and no failed-generation charge. User fitness data is owner-scoped; never passed to advertising targeting.
 - Admin FIT summary, program editor/versioning, member/exercise/trainer records. Shared admin design improves referrals, accounting and package management.
-- FIT UI: English, Persian, Turkish, Arabic; existing global German support retained (FIT German uses English fallback). Trainer biography/program content currently English fallback, not fully localized source content.
+- FIT UI: English, Persian, Turkish, Arabic and German; existing global German support retained. Trainer biography/program content currently English fallback, not fully localized source content.
 
 ## Not complete / blocked
 The two master prompts are NOT fully implemented. Human trainer application/credential uploads, real bookings/availability, verified reviews, complete seller storefront commerce, shipping, refunds, commission and payout processing, trainer sponsored campaigns, challenge/community functionality, automatic individualized workout adaptation, complete clinical nutrition review, exercise video library, PWA installation/service-worker offline operation and background sync remain unfinished. Current offline behavior is local draft recovery with manual sync while page is open. No fake orders, reviews, bookings or payout behavior are exposed.
@@ -25,3 +25,10 @@ Admin must configure approved USD→TRY and USD→IRT free-market rates (and EUR
 Use consistent SQLite backup, preserve shared uploads/env, migrate deploy only, validate FK/user/balance preservation. Build and smoke-test separate preview before changing PM2 ai-platform. Never expose provider credentials or claim external payment/payout integrations tested without real verification.
 
 Fitness starter education reference: https://www.cdc.gov/physical-activity-basics/adding-adults/ . These templates are general education, not individualized medical prescriptions.
+
+## Continuation review — 2026-10-12
+- Server preview b946938 responds 200 for FIT and packages; private routes redirect unauthenticated clients. Production ai-platform remains on f632999. Preview uses an isolated database and Prisma client.
+- Workout draft recovery checks ownership, authoritative completion state and revision; completed/deleted drafts are not restored.
+- Expired members can export and delete their own health notes/history; explicit confirmation is required. Subscription expiry and wallets are preserved; deletions are audited. Age/consent and billing eligibility profile remain retained.
+- FIT media and voice allocations are granted once during verified settlement. Quotes now lock module configuration, wallet allowances, discount attribution and accounting original amount; later package edits do not alter these entitlements. Failed/rejected bonus reservations release with audit history.
+- FIT-only users enter /fitness rather than unrelated business dashboards. German FIT controls, diary types and accessible package dialog keyboard navigation added.

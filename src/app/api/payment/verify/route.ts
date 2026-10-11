@@ -1,3 +1,4 @@
+import {releaseFailedPromotion} from "@/lib/billing/releasePromotion";
 import {publicAppUrl} from "@/lib/utils/publicAppUrl";
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,7 @@ export async function GET(req: NextRequest) {
 
   if (!result.ok) {
     await prisma.payment.updateMany({where:{id:paymentId,status:"PENDING",authority},data:{status:"FAILED"}});
+    if(JSON.parse(payment.entitlementSnapshot||"{}").quote?.bonus)await releaseFailedPromotion(paymentId);
     return NextResponse.redirect(await failureRedirect());
   }
 
