@@ -14,6 +14,7 @@ export async function GET() {
       termPrices:true,baseCurrency:true,category:true,planCode: true, name: true, nameEn: true, price: true, priceUsd: true, priceTry: true,
       market: true, duration: true, credits: true, isFeatured: true,
       color: true, features: true, featuresEn: true, teamSeatLimit:true, crmSeatLimit:true,
+      mediaCredits:true, voiceMinutes:true, crmContactLimit:true, entitlements:true,
     },
   });
   const rates = await getFxRates();
