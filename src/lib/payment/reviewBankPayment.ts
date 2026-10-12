@@ -23,9 +23,8 @@ async function settlePayment(id:string,review:{adminId?:string;approve:boolean;n
  if(entitlement.quote?.bonus){const bonus=entitlement.quote.bonus;const reservation=await tx.billingPromotionRedemption.findUniqueOrThrow({where:{paymentId:p.id}});if(reservation.userId!==u.id||reservation.promotionId!==bonus.id)throw Error("INVALID_PROMOTION_RESERVATION");entitlement.days+=bonus.days;entitlement.credits+=bonus.credits;}
 
  if(entitlement.category==="FITNESS"){
- const profile=await tx.fitnessProfile.findUnique({where:{userId:u.id}});if(!profile)throw Error("FITNESS_ONBOARDING_REQUIRED");const expires=new Date(Math.max(Date.now(),profile.entitlementExpiry?.getTime()||0)+entitlement.days*86400000);await tx.fitnessProfile.update({where:{userId:u.id},data:{entitlementExpiry:expires}});await tx.user.update({where:{id:u.id},data:{credits:{increment:entitlement.credits},mediaCredits:{increment:entitlement.mediaCredits||0},voiceMinutes:{increment:entitlement.voiceMinutes||0}}});await tx.auditLog.create({data:{actorId:adminId||u.id,action:"fitness_subscription_activated",targetId:u.id,metadata:JSON.stringify({paymentId:p.id,expires})}});return true;
- }
-
+ const profile=await tx.fitnessProfile.findUnique({where:{userId:u.id}});if(!profile)throw Error("FITNESS_ONBOARDING_REQUIRED");const expires=new Date(Math.max(Date.now(),profile.entitlementExpiry?.getTime()||0)+entitlement.days*86400000);await tx.fitnessProfile.update({where:{userId:u.id},data:{entitlementExpiry:expires}});await tx.user.update({where:{id:u.id},data:{credits:{increment:entitlement.credits},aiCredits:{increment:entitlement.credits},mediaCredits:{increment:entitlement.mediaCredits||0},voiceMinutes:{increment:entitlement.voiceMinutes||0}}});await tx.auditLog.create({data:{actorId:adminId||u.id,action:"fitness_subscription_activated",targetId:u.id,metadata:JSON.stringify({paymentId:p.id,expires})}});
+ }else{
  if(entitlement.mediaCredits||entitlement.voiceMinutes)await tx.user.update({where:{id:u.id},data:{mediaCredits:{increment:entitlement.mediaCredits||0},voiceMinutes:{increment:entitlement.voiceMinutes||0}}});
  for(const key of entitlement.entitlements?.modules||[]){if(key==="fitness.workspace")continue;await tx.userModuleOverride.upsert({where:{userId_moduleKey:{userId:u.id,moduleKey:key}},create:{userId:u.id,moduleKey:key,enabled:true},update:{enabled:true}});}
  const bundle=isBusinessBundle(p.plan)&&entitlement.businessBundle===true;
@@ -45,6 +44,7 @@ async function settlePayment(id:string,review:{adminId?:string;approve:boolean;n
  await tx.teamMember.upsert({where:{userId:u.id},create:{teamId:row.id,userId:u.id,role:"OWNER",...((crm||bundle)?{crmRole:"OWNER"}:{})},update:{...((crm||bundle)?{crmRole:"OWNER"}:{})}});
  }
  if(p.plan.startsWith("STUDENT_")){const education=await tx.industryPack.findUnique({where:{slug:"university"},select:{id:true}});if(!education)throw new Error("STUDENT_INDUSTRY_NOT_CONFIGURED");await tx.user.update({where:{id:u.id},data:{industryPackId:education.id}});await tx.userModuleOverride.upsert({where:{userId_moduleKey:{userId:u.id,moduleKey:"student.workspace"}},create:{userId:u.id,moduleKey:"student.workspace",enabled:true},update:{enabled:true}});}
+ }
  }
  if(p.walletDiscountToman>0){await tx.user.update({where:{id:u.id},data:{walletBalance:{decrement:p.walletDiscountToman}}});await tx.walletTransaction.create({data:{userId:u.id,type:"redeem_at_checkout",amount:-p.walletDiscountToman,relatedPaymentId:p.id}});}
  if(u.referredBy&&!u.referralRewarded&&u.referredBy!==u.id){

@@ -20,6 +20,7 @@ import type { Prisma } from "@prisma/client";
 
 /** Accepts either the shared client or an interactive-transaction client. */
 type Db = Prisma.TransactionClient | typeof prisma;
+export type CreditPayer = "DEFAULT" | "PERSONAL";
 
 /** Durable jobs use the same guarded debit and UsageLog as synchronous AI actions.
  * The payer snapshot prevents refunding a different wallet after a team change. */
@@ -69,9 +70,9 @@ function walletFieldFor(usageType: string): WalletField {
   return "aiCredits"; // "chat" and any future/unknown type default here
 }
 
-async function mirrorWalletSpend(userId: string, amount: number, walletField: WalletField, db: Db): Promise<void> {
+async function mirrorWalletSpend(userId: string, amount: number, walletField: WalletField, db: Db, payer:CreditPayer="DEFAULT"): Promise<void> {
   if (amount <= 0) return;
-  const membership = await db.teamMember.findUnique({ where: { userId } });
+  const membership = payer==="PERSONAL"?null:await db.teamMember.findUnique({ where: { userId } });
 
   if (membership) {
     const team = await db.team.findUnique({ where: { id: membership.teamId } });
@@ -93,12 +94,13 @@ async function mirrorWalletSpend(userId: string, amount: number, walletField: Wa
   else await db.user.update({ where: { id: userId }, data: { voiceMinutes: next } });
 }
 
-export async function getAvailableCredits(userId: string, db: Db = prisma): Promise<number> {
+export async function getAvailableCredits(userId: string, db: Db = prisma,payer:CreditPayer="DEFAULT"): Promise<number> {
   const [user,membership]=await Promise.all([
     db.user.findUnique({where:{id:userId},select:{credits:true,plan:true,planExpiry:true,trialEndsAt:true,fitnessProfile:{select:{entitlementExpiry:true}}}}),
     db.teamMember.findUnique({where:{userId},include:{team:{include:{owner:{select:{planExpiry:true}}}}}}),
   ]);
   if(!user||(featureAccessExpired(user,teamFeatureExpiry(membership?.team))&&!(user.fitnessProfile?.entitlementExpiry&&user.fitnessProfile.entitlementExpiry>new Date())))return 0;
+  if(payer==="PERSONAL")return user.credits;
   if(membership){const expiry=teamFeatureExpiry(membership.team);return expiry&&expiry.getTime()<=Date.now()?0:membership.team.credits;}
   return user.credits;
 
@@ -125,10 +127,10 @@ export async function getWalletBalances(userId: string, db: Db = prisma): Promis
  * Returns false when it does not; callers must treat false as "payment
  * declined" and not perform the paid work.
  */
-export async function deductCredits(userId: string, amount: number, db: Db = prisma): Promise<boolean> {
+export async function deductCredits(userId: string, amount: number, db: Db = prisma,payer:CreditPayer="DEFAULT"): Promise<boolean> {
   if (amount <= 0) return true;
 
-  const membership = await db.teamMember.findUnique({ where: { userId } });
+  const membership = payer==="PERSONAL"?null:await db.teamMember.findUnique({ where: { userId } });
   if (membership) {
     const { count } = await db.team.updateMany({
       where: { id: membership.teamId, credits: { gte: amount } },
@@ -187,7 +189,7 @@ export interface UsageRecord {
  * Returns false when the balance doesn't cover the charge — nothing is
  * written in that case, and the caller must refuse the work.
  */
-export async function chargeAndLog(userId: string, amount: number, usage: UsageRecord): Promise<boolean> {
+export async function chargeAndLog(userId: string, amount: number, usage: UsageRecord,payer:CreditPayer="DEFAULT"): Promise<boolean> {
   // Cost lookup hits AiModelPricing, which callers won't have looked up
   // themselves -- computed outside the transaction since it's a read of a
   // table nothing here writes to, so there's no need to hold it up.
@@ -210,10 +212,10 @@ export async function chargeAndLog(userId: string, amount: number, usage: UsageR
   }
 
   return prisma.$transaction(async (tx) => {
-    const charged = await deductCredits(userId, amount, tx);
+    const charged = await deductCredits(userId, amount, tx,payer);
     if (!charged) return false;
 
-    await mirrorWalletSpend(userId, amount, walletFieldFor(usage.type), tx);
+    await mirrorWalletSpend(userId, amount, walletFieldFor(usage.type), tx,payer);
 
     await tx.usageLog.create({
       data: {
@@ -222,7 +224,7 @@ export async function chargeAndLog(userId: string, amount: number, usage: UsageR
         model: usage.model ?? undefined,
         tokens: usage.tokens ?? undefined,
         credits: amount,
-        metadata: usage.metadata ? JSON.stringify(usage.metadata) : undefined,
+        metadata: payer==="PERSONAL"?JSON.stringify({...usage.metadata,payer:"PERSONAL"}):usage.metadata ? JSON.stringify(usage.metadata) : undefined,
         provider: usage.provider ?? undefined,
         inputTokens: usage.inputTokens ?? undefined,
         outputTokens: usage.outputTokens ?? undefined,

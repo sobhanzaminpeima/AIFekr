@@ -1,3 +1,4 @@
+import {syncXeRates} from "@/lib/billing/xe";
 import { prisma } from "@/lib/db/prisma";
 // IndustryPack.price is stored in USD (the base currency the packs were
 // authored in — see prisma/seed.ts). Convert to the viewer's local currency:
@@ -105,4 +106,4 @@ export async function formatPackPrice(usd: number, lang: "fa" | "en" | "de" | "t
 }
 
 /** Only explicitly approved free-market toman rates may be used in billing. */
-export async function getFxRates():Promise<FxRates>{const rates=await getProviderRates();try{const r=await prisma.billingExchangeRate.findFirst({where:{source:"USD",target:"IRT",rateType:"FREE_MARKET",approvedBy:{not:null},validUntil:{gt:new Date()}},orderBy:{createdAt:"desc"}});return {...rates,usdToToman:r?Number(r.rate):0};}catch{return {...rates,usdToToman:0};}}
+export async function getFxRates():Promise<FxRates>{const rates=await getProviderRates();try{await syncXeRates();const foreign=await prisma.billingExchangeRate.findMany({where:{source:"USD",target:{in:["TRY","EUR"]},validUntil:{gt:new Date()}},orderBy:{createdAt:"desc"}});const tryRate=foreign.find(x=>x.target==="TRY"),eurRate=foreign.find(x=>x.target==="EUR");const r=await prisma.billingExchangeRate.findFirst({where:{source:"USD",target:"IRT",rateType:"FREE_MARKET",approvedBy:{not:null},validUntil:{gt:new Date()}},orderBy:{createdAt:"desc"}});return {...rates,usdToTry:tryRate?Number(tryRate.rate):rates.usdToTry,usdToEur:eurRate?Number(eurRate.rate):rates.usdToEur,usdToToman:r?Number(r.rate):0,rateDate:tryRate?.provider.split(" · ")[1]?.slice(0,10)||rates.rateDate,isFallback:tryRate&&eurRate?false:rates.isFallback};}catch{return {...rates,usdToToman:0};}}
