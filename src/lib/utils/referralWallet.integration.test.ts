@@ -1,0 +1,8 @@
+import {beforeAll,afterAll,it,expect} from "vitest";
+import {prisma} from "@/lib/db/prisma";
+import {grantReferralReward} from "./referralWallet";
+const owner=`commission-qa-${Date.now()}`,buyer=owner+"-buyer";let paymentId="";
+beforeAll(async()=>{await prisma.user.create({data:{id:owner,commissionPercentOverride:17}});await prisma.user.create({data:{id:buyer,referredBy:owner,credits:0}});paymentId=(await prisma.payment.create({data:{userId:buyer,plan:"STUDENT_MONTHLY",status:"SUCCESS",amount:10000}})).id;});
+afterAll(async()=>{await prisma.walletTransaction.deleteMany({where:{userId:owner}});await prisma.payment.deleteMany({where:{userId:buyer}});await prisma.user.deleteMany({where:{id:{in:[owner,buyer]}}});});
+it("credits the configured influencer percentage once, even when the callback repeats",async()=>{expect(await grantReferralReward(buyer,owner,100,10000,paymentId)).toEqual({commissionToman:1700});expect(await grantReferralReward(buyer,owner,100,10000,paymentId)).toEqual({commissionToman:0});expect((await prisma.user.findUniqueOrThrow({where:{id:owner}})).walletBalance).toBe(1700);expect((await prisma.user.findUniqueOrThrow({where:{id:buyer}})).credits).toBe(100);expect(await prisma.walletTransaction.count({where:{userId:owner,relatedPaymentId:paymentId}})).toBe(1);});
+it("rejects another amount, unpaid purchase and self-referral",async()=>{await expect(grantReferralReward(buyer,owner,100,9000,paymentId)).rejects.toThrow("INVALID_REFERRAL_PAYMENT");await prisma.payment.update({where:{id:paymentId},data:{status:"PENDING"}});await expect(grantReferralReward(buyer,owner,100,10000,paymentId)).rejects.toThrow("INVALID_REFERRAL_PAYMENT");await expect(grantReferralReward(owner,owner,100,10000)).rejects.toThrow("INVALID_REFERRAL_REWARD");});

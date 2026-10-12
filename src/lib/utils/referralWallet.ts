@@ -32,9 +32,8 @@ export async function getReferralCommissionPercent(userId?: string): Promise<num
 
 /**
  * Grants the referred user's flat signup bonus (unchanged behavior) and the
- * referrer's wallet commission (new behavior), atomically. Caller is
- * responsible for the `referralRewarded` guard check before calling this —
- * same contract as the old grantReferralBonus() it replaces.
+ * referrer's wallet commission atomically. The database claims the
+ * first-purchase reward, so stale callback data cannot grant it twice.
  */
 export async function grantReferralReward(
   referredUserId: string,
@@ -43,19 +42,25 @@ export async function grantReferralReward(
   paymentAmountToman: number,
   paymentId?: string
 ): Promise<{ commissionToman: number }> {
+  if (referredUserId === referrerId || !Number.isSafeInteger(paymentAmountToman) || paymentAmountToman < 0 || !Number.isSafeInteger(referredUserBonusCredits) || referredUserBonusCredits < 0) throw new Error("INVALID_REFERRAL_REWARD");
   const percent = await getReferralCommissionPercent(referrerId);
   const commissionToman = Math.round((paymentAmountToman * percent) / 100);
 
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: referredUserId },
+  return prisma.$transaction(async tx => {
+    if (paymentId) {
+      const payment = await tx.payment.findUnique({where:{id:paymentId},select:{userId:true,status:true,amount:true}});
+      if (!payment || payment.userId !== referredUserId || payment.status !== "SUCCESS" || payment.amount !== paymentAmountToman) throw new Error("INVALID_REFERRAL_PAYMENT");
+    }
+    const claimed = await tx.user.updateMany({
+      where: { id: referredUserId, referredBy: referrerId, referralRewarded: false },
       data: { credits: { increment: referredUserBonusCredits }, referralRewarded: true },
-    }),
-    prisma.user.update({
+    });
+    if (!claimed.count) return {commissionToman:0};
+    await tx.user.update({
       where: { id: referrerId },
       data: { walletBalance: { increment: commissionToman } },
-    }),
-    prisma.walletTransaction.create({
+    });
+    await tx.walletTransaction.create({
       data: {
         userId: referrerId,
         type: "commission",
@@ -64,8 +69,7 @@ export async function grantReferralReward(
         relatedPaymentId: paymentId,
         note: `${percent}% کمیسیون از خرید کاربر دعوت‌شده`,
       },
-    }),
-  ]);
-
-  return { commissionToman };
+    });
+    return {commissionToman};
+  });
 }
