@@ -8,7 +8,10 @@ const nextConfig = {
   // while pm2 had not restarted at all. Unset in normal use, so `npm run dev`
   // and a local build behave exactly as before.
   distDir: process.env.NEXT_DIST_DIR || ".next",
-  experimental: { serverComponentsExternalPackages: ["@react-pdf/renderer", "pdf-parse"] },
+  experimental: {
+    serverComponentsExternalPackages: ["@react-pdf/renderer", "pdf-parse"],
+    ...(process.env.NEXT_BUILD_CPUS ? { cpus: Number(process.env.NEXT_BUILD_CPUS) } : {}),
+  },
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
   images: {

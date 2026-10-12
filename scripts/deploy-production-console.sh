@@ -56,7 +56,7 @@ ln -s /var/www/aifekr-release-a8d7d61/node_modules "$NEW/node_modules"
 
 cd "$NEW"
 DATABASE_URL="file:${DB}" node node_modules/prisma/build/index.js generate
-NODE_OPTIONS="--max-old-space-size=1536" NEXT_DIST_DIR="$DIST_DIR" npm run build
+NODE_OPTIONS="--max-old-space-size=3072" NEXT_BUILD_CPUS=1 NEXT_DIST_DIR="$DIST_DIR" npm run build
 
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 DATABASE_URL="file:${DB}" node "$OLD/scripts/backup-deployment-db.cjs" "$BACKUPS/pre-fit-${TARGET_SHORT}-${STAMP}.db"
