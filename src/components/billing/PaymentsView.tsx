@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { CheckCircle2, Clock3, CreditCard, FileText, ArrowRight, RefreshCw, AlertCircle, UploadCloud } from "lucide-react";
 import { tri, useTranslation } from "@/lib/i18n";
 import { paymentHistoryQuery, type PaymentHistoryFilter } from "@/lib/payment/tracking";
@@ -14,6 +14,7 @@ type History = { payments: PaymentRow[]; page: number; hasMore: boolean; pending
 export default function PaymentsView() {
   const { lang } = useTranslation();
   const router = useRouter();
+  const fitnessContext=usePathname().startsWith("/fitness");
   const [filter, setFilter] = useState<PaymentHistoryFilter>("all");
   const [page, setPage] = useState(1);
   const [data, setData] = useState<History | null>(null);
@@ -78,10 +79,10 @@ export default function PaymentsView() {
           {payment.reviewNote && <p className="mt-3 break-words rounded-xl p-3 text-sm leading-6" style={{ background: "var(--surface-0)" }}>{payment.reviewNote}</p>}
           <details className="mt-3 text-xs" style={{ color: "var(--text-secondary)" }}><summary className="cursor-pointer py-2">{t("شناسه و جزئیات سفارش", "Order reference & details", "Bestellreferenz und Details", "Sipariş referansı ve ayrıntılar")}</summary><p dir="ltr" className="break-all py-2">{payment.id}</p>{payment.refId && <p className="break-all">{t("کد پیگیری:", "Reference:", "Referenz:", "Referans:")} {payment.refId}</p>}{payment.receiptAt && <p className="mt-2">{t("ارسال رسید:", "Receipt sent:", "Beleg gesendet:", "Dekont gönderildi:")} {date(payment.receiptAt)}</p>}{payment.reviewAt && <p className="mt-2">{t("بررسی:", "Reviewed:", "Geprüft:", "İncelendi:")} {date(payment.reviewAt)}</p>}</details>
           <div className="mt-3 flex flex-wrap gap-2">
-            {bank && <Link href={`/checkout/${payment.id}`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white">{pending && !review ? <UploadCloud size={16}/> : <ArrowRight size={16}/>} {review ? t("پیگیری تأیید", "Track approval", "Freigabe verfolgen", "Onayı takip et") : pending ? t("ادامهٔ پرداخت و رسید", "Continue payment & receipt", "Zahlung und Beleg fortsetzen", "Ödeme ve dekonta devam et") : t("جزئیات پرداخت", "Payment details", "Zahlungsdetails", "Ödeme ayrıntıları")}</Link>}
+            {bank && <Link href={`${fitnessContext||payment.plan.startsWith("FIT_")?"/fitness/checkout":"/checkout"}/${payment.id}`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white">{pending && !review ? <UploadCloud size={16}/> : <ArrowRight size={16}/>} {review ? t("پیگیری تأیید", "Track approval", "Freigabe verfolgen", "Onayı takip et") : pending ? t("ادامهٔ پرداخت و رسید", "Continue payment & receipt", "Zahlung und Beleg fortsetzen", "Ödeme ve dekonta devam et") : t("جزئیات پرداخت", "Payment details", "Zahlungsdetails", "Ödeme ayrıntıları")}</Link>}
             {pending && payment.resumeUrl && <a href={payment.resumeUrl} className="inline-flex min-h-11 items-center rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white">{t("ادامهٔ پرداخت در زرین‌پال", "Continue on Zarinpal", "Bei Zarinpal fortsetzen", "Zarinpal'da devam et")}</a>}
             {bank && payment.receiptAt && <a href={`/api/payment/${payment.id}/receipt`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-2 text-sm" style={{ borderColor: "var(--border)" }}><FileText size={16}/>{t("رسید ثبت‌شده", "Saved receipt", "Gespeicherter Beleg", "Kayıtlı dekont")}</a>}
-            {approved && <Link href={payment.plan.startsWith("STUDENT_") ? "/student" : payment.plan.startsWith("VOICE_") ? "/voice-agent" : "/home"} className="inline-flex min-h-11 items-center rounded-xl border px-4 py-2 text-sm" style={{ borderColor: "var(--border)" }}>{t("ورود به فضای من", "Open my workspace", "Meinen Bereich öffnen", "Alanıma git")}</Link>}
+            {approved && <Link href={fitnessContext&&payment.plan.startsWith("CREDITS_")?"/fitness/credits":payment.plan.startsWith("FIT_") ? "/fitness/marketplace" : payment.plan.startsWith("STUDENT_") ? "/student" : payment.plan.startsWith("VOICE_") ? "/voice-agent" : "/home"} className="inline-flex min-h-11 items-center rounded-xl border px-4 py-2 text-sm" style={{ borderColor: "var(--border)" }}>{t("ورود به فضای من", "Open my workspace", "Meinen Bereich öffnen", "Alanıma git")}</Link>}
             {!pending && !approved && <Link href="/contact" className="inline-flex min-h-11 items-center rounded-xl border px-4 py-2 text-sm" style={{ borderColor: "var(--border)" }}>{t("پیگیری با پشتیبانی", "Contact support", "Support kontaktieren", "Destekle iletişime geç")}</Link>}
           </div>
         </article>;

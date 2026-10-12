@@ -197,3 +197,9 @@ code {
 .fit-page{background:#0d0f12;color:#f5f5f5;--surface-0:#0d0f12;--surface-1:#171a20;--text-primary:#f5f5f5;--text-muted:#adb4bf;--border-subtle:#2c3139;min-height:100vh}.fit-hero p{color:#b7bec9}.fit-fika{background-size:auto 1000px;background-position:-260px -65px}.fit-fiko{background-size:auto 1000px;background-position:-160px -30px}@media(max-width:700px){.fit-fika{background-size:auto 700px;background-position:-180px -40px}.fit-fiko{background-size:auto 700px;background-position:-110px -15px}}
 
 .fit-fika,.fit-fiko{background-size:cover;background-position:center 18%}@media(max-width:700px){.fit-fika,.fit-fiko{background-size:cover;background-position:center 18%}}
+
+/* Shared marketplace surfaces inside the platform shell. */
+.platform-shell .commerce-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px}
+.platform-shell .commerce-card{padding:20px;border:1px solid var(--border);border-radius:20px;background:var(--surface-1);display:grid;gap:14px;min-width:0}
+.platform-shell .commerce-card input,.platform-shell .commerce-card textarea{min-height:44px}
+.platform-shell nav button[aria-pressed=true]{border-color:var(--primary);color:var(--primary)}

@@ -33,7 +33,9 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     ".next/types/**/*.ts",
-    ".next-fit-release/types/**/*.ts"
+    ".next-fit-release/types/**/*.ts",
+    ".next-fit-market-release/types/**/*.ts",
+    ".next-fit-platform-release/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

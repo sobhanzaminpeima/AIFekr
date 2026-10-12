@@ -226,6 +226,9 @@ model User {
   fitnessSessions FitnessSession[]
   fitnessDiary FitnessDiary[]
   fitnessTrainer FitnessTrainer?
+  fitnessApplication FitnessTrainerApplication?
+  fitnessOrders FitnessMarketOrder[]
+  fitnessBookings FitnessBooking[]
   billingQuotes BillingQuote[]
 
   referralCodeAliases ReferralCodeAlias[]
@@ -3988,6 +3991,9 @@ model FitnessTrainer {
   capacity Int @default(0)
   programs FitnessProgram[]
   products FitnessProduct[]
+  slots FitnessAvailability[]
+  bookings FitnessBooking[]
+  application FitnessTrainerApplication?
   createdAt DateTime @default(now())
 }
 model FitnessExercise {
@@ -4066,6 +4072,7 @@ model FitnessProduct {
   inventory Int @default(0)
   description String
   digitalAsset String?
+  orders FitnessMarketOrder[]
   createdAt DateTime @default(now())
 }
 
@@ -4087,4 +4094,100 @@ model BillingPromotionRedemption {
   paymentId String @unique
   createdAt DateTime @default(now())
   @@unique([promotionId,userId])
+}
+
+model FitnessTrainerApplication {
+ id String @id @default(cuid())
+ userId String @unique
+ user User @relation(fields:[userId],references:[id])
+ trainerId String? @unique
+ trainer FitnessTrainer? @relation(fields:[trainerId],references:[id])
+ status String @default("PENDING")
+ name String
+ biography String
+ qualifications String
+ credentials String @default("[]")
+ languages String
+ specialties String
+ country String
+ timezone String
+ consentAt DateTime
+ reviewNote String?
+ reviewedBy String?
+ reviewedAt DateTime?
+ createdAt DateTime @default(now())
+}
+model FitnessAvailability {
+ id String @id @default(cuid())
+ trainerId String
+ trainer FitnessTrainer @relation(fields:[trainerId],references:[id])
+ startsAt DateTime
+ endsAt DateTime
+ status String @default("OPEN")
+ priceMinor Int
+ currency String @default("USD")
+ bookings FitnessBooking[]
+ @@unique([trainerId,startsAt])
+}
+model FitnessBooking {
+ id String @id @default(cuid())
+ userId String
+ user User @relation(fields:[userId],references:[id])
+ trainerId String
+ trainer FitnessTrainer @relation(fields:[trainerId],references:[id])
+ slotId String
+ slot FitnessAvailability @relation(fields:[slotId],references:[id])
+ status String @default("AWAITING_PAYMENT")
+ paymentId String? @unique
+ order FitnessMarketOrder?
+ review FitnessVerifiedReview?
+ createdAt DateTime @default(now())
+ @@index([userId,createdAt])
+}
+model FitnessMarketOrder {
+ id String @id @default(cuid())
+ userId String
+ user User @relation(fields:[userId],references:[id])
+ trainerId String
+ productId String?
+ product FitnessProduct? @relation(fields:[productId],references:[id])
+ bookingId String? @unique
+ booking FitnessBooking? @relation(fields:[bookingId],references:[id])
+ paymentId String @unique
+ clientKey String
+ status String @default("AWAITING_PAYMENT")
+ quantity Int @default(1)
+ totalMinor Int
+ currency String
+ snapshot String
+ shippingAddress String?
+ fulfillmentReference String?
+ refundReason String?
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ ledger FitnessSellerLedger[]
+ @@unique([userId,clientKey])
+}
+model FitnessSellerLedger {
+ id String @id @default(cuid())
+ orderId String
+ order FitnessMarketOrder @relation(fields:[orderId],references:[id])
+ trainerId String
+ kind String
+ amountToman Int
+ status String @default("HELD")
+ reference String?
+ createdAt DateTime @default(now())
+ @@unique([orderId,kind])
+}
+model FitnessVerifiedReview {
+ id String @id @default(cuid())
+ bookingId String @unique
+ booking FitnessBooking @relation(fields:[bookingId],references:[id])
+ userId String
+ trainerId String
+ rating Int
+ body String
+ status String @default("PENDING")
+ createdAt DateTime @default(now())
 }

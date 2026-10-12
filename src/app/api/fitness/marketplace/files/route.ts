@@ -1,0 +1,11 @@
+export const dynamic="force-dynamic";
+import {NextRequest,NextResponse} from "next/server";
+import {requireAuth,unauthorizedResponse} from "@/lib/auth/middleware";
+import {prisma} from "@/lib/db/prisma";
+import {mkdir,writeFile} from "node:fs/promises";
+import path from "node:path";
+import {randomUUID} from "node:crypto";
+import {rateLimit} from "@/lib/utils/rateLimit";
+import {privateAssetLocation,readPrivateAsset} from "@/lib/fitness/privateAssets";
+export async function POST(req:NextRequest){const u=await requireAuth(req);if(!u)return unauthorizedResponse(req);if(!rateLimit("fit-file:"+u.id,5,3600000).allowed)return new NextResponse(null,{status:429});const trainer=await prisma.fitnessTrainer.findFirst({where:{userId:u.id,status:"ACTIVE",type:"HUMAN"}});if(!req.headers.get("content-length")||Number(req.headers.get("content-length"))>11*1024*1024)return new NextResponse(null,{status:413});try{const form=await req.formData(),file=form.get("file"),credential=form.get("kind")==="credential";if(!trainer&&!credential)return new NextResponse(null,{status:403});if(!(file instanceof File)||file.size>10*1024*1024||file.size<5)throw Error("PDF_REQUIRED_MAX_10MB");const bytes=Buffer.from(await file.arrayBuffer());if(bytes.subarray(0,5).toString()!=="%PDF-")throw Error("PDF_REQUIRED");const key=`${credential?"fitness-credentials":"fitness-private"}/${u.id}/${randomUUID()}.pdf`;const target=privateAssetLocation(key);await mkdir(path.dirname(target),{recursive:true});await writeFile(target,bytes,{flag:"wx",mode:0o600});return NextResponse.json({key});}catch{return NextResponse.json({error:"INVALID_PDF"},{status:400});}}
+export async function GET(req:NextRequest){const u=await requireAuth(req);if(!u)return unauthorizedResponse(req);try{const order=await prisma.fitnessMarketOrder.findFirstOrThrow({where:{id:req.nextUrl.searchParams.get("order")||"",userId:u.id,status:"DELIVERED"}});const snap=JSON.parse(order.snapshot);if(snap.kind!=="DIGITAL")throw Error("NOT_DIGITAL");const file=await readPrivateAsset(snap.digitalAsset);return new NextResponse(file,{headers:{"Content-Type":"application/pdf","Content-Disposition":"attachment; filename=\"AIFekr-program.pdf\"","X-Content-Type-Options":"nosniff","Cache-Control":"private, no-store"}});}catch{return new NextResponse(null,{status:404});}}

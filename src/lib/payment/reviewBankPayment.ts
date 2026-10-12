@@ -1,3 +1,5 @@
+import {settleMarketOrder} from "@/lib/fitness/marketplace";
+import {grantReferralRewardInTransaction} from "@/lib/utils/referralWallet";
 import { isBusinessBundle, businessIncludesVoice } from "@/lib/plans/business";
 import {standaloneVoiceExpiry} from "./voiceEntitlement";
 import { prisma } from "@/lib/db/prisma";
@@ -16,6 +18,7 @@ async function settlePayment(id:string,review:{adminId?:string;approve:boolean;n
  else if(p.gateway!=="bank_transfer"||!p.receiptAt)throw new Error("NOT_REVIEWABLE");
  const claimed=await tx.payment.updateMany({where:{id,status:"PENDING"},data:{status:approve?"SUCCESS":"REJECTED",reviewBy:adminId,reviewAt:adminId?new Date():undefined,reviewNote:note,refId:approve?(review.refId||`BANK-${id}`):null}});
  if(!claimed.count){if(review.authority&&p.status==="SUCCESS")return false;throw new Error("ALREADY_REVIEWED");}
+ if(p.plan==="FIT_MARKETPLACE"){await settleMarketOrder(tx,p.id,approve);if(approve&&p.user.referredBy&&p.user.referredBy!==p.userId)await grantReferralRewardInTransaction(tx,p.userId,p.user.referredBy,100,p.amount,p.id);return true;}
  if(!approve){const reserved=await tx.billingPromotionRedemption.findUnique({where:{paymentId:id}});if(reserved){await tx.billingPromotionRedemption.delete({where:{paymentId:id}});await tx.auditLog.create({data:{actorId:adminId||p.userId,action:"billing_promotion_reservation_released",targetId:id,metadata:JSON.stringify({promotionId:reserved.promotionId,reason:"REJECTED"})}});}return;}
  const entitlement=JSON.parse(p.entitlementSnapshot) as {credits:number;days:number;teamSeatLimit?:number;crmSeatLimit?:number;businessBundle?:boolean;category?:string;mediaCredits?:number;voiceMinutes?:number;entitlements?:{modules?:string[]};quote?:{bonus?:{id:string;days:number;credits:number}|null}};
  if(!Number.isInteger(entitlement.credits)||entitlement.credits<0||!Number.isFinite(entitlement.days)||entitlement.days<=0)throw new Error("INVALID_ENTITLEMENT");
@@ -47,18 +50,7 @@ async function settlePayment(id:string,review:{adminId?:string;approve:boolean;n
  }
  }
  if(p.walletDiscountToman>0){await tx.user.update({where:{id:u.id},data:{walletBalance:{decrement:p.walletDiscountToman}}});await tx.walletTransaction.create({data:{userId:u.id,type:"redeem_at_checkout",amount:-p.walletDiscountToman,relatedPaymentId:p.id}});}
- if(u.referredBy&&!u.referralRewarded&&u.referredBy!==u.id){
- const referrer=await tx.user.findUnique({where:{id:u.referredBy}});
- if(referrer){
- const setting=await tx.siteSetting.findUnique({where:{key:"referral_commission_percent"}});
- const configured=Number(setting?.value??15),percent=referrer.commissionPercentOverride??configured;
- if(!Number.isFinite(percent)||percent<0||percent>100)throw new Error("INVALID_COMMISSION");
- const commission=Math.round(p.amount*percent/100);
- // Claim the first-purchase reward inside the same transaction as activation.
- const first=await tx.user.updateMany({where:{id:u.id,referralRewarded:false},data:{referralRewarded:true,credits:{increment:100}}});
- if(first.count){await tx.user.update({where:{id:referrer.id},data:{walletBalance:{increment:commission}}});await tx.walletTransaction.create({data:{userId:referrer.id,type:"commission",amount:commission,relatedPaymentId:p.id,relatedUserId:u.id,note:`${percent}% bank purchase commission`}});}
- }
- }
+ if(u.referredBy&&u.referredBy!==u.id)await grantReferralRewardInTransaction(tx,u.id,u.referredBy,100,p.amount,p.id);
  return true;
  });
 }

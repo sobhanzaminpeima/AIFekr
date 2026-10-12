@@ -97,3 +97,5 @@ tsc-errors.txt
 /.next-fit-release/
 !/docs/fit-pricing-audit.md
 !/docs/fit-pricing-release.md
+
+/private-uploads/

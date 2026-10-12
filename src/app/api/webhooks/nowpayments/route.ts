@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     ]).catch((err) => console.error("Wallet discount deduction failed:", err));
   }
 
-  if (payment.user.referredBy && !payment.user.referralRewarded) {
+  if (payment.user.referredBy) {
     await grantReferralReward(payment.userId, payment.user.referredBy, REFERRAL_BONUS_CREDITS, payment.amount, payment.id).catch((err) => console.error("Referral reward grant failed:", err));
   }
   if (payment.user.email) {

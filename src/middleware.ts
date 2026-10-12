@@ -52,6 +52,7 @@ export function middleware(req: NextRequest) {
     const localized = stripPublicLocale(pathname);
     const requestHeaders = new Headers(req.headers);
     requestHeaders.delete("x-public-lang");
+    requestHeaders.set("x-aifekr-path", pathname + req.nextUrl.search);
     if (isPublicRoute(localized.path)) {
       requestHeaders.set("x-public-lang", localized.lang);
       if (pathname !== localized.path) {

@@ -1,0 +1,12 @@
+import {beforeAll,afterAll,it,expect,vi} from "vitest";
+import {NextRequest} from "next/server";
+import {prisma} from "@/lib/db/prisma";
+const auth=vi.hoisted(()=>({id:"",role:"USER"}));
+vi.mock("@/lib/auth/middleware",()=>({requireAuth:async()=>auth,unauthorizedResponse:()=>new Response(null,{status:401})}));
+vi.mock("@/lib/payment/bank",()=>({notifyReceipt:vi.fn(async()=>{})}));
+import {GET} from "@/app/api/payment/[id]/route";
+import {POST as upload} from "@/app/api/payment/[id]/receipt/route";
+const buyer="bank-recovery-"+Date.now();let id="";
+beforeAll(async()=>{await prisma.user.create({data:{id:buyer}});auth.id=buyer;id=(await prisma.payment.create({data:{userId:buyer,plan:"FIT_MARKETPLACE",amount:1000,gateway:"bank_transfer",bankSnapshot:JSON.stringify({iban:"TR640001009010583132105003",holder:"QA"})}})).id;});
+afterAll(async()=>{await prisma.payment.deleteMany({where:{userId:buyer}});await prisma.user.delete({where:{id:buyer}});});
+it("payment survives a fresh request after leaving the page and accepts a later receipt",async()=>{const first=await GET(new NextRequest("http://localhost/api/payment/"+id),{params:{id}});expect((await first.json()).payment.status).toBe("PENDING");const reopened=await GET(new NextRequest("http://localhost/api/payment/"+id),{params:{id}});expect((await reopened.json()).payment.id).toBe(id);const form=new FormData();form.set("receipt",new File(["%PDF-1.4\nQA payment receipt\n%%EOF"],"qa.pdf",{type:"application/pdf"}));const r=await upload(new NextRequest("http://localhost/api/payment/"+id+"/receipt",{method:"POST",body:form}),{params:{id}});expect(r.status).toBe(200);const later=await GET(new NextRequest("http://localhost/api/payment/"+id),{params:{id}});const p=(await later.json()).payment;expect(p.id).toBe(id);expect(p.receiptAt).not.toBeNull();expect(p.status).toBe("PENDING");});

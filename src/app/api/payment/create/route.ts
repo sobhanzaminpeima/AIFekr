@@ -90,6 +90,6 @@ export async function POST(req: NextRequest) {
    return bankError(req,"Payment gateway unavailable",503);
   }
  }
- return NextResponse.json({paymentId:payment.id,paymentUrl:`/checkout/${payment.id}`});
+ return NextResponse.json({paymentId:payment.id,paymentUrl:`${("category" in pkg&&pkg.category==="FITNESS")||body.context==="FITNESS"?"/fitness/checkout":"/checkout"}/${payment.id}`});
  }catch(e){if(e instanceof Error&&["QUOTE_ALREADY_USED","PROMOTION_NO_LONGER_ELIGIBLE","PROMOTION_ORDER_PENDING"].includes(e.message))return bankError(req,e.message,409);if(e instanceof Error&&e.message==="PROMO_ORDER_PENDING")return bankError(req,"Complete or cancel the existing discounted order first",409);if(e instanceof Error&&e.message==="PAYMENT_PROCESSING")return bankError(req,"Payment is processing",409);if(e instanceof Error&&e.message==="OFFER_USED")return bankError(req,"Student welcome offer already used",409);throw e;}
 }
