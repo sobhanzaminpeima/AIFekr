@@ -62,6 +62,7 @@ interface HomeSummary {
   meaningfulStats: StatKey[];
   isEmptyWorkspace: boolean;
   industryPack: { name: string; nameEn: string | null; emoji: string; slug: string } | null;
+  fitnessWorkspace?:{enabled:boolean};
   studentWorkspace: { enabled: boolean; courseCount: number; upcomingExamCount: number; pendingTaskCount: number };
   businessAccess: boolean;
 }
@@ -160,6 +161,7 @@ export default function HomePage() {
       )}
 
       {data.businessAccess && <Link href="/seo/intelligence" className="block rounded-2xl p-5" style={{background:"linear-gradient(120deg,rgba(249,115,22,.13),rgba(34,197,94,.06))",border:"1px solid rgba(249,115,22,.25)"}}><div className="flex items-center justify-between gap-3"><div><span className="text-xs text-orange-400">{tri(lang,"ایجنت سئو","SEO Agent","SEO-Agent","SEO ajanı")}</span><h2 className="font-semibold mt-1">SEO Intelligence</h2><p className="text-sm mt-2" style={{color:"var(--text-secondary)"}}>{tri(lang,"فرصت‌های رشد سایتت را با داده‌های واقعی کلمات کلیدی، رتبه و بک‌لینک پیدا کن.","Find growth opportunities with real keyword, ranking and backlink data.","Finde Wachstumschancen mit echten Keyword-, Ranking- und Backlink-Daten.","Gerçek anahtar kelime, sıralama ve geri bağlantı verileriyle büyüme fırsatlarını bulun.")}</p><span className="inline-block mt-3 text-sm text-orange-400">{tri(lang,"شروع بررسی سایت","Explore your website","Website untersuchen","Sitenizi inceleyin")}</span></div><TrendingUp size={26} className="shrink-0 text-orange-400"/></div></Link>}
+      {data.fitnessWorkspace?.enabled&&<Link href="/fitness" className="block rounded-2xl border border-orange-500/30 p-5"><h2>AIFekr FIT</h2><p>{tri(lang,"ایجنت ورزش شما فعال است؛ برنامه، مربی و گزارش پیشرفت","Your Fitness Agent is active · programs, coach and progress reports","Ihr Fitness-Agent ist aktiv · Programme und Fortschritt","Fitness ajanınız etkin · programlar, eğitmen ve ilerleme")}</p></Link>}
       {data.studentWorkspace.enabled && (
         <Link href="/student" className="block rounded-2xl p-5 transition-colors" style={{ background: "linear-gradient(120deg,rgba(249,115,22,.13),rgba(99,102,241,.1))", border: "1px solid rgba(249,115,22,.25)" }}>
           <div className="flex flex-wrap items-center justify-between gap-3">

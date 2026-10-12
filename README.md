@@ -402,3 +402,16 @@ Built with ❤️ by the **AiFekr** team
 [Live Demo](http://193.162.129.138) · [Report a Bug](https://github.com/inexpoaiagent/AIFekr/issues) · [Request a Feature](https://github.com/inexpoaiagent/AIFekr/issues)
 
 </div>
+
+## FIT workspace, marketplace and billing (October 2026)
+AIFekr FIT is integrated into the platform shell at `/fitness`, with the shared sidebar language selector. It includes a daily dashboard, saved coach/program choices, real workout logs, rolling weekly/monthly reports, advanced programs and admin-granted independent access.
+
+- Marketplace: `/fitness/marketplace`; admin: `/admin/fitness/marketplace`.
+- User access: Admin → Users → user profile → AIFekr FIT. Grants are time-limited and audited; health profiles still require genuine user consent.
+- Billing: Admin package editor is the source for public catalogs. Future quote base prices: Growth USD 129/329/599, Scale USD 149/349/649, Student TRY 1199.99/2799.99, FIT USD 49.99/134.99/239.99. Terms are monthly/quarterly/semiannual where configured. Historical invoices and locked purchase snapshots are preserved.
+- Affiliate commission applies to each successful referred purchase exactly once; welcome-credit bonus is still one-time. Seller fees are separately configurable. Bank transfers support persistent receipt recovery.
+- Required additive migrations: `20261011140000_fit_dynamic_billing`, `20261012024500_business_credit_allocation`, `20261012150000_fit_marketplace`, `20261012180000_advanced_fit_programs`, `20261012200000_fit_access_pricing`. Run `prisma migrate deploy`; never reset production.
+- Configure XE in Admin → Billing → Rates. Toman is manually approved with expiry; official IRR is not substituted for the free-market rate. Keep provider secrets server-side.
+- Set persistent `FIT_PRIVATE_UPLOAD_DIR` outside public roots. Schedule authenticated `/api/cron/fitness-marketplace` for abandoned bank-order holds and `/api/cron/billing-rates` for provider refresh.
+- Refunds/payouts are externally performed and audited by administrators; automatic bank transfers, carrier integration, tax automation and full PWA background synchronization are not claimed.
+- See [delivery notes](docs/fit-pricing-release.md) for detailed architecture, limitations and deployment safeguards. The current branch is `codex/fit-dynamic-billing`; production deployment status must be verified separately from GitHub publication.

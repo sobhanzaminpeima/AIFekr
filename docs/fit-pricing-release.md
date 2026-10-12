@@ -60,3 +60,7 @@ Bank orders remain stored server-side when the user closes the page or opens a b
 ## Advanced programs and reports
 The sidebar language is authoritative for FIT and its marketplace; no duplicate language selector remains in the FIT header. Added four experienced-lifter upper/lower strength and hypertrophy sessions with nine exercise instructions and localized program guidance. Additive migration `20261012180000_advanced_fit_programs` uses INSERT OR IGNORE and preserves historical workouts.
 Weekly/monthly reports use rolling 7/30-day UTC windows from authoritative session records, only completed sessions and completed nonzero-repetition sets. They compare the previous equal-length period and group results by program. Load volume is recorded external weight times repetitions; bodyweight contribution and changes in muscle size are not inferred. RPE is shown only where actually recorded. Reports never prescribe automatic load increases.
+
+## Pricing and dashboard continuation
+New future-quote pricing applies through shared Package records used by admin and landing. Growth USD129/329/599, Scale149/349/649, StudentTRY1199.99/2799.99, FITUSD49.99/134.99/239.99. True savings use monthly reference totals; historical payments are unchanged.
+Admin can grant/revoke independent FIT access with expiry/reason and audit. Home indicates active access. Dashboard preferences store selected AI coach and published program without fabricating workout completion. Today's totals use completed sessions and completed sets.

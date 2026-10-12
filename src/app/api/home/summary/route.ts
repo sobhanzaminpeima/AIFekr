@@ -1,3 +1,4 @@
+import {fitnessAccess} from "@/lib/fitness/service";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -44,6 +45,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ...summary,
+    fitnessWorkspace:{enabled:await fitnessAccess(user.id,user.role)},
     industryPack: user.featureAccess&&(crmActive||studentEnabled)?pack:null,
     agentAccess:{student:studentEnabled,voice:user.featureAccess&&hasVoiceAccess(user),business:user.featureAccess&&crmActive},
     studentWorkspace: { enabled: studentEnabled, courseCount: student[0], upcomingExamCount: student[1], pendingTaskCount: student[2] },

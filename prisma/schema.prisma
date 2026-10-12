@@ -222,6 +222,7 @@ model AcademyLearningPath {
 }
 
 model User {
+  fitnessAccessExpiry DateTime?
   fitnessProfile FitnessProfile?
   fitnessSessions FitnessSession[]
   fitnessDiary FitnessDiary[]
@@ -3964,6 +3965,8 @@ model FitnessProfile {
   level String @default("BEGINNER")
   equipment String @default("[]")
   limitations String @default("")
+  preferredProgramId String?
+  selectedCoachId String?
   dietaryPreferences String @default("")
   allergens String @default("")
   consentAt DateTime
