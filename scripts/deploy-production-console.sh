@@ -4,8 +4,8 @@ set -Eeuo pipefail
 # Console-safe production deployment for the current AIFekr FIT release.
 # It intentionally uses the existing production environment and shared SQLite DB.
 
-TARGET_COMMIT="c53b792"
-TARGET_SHORT="c53b792"
+TARGET_COMMIT="2242c80"
+TARGET_SHORT="2242c80"
 REPO_URL="https://github.com/sobhanzaminpeima/AIFekr.git"
 DB="/var/www/ai-platform/prisma/prisma/prod.db"
 NEW="/var/www/aifekr-release-${TARGET_SHORT}"
