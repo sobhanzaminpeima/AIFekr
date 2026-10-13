@@ -4007,6 +4007,7 @@ model FitnessExercise {
   equipment String
   category String
   videoUrl String?
+  imageUrl String?
   active Boolean @default(true)
 }
 model FitnessProgram {

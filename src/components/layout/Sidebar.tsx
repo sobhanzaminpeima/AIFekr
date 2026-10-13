@@ -312,7 +312,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
 
       <nav className="flex-1 overflow-y-auto px-2 space-y-0.5 pb-2">
         <NavItem icon={LayoutDashboard} label={tri(lang, "خانه", "Home", "Startseite", "Ana Sayfa")} href="/home" active={isActive("/home")} />
-        <NavItem icon={LayoutDashboard} label="AIFekr FIT" href="/fitness" active={isActive("/fitness")} />
+        <NavItem icon={LayoutDashboard} label={lang==="fa"?"فیتنس آی‌فکر":"AIFekr FIT"} href="/fitness" active={isActive("/fitness")} />
         <NavItem icon={MessageSquare} label={t.nav.chat} href="/chat" active={isActive("/chat")} />
         {user?.studentWorkspaceEnabled !== false && <NavItem icon={GraduationCap} label={t.nav.studentWorkspace} href="/student" active={isActive("/student")} />}
 
@@ -768,3 +768,4 @@ function NavItem({ icon: Icon, label, href, active, small = false, accent }: {
     </Link>
   );
 }
+
