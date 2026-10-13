@@ -3961,6 +3961,12 @@ model FitnessProfile {
   userId String @id
   user User @relation(fields:[userId],references:[id],onDelete:Cascade)
   age Int
+  heightCm Int?
+  weightKg Float?
+  targetWeightKg Float?
+  daysPerWeek Int @default(3)
+  sessionMinutes Int @default(45)
+  trainingLocation String @default("GYM")
   goal String
   level String @default("BEGINNER")
   equipment String @default("[]")
@@ -4013,6 +4019,7 @@ model FitnessExercise {
 model FitnessProgram {
   id String @id @default(cuid())
   trainerId String?
+  ownerUserId String?
   trainer FitnessTrainer? @relation(fields:[trainerId],references:[id],onDelete:SetNull)
   title String
   description String
