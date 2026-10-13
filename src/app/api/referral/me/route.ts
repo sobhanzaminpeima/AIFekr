@@ -1,4 +1,5 @@
 import { changeReferralCode } from "@/lib/utils/changeReferralCode";
+import {randomBytes} from "node:crypto";
 import { rateLimit } from "@/lib/utils/rateLimit";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
@@ -10,11 +11,14 @@ export async function GET(req: NextRequest) {
   const auth = await requireAuth(req);
   if (!auth) return unauthorizedResponse(req);
 
+  const owner=await prisma.user.findUnique({where:{id:auth.id},select:{referralCode:true}});
+  if(owner&&!owner.referralCode)await prisma.user.updateMany({where:{id:auth.id,referralCode:null},data:{referralCode:randomBytes(8).toString("hex")}});
+
   const [user, invitedUsers, walletEarnedAgg, commissionPercent] = await Promise.all([
     prisma.user.findUnique({ where: { id: auth.id }, select: { referralCode: true, referralDiscountPercent:true, walletBalance: true } }),
     prisma.user.findMany({
       where: { referredBy: auth.id },
-      select: { id: true, name: true, email: true, referralRewarded: true, createdAt: true },
+      select: { id: true, name: true, email: true, referralRewarded: true, createdAt: true, payments:{where:{status:"SUCCESS"},select:{id:true}} },
       orderBy: { createdAt: "desc" },
     }),
     // Referrer reward is now a wallet commission (% of the referred user's
@@ -23,6 +27,8 @@ export async function GET(req: NextRequest) {
     prisma.walletTransaction.aggregate({ where: { userId: auth.id, type: "commission" }, _sum: { amount: true } }),
     getReferralCommissionPercent(auth.id),
   ]);
+
+  const commissions=await prisma.walletTransaction.groupBy({by:["relatedUserId"],where:{userId:auth.id,type:"commission"},_sum:{amount:true}});
 
   return NextResponse.json({
     currency: auth.currency ?? null,
@@ -37,6 +43,8 @@ export async function GET(req: NextRequest) {
       name: u.name,
       email: u.email,
       rewarded: u.referralRewarded,
+      successfulPurchases:u.payments.length,
+      commissionEarned:commissions.find(c=>c.relatedUserId===u.id)?._sum.amount||0,
       createdAt: u.createdAt,
     })),
   });
