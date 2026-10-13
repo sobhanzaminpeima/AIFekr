@@ -6,6 +6,7 @@
     "dev": "next dev",
     "prebuild": "node scripts/patch-recharts-label.js",
     "build": "next build",
+    "build:hostinger": "node scripts/prepare-hostinger-prisma.mjs && prisma validate --schema prisma/schema.hostinger.prisma && prisma generate --schema prisma/schema.hostinger.prisma && prisma db push --schema prisma/schema.hostinger.prisma && next build",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",

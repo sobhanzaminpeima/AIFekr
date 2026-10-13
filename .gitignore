@@ -41,6 +41,7 @@ next-env.d.ts
 *.db-shm
 *.db-wal
 prisma/prisma/
+prisma/schema.hostinger.prisma
 
 # Claude Code session files
 .claude/
