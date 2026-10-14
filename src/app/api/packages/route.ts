@@ -11,7 +11,7 @@ export async function GET() {
     where: { isActive: true,publicVisible:true,publicationStatus:"PUBLISHED" },
     orderBy: { sortOrder: "asc" },
     select: {
-      termPrices:true,baseCurrency:true,category:true,planCode: true, name: true, nameEn: true, price: true, priceUsd: true, priceTry: true,
+      badge:true,termPrices:true,baseCurrency:true,category:true,planCode: true, name: true, nameEn: true, price: true, priceUsd: true, priceTry: true,
       market: true, duration: true, credits: true, isFeatured: true,
       color: true, features: true, featuresEn: true, teamSeatLimit:true, crmSeatLimit:true,
       mediaCredits:true, voiceMinutes:true, crmContactLimit:true, entitlements:true,creditAllocation:true,
@@ -21,3 +21,4 @@ export async function GET() {
   const token=cookies().get("token")?.value;const auth=token?verifyToken(token):null;const promo=auth?await referralDiscount(auth.userId):{percent:0,code:null};
   return NextResponse.json({ promo, fxRates:rates, packages });
 }
+
