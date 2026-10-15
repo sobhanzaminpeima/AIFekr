@@ -59,7 +59,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if(moduleKey===STUDENT_WORKSPACE_MODULE_KEY&&enabled===true){
     try{const user=await activateStudentAsAdmin(params.id,admin.id);
     return NextResponse.json({user,override:{moduleKey,enabled:true}});}
-    catch{return NextResponse.json({error:"فعال‌سازی انجام نشد؛ وجود پکیج دانشجویی و بستهٔ دانشگاه را بررسی کنید."},{status:503});}
+    catch(error){
+      const code=error instanceof Error?error.message:"";
+      if(code==="STUDENT_PACKAGE_INACTIVE")return NextResponse.json({error:"پکیج سه‌ماههٔ دانشجویی در مدیریت پکیج‌ها غیرفعال است؛ ابتدا آن را فعال کنید."},{status:409});
+      if(code==="INVALID_STUDENT_DAYS")return NextResponse.json({error:"مدت فعال‌سازی دانشجویی معتبر نیست."},{status:400});
+      if(code.includes("Record to update not found")||code.includes("No User found"))return NextResponse.json({error:"کاربر موردنظر پیدا نشد."},{status:404});
+      console.error("Admin student activation failed",error);
+      return NextResponse.json({error:"فعال‌سازی دانشجویی به‌دلیل خطای داخلی انجام نشد. دوباره تلاش کنید."},{status:500});
+    }
   }
 
   if (enabled === null) {

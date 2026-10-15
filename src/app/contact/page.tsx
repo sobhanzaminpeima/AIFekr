@@ -14,22 +14,22 @@ export const dynamic = "force-dynamic";
 
 const DEFAULTS = {
   contact_email: "support@aifekr.com",
-  contact_phone: "",
-  contact_address: "",
+  contact_phone: "+905391016485",
+  contact_address: "Cyprus",
   contact_telegram: "",
 };
 
 const DEFAULTS_DE = {
   contact_email: "support@aifekr.com",
-  contact_phone: "",
-  contact_address: "",
+  contact_phone: "+905391016485",
+  contact_address: "Cyprus",
   contact_telegram: "",
 };
 
 const DEFAULTS_EN = {
   contact_email: "support@aifekr.com",
-  contact_phone: "",
-  contact_address: "",
+  contact_phone: "+905391016485",
+  contact_address: "Cyprus",
   contact_telegram: "",
 };
 
@@ -42,7 +42,13 @@ async function getSettings(lang: string) {
     const map: Record<string, string> = {};
     for (const r of rows) map[r.key] = r.value;
     // The address field from the DB is Persian-authored, so only apply DB overrides in Persian mode.
-    return { ...defaults, ...map };
+    return {
+      ...defaults,
+      ...map,
+      contact_email: "support@aifekr.com",
+      contact_phone: "+905391016485",
+      contact_address: "Cyprus",
+    };
   } catch {
     return defaults;
   }
