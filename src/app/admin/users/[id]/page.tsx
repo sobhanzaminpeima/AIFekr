@@ -6,6 +6,7 @@ import { ArrowRight, Loader2, MessageSquare, Image as ImageIcon, Video, Wallet, 
 import { toJalali, formatNumber } from "@/lib/utils/jalali";
 import toast from "react-hot-toast";
 import AdminFitnessAccess from "@/components/admin/AdminFitnessAccess";
+import GatewayRecheck from "@/components/admin/GatewayRecheck";
 import AdminAcademy from "@/components/courses/AdminAcademy";
 import { COUNTRIES, dialCodeFor } from "@/lib/constants/countries";
 
@@ -111,6 +112,7 @@ export default function AdminUserDetailPage() {
   const [user, setUser] = useState<UserDetail | null>(null);
   const [history,setHistory]=useState<{id:string;action:string;createdAt:string;actorId:string}[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("payments");
   const [commissionInput, setCommissionInput] = useState("");
   const [savingCommission, setSavingCommission] = useState(false);
   const [planExpiryInput, setPlanExpiryInput] = useState("");
@@ -275,7 +277,6 @@ export default function AdminUserDetailPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <AdminFitnessAccess userId={id}/><AdminAcademy userId={id}/>
       <button
         onClick={() => router.push("/admin/users")}
         className="flex items-center gap-1.5 text-sm"
@@ -319,6 +320,11 @@ export default function AdminUserDetailPage() {
       </div>
 
       {/* General AI-plan expiration is separate from CRM and industry access. */}
+      <nav aria-label="بخش‌های مدیریت کاربر" className="flex flex-wrap gap-2 rounded-2xl border p-2" style={{borderColor:"var(--border)",background:"var(--surface-1)"}}>
+        {[["payments","پرداخت‌ها"],["account","مشخصات و اشتراک"],["access","دسترسی و کمیسیون"],["academy","آموزش و ورزش"],["activity","فعالیت و تاریخچه"]].map(([key,label])=><button key={key} aria-pressed={tab===key} onClick={()=>setTab(key)} className="rounded-xl px-4 py-2.5 text-sm" style={{background:tab===key?"var(--primary)":"transparent",color:tab===key?"white":"var(--text-secondary)"}}>{label}</button>)}
+      </nav>
+      {tab==="academy"&&<div className="space-y-5"><AdminFitnessAccess userId={id}/><AdminAcademy userId={id}/></div>}
+      <div hidden={tab!=="account"} className="space-y-5">
       <div className="rounded-2xl p-5 space-y-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
@@ -427,7 +433,10 @@ export default function AdminUserDetailPage() {
         <p>نوع حساب: {user.accountType==="STUDENT"?"دانشجو":user.accountType==="BUSINESS"?"کسب‌وکار":"شخصی"}</p>
         <button disabled={savingModuleKey!==null} onClick={()=>void setModuleOverride("student.workspace",true)} className="rounded-xl bg-indigo-600 px-4 py-3 text-white disabled:opacity-50">فعال‌سازی پکیج دانشجویی</button>
       </section>
-      <section className="rounded-2xl border p-5 space-y-3" style={{borderColor:"var(--border)",background:"var(--surface-1)"}}><h2 className="font-semibold">تاریخچهٔ حساب</h2><p className="text-xs opacity-70">ثبت‌نام: {toJalali(user.createdAt)} · آخرین ورود: {user.lastLoginAt?toJalali(user.lastLoginAt):"ثبت نشده"}</p>{history.length===0?<p className="text-sm opacity-70">هنوز رویداد مدیریتی ثبت نشده است.</p>:<ol className="space-y-2">{history.map(event=><li key={event.id} className="rounded-xl p-3 text-sm" style={{background:"var(--surface-0)"}}><b>{{account_registered:"ثبت‌نام",last_login:"آخرین ورود",payment_pending:"درخواست خرید",payment_success:"پرداخت موفق",payment_failed:"پرداخت ناموفق",payment_rejected:"رسید ردشده",voice_number_connected:"راه‌اندازی شماره تماس",student_activated:"فعال‌سازی دانشجویی",account_updated:"ویرایش حساب",module_override_updated:"تغییر دسترسی ماژول",trial_activated:"فعال‌سازی دعوت",account_created:"ساخت حساب",voice_activated:"تغییر دسترسی تماس"}[event.action]||(event.action.startsWith("usage_")?`مصرف اعتبار · ${event.action.slice(6)}`:event.action)}</b><time className="block text-xs opacity-60">{toJalali(event.createdAt)}</time></li>)}</ol>}</section>
+      {/* Per-user module toggles (e.g. enabling just "Property Management"
+      */}
+      </div>
+      <div hidden={tab!=="access"} className="space-y-5">
       {/* Per-user module toggles (e.g. enabling just "Property Management"
           for a real-estate user) -- independent of the pack-level defaults;
           "پیش‌فرض پکیج" clears the override and falls back to those. */}
@@ -487,6 +496,8 @@ export default function AdminUserDetailPage() {
       </div>
 
       {/* Stats */}
+      </div>
+      <div hidden={tab!=="payments"} className="space-y-5">
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { icon: Wallet, label: "اعتبار", value: formatNumber(user.credits) },
@@ -530,7 +541,7 @@ export default function AdminUserDetailPage() {
                     <td className="px-4 py-2.5">
                       <span className="px-2 py-0.5 rounded-full text-xs" style={{ background: st.color + "22", color: st.color }}>{st.label}</span>
                     </td>
-                    <td className="px-4 py-2.5 text-xs" style={{ color: "var(--text-muted)" }}>{toJalali(p.createdAt)}</td>
+                    <td className="px-4 py-2.5 text-xs" style={{ color: "var(--text-muted)" }}>{toJalali(p.createdAt)}{p.gateway==="zarinpal"&&p.status==="PENDING"&&<GatewayRecheck id={p.id} onVerified={()=>void load()}/>}</td>
                   </tr>
                 );
               })}
@@ -540,6 +551,9 @@ export default function AdminUserDetailPage() {
       </div>
 
       {/* Usage log */}
+      </div>
+      <div hidden={tab!=="activity"}>
+      <section className="rounded-2xl border p-5 space-y-3" style={{borderColor:"var(--border)",background:"var(--surface-1)"}}><h2 className="font-semibold">تاریخچهٔ حساب</h2><p className="text-xs opacity-70">ثبت‌نام: {toJalali(user.createdAt)} · آخرین ورود: {user.lastLoginAt?toJalali(user.lastLoginAt):"ثبت نشده"}</p>{history.length===0?<p className="text-sm opacity-70">هنوز رویداد مدیریتی ثبت نشده است.</p>:<ol className="space-y-2">{history.map(event=><li key={event.id} className="rounded-xl p-3 text-sm" style={{background:"var(--surface-0)"}}><b>{{account_registered:"ثبت‌نام",last_login:"آخرین ورود",payment_pending:"درخواست خرید",payment_success:"پرداخت موفق",payment_failed:"پرداخت ناموفق",payment_rejected:"رسید ردشده",voice_number_connected:"راه‌اندازی شماره تماس",student_activated:"فعال‌سازی دانشجویی",account_updated:"ویرایش حساب",module_override_updated:"تغییر دسترسی ماژول",trial_activated:"فعال‌سازی دعوت",account_created:"ساخت حساب",voice_activated:"تغییر دسترسی تماس"}[event.action]||(event.action.startsWith("usage_")?`مصرف اعتبار · ${event.action.slice(6)}`:event.action)}</b><time className="block text-xs opacity-60">{toJalali(event.createdAt)}</time></li>)}</ol>}</section>
       <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
         <div className="px-4 py-3 font-medium text-sm" style={{ color: "var(--text-primary)", borderBottom: "1px solid var(--border)" }}>
           آخرین فعالیت‌ها
@@ -567,6 +581,7 @@ export default function AdminUserDetailPage() {
             </tbody>
           </table>
         )}
+      </div>
       </div>
     </div>
   );
