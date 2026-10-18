@@ -28,6 +28,8 @@ export async function POST(req: NextRequest) {
  const tier=plan.startsWith("CREDITS_")?await prisma.creditPricingTier.findUnique({where:{id:plan.slice(8)}}):null;
  const pkg=tier?{isActive:tier.isActive,price:tier.priceToman*10,priceUsd:null,credits:tier.creditsAmount,duration:30,crmSeatLimit:null,teamSeatLimit:null}:await prisma.package.findUnique({where:{planCode:plan}});
  if(!pkg?.isActive || ("publicationStatus" in pkg && pkg.publicationStatus!=="PUBLISHED"))return bankError(req,"Invalid plan",400);
+ if("category" in pkg&&pkg.category==="VIDEO_FACTORY"&&process.env.VIDEO_FACTORY_SALES_APPROVED!=="true")return bankError(req,"OWNER_SALES_APPROVAL_REQUIRED",403);
+ if("category" in pkg&&pkg.category==="VIDEO_FACTORY"&&process.env.VIDEO_FACTORY_SALES_APPROVED!=="true")return bankError(req,"OWNER_SALES_APPROVAL_REQUIRED",403);
  if("category" in pkg&&pkg.category==="FITNESS"){const profile=await prisma.fitnessProfile.findUnique({where:{userId:user.id}});if(!profile?.goal.trim())return bankError(req,"FITNESS_ONBOARDING_REQUIRED",409);}
  if(isBusinessBundle(plan)) {
   const membership=await prisma.teamMember.findUnique({where:{userId:user.id},include:{team:{select:{ownerId:true}}}});

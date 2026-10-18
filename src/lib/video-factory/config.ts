@@ -10,6 +10,7 @@ export async function getPolicy() {
 }
 export async function savePolicy(actorId: string, input: unknown) {
   const policy = policySchema.parse(input);
+  delete policy.packageUsage;
   // This release has explicit owner authorization to prepare drafts only.
   // Runtime deployment approval is a separate operator-controlled gate.
   if(policy.enabled && process.env.VIDEO_FACTORY_SALES_APPROVED!=="true")throw new (await import("./domain")).FactoryError("OWNER_SALES_APPROVAL_REQUIRED",403);

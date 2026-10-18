@@ -415,3 +415,8 @@ AIFekr FIT is integrated into the platform shell at `/fitness`, with the shared 
 - Set persistent `FIT_PRIVATE_UPLOAD_DIR` outside public roots. Schedule authenticated `/api/cron/fitness-marketplace` for abandoned bank-order holds and `/api/cron/billing-rates` for provider refresh.
 - Refunds/payouts are externally performed and audited by administrators; automatic bank transfers, carrier integration, tax automation and full PWA background synchronization are not claimed.
 - See [delivery notes](docs/fit-pricing-release.md) for detailed architecture, limitations and deployment safeguards. The current branch is `codex/fit-dynamic-billing`; production deployment status must be verified separately from GitHub publication.
+
+
+### Video Factory package billing
+
+Video Factory includes dedicated draft creator packages, verified-payment quotas (video count and production minutes), an eight-minute maximum per video, and exact-once technical-failure credit refunds. See [package operations](docs/video-factory/packages.md). Sales and unverified supplier rates remain locked pending owner approval.

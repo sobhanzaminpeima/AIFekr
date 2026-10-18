@@ -20,22 +20,22 @@ import type { Prisma } from "@prisma/client";
 
 /** Accepts either the shared client or an interactive-transaction client. */
 type Db = Prisma.TransactionClient | typeof prisma;
-export type CreditPayer = "DEFAULT" | "PERSONAL";
+export type CreditPayer = "DEFAULT" | "PERSONAL" | "VIDEO_PACKAGE";
 
 /** Durable jobs use the same guarded debit and UsageLog as synchronous AI actions.
  * The payer snapshot prevents refunding a different wallet after a team change. */
-export async function reserveLoggedCredits(tx: Prisma.TransactionClient, userId: string, amount: number, usage: UsageRecord) {
+export async function reserveLoggedCredits(tx: Prisma.TransactionClient, userId: string, amount: number, usage: UsageRecord,payer:CreditPayer="DEFAULT") {
   if (!Number.isSafeInteger(amount) || amount < 0) throw new Error("Invalid credit cost");
-  if (await getAvailableCredits(userId, tx) < amount) return null;
-  const membership = await tx.teamMember.findUnique({ where: { userId } });
+  if (payer!=="VIDEO_PACKAGE" && await getAvailableCredits(userId, tx,payer) < amount) return null;
+  const membership = payer!=="DEFAULT"?null:await tx.teamMember.findUnique({ where: { userId } });
   const walletField = walletFieldFor(usage.type);
   const wallet = membership
     ? await tx.team.findUniqueOrThrow({ where: { id: membership.teamId }, select: { aiCredits: true, mediaCredits: true, voiceMinutes: true } })
     : await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { aiCredits: true, mediaCredits: true, voiceMinutes: true } });
-  if (!await deductCredits(userId, amount, tx)) return null;
+  if (!await deductCredits(userId, amount, tx,payer)) return null;
   // Keep the existing mirroredAi DTO name for course jobs; it snapshots the selected wallet.
   const mirroredAi = Math.min(amount, Math.max(0, wallet[walletField]));
-  await mirrorWalletSpend(userId, amount, walletField, tx);
+  await mirrorWalletSpend(userId, amount, walletField, tx,payer);
   const log = await tx.usageLog.create({ data: { userId, type: usage.type, credits: amount, requestId: usage.requestId, model: usage.model ?? undefined, provider: usage.provider ?? undefined, mediaSeconds: usage.mediaSeconds ?? undefined, metadata: JSON.stringify({ ...usage.metadata, payerTeamId: membership?.teamId || null }) } });
   return { usageLogId: log.id, payerTeamId: membership?.teamId || null, mirroredAi };
 }
@@ -74,7 +74,7 @@ function walletFieldFor(usageType: string): WalletField {
 
 async function mirrorWalletSpend(userId: string, amount: number, walletField: WalletField, db: Db, payer:CreditPayer="DEFAULT"): Promise<void> {
   if (amount <= 0) return;
-  const membership = payer==="PERSONAL"?null:await db.teamMember.findUnique({ where: { userId } });
+  const membership = payer!=="DEFAULT"?null:await db.teamMember.findUnique({ where: { userId } });
 
   if (membership) {
     const team = await db.team.findUnique({ where: { id: membership.teamId } });
@@ -132,7 +132,7 @@ export async function getWalletBalances(userId: string, db: Db = prisma): Promis
 export async function deductCredits(userId: string, amount: number, db: Db = prisma,payer:CreditPayer="DEFAULT"): Promise<boolean> {
   if (amount <= 0) return true;
 
-  const membership = payer==="PERSONAL"?null:await db.teamMember.findUnique({ where: { userId } });
+  const membership = payer!=="DEFAULT"?null:await db.teamMember.findUnique({ where: { userId } });
   if (membership) {
     const { count } = await db.team.updateMany({
       where: { id: membership.teamId, credits: { gte: amount } },

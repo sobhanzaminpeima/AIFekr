@@ -25,7 +25,12 @@ async function settlePayment(id:string,review:{adminId?:string;approve:boolean;n
  const u=p.user;
  if(entitlement.quote?.bonus){const bonus=entitlement.quote.bonus;const reservation=await tx.billingPromotionRedemption.findUniqueOrThrow({where:{paymentId:p.id}});if(reservation.userId!==u.id||reservation.promotionId!==bonus.id)throw Error("INVALID_PROMOTION_RESERVATION");entitlement.days+=bonus.days;entitlement.credits+=bonus.credits;}
 
- if(entitlement.category==="FITNESS"){
+ if(entitlement.category==="VIDEO_FACTORY"){
+ const {videoLimitsSchema}=await import("@/lib/video-factory/packages");videoLimitsSchema.parse((entitlement.entitlements as {limits?:unknown})?.limits);
+ await tx.user.update({where:{id:u.id},data:{trialLimited:false,credits:{increment:entitlement.credits},aiCredits:{increment:entitlement.credits}}});
+ await tx.userModuleOverride.upsert({where:{userId_moduleKey:{userId:u.id,moduleKey:"video-factory"}},create:{userId:u.id,moduleKey:"video-factory",enabled:true},update:{enabled:true}});
+ await tx.auditLog.create({data:{actorId:adminId||u.id,action:"video_factory.package_granted",targetId:p.id,metadata:JSON.stringify({credits:entitlement.credits,days:entitlement.days})}});
+ }else if(entitlement.category==="FITNESS"){
  const profile=await tx.fitnessProfile.findUnique({where:{userId:u.id}});if(!profile)throw Error("FITNESS_ONBOARDING_REQUIRED");const expires=new Date(Math.max(Date.now(),profile.entitlementExpiry?.getTime()||0)+entitlement.days*86400000);await tx.fitnessProfile.update({where:{userId:u.id},data:{entitlementExpiry:expires}});await tx.user.update({where:{id:u.id},data:{credits:{increment:entitlement.credits},aiCredits:{increment:entitlement.credits},mediaCredits:{increment:entitlement.mediaCredits||0},voiceMinutes:{increment:entitlement.voiceMinutes||0}}});await tx.auditLog.create({data:{actorId:adminId||u.id,action:"fitness_subscription_activated",targetId:u.id,metadata:JSON.stringify({paymentId:p.id,expires})}});
  }else{
  if(entitlement.mediaCredits||entitlement.voiceMinutes)await tx.user.update({where:{id:u.id},data:{mediaCredits:{increment:entitlement.mediaCredits||0},voiceMinutes:{increment:entitlement.voiceMinutes||0}}});

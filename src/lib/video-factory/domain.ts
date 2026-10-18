@@ -55,6 +55,8 @@ export const manifestSchema = z.object({ chapters: z.array(chapterSchema).min(1)
 });
 export type Manifest = z.infer<typeof manifestSchema>;
 export const policySchema = z.object({
+  packageUsage:z.object({paymentId:z.string(),seconds:z.number().int().positive().max(480)}).optional(),
+  packageRequired:z.boolean().default(false),
   commercial:commercialSchema.default(commercialSchema.parse({})),
   enabled: z.boolean().default(false),
   longFormEnabled: z.boolean().default(false),

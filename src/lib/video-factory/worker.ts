@@ -42,7 +42,9 @@ export async function processFactoryTick() {
   });
   if (!claimed.count) return null;
   const owner = await prisma.user.findUnique({ where: { id: queued.userId }, include: { teamMembership: { include: { team: { include: { owner: { select: { planExpiry: true } } } } } } } });
-  if (!owner || owner.isBlocked || owner.trialLimited || featureAccessExpired(owner, teamFeatureExpiry(owner.teamMembership?.team))) {
+  const packageUsage=policySchema.parse(JSON.parse(queued.policy)).packageUsage;
+  const paidPackage=packageUsage?await prisma.payment.findFirst({where:{id:packageUsage.paymentId,userId:queued.userId,status:"SUCCESS"},select:{id:true}}):null;
+  if (!owner || owner.isBlocked || owner.trialLimited || (!paidPackage && featureAccessExpired(owner, teamFeatureExpiry(owner.teamMembership?.team))) || (packageUsage && !paidPackage)) {
     await prisma.$transaction(tx => settleJob(tx, queued.id, "FAILED", "ACCOUNT_ACCESS_REVOKED"));
     return queued.id;
   }

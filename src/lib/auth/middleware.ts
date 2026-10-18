@@ -47,7 +47,8 @@ export async function requireAuth(req: NextRequest) {
 
   if(user.accountType==="FITNESS"&&!req.nextUrl.pathname.startsWith("/api/fitness")&&!req.nextUrl.pathname.startsWith("/api/mobile/v1/fitness/")&&!isRecoveryApi(req.nextUrl.pathname)&&!req.nextUrl.pathname.startsWith("/api/billing")){if(bearer)nativeAccountDenials.add(req);return null;}
   const expired=featureAccessExpired(user,teamFeatureExpiry(user.teamMembership?.team));
-  if(expired&&!isRecoveryApi(req.nextUrl.pathname)&&!(req.nextUrl.pathname.startsWith("/api/fitness")&&user.fitnessProfile?.entitlementExpiry&&user.fitnessProfile.entitlementExpiry>new Date())){
+  const videoPackageAccess=expired&&req.nextUrl.pathname.startsWith("/api/video-factory/")&&await (async()=>{const payments=await prisma.payment.findMany({where:{userId:user.id,status:"SUCCESS"},select:{entitlementSnapshot:true,createdAt:true,reviewAt:true}});return payments.some(p=>{try{const e=JSON.parse(p.entitlementSnapshot);return e.category==="VIDEO_FACTORY"&&Number.isInteger(e.days)&&(p.reviewAt||p.createdAt).getTime()+e.days*86400000>Date.now();}catch{return false;}});})();
+  if(expired&&!videoPackageAccess&&!isRecoveryApi(req.nextUrl.pathname)&&!(req.nextUrl.pathname.startsWith("/api/fitness")&&user.fitnessProfile?.entitlementExpiry&&user.fitnessProfile.entitlementExpiry>new Date())){
     accessDenials.set(req,true);return null;
   }
   return { ...user, subscriptionStatus:expired?"expired" as const:"active" as const, featureAccess:!expired };

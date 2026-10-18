@@ -3,4 +3,4 @@ import { factoryRoute } from "@/lib/video-factory/http";
 import { listResources } from "@/lib/video-factory/resources";
 import { prisma } from "@/lib/db/prisma";
 export const dynamic="force-dynamic";
-export function GET(req:NextRequest){return factoryRoute(req,false,async()=>NextResponse.json({templates:(await listResources("TEMPLATE")).filter(t=>t.enabled),providers:await prisma.videoFactoryProvider.findMany({where:{enabled:true},select:{id:true,name:true,kind:true,model:true,health:true}})}));}
+export function GET(req:NextRequest){return factoryRoute(req,false,async()=>NextResponse.json({packages:await prisma.package.findMany({where:{category:"VIDEO_FACTORY",isActive:true,publicationStatus:{not:"ARCHIVED"}},select:{planCode:true,name:true,nameEn:true,priceUsd:true,credits:true,entitlements:true,publicationStatus:true}}),templates:(await listResources("TEMPLATE")).filter(t=>t.enabled),providers:await prisma.videoFactoryProvider.findMany({where:{enabled:true},select:{id:true,name:true,kind:true,model:true,health:true}})}));}

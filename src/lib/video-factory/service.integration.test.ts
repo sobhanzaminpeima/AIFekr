@@ -56,6 +56,18 @@ describe("Video Factory isolated durable workflow", () => {
   beforeEach(async() => { vi.clearAllMocks();vi.unstubAllGlobals();await savePolicy(userId,{enabled:true,longFormEnabled:true,approvedModelId:"test-only",creditsPerChapter:3,creditsPerRenderMinute:2}); });
   afterAll(async () => { await prisma.$disconnect(); const file = process.env.DATABASE_URL!.slice(5); rmSync(file, { force: true }); rmSync(file + "-journal", { force: true });const storage=path.resolve(process.env.VIDEO_FACTORY_STORAGE_DIR!);if(!storage.startsWith(path.resolve("tmp")+path.sep))throw Error("Unexpected test storage path");rmSync(storage,{recursive:true,force:true}); });
   const project = () => createProject(userId, { title: "Test-only film", brief: "Synthetic brief for isolated tests", configuration: config });
+  it("enforces paid package count and restores quota and credits exactly once on failure",async()=>{
+    await savePolicy(userId,{enabled:true,longFormEnabled:true,packageRequired:true,approvedModelId:"test-only",creditsPerChapter:3,creditsPerRenderMinute:2});
+    const p=await project();await expect(startProject(userId,p.id,"missing-video-package",5)).rejects.toThrow("VIDEO_PACKAGE_REQUIRED");
+    const payment=await prisma.payment.create({data:{userId,plan:"VF_TEST",status:"SUCCESS",amount:1000,entitlementSnapshot:JSON.stringify({category:"VIDEO_FACTORY",credits:10,days:30,entitlements:{limits:{videoCount:1,videoSeconds:480,videoMaxSeconds:480}}})}});
+    const before=await prisma.user.findUniqueOrThrow({where:{id:userId}}),job=await startProject(userId,p.id,"paid-package-first",5),other=await project();
+    await expect(startProject(userId,other.id,"package-count-blocked",5)).rejects.toThrow("EXHAUSTED");
+    await prisma.videoFactoryJob.update({where:{id:job.id},data:{spentCredits:3}});
+    await prisma.$transaction(tx=>settleJob(tx,job.id,"FAILED","SYNTHETIC_TEST_FAILURE"));await prisma.$transaction(tx=>settleJob(tx,job.id,"FAILED"));
+    expect((await prisma.user.findUniqueOrThrow({where:{id:userId}})).credits).toBe(before.credits);
+    expect(await prisma.usageLog.count({where:{requestId:`${(await prisma.videoFactoryJob.findUniqueOrThrow({where:{id:job.id}})).usageLogId}:refund`}})).toBe(1);
+    const next=await startProject(userId,other.id,"restored-package-quota",5);expect(next.id).toBeTruthy();await controlJob(userId,other.id,"cancel");await prisma.payment.delete({where:{id:payment.id}});
+  });
   it("settles the retail film price through existing AI Credits and refunds failed work to the same wallet",async()=>{
     await prisma.package.create({data:{planCode:"PRO_USD",name:"TEST ONLY rate",nameEn:"TEST ONLY",price:0,priceUsd:4900,credits:2000,duration:30,features:"",isActive:true}});
     const owner=await prisma.user.create({data:{email:`retail-${Date.now()}@test.invalid`,plan:"PRO",credits:10000,aiCredits:10000,mediaCredits:333}});
@@ -113,7 +125,7 @@ describe("Video Factory isolated durable workflow", () => {
     await sweepJobs(); await sweepJobs();
     const after = await prisma.videoFactoryJob.findUniqueOrThrow({ where: { id: job.id } });
     expect(after.status).toBe("FAILED"); expect(after.errorCode).toBe("PROVIDER_OUTCOME_UNCERTAIN");
-    expect((await prisma.user.findUniqueOrThrow({ where: { id: userId } })).credits).toBe(before + 2);
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: userId } })).credits).toBe(before + 5);
     expect(vi.mocked(generateChapter)).not.toHaveBeenCalled();
   });
   it("recovers an interrupted deterministic render checkpoint", async () => {
@@ -216,14 +228,14 @@ describe("Video Factory isolated durable workflow", () => {
   });
   it("blocks delivery on semantic errors after actual frame extraction and settles the authorized budget",async()=>{
     const oldFfmpeg=process.env.VIDEO_FACTORY_FFMPEG,oldFfprobe=process.env.VIDEO_FACTORY_FFPROBE;
-    process.env.VIDEO_FACTORY_FFMPEG=path.resolve("tmp/video-factory/tools/node_modules/ffmpeg-static/ffmpeg.exe");process.env.VIDEO_FACTORY_FFPROBE=path.resolve("tmp/video-factory/tools/node_modules/ffprobe-static/bin/win32/x64/ffprobe.exe");
+    process.env.VIDEO_FACTORY_FFMPEG=oldFfmpeg||path.resolve("tmp/video-factory/tools/node_modules/ffmpeg-static/ffmpeg.exe");process.env.VIDEO_FACTORY_FFPROBE=oldFfprobe||path.resolve("tmp/video-factory/tools/node_modules/ffprobe-static/bin/win32/x64/ffprobe.exe");
     try{
       await saveMediaProvider(userId,{id:"test-vision",name:"TEST ONLY VISION",kind:"VISION",adapter:"OPENAI_VISION",model:"test-vision",enabled:true,secret:"test-only-key",settings:{commercialApproved:true,safetyReviewed:true},pricing:{unitUsd:null,unit:"request",verifiedAt:null}});
       const policy=await savePolicy(userId,{enabled:true,approvedModelId:"test-only",creditsPerChapter:3,creditsPerRenderMinute:2,creditsPerSemanticReview:1,advancedProviders:{vision:"test-vision"},presets:{SMART:{imagePercent:0,videoPercent:0}}}),c=configurationSchema.parse({...config,mediaMode:"MULTIMEDIA",mode:"AUTOPILOT",semanticReview:true,shotsPerChapter:1});
       const p=await createProject(userId,{title:"TEST ONLY semantic review",brief:"Synthetic semantic quality control",configuration:c}),job=await startProject(userId,p.id,"semantic-block-test",quote(c,policy).credits);
       const actual=await vi.importActual<typeof import("./render")>("./render");vi.mocked(renderShot).mockImplementationOnce(actual.renderShot);
       const transport=vi.fn<typeof fetch>().mockResolvedValue(Response.json({output:[{content:[{type:"output_text",text:JSON.stringify({summary:"Synthetic finding",findings:[{category:"VISUAL_MISMATCH",severity:"ERROR",evidence:"Synthetic test mismatch",repair:"Revise the shot prompt"}],uncertainties:["Sampled frames only"]})}]}]}));vi.stubGlobal("fetch",transport);
-      for(let i=0;i<4;i++)await processFactoryTick();const done=await prisma.videoFactoryJob.findUniqueOrThrow({where:{id:job.id}});expect(done.status).toBe("FAILED");expect(done.errorCode).toBe("SEMANTIC_REPAIR_REQUIRED");expect(done.spentCredits).toBe(6);expect(done.settledAt).not.toBeNull();expect(await prisma.videoFactoryQualityReport.count({where:{jobId:job.id,kind:"SEMANTIC",status:"FAILED"}})).toBe(1);expect(transport).toHaveBeenCalledTimes(1);
+      for(let i=0;i<4;i++)await processFactoryTick();const done=await prisma.videoFactoryJob.findUniqueOrThrow({where:{id:job.id}});expect(done.status).toBe("FAILED");expect(done.errorCode).toBe("SEMANTIC_REPAIR_REQUIRED");expect(done.spentCredits).toBe(0);expect(done.settledAt).not.toBeNull();expect(await prisma.videoFactoryQualityReport.count({where:{jobId:job.id,kind:"SEMANTIC",status:"FAILED"}})).toBe(1);expect(transport).toHaveBeenCalledTimes(1);
     }finally{if(oldFfmpeg===undefined)delete process.env.VIDEO_FACTORY_FFMPEG;else process.env.VIDEO_FACTORY_FFMPEG=oldFfmpeg;if(oldFfprobe===undefined)delete process.env.VIDEO_FACTORY_FFPROBE;else process.env.VIDEO_FACTORY_FFPROBE=oldFfprobe;}
   },60000);
   it("recovers an async video submission after a lease restart without resubmitting or charging again",async()=>{

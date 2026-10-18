@@ -13,6 +13,7 @@ import { getMediaProvider } from "./registry";
 import {preserveProjectVersion} from "./versions";
 import {ownedAsset} from "./assets";
 import {requireVoiceConsent} from "./voiceConsent";
+import {claimPackage,settlementCredits} from "./packages";
 async function validateAdvancedReferences(userId:string,projectId:string,configuration:ReturnType<typeof configurationSchema.parse>){
  if(configuration.voiceProfileId)await requireVoiceConsent(userId,configuration.voiceProfileId,projectId);
  for(const id of [configuration.transcriptionAssetId,...configuration.audioTracks.map(t=>t.assetId)].filter(Boolean)){const asset=await ownedAsset(userId,id);if(!asset.mimeType.startsWith("audio/"))throw new FactoryError("INVALID_AUDIO_ASSET",400);}
@@ -94,6 +95,7 @@ export async function startProject(userId: string, id: string, key: string, expe
     return await prisma.$transaction(async tx => {
       // Serialize quota authorizations for this account before establishing the read snapshot.
       await tx.videoFactoryStorageQuota.upsert({where:{userId},create:{userId},update:{usedBytes:{increment:0}}});
+      if(policy.packageRequired)policy.packageUsage=await claimPackage(tx,userId,configuration.durationSeconds);
       const current = await tx.videoFactoryProject.findFirst({ where: { id, userId, version: project.version } });
       if (!current) throw new FactoryError("VERSION_CONFLICT");
       const [busy, userActive, globalActive] = await Promise.all([
@@ -103,7 +105,7 @@ export async function startProject(userId: string, id: string, key: string, expe
       ]);
       if (busy || userActive >= Math.min(policy.maxActivePerUser,userPolicy?.maxActivePerUser || policy.maxActivePerUser) || globalActive >= policy.maxQueuedJobs) throw new FactoryError("QUEUE_LIMIT", 429);
       if(userPolicy){const day=new Date();day.setHours(0,0,0,0);const prior=await tx.videoFactoryJob.findMany({where:{userId,createdAt:{gte:day}},select:{credits:true,spentCredits:true,settledAt:true}});if(prior.reduce((n,j)=>n+(j.settledAt?j.spentCredits:j.credits),0)+estimate.credits>userPolicy.dailyCredits)throw new FactoryError("DAILY_CREDIT_CAP",402);}
-      if (limits.monthlyVideos !== -1) {
+      if (!policy.packageRequired && limits.monthlyVideos !== -1) {
         const month = new Date(); month.setDate(1); month.setHours(0, 0, 0, 0);
         const [shortVideos, factoryJobs] = await Promise.all([
           tx.generatedVideo.count({ where: { userId, createdAt: { gte: month } } }),
@@ -114,7 +116,7 @@ export async function startProject(userId: string, id: string, key: string, expe
       const jobId = randomUUID();
       const projectLock = await tx.videoFactoryProject.updateMany({ where: { id, userId, version: current.version, activeJobId: null }, data: { activeJobId: jobId } });
       if (!projectLock.count) throw new FactoryError("PROJECT_BUSY");
-      const reservation = await reserveLoggedCredits(tx, userId, estimate.credits, { type: "video_factory", requestId: jobId, metadata: { feature: "video_factory", projectId: id, jobId, status: "RESERVED", estimate } });
+      const reservation = await reserveLoggedCredits(tx, userId, estimate.credits, { type: "video_factory", requestId: jobId, metadata: { feature: "video_factory", projectId: id, jobId, status: "RESERVED", estimate } },policy.packageRequired?"VIDEO_PACKAGE":"DEFAULT");
       if (!reservation) throw new FactoryError("INSUFFICIENT_CREDITS", 402);
       const hasManifest = manifestSchema.safeParse(JSON.parse(current.manifest)).success;
       const previous = hasManifest ? null : await tx.videoFactoryJob.findFirst({ where: { projectId: id, userId, projectVersion: current.version, status: { in: ["FAILED", "CANCELLED"] }, stage: "SCRIPTING" }, orderBy: { createdAt: "desc" } });
@@ -139,11 +141,12 @@ export async function settleJob(tx: Prisma.TransactionClient, id: string, status
   const claim = await tx.videoFactoryJob.updateMany({ where: { id, settledAt: null }, data: { status, errorCode,spentCredits:job.spentCredits, settledAt: new Date(), leaseToken: null, leaseUntil: null } });
   if (!claim.count) return;
   await tx.videoFactoryProject.updateMany({ where: { id: job.projectId, activeJobId: job.id }, data: { activeJobId: null } });
-  const refund = Math.max(0, job.credits - job.spentCredits);
+  const {charged,refund}=settlementCredits(status,job.credits,job.spentCredits);
+  if(charged!==job.spentCredits)await tx.videoFactoryJob.update({where:{id},data:{spentCredits:charged}});
   const external=await tx.videoFactoryStep.findMany({where:{jobId:id,provider:{not:null},credits:{gt:0}},select:{costUsd:true}});
   if(external.length && external.every(s=>s.costUsd!==null))await tx.videoFactoryJob.update({where:{id},data:{actualCostUsd:external.reduce((sum,s)=>sum+(s.costUsd || 0),0)}});
-  if (refund) await refundLoggedReservation(tx, { ...job, credits: refund, mirroredAi: Math.max(0, job.mirroredAi - job.spentCredits) }, { feature: "video_factory", jobId: id, spentCredits: job.spentCredits, refundedCredits: refund }, (await tx.usageLog.findUniqueOrThrow({where:{id:job.usageLogId},select:{type:true}})).type);
-  await tx.usageLog.update({ where: { id: job.usageLogId }, data: { metadata: JSON.stringify({ feature: "video_factory", jobId: id, status: "SETTLED", reservedCredits: job.credits, spentCredits: job.spentCredits, refundedCredits: refund, providerCostUsd: null }) } });
+  if (refund) await refundLoggedReservation(tx, { ...job, credits: refund, mirroredAi: Math.max(0, job.mirroredAi - charged) }, { feature: "video_factory", jobId: id, spentCredits: charged, refundedCredits: refund }, (await tx.usageLog.findUniqueOrThrow({where:{id:job.usageLogId},select:{type:true}})).type);
+  await tx.usageLog.update({ where: { id: job.usageLogId }, data: { metadata: JSON.stringify({ feature: "video_factory", jobId: id, status: "SETTLED", reservedCredits: job.credits, spentCredits: charged, attemptedCredits:job.spentCredits, refundedCredits: refund, providerCostUsd: null }) } });
 }
 export async function controlJob(actorId: string, projectId: string, action: "pause" | "resume" | "cancel" | "approve", admin = false) {
   return prisma.$transaction(async tx => {
