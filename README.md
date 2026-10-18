@@ -420,3 +420,5 @@ AIFekr FIT is integrated into the platform shell at `/fitness`, with the shared 
 ### Video Factory package billing
 
 Video Factory includes dedicated draft creator packages, verified-payment quotas (video count and production minutes), an eight-minute maximum per video, and exact-once technical-failure credit refunds. See [package operations](docs/video-factory/packages.md). Sales and unverified supplier rates remain locked pending owner approval.
+
+The 2026-10-19 draft pipeline uses Claude direction, Gemini declarative scene animation, Nano Banana 2 images, ElevenLabs voice/music and trusted Remotion/FFmpeg rendering. Admin economics includes official supplier rate sources, explicit usage/overhead assumptions, a minimum 50% gross-margin floor and draft-only repricing. No Argon or external generated-video API is selected. Native providers and package sales remain disabled; no paid smoke test has been run.

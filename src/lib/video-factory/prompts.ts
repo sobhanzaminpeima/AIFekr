@@ -6,4 +6,5 @@ narration and visualPrompt. IDs must start with the requested chapter prefix.
 This is a screenplay and shot plan, not completed footage or speech. Allocate narration to the target chapter duration at a natural spoken pace. Each shot's narration must remain under 3000 characters.
 Preserve established character/style continuity. Do not invent sources, research, citations,
 media URLs, credentials, endorsements or facts claimed to have been verified. Sources are provided reference excerpts; do not invent citations or claim research outside them.
+For IMAGE_MOTION packages use no sfxPrompt, no external video, and limit total narration to at most 1000 characters per output minute. Gemini will assign bounded animation parameters after your direction.
 Return only JSON; no markdown or tool calls.`;

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
 import { getPolicy } from "./config";
 import { chapterCount, configurationSchema, FactoryError, manifestSchema, policySchema, timeline, type Manifest } from "./domain";
-import { approvedProvider, generateChapter,generateIdeas,prepareCreativeRoles } from "./providers";
+import { approvedProvider, generateChapter,generateIdeas,prepareCreativeRoles,generateSceneMotion } from "./providers";
 import { assemble, renderShot } from "./render";
 import { hash, settleJob } from "./service";
 import { isFeatureEnabled } from "@/lib/utils/featureToggles";
@@ -93,6 +93,25 @@ export async function processFactoryTick() {
       if(generated.chapter.shots.length>configuration.shotsPerChapter)throw new FactoryError("SHOT_BUDGET_EXCEEDED",502);
       // Canonical IDs are internally assigned, independent of model-controlled identifiers.
       generated.chapter.shots = generated.chapter.shots.map((s, i) => ({ ...s, id: `c${queued.cursor}-s${i}` }));
+      if(policy.commercial.pipeline==="IMAGE_MOTION"){
+        const priorCharacters=manifest.chapters.flatMap(c=>c.shots).reduce((n,s)=>n+s.narration.length,0);
+        if(priorCharacters+generated.chapter.shots.reduce((n,s)=>n+s.narration.length,0)>Math.max(1,Math.ceil(configuration.durationSeconds/60))*1000)throw new FactoryError("NARRATION_CHARACTER_BUDGET_EXCEEDED",502);
+        if(generated.chapter.shots.some(s=>s.sfxPrompt))throw new FactoryError("ADDON_NOT_PRICED_FOR_PACKAGE",502);
+      }
+      if(policy.commercial.motionModel){
+        const motionId=policy.commercial.motionModel,motionKey=`motion-${queued.cursor}`;
+        if(![livePolicy.approvedModelId,...livePolicy.approvedTextModelIds].includes(motionId))throw new FactoryError("AGENT_MODEL_NOT_APPROVED",403);
+        const motionProvider=await approvedProvider(motionId);
+        await enforceRole("motion","storyboard",queued.cursor,slice);
+        await prisma.$transaction(async tx=>{
+          const lock=await tx.videoFactoryJob.updateMany({where:{id:queued.id,leaseToken:token,status:"RUNNING",spentCredits:{lte:queued.credits-slice}},data:{spentCredits:{increment:slice}}});
+          if(!lock.count)throw new FactoryError("BUDGET_OR_LEASE_EXCEEDED");
+          await tx.videoFactoryStep.create({data:{jobId:queued.id,key:motionKey,status:"SUBMITTED",provider:motionId,inputHash:hash(generated.chapter),credits:slice}});
+        });
+        const motion=await generateSceneMotion(motionId,generated.chapter,controller.signal,motionProvider);
+        generated.chapter=motion.chapter;
+        await prisma.$transaction(async tx=>{const lock=await tx.videoFactoryJob.updateMany({where:{id:queued.id,leaseToken:token},data:{updatedAt:new Date()}});if(!lock.count)throw new FactoryError("STALE_WORKER");await tx.videoFactoryStep.update({where:{jobId_key:{jobId:queued.id,key:motionKey}},data:{status:"COMPLETED",model:motion.model,usage:JSON.stringify(motion.usage),output:JSON.stringify(motion.chapter),completedAt:new Date()}});});
+      }
       manifest.chapters.push(generated.chapter);
       const complete = manifest.chapters.length === chapterCount(configuration.durationSeconds);
       await prisma.$transaction(async tx => {

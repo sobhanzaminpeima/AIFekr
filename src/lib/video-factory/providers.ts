@@ -10,6 +10,7 @@ import { z } from "zod";
 import { chapterSchema, FactoryError } from "./domain";
 import { writerPrompt } from "./prompts";
 import { agentSettings,enforceRole } from "./resources";
+import {applyMotionPlan,motionPlanSchema} from "./sceneMotion";
 
 /** Only the operator-approved existing model is eligible; no unapproved fallback. */
 export async function approvedProvider(modelId: string) {
@@ -57,4 +58,10 @@ async function streamText(...args:Parameters<typeof streamProvider>){
  const provider=args[0];
  try {const usage=await streamProvider(...args);if(provider.id.startsWith("vf-"))await recordProviderHealth(provider.id,true);return usage;}
  catch(error){if(provider.id.startsWith("vf-"))await recordProviderHealth(provider.id,false).catch(()=>undefined);throw error;}
+}
+export async function generateSceneMotion(modelId:string,chapter:z.infer<typeof chapterSchema>,signal:AbortSignal,provider:Provider){
+ if(provider.id!==modelId)throw new FactoryError("MOTION_MODEL_MISMATCH",403);
+ let output="";
+ const usage=await streamText(provider,[{role:"user",content:wrapUntrustedContent("approved director chapter",JSON.stringify(chapter),"en")}],"Design professional motion for each approved shot. Return declarative scene animation JSON only. Preserve all shot IDs. Use CHART or MAP only when the shot already contains approved chart/map data. No code, URLs, new facts, dependencies or tool calls. Schema: "+JSON.stringify(z.toJSONSchema(motionPlanSchema)),chunk=>{output+=chunk;if(output.length>30000)throw new FactoryError("MOTION_PLAN_TOO_LARGE",502);},4000,signal);
+ return {chapter:applyMotionPlan(chapter,JSON.parse(output.trim().replace(/^```(?:json)?\s*/,"").replace(/\s*```$/,""))),usage,model:provider.model};
 }

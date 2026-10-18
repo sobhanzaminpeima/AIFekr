@@ -33,7 +33,7 @@ export function buildProductionPlan(manifest:Manifest,configuration:Configuratio
       }
       if(shot.sfxPrompt)add("SFX",shot.id,shot.sfxPrompt,policy.creditsPerSfx!,Math.min(22,shot.durationFrames/24));
     });
-    if(configuration.music)add("MUSIC",null,configuration.musicPrompt,policy.creditsPerMusicMinute!*Math.min(10,Math.ceil(configuration.durationSeconds/60)),Math.min(10,Math.ceil(configuration.durationSeconds/60)));
+    if(configuration.music)add("MUSIC",null,configuration.musicPrompt,policy.creditsPerMusicMinute!*Math.min(5,Math.ceil(configuration.durationSeconds/60)),Math.min(5,Math.ceil(configuration.durationSeconds/60)));
   }
   return {configuration,policy,tasks,rendered:{},assetIds:{}};
 }

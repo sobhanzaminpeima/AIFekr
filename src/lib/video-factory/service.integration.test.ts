@@ -12,12 +12,12 @@ vi.hoisted(() => {
 vi.mock("./render",async original => ({...await original<typeof import("./render")>(), rendererReady: vi.fn(async () => true), renderShot: vi.fn(async () => {}), assemble: vi.fn(async () => [{ kind: "manifest", fileName: "manifest.json", bytes: 100 }]) }));
 vi.mock("./assets",async original=>({...await original<typeof import("./assets")>(),accountJobStorage:vi.fn(async()=>0)}));
 vi.mock("./quality",async original=>({...await original<typeof import("./quality")>(),inspectRenderedShot:vi.fn(async()=>({status:"PASSED",findings:[]}))}));
-vi.mock("./providers", () => ({ prepareCreativeRoles:vi.fn(async()=>"TEST ONLY"), approvedProvider: vi.fn(async () => ({ id: "test-only", model: "test-only" })),generateIdeas:vi.fn(async()=>({value:{titles:["TEST A","TEST B"],hooks:["TEST A","TEST B"],outline:["Synthetic outline"],audienceStrategy:"Test only",evidence:[],uncertainties:["Synthetic test"]},provider:"test-only",model:"test-only",usage:null})), generateChapter: vi.fn(async () => ({ chapter: { title: "Synthetic chapter", continuity: "test-only", shots: [{ id: "s1", title: "Synthetic shot", narration: "روایت", visualPrompt: "TEST ONLY" }] }, provider: "test-only", model: "test-only", usage: null })) }));
+vi.mock("./providers", () => ({ generateSceneMotion:vi.fn(async(_id,chapter)=>({chapter,usage:{inputTokens:10,outputTokens:5},model:"test-motion"})), prepareCreativeRoles:vi.fn(async()=>"TEST ONLY"), approvedProvider: vi.fn(async () => ({ id: "test-only", model: "test-only" })),generateIdeas:vi.fn(async()=>({value:{titles:["TEST A","TEST B"],hooks:["TEST A","TEST B"],outline:["Synthetic outline"],audienceStrategy:"Test only",evidence:[],uncertainties:["Synthetic test"]},provider:"test-only",model:"test-only",usage:null})), generateChapter: vi.fn(async () => ({ chapter: { title: "Synthetic chapter", continuity: "test-only", shots: [{ id: "s1", title: "Synthetic shot", narration: "روایت", visualPrompt: "TEST ONLY" }] }, provider: "test-only", model: "test-only", usage: null })) }));
 import { prisma } from "@/lib/db/prisma";
 import { createProject, getProject, startProject, controlJob, settleJob, editManifest } from "./service";
 import { savePolicy } from "./config";
 import { processFactoryTick, sweepJobs } from "./worker";
-import { generateChapter } from "./providers";
+import { generateChapter,generateSceneMotion } from "./providers";
 import { configurationSchema } from "./domain";
 import { POST as projectAction, GET as projectDetail } from "@/app/api/video-factory/projects/[id]/route";
 import { GET as adminGet } from "@/app/api/admin/video-factory/route";
@@ -32,6 +32,7 @@ import {uploadAsset,ownedAsset} from "./assets";
 import {restoreProjectVersion} from "./versions";
 import {schedulePublish,cancelPublishing} from "./publishing";
 import {POST as adminControl} from "@/app/api/admin/video-factory/control/route";
+import {POST as adminEconomics} from "@/app/api/admin/video-factory/economics/route";
 import {saveAsset} from "./assets";
 import {createVoiceConsent,revokeVoiceConsent,requireVoiceConsent} from "./voiceConsent";
 import {renderShot} from "./render";
@@ -56,6 +57,21 @@ describe("Video Factory isolated durable workflow", () => {
   beforeEach(async() => { vi.clearAllMocks();vi.unstubAllGlobals();await savePolicy(userId,{enabled:true,longFormEnabled:true,approvedModelId:"test-only",creditsPerChapter:3,creditsPerRenderMinute:2}); });
   afterAll(async () => { await prisma.$disconnect(); const file = process.env.DATABASE_URL!.slice(5); rmSync(file, { force: true }); rmSync(file + "-journal", { force: true });const storage=path.resolve(process.env.VIDEO_FACTORY_STORAGE_DIR!);if(!storage.startsWith(path.resolve("tmp")+path.sep))throw Error("Unexpected test storage path");rmSync(storage,{recursive:true,force:true}); });
   const project = () => createProject(userId, { title: "Test-only film", brief: "Synthetic brief for isolated tests", configuration: config });
+  it("checkpoints Gemini scene planning and refunds a failed animation pass",async()=>{
+    const policy=await savePolicy(userId,{enabled:true,longFormEnabled:true,approvedModelId:"test-only",creditsPerChapter:3,creditsPerRenderMinute:2,commercial:{motionModel:"test-only"}});
+    const c=configurationSchema.parse({...config,mode:"AUTOPILOT"});
+    const motionProject=()=>createProject(userId,{title:"TEST ONLY motion",brief:"Synthetic Gemini animation test",configuration:c});
+    const p=await motionProject(),credits=quote(c,policy).credits,job=await startProject(userId,p.id,"gemini-motion-checkpoint",credits);
+    for(let i=0;i<3;i++)await processFactoryTick();
+    expect((await prisma.videoFactoryJob.findUniqueOrThrow({where:{id:job.id}})).status).toBe("DELIVERED");
+    expect(await prisma.videoFactoryStep.findUnique({where:{jobId_key:{jobId:job.id,key:"motion-0"}}})).toMatchObject({status:"COMPLETED",provider:"test-only",credits:3});
+    expect(generateSceneMotion).toHaveBeenCalledTimes(1);
+    const before=(await prisma.user.findUniqueOrThrow({where:{id:userId}})).credits,p2=await motionProject();
+    vi.mocked(generateSceneMotion).mockRejectedValueOnce(new Error("Synthetic motion failure"));
+    const failed=await startProject(userId,p2.id,"gemini-motion-failure",credits);await processFactoryTick();
+    expect((await prisma.videoFactoryJob.findUniqueOrThrow({where:{id:failed.id}})).status).toBe("FAILED");
+    expect((await prisma.user.findUniqueOrThrow({where:{id:userId}})).credits).toBe(before);
+  });
   it("enforces paid package count and restores quota and credits exactly once on failure",async()=>{
     await savePolicy(userId,{enabled:true,longFormEnabled:true,packageRequired:true,approvedModelId:"test-only",creditsPerChapter:3,creditsPerRenderMinute:2});
     const p=await project();await expect(startProject(userId,p.id,"missing-video-package",5)).rejects.toThrow("VIDEO_PACKAGE_REQUIRED");
@@ -93,6 +109,7 @@ describe("Video Factory isolated durable workflow", () => {
     expect((await projectDetail(request(`/api/video-factory/projects/${p.id}`), { params: { id: p.id } })).status).toBe(401);
     expect((await projectDetail(request(`/api/video-factory/projects/${p.id}`, otherId), { params: { id: p.id } })).status).toBe(404);
     expect((await adminGet(request("/api/admin/video-factory", userId))).status).toBe(401);
+    expect((await adminEconomics(request("/api/admin/video-factory/economics",userId,{action:"REPRICE_DRAFTS"}))).status).toBe(401);
     expect((await projectAction(request(`/api/video-factory/projects/${p.id}`, userId, { action: "estimate" }), { params: { id: p.id } })).status).toBe(200);
   });
   it("reserves once on replay and refunds cancellation exactly once", async () => {

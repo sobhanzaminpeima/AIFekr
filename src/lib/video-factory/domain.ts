@@ -1,5 +1,5 @@
 import { z } from "zod";
-import {commercialSchema,commercialEstimate} from "./economics";
+import {detailedCommercialSchema as commercialSchema,commercialEstimate} from "./economics";
 
 import {FactoryError} from "./errors";
 export {FactoryError} from "./errors";
@@ -42,6 +42,7 @@ export const shotSchema = z.object({
   durationSeconds: z.number().finite().min(0.5).max(600).optional(),
   assetId: z.string().max(100).optional(),
   motion: z.enum(["STATIC", "PUSH_IN", "PAN", "TITLE", "CHART","MAP"]).default("PUSH_IN"),
+  animation:z.object({fadeFrames:z.number().int().min(0).max(48),zoom:z.number().min(1).max(1.2),panPercent:z.number().min(-8).max(8)}).strict().optional(),
   chart:z.object({labels:z.array(z.string().max(60)).min(1).max(10),values:z.array(z.number().finite().min(0).max(1000000000)).min(1).max(10),unit:z.string().max(40).default("")}).strict().refine(v=>v.labels.length===v.values.length,"Chart labels and values must match").optional(),
   map:z.object({locations:z.array(z.object({label:z.string().max(60),latitude:z.number().finite().min(-90).max(90),longitude:z.number().finite().min(-180).max(180)}).strict()).min(1).max(10)}).strict().optional(),
   notes: z.string().max(2000).default(""),
@@ -97,6 +98,11 @@ export function quote(configuration: Configuration, policy: Policy) {
   if(configuration.mediaMode!=="MULTIMEDIA" && (configuration.exportStems || configuration.forcedAlignment || configuration.semanticReview || configuration.voiceProfileId || configuration.transcriptionAssetId || configuration.audioTracks.length))throw new FactoryError("ADVANCED_FEATURES_REQUIRE_MULTIMEDIA",400);
   if(configuration.forcedAlignment && !configuration.narration)throw new FactoryError("ALIGNMENT_REQUIRES_NARRATION",400);
   if (!policy.enabled) throw new FactoryError("FACTORY_DISABLED", 503);
+  if(policy.commercial.pipeline==="IMAGE_MOTION"){
+    if(configuration.shotsPerChapter>8)throw new FactoryError("PACKAGE_SHOT_LIMIT",400);
+    if(policy.presets[configuration.quality].videoPercent>0)throw new FactoryError("GENERATIVE_VIDEO_DISABLED",400);
+    if(configuration.voiceProfileId||configuration.forcedAlignment||configuration.semanticReview||configuration.transcriptionAssetId||policy.advancedProviders.sfx)throw new FactoryError("ADDON_NOT_PRICED_FOR_PACKAGE",400);
+  }
   if (configuration.durationSeconds > 60 && !policy.longFormEnabled) throw new FactoryError("LONG_FORM_DISABLED", 403);
   if (!policy.creditsPerChapter || !policy.creditsPerRenderMinute) throw new FactoryError("PRICING_NOT_CONFIGURED", 503);
   if (configuration.mediaMode === "ANIMATIC" && configuration.quality !== "SMART") throw new FactoryError("QUALITY_ADAPTER_NOT_CONFIGURED", 503);
@@ -104,6 +110,7 @@ export function quote(configuration: Configuration, policy: Policy) {
     { action: "script_storyboard", quantity: chapterCount(configuration.durationSeconds), credits: chapterCount(configuration.durationSeconds) * policy.creditsPerChapter },
     { action: "silent_animatic_render", quantity: Math.ceil(configuration.durationSeconds / 60), credits: Math.ceil(configuration.durationSeconds / 60) * policy.creditsPerRenderMinute },
   ];
+  if(policy.commercial.motionModel)items.push({action:"gemini_scene_animation",quantity:chapterCount(configuration.durationSeconds),credits:chapterCount(configuration.durationSeconds)*policy.creditsPerChapter});
   if(configuration.ideaLab){if(!policy.creditsPerResearch)throw new FactoryError("RESEARCH_PRICING_NOT_CONFIGURED",503);items.push({action:"idea_lab",quantity:1,credits:policy.creditsPerResearch});}
   if (configuration.mediaMode === "MULTIMEDIA") {
     const shots = chapterCount(configuration.durationSeconds) * configuration.shotsPerChapter;
@@ -119,7 +126,7 @@ export function quote(configuration: Configuration, policy: Policy) {
     // Clips are independently generated in four-second units and fitted to the edit.
     add("video_seconds", video * 4, policy.creditsPerVideoSecond);
     add("voice_shots", configuration.narration ? shots : 0, policy.creditsPerVoice);
-    add("music_minutes", configuration.music ? Math.min(10, Math.ceil(configuration.durationSeconds / 60)) : 0, policy.creditsPerMusicMinute);
+    add("music_minutes", configuration.music ? Math.min(5, Math.ceil(configuration.durationSeconds / 60)) : 0, policy.creditsPerMusicMinute);
     add("voice_clone",configuration.narration && configuration.voiceProfileId?1:0,policy.creditsPerClone);
     add("alignment_shots",configuration.narration && configuration.forcedAlignment?shots:0,policy.creditsPerAlignment);
     add("transcription",configuration.transcriptionAssetId?1:0,policy.creditsPerTranscription);
@@ -127,7 +134,7 @@ export function quote(configuration: Configuration, policy: Policy) {
     add("sound_effects",policy.advancedProviders.sfx?shots:0,policy.creditsPerSfx);
   }
   let credits = items.reduce((n, item) => n + item.credits, 0);
-  const commercial=policy.commercial.mode==="DURATION_RETAIL"?commercialEstimate(policy.commercial,configuration.durationSeconds):null;
+  const commercial=policy.commercial.mode==="DURATION_RETAIL"?commercialEstimate(policy.commercial,configuration.durationSeconds,configuration.quality):null;
   if(commercial){if(!commercial.credits)throw new FactoryError("PLATFORM_CREDIT_RATE_UNAVAILABLE",503);if(credits>commercial.credits)throw new FactoryError("ACTION_BUDGET_EXCEEDS_RETAIL",503);items.push({action:"completed_film_package",quantity:1,credits:commercial.credits-credits});credits=commercial.credits;}
   if (credits > Math.min(configuration.budgetCap, policy.maxProjectCredits)) throw new FactoryError("BUDGET_EXCEEDED", 402);
   return { items, credits,commercial, kind: "estimate" as const, output: configuration.mediaMode === "MULTIMEDIA" ? "multimedia_film" : "silent_storyboard_film", unavailable: [] as string[] };

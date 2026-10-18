@@ -72,9 +72,10 @@ export async function renderShot(jobId: string, index: number, manifest: Manifes
     const visualId=shot.assetId || plan.assetIds[`video-${shot.id}`] || plan.assetIds[`image-${shot.id}`];
     const visual=visualId?await ownedAsset(userId,visualId):null;
     let remotionVideo:string|undefined;
-    if(!visual && shot.motion!=="MAP" && plan.policy.commercial.renderer==="REMOTION"){
+    if((!visual || visual.mimeType.startsWith("image/")) && shot.motion!=="MAP" && plan.policy.commercial.renderer==="REMOTION"){
       if(!plan.policy.commercial.remotionLicenseApproved)throw new FactoryError("REMOTION_LICENSE_APPROVAL_REQUIRED",403);
-      remotionVideo=await renderRemotion(directory,index,shot,width,height,configuration.language==="fa",signal);
+      if(visual)await sharp(storagePath(visual.storageKey)).resize(width,height,{fit:"cover"}).png().toFile(plate);
+      remotionVideo=await renderRemotion(directory,index,shot,width,height,configuration.language==="fa",signal,visual?plate:undefined);
       await mediaCommand("ffmpeg",["-y","-i",remotionVideo,"-frames:v","1",plate],signal);
     }
     const voiceId=plan.assetIds[`tts-${shot.id}`],voice=voiceId?await ownedAsset(userId,voiceId):null;

@@ -42,7 +42,7 @@ export async function generateSpeech(provider:RegisteredProvider,text:string,voi
   return {bytes:await boundedBytes(response,20000000),mimeType:"audio/mpeg",extension:"mp3"};
 }
 export async function generateInstrumental(provider:RegisteredProvider,prompt:string,seconds:number,signal:AbortSignal):Promise<MediaResult> {
-  const response=await request(provider,"/music",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model_id:provider.model,prompt,music_length_ms:Math.min(600000,Math.max(3000,seconds*1000)),force_instrumental:true})},signal);
+  const response=await request(provider,"/music",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model_id:provider.model,prompt,music_length_ms:Math.min(300000,Math.max(3000,seconds*1000)),force_instrumental:true})},signal);
   return {bytes:await boundedBytes(response,30000000),mimeType:"audio/mpeg",extension:"mp3",providerJobId:response.headers.get("song-id") || undefined};
 }
 export async function submitVideo(provider:RegisteredProvider,prompt:string,portrait:boolean,signal:AbortSignal) {
