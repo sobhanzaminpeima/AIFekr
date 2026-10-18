@@ -23,7 +23,13 @@ async function main(){
   await tx.siteSetting.upsert({where:{key:'videoFactoryPolicy'},create:{key:'videoFactoryPolicy',value:JSON.stringify(policy)},update:{value:JSON.stringify(policy)}});
   const providers=[['vf-claude-director','Claude director','TEXT','ANTHROPIC_TEXT','claude-opus-5-5','ANTHROPIC_API_KEY',null,'request'],['vf-google-scene-motion','Gemini scene animation','TEXT','GEMINI_TEXT','gemini-3.1-pro-preview','GEMINI_API_KEY',null,'request'],['vf-google-nano-banana','Nano Banana 2 images','IMAGE','GEMINI_IMAGE','gemini-3.1-flash-image','GEMINI_API_KEY',0.067,'image'],['vf-eleven-voice','ElevenLabs narration','TTS','ELEVENLABS_TTS','eleven_v3','ELEVENLABS_API_KEY',null,'request'],['vf-eleven-music','ElevenLabs instrumental music','MUSIC','ELEVENLABS_MUSIC','music_v1','ELEVENLABS_API_KEY',0.15,'minute']];
   for(const [id,name,kind,adapter,model,credentialRef,unitUsd,unit] of providers){
-   const old=await tx.videoFactoryProvider.findUnique({where:{id}});if(old)continue;
+   const old=await tx.videoFactoryProvider.findUnique({where:{id}});
+   if(old){
+    await tx.videoFactoryConfigVersion.create({data:{resourceId:id,kind:'PROVIDER',version:old.version,configuration:JSON.stringify({...old,secret:undefined}),actorId:actor.id}});
+    const sameScope=old.adapter.split('_')[0]===adapter.split('_')[0]&&old.credentialRef===credentialRef;
+    await tx.videoFactoryProvider.update({where:{id},data:{name,kind,adapter,model,credentialRef,secret:sameScope?old.secret:null,enabled:false,version:old.version+1,settings:JSON.stringify({...JSON.parse(old.settings),commercialApproved:false,safetyReviewed:false}),pricing:JSON.stringify({unitUsd,unit,verifiedAt:unitUsd===null?null:rateCard.checkedAt+'T00:00:00.000Z'})}});
+    continue;
+   }
    await tx.videoFactoryProvider.create({data:{id,name,kind,adapter,model,credentialRef,enabled:false,settings:JSON.stringify({maxOutputTokens:kind==='TEXT'?6000:undefined,commercialApproved:false,safetyReviewed:false,region:'',languages:['fa','en','tr','de'],maxConcurrent:1,requestsPerMinute:10,defaultVoiceId:''}),pricing:JSON.stringify({unitUsd,unit,verifiedAt:unitUsd===null?null:rateCard.checkedAt+'T00:00:00.000Z'})}});
   }
   // Remove unverified Argon from operational providers, never delete credentials or history.
