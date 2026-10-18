@@ -63,6 +63,7 @@ export interface Capability {
 }
 
 export const CAPABILITIES: Capability[] = [
+  {key:"video-factory",kind:"create",department:null,href:"/video-factory",planGate:"credits",label:l=>tri(l,"کارخانه ویدیو","Video Factory","Video Factory","Video Fabrikası"),blurb:l=>tri(l,"پروژه فیلم، متن، استوری‌بورد، تولید فصل‌به‌فصل و کنترل بودجه با تأیید پیش از شروع.","Film projects, scripts, storyboards and chapter-based production with budget approval.","Filmprojekte, Drehbücher, Storyboards und kapitelweise Produktion mit Budgetfreigabe.","Bütçe onayıyla film projeleri, senaryo, storyboard ve bölüm bazlı üretim."),docSlug:"video-factory",tiers:["READ","COMMIT"]},
   // ─── Sales ────────────────────────────────────────────────────────────────
   {
     key: "crm",

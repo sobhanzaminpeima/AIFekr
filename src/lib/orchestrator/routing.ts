@@ -16,9 +16,10 @@ import type { Lang } from "@/lib/i18n";
  * reading someone's business data because a message mentioned "money".
  */
 
-export type DomainKey = "crm" | "accounting" | "social" | "ceo" | "seo";
+export type DomainKey = "crm" | "accounting" | "social" | "ceo" | "seo" | "video-factory";
 
 const DOMAIN_PATTERNS: Record<DomainKey, RegExp> = {
+  "video-factory":/video factory|film project|storyboard|screenplay|کارخانه ویدیو|پروژه فیلم|استوری.?بورد|فیلم.?نامه|Video.?Fabrik|Video Fabrikası/i,
   crm: /\b(crm|lead|leads|contact|contacts|deal|deals|pipeline|prospect|follow[- ]?up|customer|client)\b|لید|مخاطب|معامله|قیف|پیگیری|مشتری|فروش|Kontakt|Kunde|Deal|Pipeline|Lead|Nachverfolgung/i,
   accounting: /\b(accounting|ledger|invoice|invoices|expense|expenses|spend|spending|cash[- ]?flow|payroll|tax|bookkeep)\b|حساب(داری)?|فاکتور|هزینه|دفتر کل|جریان نقدی|حقوق|مالیات|Buchhaltung|Rechnung|Ausgabe|Hauptbuch|Lohn|Steuer/i,
   social: /\b(instagram|insta|social|post|posts|caption|hashtag|reel|story|follower|engagement)\b|اینستاگرام|اینستا|پست|کپشن|هشتگ|ریلز|استوری|فالوور|تعامل|شبکه(‌| )اجتماعی|Beitrag|Caption|Hashtag|Follower/i,
@@ -97,7 +98,7 @@ export function parseRoutingState(json: string | null | undefined): RoutingState
           .slice(-MAX_ENTITIES)
       : [];
     const lastDomain =
-      parsed.lastDomain && ["crm", "accounting", "social", "ceo", "seo"].includes(parsed.lastDomain)
+      parsed.lastDomain && ["crm", "accounting", "social", "ceo", "seo","video-factory"].includes(parsed.lastDomain)
         ? (parsed.lastDomain as DomainKey)
         : null;
     return { lastDomain, entities };

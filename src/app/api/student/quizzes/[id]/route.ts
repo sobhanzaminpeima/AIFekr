@@ -5,6 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { studentWorkspaceDisabledResponse } from "@/lib/student/access";
 import { verify } from "jsonwebtoken";
+import { createHash } from "node:crypto";
 
 export async function GET(req: NextRequest, context: { params: { id: string } }) {
   const user = await requireAuth(req);
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest, context: { params: { id: string } }
     const previousAttempt = await prisma.studentQuizAttempt.findFirst({ where: { userId: user.id, quizId: quiz.id }, select: { id: true } });
     if (previousAttempt) return NextResponse.json({ error: "این آزمون قبلاً ثبت شده است" }, { status: 409 });
   }
-  let body: { answers?: unknown; attemptToken?: string };
+  let body: { answers?: unknown; attemptToken?: string; nativeRequestId?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 }); }
   if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "درخواست نامعتبر است" }, { status: 400 });
   const questions = JSON.parse(quiz.questions) as { topic: string; explanation: string; correctIndex: number }[];
@@ -36,6 +37,14 @@ export async function POST(req: NextRequest, context: { params: { id: string } }
     return NextResponse.json({ error: "پاسخ آزمون معتبر نیست" }, { status: 400 });
   }
   let startedAt = new Date();
+  let nativeAttemptKey: string | null = null;
+  if (body.nativeRequestId !== undefined) {
+    if (process.env.MOBILE_API_ENABLED !== "true" || typeof body.nativeRequestId !== "string") return NextResponse.json({ error: "Invalid native request" }, { status: 403 });
+    const admitted = await prisma.mobileRequest.findFirst({ where: { id: body.nativeRequestId, userId: user.id, status: "RUNNING" }, select: { requestKey: true, inputHash: true } });
+    const expected = createHash("sha256").update(JSON.stringify({ quizId: quiz.id, answers: body.answers })).digest("hex");
+    if (!admitted?.requestKey.startsWith("quiz_") || admitted.inputHash !== expected) return NextResponse.json({ error: "Invalid native request" }, { status: 403 });
+    nativeAttemptKey = `native_quiz:${body.nativeRequestId}`;
+  }
   if (quiz.timeLimitSeconds) {
     try {
       const token = verify(body.attemptToken || "", process.env.JWT_SECRET!) as { kind?: string; quizId?: string; userId?: string; iat?: number };
@@ -52,7 +61,7 @@ export async function POST(req: NextRequest, context: { params: { id: string } }
   const uniqueWeakTopics = Array.from(new Set(weakTopics));
   let attempt;
   try {
-    attempt = await prisma.studentQuizAttempt.create({ data: { userId: user.id, quizId: quiz.id, answers: JSON.stringify(answers), score, total: questions.length, weakTopics: JSON.stringify(uniqueWeakTopics), startedAt, attemptToken: quiz.timeLimitSeconds ? body.attemptToken : null } });
+    attempt = await prisma.studentQuizAttempt.create({ data: { userId: user.id, quizId: quiz.id, answers: JSON.stringify(answers), score, total: questions.length, weakTopics: JSON.stringify(uniqueWeakTopics), startedAt, attemptToken: quiz.timeLimitSeconds ? body.attemptToken : nativeAttemptKey } });
   } catch {
     return NextResponse.json({ error: "آزمون قبلاً ثبت شده یا ذخیره‌سازی ناموفق بود" }, { status: 409 });
   }

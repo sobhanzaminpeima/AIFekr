@@ -1,0 +1,9 @@
+import {NextRequest,NextResponse} from "next/server";
+import {requireAuth,unauthorizedResponse} from "@/lib/auth/middleware";
+import {mediaInput,mediaQuote,generateMobileMedia,mobileMediaStatus} from "@/lib/mobile/media";
+import {rateLimit} from "@/lib/utils/rateLimit";
+export const dynamic="force-dynamic";
+const headers={"Cache-Control":"no-store"};
+export async function GET(req:NextRequest){const user=await requireAuth(req);if(!user)return unauthorizedResponse(req);const key=req.nextUrl.searchParams.get('requestKey');try{if(key){const result=await mobileMediaStatus(user.id,key);return NextResponse.json(result.body,{status:result.status,headers});}const type=req.nextUrl.searchParams.get('type');if(!['image','video','music'].includes(type||''))return NextResponse.json({error:'Invalid type'},{status:400});return NextResponse.json(await mediaQuote(type as 'image'|'video'|'music',Number(req.nextUrl.searchParams.get('duration')||5),req.nextUrl.searchParams.get('reference')==='1'),{headers});}catch{return NextResponse.json({error:'Media status unavailable'},{status:503,headers});}}
+export async function POST(req:NextRequest){if(process.env.MOBILE_API_ENABLED!=='true')return NextResponse.json({error:'Mobile disabled'},{status:503,headers});const user=await requireAuth(req);if(!user)return unauthorizedResponse(req);if(!rateLimit(`native-media:${user.id}`,10,60000).allowed)return NextResponse.json({error:'Too many requests'},{status:429,headers});const parsed=mediaInput.safeParse(await req.json().catch(()=>null));if(!parsed.success)return NextResponse.json({error:'Invalid generation request'},{status:400,headers});try{const result=await generateMobileMedia(user,parsed.data);return NextResponse.json(result.body,{status:result.status,headers});}catch{return NextResponse.json({error:'Request interrupted; check status before retrying'},{status:503,headers});}}
+

@@ -8,6 +8,7 @@ import { isPublicRoute, stripPublicLocale } from "@/lib/seo/locales";
 // single VPS from being hammered; everything else under /api gets a generous
 // default so normal UI polling never trips it.
 const RULES: Array<{ prefix: string; limit: number; windowMs: number }> = [
+  { prefix: "/api/mobile/v1/session", limit: 20, windowMs: 60 * 1000 },
   { prefix: "/api/auth/send-otp", limit: 5, windowMs: 10 * 60 * 1000 },
   { prefix: "/api/auth/verify-otp", limit: 10, windowMs: 10 * 60 * 1000 },
   { prefix: "/api/auth/login", limit: 15, windowMs: 5 * 60 * 1000 },

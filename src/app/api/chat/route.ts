@@ -200,7 +200,8 @@ export async function POST(req: NextRequest) {
     let orchestration: OrchestrationResult | null = null;
     try {
       const state=parseRoutingState(ownedConversation?.routingState);
-      if(!tutorTool && resolveIntent(message,state.lastDomain).domains.length>0){
+      // Native read-only chat can disable tools until its action approval contract is enabled.
+      if(!body.disableTools && !tutorTool && resolveIntent(message,state.lastDomain).domains.length>0){
       const ctx = await buildWorkspaceContext({ id: user.id, plan: user.plan, voicePlan: user.voicePlan }, lang);
       const result = await orchestrateTurn({
         message,

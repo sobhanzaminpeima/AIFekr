@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import {enqueueMobilePush} from '@/lib/mobile/push';
 
 /**
  * Single choke point for creating in-app notifications. Deliberately dumb —
@@ -11,8 +12,11 @@ export async function notify(
   { type, title, body, link, email }: { type: string; title: string; body?: string; link?: string; email?:boolean }
 ): Promise<void> {
   try {
-    await prisma.notification.create({
+    await prisma.$transaction(async tx=>{
+    const notification=await tx.notification.create({
       data: { userId, type, title, body: body || undefined, link: link || undefined,...(email?{emailPending:true}:{}) },
+    });
+    await enqueueMobilePush(notification,tx);
     });
   } catch (e) {
     console.error("notify() failed:", e);

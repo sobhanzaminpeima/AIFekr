@@ -176,6 +176,7 @@ export const PLAN_NAMES_FA: Record<string, string> = {
  * can be priced apart from a cheap one without a deploy.
  */
 export const TOOL_FEATURES: Record<string, string> = {
+  "mobile.transcribe": "موبایل — رونویسی صدای فیکا",
   "accounting.ask": "حسابداری — دستیار مالی (پرسش)",
   "accounting.cash-flow-narrative": "حسابداری — روایت جریان نقدی",
   "accounting.owner-statement-assist": "حسابداری — کمک صورت‌حساب مالک",
@@ -221,6 +222,7 @@ export const TOOL_FEATURES: Record<string, string> = {
 
 /** English names of the tool features, used in the credit ledger for every non-Persian language. */
 export const TOOL_FEATURES_EN: Record<string, string> = {
+  "mobile.transcribe": "Mobile — FIKA voice transcription",
   "student.academy-tutor": "Student — Academy course tutor",
   "student.academy-description": "Academy — regenerate description",
   "student.academy-chapter": "Academy — regenerate chapter",

@@ -6,6 +6,9 @@ export function featureAccessExpired(user:{plan?:string;planExpiry?:Date|null;tr
  return !paid&&!!user.trialEndsAt&&user.trialEndsAt.getTime()<=now;
 }
 export function isRecoveryApi(path:string):boolean{
+ if(path==='/api/mobile/v1/billing')return true;
+ if(path==="/api/mobile/v1/session"||path.startsWith("/api/mobile/v1/session/"))return true;
+ if(path==="/api/mobile/v1/fitness"||path.startsWith("/api/mobile/v1/fitness/"))return true;
  if(path==="/api/support/chat")return false;
  return ["/api/auth/","/api/billing/","/api/fitness","/api/payment/","/api/checkout/","/api/bank/","/api/admin/","/api/profile","/api/user/profile","/api/user/payments","/api/user/onboarding","/api/user/currency","/api/account","/api/support/","/api/packages","/api/plans","/api/notifications","/api/wallet","/api/credits/","/api/user/usage/history"].some(p=>path===p||path.startsWith(p));
 }

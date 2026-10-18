@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "./jwt";
+import { mobileIdentity } from "./mobileSessions";
 import { prisma } from "@/lib/db/prisma";
 import { featureAccessExpired, isRecoveryApi, teamFeatureExpiry } from "@/lib/subscriptions/access";
 const accessDenials=new WeakMap<NextRequest,boolean>();
+const nativeAccountDenials=new WeakSet<NextRequest>();
 
 import type { Lang } from "@/lib/i18n";
 import { tri } from "@/lib/i18n/tri";
 
 export async function requireAuth(req: NextRequest) {
   const token = req.cookies.get("token")?.value;
-  if (!token) return null;
-
-  const payload = verifyToken(token);
+  const bearer = req.headers.get("authorization")?.match(/^Bearer (\S+)$/i)?.[1];
+  const payload = token ? verifyToken(token) : bearer ? await mobileIdentity(bearer) : null;
   if (!payload) return null;
 
   const user = await prisma.user.findUnique({
@@ -44,7 +45,7 @@ export async function requireAuth(req: NextRequest) {
 
   if (!user || user.isBlocked) return null;
 
-  if(user.accountType==="FITNESS"&&!req.nextUrl.pathname.startsWith("/api/fitness")&&!isRecoveryApi(req.nextUrl.pathname)&&!req.nextUrl.pathname.startsWith("/api/billing"))return null;
+  if(user.accountType==="FITNESS"&&!req.nextUrl.pathname.startsWith("/api/fitness")&&!req.nextUrl.pathname.startsWith("/api/mobile/v1/fitness/")&&!isRecoveryApi(req.nextUrl.pathname)&&!req.nextUrl.pathname.startsWith("/api/billing")){if(bearer)nativeAccountDenials.add(req);return null;}
   const expired=featureAccessExpired(user,teamFeatureExpiry(user.teamMembership?.team));
   if(expired&&!isRecoveryApi(req.nextUrl.pathname)&&!(req.nextUrl.pathname.startsWith("/api/fitness")&&user.fitnessProfile?.entitlementExpiry&&user.fitnessProfile.entitlementExpiry>new Date())){
     accessDenials.set(req,true);return null;
@@ -66,6 +67,7 @@ export async function requireAdmin(req: NextRequest) {
 // where the wrong language would actually be seen (e.g. a client-side fetch
 // wrapper that shows `error` verbatim) should pass the real lang instead.
 export function unauthorizedResponse(input: Lang | NextRequest = "fa") {
+  if(typeof input!=="string"&&nativeAccountDenials.has(input))return NextResponse.json({error:"This module is not available for your account type",code:"ACCOUNT_TYPE_FORBIDDEN"},{status:403});
   const cookieLang=typeof input!=="string"?input.cookies.get("lang")?.value:undefined;
   const lang:Lang=typeof input==="string"?input:["fa","en","de","tr"].includes(cookieLang||"")?cookieLang as Lang:"fa";
   if(typeof input!=="string"&&accessDenials.has(input))return NextResponse.json({error:tri(lang,"اشتراک شما منقضی شده است. برای استفاده از امکانات، پکیج را تمدید کنید.","Your subscription has expired. Renew to use platform features.","Ihr Abonnement ist abgelaufen. Bitte verlängern.","Aboneliğiniz sona erdi. Özellikleri kullanmak için yenileyin."),code:"SUBSCRIPTION_EXPIRED",renewUrl:"/pricing"},{status:402});

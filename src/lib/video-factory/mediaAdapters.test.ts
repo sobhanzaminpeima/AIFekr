@@ -1,0 +1,22 @@
+import {afterEach,describe,expect,it,vi} from "vitest";
+import {boundedBytes,generateImage,generateSpeech,generateInstrumental,pollVideo,submitVideo} from "./mediaAdapters";
+import type {RegisteredProvider} from "./registry";
+import {verifyFactoryWebhook} from "./webhooks";
+import {createHmac} from "node:crypto";
+const provider={id:"test-only",name:"TEST ONLY",adapter:"OPENAI_IMAGE",kind:"IMAGE",model:"test-only-model",key:"test-only-key",version:1,enabled:true,credentialRef:null,secret:null,settings:{commercialApproved:true,safetyReviewed:true,region:"",languages:[],maxConcurrent:1,requestsPerMinute:10,defaultVoiceId:""},pricing:{unitUsd:null,unit:"image",verifiedAt:null},failures:0,circuitUntil:null,health:"UNKNOWN",checkedAt:null,updatedAt:new Date()} satisfies RegisteredProvider;
+afterEach(()=>vi.unstubAllGlobals());
+describe("verified media adapter contracts (no live requests)",()=>{
+  it("uses the fixed image endpoint, one image and bounded base64 output",async()=>{const request=vi.fn<typeof fetch>().mockResolvedValue(Response.json({data:[{b64_json:Buffer.from("TEST ONLY IMAGE").toString("base64")}],usage:{total_tokens:12}}));vi.stubGlobal("fetch",request);const result=await generateImage(provider,"test","16:9",AbortSignal.timeout(1000));expect(result.bytes.toString()).toBe("TEST ONLY IMAGE");expect(request.mock.calls[0][0]).toBe("https://api.openai.com/v1/images/generations");});
+  it("labels a known rejected call and never transparently falls back or retries it",async()=>{const request=vi.fn(async()=>new Response("",{status:429}));vi.stubGlobal("fetch",request);await expect(generateImage(provider,"test","1:1",AbortSignal.timeout(1000))).rejects.toMatchObject({rejected:true,retryable:true});expect(request).toHaveBeenCalledTimes(1);});
+  it("caps binary responses and validates narration before sending",async()=>{await expect(boundedBytes(new Response(Buffer.alloc(101)),100)).rejects.toThrow("PROVIDER_RESPONSE_TOO_LARGE");const request=vi.fn();vi.stubGlobal("fetch",request);await expect(generateSpeech({...provider,adapter:"OPENAI_TTS",kind:"TTS"},"x".repeat(3001),"alloy",AbortSignal.timeout(1000))).rejects.toThrow("NARRATION_TOO_LONG");expect(request).not.toHaveBeenCalled();});
+  it("persists an asynchronous video ID and only downloads after completion",async()=>{const request=vi.fn().mockResolvedValueOnce(Response.json({id:"video_test"})).mockResolvedValueOnce(Response.json({status:"in_progress",progress:50})).mockResolvedValueOnce(Response.json({status:"completed"})).mockResolvedValueOnce(new Response(Buffer.from("TEST ONLY VIDEO")));vi.stubGlobal("fetch",request);const video={...provider,adapter:"OPENAI_VIDEO",kind:"VIDEO"} as RegisteredProvider;expect(await submitVideo(video,"test",false,AbortSignal.timeout(1000))).toBe("video_test");expect((await pollVideo(video,"video_test",AbortSignal.timeout(1000))).ready).toBe(false);const result=await pollVideo(video,"video_test",AbortSignal.timeout(1000));expect(result.ready && result.result.bytes.toString()).toBe("TEST ONLY VIDEO");expect(request.mock.calls[3][0]).toBe("https://api.openai.com/v1/videos/video_test/content");});
+  it("requests instrumental music and applies the documented duration bound",async()=>{const request=vi.fn<typeof fetch>().mockResolvedValue(new Response(Buffer.from("TEST ONLY MUSIC")));vi.stubGlobal("fetch",request);await generateInstrumental({...provider,adapter:"ELEVENLABS_MUSIC",kind:"MUSIC"},"test",3600,AbortSignal.timeout(1000));const sent=JSON.parse((request.mock.calls[0][1] as RequestInit).body as string);expect(sent.force_instrumental).toBe(true);expect(sent.music_length_ms).toBe(600000);});
+});
+describe("Standard Webhooks signature boundary",()=>{
+  const key=Buffer.from("test-only-webhook-secret"),secret="whsec_"+key.toString("base64"),body=JSON.stringify({type:"video.completed",data:{id:"video_test"}}),timestamp="1700000000",id="wh_test";
+  const signature=createHmac("sha256",key).update(`${id}.${timestamp}.${body}`).digest("base64");
+  const headers=()=>new Headers({"webhook-id":id,"webhook-timestamp":timestamp,"webhook-signature":`v1,${signature}`});
+  it("accepts a correctly signed body within the replay window",()=>expect(verifyFactoryWebhook(body,headers(),secret,1700000000000)).toBe(id));
+  it("rejects tampering and stale timestamps",()=>{expect(()=>verifyFactoryWebhook(body+" ",headers(),secret,1700000000000)).toThrow("INVALID_WEBHOOK_SIGNATURE");expect(()=>verifyFactoryWebhook(body,headers(),secret,1700000600000)).toThrow("INVALID_WEBHOOK_SIGNATURE");});
+});
+

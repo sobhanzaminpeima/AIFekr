@@ -5,6 +5,7 @@ import { ACCOUNTING_TOOLS } from "./accounting";
 import { SOCIAL_TOOLS } from "./social";
 import { STRATEGY_TOOLS } from "./strategy";
 import { SEO_TOOLS } from "./seo";
+import {VIDEO_FACTORY_TOOLS} from "./videoFactory";
 
 /**
  * The complete `full_mode` tool table.
@@ -20,7 +21,7 @@ import { SEO_TOOLS } from "./seo";
  * beats eleven done thinly.
  */
 
-const ALL_TOOLS: ToolDefinition<never>[] = [...CRM_TOOLS, ...ACCOUNTING_TOOLS, ...SOCIAL_TOOLS, ...STRATEGY_TOOLS, ...SEO_TOOLS];
+const ALL_TOOLS: ToolDefinition<never>[] = [...CRM_TOOLS, ...ACCOUNTING_TOOLS, ...SOCIAL_TOOLS, ...STRATEGY_TOOLS, ...SEO_TOOLS,...VIDEO_FACTORY_TOOLS];
 
 /**
  * Startup assertion, not a runtime check: if a tool is ever added whose key

@@ -31,8 +31,24 @@ export function signRefreshToken(payload: JwtPayload): string {
 
 export function verifyToken(token: string): JwtPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as JwtPayload;
+    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"] });
+    if (typeof payload === "string" || payload.tokenKind || typeof payload.userId !== "string" || typeof payload.role !== "string" || typeof payload.plan !== "string") return null;
+    return payload as JwtPayload;
   } catch {
     return null;
   }
+}
+
+export const MOBILE_ACCESS_SECONDS = 15 * 60;
+export function signMobileAccess(userId: string, sessionId: string): string {
+  return jwt.sign({ userId, sessionId, tokenKind: "mobile-access" }, JWT_SECRET, {
+    algorithm: "HS256", expiresIn: MOBILE_ACCESS_SECONDS, audience: "aifekr-mobile", issuer: "aifekr",
+  });
+}
+export function verifyMobileAccess(token: string): { userId: string; sessionId: string } | null {
+  try {
+    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"], audience: "aifekr-mobile", issuer: "aifekr" });
+    if (typeof payload === "string" || payload.tokenKind !== "mobile-access" || typeof payload.userId !== "string" || typeof payload.sessionId !== "string") return null;
+    return { userId: payload.userId, sessionId: payload.sessionId };
+  } catch { return null; }
 }

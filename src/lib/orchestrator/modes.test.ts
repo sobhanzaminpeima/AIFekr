@@ -135,9 +135,12 @@ describe("COMMIT tools", () => {
 });
 
 describe("the tool table itself", () => {
-  it("covers exactly the approved domains (the four from Phase 4, plus SEO added on the owner's approval)", () => {
+  it("covers the approved domains including the requested Video Factory read/free-draft integration", () => {
     const capabilities = Array.from(new Set(allTools().map((t) => t.capabilityKey))).sort();
-    expect(capabilities).toEqual(["accounting", "ceo", "crm", "seo", "social"]);
+    expect(capabilities).toEqual(["accounting", "ceo", "crm", "seo", "social","video-factory"]);
+  });
+  it("keeps Video Factory paid generation and publishing out of chat tools",()=>{
+    expect(allTools().filter(t=>t.capabilityKey==="video-factory").map(t=>t.key).sort()).toEqual(["videoFactory.createDraft","videoFactory.projects"]);
   });
 
   it("resolves every tool by its own key", () => {

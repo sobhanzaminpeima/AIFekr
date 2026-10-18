@@ -430,6 +430,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             just be a second door to the same room. Each tool is still
             reachable at its own old URL (/image/generate etc.). */}
         <NavItem icon={GalleryHorizontal} label={t.nav.gallery} href="/image/gallery" active={isActive("/image/gallery")} />
+        <NavItem icon={GalleryHorizontal} label={tri(lang, "کارخانه ویدیو", "Video Factory", "Video Factory", "Video Fabrikası")} href="/video-factory" active={isActive("/video-factory")} />
         <NavItem icon={Rocket} label={t.nav.startupBuilder} href="/startup/builder" active={isActive("/startup")} />
 
         {!hasPack && <Link href="/seo/intelligence" className="block mx-2 my-2 rounded-xl p-3" style={{background:"rgba(249,115,22,.1)",border:"1px solid rgba(249,115,22,.25)"}}><strong className="block text-xs text-orange-400">SEO Intelligence</strong><span className="block text-[11px] mt-1">{tri(lang,"داده‌های واقعی، رتبه و بک‌لینک","Real data, rankings and backlinks","Echte Daten, Rankings und Backlinks","Gerçek veriler, sıralama ve geri bağlantılar")}</span></Link>}

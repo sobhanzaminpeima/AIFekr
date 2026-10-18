@@ -222,6 +222,8 @@ model AcademyLearningPath {
 }
 
 model User {
+  mobileSessions MobileSession[]
+  mobileRequests MobileRequest[]
   fitnessAccessExpiry DateTime?
   fitnessProfile FitnessProfile?
   fitnessSessions FitnessSession[]
@@ -4201,4 +4203,289 @@ model FitnessVerifiedReview {
  body String
  status String @default("PENDING")
  createdAt DateTime @default(now())
+}
+
+model MobileSession {
+  id String @id
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String
+  previousRefreshTokenHash String?
+  deviceName String
+  createdAt DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+  pushToken String?
+  pushEnabledAt DateTime?
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+}
+
+model MobileRequest {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requestKey String
+  inputHash String
+  status String @default("RUNNING")
+  responseJson String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([userId, requestKey])
+  @@index([status, createdAt])
+}
+
+model MobileStorePurchase {
+  id String @id @default(cuid())
+  tokenHash String @unique
+  orderId String @unique
+  userId String
+  productId String
+  credits Int
+  state String @default("GRANTED")
+  testPurchase Boolean
+  createdAt DateTime @default(now())
+  @@index([userId, createdAt])
+}
+
+
+model VideoFactoryProject {
+  id String @id @default(cuid())
+  userId String
+  title String
+  brief String
+  configuration String
+  manifest String @default("{}")
+  version Int @default(0)
+  activeJobId String?
+  research String @default("[]")
+  publishing String @default("{}")
+  planning String @default("{}")
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  jobs VideoFactoryJob[]
+  versions VideoFactoryVersion[]
+  assets VideoFactoryAsset[]
+  approvals VideoFactoryApproval[]
+  publishJobs VideoFactoryPublishJob[]
+  @@index([userId, updatedAt])
+}
+
+model VideoFactoryVersion {
+  id String @id @default(cuid())
+  projectId String
+  version Int
+  manifest String
+  actorId String
+  createdAt DateTime @default(now())
+  project VideoFactoryProject @relation(fields:[projectId],references:[id],onDelete:Restrict)
+  @@unique([projectId, version])
+}
+
+model VideoFactoryJob {
+  id String @id
+  projectId String
+  userId String
+  projectVersion Int
+  idempotencyKey String
+  requestHash String
+  status String @default("QUEUED")
+  stage String @default("SCRIPTING")
+  cursor Int @default(0)
+  checkpoint String @default("{}")
+  policy String
+  credits Int
+  spentCredits Int @default(0)
+  usageLogId String @unique
+  payerTeamId String?
+  mirroredAi Float @default(0)
+  leaseToken String?
+  leaseUntil DateTime?
+  errorCode String?
+  priority Int @default(0)
+  nextAttemptAt DateTime?
+  attempts Int @default(0)
+  actualCostUsd Float?
+  storageBytes Float @default(0)
+  sourceJobId String?
+  plan String @default("{}")
+  settledAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project VideoFactoryProject @relation(fields:[projectId],references:[id],onDelete:Restrict)
+  steps VideoFactoryStep[]
+  artifacts VideoFactoryArtifact[]
+  @@unique([userId, idempotencyKey])
+  @@index([status, leaseUntil, createdAt])
+  @@index([projectId, createdAt])
+}
+
+model VideoFactoryStep {
+  id String @id @default(cuid())
+  jobId String
+  key String
+  status String
+  inputHash String
+  output String?
+  provider String?
+  model String?
+  credits Int @default(0)
+  providerJobId String?
+  usage String?
+  costUsd Float?
+  latencyMs Int?
+  promptVersion Int?
+  startedAt DateTime @default(now())
+  completedAt DateTime?
+  job VideoFactoryJob @relation(fields:[jobId],references:[id],onDelete:Restrict)
+  @@unique([jobId,key])
+}
+
+model VideoFactoryArtifact {
+  id String @id @default(cuid())
+  jobId String
+  kind String
+  fileName String
+  bytes Int
+  createdAt DateTime @default(now())
+  job VideoFactoryJob @relation(fields:[jobId],references:[id],onDelete:Restrict)
+  @@unique([jobId,kind])
+}
+
+model VideoFactoryAsset {
+  id String @id
+  projectId String
+  userId String
+  jobId String?
+  shotId String?
+  kind String
+  storageKey String
+  mimeType String
+  bytes Int
+  sha256 String
+  name String
+  provenance String
+  metadata String @default("{}")
+  status String @default("READY")
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  project VideoFactoryProject @relation(fields:[projectId],references:[id],onDelete:Restrict)
+  @@index([userId, kind, createdAt])
+  @@index([projectId, status])
+  @@index([jobId, shotId, kind])
+}
+
+model VideoFactoryStorageQuota {
+  userId String @id
+  usedBytes Float @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model VideoFactoryProvider {
+  id String @id
+  name String
+  kind String
+  adapter String
+  model String
+  version Int @default(1)
+  enabled Boolean @default(false)
+  secret String?
+  credentialRef String?
+  settings String
+  pricing String
+  failures Int @default(0)
+  circuitUntil DateTime?
+  health String @default("UNKNOWN")
+  checkedAt DateTime?
+  updatedAt DateTime @updatedAt
+  @@index([kind, enabled])
+}
+
+model VideoFactoryResource {
+  id String @id
+  kind String
+  name String
+  configuration String
+  version Int @default(1)
+  enabled Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([kind, enabled])
+}
+
+model VideoFactoryConfigVersion {
+  id String @id @default(cuid())
+  resourceId String
+  kind String
+  version Int
+  configuration String
+  actorId String
+  createdAt DateTime @default(now())
+  @@unique([resourceId,kind,version])
+}
+
+model VideoFactoryApproval {
+  id String @id @default(cuid())
+  projectId String
+  jobId String
+  actorId String
+  stage String
+  version Int
+  decision String
+  createdAt DateTime @default(now())
+  project VideoFactoryProject @relation(fields:[projectId],references:[id],onDelete:Restrict)
+  @@index([projectId, createdAt])
+}
+
+model VideoFactoryQualityReport {
+  id String @id @default(cuid())
+  jobId String
+  shotId String?
+  kind String
+  status String
+  findings String
+  createdAt DateTime @default(now())
+  @@index([jobId, createdAt])
+  @@index([kind, status])
+}
+
+model VideoFactoryPublishJob {
+  id String @id
+  projectId String
+  userId String
+  artifactId String
+  idempotencyKey String
+  status String @default("SCHEDULED")
+  scheduledAt DateTime
+  authorizedAt DateTime
+  metadata String
+  uploadUrl String?
+  uploadedBytes Int @default(0)
+  leaseToken String?
+  leaseUntil DateTime?
+  providerId String?
+  errorCode String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project VideoFactoryProject @relation(fields:[projectId],references:[id],onDelete:Restrict)
+  @@unique([userId,idempotencyKey])
+  @@index([status,scheduledAt])
+}
+
+model VideoFactoryChannel {
+  userId String @id
+  refreshToken String
+  scope String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VideoFactoryWebhookEvent {
+  id String @id
+  providerJobId String
+  createdAt DateTime @default(now())
+  @@index([createdAt])
 }

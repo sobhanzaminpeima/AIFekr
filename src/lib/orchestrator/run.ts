@@ -35,6 +35,7 @@ const DOMAIN_TO_CAPABILITY: Record<DomainKey, string> = {
   social: "social",
   ceo: "ceo",
   seo: "seo",
+  "video-factory":"video-factory",
 };
 
 export interface OrchestrationPlanInput {
@@ -275,7 +276,7 @@ function collectEntities(entities: RoutingState["entities"], capabilityKey: stri
   const data = result.data as Record<string, unknown> | null;
   if (!data) return;
 
-  const domain = (["crm", "accounting", "social", "ceo", "seo"] as DomainKey[]).find((d) => DOMAIN_TO_CAPABILITY[d] === capabilityKey);
+  const domain = (["crm", "accounting", "social", "ceo", "seo","video-factory"] as DomainKey[]).find((d) => DOMAIN_TO_CAPABILITY[d] === capabilityKey);
   if (!domain) return;
 
   for (const [key, value] of Object.entries(data)) {

@@ -54,6 +54,7 @@ const navGroups = [
     label: "هوش مصنوعی",
     items: [
       { icon: Cpu, label: "مدیریت LLM", href: "/admin/llm" },
+      { icon: Factory, label: "Video Factory", href: "/admin/video-factory" },
       { icon: Coins, label: "مصرف و هزینه", href: "/admin/usage" },
       { icon: BarChart2, label: "آنالیتیکس فیچرها", href: "/admin/analytics" },
       { icon: Wrench, label: "ابزارها", href: "/admin/tools" },

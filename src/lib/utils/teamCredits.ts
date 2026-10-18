@@ -28,19 +28,21 @@ export async function reserveLoggedCredits(tx: Prisma.TransactionClient, userId:
   if (!Number.isSafeInteger(amount) || amount < 0) throw new Error("Invalid credit cost");
   if (await getAvailableCredits(userId, tx) < amount) return null;
   const membership = await tx.teamMember.findUnique({ where: { userId } });
+  const walletField = walletFieldFor(usage.type);
   const wallet = membership
-    ? await tx.team.findUniqueOrThrow({ where: { id: membership.teamId }, select: { aiCredits: true } })
-    : await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { aiCredits: true } });
+    ? await tx.team.findUniqueOrThrow({ where: { id: membership.teamId }, select: { aiCredits: true, mediaCredits: true, voiceMinutes: true } })
+    : await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { aiCredits: true, mediaCredits: true, voiceMinutes: true } });
   if (!await deductCredits(userId, amount, tx)) return null;
-  const mirroredAi = Math.min(amount, Math.max(0, wallet.aiCredits));
-  await mirrorWalletSpend(userId, amount, "aiCredits", tx);
-  const log = await tx.usageLog.create({ data: { userId, type: usage.type, credits: amount, requestId: usage.requestId, metadata: JSON.stringify({ ...usage.metadata, payerTeamId: membership?.teamId || null }) } });
+  // Keep the existing mirroredAi DTO name for course jobs; it snapshots the selected wallet.
+  const mirroredAi = Math.min(amount, Math.max(0, wallet[walletField]));
+  await mirrorWalletSpend(userId, amount, walletField, tx);
+  const log = await tx.usageLog.create({ data: { userId, type: usage.type, credits: amount, requestId: usage.requestId, model: usage.model ?? undefined, provider: usage.provider ?? undefined, mediaSeconds: usage.mediaSeconds ?? undefined, metadata: JSON.stringify({ ...usage.metadata, payerTeamId: membership?.teamId || null }) } });
   return { usageLogId: log.id, payerTeamId: membership?.teamId || null, mirroredAi };
 }
 
 /** Caller must atomically claim the durable job's refund before calling this. */
 export async function refundLoggedReservation(tx: Prisma.TransactionClient, reservation: { userId: string; payerTeamId: string | null; credits: number; mirroredAi: number; usageLogId: string }, metadata: Record<string, unknown>, usageType = "course_generation") {
-  const data = { credits: { increment: reservation.credits }, aiCredits: { increment: reservation.mirroredAi } };
+  const data = { credits: { increment: reservation.credits }, [walletFieldFor(usageType)]: { increment: reservation.mirroredAi } };
   if (reservation.payerTeamId) await tx.team.update({ where: { id: reservation.payerTeamId }, data });
   else await tx.user.update({ where: { id: reservation.userId }, data });
   await tx.usageLog.update({ where: { id: reservation.usageLogId }, data: { metadata: JSON.stringify({ ...metadata, status: "REFUNDED" }) } });
