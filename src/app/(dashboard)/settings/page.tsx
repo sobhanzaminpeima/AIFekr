@@ -13,6 +13,7 @@ import { useTranslation, tri } from "@/lib/i18n";
 import { formatNumber, toJalali } from "@/lib/utils/jalali";
 import WorkspaceLoading from "@/components/layout/WorkspaceLoading";
 import WorkspaceError from "@/components/layout/WorkspaceError";
+import CloudflareStatus from "@/components/settings/CloudflareStatus";
 
 const AVATAR_EMOJIS = ["🙂", "😎", "🚀", "🧠", "🦊", "🐼", "🌟", "🔥", "🎯", "💼", "🧑‍💻", "👩‍💻"];
 
@@ -206,6 +207,7 @@ export default function SettingsPage() {
       <header className="workspace-heading"><h1 style={{ color: "var(--text-primary)" }}>{t.settingsPage.title}</h1></header>
 
       <Link href="/payments" className="flex min-h-12 items-center gap-3 rounded-2xl border px-4 py-4 text-sm font-semibold" style={{ borderColor: "var(--border)", background: "rgba(249,115,22,.08)" }}><CreditCard size={20} className="shrink-0 text-orange-500"/>{tri(lang,"پرداخت‌ها، رسیدها و پیگیری فعال‌سازی","Payments, receipts & activation tracking","Zahlungen, Belege und Aktivierung verfolgen","Ödeme, dekont ve etkinleştirmeyi takip et")}</Link>
+      <CloudflareStatus/>
 
       {/* Profile */}
       <section className="p-4 sm:p-5 rounded-2xl space-y-4 min-w-0 overflow-hidden" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>

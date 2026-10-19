@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, CreditCard, DollarSign, Wrench, GraduationCap, Search,
   Activity, Settings, LogOut, Sparkles, Shield, MessageSquare,
   HelpCircle, Package, UserCog, Database, Cpu, Contact,
-  ChevronDown, Factory, Building2, Tag, Globe, Coins, Rocket, BarChart2, Phone, ToggleRight, Wallet, Link2, Magnet,
+  ChevronDown, Factory, Building2, Tag, Globe, Coins, Rocket, BarChart2, Phone, ToggleRight, Wallet, Link2, Magnet, Cloud,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -89,6 +89,7 @@ const navGroups = [
     label: "سیستم",
     items: [
       { icon: Settings, label: "تنظیمات سایت", href: "/admin/settings" },
+      { icon: Cloud, label: "Cloudflare", href: "/admin/cloudflare" },
       { icon: Database, label: "مدیریت سیستم", href: "/admin/system" },
       { icon: Activity, label: "لاگ‌ها", href: "/admin/logs" },
     ],
