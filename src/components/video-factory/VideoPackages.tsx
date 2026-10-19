@@ -1,14 +1,4 @@
 "use client";
-import {useEffect,useState} from "react";
-import {useTranslation} from "@/lib/i18n";
 import DynamicPlans from "@/components/billing/DynamicPlans";
-type Plan={planCode:string;name:string;nameEn:string;priceUsd:number|null;credits:number;entitlements:string;publicationStatus:string};
-export default function VideoPackages(){
- const {lang}=useTranslation(),t=(fa:string,en:string,de:string,tr:string)=>lang==="fa"?fa:lang==="de"?de:lang==="tr"?tr:en;
- const [plans,setPlans]=useState<Plan[]>([]),[rates,setRates]=useState<{usdToToman:number;usdToTry:number}|null>(null);
- useEffect(()=>{let active=true;Promise.all([fetch('/api/video-factory/catalog').then(r=>r.ok?r.json():null),fetch('/api/packages').then(r=>r.ok?r.json():null)]).then(([catalog,billing])=>{if(active){setPlans(catalog?.packages||[]);setRates(billing?.fxRates||null);}}).catch(()=>{});return()=>{active=false;};},[]);
- if(plans.some(p=>p.publicationStatus==="PUBLISHED"))return <DynamicPlans category="VIDEO_FACTORY"/>;
- if(!plans.length)return null;
- const price=(cents:number)=>{if(lang==="fa")return rates?.usdToToman?Math.round(cents/100*rates.usdToToman).toLocaleString('fa-IR')+' تومان':'—';if(lang==="tr")return rates?.usdToTry?new Intl.NumberFormat('tr-TR',{style:'currency',currency:'TRY'}).format(cents/100*rates.usdToTry):'—';return new Intl.NumberFormat(lang==='de'?'de-DE':'en-US',{style:'currency',currency:'USD'}).format(cents/100);};
- return <section className="vf-panel"><h2>{t('پکیج‌های تولید ویدیو','Video creation packages','Pakete zur Videoerstellung','Video üretim paketleri')}</h2><p>{t('قیمت‌های پیشنهادی در حال بررسی‌اند؛ خرید هنوز فعال نیست. درآمد یوتیوب تضمین نمی‌شود.','Proposed prices are under review; purchases are not yet enabled. YouTube earnings are not guaranteed.','Preisvorschläge werden geprüft; der Kauf ist noch nicht aktiv. YouTube-Einnahmen sind nicht garantiert.','Önerilen fiyatlar incelemede; satın alma henüz etkin değil. YouTube geliri garanti edilmez.')}</p><div className="vf-grid">{plans.map(p=>{const limits=JSON.parse(p.entitlements).limits;return <article className="vf-shot" key={p.planCode}><span className="vf-badge">{t('پیش‌نمایش','Preview','Vorschau','Ön izleme')}</span><h3>{lang==='fa'?p.name:p.nameEn}</h3><strong>{price(p.priceUsd||0)}</strong><ul><li>{limits.videoCount} {t('ویدیو','videos','Videos','video')}</li><li>{limits.videoSeconds/60} {t('دقیقه تولید','production minutes','Produktionsminuten','üretim dakikası')}</li><li>{t('حداکثر هر ویدیو','Maximum per video','Maximum je Video','Video başına azami')}: {limits.videoMaxSeconds/60} {t('دقیقه','minutes','Minuten','dakika')}</li><li>{p.credits.toLocaleString()} {t('اعتبار AIFekr','AIFekr credits','AIFekr-Credits','AIFekr kredisi')}</li></ul><button disabled>{t('به‌زودی پس از تأیید نرخ‌ها','Available after pricing approval','Nach Preisfreigabe verfügbar','Fiyat onayından sonra kullanılabilir')}</button></article>;})}</div></section>;
-}
+/** Landing and workspace deliberately share the same published fixed-price catalog. */
+export default function VideoPackages(){return <DynamicPlans category="VIDEO_FACTORY"/>;}

@@ -19,6 +19,8 @@ export async function GET() {
   });
   const rates = await getFxRates();
   const token=cookies().get("token")?.value;const auth=token?verifyToken(token):null;const promo=auth?await referralDiscount(auth.userId):{percent:0,code:null};
-  return NextResponse.json({ promo, fxRates:rates, packages });
+  const factory=await prisma.siteSetting.findUnique({where:{key:"videoFactoryPolicy"}});
+  let videoAvailable=false;try{const policy=JSON.parse(factory?.value||"{}");videoAvailable=process.env.VIDEO_FACTORY_SALES_APPROVED==="true"&&policy.enabled===true&&policy.commercial?.status==="APPROVED";}catch{/* Unavailable factory never accepts purchases. */}
+  return NextResponse.json({ promo, fxRates:rates, packages:packages.map(p=>({...p,purchaseAvailable:p.category!=="VIDEO_FACTORY"||videoAvailable})) });
 }
 

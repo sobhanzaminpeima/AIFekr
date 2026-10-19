@@ -5,6 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { PROVIDERS } from "@/lib/ai/providers";
 import { getDisabledProviders, refreshDisabledProviders, setProviderEnabled } from "@/lib/ai/providerConfig";
 import { isTypeSafeConfigured } from "@/lib/ai/typesafe";
+import {prisma} from "@/lib/db/prisma";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -30,7 +31,9 @@ export async function GET(req: NextRequest) {
     configured: isTypeSafeConfigured, kind: "structured-decision",
   });
   await refreshDisabledProviders();
-  return NextResponse.json({ disabled: Array.from(getDisabledProviders()), providers });
+  const custom=await prisma.customAiProvider.findMany({where:{type:"chat"},orderBy:{createdAt:"desc"}});
+  const customProviders=custom.map(p=>({id:`custom:${p.id}`,name:p.name,provider:"custom",model:p.model,strengths:["general","creative","code"],maxTokens:4096,creditCost:3,configured:!!p.apiKey,kind:"chat"}));
+  return NextResponse.json({ disabled: [...Array.from(getDisabledProviders()),...custom.filter(p=>!p.enabled).map(p=>`custom:${p.id}`)], providers:[...providers,...customProviders] });
 }
 
 export async function POST(req: NextRequest) {
@@ -42,6 +45,14 @@ export async function POST(req: NextRequest) {
   const { providerId, enabled } = await req.json();
   if (!providerId || typeof providerId !== "string") {
     return NextResponse.json({ ok: false, error: "Missing providerId" }, { status: 400 });
+  }
+  if(providerId.startsWith("custom:")){
+    const id=providerId.slice(7),row=await prisma.customAiProvider.findUnique({where:{id}});
+    if(!row||row.type!=="chat")return NextResponse.json({ok:false,error:"Unknown providerId"},{status:400});
+    await prisma.customAiProvider.update({where:{id},data:{enabled:Boolean(enabled)}});
+    await prisma.auditLog.create({data:{actorId:user.id,action:"llm.provider_toggled",targetId:id,metadata:JSON.stringify({enabled:Boolean(enabled)})}});
+    const custom=await prisma.customAiProvider.findMany({where:{type:"chat",enabled:false},select:{id:true}});
+    return NextResponse.json({ok:true,disabled:[...Array.from(getDisabledProviders()),...custom.map(p=>`custom:${p.id}`)]});
   }
   if (!PROVIDERS.some((p) => p.id === providerId) && providerId !== "typesafe-jev") {
     return NextResponse.json({ ok: false, error: "Unknown providerId" }, { status: 400 });

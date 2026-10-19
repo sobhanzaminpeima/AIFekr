@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { streamOpenAICompat, type ChatMessage, type Provider } from "@/lib/ai/providers";
+import {resolveCustomApiKey} from "./customCredentials";
 
 /** True for the "custom:<id>" model strings /api/ai/chat-providers hands out for admin-added providers. */
 export function isCustomProviderModel(model: string | undefined): model is string {
@@ -30,7 +31,7 @@ export async function streamCustomProvider(
     model: row.model,
     provider: "custom",
     baseURL: row.baseUrl,
-    apiKey: row.apiKey,
+    apiKey: await resolveCustomApiKey(row.apiKey),
     strengths: [],
     maxTokens: 4096,
     creditCost: 3,
