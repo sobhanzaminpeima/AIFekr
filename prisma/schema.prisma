@@ -222,6 +222,8 @@ model AcademyLearningPath {
 }
 
 model User {
+  playProfile PlayProfile?
+  playSessions PlaySession[]
   mobileSessions MobileSession[]
   mobileRequests MobileRequest[]
   fitnessAccessExpiry DateTime?
@@ -4250,6 +4252,139 @@ model MobileStorePurchase {
   @@index([userId, createdAt])
 }
 
+
+model PlayProfile {
+  userId String @id
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  xp Int @default(0)
+  sessions Int @default(0)
+  points Int @default(0)
+  publicName Boolean @default(false)
+  suspended Boolean @default(false)
+  moderationReason String @default("")
+  lastActivity DateTime?
+  createdAt DateTime @default(now())
+  grants PlayAchievementGrant[]
+  competitionEntries PlayTournamentEntry[]
+  rewards PlayRewardGrant[]
+}
+
+model PlayGame {
+  slug String @id
+  status String @default("ENABLED")
+  version Int @default(1)
+  configuration String @default("{}")
+  updatedAt DateTime @updatedAt
+  sessions PlaySession[]
+}
+
+model PlaySession {
+  tournamentId String?
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  gameSlug String
+  game PlayGame @relation(fields:[gameSlug],references:[slug],onDelete:Restrict)
+  configVersion Int
+  configuration String
+  seed Int
+  status String @default("OPEN")
+  score Int @default(0)
+  xp Int @default(0)
+  frames Int @default(0)
+  replay String @default("[]")
+  evidenceHash String?
+  rejectionReason String?
+  questions String @default("[]")
+  answered Int @default(0)
+  questionAt DateTime @default(now())
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  completedAt DateTime?
+  xpEntry PlayXpEntry?
+  @@index([userId,createdAt])
+  @@index([gameSlug,status,completedAt])
+  @@index([tournamentId,userId,status])
+}
+
+model PlayXpEntry {
+  id String @id @default(cuid())
+  userId String
+  sessionId String @unique
+  session PlaySession @relation(fields:[sessionId],references:[id],onDelete:Restrict)
+  amount Int
+  createdAt DateTime @default(now())
+  @@index([userId,createdAt])
+}
+
+model PlayAchievementGrant {
+  id String @id @default(cuid())
+  userId String
+  profile PlayProfile @relation(fields:[userId],references:[userId],onDelete:Restrict)
+  code String
+  createdAt DateTime @default(now())
+  @@unique([userId,code])
+}
+
+model PlayQuestion {
+  id String @id @default(cuid())
+  language String
+  prompt String
+  options String
+  answer Int
+  explanation String
+  status String @default("DRAFT")
+  difficulty String @default("NORMAL")
+  fingerprint String @unique
+  createdAt DateTime @default(now())
+  @@index([language,status])
+}
+
+model PlayTournament {
+  id String @id @default(cuid())
+  title String
+  description String
+  gameSlug String
+  status String @default("DRAFT")
+  seed Int
+  configuration String @default("{}")
+  configVersion Int @default(1)
+  startsAt DateTime
+  endsAt DateTime
+  maxAttempts Int @default(3)
+  maxParticipants Int @default(1000)
+  rewardTitle String @default("")
+  terms String
+  results String @default("[]")
+  createdAt DateTime @default(now())
+  entries PlayTournamentEntry[]
+  grants PlayRewardGrant[]
+}
+
+model PlayTournamentEntry {
+  id String @id @default(cuid())
+  tournamentId String
+  tournament PlayTournament @relation(fields:[tournamentId],references:[id],onDelete:Restrict)
+  userId String
+  profile PlayProfile @relation(fields:[userId],references:[userId],onDelete:Restrict)
+  joinedAt DateTime @default(now())
+  @@unique([tournamentId,userId])
+}
+
+model PlayRewardGrant {
+  id String @id @default(cuid())
+  tournamentId String
+  tournament PlayTournament @relation(fields:[tournamentId],references:[id],onDelete:Restrict)
+  userId String
+  profile PlayProfile @relation(fields:[userId],references:[userId],onDelete:Restrict)
+  title String
+  status String @default("APPROVED")
+  deliveryNote String @default("")
+  approvedBy String
+  fulfilledAt DateTime?
+  createdAt DateTime @default(now())
+  @@unique([tournamentId,userId])
+}
 
 model VideoFactoryProject {
   id String @id @default(cuid())

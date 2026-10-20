@@ -24,4 +24,4 @@ First complete the authorized Video Factory / Workers AI work. Then implement PL
 
 ## Current limitations
 
-This file records the mandatory audit and implementation design only. PLAY has not yet been implemented or deployed. It must not be reported as complete on the strength of this document.
+The implementation now includes six playable games, replay verification, persistent XP, reviewed trivia, user privacy, period rankings, daily/weekly free challenges and an audited tournament/reward workflow. See `play.md` for operation and verification details. This is not an implementation of paid-entry contests or a cosmetic-product shop. Browser automation is disabled in the local Work settings; automated engine/API/migration tests do not replace a visual device QA pass.
