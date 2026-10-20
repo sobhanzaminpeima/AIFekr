@@ -38,6 +38,11 @@ export async function generateCustomImage(
   }
 
   const n = opts.n ?? 1;
+  if(row.apiKey==="cf-ref:platform"){
+    const {workersAiImage}=await import("@/lib/cloudflare/workersAi");
+    if(n!==1)throw Error("CLOUDFLARE_SINGLE_IMAGE_ONLY");
+    return [`data:image/png;base64,${(await workersAiImage(row.model,prompt)).toString("base64")}`];
+  }
   const res = await fetch(`${row.baseUrl.replace(/\/$/, "")}/images/generations`, {
     method: "POST",
     headers: {

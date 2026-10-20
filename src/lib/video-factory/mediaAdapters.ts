@@ -20,6 +20,7 @@ export async function providerRequest(provider:RegisteredProvider,path:string,in
 const request=providerRequest;
 export interface MediaResult {bytes:Buffer;mimeType:string;extension:string;providerJobId?:string;usage?:unknown}
 export async function generateImage(provider:RegisteredProvider,prompt:string,ratio:string,signal:AbortSignal):Promise<MediaResult> {
+  if(provider.adapter==="CLOUDFLARE_IMAGE")return {bytes:await (await import("@/lib/cloudflare/workersAi")).workersAiImage(provider.model,prompt,signal),mimeType:"image/png",extension:"png"};
   if(provider.adapter==="GEMINI_IMAGE"){
     const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(provider.model)}:generateContent`,{method:"POST",redirect:"error",signal,headers:{"x-goog-api-key":provider.key,"Content-Type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseModalities:["TEXT","IMAGE"],imageConfig:{aspectRatio:ratio}}})});
     if(!response.ok){await response.body?.cancel();throw new ProviderFailure(`PROVIDER_HTTP_${response.status}`,[400,401,403,404,413,422,429].includes(response.status),response.status===429);}

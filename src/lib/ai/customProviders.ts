@@ -36,6 +36,7 @@ export async function streamCustomProvider(
     maxTokens: 4096,
     creditCost: 3,
   };
+  if(row.apiKey==="cf-ref:platform")provider.baseURL=(await (await import("@/lib/cloudflare/workersAi")).workersAiCredentials()).baseURL;
 
   await streamOpenAICompat(provider, messages, systemPrompt, onChunk);
 }
