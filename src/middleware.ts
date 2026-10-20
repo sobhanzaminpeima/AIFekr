@@ -51,16 +51,25 @@ export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (!pathname.startsWith("/api/")) {
     const localized = stripPublicLocale(pathname);
+    const forwardedLocale = req.nextUrl.searchParams.get("__public_locale");
     const requestHeaders = new Headers(req.headers);
     requestHeaders.delete("x-public-lang");
     requestHeaders.set("x-aifekr-path", pathname + req.nextUrl.search);
     if (isPublicRoute(localized.path)) {
-      requestHeaders.set("x-public-lang", localized.lang);
+      const effectiveLang = pathname === localized.path && ["en", "de", "tr"].includes(forwardedLocale ?? "") ? forwardedLocale! : localized.lang;
+      requestHeaders.set("x-public-lang", effectiveLang);
       if (pathname !== localized.path) {
         const target = req.nextUrl.clone();
         // TLS terminates at the reverse proxy; the local Next server is HTTP.
         // Next may retain the forwarded HTTPS scheme with its localhost origin.
-        if (["localhost", "127.0.0.1", "[::1]"].includes(target.hostname)) target.protocol = "http:";
+        const localProxy = ["localhost", "127.0.0.1", "[::1]"].includes(target.hostname) && target.protocol === "https:";
+        if (localProxy) {
+          target.protocol = "http:";
+          // Cross-protocol rewrites are proxied as a second request by Next.
+          // Carry the locale through that request; middleware headers alone
+          // are not forwarded by the external rewrite proxy.
+          target.searchParams.set("__public_locale", localized.lang);
+        }
         target.pathname = localized.path;
         // Industry records currently contain Persian/English/German content only.
         if (localized.lang === "tr" && localized.path.startsWith("/industry/")) {
