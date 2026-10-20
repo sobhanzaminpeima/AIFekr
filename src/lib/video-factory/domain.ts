@@ -56,6 +56,7 @@ export const manifestSchema = z.object({ chapters: z.array(chapterSchema).min(1)
 });
 export type Manifest = z.infer<typeof manifestSchema>;
 export const policySchema = z.object({
+  silentOnly:z.boolean().default(false),
   packageUsage:z.object({paymentId:z.string(),seconds:z.number().int().positive().max(480)}).optional(),
   packageRequired:z.boolean().default(false),
   commercial:commercialSchema.default(commercialSchema.parse({})),
@@ -95,6 +96,7 @@ export const policySchema = z.object({
 export type Policy = z.infer<typeof policySchema>;
 export function chapterCount(seconds: number) { return Math.max(1, Math.ceil(seconds / 300)); }
 export function quote(configuration: Configuration, policy: Policy) {
+  if(policy.silentOnly&&(configuration.narration||configuration.music||configuration.voiceProfileId||configuration.audioTracks.length||configuration.forcedAlignment))throw new FactoryError("AUDIO_TEMPORARILY_UNAVAILABLE",503);
   if(configuration.mediaMode!=="MULTIMEDIA" && (configuration.exportStems || configuration.forcedAlignment || configuration.semanticReview || configuration.voiceProfileId || configuration.transcriptionAssetId || configuration.audioTracks.length))throw new FactoryError("ADVANCED_FEATURES_REQUIRE_MULTIMEDIA",400);
   if(configuration.forcedAlignment && !configuration.narration)throw new FactoryError("ALIGNMENT_REQUIRES_NARRATION",400);
   if (!policy.enabled) throw new FactoryError("FACTORY_DISABLED", 503);

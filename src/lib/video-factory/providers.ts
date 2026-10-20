@@ -20,7 +20,7 @@ export async function approvedProvider(modelId: string) {
     if(active>=row.settings.maxConcurrent)throw new FactoryError("TEXT_PROVIDER_BUSY",429);
     if(!rateLimit(`vf-text:${row.id}`,row.settings.requestsPerMinute,60000).allowed)throw new FactoryError("TEXT_PROVIDER_RATE_LIMIT",429);
     const isAnthropic=row.adapter==="ANTHROPIC_TEXT",isOpenAiCompat=row.adapter==="OPENAI_COMPAT_TEXT";
-    if(row.adapter==="CLOUDFLARE_TEXT"){const cf=await (await import("@/lib/cloudflare/workersAi")).workersAiCredentials();return {id:row.id,name:row.name,model:row.model,provider:"cloudflare",baseURL:cf.baseURL,apiKey:cf.key,strengths:[],maxTokens:row.settings.maxOutputTokens||6000,maxOutputCeiling:row.settings.maxOutputTokens||6000,creditCost:0} satisfies Provider;}
+    if(row.adapter==="CLOUDFLARE_TEXT"){const cf=await (await import("@/lib/cloudflare/workersAi")).workersAiCredentials();return {id:row.id,name:row.name,model:row.model,provider:"cloudflare",baseURL:cf.baseURL,apiKey:cf.key,structuredJson:true,strengths:[],maxTokens:row.settings.maxOutputTokens||6000,maxOutputCeiling:row.settings.maxOutputTokens||6000,creditCost:0} satisfies Provider;}
     return {id:row.id,name:row.name,model:row.model,provider:isAnthropic?"anthropic":isOpenAiCompat?"codecraft":"google",baseURL:isAnthropic?"https://api.anthropic.com/v1":isOpenAiCompat?row.settings.baseUrl!:"https://generativelanguage.googleapis.com/v1beta/openai",apiKey:row.key,strengths:[],maxTokens:row.settings.maxOutputTokens || 6000,maxOutputCeiling:row.settings.maxOutputTokens || 6000,creditCost:0} satisfies Provider;
   }
   await refreshDisabledProviders();

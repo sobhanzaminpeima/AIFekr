@@ -101,7 +101,9 @@ export async function processFactoryTick() {
       if(policy.commercial.motionModel){
         const motionId=policy.commercial.motionModel,motionKey=`motion-${queued.cursor}`;
         if(![livePolicy.approvedModelId,...livePolicy.approvedTextModelIds].includes(motionId))throw new FactoryError("AGENT_MODEL_NOT_APPROVED",403);
-        const motionProvider=await approvedProvider(motionId);
+        // The writer request has completed; reuse its validated provider for
+        // sequential motion instead of counting this job's submitted step as busy.
+        const motionProvider=motionId===provider.id?provider:await approvedProvider(motionId);
         await enforceRole("motion","storyboard",queued.cursor,slice);
         await prisma.$transaction(async tx=>{
           const lock=await tx.videoFactoryJob.updateMany({where:{id:queued.id,leaseToken:token,status:"RUNNING",spentCredits:{lte:queued.credits-slice}},data:{spentCredits:{increment:slice}}});

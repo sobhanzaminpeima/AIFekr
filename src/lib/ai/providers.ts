@@ -34,6 +34,7 @@ export interface Provider {
    * hard-errors above 4096, Groq enforces a tokens-per-minute budget.
    */
   maxOutputCeiling?: number;
+  structuredJson?: boolean;
   creditCost: number;
 }
 
@@ -239,6 +240,15 @@ export async function streamOpenAICompat(
   signal?: AbortSignal
 ): Promise<TokenUsage | null> {
   const tokenCap = maxTokensOverride ? Math.min(maxTokensOverride, provider.maxOutputCeiling ?? provider.maxTokens) : provider.maxTokens;
+  if(provider.structuredJson){
+    const response=await fetch(`${provider.baseURL}/chat/completions`,{method:"POST",signal,redirect:"error",headers:{"Content-Type":"application/json",Authorization:`Bearer ${provider.apiKey}`},body:JSON.stringify({model:provider.model,messages:[{role:"system",content:systemPrompt},...messages],stream:false,max_tokens:tokenCap,temperature:0.2,response_format:{type:"json_object"}})});
+    if(!response.ok){await response.body?.cancel();throw Error(`STRUCTURED_PROVIDER_HTTP_${response.status}`);}
+    const {boundedBytes}=await import("@/lib/video-factory/mediaAdapters");
+    const data=JSON.parse((await boundedBytes(response,1000000)).toString());const content=data.choices?.[0]?.message?.content;
+    if(typeof content!=="string"||!content.trim())throw Error("STRUCTURED_PROVIDER_EMPTY_RESPONSE");
+    JSON.parse(content);onChunk(content);
+    return data.usage?{promptTokens:data.usage.prompt_tokens||0,completionTokens:data.usage.completion_tokens||0,totalTokens:data.usage.total_tokens||0}:null;
+  }
 
   const body = JSON.stringify({
     model: provider.model,
@@ -259,7 +269,8 @@ export async function streamOpenAICompat(
     // DeepSeek, OpenRouter, Cohere — still expects `max_tokens` and would
     // itself 400 on the new name.
     ...(provider.provider === "openai" ? { max_completion_tokens: tokenCap } : { max_tokens: tokenCap }),
-    temperature: 0.7,
+    temperature: provider.structuredJson ? 0.2 : 0.7,
+    ...(provider.structuredJson ? {response_format:{type:"json_object"}} : {}),
     // Groq's current free catalog is now exclusively "reasoning" models
     // (openai/gpt-oss-*, qwen3.x) -- unlike the plain instruct model this
     // provider used to point at, they spend part of the completion token

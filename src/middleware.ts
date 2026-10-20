@@ -58,6 +58,9 @@ export function middleware(req: NextRequest) {
       requestHeaders.set("x-public-lang", localized.lang);
       if (pathname !== localized.path) {
         const target = req.nextUrl.clone();
+        // TLS terminates at the reverse proxy; the local Next server is HTTP.
+        // Next may retain the forwarded HTTPS scheme with its localhost origin.
+        if (["localhost", "127.0.0.1", "[::1]"].includes(target.hostname)) target.protocol = "http:";
         target.pathname = localized.path;
         // Industry records currently contain Persian/English/German content only.
         if (localized.lang === "tr" && localized.path.startsWith("/industry/")) {
