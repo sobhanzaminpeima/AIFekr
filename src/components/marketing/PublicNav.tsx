@@ -18,9 +18,8 @@ export default function PublicNav({ lang }: { lang: Lang }) {
     return () => document.removeEventListener("pointerdown", close);
   }, []);
   const groups: { id: string; label: Copy; links: { href: string; title: Copy; desc?: Copy }[] }[] = [
-    { id: "product", label: copy.product, links: features.filter(f => f.category === "work").map(f => ({ href: `/features/${f.slug}`, title: f.title, desc: f.desc })) },
+    { id: "product", label: copy.product, links: features.map(f => ({ href: `/features/${f.slug}`, title: f.title, desc: f.desc })) },
     { id: "solutions", label: copy.solutions, links: solutionCatalog.map(s => ({ href: `/solutions/${s.slug}`, title: s.title })) },
-    { id: "tools", label: copy.tools, links: features.filter(f => f.category !== "work").map(f => ({ href: `/features/${f.slug}`, title: f.title, desc: f.desc })) },
     { id: "resources", label: copy.resources, links: [{ href: "/guides", title: ["راهنماهای کاربردی", "Practical guides", "Praxisleitfäden", "Uygulama rehberleri"] }, { href: "/ai-team", title: features.find(f => f.slug === "agents")!.title }, { href: "/about", title: copy.about }, { href: "/contact", title: copy.contact }, { href: "/security", title: copy.security }] },
   ];
   return <header className="m-nav-wrap"><nav className="m-nav" ref={nav} aria-label={text(lang, copy.menu)} onKeyDown={e => { if (e.key === "Escape") { if (mobile || open) nav.current?.querySelector<HTMLButtonElement>(mobile ? ".m-menu-toggle" : `[aria-controls="nav-${open}"]`)?.focus(); setOpen(null); setMobile(false); } }}>
@@ -33,7 +32,7 @@ export default function PublicNav({ lang }: { lang: Lang }) {
           <div className="m-mega-grid">{group.links.map(link => <Link href={link.href} key={link.href} onClick={() => { setOpen(null); setMobile(false); }}><span>{text(lang, link.title)} <ArrowUpRight size={15}/></span>{link.desc && <small>{text(lang, link.desc)}</small>}</Link>)}</div>
         </div>}
       </div>)}
-      <Link href="/chat">{text(lang,["چت هوش مصنوعی","AI Chat","KI-Chat","AI Sohbet"])}</Link><Link href="/fit">AIFekr FIT</Link><Link href="/industry">{text(lang, copy.industries)}</Link><Link href="/pricing">{text(lang, copy.pricing)}</Link>
+      <Link className="m-nav-chat" href="/chat">{text(lang,["چت رایگان هوش مصنوعی","Free AI Chat","Kostenloser KI-Chat","Ücretsiz AI Sohbet"])}</Link><Link href="/play">{text(lang,["بازی رایگان","Free games","Kostenlose Spiele","Ücretsiz oyunlar"])}</Link><Link href="/pricing">{text(lang, copy.pricing)}</Link>
       <Link className="m-mobile-login" href="/login">{text(lang, copy.login)}</Link>
     </div>
     <div className="m-nav-actions">

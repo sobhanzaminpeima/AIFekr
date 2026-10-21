@@ -376,6 +376,7 @@ model User {
   onboardingDone            Boolean   @default(false)
   /// Standalone AI Chat capability; never removes existing paid entitlements.
   chatOnly                  Boolean   @default(false)
+  chatPlanExpiry            DateTime?
   /// Referral system
   referralDiscountPercent   Int       @default(0)
   referralCode              String?   @unique
@@ -4430,6 +4431,7 @@ model PlayTournamentEntry {
 }
 
 model PlayRewardGrant {
+  packageChoice String @default("")
   id String @id @default(cuid())
   tournamentId String
   tournament PlayTournament @relation(fields:[tournamentId],references:[id],onDelete:Restrict)

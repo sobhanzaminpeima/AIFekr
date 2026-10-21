@@ -10,6 +10,15 @@ import {claimTurn,settleTurn,failTurn,mergeGuest} from "./service";
 import {guestToken,verifyGuestToken,type ChatIdentity} from "./identity";
 import {policySchema} from "./policy";
 import {matchModule} from "./discovery";
+import {settleVerifiedPayment} from "@/lib/payment/reviewBankPayment";
+import {ensureChatStarter} from "@/lib/billing/chatStarter";
+import {priceForPeriod} from "@/lib/billing/plans";
+it("activates the fixed starter once without changing existing module subscriptions",async()=>{
+ const pkg=await ensureChatStarter();expect(priceForPeriod(pkg,"monthly")).toMatchObject({minor:200000,currency:"IRT",days:30});expect(()=>priceForPeriod(pkg,"annual")).toThrow("UNSUPPORTED_PERIOD");
+ const before=await prisma.user.create({data:{email:"starter-test@test.invalid",chatOnly:true,credits:0}}),p=await prisma.payment.create({data:{userId:before.id,plan:pkg.planCode,amount:200000,gateway:"zarinpal",authority:"starter-test-only",entitlementSnapshot:JSON.stringify({category:pkg.category,credits:100,days:30})}});
+ expect(await settleVerifiedPayment(p.id,"starter-test-only","verified-test-only")).toBe(true);expect(await settleVerifiedPayment(p.id,"starter-test-only","verified-test-only")).toBe(false);
+ const after=await prisma.user.findUniqueOrThrow({where:{id:before.id}});expect(after.credits-before.credits).toBe(100);expect(after.plan).toBe(before.plan);expect(after.accountType).toBe(before.accountType);expect(after.chatPlanExpiry!.getTime()).toBeGreaterThan(Date.now()+29*86400000);
+});
 let userId:string,guest:ChatIdentity;
 const usage={promptTokens:40,completionTokens:20,totalTokens:60};
 beforeAll(async()=>{mkdirSync("tmp",{recursive:true});const sql=execFileSync(process.execPath,["node_modules/prisma/build/index.js","migrate","diff","--from-empty","--to-schema-datamodel","prisma/schema.prisma","--script"],{stdio:"pipe"}).toString(),db=new Database(process.env.DATABASE_URL!.slice(5));db.exec(sql);for(const table of ["AiChatGuest","AiChatQuota","AiChatRequest","AiChatDiscoveryPreference","AiChatDiscoveryEvent"])db.exec(`DROP TABLE "${table}"`);db.exec('ALTER TABLE "User" DROP COLUMN "chatOnly"');db.exec(readFileSync("prisma/migrations/20261021120000_independent_ai_chat/migration.sql","utf8"));db.close();userId=(await prisma.user.create({data:{email:"chat-test@test.invalid",credits:20,chatOnly:true,trialEndsAt:new Date(0)}})).id;await prisma.siteSetting.create({data:{key:"independentAiChat",value:JSON.stringify(policySchema.parse({enabled:true,registeredFreeDaily:0}))}});const g=await prisma.aiChatGuest.create({data:{id:"a".repeat(48),ipHash:"test-only",expiresAt:new Date(Date.now()+3600000)}});guest={key:`g:${g.id}`,user:null,guest:g};},90000);

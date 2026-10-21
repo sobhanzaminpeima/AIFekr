@@ -3,16 +3,18 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 import type { Lang } from "@/lib/i18n/server";
 import PublicNav from "./PublicNav";
+import LaunchStrip from "./LaunchStrip";
 import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
 import EnamadBadge from "@/components/layout/EnamadBadge";
 import CurrencySelector from "@/components/ui/CurrencySelector";
 import { copy, text, features, solutionCatalog } from "@/lib/marketing/catalog";
 import "./public.css";
+import "./chat-launch.css";
 
 export default function PublicShell({ lang, children }: { lang: Lang; children: ReactNode }) {
   return <div className="marketing" dir={lang === "fa" ? "rtl" : "ltr"}>
     <a className="m-skip" href="#public-content">{text(lang, copy.skip)}</a>
-    <PublicNav lang={lang}/><main id="public-content">{children}</main>
+    <PublicNav lang={lang}/><main id="public-content"><LaunchStrip lang={lang}/>{children}</main>
     <footer className="m-footer"><div className="m-container m-footer-grid">
       <div><Link href="/" className="m-brand"><Image src="/logo.svg" alt="" width={38} height={38}/><span>AI<span>Fekr</span></span></Link><p>{text(lang, copy.intro)}</p><SocialFooterLinks/></div>
       <div><h2>{text(lang, copy.product)}</h2>{features.filter(f => ["assistant", "agents", "crm", "social", "content", "education"].includes(f.slug)).map(f => <Link href={`/features/${f.slug}`} key={f.slug}>{text(lang, f.title)}</Link>)}</div>

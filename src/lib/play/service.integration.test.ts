@@ -18,8 +18,22 @@ import { brainAction } from "./brain";
 import { competitionCommand } from "./competitions";
 import { GET as adminGet } from "@/app/api/admin/play/route";
 import { NextRequest } from "next/server";
+import {POST as chooseReward} from "@/app/api/play/rewards/route";
+import {signToken} from "@/lib/auth/jwt";
 import type { PlayTournament } from "@prisma/client";
 let userId: string, otherId: string;
+it("lets an expired chat-only winner choose their reward once, without purchasing",async()=>{
+ const owner=await prisma.user.create({data:{email:"free-winner@test.invalid",chatOnly:true,trialEndsAt:new Date(0)}});
+ await prisma.playProfile.create({data:{userId:owner.id}});
+ const tournament=await prisma.playTournament.create({data:{title:"Free choice test",description:"Test only",gameSlug:"tower",seed:1,startsAt:new Date(),endsAt:new Date(Date.now()+60000),terms:"No purchase required. Test only."}});
+ const grant=await prisma.playRewardGrant.create({data:{tournamentId:tournament.id,userId:owner.id,title:"MONTHLY_PACKAGE_CHOICE",approvedBy:userId}});
+ const request=(uid:string,choice="FITNESS")=>new NextRequest("http://localhost/api/play/rewards",{method:"POST",headers:{host:"localhost",origin:"http://localhost",cookie:`token=${signToken({userId:uid,role:"USER",plan:"FREE"})}`,"Content-Type":"application/json"},body:JSON.stringify({id:grant.id,choice})});
+ expect((await chooseReward(request(otherId))).status).toBe(409);
+ expect((await chooseReward(request(owner.id))).status).toBe(200);
+ expect((await chooseReward(request(owner.id,"BUSINESS"))).status).toBe(409);
+ expect((await prisma.playRewardGrant.findUniqueOrThrow({where:{id:grant.id}})).packageChoice).toBe("FITNESS");
+ expect(await prisma.payment.count({where:{userId:owner.id}})).toBe(0);
+});
 it("enforces free competition attempts, shared seeds, closing, approval and one reward fulfillment", async () => {
   await prisma.playSession.updateMany({
     where: { status: "OPEN" },
@@ -125,6 +139,7 @@ beforeAll(async () => {
       "utf8",
     ),
   );
+  db.exec('ALTER TABLE "PlayRewardGrant" ADD COLUMN "packageChoice" TEXT NOT NULL DEFAULT \'\'');
   db.close();
   userId = (
     await prisma.user.create({

@@ -25,7 +25,11 @@ async function settlePayment(id:string,review:{adminId?:string;approve:boolean;n
  const u=p.user;
  if(entitlement.quote?.bonus){const bonus=entitlement.quote.bonus;const reservation=await tx.billingPromotionRedemption.findUniqueOrThrow({where:{paymentId:p.id}});if(reservation.userId!==u.id||reservation.promotionId!==bonus.id)throw Error("INVALID_PROMOTION_RESERVATION");entitlement.days+=bonus.days;entitlement.credits+=bonus.credits;}
 
- if(entitlement.category==="VIDEO_FACTORY"){
+ if(entitlement.category==="CHAT_STARTER"){
+ const expiry=new Date(Math.max(Date.now(),u.chatPlanExpiry?.getTime()||0)+entitlement.days*86400000);
+ await tx.user.update({where:{id:u.id},data:{chatPlanExpiry:expiry,credits:{increment:entitlement.credits},aiCredits:{increment:entitlement.credits}}});
+ await tx.auditLog.create({data:{actorId:adminId||u.id,action:"chat_starter.activated",targetId:p.id,metadata:JSON.stringify({credits:entitlement.credits,expiresAt:expiry})}});
+ }else if(entitlement.category==="VIDEO_FACTORY"){
  const {videoLimitsSchema}=await import("@/lib/video-factory/packages");videoLimitsSchema.parse((entitlement.entitlements as {limits?:unknown})?.limits);
  await tx.user.update({where:{id:u.id},data:{trialLimited:false,credits:{increment:entitlement.credits},aiCredits:{increment:entitlement.credits}}});
  await tx.userModuleOverride.upsert({where:{userId_moduleKey:{userId:u.id,moduleKey:"video-factory"}},create:{userId:u.id,moduleKey:"video-factory",enabled:true},update:{enabled:true}});

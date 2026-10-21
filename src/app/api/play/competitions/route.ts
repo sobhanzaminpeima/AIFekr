@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     }),
     rewards: await prisma.playRewardGrant.findMany({
       where: { userId: u.id },
-      select: { id: true, title: true, status: true, fulfilledAt: true },
+      select: { id: true, title: true, status: true, fulfilledAt: true, packageChoice:true },
     }),
   });
 }

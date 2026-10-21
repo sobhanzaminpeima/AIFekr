@@ -12,6 +12,7 @@ import StudentOffer from "@/components/marketing/StudentOffer";
 import { getStudentPackage } from "@/lib/marketing/student";
 import { FeatureCards, SolutionCards, IndustryLinks, CreditExplanation, FAQ, FinalCTA, Workflow, faqItems, GuideLinks } from "@/components/marketing/Sections";
 import JsonLd from "@/components/seo/JsonLd";
+import ChatLaunch from "@/components/marketing/ChatLaunch";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -27,6 +28,7 @@ export default async function HomePage() {
   return <PublicShell lang={lang}>
     <JsonLd data={[{ "@context": "https://schema.org", "@type": "Organization", name: SITE_NAME, url: SITE_URL, logo: `${SITE_URL}/icon-512.png` }, { "@context": "https://schema.org", "@type": "WebSite", name: SITE_NAME, url: SITE_URL, inLanguage: lang }, { "@context": "https://schema.org", "@type": "SoftwareApplication", name: SITE_NAME, applicationCategory: "BusinessApplication", operatingSystem: "Web", description: text(lang, copy.intro) }, { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: faqItems.map(f => ({ "@type": "Question", name: text(lang, f.q), acceptedAnswer: { "@type": "Answer", text: text(lang, f.a) } })) }]} />
     <section className="m-hero"><div className="m-container"><span className="m-eyebrow">{text(lang, copy.eyebrow)}</span><h1>{text(lang, copy.hero).split("\n")[0]}<br/><em>{text(lang, copy.hero).split("\n")[1]}</em></h1><p>{text(lang, copy.intro)}</p><div className="m-actions"><Link className="m-button" href="/register">{text(lang, copy.start)}<ArrowUpRight size={18}/></Link><Link className="m-button m-secondary" href="#platform">{text(lang, copy.explore)}</Link></div><p className="m-caption">{text(lang, copy.noPromise)}</p><Ecosystem lang={lang} compact/></div></section>
+    <ChatLaunch lang={lang}/>
     <section className="m-container m-section"><Workflow lang={lang}/></section>
     <section className="m-container m-section m-divider" id="platform"><span className="m-eyebrow">{text(lang, copy.product)}</span><h2 className="m-section-title">{text(lang, copy.modules)}</h2><p className="m-section-desc">{text(lang, copy.modulesDesc)}</p><FeatureCards lang={lang}/></section>
     <section className="m-container m-section m-divider"><span className="m-eyebrow">{text(lang, copy.solutions)}</span><h2 className="m-section-title">{text(lang, copy.useCases)}</h2><p className="m-section-desc">{text(lang, copy.noPromise)}</p><SolutionCards lang={lang}/></section>

@@ -1,7 +1,7 @@
 import type { Lang } from "@/lib/i18n/server";
 
 export const PUBLIC_LANGUAGES = ["fa", "en", "de", "tr"] as const;
-export const PUBLIC_STATIC_ROUTES = ["/", "/fit", "/pricing", "/industry", "/ai-team", "/about", "/contact", "/security", "/privacy", "/terms", "/guides"];
+export const PUBLIC_STATIC_ROUTES = ["/", "/start", "/fit", "/pricing", "/industry", "/ai-team", "/about", "/contact", "/security", "/privacy", "/terms", "/guides"];
 export function isPublicRoute(path: string) {
   return PUBLIC_STATIC_ROUTES.includes(path) || /^\/(features|solutions|industry|guides)\/[^/]+$/.test(path);
 }

@@ -43,6 +43,7 @@ export async function chatIdentity(req: NextRequest) {
         name: true,
         isBlocked: true,
         chatOnly: true,
+        chatPlanExpiry: true,
         role: true,
       },
     });

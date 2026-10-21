@@ -73,6 +73,7 @@ export async function competitionCommand(actorId: string, input: unknown) {
           userId: grant.userId,
           type: "play_reward",
           title: "AIFekr PLAY · Reward delivered",
+          emailPending: true,
           body: grant.title,
           link: "/play",
         },
@@ -163,7 +164,8 @@ export async function competitionCommand(actorId: string, input: unknown) {
               userId: winner.userId,
               type: "play_reward",
               title: "AIFekr PLAY · Reward approved",
-              body: t.rewardTitle,
+              emailPending: true,
+              body: t.rewardTitle==="MONTHLY_PACKAGE_CHOICE"?"Choose one month of Student, Fitness or Business in AIFekr PLAY.":t.rewardTitle,
               link: "/play",
             },
           });

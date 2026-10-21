@@ -434,3 +434,7 @@ Workers AI has an independent permission probe at `/api/admin/cloudflare/workers
 
 The integrated free arcade is available at `/play`; administration is at `/admin/play`. Six games share existing users and server-verified scoring, separate XP, rankings and reviewed free competitions. Installation, API routes, security limits and verification are documented in [docs/play.md](docs/play.md).
 
+# Chat Starter launch
+
+The public `/start` offer is managed in Admin → Packages. Initial allocation: 200,000 Toman, 30 days, 100 chat credits. `/chat` supports three guest messages when enabled in Admin → AI Chat. Paid starter access and free PLAY competitions are independent. See [launch, migration and fulfillment notes](docs/chat-starter-launch.md).
+

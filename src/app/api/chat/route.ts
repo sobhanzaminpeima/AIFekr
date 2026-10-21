@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
 
     // Save user message
     await prisma.message.create({
-      data: { conversationId: convId, role: "user", content: message },
+      data: { conversationId: convId, role: "user", content:body.attachments?.length?JSON.stringify({__documents:1,text:message,documents:body.attachments.map((d:unknown)=>{const a=verifyDocument(user.id,d);return {name:a.name,text:a.text};})}):message },
     });
 
     // ─── full_mode orchestration pre-pass ──────────────────────────────────

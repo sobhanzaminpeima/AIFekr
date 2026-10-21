@@ -36,6 +36,7 @@ type Session = {
   authenticated: boolean;
   name?: string;
   chatOnly?: boolean;
+  chatPlanExpiry?:string|null;
   remaining: number;
   credits: number;
   creditsPerTurn: number;
@@ -361,6 +362,9 @@ export default function ChatStudio() {
                   "Ayarlar ve profil",
                 )}
               </Link>
+              <Link href="/start">{t("پکیج شروع چت","Chat Starter package","Chat-Starter-Paket","Chat Starter paketi")}</Link>
+              {session.chatPlanExpiry&&<small>{t("پکیج چت تا","Chat package until","Chat-Paket bis","Sohbet paketi bitişi")} {new Date(session.chatPlanExpiry).toLocaleDateString(lang)}</small>}
+              <Link href="/play">{t("مسابقهٔ رایگان","Free competitions","Kostenlose Wettbewerbe","Ücretsiz yarışmalar")}</Link>
               {!session.chatOnly && (
                 <Link href="/home">
                   {t(

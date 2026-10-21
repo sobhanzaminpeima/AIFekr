@@ -58,6 +58,7 @@ interface Message {
   actions?: OrchestratorAction[];
   /** Registry capability keys whose real data backed this answer, for the "based on your own data" label. */
   dataSources?: string[];
+  documents?:{name:string;text:string}[];
 }
 
 /**
@@ -474,6 +475,7 @@ export default function ChatInterface({
                 media: stored.media, attachments: stored.attachments,
               };
             }
+            try{const stored=JSON.parse(m.content);if(stored.__documents===1&&typeof stored.text==="string"&&Array.isArray(stored.documents)&&stored.documents.length<=3&&stored.documents.every((d:{name?:unknown;text?:unknown}|null)=>d&&typeof d.name==="string"&&typeof d.text==="string"))return {id:m.id,role:m.role,content:m.content,displayContent:stored.text,suggestions:[],promptBox:null,timestamp:new Date(m.timestamp),documents:stored.documents};}catch{}
             const { displayContent, suggestions, promptBox } = parseSuggestions(m.content);
             return { id: m.id, role: m.role, content: m.content, displayContent, suggestions, promptBox, timestamp: new Date(m.timestamp) };
           });
@@ -522,13 +524,16 @@ export default function ChatInterface({
   }, [loadConversation]);
 
   async function sendMessage(text: string) {
-    if (!text.trim() || busy) return;
+    if ((!text.trim()&&!documents.length) || busy || documentBusy) return;
+    const attachedDocuments=documents;
+    const question=text.trim()||tri(lang,"این فایل‌ها را بررسی و خلاصه کن.","Review and summarize these files.","Prüfe und fasse diese Dateien zusammen.","Bu dosyaları incele ve özetle.");
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
-      content: text,
-      displayContent: text,
+      content:attachedDocuments.length?JSON.stringify({__documents:1,text:question,documents:attachedDocuments.map(d=>({name:d.name,text:d.text}))}):question,
+      displayContent: question,
+      documents:attachedDocuments.map(d=>({name:d.name,text:d.text})),
       suggestions: [],
       promptBox: null,
       timestamp: new Date(),
@@ -552,8 +557,8 @@ export default function ChatInterface({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: text,
-          attachments:documents,
+          message: question,
+          attachments:attachedDocuments,
           conversationId: currentConvId,
           model: selectedModel,
           systemPrompt,
@@ -607,6 +612,7 @@ export default function ChatInterface({
               }
               if (parsed.error) throw new Error(parsed.error);
               if (parsed.text) {
+                setDocuments([]);
                 accumulated += parsed.text;
                 const { displayContent, suggestions, promptBox } = parseSuggestions(accumulated);
                 setMessages((prev) =>
@@ -1190,6 +1196,7 @@ export default function ChatInterface({
                   border: msg.role === "user" ? "1px solid rgba(234,88,12,0.35)" : "1px solid var(--border)",
                 }}
               >
+                {msg.documents?.map((d,index)=><details key={`${d.name}-${index}`} className="mb-3 rounded-xl border p-3 text-xs" style={{borderColor:"var(--border)",background:"var(--surface-1)",maxWidth:"100%"}}><summary className="cursor-pointer flex items-center gap-2"><FileText size={17}/><span className="break-all">{d.name}</span><span className="text-orange-500">{tri(lang,"فایل پیوست","Attached file","Dateianhang","Ekli dosya")}</span></summary><pre className="max-h-48 overflow-auto whitespace-pre-wrap mt-3 font-sans leading-7" dir="auto">{d.text}</pre></details>)}
                 {msg.role === "assistant" ? (
                   msg.media ? (
                     <MediaBubble media={msg.media} lang={lang} msgId={msg.id} playingId={playingId} setPlayingId={setPlayingId} />
@@ -1399,7 +1406,7 @@ export default function ChatInterface({
             ) : (
               <button
                 onClick={submit}
-                disabled={!input.trim()}
+                disabled={(!input.trim()&&!documents.length)||documentBusy}
                 className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center disabled:opacity-40"
                 style={{ background: "var(--primary)" }}
               >

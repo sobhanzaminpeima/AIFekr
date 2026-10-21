@@ -1,0 +1,8 @@
+{
+  "planCode":"CHAT_STARTER_30","name":"شروع چت · ۳۰ روز","nameEn":"Chat Starter · 30 days",
+  "category":"CHAT_STARTER","price":2000000,"baseCurrency":"IRT","termPrices":"{\"monthly\":200000}",
+  "entitlements":"{\"modules\":[],\"agents\":[],\"limits\":{\"chatCredits\":100}}",
+  "duration":30,"credits":100,"market":"IR","publicationStatus":"PUBLISHED","publicVisible":true,"isActive":true,
+  "features":"۳۰ روز دسترسی چت\n۱۰۰ کردیت چت\nورود به مسابقه رایگان و مستقل از خرید است",
+  "featuresEn":"30 days of chat access\n100 chat credits\nFree competitions are independent of purchase"
+}

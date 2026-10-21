@@ -76,7 +76,7 @@ function RegisterForm() {
       // navigation's server render -- a client-side route push would still
       // render the old language for a flash. A full reload picks it up cleanly.
       const purchasePlan=planCode||(accountType==="STUDENT"?STUDENT_PLAN_CODE:"");
-      window.location.href = params.get("entry")==="chat"&&!purchasePlan?"/chat":purchasePlan ? `/welcome?plan=${encodeURIComponent(purchasePlan)}&period=${encodeURIComponent(billingPeriod||"monthly")}` : "/welcome";
+      window.location.href = params.get("entry")==="chat"&&!purchasePlan?(["/start","/play"].includes(params.get("redirect")||"")?params.get("redirect")!:"/chat"):purchasePlan ? `/welcome?plan=${encodeURIComponent(purchasePlan)}&period=${encodeURIComponent(billingPeriod||"monthly")}` : "/welcome";
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t.auth.register.errGeneric);
     } finally {

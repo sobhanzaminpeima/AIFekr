@@ -35,5 +35,6 @@ export function chatOnlyCoreApi(path: string) {
     "/api/notifications",
     "/api/wallet",
     "/api/referral/",
+    "/api/play/",
   ].some((prefix) => path === prefix || path.startsWith(prefix));
 }

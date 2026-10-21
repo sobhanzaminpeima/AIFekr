@@ -1,0 +1,2 @@
+ALTER TABLE "User" ADD COLUMN "chatPlanExpiry" DATETIME;
+ALTER TABLE "PlayRewardGrant" ADD COLUMN "packageChoice" TEXT NOT NULL DEFAULT '';

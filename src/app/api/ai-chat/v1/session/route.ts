@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
         authenticated: !!identity.user,
         name: identity.user?.name,
         chatOnly: identity.user?.chatOnly,
+        chatPlanExpiry: identity.user?.chatPlanExpiry,
         remaining: Math.max(
           0,
           (identity.guest ? policy.guestTurns : policy.registeredFreeDaily) -

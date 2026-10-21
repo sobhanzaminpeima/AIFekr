@@ -11,7 +11,7 @@ type Tournament = {
   results: string;
   _count: { entries: number };
 };
-type Reward = { id: string; title: string; status: string; userId: string };
+type Reward = { id: string; title: string; status: string; userId: string;packageChoice:string };
 export default function CompetitionManager() {
   const { lang } = useTranslation(),
     t = (fa: string, en: string, de: string, tr: string) =>
@@ -135,6 +135,7 @@ export default function CompetitionManager() {
               />
             </label>
           ))}
+          <button type="button" className="border rounded-xl p-3" onClick={()=>setForm({...form,rewardTitle:"MONTHLY_PACKAGE_CHOICE"})}>{t("جایزه: یک ماه دانشجویی، فیتنس یا بیزنس به انتخاب برنده","Prize: winner chooses one month Student, Fitness or Business","Prämie: ein Monat Studium, Fitness oder Business nach Wahl","Ödül: kazanan bir ay Öğrenci, Fitness veya İşletme seçer")}</button>
           <select
             value={form.gameSlug}
             onChange={(e) => setForm({ ...form, gameSlug: e.target.value })}
@@ -255,9 +256,9 @@ export default function CompetitionManager() {
       ))}
       {rewards.map((r) => (
         <article key={r.id} className="rounded-xl border p-4">
-          <strong>{r.title}</strong>
+          <strong>{r.title==="MONTHLY_PACKAGE_CHOICE"?t("یک ماه پکیج انتخابی","One month, chosen package","Ein Monat, Wunschpaket","Bir aylık seçilen paket"):r.title}</strong>
           <p className="text-xs opacity-70">
-            {r.userId} · {r.status}
+            {r.userId} · {r.status} · {r.packageChoice}
           </p>
           {r.status === "APPROVED" && (
             <form
