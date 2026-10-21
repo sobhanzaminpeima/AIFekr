@@ -1,7 +1,7 @@
 // eNamad (Iranian e-commerce trust seal) verification badge.
 // The href/src/code values are the site's registered eNamad id and must not
 // be altered — they're what the seal's own verification popup checks against.
-export default function EnamadBadge() {
+export default function EnamadBadge({ label = "نماد اعتماد الکترونیکی" }: { label?: string }) {
   return (
     <div className="flex justify-center mb-4">
       <a
@@ -14,7 +14,10 @@ export default function EnamadBadge() {
         <img
           referrerPolicy="origin"
           src="https://trustseal.enamad.ir/logo.aspx?id=6772917&Code=1W2GHhLorUzP1exQg8fQhVrNYgVZEUCf"
-          alt="نماد اعتماد الکترونیکی"
+          alt={label}
+          loading="lazy"
+          width={80}
+          height={88}
           style={{ cursor: "pointer" }}
         />
       </a>

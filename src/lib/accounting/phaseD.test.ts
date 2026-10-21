@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/db/prisma";
 import { upsertEmployee, generatePayrollRun, updatePayslip, approvePayrollRun, payPayrollRun } from "./payroll";

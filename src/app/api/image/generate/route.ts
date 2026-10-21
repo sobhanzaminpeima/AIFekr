@@ -168,6 +168,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ images: saved, credits_used: creditCost });
   } catch (err) {
+    if (err instanceof Error && err.message === "INSUFFICIENT_CREDITS") {
+      return NextResponse.json({ error: "اعتبار کافی نیست" }, { status: 402 });
+    }
     console.error("image generate error:", err);
     return NextResponse.json({ error: "خطا در تولید تصویر" }, { status: 500 });
   }

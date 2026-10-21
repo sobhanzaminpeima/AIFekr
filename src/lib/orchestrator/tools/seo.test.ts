@@ -24,7 +24,7 @@ const ownerA = `${P}A`;
 const ownerB = `${P}B`;
 const bizX = `${P}bizX`;
 const bizY = `${P}bizY`;
-const cuid = (s: string) => (s + "x".repeat(24)).slice(0, 24);
+const cuid = (s: string) => (s + "x".repeat(24)).slice(0, 24); // eslint-disable-line @typescript-eslint/no-unused-vars
 
 const ctxFor = (workspaceUserId: string, over: Partial<WorkspaceContext> = {}): WorkspaceContext => ({
   workspaceUserId, actingUserId: workspaceUserId, isAgentRestricted: false, crmPlan: "NONE", plan: "PRO", voicePlan: null, lang: "en",
@@ -116,6 +116,7 @@ describe("seo.auditSummary", () => {
 
   it("summarises the latest audit: both scores, problems by kind, weakest pages and the change since last time", async () => {
     const r = await seoAuditSummary.run({ site: "alpha", resolved: { siteId: siteA1 } }, ctxFor(ownerA));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const d = r.data as Record<string, any>;
     expect(d.audit).toMatchObject({ desktopScore: 82, mobileScore: 74, pagesChecked: 2 });
     expect(d.changeSinceLastAudit).toMatchObject({ scoreDelta: 12 });

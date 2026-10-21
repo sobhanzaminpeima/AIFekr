@@ -1,0 +1,119 @@
+/* Option 01: charcoal + orange. All foundation styles consume these tokens.
+   Legacy --primary remains the brand color until each existing page is migrated. */
+:root {
+  color-scheme: dark;
+  --brand: #ea580c;
+  --primary: var(--brand);
+  --primary-dark: #c2410c;
+  --primary-light: #fb923c;
+  --accent: #ff985c;
+  --accent-soft: #342319;
+  --action-bg: #ff985c;
+  --action-hover: #ffad7d;
+  --action-text: #291306;
+  --surface-0: #111214;
+  --surface-1: #191b1f;
+  --surface-2: #23262c;
+  --surface-3: #30343c;
+  --border: #383e48;
+  --border-hover: #6c7584;
+  --field-border: #788291;
+  --text-primary: #f5f6f8;
+  --text-secondary: #c0c5cf;
+  --text-muted: #aeb6c3;
+  --success: #86d6ad;
+  --success-soft: #193327;
+  --warning: #f1cc82;
+  --warning-soft: #342c1c;
+  --danger: #ffa3a3;
+  --danger-soft: #3b2226;
+  --info: #9ac4ff;
+  --info-soft: #1c2d43;
+  --focus-ring: #ff985c;
+  --code-surface: #10151e;
+  --glass-surface: #191b1fed;
+  --overlay: #080a0dcc;
+  --font-fa: "Vazirmatn", Tahoma, sans-serif;
+  --font-latin: "Inter", "Vazirmatn", Arial, sans-serif;
+  --font-body: var(--font-fa);
+  --font-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: clamp(1.875rem, 4vw, 2.75rem);
+  --leading-body: 1.75;
+  --leading-title: 1.45;
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-full: 999px;
+  --shadow-sm: 0 2px 6px #00000020;
+  --shadow-panel: 0 12px 32px #00000026;
+  --shadow-overlay: 0 24px 64px #00000066;
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --control-height: 2.75rem;
+}
+
+:root[lang="en"], :root[lang="de"], [data-ui-locale="en"], [data-ui-locale="de"] {
+  --font-body: var(--font-latin);
+}
+[data-ui-locale="fa"] { --font-body: var(--font-fa); }
+
+[data-theme="light"] {
+  color-scheme: light;
+  --accent: #ae3d09;
+  --accent-soft: #ffeadc;
+  --action-bg: #ae3d09;
+  --action-hover: #923208;
+  --action-text: #ffffff;
+  --surface-0: #f8f9fb;
+  --surface-1: #ffffff;
+  --surface-2: #eef0f4;
+  --surface-3: #e1e5eb;
+  --border: #cbd0d9;
+  --border-hover: #7d8795;
+  --field-border: #788291;
+  --text-primary: #19202a;
+  --text-secondary: #465161;
+  --text-muted: #535c6a;
+  --success: #216641;
+  --success-soft: #e6f4eb;
+  --warning: #80580e;
+  --warning-soft: #fcf1d9;
+  --danger: #a62e35;
+  --danger-soft: #fce8e9;
+  --info: #2459a8;
+  --info-soft: #e8f0fc;
+  --focus-ring: #ae3d09;
+  --code-surface: #eef0f4;
+  --glass-surface: #ffffffed;
+  --overlay: #17213099;
+  --shadow-sm: 0 2px 6px #19202a0a;
+  --shadow-panel: 0 12px 32px #19202a0d;
+  --shadow-overlay: 0 24px 64px #19202a29;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --duration-fast: 0ms; --duration-normal: 0ms; --duration-slow: 0ms; }
+}

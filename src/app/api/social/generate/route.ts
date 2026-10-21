@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
@@ -111,7 +112,7 @@ async function handlePost(req: NextRequest) {
           if (isCustomProviderModel(model)) {
             await streamCustomProvider(model, [{ role: "user", content: prompt }], SYSTEM, onChunk);
           } else {
-            await routedStreamChat([{ role: "user", content: prompt }], SYSTEM, onChunk, (_p) => {}, model);
+            await routedStreamChat([{ role: "user", content: prompt }], SYSTEM, onChunk, (_) => {}, model);
           }
 
           if (type === "posts" && body.platform && body.topic) {
