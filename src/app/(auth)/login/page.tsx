@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Smartphone, Mail, Eye, EyeOff, Sparkles, ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTranslation } from "@/lib/i18n";
@@ -12,7 +12,6 @@ type Mode = "phone" | "email";
 type Step = "input" | "otp";
 
 export default function LoginPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { t, lang } = useTranslation();
   const [mode, setMode] = useState<Mode>("email");

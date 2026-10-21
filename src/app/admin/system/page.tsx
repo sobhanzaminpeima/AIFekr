@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Database, Server, HardDrive, Cpu, RefreshCw, Trash2, AlertTriangle, CheckCircle, Activity } from "lucide-react";
 import toast from "react-hot-toast";
 

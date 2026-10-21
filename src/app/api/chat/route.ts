@@ -216,6 +216,9 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err) {
+    if (err instanceof Error && err.message === "INSUFFICIENT_CREDITS") {
+      return NextResponse.json({ error: "اعتبار کافی نیست" }, { status: 402 });
+    }
     console.error("Chat API error:", err);
     return NextResponse.json({ error: "خطای سرور" }, { status: 500 });
   }

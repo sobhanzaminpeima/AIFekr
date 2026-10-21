@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Users, CreditCard, DollarSign, Bot, Wrench,
+  LayoutDashboard, Users, CreditCard, DollarSign, Wrench,
   Activity, Settings, LogOut, Sparkles, Shield, MessageSquare,
   HelpCircle, Package, UserCog, Database, Cpu, Contact,
   ChevronDown, Factory, Building2, Tag, Clock, Globe, Coins, Rocket, BarChart2, Phone,

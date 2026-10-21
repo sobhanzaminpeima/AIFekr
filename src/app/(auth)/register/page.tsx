@@ -1,14 +1,13 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Sparkles, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { useTranslation } from "@/lib/i18n";
 
 function RegisterForm() {
-  const router = useRouter();
   const params = useSearchParams();
   const { t, lang } = useTranslation();
   const isFa = lang !== "en";

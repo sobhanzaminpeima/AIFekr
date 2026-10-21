@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Briefcase, Plus, X, Phone, Mail, Building2, Loader2, ChevronDown,
+  Briefcase, Plus, X, Phone, Mail, Building2, Loader2,
   Users, LayoutGrid, Clock, CheckCircle2, Circle, Zap, FileText, Trash2, Upload, Sparkles, CalendarDays,
   Package, Receipt, FileSignature, Pin, Printer, FolderKanban,
 } from "lucide-react";

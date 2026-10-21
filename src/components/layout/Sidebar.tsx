@@ -5,12 +5,12 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  MessageSquare, Image as ImageIcon, Video, Music, GalleryHorizontal, Mail,
+  MessageSquare, Image as ImageIcon, Video, Music, GalleryHorizontal,
   ChevronDown, ChevronLeft, Settings, LogOut, Wallet, Crown,
   Briefcase, TrendingUp, ShoppingCart, Calculator, Salad,
   GraduationCap, Stethoscope, Languages, ChefHat, Dumbbell, Plane, Code2,
   Plus, History, HeartPulse, Search, Share2, Globe, Factory, Users,
-  FolderOpen, Folder, FolderPlus, X, Check, MoreHorizontal, Trash2, ArrowLeft, Zap, Rocket, Gift, Sparkles, FlaskConical, Phone,
+  FolderOpen, Folder, FolderPlus, X, Check, MoreHorizontal, Trash2, ArrowLeft, Zap, Rocket, Gift, FlaskConical, Phone,
 } from "lucide-react";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
@@ -34,8 +34,6 @@ const PROJECT_COLORS = ["#ea580c", "#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "
 export default function Sidebar({ user, conversations = [], onNewChat }: SidebarProps) {
   const pathname = usePathname();
   const { t, lang } = useTranslation();
-  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-  const projectIdParam = searchParams?.get("project") || null;
   const [toolsOpen, setToolsOpen] = useState(false);
   const [assistantsOpen, setAssistantsOpen] = useState(false);
   const [businessOpen, setBusinessOpen] = useState(true);

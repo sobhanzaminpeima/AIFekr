@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuth(req);
   if (!auth) return unauthorizedResponse();
 
-  const { businessType, goal, experience } = await req.json();
+  const { goal } = await req.json();
 
   await prisma.user.update({
     where: { id: auth.id },

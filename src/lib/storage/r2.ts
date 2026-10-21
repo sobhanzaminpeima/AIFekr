@@ -1,7 +1,6 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const isDev = process.env.NODE_ENV === "development";
 const hasR2 = !!(process.env.R2_ACCESS_KEY_ID && process.env.R2_ACCESS_KEY_ID !== "your-access-key");
 
 let s3Client: S3Client | null = null;

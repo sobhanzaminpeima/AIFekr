@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
-  Brain, Play, Loader2, Stethoscope, FileText, Share2, Users,
-  Plus, Trash2, Mail, DollarSign, Activity, Send, Check,
+  Brain, Play, Loader2, Users,
+  Plus, Trash2, DollarSign, Activity, Send, Check,
   CheckCircle2, XCircle, Clock, AlertTriangle, TrendingUp,
-  Zap, Shield, Target, BarChart3, RefreshCw, ChevronRight,
+  Zap, Target, BarChart3, RefreshCw,
   Briefcase, Search, ShoppingCart, Building2, Cpu,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";

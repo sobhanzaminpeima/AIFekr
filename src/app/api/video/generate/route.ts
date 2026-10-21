@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -5,7 +7,6 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { generateVideo as generateVideoQwen, generateVideoFromReference } from "@/lib/ai/qwen";
 import { generateVideo as generateVideoReplicate } from "@/lib/ai/replicate";
-import { CREDIT_COSTS } from "@/lib/utils/credits";
 import { getAvailableCredits, deductCredits } from "@/lib/utils/teamCredits";
 import { getLimitsForPlan } from "@/lib/utils/planLimits";
 
@@ -64,6 +65,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ videoId: video.id, predictionId, status, credits_used: creditCost });
   } catch (err) {
+    if (err instanceof Error && err.message === "INSUFFICIENT_CREDITS") {
+      return NextResponse.json({ error: "اعتبار کافی نیست" }, { status: 402 });
+    }
     console.error("video generate error:", err);
     return NextResponse.json({ error: "خطا در تولید ویدیو" }, { status: 500 });
   }

@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Package, Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Star, Check, Loader2 } from "lucide-react";
+import {  Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Star, Check, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 
 type Pkg = {

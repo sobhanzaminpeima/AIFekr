@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
-import { Save, User, Lock, Trash2, CreditCard, BarChart3, Palette, Globe, Loader2, Users, UserPlus, Crown, X } from "lucide-react";
+import { Save, User, Lock, Trash2, CreditCard, BarChart3, Palette, Loader2, Users, UserPlus, Crown, X } from "lucide-react";
 import toast from "react-hot-toast";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";

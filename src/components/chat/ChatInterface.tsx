@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Send, Square, Paperclip, RotateCcw, Copy, ThumbsUp, ThumbsDown,
-  Bot, User, Sparkles, Mic, MicOff, Volume2, VolumeX,
+  User, Sparkles, Mic, MicOff, Volume2, VolumeX,
   ChevronDown, ChevronUp, Briefcase, TrendingUp, DollarSign, ShoppingCart,
   Rocket, Scale, Users, Search, Check, FileText, FileDown, Hash, Zap,
 } from "lucide-react";

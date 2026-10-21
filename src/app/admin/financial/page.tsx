@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/db/prisma";
-import { DollarSign, TrendingUp, CreditCard, AlertCircle, Clock } from "lucide-react";
+import { DollarSign, TrendingUp, CreditCard, Clock } from "lucide-react";
 import { toJalali } from "@/lib/utils/jalali";
 
 function formatPrice(n: number) { return (n / 10).toLocaleString("fa-IR") + " ت"; }

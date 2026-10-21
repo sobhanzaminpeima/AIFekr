@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, unauthorizedResponse, forbiddenResponse } from "@/lib/auth/middleware";
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
   try {
     const packages = await prisma.package.findMany({ orderBy: { sortOrder: "asc" } });
     return NextResponse.json({ packages });
-  } catch (e) { return NextResponse.json({ error: "خطای سرور" }, { status: 500 }); }
+  } catch { return NextResponse.json({ error: "خطای سرور" }, { status: 500 }); }
 }
 
 export async function POST(req: NextRequest) {
@@ -68,7 +69,7 @@ export async function PUT(req: NextRequest) {
       },
     });
     return NextResponse.json({ package: pkg });
-  } catch (e) { return NextResponse.json({ error: "خطا در ویرایش" }, { status: 500 }); }
+  } catch { return NextResponse.json({ error: "خطا در ویرایش" }, { status: 500 }); }
 }
 
 export async function PATCH(req: NextRequest) {
@@ -77,7 +78,7 @@ export async function PATCH(req: NextRequest) {
     const { id, ...data } = await req.json();
     const pkg = await prisma.package.update({ where: { id }, data });
     return NextResponse.json({ package: pkg });
-  } catch (e) { return NextResponse.json({ error: "خطا" }, { status: 500 }); }
+  } catch { return NextResponse.json({ error: "خطا" }, { status: 500 }); }
 }
 
 export async function DELETE(req: NextRequest) {
@@ -88,5 +89,5 @@ export async function DELETE(req: NextRequest) {
     if (!id) return NextResponse.json({ error: "id الزامی است" }, { status: 400 });
     await prisma.package.delete({ where: { id } });
     return NextResponse.json({ success: true });
-  } catch (e) { return NextResponse.json({ error: "خطا در حذف" }, { status: 500 }); }
+  } catch { return NextResponse.json({ error: "خطا در حذف" }, { status: 500 }); }
 }

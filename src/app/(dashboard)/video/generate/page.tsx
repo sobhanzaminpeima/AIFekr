@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useRef } from "react";
-import { Video, Wand2, Loader2, CheckCircle, AlertCircle, Download, Play, Pause, Upload, X, Sparkles } from "lucide-react";
+import {  Wand2, Loader2, CheckCircle, AlertCircle, Download, Play, Pause, Upload, X, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTranslation } from "@/lib/i18n";
 

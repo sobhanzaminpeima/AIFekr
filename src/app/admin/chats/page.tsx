@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/db/prisma";
-import { MessageSquare, User, Clock, Trash2 } from "lucide-react";
+import { MessageSquare, User, Clock } from "lucide-react";
 import { toJalali } from "@/lib/utils/jalali";
 
 export default async function ChatsPage({

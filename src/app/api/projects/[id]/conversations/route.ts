@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
@@ -18,7 +20,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ success: true });
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, _ctx: unknown) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse();
 

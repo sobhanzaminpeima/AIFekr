@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 export const dynamic = "force-dynamic";
 
 import { useState } from "react";
-import { Contact, Plus, Search, Phone, Mail, Building2, Edit2, Trash2, Tag, DollarSign, Clock } from "lucide-react";
+import { Contact, Plus, Search, Phone, Mail, Building2, Edit2, Trash2, Tag, DollarSign } from "lucide-react";
 import toast from "react-hot-toast";
 
 const STATUS_OPTIONS = [

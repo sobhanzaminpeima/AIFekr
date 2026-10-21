@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        await routedStreamChat([{ role: "user", content: userMessage }], systemPrompt, (chunk) => send(chunk), (_p) => {});
+        await routedStreamChat([{ role: "user", content: userMessage }], systemPrompt, (chunk) => send(chunk), (_) => {});
       } catch (e) {
         const msg = e instanceof Error ? e.message : "خطا";
         send(`\n\n❌ ${lang === "fa" ? "خطا در ارتباط با AI: " : "AI error: "}${msg}`);

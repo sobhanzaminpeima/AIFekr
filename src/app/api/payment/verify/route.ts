@@ -4,7 +4,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { verifyPayment } from "@/lib/payment/zarinpal";
 import { sendPaymentConfirmEmail } from "@/lib/email/resend";
-import { redirect } from "next/navigation";
 import { REFERRAL_BONUS_CREDITS } from "@/lib/utils/credits";
 import { findPaymentById, markPaymentFailed, activatePlanForPayment } from "@/lib/repositories/paymentRepository";
 import { grantReferralBonus } from "@/lib/repositories/userRepository";

@@ -45,8 +45,12 @@ function parseMarkdown(text: string) {
 
 const TYPING_SPEED = 18;
 
+function getDemo(lang: "fa" | "en") {
+  return lang === "en" ? DEMO_EN : DEMO_FA;
+}
+
 export default function DemoChat({ lang = "fa" }: { lang?: "fa" | "en" }) {
-  const DEMO = lang === "en" ? DEMO_EN : DEMO_FA;
+  const DEMO = getDemo(lang);
   const [visibleMessages, setVisibleMessages] = useState<{ role: "user" | "ai"; text: string; typing: boolean }[]>([]);
   const [currentTyped, setCurrentTyped] = useState("");
   const [phase, setPhase] = useState<"idle" | "running" | "done">("idle");
@@ -102,6 +106,7 @@ export default function DemoChat({ lang = "fa" }: { lang?: "fa" | "en" }) {
     }, msg.delay);
 
     return () => clearTimeout(delayTimer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, msgIndex]);
 
   useEffect(() => {

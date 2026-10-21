@@ -2,13 +2,15 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { exchangeCodeForToken, getLongLivedToken, getInstagramUsername, subscribeToCommentWebhooks } from "@/lib/instagram";
+import { decodeOAuthState } from "@/lib/auth/oauthState";
 
 export async function GET(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
   const { searchParams } = new URL(req.url);
   const code = searchParams.get("code");
-  const userId = searchParams.get("state"); // we passed the user id as OAuth state
+  const rawState = searchParams.get("state");
   const error = searchParams.get("error");
+  const userId = rawState ? decodeOAuthState(rawState) : null;
 
   if (error || !code || !userId) {
     return NextResponse.redirect(`${appUrl}/social?instagram=failed`);
