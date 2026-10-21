@@ -1423,3 +1423,18 @@ model GameQuestion {
 
   @@index([gameId])
 }
+
+// ─── Module Registry ────────────────────────────────────────────────────────
+
+model ModuleRegistry {
+  id              String   @id @default(cuid())
+  key             String   @unique  // e.g. "crm", "games", "seo"
+  name            String
+  description     String?
+  status          String   @default("enabled") // enabled | disabled | maintenance | beta
+  minPlan         String   @default("FREE")
+  isCore          Boolean  @default(false)      // cannot be disabled
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
