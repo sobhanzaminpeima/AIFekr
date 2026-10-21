@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { sendOTP } from "@/lib/sms/smsir";
+import { rateLimit, getClientIp } from "@/lib/utils/rateLimit";
 
 // شماره‌های تست — همیشه کد 1234
 const TEST_PHONES = ["09000000000", "09000000001", "09000000002"];
@@ -16,6 +17,17 @@ function generateOtp(phone: string): string {
 export async function POST(req: NextRequest) {
   try {
     const { phone } = await req.json();
+
+    if (phone) {
+      // Per-phone cap (SMS costs money — this is the real abuse vector) and a
+      // looser per-IP cap so one IP can't cycle through many phone numbers.
+      const phoneLimit = rateLimit(`send-otp:phone:${phone}`, 3, 10 * 60 * 1000);
+      const ipLimit = rateLimit(`send-otp:ip:${getClientIp(req.headers)}`, 10, 10 * 60 * 1000);
+      if (!phoneLimit.allowed || !ipLimit.allowed) {
+        const retryAfterSec = Math.max(phoneLimit.retryAfterSec, ipLimit.retryAfterSec);
+        return NextResponse.json({ error: "تعداد درخواست کد بیش از حد مجاز — کمی صبر کنید" }, { status: 429, headers: { "Retry-After": String(retryAfterSec) } });
+      }
+    }
 
     if (!phone || !/^09[0-9]{9}$/.test(phone)) {
       return NextResponse.json({ error: "شماره موبایل معتبر نیست" }, { status: 400 });

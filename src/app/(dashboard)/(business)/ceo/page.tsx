@@ -4,15 +4,18 @@ import { useState, useRef, useEffect } from "react";
 import { Crown, Send, TrendingUp, DollarSign, Swords, Users, Package, AlertTriangle, LayoutDashboard } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import Link from "next/link";
+import { useTranslation, tri } from "@/lib/i18n";
+import LongRunIndicator from "@/components/ui/LongRunIndicator";
+import CreditCost from "@/components/ui/CreditCost";
 
 const CATEGORIES = [
-  { key: "growth", label: "رشد", icon: TrendingUp, color: "#10b981" },
-  { key: "finance", label: "مالی", icon: DollarSign, color: "#f59e0b" },
-  { key: "competition", label: "رقابت", icon: Swords, color: "#ef4444" },
-  { key: "team", label: "تیم", icon: Users, color: "#8b5cf6" },
-  { key: "product", label: "محصول", icon: Package, color: "#3b82f6" },
-  { key: "risk", label: "ریسک", icon: AlertTriangle, color: "#ea580c" },
-];
+  { key: "growth", icon: TrendingUp, color: "#10b981" },
+  { key: "finance", icon: DollarSign, color: "#f59e0b" },
+  { key: "competition", icon: Swords, color: "#ef4444" },
+  { key: "team", icon: Users, color: "#8b5cf6" },
+  { key: "product", icon: Package, color: "#3b82f6" },
+  { key: "risk", icon: AlertTriangle, color: "#ea580c" },
+] as const;
 
 interface Message {
   role: "user" | "assistant";
@@ -21,16 +24,24 @@ interface Message {
 }
 
 export default function CEOPage() {
+  const { t, lang } = useTranslation();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  // Lets the user stop a long run instead of waiting it out or resending
+  // (QA 2026-09-15: no cancel/retry control during long AI waits).
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  function cancelRun() {
+    abortRef.current?.abort();
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,12 +55,16 @@ export default function CEOPage() {
     let aiContent = "";
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const history = messages.slice(-8).map((m) => ({ role: m.role, content: m.content }));
       const res = await fetch("/api/ceo/question", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, category: selectedCategory, conversationId, history }),
+        body: JSON.stringify({ question, category: selectedCategory, conversationId, history, lang }),
+        signal: controller.signal,
       });
 
       const reader = res.body!.getReader();
@@ -74,29 +89,41 @@ export default function CEOPage() {
         }
       }
     } catch (err) {
-      console.error(err);
+      if ((err as Error)?.name === "AbortError") {
+        // Keep whatever had streamed; only label an empty bubble, so the
+        // cancelled turn doesn't sit there as a blank reply.
+        const cancelled = ({ fa: "(لغو شد)", en: "(Cancelled)", de: "(Abgebrochen)" } as Record<string, string>)[lang] || "(Cancelled)";
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          return last?.role === "assistant" && !last.content ? [...prev.slice(0, -1), { role: "assistant", content: cancelled }] : prev;
+        });
+      } else {
+        console.error(err);
+      }
     } finally {
       setLoading(false);
+      abortRef.current = null;
     }
   }
 
   return (
-    <div className="flex h-screen" style={{ background: "var(--surface-0)" }}>
+    <div className="ceo-workspace flex min-w-0 flex-col lg:flex-row" style={{ background: "var(--surface-0)" }}>
       {/* Left panel — categories */}
-      <div className="w-56 flex-shrink-0 p-4 space-y-2 overflow-y-auto" style={{ background: "var(--surface-1)", borderLeft: "1px solid var(--border)" }}>
+      <div className="ceo-categories w-full lg:w-56 flex-shrink-0 p-4 space-y-2 overflow-y-auto" style={{ background: "var(--surface-1)", borderInlineEnd: "1px solid var(--border)" }}>
         <div className="flex items-center gap-2 mb-4">
           <Crown className="w-5 h-5" style={{ color: "var(--primary)" }} />
-          <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>دسته‌بندی</span>
+          <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{t.ceo.categoryLabel}</span>
         </div>
         <button
           onClick={() => setSelectedCategory("")}
+          aria-pressed={!selectedCategory}
           className="w-full text-right px-3 py-2.5 rounded-xl text-sm transition-all"
           style={{
             background: !selectedCategory ? "rgba(234,88,12,0.15)" : "transparent",
             color: !selectedCategory ? "var(--primary)" : "var(--text-secondary)",
           }}
         >
-          همه موضوعات
+          {t.ceo.allTopics}
         </button>
         {CATEGORIES.map((cat) => {
           const Icon = cat.icon;
@@ -105,6 +132,7 @@ export default function CEOPage() {
             <button
               key={cat.key}
               onClick={() => setSelectedCategory(cat.key)}
+              aria-pressed={active}
               className="w-full flex items-center gap-2 text-right px-3 py-2.5 rounded-xl text-sm transition-all"
               style={{
                 background: active ? `${cat.color}22` : "transparent",
@@ -112,18 +140,13 @@ export default function CEOPage() {
               }}
             >
               <Icon className="w-4 h-4" />
-              {cat.label}
+              {t.ceo.categories[cat.key]}
             </button>
           );
         })}
         <div className="pt-4" style={{ borderTop: "1px solid var(--border)" }}>
-          <p className="text-xs px-1 mb-3" style={{ color: "var(--text-muted)" }}>سوالات نمونه:</p>
-          {[
-            "چطور ۳۰٪ رشد کنم؟",
-            "استراتژی ورود به بازار جدید",
-            "چطور تیمم را بهتر مدیریت کنم؟",
-            "ریسک‌های اصلی کسب‌وکارم چیست؟",
-          ].map((q) => (
+          <p className="text-xs px-1 mb-3" style={{ color: "var(--text-muted)" }}>{t.ceo.sampleQuestionsLabel}</p>
+          {t.ceo.sampleQuestions.map((q) => (
             <button
               key={q}
               onClick={() => setInput(q)}
@@ -137,26 +160,27 @@ export default function CEOPage() {
       </div>
 
       {/* Main chat area */}
-      <div className="flex-1 flex flex-col">
+      <div className="min-w-0 min-h-0 flex-1 flex flex-col">
         {/* Header */}
-        <div className="p-4 flex items-center justify-between gap-3" style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-1)" }}>
+        <div className="p-4 flex flex-wrap items-center justify-between gap-3" style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-1)" }}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(234,88,12,0.15)" }}>
               <Crown className="w-5 h-5" style={{ color: "var(--primary)" }} />
             </div>
             <div>
-              <h1 className="font-bold" style={{ color: "var(--text-primary)" }}>مرکز فرماندهی مدیرعامل</h1>
-              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>مشاور استراتژیک هوش مصنوعی — ۲۰+ سال تجربه</p>
+              <h1 className="font-bold" style={{ color: "var(--text-primary)" }}>{t.ceo.title}</h1>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{t.ceo.subtitle}</p>
             </div>
           </div>
           <Link
             href="/ceo/orchestrator"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium flex-shrink-0"
+            className="flex max-w-full items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium"
             style={{ background: "rgba(234,88,12,0.15)", color: "var(--primary)" }}
           >
             <LayoutDashboard className="w-3.5 h-3.5" />
-            هماهنگ‌کنندهٔ کسب‌وکار (وضعیت کل ابزارها)
+            {t.ceo.orchestratorLink}
           </Link>
+          <details className="lg:hidden w-full text-xs" style={{ color: "var(--text-secondary)" }}><summary className="cursor-pointer py-2">{t.ceo.sampleQuestionsLabel}</summary><div className="grid gap-2 mt-2">{t.ceo.sampleQuestions.map(q => <button key={q} onClick={() => setInput(q)} className="text-start rounded-xl px-3 py-2" style={{ background: "var(--surface-2)" }}>{q}</button>)}</div></details>
         </div>
 
         {/* Messages */}
@@ -164,9 +188,9 @@ export default function CEOPage() {
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <Crown className="w-16 h-16 mb-4" style={{ color: "rgba(234,88,12,0.3)" }} />
-              <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--text-primary)" }}>مشاور مدیرعامل آماده است</h2>
+              <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{t.ceo.readyTitle}</h2>
               <p className="text-sm max-w-md" style={{ color: "var(--text-secondary)" }}>
-                سوالات استراتژیک خود را بپرسید. مشاور با تجربه ۲۰+ ساله پاسخ اجرایی و قابل اقدام ارائه می‌دهد.
+                {t.ceo.readySubtitle}
               </p>
             </div>
           )}
@@ -193,6 +217,10 @@ export default function CEOPage() {
               </div>
             </div>
           ))}
+          {loading && (
+            <LongRunIndicator lang={lang} expectedSeconds={30} onCancel={cancelRun}
+              receivedAny={!!messages[messages.length - 1]?.content} />
+          )}
           <div ref={bottomRef} />
         </div>
 
@@ -203,20 +231,21 @@ export default function CEOPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(e); } }}
-              placeholder="یک سوال استراتژیک بپرسید..."
+              placeholder={t.ceo.placeholder}
               rows={2}
-              className="flex-1 px-4 py-3 rounded-xl text-sm outline-none resize-none"
+              className="min-w-0 flex-1 px-4 py-3 rounded-xl text-sm outline-none resize-none"
               style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
             />
             <button
               type="submit"
+              aria-label={tri(lang, "ارسال سوال", "Send question", "Frage senden", "Soruyu gönder")}
               disabled={!input.trim() || loading}
               className="p-3 rounded-xl transition-all disabled:opacity-40"
               style={{ background: "var(--primary)" }}
             >
               {loading
                 ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin block" />
-                : <Send className="w-5 h-5 text-white" />}
+                : <Send className="w-5 h-5 text-white" />} <CreditCost feature="ceo.question" className="text-white" />
             </button>
           </form>
         </div>

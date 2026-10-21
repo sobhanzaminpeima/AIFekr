@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Filter, ChevronLeft, ChevronRight, MoreVertical, Ban, Coins, UserCheck, Trash2, Loader2, Repeat } from "lucide-react";
+import Link from "next/link";
+import { Search, Filter, ChevronLeft, ChevronRight, MoreVertical, Ban, Coins, UserCheck, Trash2, Loader2, Repeat, Plus, Sparkles, X } from "lucide-react";
 import { toJalali, formatNumber } from "@/lib/utils/jalali";
 import toast from "react-hot-toast";
+import { COUNTRIES, dialCodeFor } from "@/lib/constants/countries";
 
 interface User {
   id: string;
@@ -12,6 +14,7 @@ interface User {
   email?: string;
   phone?: string;
   plan: string;
+  accountType: string;
   credits: number;
   isBlocked: boolean;
   createdAt: string;
@@ -20,23 +23,104 @@ interface User {
 }
 
 const PLAN_BADGE: Record<string, { label: string; color: string }> = {
+  STUDENT_QUARTERLY:{label:"دانشجویی ۳ ماهه",color:"#6366f1"},
+  STUDENT_FIRST_THREE_MONTHS:{label:"دانشجویی ۳ ماهه",color:"#6366f1"},
+  STUDENT_MONTHLY:{label:"دانشجویی ماهانه",color:"#6366f1"},
   FREE: { label: "رایگان", color: "#71717a" },
   BASIC: { label: "پایه", color: "#3b82f6" },
+  ECHO: { label: "اکو", color: "#0ea5e9" },
+  PLUS: { label: "پلاس", color: "#6366f1" },
   PRO: { label: "حرفه‌ای", color: "#ea580c" },
+  ALPHA: { label: "آلفا", color: "#a855f7" },
   TEAM: { label: "تیمی", color: "#8b5cf6" },
 };
 
+/**
+ * PLAN_BADGE only listed FREE/BASIC/PRO/TEAM while the Package table actually
+ * sells ECHO, PLUS, ALPHA and the *_USD codes too. Every read was a bare
+ * `PLAN_BADGE[user.plan]` followed by `badge.color`, so a single user on any
+ * of those plans threw "Cannot read properties of undefined" and blanked the
+ * whole admin user list (found while fixing QA 2026-09-15, A05). Unknown codes
+ * now render as themselves rather than crashing the page.
+ */
+function planBadge(plan: string): { label: string; color: string } {
+  return PLAN_BADGE[plan] || { label: plan || "—", color: "#71717a" };
+}
+
 export default function AdminUsersPage() {
   const router = useRouter();
+  const requestSequence=useRef(0);
   const [users, setUsers] = useState<User[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState("");
+  const [accountFilter, setAccountFilter] = useState("all");
+  const [sort, setSort] = useState("newest");
+  const [recent, setRecent] = useState("all");
   const [planFilter, setPlanFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [actionUserId, setActionUserId] = useState<string | null>(null);
   const [planMenuUserId, setPlanMenuUserId] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [addForm, setAddForm] = useState({ firstName: "", lastName: "", country: "", email: "", phone: "", password: "", plan: "FREE",accountType:"PERSONAL",studentPackage:false });
+  const [addSaving, setAddSaving] = useState(false);
+
+  // "Invite to AIfekr" — activates the trial here, then hands off to the
+  // dedicated /admin/invites page (credentials, referral link, invite text).
+  const [inviteTarget, setInviteTarget] = useState<{ userId: string | null; name: string } | null>(null);
+  const INVITE_FORM_DEFAULT = { firstName: "", lastName: "", email: "", phone: "", country: "IR", trialDays: 14, realEstatePackage: true, trialLimited: false,studentPackage:false };
+  const [inviteForm, setInviteForm] = useState(INVITE_FORM_DEFAULT);
+  const [inviteSaving, setInviteSaving] = useState(false);
+
+  function openInviteForExisting(user: User) {
+    setInviteTarget({ userId: user.id, name: user.name || user.email || user.phone || "" });
+    setInviteForm(INVITE_FORM_DEFAULT);
+    setActionUserId(null);
+  }
+
+  function openInviteForNew() {
+    setInviteTarget({ userId: null, name: "" });
+    setInviteForm(INVITE_FORM_DEFAULT);
+  }
+
+  async function activateInvite() {
+    if (!inviteTarget) return;
+    if (!inviteTarget.userId && !inviteForm.firstName.trim()) { toast.error("نام الزامی است"); return; }
+    setInviteSaving(true);
+    try {
+      // Phone is collected as a country + local-number pair so it's stored
+      // in the same dial-code-prefixed shape as registration -- a bare
+      // free-text phone here used to have no country context at all.
+      const fullPhone = inviteForm.phone.trim() ? `${dialCodeFor(inviteForm.country)}${inviteForm.phone.trim()}` : undefined;
+      const body = inviteTarget.userId
+        ? { userId: inviteTarget.userId, trialDays: inviteForm.trialDays, studentPackage:inviteForm.studentPackage,realEstatePackage: inviteForm.realEstatePackage, trialLimited: inviteForm.trialLimited }
+        : {
+            firstName: inviteForm.firstName,
+            lastName: inviteForm.lastName || undefined,
+            email: inviteForm.email || undefined,
+            phone: fullPhone,
+            trialDays: inviteForm.trialDays,
+            studentPackage:inviteForm.studentPackage,realEstatePackage: inviteForm.realEstatePackage,
+            trialLimited: inviteForm.trialLimited,
+          };
+      const res = await fetch("/api/admin/invites/activate-trial", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setInviteTarget(null);
+      toast.success("تریال فعال شد");
+      // Phase 3's dedicated invite page is the one place credentials/referral
+      // link/invite text come together — send the admin straight there
+      // instead of duplicating that display here.
+      router.push(`/admin/invites?userId=${data.user.id}`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "خطا در فعال‌سازی دعوت");
+    } finally {
+      setInviteSaving(false);
+    }
+  }
 
   useEffect(() => {
     if (!actionUserId) return;
@@ -50,18 +134,53 @@ export default function AdminUsersPage() {
   }, [actionUserId]);
 
   const fetchUsers = useCallback(async () => {
+    const requestVersion=++requestSequence.current;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: page.toString(), search, plan: planFilter });
+      const params = new URLSearchParams({ page: page.toString(), search, plan: planFilter, accountType: accountFilter, sort, recent });
       const res = await fetch(`/api/admin/users?${params}`);
       const data = await res.json();
-      setUsers(data.users);
-      setTotal(data.total);
-      setTotalPages(data.totalPages);
-    } finally {
-      setLoading(false);
+      if(requestVersion!==requestSequence.current)return;
+      if (!res.ok) {
+        setUsers([]);
+        setTotal(0);
+        setTotalPages(1);
+        toast.error(data.error || "خطا در دریافت کاربران");
+        return;
+      }
+      setUsers(data.users ?? []);
+      setTotal(data.total ?? 0);
+      setTotalPages(data.totalPages ?? 1);
+    } catch {if(requestVersion===requestSequence.current)toast.error("دریافت کاربران انجام نشد؛ دوباره تلاش کنید.");}
+    finally {
+      if(requestVersion===requestSequence.current)setLoading(false);
     }
-  }, [page, search, planFilter]);
+  }, [page, search, planFilter, accountFilter, sort, recent]);
+
+  async function addUser() {
+    if (!addForm.firstName.trim()) return toast.error("نام الزامی است");
+    if (!addForm.email && !addForm.phone) return toast.error("ایمیل یا موبایل الزامی است");
+    if (addForm.password.length < 6) return toast.error("رمز عبور حداقل ۶ کاراکتر باشد");
+    setAddSaving(true);
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(addForm),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "خطا در ایجاد کاربر");
+        return;
+      }
+      toast.success("کاربر ایجاد شد");
+      setShowAdd(false);
+      setAddForm({ firstName: "", lastName: "", country: "", email: "", phone: "", password: "", plan: "FREE",accountType:"PERSONAL",studentPackage:false });
+      fetchUsers();
+    } finally {
+      setAddSaving(false);
+    }
+  }
 
   useEffect(() => {
     const timeout = setTimeout(fetchUsers, 300);
@@ -100,7 +219,7 @@ export default function AdminUsersPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ plan }),
     });
-    toast.success(`پلن به «${PLAN_BADGE[plan].label}» تغییر کرد`);
+    toast.success(`پلن به «${planBadge(plan).label}» تغییر کرد`);
     fetchUsers();
     setPlanMenuUserId(null);
     setActionUserId(null);
@@ -122,13 +241,27 @@ export default function AdminUsersPage() {
           <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>مدیریت کاربران</h1>
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{formatNumber(total)} کاربر</p>
         </div>
+        <div className="flex items-center gap-2">
+          <button onClick={openInviteForNew} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "linear-gradient(135deg, #F5821F, #F2701A)" }}>
+            <Sparkles className="w-4 h-4" /> دعوت جدید
+          </button>
+          <button onClick={() => router.push("/admin/invites/manage")} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            مدیریت دعوتنامه‌ها
+          </button>
+          <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
+            <Plus className="w-4 h-4" /> افزودن کاربر
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
+        <label className="text-sm">ترتیب ثبت‌نام<select aria-label="ترتیب ثبت‌نام" value={sort} onChange={e=>{setSort(e.target.value);setPage(1);}} className="block rounded-xl px-3 py-2" style={{background:"var(--surface-1)",color:"var(--text-primary)",border:"1px solid var(--border)"}}><option value="newest">جدیدترین کاربران</option><option value="oldest">قدیمی‌ترین کاربران</option></select></label>
+        <label className="text-sm">زمان ثبت‌نام<select aria-label="زمان ثبت‌نام" value={recent} onChange={e=>{setRecent(e.target.value);setPage(1);}} className="block rounded-xl px-3 py-2" style={{background:"var(--surface-1)",color:"var(--text-primary)",border:"1px solid var(--border)"}}><option value="all">همهٔ کاربران</option><option value="7d">کاربران جدید ۷ روز اخیر</option></select></label>
         <div className="flex items-center gap-2 flex-1 min-w-48 px-4 py-2.5 rounded-xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <Search className="w-4 h-4 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
           <input
+            aria-label="جستجوی کاربران"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder="جستجو بر اساس نام، ایمیل یا موبایل..."
@@ -138,7 +271,11 @@ export default function AdminUsersPage() {
         </div>
         <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <Filter className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
+          <select aria-label="نوع حساب" value={accountFilter} onChange={e=>{setAccountFilter(e.target.value);setPlanFilter("all");setPage(1);}} className="rounded-xl px-3 py-2 text-sm" style={{background:"var(--surface-1)",color:"var(--text-primary)",border:"1px solid var(--border)"}}>
+            <option value="all">همهٔ کاربران</option><option value="STUDENT">دانشجویان</option><option value="BUSINESS">کسب‌وکارها</option><option value="PERSONAL">شخصی</option>
+          </select>
           <select
+            aria-label="فیلتر پلن کاربران"
             value={planFilter}
             onChange={(e) => { setPlanFilter(e.target.value); setPage(1); }}
             className="text-sm bg-transparent outline-none"
@@ -148,19 +285,19 @@ export default function AdminUsersPage() {
             <option value="FREE">رایگان</option>
             <option value="BASIC">پایه</option>
             <option value="PRO">حرفه‌ای</option>
-            <option value="TEAM">تیمی</option>
+            <option value="TEAM">تیمی</option><option value="STUDENT_QUARTERLY">دانشجویی ۳ ماهه</option><option value="STUDENT_MONTHLY">دانشجویی ماهانه</option>
           </select>
         </div>
       </div>
 
       {/* Table */}
-      <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+      <div className="rounded-2xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--primary)" }} />
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="admin-user-table w-full text-sm" aria-label="فهرست کاربران">
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
                 {["کاربر", "پلن", "اعتبار", "گفتگوها", "پرداخت‌ها", "تاریخ ثبت", "وضعیت", ""].map((h) => (
@@ -169,26 +306,28 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => {
-                const badge = PLAN_BADGE[user.plan];
+              {users.map((user, idx) => {
+                const badge = planBadge(user.plan);
+                const openUp = idx >= users.length - 3;
                 return (
                   <tr key={user.id} style={{ borderBottom: "1px solid var(--border)" }} className="hover:bg-white/2 transition-colors">
-                    <td className="px-4 py-3 cursor-pointer" onClick={() => router.push(`/admin/users/${user.id}`)}>
-                      <div>
-                        <div className="font-medium" style={{ color: "var(--text-primary)" }}>{user.name || "بدون نام"}</div>
-                        <div className="text-xs" style={{ color: "var(--text-muted)" }}>{user.email || user.phone || "—"}</div>
-                      </div>
+                    <td data-label="کاربر" className="px-4 py-3">
+                      <Link href={`/admin/users/${user.id}`}>
+                        <div className="font-medium" style={{ color: "var(--text-primary)" }}>{user.name || "بدون نام"}</div><small className="block text-xs" style={{color:"var(--text-muted)"}}>{user.accountType==="STUDENT"?"دانشجو":user.accountType==="BUSINESS"?"کسب‌وکار":"شخصی"}</small>
+                        <div className="text-xs" style={{ color: "var(--text-muted)" }}>{user.email || "—"}</div>
+                        {user.phone && <div className="text-xs" dir="ltr" style={{ color: "var(--text-muted)" }}>{user.phone}</div>}
+                      </Link>
                     </td>
-                    <td className="px-4 py-3">
+                    <td data-label="پلن" className="px-4 py-3">
                       <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: badge.color + "22", color: badge.color }}>
                         {badge.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3" style={{ color: "var(--text-primary)" }}>{formatNumber(user.credits)}</td>
-                    <td className="px-4 py-3" style={{ color: "var(--text-secondary)" }}>{user._count.conversations}</td>
-                    <td className="px-4 py-3" style={{ color: "var(--text-secondary)" }}>{user._count.payments}</td>
-                    <td className="px-4 py-3 text-xs" style={{ color: "var(--text-muted)" }}>{toJalali(user.createdAt)}</td>
-                    <td className="px-4 py-3">
+                    <td data-label="اعتبار" className="px-4 py-3" style={{ color: "var(--text-primary)" }}>{formatNumber(user.credits)}</td>
+                    <td data-label="گفتگوها" className="px-4 py-3" style={{ color: "var(--text-secondary)" }}>{user._count.conversations}</td>
+                    <td data-label="پرداخت‌ها" className="px-4 py-3" style={{ color: "var(--text-secondary)" }}>{user._count.payments}</td>
+                    <td data-label="تاریخ ثبت" className="px-4 py-3 text-xs" style={{ color: "var(--text-muted)" }}>{toJalali(user.createdAt)}</td>
+                    <td data-label="وضعیت" className="px-4 py-3">
                       <span className="px-2 py-0.5 rounded-full text-xs" style={{
                         background: user.isBlocked ? "rgba(239,68,68,0.1)" : "rgba(34,197,94,0.1)",
                         color: user.isBlocked ? "var(--danger)" : "var(--success)",
@@ -197,11 +336,12 @@ export default function AdminUsersPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 relative" data-dropdown-root>
-                      <button onClick={() => setActionUserId(actionUserId === user.id ? null : user.id)} className="p-1 rounded-lg" style={{ color: "var(--text-muted)" }}>
+                      <button aria-label={`مدیریت ${user.name || "کاربر"}`} aria-expanded={actionUserId === user.id} onClick={() => setActionUserId(actionUserId === user.id ? null : user.id)} className="p-1 rounded-lg" style={{ color: "var(--text-muted)" }}>
                         <MoreVertical className="w-4 h-4" />
                       </button>
                       {actionUserId === user.id && planMenuUserId !== user.id && (
-                        <div className="absolute left-0 top-full z-50 mt-1 w-44 rounded-xl overflow-hidden shadow-xl" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                        <div className={`absolute left-0 z-50 w-44 rounded-xl overflow-hidden shadow-xl ${openUp ? "bottom-full mb-1" : "top-full mt-1"}`} style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                          <ActionItem icon={Sparkles} label="فعال‌سازی دعوت Pro" onClick={() => openInviteForExisting(user)} />
                           <ActionItem icon={user.isBlocked ? UserCheck : Ban} label={user.isBlocked ? "آزادسازی" : "مسدودسازی"} onClick={() => toggleBlock(user.id, user.isBlocked)} danger={!user.isBlocked} />
                           <ActionItem icon={Coins} label="افزایش اعتبار" onClick={() => addCredits(user.id)} />
                           <ActionItem icon={Repeat} label="تغییر پلن" onClick={() => setPlanMenuUserId(user.id)} />
@@ -209,16 +349,20 @@ export default function AdminUsersPage() {
                         </div>
                       )}
                       {actionUserId === user.id && planMenuUserId === user.id && (
-                        <div className="absolute left-0 top-full z-50 mt-1 w-44 rounded-xl overflow-hidden shadow-xl" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                        <div className={`absolute left-0 z-50 w-44 rounded-xl overflow-hidden shadow-xl ${openUp ? "bottom-full mb-1" : "top-full mt-1"}`} style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                          {/* Says "AI plan" explicitly: this menu writes User.plan only.
+                              The CRM and Voice add-ons are separately-billed plans
+                              (User.crmPlan / User.voicePlan) and are NOT changed here —
+                              the unlabelled "تغییر پلن" made that ambiguous (QA A05). */}
                           <div className="px-3 py-2 text-xs font-medium" style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
-                            انتخاب پلن جدید
+                            پلن هوش مصنوعی (افزونه‌های CRM/Voice جداگانه‌اند)
                           </div>
                           {Object.keys(PLAN_BADGE).map((p) => (
                             <button key={p} onClick={() => changePlan(user.id, p)}
                               disabled={p === user.plan}
                               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-right transition-all hover:bg-white/5 disabled:opacity-40"
-                              style={{ color: PLAN_BADGE[p].color }}>
-                              {PLAN_BADGE[p].label}{p === user.plan ? " (فعلی)" : ""}
+                              style={{ color: planBadge(p).color }}>
+                              {planBadge(p).label}{p === user.plan ? " (فعلی)" : ""}
                             </button>
                           ))}
                           <ActionItem icon={ChevronRight} label="بازگشت" onClick={() => setPlanMenuUserId(null)} />
@@ -228,6 +372,7 @@ export default function AdminUsersPage() {
                   </tr>
                 );
               })}
+              {users.length === 0 && <tr><td colSpan={8} className="p-6 text-center" style={{ color: "var(--text-secondary)" }}>کاربری با این مشخصات پیدا نشد. جستجو یا فیلتر را تغییر دهید.</td></tr>}
             </tbody>
           </table>
         )}
@@ -259,6 +404,157 @@ export default function AdminUsersPage() {
           </div>
         </div>
       )}
+
+      {/* Add user modal */}
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}>
+          <div className="w-full max-w-md rounded-2xl p-6 space-y-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+            <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>افزودن کاربر جدید</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>نام</label>
+                <input value={addForm.firstName} onChange={(e) => setAddForm((p) => ({ ...p, firstName: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>نام خانوادگی</label>
+                <input value={addForm.lastName} onChange={(e) => setAddForm((p) => ({ ...p, lastName: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>کشور</label>
+              <select value={addForm.country} onChange={(e) => setAddForm((p) => ({ ...p, country: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                <option value="">—</option>
+                {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.fa}</option>)}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>ایمیل</label>
+                <input value={addForm.email} onChange={(e) => setAddForm((p) => ({ ...p, email: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>موبایل</label>
+                <input value={addForm.phone} onChange={(e) => setAddForm((p) => ({ ...p, phone: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>رمز عبور</label>
+              <input type="password" value={addForm.password} onChange={(e) => setAddForm((p) => ({ ...p, password: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+            <div>
+              <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>پلن</label>
+              <select aria-label="نوع حساب جدید" value={addForm.accountType} onChange={e=>setAddForm(p=>({...p,accountType:e.target.value,studentPackage:e.target.value==="STUDENT",plan:e.target.value==="STUDENT"?"STUDENT_QUARTERLY":p.plan.startsWith("STUDENT_")?"FREE":p.plan}))} className="w-full rounded-xl p-3 mb-3" style={{background:"var(--surface-2)"}}><option value="PERSONAL">شخصی</option><option value="BUSINESS">کسب‌وکار</option><option value="STUDENT">دانشجو + فعال‌سازی پکیج ۹۰ روزه</option></select>
+              <select disabled={addForm.studentPackage} value={addForm.plan} onChange={(e) => setAddForm((p) => ({ ...p, plan: e.target.value,accountType:e.target.value.startsWith("STUDENT_")?"STUDENT":p.accountType,studentPackage:e.target.value.startsWith("STUDENT_") }))}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                {Object.keys(PLAN_BADGE).filter(p=>p!=="STUDENT_MONTHLY").map((p) => <option key={p} value={p}>{PLAN_BADGE[p].label}</option>)}
+              </select>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button onClick={addUser} disabled={addSaving} className="flex-1 py-2 rounded-xl font-semibold text-sm text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+                {addSaving ? "در حال ذخیره..." : "افزودن"}
+              </button>
+              <button onClick={() => setShowAdd(false)} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>انصراف</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invite-to-AIfekr: trial activation form */}
+      {inviteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}>
+          <div className="w-full max-w-md rounded-2xl p-6 space-y-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                <Sparkles className="w-4 h-4" style={{ color: "#F5821F" }} /> فعال‌سازی دعوت Pro
+              </h2>
+              <button onClick={() => setInviteTarget(null)}><X className="w-4 h-4" style={{ color: "var(--text-muted)" }} /></button>
+            </div>
+
+            {inviteTarget.userId ? (
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>برای کاربر: <strong>{inviteTarget.name}</strong></p>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>نام</label>
+                    <input value={inviteForm.firstName} onChange={(e) => setInviteForm((p) => ({ ...p, firstName: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>نام خانوادگی</label>
+                    <input value={inviteForm.lastName} onChange={(e) => setInviteForm((p) => ({ ...p, lastName: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>ایمیل</label>
+                  <input value={inviteForm.email} onChange={(e) => setInviteForm((p) => ({ ...p, email: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>کد کشور</label>
+                    <select value={inviteForm.country} onChange={(e) => setInviteForm((p) => ({ ...p, country: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                      {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.fa} {c.dialCode}</option>)}
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>موبایل</label>
+                    <input value={inviteForm.phone} onChange={(e) => setInviteForm((p) => ({ ...p, phone: e.target.value }))}
+                      placeholder="9121234567" dir="ltr"
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>مدت تریال (روز)</label>
+                <input type="number" min={1} max={90} value={inviteForm.trialDays} onChange={(e) => setInviteForm((p) => ({ ...p, trialDays: Number(e.target.value) || 14 }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
+              <div className="flex items-end pb-2.5">
+                <label className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                  <input type="checkbox" checked={inviteForm.realEstatePackage} onChange={(e) => setInviteForm((p) => ({ ...p, realEstatePackage: e.target.checked }))} />
+                  پکیج املاک کامل
+                </label>
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 rounded-xl p-3" style={{background:"var(--surface-2)"}}><input type="checkbox" checked={inviteForm.studentPackage} onChange={e=>setInviteForm(p=>({...p,studentPackage:e.target.checked,trialDays:e.target.checked?90:p.trialDays,realEstatePackage:e.target.checked?false:p.realEstatePackage}))}/> فعال‌سازی پکیج دانشجویی و فضای دانشگاه (به مدت انتخاب‌شده)</label>
+            {/* The referral-link trial package: full Pro trial except Video
+                Generator and Website Designer, which show an upgrade prompt.
+                Independent of the "پکیج املاک کامل" checkbox above -- either
+                can be combined with either. */}
+            <div className="rounded-xl p-3" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+              <label className="flex items-start gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                <input type="checkbox" className="mt-0.5" checked={inviteForm.trialLimited} onChange={(e) => setInviteForm((p) => ({ ...p, trialLimited: e.target.checked }))} />
+                <span>
+                  <span style={{ color: "var(--text-primary)" }}>پکیج تریال محدود (لینک دعوت)</span>
+                  <br />
+                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>همه چیز فعاله جز ساخت ویدیو و طراحی وبسایت — با کلیک روی اون‌ها پیام ارتقا حساب نشون داده می‌شه.</span>
+                </span>
+              </label>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button onClick={activateInvite} disabled={inviteSaving} className="flex-1 py-2 rounded-xl font-semibold text-sm text-white disabled:opacity-50" style={{ background: "linear-gradient(135deg, #F5821F, #F2701A)" }}>
+                {inviteSaving ? "در حال فعال‌سازی..." : "فعال‌سازی"}
+              </button>
+              <button onClick={() => setInviteTarget(null)} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>انصراف</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

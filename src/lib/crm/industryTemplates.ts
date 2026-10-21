@@ -4,6 +4,11 @@
  * ready-to-use pipeline instead of an empty Kanban board — the same idea as
  * IndustryPack itself, one JSON-driven definition per industry instead of a
  * table (or code path) per vertical.
+ *
+ * Pipeline/stage names are trilingual (fa/en/de) because they're rendered
+ * to whichever language the viewer's UI is in, not fixed at creation time —
+ * unlike a user's own custom-typed pipeline/stage name, which has no
+ * translation and stays as typed.
  */
 
 export interface CrmDealCustomField {
@@ -15,12 +20,16 @@ export interface CrmDealCustomField {
 
 export interface CrmStageTemplate {
   name: string;
+  nameEn: string;
+  nameDe: string;
   isWon?: boolean;
   isLost?: boolean;
 }
 
 export interface CrmIndustryTemplate {
   pipelineName: string;
+  pipelineNameEn: string;
+  pipelineNameDe: string;
   stages: CrmStageTemplate[];
   dealCustomFields: CrmDealCustomField[];
 }
@@ -28,13 +37,15 @@ export interface CrmIndustryTemplate {
 export const crmIndustryTemplates: Record<string, CrmIndustryTemplate> = {
   "real-estate": {
     pipelineName: "فروش/اجاره املاک",
+    pipelineNameEn: "Property Sales/Rental",
+    pipelineNameDe: "Immobilienverkauf/-vermietung",
     stages: [
-      { name: "لید جدید" },
-      { name: "بازدید" },
-      { name: "مذاکره" },
-      { name: "قرارداد" },
-      { name: "تحویل", isWon: true },
-      { name: "منصرف شد", isLost: true },
+      { name: "لید جدید", nameEn: "New Lead", nameDe: "Neuer Lead" },
+      { name: "بازدید", nameEn: "Viewing", nameDe: "Besichtigung" },
+      { name: "مذاکره", nameEn: "Negotiation", nameDe: "Verhandlung" },
+      { name: "قرارداد", nameEn: "Contract", nameDe: "Vertrag" },
+      { name: "تحویل", nameEn: "Handover", nameDe: "Übergabe", isWon: true },
+      { name: "منصرف شد", nameEn: "Withdrew", nameDe: "Zurückgezogen", isLost: true },
     ],
     dealCustomFields: [
       { key: "propertyType", label: "نوع ملک", type: "select", options: ["آپارتمان", "ویلا", "زمین", "تجاری"] },
@@ -46,11 +57,13 @@ export const crmIndustryTemplates: Record<string, CrmIndustryTemplate> = {
 
   "ecommerce": {
     pipelineName: "فروش عمومی",
+    pipelineNameEn: "General Sales",
+    pipelineNameDe: "Allgemeiner Vertrieb",
     stages: [
-      { name: "تماس اولیه" },
-      { name: "پیش‌فاکتور" },
-      { name: "فروش", isWon: true },
-      { name: "از دست رفت", isLost: true },
+      { name: "تماس اولیه", nameEn: "Initial Contact", nameDe: "Erstkontakt" },
+      { name: "پیش‌فاکتور", nameEn: "Proforma Invoice", nameDe: "Proforma-Rechnung" },
+      { name: "فروش", nameEn: "Sold", nameDe: "Verkauft", isWon: true },
+      { name: "از دست رفت", nameEn: "Lost", nameDe: "Verloren", isLost: true },
     ],
     dealCustomFields: [
       { key: "orderValue", label: "ارزش سبد خرید", type: "number" },
@@ -60,12 +73,14 @@ export const crmIndustryTemplates: Record<string, CrmIndustryTemplate> = {
 
   "restaurant": {
     pipelineName: "رزرو و سفارش‌های ویژه",
+    pipelineNameEn: "Reservations & Special Orders",
+    pipelineNameDe: "Reservierungen & Sonderbestellungen",
     stages: [
-      { name: "درخواست جدید" },
-      { name: "در حال هماهنگی" },
-      { name: "تأیید نهایی" },
-      { name: "برگزار شد", isWon: true },
-      { name: "لغو شد", isLost: true },
+      { name: "درخواست جدید", nameEn: "New Request", nameDe: "Neue Anfrage" },
+      { name: "در حال هماهنگی", nameEn: "Coordinating", nameDe: "In Abstimmung" },
+      { name: "تأیید نهایی", nameEn: "Final Confirmation", nameDe: "Endgültige Bestätigung" },
+      { name: "برگزار شد", nameEn: "Completed", nameDe: "Durchgeführt", isWon: true },
+      { name: "لغو شد", nameEn: "Cancelled", nameDe: "Storniert", isLost: true },
     ],
     dealCustomFields: [
       { key: "eventType", label: "نوع رویداد", type: "select", options: ["رزرو میز", "جشن/مراسم", "سفارش سازمانی"] },
@@ -76,12 +91,14 @@ export const crmIndustryTemplates: Record<string, CrmIndustryTemplate> = {
 
   "clinic": {
     pipelineName: "پذیرش و پیگیری بیماران",
+    pipelineNameEn: "Patient Intake & Follow-up",
+    pipelineNameDe: "Patientenaufnahme & Nachverfolgung",
     stages: [
-      { name: "تماس اولیه" },
-      { name: "نوبت‌دهی" },
-      { name: "ویزیت انجام شد" },
-      { name: "پیگیری/جلسه بعد", isWon: true },
-      { name: "انصراف", isLost: true },
+      { name: "تماس اولیه", nameEn: "Initial Contact", nameDe: "Erstkontakt" },
+      { name: "نوبت‌دهی", nameEn: "Appointment Set", nameDe: "Termin vereinbart" },
+      { name: "ویزیت انجام شد", nameEn: "Visit Completed", nameDe: "Besuch abgeschlossen" },
+      { name: "پیگیری/جلسه بعد", nameEn: "Follow-up/Next Session", nameDe: "Nachsorge/Nächste Sitzung", isWon: true },
+      { name: "انصراف", nameEn: "Withdrew", nameDe: "Abgebrochen", isLost: true },
     ],
     dealCustomFields: [
       { key: "serviceType", label: "نوع خدمت", type: "text" },
@@ -91,13 +108,15 @@ export const crmIndustryTemplates: Record<string, CrmIndustryTemplate> = {
 
   "law-firm": {
     pipelineName: "پرونده‌های حقوقی",
+    pipelineNameEn: "Legal Cases",
+    pipelineNameDe: "Rechtsfälle",
     stages: [
-      { name: "مشاوره اولیه" },
-      { name: "بررسی مدارک" },
-      { name: "قبول پرونده" },
-      { name: "در حال رسیدگی" },
-      { name: "مختومه", isWon: true },
-      { name: "رد شد", isLost: true },
+      { name: "مشاوره اولیه", nameEn: "Initial Consultation", nameDe: "Erstberatung" },
+      { name: "بررسی مدارک", nameEn: "Document Review", nameDe: "Dokumentenprüfung" },
+      { name: "قبول پرونده", nameEn: "Case Accepted", nameDe: "Fall angenommen" },
+      { name: "در حال رسیدگی", nameEn: "In Progress", nameDe: "In Bearbeitung" },
+      { name: "مختومه", nameEn: "Closed", nameDe: "Abgeschlossen", isWon: true },
+      { name: "رد شد", nameEn: "Rejected", nameDe: "Abgelehnt", isLost: true },
     ],
     dealCustomFields: [
       { key: "caseType", label: "نوع پرونده", type: "select", options: ["حقوقی", "کیفری", "خانواده", "ملکی", "قراردادی"] },
@@ -107,11 +126,13 @@ export const crmIndustryTemplates: Record<string, CrmIndustryTemplate> = {
 
   "hotel": {
     pipelineName: "رزرو اقامت و رویداد",
+    pipelineNameEn: "Stay & Event Bookings",
+    pipelineNameDe: "Aufenthalts- & Veranstaltungsbuchungen",
     stages: [
-      { name: "استعلام" },
-      { name: "پیشنهاد قیمت" },
-      { name: "رزرو قطعی", isWon: true },
-      { name: "لغو شد", isLost: true },
+      { name: "استعلام", nameEn: "Inquiry", nameDe: "Anfrage" },
+      { name: "پیشنهاد قیمت", nameEn: "Quote Sent", nameDe: "Angebot gesendet" },
+      { name: "رزرو قطعی", nameEn: "Confirmed Booking", nameDe: "Bestätigte Buchung", isWon: true },
+      { name: "لغو شد", nameEn: "Cancelled", nameDe: "Storniert", isLost: true },
     ],
     dealCustomFields: [
       { key: "roomType", label: "نوع اتاق/سالن", type: "text" },
@@ -122,12 +143,14 @@ export const crmIndustryTemplates: Record<string, CrmIndustryTemplate> = {
 
   "construction": {
     pipelineName: "پروژه‌های ساخت‌وساز",
+    pipelineNameEn: "Construction Projects",
+    pipelineNameDe: "Bauprojekte",
     stages: [
-      { name: "استعلام قیمت" },
-      { name: "بازدید و برآورد" },
-      { name: "پیشنهاد قرارداد" },
-      { name: "قرارداد نهایی", isWon: true },
-      { name: "منصرف شد", isLost: true },
+      { name: "استعلام قیمت", nameEn: "Price Inquiry", nameDe: "Preisanfrage" },
+      { name: "بازدید و برآورد", nameEn: "Site Visit & Estimate", nameDe: "Besichtigung & Kostenvoranschlag" },
+      { name: "پیشنهاد قرارداد", nameEn: "Contract Proposal", nameDe: "Vertragsangebot" },
+      { name: "قرارداد نهایی", nameEn: "Final Contract", nameDe: "Endgültiger Vertrag", isWon: true },
+      { name: "منصرف شد", nameEn: "Withdrew", nameDe: "Zurückgezogen", isLost: true },
     ],
     dealCustomFields: [
       { key: "projectType", label: "نوع پروژه", type: "select", options: ["نوسازی", "ساخت از صفر", "بازسازی داخلی"] },
@@ -138,11 +161,13 @@ export const crmIndustryTemplates: Record<string, CrmIndustryTemplate> = {
 
   "university": {
     pipelineName: "پذیرش دانشجو/آموزش‌گیرنده",
+    pipelineNameEn: "Student/Trainee Admissions",
+    pipelineNameDe: "Studenten-/Teilnehmerzulassung",
     stages: [
-      { name: "درخواست اطلاعات" },
-      { name: "مشاوره ثبت‌نام" },
-      { name: "ثبت‌نام قطعی", isWon: true },
-      { name: "انصراف", isLost: true },
+      { name: "درخواست اطلاعات", nameEn: "Information Request", nameDe: "Informationsanfrage" },
+      { name: "مشاوره ثبت‌نام", nameEn: "Enrollment Consultation", nameDe: "Anmeldeberatung" },
+      { name: "ثبت‌نام قطعی", nameEn: "Confirmed Enrollment", nameDe: "Bestätigte Anmeldung", isWon: true },
+      { name: "انصراف", nameEn: "Withdrew", nameDe: "Abgebrochen", isLost: true },
     ],
     dealCustomFields: [
       { key: "program", label: "دوره/رشته", type: "text" },
@@ -154,12 +179,14 @@ export const crmIndustryTemplates: Record<string, CrmIndustryTemplate> = {
 /** Falls back to a generic sales pipeline for users without a matching industry pack. */
 export const defaultCrmTemplate: CrmIndustryTemplate = {
   pipelineName: "فروش عمومی",
+  pipelineNameEn: "General Sales",
+  pipelineNameDe: "Allgemeiner Vertrieb",
   stages: [
-    { name: "لید جدید" },
-    { name: "در تماس" },
-    { name: "پیشنهاد ارسال شد" },
-    { name: "برنده شد", isWon: true },
-    { name: "از دست رفت", isLost: true },
+    { name: "لید جدید", nameEn: "New Lead", nameDe: "Neuer Lead" },
+    { name: "در تماس", nameEn: "In Contact", nameDe: "In Kontakt" },
+    { name: "پیشنهاد ارسال شد", nameEn: "Proposal Sent", nameDe: "Angebot gesendet" },
+    { name: "برنده شد", nameEn: "Won", nameDe: "Gewonnen", isWon: true },
+    { name: "از دست رفت", nameEn: "Lost", nameDe: "Verloren", isLost: true },
   ],
   dealCustomFields: [],
 };

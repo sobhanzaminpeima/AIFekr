@@ -3,8 +3,9 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
-import { Settings, Save, Globe, Bell, Shield, Palette, DollarSign, FileText, RefreshCw } from "lucide-react";
+import { Settings, Save, Globe, Bell, Shield, Palette, DollarSign, FileText, RefreshCw, ToggleRight } from "lucide-react";
 import toast from "react-hot-toast";
+import { PAYMENT_ACCOUNTS } from "@/lib/payment/accounts";
 
 const SECTIONS = [
   {
@@ -33,7 +34,7 @@ const SECTIONS = [
   {
     id: "language", label: "زبان و محلی‌سازی", icon: Globe,
     fields: [
-      { key: "default_language", label: "زبان پیش‌فرض سایت", type: "select", default: "fa", options: ["fa", "en"] },
+      { key: "default_language", label: "زبان پیش‌فرض سایت", type: "select", default: "fa", options: ["fa", "en", "de"] },
       { key: "calendar_type", label: "نوع تقویم", type: "select", default: "jalali", options: ["jalali", "gregorian"] },
     ],
   },
@@ -45,7 +46,11 @@ const SECTIONS = [
       { key: "usd_to_aed", label: "نرخ تبدیل: ۱ دلار = چند درهم", type: "number", default: "3.67" },
       { key: "usd_to_eur", label: "نرخ تبدیل: ۱ دلار = چند یورو", type: "number", default: "0.92" },
       { key: "usd_to_gbp", label: "نرخ تبدیل: ۱ دلار = چند پوند", type: "number", default: "0.79" },
-      { key: "payment_gateway", label: "درگاه پرداخت", type: "select", default: "zarinpal", options: ["zarinpal", "stripe", "paypal"] },
+      { key: "bank_iban", label: "IBAN لیر · TRY", type: "text", default: PAYMENT_ACCOUNTS.TRY },
+      { key: "bank_iban_eur", label: "IBAN یورو · EUR (از زراعت بدون کمیسیون)", type: "text", default: PAYMENT_ACCOUNTS.EUR },
+      { key: "bank_holder", label: "نام صاحب حساب", type: "text", default: PAYMENT_ACCOUNTS.holder },
+      { key: "bank_currency", label: "ارز حساب بانکی", type: "select", default: "TRY", options: ["TRY", "USD", "EUR"] },
+      { key: "payment_gateway", label: "درگاه پرداخت", type: "select", default: "zarinpal", options: ["zarinpal", "bank_transfer"] },
       { key: "zarinpal_merchant", label: "کد Zarinpal Merchant", type: "text", default: "" },
       { key: "zarinpal_sandbox", label: "حالت آزمایشی زرین‌پال (Sandbox)", type: "toggle", default: "false" },
       { key: "stripe_key", label: "Stripe Public Key", type: "text", default: "" },
@@ -80,6 +85,14 @@ const SECTIONS = [
       { key: "enable_email_notifications", label: "اعلان ایمیل", type: "toggle", default: "true" },
       { key: "enable_sms", label: "اعلان SMS", type: "toggle", default: "false" },
       { key: "admin_notification_email", label: "ایمیل اعلان ادمین", type: "text", default: "admin@aifekr.com" },
+    ],
+  },
+  {
+    id: "features", label: "فعال/غیرفعال‌سازی امکانات", icon: ToggleRight,
+    fields: [
+      { key: "feature_image_enabled", label: "ساخت تصویر", type: "toggle", default: "true" },
+      { key: "feature_video_enabled", label: "ساخت ویدیو", type: "toggle", default: "true" },
+      { key: "feature_music_enabled", label: "ساخت موزیک", type: "toggle", default: "true" },
     ],
   },
   {
@@ -171,24 +184,25 @@ export default function AdminSettingsPage() {
         </button>
       </div>
 
-      <div className="flex gap-6">
-        <div className="w-52 flex-shrink-0 space-y-1">
+      <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+        <nav aria-label="دسته‌بندی تنظیمات" className="admin-settings-nav md:w-52 flex-shrink-0 md:space-y-1">
           {SECTIONS.map(s => (
             <button key={s.id} onClick={() => setActiveSection(s.id)}
+              aria-pressed={activeSection === s.id}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-right transition-all"
               style={{ background: activeSection === s.id ? "rgba(234,88,12,0.12)" : "transparent", color: activeSection === s.id ? "var(--primary)" : "var(--text-secondary)" }}>
               <s.icon className="w-4 h-4 flex-shrink-0" />
               {s.label}
             </button>
           ))}
-        </div>
+        </nav>
 
-        <div className="flex-1 rounded-2xl p-5 space-y-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <div className="min-w-0 flex-1 rounded-2xl p-4 sm:p-5 space-y-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           {loading ? (
             <div className="text-center py-10" style={{ color: "var(--text-muted)" }}>در حال بارگذاری...</div>
           ) : (
             <>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap gap-3 items-center justify-between">
                 <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>{section.label}</h2>
                 {section.id === "currency" && (
                   <button onClick={fetchLiveRates} disabled={fetchingRates}
@@ -204,34 +218,39 @@ export default function AdminSettingsPage() {
                   نرخ ریال همیشه دستی می‌ماند (نرخ واقعی بازار ایران در هیچ سرویس رایگانی موجود نیست)؛ یورو/پوند/درهم را می‌توانید از بازار جهانی به‌روز بگیرید.
                 </p>
               )}
+              {section.id === "features" && (
+                <p className="text-xs -mt-2" style={{ color: "var(--text-muted)" }}>
+                  با غیرفعال کردن هرکدام، ساخت جدید از همون بخش برای همه کاربران بلافاصله (بعد از «ذخیره تنظیمات») مسدود می‌شود و پیام «موقتاً غیرفعال است» به کاربر نمایش داده می‌شود. محتوای قبلاً ساخته‌شده حذف نمی‌شود.
+                </p>
+              )}
               {section.fields.map(f => (
                 <div key={f.key}>
                   <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{f.label}</label>
                   {f.type === "textarea" ? (
-                    <textarea value={values[f.key] ?? f.default} onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))} rows={3}
+                    <textarea aria-label={f.label} value={values[f.key] ?? f.default} onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))} rows={3}
                       className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none"
                       style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                   ) : f.type === "toggle" ? (
-                    <button onClick={() => setValues(v => ({ ...v, [f.key]: v[f.key] === "true" ? "false" : "true" }))}
+                    <button aria-label={f.label} role="switch" aria-checked={values[f.key] === "true"} onClick={() => setValues(v => ({ ...v, [f.key]: v[f.key] === "true" ? "false" : "true" }))}
                       className="relative w-11 h-6 rounded-full transition-all"
                       style={{ background: values[f.key] === "true" ? "var(--primary)" : "var(--surface-2)" }}>
                       <span className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
                         style={{ right: values[f.key] === "true" ? "4px" : "calc(100% - 20px)" }} />
                     </button>
                   ) : f.type === "select" ? (
-                    <select value={values[f.key] ?? f.default} onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
+                    <select aria-label={f.label} value={values[f.key] ?? f.default} onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
                       className="w-full px-3 py-2 rounded-xl text-sm outline-none"
                       style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
                       {(f as { options?: string[] }).options?.map((o: string) => <option key={o} value={o}>{o}</option>)}
                     </select>
                   ) : f.type === "color" ? (
                     <div className="flex items-center gap-3">
-                      <input type="color" value={values[f.key] ?? f.default} onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
+                      <input aria-label={f.label} type="color" value={values[f.key] ?? f.default} onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
                         className="w-10 h-10 rounded-xl cursor-pointer" style={{ border: "none" }} />
                       <span className="text-sm font-mono" style={{ color: "var(--text-muted)" }}>{values[f.key]}</span>
                     </div>
                   ) : (
-                    <input type={f.type} value={values[f.key] ?? f.default} onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
+                    <input aria-label={f.label} type={f.type} value={values[f.key] ?? f.default} onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
                       className="w-full px-3 py-2 rounded-xl text-sm outline-none" dir="ltr"
                       style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                   )}

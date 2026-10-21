@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Rocket, Lightbulb, DollarSign, FileText, Code2, ArrowRight, Sparkles } from "lucide-react";
 
 interface Props {
-  lang: "fa" | "en";
+  lang: "fa" | "en" | "de" | "tr";
 }
 
 const STEPS = {
@@ -19,6 +19,18 @@ const STEPS = {
     { icon: DollarSign, label: "Financial Model", desc: "3-year forecast, break-even, financial KPIs", color: "#10b981" },
     { icon: FileText, label: "Investor Proposal", desc: "Professional pitch deck ready for VCs", color: "#3b82f6" },
     { icon: Code2, label: "Implementation Plan", desc: "Tech architecture, sprint plan, launch checklist", color: "#8b5cf6" },
+  ],
+  de: [
+    { icon: Lightbulb, label: "Ideenanalyse", desc: "SWOT-Analyse, Wertversprechen, Wettbewerbsvorteil", color: "#f59e0b" },
+    { icon: DollarSign, label: "Finanzmodell", desc: "3-Jahres-Prognose, Break-even, Finanz-KPIs", color: "#10b981" },
+    { icon: FileText, label: "Investorenvorschlag", desc: "Professionelles Pitch-Deck, bereit für VCs", color: "#3b82f6" },
+    { icon: Code2, label: "Umsetzungsplan", desc: "Technische Architektur, Sprint-Plan, Launch-Checkliste", color: "#8b5cf6" },
+  ],
+  tr: [
+    { icon: Lightbulb, label: "Fikir Analizi", desc: "SWOT, değer önerisi, rekabet avantajı", color: "#f59e0b" },
+    { icon: DollarSign, label: "Finansal Model", desc: "3 yıllık tahmin, başabaş noktası, finansal KPI'lar", color: "#10b981" },
+    { icon: FileText, label: "Yatırımcı Teklifi", desc: "VC'lere sunuma hazır profesyonel pitch deck", color: "#3b82f6" },
+    { icon: Code2, label: "Uygulama Planı", desc: "Teknik mimari, sprint planı, lansman kontrol listesi", color: "#8b5cf6" },
   ],
 };
 
@@ -37,11 +49,26 @@ const STR = {
     cta: "Start for Free →",
     badge: "Smart · Professional · Complete",
   },
+  de: {
+    eyebrow: "Neues Tool — KI-gestützter Startup-Aufbau",
+    title: "Bau dein Startup mit AIFekr",
+    desc: "Von der Idee bis zur Umsetzung — die KI erstellt alles für dich. Finanzmodell, Investorenvorschlag und Umsetzungsplan in wenigen Minuten.",
+    cta: "Kostenlos starten →",
+    badge: "Intelligent · Professionell · Vollständig",
+  },
+  tr: {
+    eyebrow: "Yeni Araç — Yapay Zeka Destekli Startup Kurma",
+    title: "AIFekr ile Startup'ını Kur",
+    desc: "Fikirden uygulamaya — yapay zeka her şeyi senin için oluşturur. Finansal model, yatırımcı teklifi ve uygulama planı dakikalar içinde.",
+    cta: "Ücretsiz Başlayın →",
+    badge: "Akıllı · Profesyonel · Eksiksiz",
+  },
 };
 
 export default function StartupBuilderTeaser({ lang }: Props) {
-  const s = STR[lang];
-  const steps = STEPS[lang];
+  const l = lang;
+  const s = STR[l];
+  const steps = STEPS[l];
   const dir = lang === "fa" ? "rtl" : "ltr";
 
   return (
@@ -138,7 +165,7 @@ export default function StartupBuilderTeaser({ lang }: Props) {
                     className="text-xs font-bold mb-1 tracking-wider uppercase"
                     style={{ color: step.color }}
                   >
-                    {lang === "fa" ? `مرحله ${["۱","۲","۳","۴"][i]}` : `Step ${i + 1}`}
+                    {lang === "fa" ? `مرحله ${["۱","۲","۳","۴"][i]}` : lang === "de" ? `Schritt ${i + 1}` : `Step ${i + 1}`}
                   </div>
                   <h3 className="font-bold mb-2 text-base" style={{ color: "white" }}>{step.label}</h3>
                   <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>{step.desc}</p>

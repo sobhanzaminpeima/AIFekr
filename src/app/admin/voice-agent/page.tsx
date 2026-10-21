@@ -3,7 +3,8 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useCallback } from "react";
-import { Phone, Search, PhoneCall, CalendarDays, Users, Hash } from "lucide-react";
+import { Phone, Search, PhoneCall, CalendarDays, Users, Hash,  } from "lucide-react";
+import VoiceServiceAdmin from "@/components/billing/VoiceServiceAdmin";
 import toast from "react-hot-toast";
 
 interface Row {
@@ -21,28 +22,33 @@ export default function AdminVoiceAgentPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
+    try {
     const params = new URLSearchParams({ page: String(page), ...(search ? { search } : {}) });
     const res = await fetch(`/api/admin/voice-agent?${params}`);
+    if(!res.ok) throw new Error();
     const data = await res.json();
     setRows(data.users || []);
     setStats(data.stats || null);
     setTotalPages(data.totalPages || 1);
-    setLoading(false);
+    } catch { setError("دریافت کاربران تماس انجام نشد؛ دوباره تلاش کنید."); } finally { setLoading(false); }
   }, [page, search]);
 
   useEffect(() => { load(); }, [load]);
 
   async function setPlan(userId: string, voicePlan: string) {
+    try {
     const res = await fetch(`/api/admin/voice-agent/${userId}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ voicePlan, days: 30 }),
     });
     if (!res.ok) { toast.error("خطا در تغییر پلن"); return; }
     toast.success(voicePlan === "ACTIVE" ? "پلن فعال شد" : "پلن لغو شد");
-    load();
+    await load();
+    } catch {toast.error("اتصال انجام نشد؛ دوباره تلاش کنید.");}
   }
 
   const statCards = stats
@@ -58,9 +64,12 @@ export default function AdminVoiceAgentPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>ایجنت صوتی — مدیریت</h1>
+        <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>مرکز تماس هوش مصنوعی — مدیریت</h1>
         <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>کاربران، ایجنت‌ها و تماس‌های ماژول Voice Agent</p>
       </div>
+
+      <VoiceServiceAdmin />
+      {error&&<p role="alert">{error}<button onClick={()=>void load()}>تلاش مجدد</button></p>}
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {statCards.map((s, i) => (
@@ -79,7 +88,7 @@ export default function AdminVoiceAgentPage() {
           style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
       </div>
 
-      <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+      <div className="rounded-2xl overflow-x-auto" style={{ border: "1px solid var(--border)" }}>
         <table className="w-full text-sm">
           <thead>
             <tr style={{ background: "var(--surface-1)" }}>
@@ -143,3 +152,10 @@ export default function AdminVoiceAgentPage() {
     </div>
   );
 }
+
+/**
+ * Admin-managed Vapi API keys — stored in SiteSetting ("vapi_private_key",
+ * "vapi_public_key"), same reuse-not-reinvent pattern as the Zarinpal
+ * merchant id in /admin/settings. src/lib/voice/vapiClient.ts reads
+ * vapi_private_key from here first, falling back to the VAPI_API_KEY env var.
+ */

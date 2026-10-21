@@ -17,6 +17,20 @@ const PACKAGES = [
     color: "#8b5cf6", isFeatured: false, sortOrder: 3,
     features: ["تا ۵ نفر", "همه امکانات حرفه‌ای", "داشبورد مشترک", "مدیریت اعضا", "فاکتور رسمی"].join("\n"),
   },
+  // Self-service AI workspaces. Enterprise remains a sales-assisted package,
+  // but these two tiers can be bought and activated without a manual handoff.
+  {
+    planCode: "TEAM_STARTER", name: "تیم کوچک", nameEn: "Startup", price: 39000000, priceUsd: 14900, market: "BOTH", duration: 30, credits: 4000, teamSeatLimit: 5,
+    color: "#6366f1", isFeatured: false, sortOrder: 30,
+    features: ["تا ۵ کاربر", "فضای کار تیمی", "استخر اعتبار مشترک", "گزارش مصرف تیم"].join("\n"),
+    featuresEn: ["Up to 5 users", "Team workspace", "Shared credit pool", "Team usage reports"].join("\n"),
+  },
+  {
+    planCode: "TEAM_GROWTH", name: "تیم متوسط", nameEn: "Growth", price: 119000000, priceUsd: 44900, market: "BOTH", duration: 30, credits: 20000, teamSeatLimit: 20,
+    color: "#ea580c", isFeatured: true, sortOrder: 31,
+    features: ["تا ۲۰ کاربر", "فضای کار تیمی پیشرفته", "استخر اعتبار مشترک", "گزارش مصرف تیم"].join("\n"),
+    featuresEn: ["Up to 20 users", "Advanced team workspace", "Shared credit pool", "Team usage reports"].join("\n"),
+  },
   // CRM add-on plans — purchased and billed separately from the AI-usage
   // plans above (see User.crmPlan / activatePlanForPayment's "CRM_" branch).
   // credits: 0 since these don't grant AI credits, only unlock CRM features.
@@ -41,7 +55,9 @@ const PACKAGES = [
 
 async function main() {
   for (const p of PACKAGES) {
-    await prisma.package.upsert({ where: { planCode: p.planCode }, update: p, create: p });
+    // Seed only missing add-ons. Existing rows are maintained in Admin →
+    // Packages and must not be reset by an unrelated application deploy.
+    await prisma.package.upsert({ where: { planCode: p.planCode }, update: {}, create: p });
   }
   console.log("seeded", PACKAGES.length, "packages");
 }

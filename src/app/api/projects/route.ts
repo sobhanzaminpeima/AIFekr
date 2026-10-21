@@ -7,7 +7,7 @@ import { randomUUID } from "crypto";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   try {
     const projects = await (prisma as any).$queryRaw`
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   try {
     const { name, description, color = "#ea580c", icon = "folder" } = await req.json();

@@ -1,58 +1,103 @@
+import {publicAppUrl} from "@/lib/utils/publicAppUrl";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { hasVoiceAccess } from "@/lib/voice/workspace";
-import { upsertVapiAssistant, provisionPhoneNumber, VapiNotConfiguredError } from "@/lib/voice/vapiClient";
+import { upsertVapiAssistant, connectPhoneNumber, listPhoneNumbers, VapiNotConfiguredError } from "@/lib/voice/vapiClient";
+import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
+import { voiceSettings } from "@/lib/voice/settings";
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n/tri";
+import { logError } from "@/lib/logging/errorLog";
 
 /**
  * Creates/updates the Vapi assistant for this agent and, on first call,
  * provisions a phone number for it. Idempotent — safe to call again after
  * editing the agent's prompt/voice to push the changes to Vapi.
+ *
+ * QA 2026-09-15 (U01): connecting a number failed with an unexplained error.
+ * Every message here was Persian-only, none said what the prerequisite is,
+ * and a provider failure returned Vapi's raw internal text. Each case now
+ * says, in the user's language, what is required and what to do next.
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
-  if (!hasVoiceAccess(user)) {
-    return NextResponse.json({ error: "برای اتصال به شماره تلفن واقعی، افزونه Voice Agent را فعال کنید." }, { status: 402 });
-  }
+  if (!user) return unauthorizedResponse(req);
+  const lang = await getServerLang();
+  if(!["ADMIN","SUPER_ADMIN"].includes(user.role))return NextResponse.json({error:tri(lang,"راه‌اندازی شماره فقط توسط مدیر انجام می‌شود.","Phone setup is managed by the administrator.","Die Telefonnummer wird vom Administrator eingerichtet.","Telefon kurulumu yönetici tarafından yapılır.")},{status:403});
 
   const { id } = await params;
   const agent = await prisma.voiceAgent.findUnique({ where: { id } });
-  if (!agent || agent.userId !== user.id) return NextResponse.json({ error: "ایجنت یافت نشد" }, { status: 404 });
+  const admin = ["ADMIN","SUPER_ADMIN"].includes(user.role);
+  if (!agent || (!admin && (agent.userId !== user.id || agent.businessId !== await activeBusinessIdFor(user.id)))) {
+    return NextResponse.json({ error: tri(lang, "ایجنت یافت نشد", "Agent not found", "Agent nicht gefunden") }, { status: 404 });
+  }
 
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
+  const appUrl = publicAppUrl();
 
+  const body = await req.json().catch(()=>({}));
+  const numberId = admin && typeof body.phoneNumberId === "string" ? body.phoneNumberId : agent.vapiPhoneNumberId;
+  if(!numberId) return NextResponse.json({error:"شمارهٔ مجازی را در Vapi وارد کنید و از ادمین بخواهید آن را به این ایجنت اختصاص دهد."},{status:400});
+  if(!/^https:\/\//.test(appUrl)) return NextResponse.json({error:"HTTPS public app URL is required"},{status:503});
+  const owner=await prisma.user.findUnique({where:{id:agent.userId}});
+  if(!owner||owner.isBlocked||!hasVoiceAccess(owner)) return NextResponse.json({error:"اشتراک تماس مشتری فعال نیست."},{status:402});
+  const settings=await voiceSettings();
+  if(!settings.apiKey || !settings.webhookSecret || !settings.credentialId) return NextResponse.json({error:"Vapi API key, webhook secret and credential ID must be configured by admin."},{status:503});
+  const claimed=await prisma.voiceAgent.updateMany({where:{id:agent.id,OR:[{provisioningAt:null},{provisioningAt:{lt:new Date(Date.now()-120000)}}]},data:{provisioningAt:new Date()}});
+  if(!claimed.count) return NextResponse.json({error:"اتصال در حال انجام است؛ کمی صبر کنید."},{status:409});
   try {
+    const inUse=await prisma.voiceAgent.findFirst({where:{vapiPhoneNumberId:numberId,id:{not:agent.id}}});
+    if(inUse) return NextResponse.json({error:"این شماره قبلاً به ایجنت دیگری اختصاص یافته است."},{status:409});
+    const number=(await listPhoneNumbers()).find(n=>n.id===numberId);
+    if(!number) return NextResponse.json({error:"شماره در حساب Vapi یافت نشد."},{status:400});
     const assistant = await upsertVapiAssistant(
       {
         name: agent.name,
         systemPrompt: agent.systemPrompt,
         voiceId: agent.voiceId,
+        vertical: agent.vertical,
+        language: agent.language, timezone: agent.timezone,
         serverUrl: `${appUrl}/api/webhooks/vapi`,
       },
       agent.vapiAssistantId
     );
 
-    let phoneNumberId = agent.vapiPhoneNumberId;
-    let phoneNumber = agent.phoneNumber;
-    if (!phoneNumberId) {
-      const provisioned = await provisionPhoneNumber(assistant.id);
-      phoneNumberId = provisioned.id;
-      phoneNumber = provisioned.number;
-    }
-
+    // Persist assistant first: a phone-binding failure can be retried without creating another assistant.
+    await prisma.voiceAgent.update({where:{id:agent.id},data:{vapiAssistantId:assistant.id}});
+    await prisma.voiceAgent.update({where:{id:agent.id},data:{vapiPhoneNumberId:numberId,phoneNumber:number.number}});
+    const connected=await connectPhoneNumber(numberId,`${appUrl}/api/webhooks/vapi`);
+    const phoneNumberId=connected.id;
+    const phoneNumber=connected.number;
     const updated = await prisma.voiceAgent.update({
       where: { id },
       data: { vapiAssistantId: assistant.id, vapiPhoneNumberId: phoneNumberId, phoneNumber },
     });
+    await prisma.auditLog.create({data:{actorId:user.id,action:"voice_number_connected",targetId:agent.userId,metadata:JSON.stringify({agentId:agent.id,phoneNumber})}});
     return NextResponse.json({ agent: updated });
   } catch (e) {
     if (e instanceof VapiNotConfiguredError) {
-      return NextResponse.json({ error: e.message }, { status: 503 });
+      return NextResponse.json({
+        error: tri(lang,
+          "سرویس تلفن (Vapi) هنوز روی این سرور پیکربندی نشده است. ایجنت ذخیره شد؛ برای فعال‌سازی شماره با پشتیبانی تماس بگیرید.",
+          "The phone service (Vapi) isn't configured on this server yet. Your agent is saved — contact support to activate a number.",
+          "Der Telefondienst (Vapi) ist auf diesem Server noch nicht konfiguriert. Ihr Agent ist gespeichert — kontaktieren Sie den Support zur Aktivierung einer Nummer."),
+        code: "voice_provider_not_configured",
+      }, { status: 503 });
     }
-    const msg = e instanceof Error ? e.message : "خطای نامشخص در اتصال به Vapi";
-    return NextResponse.json({ error: msg }, { status: 502 });
+    // Vapi's own error text is internal and English-only; log it for the admin
+    // error tab and give the user an actionable message with a trace id.
+    const requestId = globalThis.crypto.randomUUID().slice(0, 8);
+    await logError({ source: "/api/voice-agent/provision", error: e, userId: user.id, requestId });
+    return NextResponse.json({
+      error: tri(lang,
+        `اتصال شماره انجام نشد — ارائه‌دهندهٔ تلفن درخواست را رد کرد. چند دقیقه بعد دوباره تلاش کنید؛ اگر تکرار شد این کد را به پشتیبانی بدهید: ${requestId}`,
+        `The number couldn't be connected — the phone provider rejected the request. Try again in a few minutes; if it keeps failing, give support this code: ${requestId}`,
+        `Die Nummer konnte nicht verbunden werden — der Telefonanbieter hat die Anfrage abgelehnt. Versuchen Sie es in einigen Minuten erneut; bei wiederholtem Fehler nennen Sie dem Support diesen Code: ${requestId}`),
+      requestId,
+    }, { status: 502 });
+  } finally {
+    await prisma.voiceAgent.updateMany({where:{id:agent.id},data:{provisioningAt:null}});
   }
 }

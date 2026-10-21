@@ -1,0 +1,2 @@
+"use client";import DynamicPlans from "@/components/billing/DynamicPlans";import type {Lang} from "@/lib/i18n/server";import type {PublicPlan} from "@/lib/marketing/data";import type {FxRates} from "@/lib/utils/currency";import type {BillingPeriod} from "@/lib/payment/period";
+export default function PlanPicker({business}:{lang:Lang;plans:PublicPlan[]|null;business?:boolean;rates?:FxRates;selection?:{period:BillingPeriod;setPeriod:(value:BillingPeriod)=>void}}){return <DynamicPlans category={business?"BUSINESS":"PERSONAL"}/>;}

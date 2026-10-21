@@ -1,0 +1,3 @@
+import {describe,it,expect,vi} from "vitest";
+vi.mock("node:child_process",()=>({execFile:(_cmd:string,_args:unknown,_opts:unknown,callback:(error:null,value:{stdout:string})=>void)=>callback(null,{stdout:"Pages:          13\n"})}));import {extractPdfImages} from "./pdfImages";
+describe("Scanned PDF limits",()=>{it("rejects disguised non-PDF input",async()=>expect(extractPdfImages(Buffer.from('not a PDF'))).rejects.toThrow("INVALID_PDF"));it("rejects oversized documents without partially processing pages",async()=>expect(extractPdfImages(Buffer.from('%PDF-1.4\n'))).rejects.toThrow("PDF_PAGE_LIMIT"));});

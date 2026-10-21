@@ -1,0 +1,561 @@
+"use client";
+import { hasCompleteQuizAnswers } from "@/lib/student/quizAnswers";
+
+import StudyAnswer from "./StudyAnswer";
+import StudentFeatureFinder, { type StudentDestination } from "./StudentFeatureFinder";
+import StudentLearningPath from "./StudentLearningPath";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRef } from "react";
+import Link from "next/link";
+import BillingPeriods from "@/components/billing/BillingPeriods";
+import { useRouter, useSearchParams } from "next/navigation";
+import { readStudentNavigation, studentViewHref, type StudentView, type StudentTool } from "@/lib/student/navigation";
+import { BookOpen, Plus, Sparkles, FileText, CalendarDays, Layers3, ArrowLeft, ArrowRight, GraduationCap, Loader2, Upload, X, Brain, CheckCircle2, Briefcase, LockKeyhole, Pencil, Trash2, MessageCircle, CalendarRange, Home, ClipboardList, Users, BarChart3, UserRound } from "lucide-react";
+import { useTranslation, tri, type Lang } from "@/lib/i18n";
+import StudentPlanner from "@/components/student/StudentPlanner";
+import StudentAssignmentHelper from "@/components/student/StudentAssignmentHelper";
+import StudentProfileCard from "@/components/student/StudentProfileCard";
+import AcademyOverview from "@/components/courses/AcademyOverview";
+import StudentStudyGroups from "@/components/student/StudentStudyGroups";
+import StudentStudyReport from "@/components/student/StudentStudyReport";
+import StudentThesisAssistant from "@/components/student/StudentThesisAssistant";
+import "./student-mobile.css";
+
+type Course = { id: string; name: string; courseCode: string | null; institution: string | null; term: string | null; instructor: string | null; description: string | null; color: string; _count: { materials: number; notes: number; flashcards: number; exams: number; quizzes: number }; exams: { examAt: string; title: string }[] };
+type Exam = { id: string; title: string; examAt: string; course: { id: string; name: string; color: string } };
+type Note = { id: string; title: string; content: string; updatedAt: string; course: { id: string; name: string } };
+type BusinessPackage = { planCode: "CRM_SOLO" | "CRM_TEAM"; name: string; nameEn: string; price: number; priceUsd: number | null; market: string; duration: number; features: string; featuresEn?: string };
+
+const shell: React.CSSProperties = { minHeight: "100%", padding: "clamp(14px, 3vw, 32px) clamp(12px, 4vw, 48px) calc(88px + env(safe-area-inset-bottom))", color: "var(--text-primary)" };
+const card: React.CSSProperties = { background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 18 };
+
+async function api<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, { ...init, headers: { ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }), ...init?.headers } });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Request failed");
+  return data as T;
+}
+
+function dateLabel(value: string, lang: Lang, calendar: "persian" | "gregory") {
+  const locale = lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : lang === "tr" ? "tr-TR" : "en-US";
+  return new Intl.DateTimeFormat(`${locale}-u-ca-${calendar}`, { month: "short", day: "numeric" }).format(new Date(value));
+}
+
+export default function StudentWorkspace() {
+  const { lang } = useTranslation();
+  const [scannedPdf,setScannedPdf]=useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const appliedTool = useRef("");
+  const rtl = lang === "fa";
+  const Back = rtl ? ArrowRight : ArrowLeft;
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [exams, setExams] = useState<Exam[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [showFeatureFinder, setShowFeatureFinder] = useState(false);
+  const [showAssignment, setShowAssignment] = useState(false);
+  const [quizQuestion, setQuizQuestion] = useState(0);
+  const quizPanel = useRef<HTMLDivElement>(null);
+  const [examCourseId, setExamCourseId] = useState("");
+  const [plannerRevision, setPlannerRevision] = useState(0);
+  const [buildExamPlan, setBuildExamPlan] = useState(true);
+  const [showMoreTools, setShowMoreTools] = useState(false);
+  const [readingNote, setReadingNote] = useState<Note | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [showCourse, setShowCourse] = useState(false);
+  const [courseForm, setCourseForm] = useState({ name: "", courseCode: "", institution: "", term: "", instructor: "", description: "" });
+  const [editingCourse, setEditingCourse] = useState<string | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState("");
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [showMaterial, setShowMaterial] = useState(false);
+  const [materialTitle, setMaterialTitle] = useState("");
+  const [materialText, setMaterialText] = useState("");
+  const [materialFile, setMaterialFile] = useState<File | null>(null);
+  const [materials, setMaterials] = useState<{ id: string; title: string; content: string; source: string }[]>([]);
+  const [showNote, setShowNote] = useState(false);
+  const [noteTitle, setNoteTitle] = useState("");
+  const [noteText, setNoteText] = useState("");
+  const [examTitle, setExamTitle] = useState("");
+  const [examAt, setExamAt] = useState("");
+  const [showExam, setShowExam] = useState(false);
+  const [editingExam, setEditingExam] = useState<string | null>(null);
+  const [showFlashcard, setShowFlashcard] = useState(false);
+  const [flashcardQuestion, setFlashcardQuestion] = useState("");
+  const [flashcardAnswer, setFlashcardAnswer] = useState("");
+  const [flashcards, setFlashcards] = useState<{ id: string; question: string; answer: string; masteryLevel: number; reviewCount: number; nextReviewAt: string | null }[]>([]);
+  const [activeCard, setActiveCard] = useState(0);
+  const [revealed, setRevealed] = useState(false);
+  const [quiz, setQuiz] = useState<{ id: string; title: string; timeLimitSeconds?: number | null; attemptToken?: string | null; questions: { question: string; topic: string; explanation: string; options: string[] }[] } | null>(null);
+  const [quizRemaining, setQuizRemaining] = useState<number | null>(null);
+  const quizDeadline = useRef<number | null>(null);
+  const quizSubmitted = useRef(false);
+  const [quizAnswers, setQuizAnswers] = useState<number[]>([]);
+  const [quizResult, setQuizResult] = useState<{ score: number; total: number; weakTopics: string[]; review: { correct: boolean; explanation: string; correctIndex: number }[] } | null>(null);
+  const [tab, setTab] = useState<"courses" | "notes" | "exams">("courses");
+  const [businessPackages, setBusinessPackages] = useState<BusinessPackage[]>([]);
+  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "quarterly" | "semiannual" | "annual">("monthly");
+  const [crmActive, setCrmActive] = useState(false);
+  const [activeIndustry, setActiveIndustry] = useState(false);
+  const [purchasing, setPurchasing] = useState<string | null>(null);
+  const [calendar, setCalendar] = useState<"persian" | "gregory">(lang === "fa" ? "persian" : "gregory");
+  const [studentView, updateStudentView] = useState<StudentView>("overview");
+
+  function setStudentView(view: StudentView, courseId = selectedCourse, tool?: StudentTool) {
+    updateStudentView(view);
+    router.replace(studentViewHref(view, courseId, tool), { scroll: false });
+  }
+
+  useEffect(() => {
+    const navigation = readStudentNavigation(new URLSearchParams(searchParams.toString()));
+    updateStudentView(navigation.view);
+    const course = courses.find(item => item.id === navigation.courseId) || courses.find(item => item.id === selectedCourse) || courses[0];
+    if (course && navigation.courseId && courses.some(item => item.id === navigation.courseId)) setSelectedCourse(navigation.courseId);
+    const key = `${navigation.tool}:${course?.id || "none"}`;
+    if (!navigation.tool) { appliedTool.current = ""; return; }
+    if (loading || appliedTool.current === key) return;
+    appliedTool.current = key;
+    if (!course && ["upload", "notes", "practice", "review", "assignment"].includes(navigation.tool)) {
+      setEditingCourse(null); setCourseForm({ name: "", courseCode: "", institution: "", term: "", instructor: "", description: "" }); setShowCourse(true); return;
+    }
+    if (navigation.tool === "upload") setShowMaterial(true);
+    if (navigation.tool === "notes") setTab("notes");
+    if (navigation.tool === "assignment") setShowAssignment(true);
+    if (navigation.tool === "practice" || navigation.tool === "review") {
+      if (!course?._count.materials) setShowMaterial(true);
+      else window.requestAnimationFrame(() => document.getElementById("student-practice-tools")?.scrollIntoView({ behavior: "smooth", block: "center" }));
+    }
+  }, [searchParams, courses, selectedCourse, loading]);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("student-calendar");
+    if (saved === "persian" || saved === "gregory") setCalendar(saved);
+  }, []);
+
+  function changeCalendar(value: "persian" | "gregory") {
+    setCalendar(value); window.localStorage.setItem("student-calendar", value);
+  }
+
+  const t = useMemo(() => ({
+    title: tri(lang, "دانشگاه هوش مصنوعی شما", "Your AI University", "Deine KI-Universität", "Yapay Zekâ Üniversiten"),
+    subtitle: tri(lang, "درس‌ها، جزوه‌ها و آمادگی امتحان در یک فضای شخصی", "Courses, materials and exam prep in one personal workspace", "Kurse, Materialien und Prüfungsvorbereitung an einem Ort", "Dersler, kaynaklar ve sınav hazırlığı tek yerde"),
+    courses: tri(lang, "درس‌های من", "My courses", "Meine Kurse", "Derslerim"),
+    addCourse: tri(lang, "درس جدید", "Add course", "Kurs hinzufügen", "Ders ekle"),
+    addMaterial: tri(lang, "افزودن جزوه", "Add material", "Material hinzufügen", "Kaynak ekle"),
+    ask: tri(lang, "از جزوه‌ها بپرس", "Ask your materials", "Materialien fragen", "Kaynaklara sor"),
+    flashcards: tri(lang, "ساخت فلش‌کارت", "Generate flashcards", "Lernkarten erstellen", "Kart oluştur"),
+    quiz: tri(lang, "آزمون تمرینی", "Practice quiz", "Übungstest", "Deneme sınavı"),
+    notes: tri(lang, "یادداشت‌ها", "Notes", "Notizen", "Notlar"),
+    exams: tri(lang, "امتحان‌های پیش‌رو", "Upcoming exams", "Nächste Prüfungen", "Yaklaşan sınavlar"),
+    materials: tri(lang, "منبع", "sources", "Quellen", "kaynak"),
+    empty: tri(lang, "هنوز درسی اضافه نکرده‌ای. اولین درس را بساز تا فضای مطالعه‌ات شکل بگیرد.", "No courses yet. Add your first course to set up your study space.", "Noch keine Kurse. Füge deinen ersten Kurs hinzu.", "Henüz ders yok. İlk dersini ekle."),
+    noSource: tri(lang, "برای فعال‌شدن دستیار مطالعه، به درس یک جزوه اضافه کن.", "Add course material to enable the study assistant.", "Füge Kursmaterial hinzu, um den Lernassistenten zu nutzen.", "Çalışma asistanı için ders kaynağı ekle."),
+    save: tri(lang, "ذخیره", "Save", "Speichern", "Kaydet"),
+    cancel: tri(lang, "انصراف", "Cancel", "Abbrechen", "İptal"),
+    loading: tri(lang, "در حال بارگذاری…", "Loading…", "Lädt…", "Yükleniyor…"),
+    addExam: tri(lang, "ثبت امتحان", "Add exam", "Prüfung hinzufügen", "Sınav ekle"),
+  }), [lang]);
+
+  const load = useCallback(async () => {
+    setLoading(true); setError("");
+    try {
+      const [courseData, examData, noteData] = await Promise.all([
+        api<{ courses: Course[] }>("/api/student/courses"),
+        api<{ exams: Exam[] }>("/api/student/exams"),
+        api<{ notes: Note[] }>("/api/student/notes"),
+      ]);
+      setCourses(courseData.courses); setExams(examData.exams); setNotes(noteData.notes);
+      setSelectedCourse((current) => {
+        const requested = new URLSearchParams(window.location.search).get("course");
+        if (requested && courseData.courses.some(course => course.id === requested)) return requested;
+        return current && courseData.courses.some(course => course.id === current) ? current : courseData.courses[0]?.id || "";
+      });
+    } catch (e) { setError(e instanceof Error ? e.message : "خطا در دریافت اطلاعات"); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { setAnswer(""); setQuiz(null); setQuizResult(null); setQuizAnswers([]); setQuizQuestion(0); setFlashcards([]); }, [selectedCourse]);
+
+  const materialVersion = courses.find((course) => course.id === selectedCourse)?._count.materials;
+  useEffect(() => {
+    setMaterials([]);
+    if (!selectedCourse) return;
+    let cancelled = false;
+    api<{ materials: typeof materials }>(`/api/student/materials?courseId=${encodeURIComponent(selectedCourse)}`)
+      .then((data) => { if (!cancelled) setMaterials(data.materials); })
+      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : "Could not load materials"); });
+    return () => { cancelled = true; };
+  }, [selectedCourse, materialVersion]);
+
+  useEffect(() => {
+    if (!selectedCourse) { setFlashcards([]); return; }
+    let cancelled = false;
+    api<{ flashcards: typeof flashcards }>(`/api/student/flashcards?courseId=${selectedCourse}`)
+      .then((data) => { if (!cancelled) { setFlashcards(data.flashcards); setActiveCard(0); setRevealed(false); } })
+      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : "خطا در دریافت فلش‌کارت‌ها"); });
+    return () => { cancelled = true; };
+  }, [selectedCourse]);
+
+  useEffect(() => {
+    Promise.all([
+      api<{ packages: BusinessPackage[] }>("/api/packages").catch(() => ({ packages: [] as BusinessPackage[] })),
+      api<{ user?: { crmPlan?: string; crmPlanExpiry?: string | null; industryPackId?: string | null } }>("/api/auth/me").catch(() => ({ user: undefined })),
+    ]).then(([packageData, accountData]) => {
+      setBusinessPackages(packageData.packages.filter((p) => (p.planCode === "CRM_SOLO" || p.planCode === "CRM_TEAM") && p.market !== "INTL"));
+      const user = accountData.user;
+      setCrmActive(!!user?.crmPlan && user.crmPlan !== "NONE" && (!user.crmPlanExpiry || new Date(user.crmPlanExpiry).getTime() > Date.now()));
+      setActiveIndustry(!!user?.industryPackId);
+    });
+  }, []);
+
+  function startNewCourse() {
+    setEditingCourse(null); setCourseForm({ name: "", courseCode: "", institution: "", term: "", instructor: "", description: "" }); setShowCourse(true);
+  }
+
+  function startEditCourse(course: Course) {
+    setEditingCourse(course.id); setCourseForm({ name: course.name, courseCode: course.courseCode || "", institution: course.institution || "", term: course.term || "", instructor: course.instructor || "", description: course.description || "" }); setShowCourse(true);
+  }
+
+  async function saveCourse(e: React.FormEvent) {
+    e.preventDefault(); setBusy(true); setError("");
+    try {
+      const data = await api<{ course: Course }>(editingCourse ? `/api/student/courses/${editingCourse}` : "/api/student/courses", { method: editingCourse ? "PATCH" : "POST", body: JSON.stringify(courseForm) });
+      setCourses((rows) => editingCourse ? rows.map((course) => course.id === editingCourse ? data.course : course) : [data.course, ...rows]);
+      setSelectedCourse(data.course.id); setStudentView("courses", data.course.id); setShowCourse(false); setEditingCourse(null);
+      if (!editingCourse) setShowMaterial(true);
+      setNotice(editingCourse ? tri(lang, "اطلاعات درس ذخیره شد", "Course updated", "Kurs aktualisiert", "Ders güncellendi") : tri(lang, "درس ساخته شد", "Course created", "Kurs erstellt", "Ders oluşturuldu"));
+    }
+    catch (err) { setError(err instanceof Error ? err.message : "خطا"); }
+    finally { setBusy(false); }
+  }
+
+  async function deleteCourse(course: Course) {
+    const confirmed = window.confirm(tri(lang, `حذف «${course.name}» همه جزوه‌ها، یادداشت‌ها و آزمون‌های این درس را هم پاک می‌کند. ادامه می‌دهی؟`, `Delete “${course.name}” and its materials, notes, and exams?`, `„${course.name}“ samt Materialien, Notizen und Prüfungen löschen?`, `“${course.name}” ve kaynak, not ve sınavlarını sil?`));
+    if (!confirmed) return;
+    setBusy(true); setError("");
+    try {
+      await api(`/api/student/courses/${course.id}`, { method: "DELETE" });
+      const nextCourses = courses.filter((item) => item.id !== course.id);
+      setCourses(nextCourses); setSelectedCourse((selected) => selected === course.id ? nextCourses[0]?.id || "" : selected);
+      setNotice(tri(lang, "درس و محتوای وابسته حذف شد", "Course and related content deleted", "Kurs und zugehörige Inhalte gelöscht", "Ders ve ilişkili içerik silindi"));
+      await load();
+    } catch (err) { setError(err instanceof Error ? err.message : "خطا"); }
+    finally { setBusy(false); }
+  }
+
+  async function addMaterial(e: React.FormEvent) {
+    e.preventDefault(); if (!selectedCourse) return; setBusy(true); setError("");
+    try {
+      let result: { material: { title: string } };
+      let slideOcrUnavailable = false;
+      if (materialFile) {
+        const isAudio = materialFile.type.startsWith("audio/") || /\.(mp3|mp4|m4a|wav|webm|ogg|flac)$/i.test(materialFile.name);
+        const isImage = materialFile.type.startsWith("image/");
+        const isScannedPdf=scannedPdf && /\.pdf$/i.test(materialFile.name);
+        let ocrText = "";
+        if (isAudio || isImage || isScannedPdf || materialFile.name.toLowerCase().endsWith(".pptx")) {
+          const form = new FormData(); form.set("file", materialFile);
+          let extracted: { text: string } | null = null;
+          try { extracted = await api<{ text: string }>(isAudio ? "/api/student/transcribe" : "/api/student/ocr", { method: "POST", body: form }); }
+          catch (extractError) {
+            if (!materialFile.name.toLowerCase().endsWith(".pptx")) throw extractError;
+            slideOcrUnavailable = true;
+          }
+          if (isAudio || isImage || isScannedPdf) {
+            if (!extracted) throw new Error("متن منبع استخراج نشد");
+            result = await api("/api/student/materials", { method: "POST", body: JSON.stringify({ courseId: selectedCourse, title: materialTitle || materialFile.name, content: extracted.text, source: isAudio ? "audio_transcript" : "image_ocr" }) });
+          } else {
+            ocrText = extracted?.text || "";
+            const formWithOcr = new FormData(); formWithOcr.set("courseId", selectedCourse); formWithOcr.set("title", materialTitle); formWithOcr.set("file", materialFile); formWithOcr.set("ocrText", ocrText);
+            result = await api("/api/student/materials", { method: "POST", body: formWithOcr });
+          }
+        } else {
+          const form = new FormData(); form.set("courseId", selectedCourse); form.set("title", materialTitle); form.set("file", materialFile);
+          result = await api("/api/student/materials", { method: "POST", body: form });
+        }
+      } else {
+        result = await api("/api/student/materials", { method: "POST", body: JSON.stringify({ courseId: selectedCourse, title: materialTitle, content: materialText }) });
+      }
+      setStudentView("courses"); setShowMaterial(false); setMaterialTitle(""); setMaterialText(""); setMaterialFile(null); setNotice(slideOcrUnavailable ? tri(lang, "متن اسلاید ذخیره شد؛ OCR تصویرهای PPTX در دسترس نبود.", "Slide text saved; OCR for embedded PPTX images was unavailable.", "Folientext gespeichert; OCR der eingebetteten PPTX-Bilder war nicht verfügbar.", "Slayt metni kaydedildi; PPTX içindeki görseller için OCR kullanılamadı.") : tri(lang, `«${result.material.title}» آماده است؛ حالا یادگیری، مرور یا آزمون را انتخاب کن`, `“${result.material.title}” is ready. Choose learn, review or practice.`, `„${result.material.title}“ ist bereit. Wähle Lernen, Wiederholen oder Üben.`, `“${result.material.title}” hazır. Öğrenme, tekrar veya deneme seç.`)); await load();
+    } catch (err) { setError(err instanceof Error ? err.message : "خطا"); }
+    finally { setBusy(false); }
+  }
+
+  async function addNote(e: React.FormEvent) {
+    e.preventDefault(); if (!selectedCourse) return; setBusy(true); setError("");
+    try { await api("/api/student/notes", { method: "POST", body: JSON.stringify({ courseId: selectedCourse, title: noteTitle, content: noteText }) }); setShowNote(false); setNoteTitle(""); setNoteText(""); setNotice(tri(lang, "یادداشت ذخیره شد", "Note saved", "Notiz gespeichert", "Not kaydedildi")); await load(); }
+    catch (err) { setError(err instanceof Error ? err.message : "خطا"); }
+    finally { setBusy(false); }
+  }
+
+  async function addExam(e: React.FormEvent) {
+    e.preventDefault(); if (!(examCourseId || selectedCourse)) return;
+    const examDate = new Date(String(new FormData(e.currentTarget as HTMLFormElement).get("examAt") || examAt));
+    if (!Number.isFinite(examDate.getTime())) { setError(tri(lang, "تاریخ و ساعت معتبر وارد کنید", "Enter a valid date and time", "Gültiges Datum und Uhrzeit eingeben", "Geçerli tarih ve saat girin")); return; }
+    setBusy(true); setError("");
+    try { const saved = await api<{ exam?: { id: string } }>(editingExam ? `/api/student/exams/${editingExam}` : "/api/student/exams", { method: editingExam ? "PATCH" : "POST", body: JSON.stringify({ courseId: examCourseId || selectedCourse, title: examTitle, examAt: examDate.toISOString() }) }); setShowExam(false); setEditingExam(null); setExamTitle(""); setExamAt(""); setNotice(tri(lang, "امتحان ثبت شد", "Exam scheduled", "Prüfung eingetragen", "Sınav planlandı")); await load(); setStudentView("planner");
+      if (buildExamPlan && saved.exam && examDate.getTime() > Date.now()) {
+        try {
+          const plan = await api<{ created: number }>("/api/student/study-plan", { method: "POST", body: JSON.stringify({ examId: saved.exam.id }) });
+          setPlannerRevision(revision => revision + 1);
+          setNotice(plan.created ? tri(lang, `امتحان ثبت شد و ${plan.created} جلسهٔ مرور آماده است؛ از اولین جلسه شروع کن.`, `Exam saved. ${plan.created} review sessions ready; start with the first one.`, `Prüfung gespeichert. ${plan.created} Wiederholungen bereit.`, `Sınav kaydedildi. ${plan.created} tekrar oturumu hazır.`) : tri(lang, "امتحان ثبت شد؛ قبل از این امتحان جلسهٔ جدیدی در ۷ روز آینده قابل ساخت نیست.", "Exam saved. No new review slots before this exam in the next 7 days.", "Prüfung gespeichert. Keine neuen Termine vor der Prüfung in den nächsten 7 Tagen.", "Sınav kaydedildi. Önümüzdeki 7 günde sınav öncesi yeni tekrar zamanı yok."));
+        } catch {
+          setError(tri(lang, "امتحان ذخیره شد، اما ساخت برنامه کامل نشد. ساخت برنامه را دوباره امتحان کن؛ امتحان را دوباره ثبت نکن.", "Exam saved, but plan creation failed. Retry Build plan; do not create the exam again.", "Prüfung gespeichert, Plan fehlgeschlagen. Plan erneut erstellen; Prüfung nicht nochmals anlegen.", "Sınav kaydedildi, plan başarısız. Planı tekrar dene; sınavı tekrar kaydetme."));
+        }
+      }
+    }
+    catch (err) { setError(err instanceof Error ? err.message : "خطا"); }
+    finally { setBusy(false); }
+  }
+
+  function editExam(exam: Exam) {
+    setEditingExam(exam.id); setExamTitle(exam.title); setExamCourseId(exam.course.id); setBuildExamPlan(false);
+    const date = new Date(exam.examAt);
+    setExamAt(new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+    setShowExam(true);
+  }
+  async function deleteExam(exam: Exam) {
+    if (!window.confirm(tri(lang, `امتحان «${exam.title}» حذف شود؟`, `Delete “${exam.title}”?`, `„${exam.title}“ löschen?`, `“${exam.title}” silinsin mi?`))) return;
+    setBusy(true); setError("");
+    try { await api(`/api/student/exams/${exam.id}`, { method: "DELETE" }); await load(); setNotice(tri(lang, "امتحان حذف شد", "Exam deleted", "Prüfung gelöscht", "Sınav silindi")); }
+    catch (err) { setError(err instanceof Error ? err.message : "خطا"); }
+    finally { setBusy(false); }
+  }
+
+  async function addManualFlashcard(e: React.FormEvent) {
+    e.preventDefault(); if (!selectedCourse) return; setBusy(true); setError("");
+    try {
+      await api("/api/student/flashcards", { method: "POST", body: JSON.stringify({ courseId: selectedCourse, question: flashcardQuestion, answer: flashcardAnswer }) });
+      setFlashcardQuestion(""); setFlashcardAnswer(""); setShowFlashcard(false);
+      const result = await api<{ flashcards: typeof flashcards }>(`/api/student/flashcards?courseId=${selectedCourse}`); setFlashcards(result.flashcards);
+      setNotice(tri(lang, "فلش‌کارت ذخیره شد", "Flashcard saved", "Lernkarte gespeichert", "Kart kaydedildi"));
+      await load();
+    } catch (err) { setError(err instanceof Error ? err.message : "خطا"); }
+    finally { setBusy(false); }
+  }
+
+  async function rateFlashcard(rating: "hard" | "good" | "easy") {
+    const current = flashcards[activeCard]; if (!current) return;
+    setBusy(true); setError("");
+    try {
+      const result = await api<{ masteryLevel: number; reviewCount: number; nextReviewAt: string }>(`/api/student/flashcards/${current.id}`, { method: "PATCH", body: JSON.stringify({ rating }) });
+      setFlashcards((items) => items.map((item) => item.id === current.id ? { ...item, ...result } : item));
+      setActiveCard((index) => (index + 1) % flashcards.length); setRevealed(false);
+    } catch (err) { setError(err instanceof Error ? err.message : "خطا"); }
+    finally { setBusy(false); }
+  }
+
+  async function runAI(action: "ask" | "flashcards" | "quiz") {
+    if (!selectedCourse) return; setBusy(true); setError(""); setNotice(""); setAnswer(""); setQuizResult(null);
+    try {
+      const prompt = action === "ask" ? question : action === "flashcards" ? tri(lang, "فلش‌کارت مرور مفاهیم اصلی درس", "Review flashcards for the key concepts", "Lernkarten zu den wichtigsten Konzepten", "Temel kavramlar için tekrar kartları") : tri(lang, "آزمون مرور مفاهیم اصلی درس", "Course review quiz", "Wiederholungstest zum Kurs", "Ders tekrar sınavı");
+      const data = await api<{ answer?: string; quiz?: typeof quiz; creditsUsed: number; created?: number }>("/api/student/ai", { method: "POST", body: JSON.stringify({ courseId: selectedCourse, action, prompt, count: 8, ...(action === "quiz" ? { timeLimitSeconds: 600 } : {}) }) });
+      if (action === "ask") { setAnswer(data.answer || ""); setNotice(tri(lang, `هزینه: ${data.creditsUsed} اعتبار · پاسخ در یادداشت‌های درس ذخیره شد`, `${data.creditsUsed} credits · answer saved to course notes`, `${data.creditsUsed} Credits · Antwort in Kursnotizen gespeichert`, `${data.creditsUsed} kredi · yanıt ders notlarına kaydedildi`)); const saved = await api<{ notes: Note[] }>(`/api/student/notes?courseId=${selectedCourse}`); setNotes(saved.notes); }
+      if (action === "flashcards") { setNotice(tri(lang, `${data.created} فلش‌کارت ساخته شد · ${data.creditsUsed} اعتبار`, `${data.created} flashcards created · ${data.creditsUsed} credits`, `${data.created} Lernkarten erstellt · ${data.creditsUsed} Credits`, `${data.created} kart oluşturuldu · ${data.creditsUsed} kredi`)); const d = await api<{ flashcards: typeof flashcards }>(`/api/student/flashcards?courseId=${selectedCourse}`); setFlashcards(d.flashcards); setActiveCard(0); setRevealed(false); }
+      await load();
+      if (action === "quiz" && data.quiz) { const newQuiz = data.quiz as NonNullable<typeof quiz>; setQuiz(newQuiz); setQuizQuestion(0); setQuizAnswers([]); setQuizResult(null); quizSubmitted.current = false; setQuizRemaining(newQuiz.timeLimitSeconds || null); quizDeadline.current = newQuiz.timeLimitSeconds ? Date.now() + newQuiz.timeLimitSeconds * 1000 : null; setNotice(tri(lang, `آزمون ساخته شد · ${data.creditsUsed} اعتبار`, `Timed quiz created · ${data.creditsUsed} credits`, `Zeitprüfung erstellt · ${data.creditsUsed} Credits`, `Süreli sınav oluşturuldu · ${data.creditsUsed} kredi`)); }
+    } catch (err) { setError(err instanceof Error ? err.message : "خطا"); }
+    finally { setBusy(false); }
+  }
+
+  const quizId = quiz?.id;
+  useEffect(() => { if (quizId) quizPanel.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, [quizId]);
+
+  const submitQuiz = useCallback(async (expired = false) => {
+    if (!quiz || quizSubmitted.current || (!expired && !hasCompleteQuizAnswers(quizAnswers, quiz.questions.length))) return;
+    setBusy(true); setError(""); quizSubmitted.current = true;
+    try { const answers = quiz.questions.map((_, index) => quizAnswers[index] ?? null); const data = await api<{ attempt: NonNullable<typeof quizResult> }>(`/api/student/quizzes/${quiz.id}`, { method: "POST", body: JSON.stringify({ answers, attemptToken: quiz.attemptToken }) }); setQuizResult(data.attempt); }
+    catch (err) { quizSubmitted.current = false; setError(err instanceof Error ? err.message : "خطا"); }
+    finally { setBusy(false); }
+  }, [quiz, quizAnswers]);
+
+  useEffect(() => {
+    if (!quiz || !quiz.timeLimitSeconds || quizDeadline.current === null || quizResult) return;
+    const tick = () => setQuizRemaining(Math.max(0, Math.ceil((quizDeadline.current! - Date.now()) / 1000)));
+    const timer = window.setInterval(tick, 1000); return () => window.clearInterval(timer);
+  }, [quiz, quizResult]);
+
+  useEffect(() => {
+    if (quizRemaining !== 0 || !quiz || quizResult || quizSubmitted.current) return;
+    void submitQuiz(true);
+  }, [quizRemaining, quiz, quizResult, submitQuiz]);
+
+  async function buyBusinessAddon(planCode: "CRM_SOLO" | "CRM_TEAM") {
+    setPurchasing(planCode); setError("");
+    try {
+      const data = await api<{ paymentUrl?: string; activatedByWallet?: boolean }>("/api/payment/create", { method: "POST", body: JSON.stringify({ plan: planCode, period: billingPeriod, currency: lang === "fa" ? "IRR" : "TRY" }) });
+      if (data.activatedByWallet) { setCrmActive(true); setNotice(tri(lang, "اشتراک CRM با موجودی کیف پول فعال شد؛ حالا صنعت کسب‌وکارت را انتخاب کن.", "CRM is active via wallet. Choose your business industry next.", "CRM wurde mit dem Guthaben aktiviert. Wähle jetzt deine Branche.", "CRM cüzdan bakiyesiyle etkinleştirildi. Şimdi sektörünü seç.")); router.refresh(); }
+      else if (data.paymentUrl) window.location.assign(data.paymentUrl);
+      else throw new Error(tri(lang, "درگاه پرداخت پاسخ معتبری نداد", "Payment provider returned no checkout URL", "Kein Checkout-Link vom Zahlungsanbieter", "Ödeme sağlayıcısı bir bağlantı döndürmedi"));
+    } catch (err) { setError(err instanceof Error ? err.message : "خطا در شروع پرداخت"); }
+    finally { setPurchasing(null); }
+  }
+
+  function examActions(exam: Exam) { return <div className="ms-auto flex gap-1 shrink-0"><button type="button" disabled={busy} onClick={() => editExam(exam)} aria-label={tri(lang, "ویرایش امتحان", "Edit exam", "Prüfung bearbeiten", "Sınavı düzenle")} className="p-3 rounded-lg hover:bg-orange-500/10"><Pencil size={16}/></button><button type="button" disabled={busy} onClick={() => void deleteExam(exam)} aria-label={tri(lang, "حذف امتحان", "Delete exam", "Prüfung löschen", "Sınavı sil")} className="p-3 rounded-lg hover:bg-red-500/10"><Trash2 size={16}/></button></div>; }
+
+  function findFeature(destination: StudentDestination) {
+    setShowFeatureFinder(false);
+    if (["upload", "notes", "practice", "review", "assignment"].includes(destination)) {
+      setStudentView("courses", selectedCourse, destination as StudentTool);
+      return;
+    }
+    setStudentView(destination as StudentView);
+  }
+
+  const activeCourse = courses.find((course) => course.id === selectedCourse);
+  if (loading && !courses.length) return <main style={shell} className="grid min-h-60 place-items-center" aria-busy="true"><div role="status" className="flex items-center gap-2"><Loader2 className="animate-spin" />{t.loading}</div></main>;
+
+  return <main className="student-workspace" style={shell} dir={rtl ? "rtl" : "ltr"}>
+    <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+      <header className="mb-5 flex flex-col gap-4 md:mb-8 md:flex-row md:items-center md:justify-between md:gap-5">
+        <div className="flex min-w-0 items-center gap-3 md:gap-4">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl md:h-14 md:w-14 md:rounded-2xl" style={{ background: "rgba(249,115,22,.14)", color: "#f97316" }}><GraduationCap size={25} className="md:hidden"/><GraduationCap size={30} className="hidden md:block" /></div>
+          <div className="min-w-0"><h1 className="text-xl font-bold tracking-tight md:text-3xl">{t.title}</h1><p className="mt-1 text-xs leading-5 md:text-sm" style={{ color: "var(--text-secondary)" }}>{t.subtitle}</p></div>
+        </div>
+        <div className="grid grid-cols-2 items-center gap-2 md:flex md:flex-wrap">
+          <button type="button" onClick={() => changeCalendar(calendar === "persian" ? "gregory" : "persian")} className="inline-flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs sm:text-sm md:px-3" style={{ borderColor: "var(--border)" }}><CalendarRange size={16} className="shrink-0" />{calendar === "persian" ? tri(lang, "تقویم شمسی", "Persian calendar", "Persischer Kalender", "İran takvimi") : tri(lang, "تقویم میلادی", "Gregorian calendar", "Gregorianischer Kalender", "Miladi takvim")}</button>
+          <Link href={selectedCourse ? `/student/chat?courseId=${encodeURIComponent(selectedCourse)}` : "/student/chat"} className="inline-flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs text-white sm:text-sm md:px-3" style={{ background: "#f97316" }}><MessageCircle size={16} className="shrink-0" /><span className="truncate">{tri(lang, "گفتگوی درسی جدید", "New study chat", "Neuer Lernchat", "Yeni çalışma sohbeti")}</span></Link>
+          <Link href="/home" className="col-span-2 inline-flex items-center justify-center gap-2 py-1 text-xs md:col-span-1 md:py-2 md:text-sm" style={{ color: "var(--text-secondary)" }}><Back size={16} />{tri(lang, "بازگشت به داشبورد", "Back to dashboard", "Zum Dashboard", "Panele dön")}</Link>
+        </div>
+      </header>
+
+      {error && <div role="alert" className="mb-5 rounded-xl px-4 py-3 text-sm" style={{ background: "rgba(239,68,68,.12)", color: "#dc2626" }}>{error}</div>}
+      {notice && <div role="status" className="mb-5 rounded-xl px-4 py-3 text-sm" style={{ background: "rgba(34,197,94,.12)", color: "#15803d" }}>{notice}</div>}
+
+      <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
+        <nav aria-label={tri(lang, "ناوبری فضای دانشجویی", "Student workspace navigation", "Navigation im Lernbereich", "Öğrenci alanı gezintisi")} className="min-w-0 lg:sticky lg:top-24">
+          <button type="button" onClick={() => setShowFeatureFinder(true)} className="mb-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold" style={{ borderColor: "var(--border)", background: "var(--surface-1)" }}><Layers3 size={18}/>{tri(lang, "همهٔ امکانات؛ دنبال چی هستی؟", "All features · what do you need?", "Alle Funktionen · was brauchst du?", "Tüm özellikler · neye ihtiyacın var?")}</button>
+          <div className="student-navigation flex snap-x gap-1.5 overflow-x-auto rounded-xl p-1.5 [scrollbar-width:none] lg:gap-2 lg:rounded-2xl lg:p-2 lg:flex-col lg:overflow-visible" style={{ ...card, padding: 8 }}>
+            {[
+              { id: "overview", label: tri(lang, "نمای کلی", "Overview", "Übersicht", "Genel Bakış"), icon: Home },
+              { id: "courses", label: t.courses, icon: BookOpen },
+              { id: "planner", label: tri(lang, "برنامه و امتحان‌ها", "Planner & exams", "Planer & Prüfungen", "Planlayıcı ve sınavlar"), icon: ClipboardList },
+              { id: "groups", label: tri(lang, "گروه‌های مطالعه", "Study groups", "Lerngruppen", "Çalışma grupları"), icon: Users },
+              { id: "reports", label: tri(lang, "گزارش مطالعه", "Study reports", "Lernberichte", "Çalışma raporları"), icon: BarChart3 },
+              { id: "thesis", label: tri(lang, "پایان‌نامه و تکلیف", "Thesis & assignments", "Abschlussarbeit & Aufgaben", "Tez ve ödevler"), icon: FileText },
+              { id: "profile", label: tri(lang, "پروفایل دانشجو", "Student profile", "Studierendenprofil", "Öğrenci profili"), icon: UserRound },
+              { id: "business", label: tri(lang, "ابزارهای کسب‌وکار", "Business tools", "Unternehmen", "İşletme araçları"), icon: Briefcase },
+            ].filter(({ id }) => showMoreTools || ["overview", "courses", "planner"].includes(id) || studentView === id).map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setStudentView(id as typeof studentView)} aria-current={studentView === id ? "page" : undefined} className="flex snap-start shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 text-start text-xs transition-colors sm:text-sm lg:w-full lg:gap-2 lg:rounded-xl lg:px-3 lg:py-2.5" style={{ background: studentView === id ? "rgba(249,115,22,.13)" : "transparent", color: studentView === id ? "#f97316" : "var(--text-secondary)", fontWeight: studentView === id ? 600 : 400 }}><Icon size={16}/><span>{label}</span></button>)}
+            <button type="button" aria-expanded={showMoreTools} onClick={() => setShowMoreTools(!showMoreTools)} className="flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs lg:w-full" style={{ color: "var(--text-secondary)" }}><Layers3 size={16}/>{showMoreTools ? tri(lang, "بستن ابزارهای بیشتر", "Fewer tools", "Weniger Werkzeuge", "Daha az araç") : tri(lang, "ابزارهای بیشتر", "More tools", "Weitere Werkzeuge", "Diğer araçlar")}</button>
+            <div className="mx-2 hidden border-t pt-2 text-[11px] lg:block" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>{tri(lang, "فضای شخصی یادگیری", "Personal learning space", "Persönlicher Lernbereich", "Kişisel öğrenme alanı")}</div>
+          </div>
+          <Link href={selectedCourse ? `/student/chat?courseId=${encodeURIComponent(selectedCourse)}` : "/student/chat"} className="mt-3 hidden w-full items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold text-white lg:flex" style={{ background: "#f97316" }}><MessageCircle size={16}/>{tri(lang, "گفتگوی درسی جدید", "New study chat", "Neuer Lernchat", "Yeni çalışma sohbeti")}</Link>
+        </nav>
+        <div className="min-w-0">
+          {(studentView === "overview" || studentView === "courses") && !loading && !error && <StudentLearningPath lang={lang} courseName={activeCourse?.name} hasMaterials={!!activeCourse?._count.materials} busy={busy}
+            onCreate={startNewCourse}
+            onUpload={() => { setStudentView("courses"); setShowMaterial(true); }}
+            onLearn={() => router.push(`/student/chat?courseId=${encodeURIComponent(selectedCourse)}`)}
+            onReview={() => { setStudentView("courses"); void runAI("flashcards"); }}
+            onQuiz={() => { setStudentView("courses"); void runAI("quiz"); }} />}
+          {studentView === "overview" && <>
+            <AcademyOverview/>
+            <Link href="/learn" className="mb-5 flex min-h-12 items-center gap-3 rounded-xl border border-orange-400/30 bg-orange-400/5 p-4"><GraduationCap size={22}/><span>{tri(lang, "دوره‌های آمادهٔ دانشگاه AIFekr — شروع و ادامهٔ یادگیری", "AIFekr course library — start or continue learning", "AIFekr-Kursbibliothek — Lernen starten oder fortsetzen", "AIFekr kurs kütüphanesi — öğrenmeye başla veya devam et")}</span></Link>
+            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+              {[
+                { label: t.courses, value: courses.length, icon: BookOpen, color: "#f97316" },
+                { label: tri(lang, "منابع درسی", "Course materials", "Kursmaterial", "Ders kaynakları"), value: courses.reduce((n, c) => n + c._count.materials, 0), icon: FileText, color: "#0ea5e9" },
+                { label: t.notes, value: notes.length, icon: Layers3, color: "#8b5cf6" },
+                { label: t.exams, value: exams.length, icon: CalendarDays, color: "#10b981" },
+              ].map(({ label, value, icon: Icon, color }) => <div key={label} style={{ ...card, padding: 16 }}><Icon size={19} color={color} /><div className="mt-2 text-2xl font-bold">{value}</div><div className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{label}</div></div>)}
+            </div>
+            <div className="mt-5 grid gap-4 xl:grid-cols-[1.2fr_.8fr]">
+              <section className="rounded-2xl p-5" style={card}><div className="student-section-heading flex items-center justify-between gap-3"><div><h2 className="font-semibold">{tri(lang, "ادامهٔ یادگیری", "Continue learning", "Weiterlernen", "Öğrenmeye devam et")}</h2><p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>{courses.length ? tri(lang, "یک درس را باز کن تا به جزوه، یادداشت و ابزارهای هوشمند آن برسی.", "Open a course to access its materials, notes and study tools.", "Öffne einen Kurs für Materialien, Notizen und Lernwerkzeuge.", "Kaynaklara, notlara ve öğrenme araçlarına ulaşmak için ders aç.") : t.empty}</p></div><button onClick={startNewCourse} className="inline-flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-white" style={{ background: "#f97316" }}><Plus size={16}/>{t.addCourse}</button></div>{courses.slice(0, 4).length > 0 && <div className="mt-4 grid gap-2 sm:grid-cols-2">{courses.slice(0, 4).map((course) => <button key={course.id} onClick={() => { setSelectedCourse(course.id); setStudentView("courses", course.id); }} className="flex items-center justify-between gap-2 rounded-xl p-3 text-start" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}><span className="truncate text-sm font-medium">{course.name}</span><span className="shrink-0 text-xs" style={{ color: "var(--text-secondary)" }}>{course._count.materials} {t.materials}</span></button>)}</div>}</section>
+              <section className="rounded-2xl p-5" style={card}><h2 className="font-semibold">{tri(lang, "نزدیک‌ترین امتحان‌ها", "Upcoming exams", "Nächste Prüfungen", "Yaklaşan sınavlar")}</h2>{exams.length ? <div className="mt-3 space-y-2">{exams.slice(0, 4).map((exam) => <div key={exam.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl p-3" style={{ background: "var(--surface-1)" }}><div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{exam.title}</div><div className="text-xs" style={{ color: "var(--text-secondary)" }}>{exam.course.name}</div></div><span className="shrink-0 text-xs" style={{ color: exam.course.color }}>{dateLabel(exam.examAt, lang, calendar)}</span>{examActions(exam)}</div>)}</div> : <p className="mt-3 text-sm" style={{ color: "var(--text-secondary)" }}>{tri(lang, "امتحانی ثبت نشده است.", "No exams scheduled.", "Keine Prüfungen geplant.", "Planlanmış sınav yok.")}</p>}</section>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[
+              { id: "planner", icon: ClipboardList, label: tri(lang, "برنامهٔ مطالعه", "Study planner", "Lernplan", "Çalışma planı") },
+              { id: "groups", icon: Users, label: tri(lang, "همکاری با گروه", "Study together", "Gemeinsam lernen", "Birlikte çalış") },
+              { id: "reports", icon: BarChart3, label: tri(lang, "زمان‌سنج و گزارش", "Timer & reports", "Timer & Berichte", "Sayaç ve raporlar") },
+              { id: "thesis", icon: Sparkles, label: tri(lang, "دستیار تکلیف و پایان‌نامه", "Thesis & assignment AI", "KI für Aufgaben", "Tez ve ödev asistanı") },
+            ].map(({ id, icon: Icon, label }) => <button key={id} onClick={() => setStudentView(id as typeof studentView)} className="flex items-center gap-3 rounded-xl p-4 text-start text-sm font-medium" style={card}><Icon size={18} color="#f97316"/>{label}<ArrowRight size={15} className="ms-auto"/></button>)}</div>
+          </>}
+
+          {studentView === "profile" && <StudentProfileCard lang={lang} />}
+          {studentView === "planner" && <><section className="mb-5 rounded-2xl p-4" style={card}><div className="mb-3 flex items-center justify-between gap-3"><h2 className="font-semibold">{t.exams}</h2><button disabled={!selectedCourse} onClick={() => { setEditingExam(null); setExamTitle(""); setExamAt(""); setExamCourseId(selectedCourse); setBuildExamPlan(true); setShowExam(true); }} className="rounded-lg bg-orange-500 px-3 py-2 text-sm text-white disabled:opacity-50">{t.addExam}</button></div>{exams.map((exam) => <div key={exam.id} className="flex items-center gap-2 border-t py-2" style={{ borderColor: "var(--border)" }}><div className="min-w-0"><div className="truncate text-sm font-medium">{exam.title}</div><div className="text-xs" style={{ color: "var(--text-secondary)" }}>{exam.course.name} · {dateLabel(exam.examAt, lang, calendar)}</div></div>{examActions(exam)}</div>)}</section><StudentPlanner key={plannerRevision} onAddExam={() => { if (!selectedCourse) { startNewCourse(); return; } setEditingExam(null); setExamCourseId(selectedCourse); setExamTitle(""); setExamAt(""); setBuildExamPlan(true); setShowExam(true); }} onStudy={courseId => { setSelectedCourse(courseId); setStudentView("courses", courseId); }} courses={courses.map(({ id, name }) => ({ id, name }))} exams={exams} lang={lang} calendar={calendar} /></>}
+          {studentView === "groups" && <StudentStudyGroups lang={lang} courses={courses.map(({ id, name }) => ({ id, name }))} />}
+          {studentView === "reports" && <StudentStudyReport courses={courses.map(({ id, name }) => ({ id, name }))} lang={lang} calendar={calendar} />}
+          {studentView === "thesis" && <StudentThesisAssistant courses={courses.map(({ id, name }) => ({ id, name }))} lang={lang} onSaved={load} />}
+          {studentView === "courses" && <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,.8fr)] xl:items-start">
+        <section>
+          <div className="flex items-center justify-between mb-4"><h2 className="text-xl font-semibold">{t.courses}</h2><button onClick={startNewCourse} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white" style={{ background: "#f97316" }}><Plus size={17} />{t.addCourse}</button></div>
+          {loading ? <div className="py-16 text-center" style={{ color: "var(--text-secondary)" }}><Loader2 className="animate-spin inline" /> <span className="ms-2">{t.loading}</span></div> : courses.length === 0 ? <div style={{ ...card, padding: 36, textAlign: "center" }}><BookOpen size={34} color="#f97316" className="mx-auto mb-3"/><div className="font-medium">{t.empty}</div><button className="mt-4 rounded-xl px-4 py-2 text-white" style={{ background: "#f97316" }} onClick={startNewCourse}>{t.addCourse}</button></div> : <div className="grid sm:grid-cols-2 gap-4">
+            {courses.map((course) => <button key={course.id} onClick={() => { setSelectedCourse(course.id); setQuiz(null); setQuizResult(null); setAnswer(""); }} className="text-start p-5 transition-all" style={{ ...card, borderColor: selectedCourse === course.id ? course.color : "var(--border)", boxShadow: selectedCourse === course.id ? `0 0 0 1px ${course.color}` : undefined }}>
+              <div className="flex items-start justify-between"><div className="min-w-0"><div className="font-semibold text-lg truncate">{course.name}</div><div className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{[course.courseCode, course.term].filter(Boolean).join(" · ")}</div>{course.instructor && <div className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{course.instructor}</div>}</div><span className="w-3 h-3 rounded-full mt-2" style={{ background: course.color }} /></div>
+              {course.description && <p className="mt-3 text-sm line-clamp-2" style={{ color: "var(--text-secondary)" }}>{course.description}</p>}
+              <div className="flex flex-wrap gap-3 mt-5 text-xs" style={{ color: "var(--text-secondary)" }}><span>{course._count.materials} {t.materials}</span><span>{course._count.notes} {t.notes}</span><span>{course._count.flashcards} {t.flashcards}</span>{course.exams[0] && <span>{dateLabel(course.exams[0].examAt, lang, calendar)}</span>}</div>
+            </button>)}
+          </div>}
+
+          {activeCourse && <div className="mt-6" style={{ ...card, padding: "clamp(18px,3vw,28px)" }}>
+            <div className="flex flex-wrap items-start justify-between gap-4 mb-5"><div><div className="text-xs uppercase tracking-wide" style={{ color: "#f97316" }}>{tri(lang, "فضای درس", "COURSE WORKSPACE", "KURSRAUM", "DERS ALANI")}</div><h2 className="text-2xl font-bold mt-1">{activeCourse.name}</h2><p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{[activeCourse.institution, activeCourse.courseCode, activeCourse.term].filter(Boolean).join(" · ")}</p></div><div className="student-course-actions flex flex-wrap gap-2"><button onClick={() => startEditCourse(activeCourse)} aria-label={tri(lang, "ویرایش درس", "Edit course", "Kurs bearbeiten", "Dersi düzenle")} className="rounded-lg px-3 py-2 text-sm border" style={{ borderColor: "var(--border)" }}><Pencil size={15} className="inline me-1"/>{tri(lang, "ویرایش", "Edit", "Bearbeiten", "Düzenle")}</button><button onClick={() => void deleteCourse(activeCourse)} disabled={busy} aria-label={tri(lang, "حذف درس", "Delete course", "Kurs löschen", "Dersi sil")} className="rounded-lg px-3 py-2 text-sm border disabled:opacity-50" style={{ borderColor: "var(--border)", color: "#dc2626" }}><Trash2 size={15} className="inline me-1"/>{tri(lang, "حذف", "Delete", "Löschen", "Sil")}</button><button onClick={() => setShowMaterial(true)} className="rounded-lg px-3 py-2 text-sm border" style={{ borderColor: "var(--border)" }}><Upload size={15} className="inline me-1"/>{t.addMaterial}</button><button onClick={() => setShowNote(true)} className="rounded-lg px-3 py-2 text-sm border" style={{ borderColor: "var(--border)" }}><FileText size={15} className="inline me-1"/>{tri(lang, "یادداشت جدید", "New note", "Neue Notiz", "Yeni not")}</button><button onClick={() => { setEditingExam(null); setExamTitle(""); setExamAt(""); setExamCourseId(selectedCourse); setBuildExamPlan(true); setShowExam(true); }} className="rounded-lg px-3 py-2 text-sm border" style={{ borderColor: "var(--border)" }}><CalendarDays size={15} className="inline me-1"/>{t.addExam}</button><button onClick={() => setShowFlashcard(true)} className="rounded-lg px-3 py-2 text-sm border" style={{ borderColor: "var(--border)" }}><Layers3 size={15} className="inline me-1"/>{tri(lang, "فلش‌کارت دستی", "Add flashcard", "Lernkarte hinzufügen", "Kart ekle")}</button></div></div>
+            {materials.length > 0 && <section aria-label={tri(lang, "جزوه‌های این درس", "Course sources", "Kursquellen", "Ders kaynakları")} className="mb-4 space-y-2">{materials.map((material) => <details key={material.id} className="rounded-xl p-3" style={{ background: "var(--surface-0)", border: "1px solid var(--border)" }}><summary className="cursor-pointer text-sm font-medium break-words">{material.title}<span className="ms-2 text-xs" style={{ color: "var(--text-secondary)" }}>{material.source === "audio_transcript" ? tri(lang, "متن ویس", "Audio transcript", "Audiotranskript", "Ses dökümü") : tri(lang, "مشاهدهٔ متن", "Read text", "Text lesen", "Metni oku")}</span></summary><p className="mt-3 max-h-64 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-7">{material.content}</p></details>)}</section>}
+            {activeCourse._count.materials === 0 ? <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>{t.noSource}</p> : <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>{activeCourse._count.materials} {tri(lang, "منبع آمادهٔ مطالعه", "sources ready for study", "Quellen bereit", "kaynak hazır")}</p>}
+            <div className="flex gap-2 mb-3"><input value={question} onChange={(e) => setQuestion(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void runAI("ask"); } }} placeholder={tri(lang, "مثلاً مفهوم اصلی فصل را توضیح بده…", "e.g. Explain the main idea in chapter 2…", "z. B. Erkläre das Hauptkonzept in Kapitel 2…", "örn. 2. bölümün ana fikrini açıkla…")} className="min-w-0 flex-1 rounded-xl px-4 py-3 text-sm outline-none" style={{ background: "var(--surface-0)", border: "1px solid var(--border)" }} /><button disabled={busy || activeCourse._count.materials === 0 || !question.trim()} onClick={() => void runAI("ask")} title={tri(lang, "هزینه حداکثر ۵ اعتبار · هزینه واقعی پس از موفقیت", "Up to 5 credits · actual cost shown on success", "Max. 5 Credits · tatsächliche Kosten nach Erfolg", "En fazla 5 kredi · gerçek maliyet başarıdan sonra")} aria-label={tri(lang, "پرسش از AI · حداکثر ۵ اعتبار", "Ask AI · up to 5 credits", "KI fragen · max. 5 Credits", "Yapay zekâya sor · en fazla 5 kredi")} className="rounded-xl px-4 text-white disabled:opacity-50" style={{ background: "#f97316" }}>{busy ? <Loader2 className="animate-spin"/> : <Sparkles size={18}/>}</button></div>
+            <div id="student-practice-tools" className="flex flex-wrap gap-2"><button disabled={busy || activeCourse._count.materials === 0} onClick={() => void runAI("flashcards")} className="rounded-lg px-3 py-2 text-sm border disabled:opacity-50" style={{ borderColor: "var(--border)" }}><Layers3 size={15} className="inline me-1"/>{t.flashcards} · 8 · {tri(lang, "حداکثر ۵ اعتبار", "≤5 credits", "max. 5 Credits", "en fazla 5 kredi")}</button><button disabled={busy || activeCourse._count.materials === 0} onClick={() => void runAI("quiz")} className="rounded-lg px-3 py-2 text-sm border disabled:opacity-50" style={{ borderColor: "var(--border)" }}><Brain size={15} className="inline me-1"/>{t.quiz} · 8 · {tri(lang, "حداکثر ۵ اعتبار", "≤5 credits", "max. 5 Credits", "en fazla 5 kredi")}</button><span className="text-xs self-center ms-auto" style={{ color: "var(--text-secondary)" }}>{tri(lang, "عدد واقعی هزینه بعد از موفقیت نمایش داده می‌شود", "Actual credits are shown after success", "Tatsächliche Credits nach Erfolg", "Gerçek kredi miktarı işlem sonrası gösterilir")}</span></div>
+            {answer && <div className="mt-5 rounded-xl p-4 text-sm leading-7" style={{ background: "var(--surface-0)", border: "1px solid var(--border)" }}><div className="font-semibold mb-2 flex items-center gap-2"><Sparkles size={15} color="#f97316"/>{tri(lang, "پاسخ بر اساس منابع درس", "Source-grounded answer", "Quellenbasierte Antwort", "Kaynak temelli yanıt")}</div><StudyAnswer>{answer}</StudyAnswer></div>}
+            {flashcards.length > 0 && <div className="mt-5 rounded-xl p-5" style={{ background: "var(--surface-0)", border: "1px solid var(--border)" }}><div className="flex justify-between text-xs mb-3"><span>{t.flashcards} · {tri(lang, `تسلط ${flashcards[activeCard]?.masteryLevel || 0}/5`, `Mastery ${flashcards[activeCard]?.masteryLevel || 0}/5`, `Lernstand ${flashcards[activeCard]?.masteryLevel || 0}/5`, `Ustalık ${flashcards[activeCard]?.masteryLevel || 0}/5`)}</span><span>{activeCard + 1} / {flashcards.length}</span></div><button onClick={() => setRevealed(!revealed)} className="w-full min-h-24 text-lg font-medium" aria-label={tri(lang, "نمایش یا پنهان‌کردن پاسخ", "Reveal or hide answer", "Antwort zeigen oder ausblenden", "Yanıtı göster veya gizle")}>{revealed ? flashcards[activeCard]?.answer : flashcards[activeCard]?.question}</button><div className="flex flex-wrap justify-between gap-2 mt-3"><button className="text-sm" onClick={() => { setActiveCard((n) => (n - 1 + flashcards.length) % flashcards.length); setRevealed(false); }}>{tri(lang, "قبلی", "Previous", "Zurück", "Önceki")}</button><div className="flex gap-2"><button disabled={busy} onClick={() => void rateFlashcard("hard")} className="rounded-lg px-3 py-1.5 text-xs border disabled:opacity-50" style={{ borderColor: "var(--border)" }}>{tri(lang, "سخت بود · فردا مرور", "Hard · review tomorrow", "Schwer · morgen wiederholen", "Zor · yarın tekrar")}</button><button disabled={busy} onClick={() => void rateFlashcard("good")} className="rounded-lg px-3 py-1.5 text-xs border disabled:opacity-50" style={{ borderColor: "var(--border)" }}>{tri(lang, "خوب بود", "Good", "Gut", "İyi")}</button><button disabled={busy} onClick={() => void rateFlashcard("easy")} className="rounded-lg px-3 py-1.5 text-xs border disabled:opacity-50" style={{ borderColor: "var(--border)" }}>{tri(lang, "آسان", "Easy", "Einfach", "Kolay")}</button></div></div></div>}
+            {quiz && <div ref={quizPanel} className="mt-5 rounded-xl p-5" style={{ background: "var(--surface-0)", border: "1px solid var(--border)" }}><div className="flex items-center justify-between gap-3 mb-4"><div className="font-semibold text-lg">{quiz.title}</div>{quiz.timeLimitSeconds && quizRemaining !== null && <div role="timer" aria-live="off" className="rounded-lg px-3 py-1.5 text-sm font-semibold tabular-nums" style={{ color: quizRemaining < 60 ? "#dc2626" : "var(--text-primary)", background: quizRemaining < 60 ? "rgba(239,68,68,.12)" : "var(--surface-1)" }}>{Math.floor(quizRemaining / 60).toString().padStart(2, "0")}:{(quizRemaining % 60).toString().padStart(2, "0")}</div>}</div>{quiz.questions.map((item, qi) => !quizResult && qi !== quizQuestion ? null : <div key={qi} className="mb-5"><div className="font-medium mb-2">{qi + 1}. {item.question}</div><div className="grid sm:grid-cols-2 gap-2">{item.options.map((option, oi) => <button key={oi} disabled={!!quizResult} onClick={() => setQuizAnswers((prev) => { const next = [...prev]; next[qi] = oi; return next; })} className="text-start rounded-lg px-3 py-2 text-sm" style={{ background: quizAnswers[qi] === oi ? "rgba(249,115,22,.16)" : "var(--surface-1)", border: `1px solid ${quizAnswers[qi] === oi ? "#f97316" : "var(--border)"}` }}>{option}</button>)}</div>{quizResult?.review[qi] && <p className="mt-3 rounded-xl p-3 text-sm leading-6" style={{ background: "var(--surface-1)", color: quizResult.review[qi].correct ? "#15803d" : "var(--text-primary)" }}>{quizResult.review[qi].correct ? tri(lang, "پاسخ درست", "Correct", "Richtig", "Doğru") : `${tri(lang, "پاسخ صحیح:", "Correct answer:", "Richtige Antwort:", "Doğru yanıt:")} ${item.options[quizResult.review[qi].correctIndex] || ""}`} · {quizResult.review[qi].explanation}</p>}</div>)}{!quizResult && <div className="mb-4"><p role="status" className="mb-3 text-sm">{tri(lang, `سؤال ${quizQuestion + 1} از ${quiz.questions.length} · ${quiz.questions.filter((_, index) => Number.isInteger(quizAnswers[index])).length} پاسخ داده‌شده`, `Question ${quizQuestion + 1} of ${quiz.questions.length} · ${quiz.questions.filter((_, index) => Number.isInteger(quizAnswers[index])).length} answered`, `Frage ${quizQuestion + 1} von ${quiz.questions.length} · ${quiz.questions.filter((_, index) => Number.isInteger(quizAnswers[index])).length} beantwortet`, `Soru ${quizQuestion + 1} / ${quiz.questions.length} · ${quiz.questions.filter((_, index) => Number.isInteger(quizAnswers[index])).length} yanıtlandı`)}</p><div className="flex flex-wrap gap-2"><button type="button" disabled={quizQuestion === 0} onClick={() => setQuizQuestion(n => n - 1)} className="rounded-lg border px-4 py-2 text-sm disabled:opacity-40" style={{ borderColor: "var(--border)" }}>{tri(lang, "سؤال قبلی", "Previous question", "Vorherige Frage", "Önceki soru")}</button><button type="button" disabled={quizQuestion >= quiz.questions.length - 1} onClick={() => setQuizQuestion(n => n + 1)} className="rounded-lg border px-4 py-2 text-sm disabled:opacity-40" style={{ borderColor: "var(--border)" }}>{tri(lang, "سؤال بعدی", "Next question", "Nächste Frage", "Sonraki soru")}</button>{!hasCompleteQuizAnswers(quizAnswers, quiz.questions.length) && <button type="button" onClick={() => setQuizQuestion(quiz.questions.findIndex((_, i) => !Number.isInteger(quizAnswers[i])))} className="rounded-lg px-3 py-2 text-sm text-orange-500">{tri(lang, "رفتن به سؤال بی‌پاسخ", "Go to unanswered", "Zur offenen Frage", "Yanıtlanmamış soruya git")}</button>}</div></div>}<button disabled={busy || !!quizResult || !hasCompleteQuizAnswers(quizAnswers, quiz.questions.length)} onClick={() => void submitQuiz()} className="rounded-lg px-4 py-2 text-white disabled:opacity-50" style={{ background: "#f97316" }}>{tri(lang, "ثبت پاسخ‌ها", "Submit answers", "Antworten abgeben", "Yanıtları gönder")}</button>{quizResult && <div className="mt-4"><div className="font-semibold flex gap-2 items-center"><CheckCircle2 color="#16a34a"/>{tri(lang, `نتیجه: ${quizResult.score} از ${quizResult.total}`, `Score: ${quizResult.score} / ${quizResult.total}`, `Ergebnis: ${quizResult.score} / ${quizResult.total}`, `Sonuç: ${quizResult.score} / ${quizResult.total}`)}</div>{quizResult.weakTopics.length > 0 && <p className="mt-2 text-sm">{tri(lang, "نیاز به مرور:", "Review these topics:", "Wiederholen:", "Tekrar konuları:")} {quizResult.weakTopics.join("، ")}</p>}</div>}</div>}
+          </div>}
+
+          {activeCourse && <details open={showAssignment} onToggle={event => setShowAssignment(event.currentTarget.open)} className="mt-5 rounded-2xl border p-4" style={{ borderColor: "var(--border)" }}><summary className="cursor-pointer text-sm font-semibold">{tri(lang, "برای تکلیف هم کمک می‌خواهم", "I also need assignment help", "Hilfe bei Aufgaben", "Ödev için de yardım istiyorum")}</summary><StudentAssignmentHelper key={activeCourse.id} courseId={activeCourse.id} lang={lang} onSaved={load} /></details>}
+
+        </section>
+
+        <aside>
+          <div style={{ ...card, overflow: "hidden" }}><div className="flex border-b" style={{ borderColor: "var(--border)" }}>{(["exams", "notes"] as const).map((key) => <button key={key} onClick={() => setTab(key)} className="flex-1 px-4 py-3 text-sm" style={{ color: tab === key ? "#f97316" : "var(--text-secondary)", borderBottom: tab === key ? "2px solid #f97316" : "2px solid transparent" }}>{key === "exams" ? t.exams : t.notes}</button>)}</div>
+            {tab === "exams" ? <div className="p-4">{exams.length === 0 ? <p className="text-sm py-5 text-center" style={{ color: "var(--text-secondary)" }}>{tri(lang, "امتحانی ثبت نشده", "No exams scheduled", "Keine Prüfung geplant", "Sınav planlanmadı")}</p> : exams.map((exam) => <div key={exam.id} className="flex gap-3 py-3 border-b last:border-0" style={{ borderColor: "var(--border)" }}><div className="rounded-lg px-2 py-1 text-center text-xs" style={{ background: `${exam.course.color}18`, color: exam.course.color }}>{dateLabel(exam.examAt, lang, calendar)}</div><div><div className="text-sm font-medium">{exam.title}</div><div className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{exam.course.name}</div></div>{examActions(exam)}</div>)}</div> : <div className="p-4">{notes.length === 0 ? <p className="text-sm py-5 text-center" style={{ color: "var(--text-secondary)" }}>{tri(lang, "یادداشتی ثبت نشده", "No notes yet", "Noch keine Notizen", "Henüz not yok")}</p> : notes.slice(0, 8).map((note) => <button key={note.id} onClick={() => { setSelectedCourse(note.course.id); setReadingNote(note); }} className="block w-full text-start py-3 border-b last:border-0" style={{ borderColor: "var(--border)" }}><div className="text-sm font-medium truncate">{note.title}</div><div className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{note.course.name} · {dateLabel(note.updatedAt, lang, calendar)}</div></button>)}</div>}</div>
+          <div className="mt-4 rounded-2xl p-5" style={{ background: "linear-gradient(140deg,rgba(249,115,22,.15),rgba(139,92,246,.1))", border: "1px solid rgba(249,115,22,.18)" }}><div className="font-semibold flex items-center gap-2"><Sparkles size={17} color="#f97316"/>{tri(lang, "یادگیری متکی به منبع", "Grounded study AI", "Quellenbasiertes Lernen", "Kaynak temelli öğrenme")}</div><p className="text-sm leading-6 mt-2" style={{ color: "var(--text-secondary)" }}>{tri(lang, "پاسخ‌ها، فلش‌کارت‌ها و آزمون‌ها از جزوه‌های خودت ساخته می‌شوند. اگر پاسخ در منابع نباشد، دستیار باید این محدودیت را بگوید.", "Answers, cards and quizzes are generated from your own materials. If the sources do not support an answer, the assistant should say so.", "Antworten, Karten und Tests basieren auf deinen Materialien. Fehlt die Information, weist der Assistent darauf hin.", "Yanıtlar ve testler kendi kaynaklarından üretilir. Bilgi kaynaklarda yoksa asistan bunu belirtir.")}</p></div>
+        </aside>
+      </div>}
+
+          {studentView === "business" && <section id="business-upgrade" className="rounded-2xl p-5 md:p-6" style={{ background: "linear-gradient(135deg,rgba(59,130,246,.11),rgba(249,115,22,.1))", border: "1px solid rgba(59,130,246,.24)" }}>
+        <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={{ background: "rgba(59,130,246,.15)", color: "#3b82f6" }}>{crmActive ? <Briefcase size={19}/> : <LockKeyhole size={19}/>}</span><div><h2 className="font-semibold">{tri(lang, "دانشجو هستی و بیزنس هم داری؟", "A student with a business too?", "Studierst du und hast ein Unternehmen?", "Öğrenci misin, işletmen de mi var?")}</h2><p className="mt-1 text-sm leading-6" style={{ color: "var(--text-secondary)" }}>{tri(lang, "اگر کسب‌وکار هم داری، ابزارهای CRM و ایجنت‌های تخصصی را به‌صورت افزونه فعال کن. تا آن زمان این بخش جدا از فضای دانشجویی می‌ماند.", "If you also run a business, activate CRM and specialist agents as an add-on. Until then, business tools stay separate from your study workspace.", "Wenn du zusätzlich ein Unternehmen führst, aktiviere CRM und Fachagenten als Add-on. Bis dahin bleiben die Business-Tools getrennt.", "İşletmen de varsa CRM ve uzman ajanları eklenti olarak etkinleştir. O zamana kadar işletme araçları öğrenci alanından ayrı kalır.")}</p></div></div>
+        {crmActive ? <div className="mt-4 rounded-xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}><p className="text-sm font-medium" style={{ color: "#16a34a" }}>{activeIndustry ? tri(lang, "دسترسی بیزنسی و صنعت انتخابی فعال است.", "Business access and an industry are active.", "Businesszugang und Branche sind aktiv.", "İşletme erişimi ve sektör etkin.") : tri(lang, "CRM فعال است؛ یک صنعت انتخاب کن تا ابزارهای مرتبط در منو ظاهر شوند.", "CRM is active. Choose a business industry to reveal its tools.", "CRM ist aktiv. Wähle eine Branche für passende Tools.", "CRM etkin. İlgili araçlar için sektör seç.")}</p>{!activeIndustry && <Link href="/industry" className="mt-3 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-white" style={{ background: "#3b82f6" }}>{tri(lang, "انتخاب صنعت کسب‌وکار", "Choose business industry", "Branche auswählen", "İşletme sektörünü seç")}<ArrowRight size={15}/></Link>}</div> : <>
+          <div className="mt-4"><BillingPeriods lang={lang} value={billingPeriod} onChange={setBillingPeriod} disabled={!!purchasing}/></div>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">{businessPackages.map((pkg) => {
+            const months = { monthly: 1, quarterly: 3, semiannual: 6, annual: 12 }[billingPeriod];
+            const discount = { monthly: 0, quarterly: .05, semiannual: .1, annual: 2 / 12 }[billingPeriod];
+            const price = lang === "fa" ? Math.round(pkg.price / 10 * months * (1 - discount)).toLocaleString("fa-IR") + " تومان" : pkg.priceUsd != null ? "$" + ((pkg.priceUsd / 100) * months * (1 - discount)).toFixed(2) : tri(lang, "قیمت بین‌الملل تعریف نشده", "International price unavailable", "Internationaler Preis fehlt", "Uluslararası fiyat tanımlı değil");
+            const name = lang === "fa" ? pkg.name : pkg.nameEn;
+            const features = ((lang === "fa" ? pkg.features : pkg.featuresEn || pkg.features) || "").split("\n").filter(Boolean).slice(0, 3);
+            return <div key={pkg.planCode} className="rounded-xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}><div className="flex items-center justify-between gap-2"><div className="font-semibold">{name}</div><div className="text-sm font-bold" style={{ color: "#3b82f6" }}>{price}</div></div><ul className="mt-2 space-y-1">{features.map((feature) => <li key={feature} className="text-xs" style={{ color: "var(--text-secondary)" }}>✓ {feature}</li>)}</ul><button disabled={!!purchasing || (lang !== "fa" && pkg.priceUsd == null)} onClick={() => void buyBusinessAddon(pkg.planCode)} className="mt-3 w-full rounded-lg px-3 py-2 text-sm text-white disabled:opacity-50" style={{ background: "#3b82f6" }}>{purchasing === pkg.planCode ? tri(lang, "در حال اتصال به درگاه…", "Opening checkout…", "Weiterleitung zur Kasse…", "Ödeme sayfası açılıyor…") : tri(lang, "فعال‌سازی بیزنس", "Unlock business tools", "Business-Tools freischalten", "İşletme araçlarını aç")}</button></div>;
+          })}</div>
+          {!businessPackages.length && <p className="mt-4 text-sm" style={{ color: "var(--text-secondary)" }}>{tri(lang, "پلن CRM هنوز در پکیج‌های فعال ادمین تعریف نشده است.", "No active CRM add-on is configured in Admin → Packages.", "Im Admin sind keine aktiven CRM-Tarife konfiguriert.", "Yönetici paketlerinde etkin CRM planı tanımlı değil.")}</p>}
+        </>}
+        <div className="mt-3 text-xs" style={{ color: "var(--text-secondary)" }}>{tri(lang, "پس از پرداخت موفق، منوی کسب‌وکار در پورتال ظاهر می‌شود؛ فعال‌سازی صنعت نیازمند CRM فعال است.", "After payment succeeds, business navigation appears in your portal. Industry activation requires active CRM.", "Nach erfolgreicher Zahlung erscheint die Business-Navigation. Eine Branche setzt aktives CRM voraus.", "Ödeme başarıyla tamamlanınca işletme menüsü görünür. Sektör için CRM etkin olmalı.")}</div>
+          </section>}
+        </div>
+      </div>
+    </div>
+
+    {showFeatureFinder && <Modal title={tri(lang, "می‌خواهم…", "I want to…", "Ich möchte…", "İstiyorum…")} onClose={() => setShowFeatureFinder(false)}><StudentFeatureFinder lang={lang} onSelect={findFeature}/></Modal>}
+    {readingNote && <Modal title={readingNote.title} onClose={() => setReadingNote(null)}><StudyAnswer>{readingNote.content}</StudyAnswer></Modal>}
+    {showCourse && <Modal error={error} title={editingCourse ? tri(lang, "ویرایش درس", "Edit course", "Kurs bearbeiten", "Dersi düzenle") : t.addCourse} onClose={() => setShowCourse(false)}><form onSubmit={saveCourse} className="space-y-3"><Field label={tri(lang, "نام درس", "Course name", "Kursname", "Ders adı")} value={courseForm.name} onChange={(name) => setCourseForm((form) => ({ ...form, name }))} required autoFocus/><details open={!!editingCourse} className="rounded-xl border p-3" style={{ borderColor: "var(--border)" }}><summary className="cursor-pointer text-sm">{tri(lang, "اطلاعات بیشتر (اختیاری)", "More details (optional)", "Weitere Angaben (optional)", "Diğer bilgiler (isteğe bağlı)")}</summary><div className="mt-3 space-y-3"><Field label={tri(lang, "کد درس", "Course code", "Kursnummer", "Ders kodu")} value={courseForm.courseCode} onChange={(courseCode) => setCourseForm((form) => ({ ...form, courseCode }))}/><Field label={tri(lang, "دانشگاه / دپارتمان", "University / department", "Universität / Fachbereich", "Üniversite / bölüm")} value={courseForm.institution} onChange={(institution) => setCourseForm((form) => ({ ...form, institution }))}/><div className="grid sm:grid-cols-2 gap-3"><Field label={tri(lang, "ترم", "Term", "Semester", "Dönem")} value={courseForm.term} onChange={(term) => setCourseForm((form) => ({ ...form, term }))}/><Field label={tri(lang, "استاد", "Instructor", "Dozent/in", "Eğitmen")} value={courseForm.instructor} onChange={(instructor) => setCourseForm((form) => ({ ...form, instructor }))}/></div><label className="block text-sm">{tri(lang, "توضیحات", "Description", "Beschreibung", "Açıklama")}<textarea value={courseForm.description} onChange={(e) => setCourseForm((form) => ({ ...form, description: e.target.value }))} rows={3} maxLength={2000} className="w-full rounded-xl p-3 mt-2 text-sm" style={{ background: "var(--surface-0)", border: "1px solid var(--border)" }}/></label></div></details><button disabled={busy} className="w-full rounded-xl p-3 text-white" style={{ background: "#f97316" }}>{busy ? t.loading : editingCourse ? t.save : tri(lang, "ساخت درس و افزودن جزوه", "Create course & add material", "Kurs erstellen und Material hinzufügen", "Ders oluştur ve kaynak ekle")}</button></form></Modal>}
+    {showFlashcard && <Modal error={error} title={tri(lang, "فلش‌کارت جدید", "New flashcard", "Neue Lernkarte", "Yeni bilgi kartı")} onClose={() => setShowFlashcard(false)}><form onSubmit={addManualFlashcard} className="space-y-4"><label className="block text-sm">{tri(lang, "پرسش / روی کارت", "Question / front", "Frage / Vorderseite", "Soru / ön yüz")}<textarea required maxLength={1000} value={flashcardQuestion} onChange={(e) => setFlashcardQuestion(e.target.value)} rows={3} className="w-full rounded-xl p-3 mt-2 text-sm" style={{ background: "var(--surface-0)", border: "1px solid var(--border)" }}/></label><label className="block text-sm">{tri(lang, "پاسخ / پشت کارت", "Answer / back", "Antwort / Rückseite", "Yanıt / arka yüz")}<textarea required maxLength={2000} value={flashcardAnswer} onChange={(e) => setFlashcardAnswer(e.target.value)} rows={4} className="w-full rounded-xl p-3 mt-2 text-sm" style={{ background: "var(--surface-0)", border: "1px solid var(--border)" }}/></label><button disabled={busy} className="w-full rounded-xl p-3 text-white disabled:opacity-50" style={{ background: "#f97316" }}>{busy ? t.loading : t.save}</button></form></Modal>}
+    {showMaterial && <Modal error={error} title={t.addMaterial} onClose={() => setShowMaterial(false)}><form onSubmit={addMaterial} className="space-y-4"><label className="block rounded-xl border p-3 text-sm"><input type="checkbox" checked={scannedPdf} onChange={e=>setScannedPdf(e.target.checked)} className="me-2"/>{tri(lang,"PDF اسکن‌شده / OCR · ۲ اعتبار، حداکثر ۱۲ صفحه","Scanned PDF / OCR · 2 credits, up to 12 pages","Gescanntes PDF / OCR · 2 Credits, bis zu 12 Seiten","Taranmış PDF / OCR · 2 kredi, en fazla 12 sayfa")}</label><Field label={tri(lang, "عنوان منبع", "Source title", "Quellentitel", "Kaynak başlığı")} value={materialTitle} onChange={setMaterialTitle} required={!materialFile}/><label className="block text-sm">{tri(lang, "جزوه و تصویر: حداکثر ۱۰ مگابایت · صوت: حداکثر ۲۵ مگابایت", "Documents and images: max 10 MB · audio: max 25 MB", "Dokumente und Bilder: max. 10 MB · Audio: max. 25 MB", "Belgeler ve görseller: en fazla 10 MB · ses: en fazla 25 MB")}<input className="block w-full mt-2 text-sm" type="file" accept=".pdf,.docx,.pptx,.jpg,.jpeg,.png,.webp,.gif,.mp3,.mp4,.m4a,.wav,.webm,.ogg,.flac,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/*,audio/*" onChange={(e) => { const file = e.target.files?.[0] || null; setMaterialFile(file); if (file && !materialTitle.trim()) setMaterialTitle(file.name.replace(/\.[^.]+$/, "")); setError(""); }}/></label><p className="text-xs" style={{ color: "var(--text-secondary)" }}>{tri(lang, "OCR تصویر/اسلاید و رونویسی صوت هرکدام ۲ اعتبار مصرف می‌کنند؛ PDF/DOCX/PPTX متنی و متن چسبانده‌شده هزینهٔ AI ندارند.", "Image/slide OCR and audio transcription use 2 credits each. Text extraction and pasted text do not use AI credits.", "Bild-/Folien-OCR und Audiotranskription kosten je 2 Credits. Textextraktion und eingefügter Text sind kostenfrei.", "Görsel/slayt OCR ve ses dökümü ayrı ayrı 2 kredi kullanır. Metin çıkarma ve yapıştırılan metin ücretsizdir.")}</p><div className="text-center text-xs" style={{ color: "var(--text-secondary)" }}>{tri(lang, "یا متن را وارد کن", "or paste text", "oder Text einfügen", "veya metin yapıştır")}</div><textarea value={materialText} onChange={(e) => setMaterialText(e.target.value)} rows={6} maxLength={100000} placeholder={tri(lang, "متن جزوه یا یادداشت‌های کلاس…", "Paste lecture notes or source text…", "Vorlesungsnotizen einfügen…", "Ders notlarını yapıştır…")} className="w-full rounded-xl p-3 text-sm" style={{ background: "var(--surface-0)", border: "1px solid var(--border)" }}/><div className="flex gap-2"><button type="button" onClick={() => setShowMaterial(false)} className="flex-1 rounded-xl p-3 border" style={{ borderColor: "var(--border)" }}>{t.cancel}</button><button disabled={busy || (!materialFile && !materialText.trim())} className="flex-1 rounded-xl p-3 text-white disabled:opacity-50" style={{ background: "#f97316" }}>{busy ? t.loading : t.save}</button></div></form></Modal>}
+    {showNote && <Modal error={error} title={tri(lang, "یادداشت جدید", "New note", "Neue Notiz", "Yeni not")} onClose={() => setShowNote(false)}><form onSubmit={addNote} className="space-y-4"><Field label={tri(lang, "عنوان", "Title", "Titel", "Başlık")} value={noteTitle} onChange={setNoteTitle} required/><textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} rows={7} maxLength={20000} required placeholder={tri(lang, "یادداشت درس…", "Study note…", "Lernnotiz…", "Ders notu…")} className="w-full rounded-xl p-3 text-sm" style={{ background: "var(--surface-0)", border: "1px solid var(--border)" }}/><button disabled={busy} className="w-full rounded-xl p-3 text-white" style={{ background: "#f97316" }}>{busy ? t.loading : t.save}</button></form></Modal>}
+    {showExam && <Modal error={error} title={editingExam ? tri(lang, "ویرایش امتحان", "Edit exam", "Prüfung bearbeiten", "Sınavı düzenle") : t.addExam} onClose={() => setShowExam(false)}><form onSubmit={addExam} className="space-y-4"><label className="block text-sm">{t.courses}<select disabled={!!editingExam} value={examCourseId || selectedCourse} onChange={e => setExamCourseId(e.target.value)} className="mt-2 w-full rounded-xl border p-3" style={{ borderColor: "var(--border)", background: "var(--surface-0)" }}>{courses.map(course => <option key={course.id} value={course.id}>{course.name}</option>)}</select></label><Field label={tri(lang, "عنوان امتحان", "Exam title", "Prüfungstitel", "Sınav adı")} value={examTitle} onChange={setExamTitle} required/><label className="block text-sm">{tri(lang, "تاریخ و ساعت", "Date and time", "Datum und Uhrzeit", "Tarih ve saat")}<input type="datetime-local" name="examAt" value={examAt} onChange={(e) => setExamAt(e.target.value)} required className="w-full rounded-xl p-3 mt-2 text-sm" style={{ background: "var(--surface-0)", border: "1px solid var(--border)" }}/></label>{!editingExam && <label className="flex items-start gap-3 rounded-xl border p-3 text-sm leading-6" style={{ borderColor: "var(--border)" }}><input type="checkbox" checked={buildExamPlan} onChange={e => setBuildExamPlan(e.target.checked)} className="mt-1"/><span>{tri(lang, "برنامهٔ مرور هم بساز (بدون هزینهٔ AI)", "Also build a review plan (no AI charge)", "Auch Wiederholungsplan erstellen (keine KI-Kosten)", "Tekrar planı da oluştur (AI ücreti yok)")}<small className="block" style={{ color: "var(--text-secondary)" }}>{tri(lang, "جلسه‌های پیشنهادی ۳۰ دقیقه‌ای، قبل از امتحان و در ۷ روز آینده؛ می‌توانی زمانشان را تغییر بدهی.", "Suggested 30-minute sessions before the exam in the next 7 days. You can reschedule them.", "30-minütige Vorschläge vor der Prüfung in den nächsten 7 Tagen; verschiebbar.", "Önümüzdeki 7 günde sınav öncesi 30 dakikalık öneriler; zamanı değiştirilebilir.")}</small></span></label>}<button disabled={busy} className="w-full rounded-xl p-3 text-white" style={{ background: "#f97316" }}>{busy ? t.loading : !editingExam && buildExamPlan ? tri(lang, "ثبت امتحان و ساخت برنامه", "Save exam & build plan", "Prüfung speichern und Plan erstellen", "Sınavı kaydet ve plan oluştur") : t.save}</button></form></Modal>}
+  </main>;
+}
+
+function Field({ label, value, onChange, required, autoFocus }: { label: string; value: string; onChange: (value: string) => void; required?: boolean; autoFocus?: boolean }) {
+  return <label className="block text-sm">{label}<input value={value} onChange={(e) => onChange(e.target.value)} required={required} autoFocus={autoFocus} maxLength={200} className="w-full rounded-xl p-3 mt-2 text-sm" style={{ background: "var(--surface-0)", border: "1px solid var(--border)" }}/></label>;
+}
+
+function Modal({ title, onClose, children, error }: { title: string; onClose: () => void; children: React.ReactNode; error?: string }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const { lang } = useTranslation();
+  const [scannedPdf,setScannedPdf]=useState(false);
+  useEffect(() => {
+    const element = dialog.current;
+    if (element && !element.open) element.showModal();
+    return () => { if (element?.open) element.close(); };
+  }, []);
+  return <dialog ref={dialog} aria-label={title} dir={lang === "fa" ? "rtl" : "ltr"} className="student-modal fixed inset-0 z-[80] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,.58)", width: "100%", height: "100%", maxWidth: "none", maxHeight: "none", margin: 0, border: 0, color: "var(--text-primary)" }} onCancel={event => { event.preventDefault(); onClose(); }} onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}><div data-student-dialog className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl p-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}><div className="flex justify-between items-center mb-5"><h2 className="font-semibold text-lg">{title}</h2><button type="button" onClick={onClose} aria-label={tri(lang, "بستن", "Close", "Schließen", "Kapat")} className="grid min-h-11 min-w-11 place-items-center"><X size={20}/></button></div>{error && <p role="alert" className="mb-4 rounded-xl p-3 text-sm" style={{ color: "#dc2626", background: "rgba(239,68,68,.1)" }}>{error}</p>}{children}</div></dialog>;
+}

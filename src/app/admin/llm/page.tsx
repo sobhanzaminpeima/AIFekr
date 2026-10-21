@@ -5,86 +5,17 @@ import { Zap, CheckCircle, XCircle, RefreshCw, Info, ArrowRight, Power, Code2, H
 import type { LucideIcon } from "lucide-react";
 import toast from "react-hot-toast";
 
-const PROVIDERS = [
-  {
-    id: "gpt5",
-    name: "GPT-5",
-    provider: "OpenAI (via GitHub)",
-    model: "gpt-5",
-    envKey: "GITHUB_TOKEN_GPT5",
-    description: "جدیدترین و قوی‌ترین مدل OpenAI. بهترین برای کد و استدلال.",
-    strengths: ["code", "reasoning", "creative", "complex"],
-    maxTokens: 4096,
-    creditCost: 5,
-    color: "#10b981",
-    logoText: "GP",
-  },
-  {
-    id: "openai-direct",
-    name: "OpenAI GPT (Direct)",
-    provider: "OpenAI API",
-    model: "gpt-4o-mini",
-    envKey: "OPENAI_API_KEY",
-    description: "اتصال مستقیم به API رسمی OpenAI. برای چت کسب‌وکار و محتوای خلاق.",
-    strengths: ["business", "creative", "general", "multimodal"],
-    maxTokens: 4096,
-    creditCost: 4,
-    color: "#10a37f",
-    logoText: "AI",
-  },
-  {
-    id: "deepseek-v3",
-    name: "DeepSeek V3",
-    provider: "DeepSeek (via GitHub)",
-    model: "DeepSeek-V3-0324",
-    envKey: "GITHUB_TOKEN_DEEPSEEK",
-    description: "قوی‌ترین مدل متن‌باز برای کد و ریاضیات.",
-    strengths: ["code", "math", "technical", "reasoning"],
-    maxTokens: 4096,
-    creditCost: 2,
-    color: "#3b82f6",
-    logoText: "DS",
-  },
-  {
-    id: "deepseek-direct",
-    name: "DeepSeek Direct",
-    provider: "DeepSeek API",
-    model: "deepseek-chat",
-    envKey: "DEEPSEEK_API_KEY",
-    description: "اتصال مستقیم به API رسمی DeepSeek. پشتیبان DeepSeek V3.",
-    strengths: ["code", "math", "general"],
-    maxTokens: 4096,
-    creditCost: 2,
-    color: "#3b82f6",
-    logoText: "DD",
-  },
-  {
-    id: "openrouter",
-    name: "OpenRouter",
-    provider: "OpenRouter / Gemini 2.5 Pro",
-    model: "google/gemini-2.5-pro-preview",
-    envKey: "OPENROUTER_API_KEY",
-    description: "دسترسی به صدها مدل AI از یک API. پیش‌فرض: Gemini 2.5 Pro.",
-    strengths: ["creative", "translation", "general", "multimodal"],
-    maxTokens: 3000,
-    creditCost: 4,
-    color: "#8b5cf6",
-    logoText: "OR",
-  },
-  {
-    id: "gemini",
-    name: "Gemini 3.5 Flash",
-    provider: "Google AI",
-    model: "gemini-3.5-flash",
-    envKey: "GEMINI_API_KEY",
-    description: "سریع‌ترین مدل Google. بهترین برای ترجمه و محتوای خلاق.",
-    strengths: ["creative", "translation", "fast", "factual"],
-    maxTokens: 4096,
-    creditCost: 1,
-    color: "#f59e0b",
-    logoText: "GM",
-  },
-];
+// This used to be a hardcoded list of 6 providers, frozen at whatever
+// src/lib/ai/providers.ts looked like the day this page was written -- it
+// silently drifted out of sync as models were added there (Claude, Groq,
+// Cohere, and 13 Mistral-family models the chat page's own model picker
+// already offers users). The real list -- with each model's actual token
+// ceiling and credit cost -- now comes from GET /api/admin/llm/config, which
+// reads straight from PROVIDERS. See ProviderCard below for per-model display.
+interface LiveProvider {
+  id: string; name: string; provider: string; model: string;
+  strengths: string[]; maxTokens: number; creditCost: number; configured: boolean; kind?: "chat" | "structured-decision";
+}
 
 const ROUTING_TABLE = [
   { type: "code / کد", primary: "DeepSeek V3", fallback: "GPT-5 → DeepSeek Direct → Claude Sonnet" },
@@ -116,17 +47,19 @@ const STRENGTH_META: Record<string, { label: string; Icon: LucideIcon }> = {
 type TestStatus = "ok" | "fail" | "testing" | null;
 
 export default function LlmPage() {
+  const [providers, setProviders] = useState<LiveProvider[]>([]);
   const [testStatus, setTestStatus] = useState<Record<string, TestStatus>>({});
   const [disabledProviders, setDisabledProviders] = useState<Set<string>>(new Set());
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [testingAll, setTestingAll] = useState(false);
 
-  // Load saved config on mount
+  // Load the live provider list + saved on/off config on mount.
   useEffect(() => {
     fetch("/api/admin/llm/config", { credentials: "include" })
       .then((r) => r.json())
       .then((data) => {
         if (data.disabled) setDisabledProviders(new Set(data.disabled));
+        if (data.providers) setProviders(data.providers);
       })
       .catch(() => {});
   }, []);
@@ -179,7 +112,7 @@ export default function LlmPage() {
   }, []);
 
   async function toggleProvider(id: string, currentlyEnabled: boolean) {
-    const name = PROVIDERS.find((p) => p.id === id)?.name ?? id;
+    const name = providers.find((p) => p.id === id)?.name ?? id;
     await setEnabled(id, !currentlyEnabled);
     toast.success(`${name} — ${!currentlyEnabled ? "فعال" : "غیرفعال"} شد`);
   }
@@ -188,7 +121,7 @@ export default function LlmPage() {
     setTestingAll(true);
     toast("در حال تست همه provider ها...", { icon: "⚡" });
 
-    for (const p of PROVIDERS) {
+    for (const p of providers) {
       const ok = await testProvider(p.id);
       await setEnabled(p.id, ok);
     }
@@ -197,7 +130,8 @@ export default function LlmPage() {
     toast.success("تست کامل شد — provider های کارساز فعال شدند");
   }
 
-  const activeCount = PROVIDERS.filter((p) => !disabledProviders.has(p.id)).length;
+  const activeCount = providers.filter((p) => !disabledProviders.has(p.id)).length;
+  const configuredCount = providers.filter((p) => p.configured).length;
 
   return (
     <div className="p-6 space-y-8" dir="rtl">
@@ -223,10 +157,10 @@ export default function LlmPage() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: "کل Provider ها", value: PROVIDERS.length, color: "#3b82f6" },
+          { label: "کل مدل‌ها", value: providers.length, color: "#3b82f6" },
           { label: "فعال", value: activeCount, color: "#22c55e" },
-          { label: "غیرفعال", value: PROVIDERS.length - activeCount, color: "#ef4444" },
-          { label: "OpenAI / DeepSeek / Google", value: "2 + 2 + 2", color: "#10b981" },
+          { label: "غیرفعال", value: providers.length - activeCount, color: "#ef4444" },
+          { label: "کلید تنظیم‌شده", value: configuredCount, color: "#10b981" },
         ].map((s) => (
           <div key={s.label} className="p-4 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             <div className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</div>
@@ -264,13 +198,14 @@ export default function LlmPage() {
 
       {/* Provider cards */}
       <div>
-        <h2 className="font-semibold text-sm mb-4" style={{ color: "var(--text-secondary)" }}>همه Provider ها</h2>
+        <h2 className="font-semibold text-sm mb-4" style={{ color: "var(--text-secondary)" }}>همه مدل‌ها</h2>
         <div className="grid grid-cols-1 gap-3">
-          {PROVIDERS.map((p) => {
+          {providers.map((p) => {
             const status = testStatus[p.id];
             const isEnabled = !disabledProviders.has(p.id);
             const isTesting = status === "testing";
             const isToggling = togglingId === p.id;
+            const accent = isEnabled ? "var(--primary)" : "var(--text-muted)";
 
             let borderColor = "var(--border)";
             if (isEnabled && status === "ok") borderColor = "#22c55e60";
@@ -287,10 +222,11 @@ export default function LlmPage() {
                   opacity: isEnabled ? 1 : 0.55,
                 }}
               >
-                {/* Logo */}
+                {/* Logo -- initials, since 21 live models means a hand-picked
+                    colour/initials pair per provider is no longer practical. */}
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-bold text-xs tracking-wide"
-                  style={{ background: `${p.color}20`, color: p.color, border: `1px solid ${p.color}30` }}>
-                  {p.logoText}
+                  style={{ background: `${accent}20`, color: accent, border: `1px solid ${accent}30` }}>
+                  {p.name.slice(0, 2).toUpperCase()}
                 </div>
 
                 {/* Info */}
@@ -300,6 +236,16 @@ export default function LlmPage() {
                     <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
                       {p.provider}
                     </span>
+                    {p.kind === "structured-decision" && (
+                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#8b5cf618", color: "#8b5cf6" }}>
+                        تصمیم ساخت‌یافته — نه چت/تصویر
+                      </span>
+                    )}
+                    {!p.configured && (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#ef444418", color: "#ef4444" }}>
+                        بدون کلید API
+                      </span>
+                    )}
                     {/* Status badge */}
                     {isEnabled ? (
                       <span className="text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1"
@@ -317,22 +263,28 @@ export default function LlmPage() {
                     {status === "ok" && <CheckCircle className="w-4 h-4 text-green-500" />}
                     {status === "fail" && <XCircle className="w-4 h-4 text-red-500" />}
                   </div>
-                  <p className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>{p.description}</p>
+                  {/* Token ceiling and credit cost per model -- the whole
+                      reason this list needed to stop being hand-maintained:
+                      every model here has its own real numbers now. */}
                   <div className="flex items-center gap-3 flex-wrap">
                     <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>{p.model}</span>
                     <span className="text-xs" style={{ color: "var(--text-muted)" }}>·</span>
-                    <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      {p.creditCost} اعتبار · {p.maxTokens.toLocaleString()} توکن
-                    </span>
+                    {p.kind === "structured-decision" ? (
+                      <span className="text-xs" style={{ color: "var(--text-muted)" }}>Choice / Score / Noul با احتمال و confidence</span>
+                    ) : <>
+                      <span className="text-xs font-medium" style={{ color: "var(--primary)" }}>{p.creditCost} اعتبار</span>
+                      <span className="text-xs" style={{ color: "var(--text-muted)" }}>·</span>
+                      <span className="text-xs" style={{ color: "var(--text-muted)" }}>{p.maxTokens.toLocaleString()} توکن</span>
+                    </>}
                   </div>
                   <div className="flex gap-1.5 flex-wrap mt-2">
                     {p.strengths.map((s) => {
                       const meta = STRENGTH_META[s];
-                      if (!meta) return <span key={s} className="text-xs px-2 py-0.5 rounded-lg" style={{ background: `${p.color}15`, color: p.color }}>{s}</span>;
+                      if (!meta) return <span key={s} className="text-xs px-2 py-0.5 rounded-lg" style={{ background: `${accent}15`, color: accent }}>{s}</span>;
                       const SIcon = meta.Icon;
                       return (
                         <span key={s} className="text-xs px-2 py-0.5 rounded-lg flex items-center gap-1"
-                          style={{ background: `${p.color}15`, color: p.color }}>
+                          style={{ background: `${accent}15`, color: accent }}>
                           <SIcon className="w-3 h-3" />
                           {meta.label}
                         </span>
@@ -343,10 +295,6 @@ export default function LlmPage() {
 
                 {/* Actions */}
                 <div className="shrink-0 flex flex-col items-end gap-2">
-                  <span className="text-xs font-mono px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
-                    {p.envKey}
-                  </span>
-
                   {/* Toggle enable/disable */}
                   <button
                     onClick={() => toggleProvider(p.id, isEnabled)}
@@ -418,12 +366,14 @@ const CAPABILITY_LABEL: Record<MediaProvider["capability"], string> = {
   audio: "صدا",
 };
 
-type CustomProvider = { id: string; name: string; baseUrl: string; model: string; enabled: boolean };
+type CustomProvider = { id: string; name: string; type: "chat" | "image" | "video"; baseUrl: string; model: string; enabled: boolean };
+
+const TYPE_LABEL: Record<CustomProvider["type"], string> = { chat: "چت", image: "تصویر", video: "ویدیو" };
 
 function CustomProvidersSection() {
   const [providers, setProviders] = useState<CustomProvider[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", baseUrl: "", apiKey: "", model: "" });
+  const [form, setForm] = useState<{ name: string; type: CustomProvider["type"]; baseUrl: string; apiKey: string; model: string }>({ name: "", type: "chat", baseUrl: "", apiKey: "", model: "" });
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {
@@ -450,7 +400,7 @@ function CustomProvidersSection() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       toast.success(`${form.name} اضافه شد`);
-      setForm({ name: "", baseUrl: "", apiKey: "", model: "" });
+      setForm({ name: "", type: "chat", baseUrl: "", apiKey: "", model: "" });
       setShowForm(false);
       load();
     } catch (e) {
@@ -484,13 +434,27 @@ function CustomProvidersSection() {
         </button>
       </div>
       <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-        هر endpoint سازگار با OpenAI (chat/completions) — مثلاً هر مدل چت جدیدی که بعداً کلیدش را گرفتید — از اینجا اضافه کنید تا بدون نیاز به تغییر کد یا دیپلوی، بلافاصله در انتخابگر مدل بخش کسب‌وکار و کپشن اینستاگرام قابل انتخاب باشد.
+        نوع مدل رو انتخاب کن (چت/تصویر/ویدیو) — بلافاصله بدون نیاز به تغییر کد یا دیپلوی، در انتخابگر مدل همون بخش (چت، تولید تصویر، تولید ویدیو، کپشن اینستاگرام) قابل انتخاب میشه.
+        <br />
+        <b>چت:</b> باید endpoint سازگار با OpenAI باشه (POST به <code dir="ltr">{"{baseUrl}"}/chat/completions</code>).
+        <br />
+        <b>تصویر:</b> باید POST به <code dir="ltr">{"{baseUrl}"}/images/generations</code> با بدنه‌ی <code dir="ltr">{"{ model, prompt, n, size }"}</code> رو بپذیره و <code dir="ltr">{"{ data: [{ url }] }"}</code> یا <code dir="ltr">{"{ data: [{ b64_json }] }"}</code> برگردونه (همون قالب رایج API تصویر OpenAI).
+        <br />
+        <b>ویدیو:</b> باید یک API ناهمگام (job-based) باشه — POST به <code dir="ltr">{"{baseUrl}"}/videos/generations</code> یک شناسه‌ی کار برگردونه (<code dir="ltr">id</code>/<code dir="ltr">jobId</code>/<code dir="ltr">predictionId</code>) و GET به <code dir="ltr">{"{baseUrl}"}/videos/generations/{"{jobId}"}</code> وضعیت (<code dir="ltr">status</code>) و در پایان آدرس ویدیو (<code dir="ltr">output</code>/<code dir="ltr">url</code>/<code dir="ltr">video_url</code>) رو بده.
+        <br />
+        این‌ها قراردادهای عمومیِ best-effort هستن، نه استاندارد تضمینی — چون API‌های تصویر و به‌خصوص ویدیوی سفارشی خیلی متنوع‌اند، اگه API شما این شکل دقیق رو نداشته باشه، اتصال کار نمی‌کنه و نیاز به یکپارچه‌سازی اختصاصی داره.
       </p>
 
       {showForm && (
         <div className="p-4 rounded-2xl mb-3 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <input placeholder="نام (مثلاً Mistral Large)" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
             className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as CustomProvider["type"] })}
+            className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="chat">چت</option>
+            <option value="image">تصویر</option>
+            <option value="video">ویدیو</option>
+          </select>
           <input placeholder="Base URL (مثلاً https://api.mistral.ai/v1)" value={form.baseUrl} onChange={(e) => setForm({ ...form, baseUrl: e.target.value })} dir="ltr"
             className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <input placeholder="Model id (مثلاً mistral-large-latest)" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} dir="ltr"
@@ -508,7 +472,10 @@ function CustomProvidersSection() {
           {providers.map((p) => (
             <div key={p.id} className="p-3 rounded-xl flex items-center gap-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", opacity: p.enabled ? 1 : 0.55 }}>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{p.name}</div>
+                <div className="text-sm font-semibold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                  {p.name}
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-normal" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>{TYPE_LABEL[p.type] ?? p.type}</span>
+                </div>
                 <div className="text-xs font-mono" style={{ color: "var(--text-muted)" }} dir="ltr">{p.model} · {p.baseUrl}</div>
               </div>
               <button onClick={() => toggleProvider(p.id, p.enabled)} className="text-xs px-2.5 py-1 rounded-lg font-medium" style={{ background: p.enabled ? "#22c55e18" : "#ef444418", color: p.enabled ? "#22c55e" : "#ef4444" }}>

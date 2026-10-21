@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { readApiResponse } from "@/lib/utils/apiResponse";
 import { Globe, Copy, Check, Download, Code2, Eye, History, ExternalLink } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
 import { toJalali } from "@/lib/utils/jalali";
+import UpgradeRequiredModal from "@/components/ui/UpgradeRequiredModal";
+import CreditCost from "@/components/ui/CreditCost";
 
 interface SavedSite { id: string; businessName: string; createdAt: string; sizeKB: number; }
 
@@ -12,7 +15,7 @@ const SECTIONS = ["Hero", "About", "Services", "Pricing", "Testimonials", "FAQ",
 
 export default function WebsiteDesignerPage() {
   const { t, lang } = useTranslation();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const s = t.websiteDesignerPage;
   const GOALS = s.goals;
   const STYLES = s.styles;
@@ -34,13 +37,19 @@ export default function WebsiteDesignerPage() {
   const [error, setError] = useState("");
   const [savedSites, setSavedSites] = useState<SavedSite[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
-  useEffect(() => {
+  const loadHistory = useCallback(() => {
+    setHistoryLoading(true); setHistoryError("");
     fetch("/api/website-designer/list")
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => readApiResponse<{ sites: SavedSite[] }>(r, tri(lang, "دریافت تاریخچه انجام نشد.", "Unable to load history.", "Verlauf konnte nicht geladen werden.", "Geçmiş yüklenemedi.")))
       .then((d) => { if (d?.sites) setSavedSites(d.sites); })
-      .catch(() => {});
-  }, []);
+      .catch((e) => setHistoryError(e instanceof Error ? e.message : "Unable to load history"))
+      .finally(() => setHistoryLoading(false));
+  }, [lang]);
+  useEffect(() => { loadHistory(); }, [loadHistory]);
 
   function toggleSection(sec: string) {
     setForm((prev) => ({
@@ -86,6 +95,8 @@ export default function WebsiteDesignerPage() {
         body: JSON.stringify(form),
       });
       if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data?.requiresUpgrade) { setStep(1); setShowUpgradeModal(true); return; }
         setError(s.errServer);
         return;
       }
@@ -136,6 +147,7 @@ export default function WebsiteDesignerPage() {
           </div>
           <button
             onClick={() => setHistoryOpen((v) => !v)}
+            aria-expanded={historyOpen}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium"
             style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
           >
@@ -146,7 +158,7 @@ export default function WebsiteDesignerPage() {
 
         {historyOpen && (
           <div className="mb-8 rounded-2xl overflow-hidden" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-            {savedSites.length === 0 ? (
+            {historyError ? <div className="workspace-alert" role="alert">{historyError}<button className="workspace-button secondary" onClick={loadHistory}>{tri(lang, "تلاش مجدد", "Retry", "Erneut versuchen", "Tekrar dene")}</button></div> : historyLoading ? <p role="status" className="p-5 text-sm">{tri(lang, "در حال دریافت…", "Loading…", "Wird geladen…", "Yükleniyor…")}</p> : savedSites.length === 0 ? (
               <p className="text-sm p-5 text-center" style={{ color: "var(--text-muted)" }}>{s.noSitesYet}</p>
             ) : (
               <ul>
@@ -159,7 +171,7 @@ export default function WebsiteDesignerPage() {
                     <div>
                       <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{st.businessName}</p>
                       <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                        {isFa ? toJalali(st.createdAt) : new Date(st.createdAt).toLocaleDateString("en-US")} · {st.sizeKB} KB
+                        {tri(lang, toJalali(st.createdAt), new Date(st.createdAt).toLocaleDateString("en-US"), new Date(st.createdAt).toLocaleDateString("de-DE"))} · {st.sizeKB} KB
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -287,7 +299,7 @@ export default function WebsiteDesignerPage() {
               style={{ background: "var(--primary)" }}
             >
               {loading ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Globe className="w-4 h-4" />}
-              {s.designBtn}
+              {s.designBtn} <CreditCost feature="website-designer" />
             </button>
           </div>
         )}
@@ -318,7 +330,7 @@ export default function WebsiteDesignerPage() {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => { navigator.clipboard.writeText(result); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                  onClick={() => { navigator.clipboard.writeText(result).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => setError(tri(lang, "کپی انجام نشد؛ کد را انتخاب و کپی کنید.", "Select and copy the code manually.", "Code auswählen und manuell kopieren.", "Kodu seçip elle kopyalayın."))); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs"
                   style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
                 >
@@ -356,7 +368,7 @@ export default function WebsiteDesignerPage() {
                   className="mt-2 px-4 py-2 rounded-xl text-sm font-medium text-white"
                   style={{ background: "var(--primary)" }}
                 >
-                  {s.retryBtn}
+                  {s.retryBtn} <CreditCost feature="website-designer" />
                 </button>
               </div>
             )}
@@ -388,6 +400,8 @@ export default function WebsiteDesignerPage() {
           </div>
         )}
       </div>
+
+      {showUpgradeModal && <UpgradeRequiredModal lang={lang} onClose={() => setShowUpgradeModal(false)} />}
     </div>
   );
 }

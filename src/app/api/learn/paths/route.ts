@@ -1,0 +1,6 @@
+import {NextRequest,NextResponse} from "next/server";
+import {requireAuth,unauthorizedResponse} from "@/lib/auth/middleware";
+import {studentWorkspaceDisabledResponse} from "@/lib/student/access";
+import {prisma} from "@/lib/db/prisma";
+export const dynamic="force-dynamic";
+export async function GET(req:NextRequest){const user=await requireAuth(req);if(!user)return unauthorizedResponse(req);const denied=await studentWorkspaceDisabledResponse(user);if(denied)return denied;const paths=await prisma.academyLearningPath.findMany({where:{status:"PUBLISHED"},take:100}),completed=await prisma.aiCourseCompletion.findMany({where:{userId:user.id},select:{courseId:true}});const data=await Promise.all(paths.map(async p=>{const steps: {courseId:string;requiredBeforeNext:boolean}[]=JSON.parse(p.courses);const courses=await prisma.aiCourse.findMany({where:{id:{in:steps.map(s=>s.courseId)},publishedVersionId:{not:null}},select:{id:true,title:true,publishedVersion:{select:{title:true}}}});return {...p,courses:steps.map((step,i)=>({...step,title:courses.find(c=>c.id===step.courseId)?.publishedVersion?.title||null,completed:completed.some(c=>c.courseId===step.courseId),locked:i>0&&steps.slice(0,i).some(s=>s.requiredBeforeNext&&!completed.some(c=>c.courseId===s.courseId))}))};}));return NextResponse.json({paths:data});}

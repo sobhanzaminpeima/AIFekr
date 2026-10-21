@@ -1,0 +1,2 @@
+ALTER TABLE "City" ADD COLUMN "nameFa" TEXT;
+ALTER TABLE "City" ADD COLUMN "nameDe" TEXT;

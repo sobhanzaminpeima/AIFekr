@@ -9,8 +9,10 @@ import {
   Briefcase, Search, ShoppingCart, Building2, Cpu,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
 import { formatNumber, toJalali } from "@/lib/utils/jalali";
+import { stripMemorySection } from "@/lib/agents/ceoMemoryFormat";
+import CreditCost from "@/components/ui/CreditCost";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,9 +60,9 @@ function HealthRing({ score }: { score: number }) {
 
 export default function AiBosPage() {
   const { t, lang } = useTranslation();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const s = t.ceoOrchestratorPage;
-  const dateLocale = isFa ? "fa-IR" : "en-US";
+  const dateLocale = lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US";
 
   const DEPT_META: Record<string, { icon: React.ElementType; color: string; labelFa: string }> = {
     marketing:  { icon: TrendingUp,  color: "#10b981", labelFa: s.departments.marketing },
@@ -326,6 +328,7 @@ export default function AiBosPage() {
               </span>
             )}
             <button
+              aria-label={tri(lang, "تازه‌سازی وضعیت", "Refresh status", "تحديث الحالة", "Durumu yenile")}
               onClick={() => { loadSnapshot(); loadTasks(); loadLastSession(); }}
               className="p-2 rounded-xl" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}
             >
@@ -359,8 +362,7 @@ export default function AiBosPage() {
                   : "—"}
               </p>
               {lastSession && (
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  {s.lastSession} {isFa ? toJalali(lastSession.createdAt) : new Date(lastSession.createdAt).toLocaleDateString("en-US")}
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>                   {s.lastSession} {lang === "fa" ? toJalali(lastSession.createdAt) : new Date(lastSession.createdAt).toLocaleDateString(dateLocale)}
                 </p>
               )}
               <button
@@ -370,14 +372,13 @@ export default function AiBosPage() {
                 style={{ background: "linear-gradient(135deg,var(--primary),#8b5cf6)" }}
               >
                 {boardroomRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-                {boardroomRunning ? s.boardroomRunning : s.runBoardroom}
+                {boardroomRunning ? s.boardroomRunning : s.runBoardroom} <CreditCost feature="ceo.boardroom" />
               </button>
             </div>
           </div>
 
           {/* KPI tiles */}
-          <div className="lg:col-span-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <KpiTile icon={DollarSign} color="#22c55e" label={s.kpiRevenue30d} value={(snapshot?.data.revenueLast30d ?? 0).toLocaleString(dateLocale) + (isFa ? " ت" : "")} />
+          <div className="lg:col-span-3 grid grid-cols-2 sm:grid-cols-4 gap-3">                    <KpiTile icon={DollarSign} color="#22c55e" label={s.kpiRevenue30d} value={(snapshot?.data.revenueLast30d ?? 0).toLocaleString(dateLocale) + (lang === "fa" ? " ت" : "")} />
             <KpiTile icon={Users} color="#8b5cf6" label={s.kpiSalesFollowup} value={snapshot?.sales.needingFollowUp.length ?? "—"} />
             <KpiTile icon={Target} color="#f59e0b" label={s.kpiActiveTasks} value={tasks.filter((tk) => tk.status === "pending").length} />
             <KpiTile icon={Activity} color="#3b82f6" label={s.kpiActivity} value={snapshot?.data.usageEventsLast30d ?? "—"} />
@@ -521,7 +522,7 @@ export default function AiBosPage() {
                           <Check className="w-3.5 h-3.5" />
                         </button>
                       )}
-                      <button onClick={() => deleteTask(task.id)} className="p-1.5 rounded-lg" style={{ color: "var(--text-muted)" }}>
+                      <button aria-label={tri(lang, "حذف وظیفه", "Delete task", "Aufgabe löschen", "Görevi sil")} onClick={() => deleteTask(task.id)} className="p-1.5 rounded-lg" style={{ color: "var(--text-muted)" }}>
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -554,11 +555,13 @@ export default function AiBosPage() {
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
               style={{ background: "var(--primary)" }}>
               {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-              {running ? s.runningAnalysis : s.runAnalysis}
+              {running ? s.runningAnalysis : s.runAnalysis} <CreditCost feature="ceo.orchestrator-run" />
             </button>
             {analysis && (
               <div className="prose prose-sm max-w-none mt-5 pt-5 text-sm" style={{ color: "var(--text-primary)", borderTop: "1px solid var(--border)" }}>
-                <ReactMarkdown>{analysis}</ReactMarkdown>
+                {/* The memory notes are instructions the CEO writes to its own
+                    future runs, not part of the briefing -- never render them. */}
+                <ReactMarkdown>{stripMemorySection(analysis)}</ReactMarkdown>
               </div>
             )}
           </div>
@@ -581,7 +584,7 @@ export default function AiBosPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
               style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
               {draftsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-              {s.generateMessages}
+              {s.generateMessages} <CreditCost feature="ceo.followup-drafts" />
             </button>
           </div>
           {drafts.length === 0 ? (
@@ -624,7 +627,7 @@ export default function AiBosPage() {
             )}
           </div>
           <div className="p-4 flex flex-wrap gap-2" style={{ borderBottom: "1px solid var(--border)" }}>
-            <select value={newMemCategory} onChange={(e) => setNewMemCategory(e.target.value)}
+            <select aria-label={tri(lang, "دسته‌بندی یادداشت", "Memory category", "Notizkategorie", "Not kategorisi")} value={newMemCategory} onChange={(e) => setNewMemCategory(e.target.value)}
               className="px-3 py-2 rounded-xl text-sm outline-none"
               style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
               {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -635,6 +638,7 @@ export default function AiBosPage() {
               className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none"
               style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             <button onClick={addMemory}
+              aria-label={tri(lang, "افزودن یادداشت", "Add memory", "Notiz hinzufügen", "Not ekle")}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white"
               style={{ background: "var(--primary)" }}>
               <Plus className="w-4 h-4" /> {s.addBtn}
@@ -655,7 +659,7 @@ export default function AiBosPage() {
                     </span>
                     <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{m.text}</p>
                   </div>
-                  <button onClick={() => deleteMemory(m.id)} className="p-1 rounded-lg flex-shrink-0" style={{ color: "var(--text-muted)" }}>
+                  <button aria-label={tri(lang, "حذف یادداشت", "Delete memory", "Notiz löschen", "Notu sil")} onClick={() => deleteMemory(m.id)} className="p-1 rounded-lg flex-shrink-0" style={{ color: "var(--text-muted)" }}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </li>

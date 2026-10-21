@@ -29,6 +29,15 @@ export default function LoginPage() {
     if (error) toast.error(error);
   }, [searchParams]);
 
+  // Only ever redirect to a same-origin relative path — never follow an
+  // absolute/protocol-relative URL from the query string, since that'd be
+  // an open-redirect vector (e.g. ?redirect=//evil.com).
+  function getSafeRedirect(): string | null {
+    const target = searchParams.get("redirect");
+    if (target && target.startsWith("/") && !target.startsWith("//")) return target;
+    return null;
+  }
+
   async function handleSendOtp() {
     if (!phone || phone.length < 10) {
       toast.error(t.auth.login.errPhoneInvalid);
@@ -69,7 +78,7 @@ export default function LoginPage() {
       if (!res.ok) throw new Error(data.error);
       toast.success(t.auth.login.loginSuccess);
       const role = data.user?.role;
-      window.location.href = (role === "ADMIN" || role === "SUPER_ADMIN") ? "/admin/dashboard" : "/chat";
+      window.location.href = getSafeRedirect() || ((role === "ADMIN" || role === "SUPER_ADMIN") ? "/admin/dashboard" : "/chat");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t.auth.login.errOtpWrong);
     } finally {
@@ -92,7 +101,7 @@ export default function LoginPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       toast.success(t.auth.login.loginSuccess);
-      window.location.href = "/chat";
+      window.location.href = getSafeRedirect() || "/chat";
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t.auth.login.errEmailPassWrong);
     } finally {
@@ -117,7 +126,7 @@ export default function LoginPage() {
             </div>
             <span className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>AiFekr</span>
           </div>
-          <p style={{ color: "var(--text-secondary)" }}>{t.auth.login.subtitle}</p>
+          <h1 className="text-base font-normal" style={{ color: "var(--text-secondary)" }}>{t.auth.login.subtitle}</h1>
         </div>
 
         {/* Card */}
@@ -181,7 +190,7 @@ export default function LoginPage() {
                 <>
                   <div>
                     <label className="block text-sm mb-2" style={{ color: "var(--text-secondary)" }}>{t.auth.login.phoneLabel}</label>
-                    <input
+                    <input aria-label={t.auth.login.phoneLabel}
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
@@ -249,7 +258,7 @@ export default function LoginPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm mb-2" style={{ color: "var(--text-secondary)" }}>{t.auth.login.emailLabel}</label>
-                <input
+                <input aria-label={t.auth.login.emailLabel}
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -308,7 +317,7 @@ export default function LoginPage() {
             <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
           </div>
           <a
-            href="/api/auth/google"
+            href={`/api/auth/google?${new URLSearchParams({redirect:getSafeRedirect()||"",language:lang})}`}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-medium text-sm transition-all"
             style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
           >

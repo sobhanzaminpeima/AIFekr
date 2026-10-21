@@ -1,9 +1,10 @@
-import Link from "next/link";
-import Image from "next/image";
-import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
+import PublicShell from "@/components/marketing/PublicShell";
 import { getServerLang } from "@/lib/i18n/server";
+import type { Metadata } from "next";
+import { pageMetadata, pageJsonLd } from "@/lib/seo/site";
+import JsonLd from "@/components/seo/JsonLd";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 const SECTIONS_FA = [
   {
@@ -82,32 +83,75 @@ const SECTIONS_EN = [
     body: "For any questions about privacy or to request data deletion, please contact us through the \"Contact Us\" page.",
   },
 ];
+const SECTIONS_DE = [
+  {
+    title: "1. Informationen, die wir sammeln",
+    body: "Bei der Registrierung: Name, E-Mail oder Mobilnummer und Passwort (gespeichert als Hash und nicht wiederherstellbar). Bei der Nutzung der Dienste: Chat-Nachrichten, generierte Inhalte und Gutschrift-Protokolle. Bei der Zahlung: Transaktionsinformationen über das Zarinpal-Zahlungsportal (Ihre Bankkartendaten werden niemals auf AiFekr-Servern gespeichert). Bei optionaler Verbindung von Drittanbieter-Konten (WordPress, Instagram): Ein begrenzter Zugriffstoken (Application Password oder Access Token), der nur zur Durchführung Ihrer angeforderten Operationen verwendet wird.",
+  },
+  {
+    title: "2. Wie wir Informationen verwenden",
+    body: "Ihre Informationen werden ausschließlich zur Bereitstellung und Verbesserung unserer Dienste, zur Zahlungsabwicklung, zum Versand wesentlicher Benachrichtigungen (Kontobestätigung, Zahlungsbelege) und zur technischen Unterstützung verwendet. Ihre Chat-Nachrichten können zur Verarbeitung an KI-Anbieter (wie Anthropic, DeepSeek, OpenAI) gesendet werden, um eine Antwort zu generieren; diese Übertragung erfolgt nur zur Echtzeit-Antwortgenerierung.",
+  },
+  {
+    title: "3. Informationsweitergabe",
+    body: "AiFekr verkauft oder vermietet Ihre persönlichen Informationen nicht an Dritte für Werbezwecke. Informationen werden nur in den folgenden Fällen mit Dritten geteilt: (a) KI-Anbieter, um Ihre Anfragen zu verarbeiten; (b) das Zarinpal-Zahlungsportal, um Transaktionen abzuschließen; (c) bei gesetzlicher Verpflichtung durch zuständige Behörden.",
+  },
+  {
+    title: "4. Datensicherheit",
+    body: "Ihr Passwort wird mit einem Einweg-Hash-Algorithmus gespeichert, und selbst das technische Team von AiFekr kann darauf nicht zugreifen. Die Kommunikation zwischen Ihrem Browser und AiFekr-Servern ist über HTTPS verschlüsselt. Tokens für verbundene Drittanbieter-Konten (WordPress/Instagram) werden in einer internen Datenbank gespeichert und niemals vollständig in einer API-Antwort angezeigt.",
+  },
+  {
+    title: "5. Datenaufbewahrung",
+    body: "Ihre Kontoinformationen werden aufbewahrt, solange Ihr Konto aktiv ist. Bei einer Löschungsanfrage werden Ihre persönlichen Informationen innerhalb eines angemessenen Zeitraums gelöscht, außer wo eine gesetzliche Aufbewahrungspflicht besteht (z.B. finanzielle Transaktionsaufzeichnungen).",
+  },
+  {
+    title: "6. Ihre Rechte",
+    body: "Sie können jederzeit über den Bereich \"Kontoeinstellungen\" auf Ihre Informationen zugreifen und diese bearbeiten, oder eine Anfrage zur vollständigen Kontolöschung über den Support einreichen. Sie können auch Drittanbieter-Konten (WordPress/Instagram) jederzeit vom Dashboard trennen.",
+  },
+  {
+    title: "7. Cookies",
+    body: "AiFekr verwendet Cookies zur Verwaltung von Anmeldesessions und Speicherung von Präferenzen (Sprache, Theme, Währung). Diese Cookies sind für das einwandfreie Funktionieren der Seite erforderlich und enthalten keine Cookies von Drittanbietern für Werbezwecke.",
+  },
+  {
+    title: "8. Änderungen dieser Richtlinie",
+    body: "Diese Datenschutzrichtlinie kann von Zeit zu Zeit aktualisiert werden. Wesentliche Änderungen werden Ihnen per E-Mail oder einer Benachrichtigung auf der Seite mitgeteilt.",
+  },
+  {
+    title: "9. Kontakt",
+    body: "Bei Fragen zum Datenschutz oder zur Anfrage auf Datenlöschung kontaktieren Sie uns bitte über die Seite \"Kontakt\".",
+  },
+];
+
+const SECTIONS_TR = [
+  { title: "1. Toplanan bilgiler", body: "Kayıtta ad, e-posta veya telefon ve parola alınır. Kullanım sırasında sohbetler, üretilen içerikler, kredi ve ödeme kayıtları tutulur. İsteğe bağlı hesap bağlantıları için sınırlı erişim belirteçleri saklanır; banka kartı bilgileri sunucumuzda saklanmaz." },
+  { title: "2. Bilgilerin kullanımı", body: "Veriler hizmet sunumu, ödemeler, bildirimler ve destek için kullanılır. Yanıt üretmek için istek içeriği ilgili yapay zekâ sağlayıcılarına gönderilebilir." },
+  { title: "3. Paylaşım", body: "Kişisel bilgiler reklam için satılmaz veya kiralanmaz. İstekleri işlemek, ödeme yapmak veya yasal gereklilikleri karşılamak için ilgili sağlayıcılarla paylaşılabilir." },
+  { title: "4. Güvenlik", body: "Parolalar tek yönlü karma ile saklanır. Tarayıcı ve sunucu arasındaki iletişim HTTPS kullanır. Bağlı hesap belirteçleri API yanıtlarında tam olarak gösterilmez." },
+  { title: "5. Saklama", body: "Hesap ve hizmet verileri hizmet sunmak için saklanır. Hesap silme taleplerinde, yasal olarak gerekli ödeme kayıtları hariç ilgili kişisel verilerin kaldırılması için destekle iletişime geçin." },
+  { title: "6. Haklarınız", body: "Hesap ayarlarından bilgilerinizi inceleyip değiştirebilir, bağlantıları kaldırabilir veya destekten hesap silme talep edebilirsiniz." },
+  { title: "7. Çerezler", body: "Oturum, dil, tema ve para birimi tercihlerinde gerekli çerezler kullanılır. Üçüncü taraf reklam çerezleri kullanılmaz." },
+  { title: "8. Değişiklikler", body: "Politika güncellenebilir. Önemli değişiklikler e-posta veya platform bildirimiyle duyurulur." },
+  { title: "9. İletişim", body: "Gizlilik soruları veya silme talepleri için iletişim sayfasını kullanın." },
+];
+
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getServerLang();
+  const meta = pageMetadata(lang, "/privacy", {"fa":"حریم خصوصی — نحوه نگهداری داده‌های شما","en":"Privacy Policy — How We Handle Your Data","de":"Datenschutz — So gehen wir mit Ihren Daten um","tr":"Gizlilik Politikası — Verilerinizi Nasıl Kullanırız"}, {"fa":"سیاست حریم خصوصی AiFekr: چه داده‌هایی جمع‌آوری می‌کنیم، چگونه از آن‌ها استفاده می‌کنیم و چه حقوقی دارید.","en":"AiFekr's privacy policy: what data we collect, how we use it and what rights you have.","de":"Datenschutzerklärung von AiFekr: welche Daten wir erheben, wie wir sie verwenden und welche Rechte Sie haben.","tr":"AiFekr gizlilik politikası: hangi verileri topladığımız, nasıl kullandığımız ve haklarınız."});
+  return meta;
+}
 
 export default async function PrivacyPage() {
   const lang = await getServerLang();
-  const isFa = lang !== "en";
-  const SECTIONS = isFa ? SECTIONS_FA : SECTIONS_EN;
+  const isFa = lang === "fa";
+  const SECTIONS = lang === "tr" ? SECTIONS_TR : lang === "de" ? SECTIONS_DE : isFa ? SECTIONS_FA : SECTIONS_EN;
 
   return (
-    <div className="min-h-screen" dir={isFa ? "rtl" : "ltr"} style={{ background: "#0a0a0f", color: "#f5f5f5" }}>
-      <nav
-        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4"
-        style={{ background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
-      >
-        <Link href="/" className="flex items-center gap-2">
-          <Image src="/logo.svg" alt="AiFekr" width={32} height={32} className="rounded-lg" />
-          <span className="font-bold text-lg text-white">AiFekr</span>
-        </Link>
-        <div className="flex items-center gap-2">
-          <Link href="/terms" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{isFa ? "قوانین و مقررات" : "Terms of Service"}</Link>
-          <Link href="/privacy" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "#ea580c" }}>{isFa ? "حریم خصوصی" : "Privacy Policy"}</Link>
-          <Link href="/login" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{isFa ? "ورود" : "Log in"}</Link>
-        </div>
-      </nav>
+    <PublicShell lang={lang}><div className="m-public-existing">
+      <JsonLd data={pageJsonLd(lang, "/privacy")} />
 
-      <section className="pt-40 pb-16 px-6 max-w-3xl mx-auto">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2">{isFa ? "حریم خصوصی" : "Privacy Policy"}</h1>
-        <p className="text-sm mb-10" style={{ color: "rgba(255,255,255,0.5)" }}>{isFa ? "آخرین به‌روزرسانی: تیر ۱۴۰۵" : "Last updated: July 2026"}</p>
+      <section className="pt-12 pb-16 px-6 max-w-3xl mx-auto">
+        <h1 className="text-3xl md:text-4xl font-bold mb-2">{lang === "tr" ? "Gizlilik politikası" : lang === "de" ? "Datenschutzrichtlinie" : isFa ? "حریم خصوصی" : "Privacy Policy"}</h1>
+        <p className="text-sm mb-10" style={{ color: "rgba(255,255,255,0.5)" }}>{lang === "tr" ? "Son güncelleme: Temmuz 2026" : lang === "de" ? "Zuletzt aktualisiert: Juli 2026" : isFa ? "آخرین به‌روزرسانی: تیر ۱۴۰۵" : "Last updated: July 2026"}</p>
 
         <div className="space-y-8">
           {SECTIONS.map((s) => (
@@ -118,10 +162,6 @@ export default async function PrivacyPage() {
           ))}
         </div>
       </section>
-
-      <footer className="py-8 px-6 text-center" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        <SocialFooterLinks />
-      </footer>
-    </div>
+    </div></PublicShell>
   );
 }

@@ -6,7 +6,7 @@ import { auditContentPost } from "@/lib/agents/seoAudit";
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { postId } = await req.json().catch(() => ({}));
   if (!postId) return NextResponse.json({ error: "postId الزامی است" }, { status: 400 });

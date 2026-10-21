@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Search, Globe, FileText, Tag, Copy, Check, ExternalLink, Zap, Loader2, Link2, Sparkles, BarChart3, MousePointerClick, Eye, TrendingUp, ChevronDown, AlertTriangle, XCircle, CheckCircle2 } from "lucide-react";
+import { Search, Globe, FileText, Tag, Copy, Check, ExternalLink, Zap, Loader2, Link2, Sparkles, BarChart3, MousePointerClick, Eye, TrendingUp, ChevronDown, AlertTriangle, XCircle, CheckCircle2, ArrowUpRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
 import Link from "next/link";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import CreditCost from "@/components/ui/CreditCost";
+import { normalizeUrlInput } from "@/lib/seo/urlInput";
+import { GSC_ENABLED } from "@/lib/seo/features";
 
 type Tab = "url" | "keyword" | "content" | "meta";
 type Platform = "wordpress" | "aifekr" | "other";
@@ -55,7 +58,7 @@ export default function SEOPage() {
   useEffect(() => { loadConnection(); }, [loadConnection]);
 
   // ── Google Search Console ────────────────────────────────────────────────
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const [gscConnected, setGscConnected] = useState(false);
   const [gscSiteUrl, setGscSiteUrl] = useState<string | null>(null);
   const [gscSites, setGscSites] = useState<{ siteUrl: string; permissionLevel: string }[]>([]);
@@ -64,11 +67,13 @@ export default function SEOPage() {
     totals: { clicks: number; impressions: number; avgCtr: number; avgPosition: number };
     trend: { date: string; clicks: number; impressions: number }[];
     topQueries: { query: string; clicks: number; impressions: number; ctr: number; position: number }[];
+    opportunities?: { query: string; kind: "striking_distance" | "low_ctr"; clicks: number; impressions: number; ctr: number; position: number; potentialExtraClicks: number }[];
     topPages: { page: string; clicks: number; impressions: number; ctr: number; position: number }[];
   } | null>(null);
   const [gscDataLoading, setGscDataLoading] = useState(false);
 
   const loadGscStatus = useCallback(async () => {
+    if (!GSC_ENABLED) return;
     try {
       const r = await fetch("/api/seo/gsc/status", { credentials: "include" });
       const d = await r.json();
@@ -81,7 +86,7 @@ export default function SEOPage() {
     loadGscStatus();
     const params = new URLSearchParams(window.location.search);
     const status = params.get("gsc");
-    if (status === "connected") toast.success(isFa ? "به Search Console متصل شدی" : "Connected to Search Console");
+    if (status === "connected") toast.success(tri(lang, "به Search Console متصل شدی", "Connected to Search Console", "Mit Search Console verbunden"));
     if (status === "failed") toast.error(t.common.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadGscStatus]);
@@ -130,20 +135,80 @@ export default function SEOPage() {
 
   // ── URL audit checklist ─────────────────────────────────────────────────
   interface UrlCheck { id: string; label: string; status: "pass" | "warning" | "fail"; detail: string; }
-  interface UrlCheckGroup { id: string; titleFa: string; titleEn: string; checks: UrlCheck[]; }
+  interface UrlCheckGroup { id: string; titleFa: string; titleEn: string; titleDe?: string; checks: UrlCheck[]; }
   const [urlAudit, setUrlAudit] = useState<{ score: number; groups: UrlCheckGroup[] } | null>(null);
   const [urlAuditLoading, setUrlAuditLoading] = useState(false);
+  type ImprovePlanView = { summary: string; title: string; metaDescription: string; h1: string; fixes: { priority: "high" | "medium" | "low"; issue: string; action: string }[]; contentIdeas: string[] };
+  const [improving, setImproving] = useState(false);
+  const [plan, setPlan] = useState<ImprovePlanView | null>(null);
+  const [planApplying, setPlanApplying] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
+  async function improveWithAi() {
+    const normalized = normalizeUrlInput(url);
+    if (!normalized) return;
+    setImproving(true);
+    setPlan(null);
+    try {
+      const r = await fetch("/api/seo/improve", {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ url: normalized, targetKeyword, language: lang }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || t.common.error);
+      setPlan(d.plan);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t.common.error);
+    } finally {
+      setImproving(false);
+    }
+  }
+
+  // Writes the AI-proposed title/description to the connected site. Only ever runs from an explicit click.
+  async function applyPlan() {
+    if (!plan || !(plan.title || plan.metaDescription)) return;
+    const normalized = normalizeUrlInput(url);
+    if (!normalized) return;
+    const body: Record<string, string> = { url: normalized };
+    if (plan.title) body.title = plan.title;
+    if (plan.metaDescription) body.metaDescription = plan.metaDescription;
+    if (platform === "aifekr") {
+      if (!aifekrWebsiteId) return toast.error(t.common.error);
+      body.websiteId = aifekrWebsiteId;
+    }
+    setPlanApplying(true);
+    try {
+      const res = await fetch("/api/seo/apply", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success(tri(lang, "عنوان و توضیحات روی سایت شما اعمال شد", "Title and description applied to your site", "Titel und Beschreibung wurden auf Ihrer Website übernommen"));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t.common.error);
+    } finally {
+      setPlanApplying(false);
+    }
+  }
+
+  function copyText(key: string, text: string) {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey((k) => (k === key ? null : k)), 1800);
+  }
+
   async function analyzeUrl() {
-    if (!url.startsWith("http")) return;
+    // Accept a bare domain ("mysite.com"); the button used to stay disabled without an explicit https://.
+    const normalized = normalizeUrlInput(url);
+    if (!normalized) { toast.error(tri(lang, "آدرس وب‌سایت معتبر نیست. مثال: mysite.com", "That doesn't look like a website address. Example: mysite.com", "Das ist keine gültige Website-Adresse. Beispiel: meineseite.de")); return; }
+    if (normalized !== url) setUrl(normalized);
     setUrlAuditLoading(true);
     setUrlAudit(null);
+    setPlan(null);
     setResult("");
     try {
       const r = await fetch("/api/seo/analyze-url", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, language: lang }),
+        body: JSON.stringify({ url: normalized, language: lang }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
@@ -263,19 +328,32 @@ export default function SEOPage() {
 
   return (
     <div className="flex flex-col h-full p-4 gap-4 max-w-4xl mx-auto w-full">
+      <Link href="/seo/intelligence" className="rounded-xl border border-orange-400/25 bg-orange-400/10 px-4 py-3 text-sm flex items-center justify-between gap-3">
+        <span><strong>SEO Intelligence</strong> · {tri(lang, "داده‌های واقعی، رتبه و بک‌لینک", "Real data, ranks and backlinks", "Echte Daten, Ränge und Backlinks", "Gerçek veriler, sıralama ve geri bağlantılar")}</span><ArrowUpRight className="h-4 w-4 shrink-0" />
+      </Link>
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{t.seo.title}</h1>
           <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{t.seo.description}</p>
         </div>
-        <Link
-          href="/seo/agent-pipeline"
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium flex-shrink-0"
-          style={{ background: "rgba(234,88,12,0.15)", color: "var(--primary)" }}
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          خط تولید محتوای هوشمند (۸ Agent)
-        </Link>
+        <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+          <Link
+            href="/seo/sites"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium"
+            style={{ background: "var(--primary)", color: "#fff" }}
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+            {tri(lang, "مانیتور سئو (تحلیل ذخیره‌شده و خودکار)", "SEO Monitor (saved & automatic audits)", "SEO-Monitor (gespeicherte & automatische Analysen)")}
+          </Link>
+          <Link
+            href="/seo/agent-pipeline"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium"
+            style={{ background: "rgba(234,88,12,0.15)", color: "var(--primary)" }}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            {tri(lang, "خط تولید محتوای هوشمند (۸ Agent)", "Smart Content Pipeline (8 Agents)", "Intelligente Content-Pipeline (8 Agenten)")}
+          </Link>
+        </div>
       </div>
 
       <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
@@ -319,132 +397,155 @@ export default function SEOPage() {
         {platform === "aifekr" && (
           <div className="pt-2" style={{ borderTop: "1px solid var(--border)" }}>
             <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{t.seo.aifekrWebsiteIdLabel}</label>
-            <input value={aifekrWebsiteId} onChange={e => setAifekrWebsiteId(e.target.value)} dir="ltr" placeholder="website id"
+            <input aria-label={t.seo.aifekrWebsiteIdLabel} value={aifekrWebsiteId} onChange={e => setAifekrWebsiteId(e.target.value)} dir="ltr" placeholder="website id"
               className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           </div>
         )}
       </div>
 
-      <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4" style={{ color: "var(--primary)" }} />
-            <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Google Search Console</span>
-          </div>
-          {!gscConnected ? (
-            <a href="/api/seo/gsc/connect" className="text-xs px-3 py-1.5 rounded-lg font-medium text-white" style={{ background: "var(--primary)" }}>
-              {isFa ? "اتصال به Search Console" : "Connect Search Console"}
-            </a>
-          ) : (
-            <button onClick={() => { setGscSiteUrl(null); setGscData(null); loadGscSites(); }} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-              {isFa ? "تغییر سایت" : "Change site"}
-            </button>
-          )}
-        </div>
-
-        {!gscConnected && (
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            {isFa
-              ? "با اتصال به Google Search Console، آمار واقعی کلیک، بازدید (impression) و رتبه کلمات کلیدی سایتت رو مستقیم اینجا ببین."
-              : "Connect Google Search Console to see your site's real click, impression, and keyword ranking data right here."}
-          </p>
-        )}
-
-        {gscConnected && !gscSiteUrl && (
-          <div>
-            {gscSitesLoading ? (
-              <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
-                <Loader2 className="w-4 h-4 animate-spin" /> {isFa ? "در حال دریافت لیست سایت‌ها..." : "Loading your sites..."}
-              </div>
-            ) : gscSites.length === 0 ? (
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                {isFa ? "هیچ سایت تایید‌شده‌ای در حساب Search Console شما پیدا نشد." : "No verified sites found in your Search Console account."}
-              </p>
+      {GSC_ENABLED && (
+        <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" style={{ color: "var(--primary)" }} />
+              <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Google Search Console</span>
+            </div>
+            {!gscConnected ? (
+              <a href="/api/seo/gsc/connect" className="text-xs px-3 py-1.5 rounded-lg font-medium text-white" style={{ background: "var(--primary)" }}>
+                {tri(lang, "اتصال به Search Console", "Connect Search Console", "Mit Search Console verbinden")}
+              </a>
             ) : (
-              <div className="space-y-1.5">
-                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "کدوم سایت رو می‌خوای ببینی؟" : "Which site do you want to view?"}</p>
-                {gscSites.map((s) => (
-                  <button key={s.siteUrl} onClick={() => pickGscSite(s.siteUrl)} dir="ltr"
-                    className="w-full text-left px-3 py-2 rounded-lg text-xs" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>
-                    {s.siteUrl}
-                  </button>
-                ))}
-              </div>
+              <button onClick={() => { setGscSiteUrl(null); setGscData(null); loadGscSites(); }} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                {tri(lang, "تغییر سایت", "Change site", "Website wechseln")}
+              </button>
             )}
           </div>
-        )}
 
-        {gscConnected && gscSiteUrl && (
-          <div>
-            <p className="text-xs mb-3" dir="ltr" style={{ color: "var(--text-muted)" }}>{gscSiteUrl}</p>
-            {gscDataLoading && !gscData ? (
-              <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--text-muted)" }} /></div>
-            ) : gscData ? (
-              <>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                  <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
-                    <div className="flex items-center gap-1.5 mb-1"><MousePointerClick className="w-3.5 h-3.5" style={{ color: "#3b82f6" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "کلیک" : "Clicks"}</span></div>
-                    <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.clicks.toLocaleString()}</p>
-                  </div>
-                  <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
-                    <div className="flex items-center gap-1.5 mb-1"><Eye className="w-3.5 h-3.5" style={{ color: "#8b5cf6" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "بازدید" : "Impressions"}</span></div>
-                    <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.impressions.toLocaleString()}</p>
-                  </div>
-                  <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
-                    <div className="flex items-center gap-1.5 mb-1"><TrendingUp className="w-3.5 h-3.5" style={{ color: "#22c55e" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>CTR</span></div>
-                    <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.avgCtr.toFixed(1)}%</p>
-                  </div>
-                  <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
-                    <div className="flex items-center gap-1.5 mb-1"><Search className="w-3.5 h-3.5" style={{ color: "#eab308" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "رتبه میانگین" : "Avg. position"}</span></div>
-                    <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.avgPosition.toFixed(1)}</p>
-                  </div>
+          {!gscConnected && (
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              {tri(lang,
+                "برای دیدن آمار واقعی کلیک، بازدید و رتبهٔ کلمات کلیدی سایتتان همین‌جا، به Google Search Console متصل شوید.",
+                "Connect Google Search Console to see your site's real click, impression, and keyword ranking data right here.",
+                "Verbinden Sie sich mit Google Search Console, um echte Klick-, Impressionen- und Keyword-Ranking-Daten Ihrer Website hier zu sehen.")}
+            </p>
+          )}
+
+          {gscConnected && !gscSiteUrl && (
+            <div>
+              {gscSitesLoading ? (
+                <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                  <Loader2 className="w-4 h-4 animate-spin" /> {tri(lang, "در حال دریافت لیست سایت‌ها...", "Loading your sites...", "Websites werden geladen...")}
                 </div>
+              ) : gscSites.length === 0 ? (
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  {tri(lang, "هیچ سایت تایید‌شده‌ای در حساب Search Console شما پیدا نشد.", "No verified sites found in your Search Console account.", "Keine verifizierten Websites in Ihrem Search Console-Konto gefunden.")}
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{tri(lang, "کدوم سایت رو می‌خوای ببینی؟", "Which site do you want to view?", "Welche Website möchten Sie ansehen?")}</p>
+                  {gscSites.map((s) => (
+                    <button key={s.siteUrl} onClick={() => pickGscSite(s.siteUrl)} dir="ltr"
+                      className="w-full text-left px-3 py-2 rounded-lg text-xs" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>
+                      {s.siteUrl}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
-                {gscData.trend.length >= 2 && (
-                  <div className="rounded-xl p-3 mb-4" style={{ background: "var(--surface-2)" }}>
-                    <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{isFa ? "روند ۲۸ روز اخیر" : "Last 28 days"}</p>
-                    <ResponsiveContainer width="100%" height={180}>
-                      <LineChart data={gscData.trend}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                        <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--text-muted)" }} />
-                        <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
-                        <Tooltip contentStyle={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
-                        <Line type="monotone" dataKey="clicks" stroke="#3b82f6" strokeWidth={2} dot={false} name={isFa ? "کلیک" : "Clicks"} />
-                        <Line type="monotone" dataKey="impressions" stroke="#8b5cf6" strokeWidth={2} dot={false} name={isFa ? "بازدید" : "Impressions"} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{isFa ? "پرکلیک‌ترین کلمات کلیدی" : "Top queries"}</p>
-                    <div className="space-y-1">
-                      {gscData.topQueries.slice(0, 10).map((q, i) => (
-                        <div key={i} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg" style={{ background: i % 2 === 0 ? "var(--surface-2)" : "transparent" }}>
-                          <span className="truncate flex-1" style={{ color: "var(--text-primary)" }}>{q.query}</span>
-                          <span className="flex-shrink-0 mr-2" style={{ color: "var(--text-muted)" }}>{q.clicks} / {q.impressions}</span>
-                        </div>
-                      ))}
+          {gscConnected && gscSiteUrl && (
+            <div>
+              <p className="text-xs mb-3" dir="ltr" style={{ color: "var(--text-muted)" }}>{gscSiteUrl}</p>
+              {gscDataLoading && !gscData ? (
+                <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--text-muted)" }} /></div>
+              ) : gscData ? (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                    <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
+                      <div className="flex items-center gap-1.5 mb-1"><MousePointerClick className="w-3.5 h-3.5" style={{ color: "#3b82f6" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "کلیک", "Clicks", "Klicks")}</span></div>
+                      <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.clicks.toLocaleString()}</p>
+                    </div>
+                    <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
+                      <div className="flex items-center gap-1.5 mb-1"><Eye className="w-3.5 h-3.5" style={{ color: "#8b5cf6" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "بازدید", "Impressions", "Impressionen")}</span></div>
+                      <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.impressions.toLocaleString()}</p>
+                    </div>
+                    <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
+                      <div className="flex items-center gap-1.5 mb-1"><TrendingUp className="w-3.5 h-3.5" style={{ color: "#22c55e" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>CTR</span></div>
+                      <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.avgCtr.toFixed(1)}%</p>
+                    </div>
+                    <div className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
+                      <div className="flex items-center gap-1.5 mb-1"><Search className="w-3.5 h-3.5" style={{ color: "#eab308" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "رتبه میانگین", "Avg. position", "Ø Position")}</span></div>
+                      <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{gscData.totals.avgPosition.toFixed(1)}</p>
                     </div>
                   </div>
-                  <div>
-                    <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{isFa ? "پرکلیک‌ترین صفحات" : "Top pages"}</p>
-                    <div className="space-y-1">
-                      {gscData.topPages.slice(0, 10).map((p, i) => (
-                        <div key={i} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg" style={{ background: i % 2 === 0 ? "var(--surface-2)" : "transparent" }}>
-                          <span className="truncate flex-1" dir="ltr" style={{ color: "var(--text-primary)" }}>{p.page.replace(/^https?:\/\//, "")}</span>
-                          <span className="flex-shrink-0 mr-2" style={{ color: "var(--text-muted)" }}>{p.clicks} / {p.impressions}</span>
-                        </div>
-                      ))}
+
+                  {gscData.trend.length >= 2 && (
+                    <div className="rounded-xl p-3 mb-4" style={{ background: "var(--surface-2)" }}>
+                      <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{tri(lang, "روند ۲۸ روز اخیر", "Last 28 days", "Letzte 28 Tage")}</p>
+                      <ResponsiveContainer width="100%" height={180}>
+                        <LineChart data={gscData.trend}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                          <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--text-muted)" }} />
+                          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+                          <Tooltip contentStyle={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
+                          <Line type="monotone" dataKey="clicks" stroke="#3b82f6" strokeWidth={2} dot={false} name={tri(lang, "کلیک", "Clicks", "Klicks")} />
+                          <Line type="monotone" dataKey="impressions" stroke="#8b5cf6" strokeWidth={2} dot={false} name={tri(lang, "بازدید", "Impressions", "Impressionen")} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {gscData.opportunities && gscData.opportunities.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-xs font-medium mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "فرصت‌های رشد (از داده واقعی Search Console)", "Growth opportunities (from your real Search Console data)", "Wachstumschancen (aus Ihren echten Search-Console-Daten)")}</p>
+                      <p className="text-[11px] mb-2" style={{ color: "var(--text-muted)" }}>{tri(lang, "برآورد کلیک اضافه بر اساس نمایش واقعی و میانگین CTR صنعت است، نه تضمین.", "Extra-click figures use your real impressions and typical industry CTR; they are estimates, not promises.", "Die Mehrklicks basieren auf Ihren echten Impressionen und dem üblichen Branchen-CTR – Schätzungen, keine Zusagen.")}</p>
+                      <div className="space-y-1">
+                        {gscData.opportunities.map((o, i) => (
+                          <div key={i} className="flex items-center justify-between gap-2 text-xs px-2 py-1.5 rounded-lg" style={{ background: i % 2 === 0 ? "var(--surface-2)" : "transparent" }}>
+                            <span className="truncate flex-1" style={{ color: "var(--text-primary)" }}>{o.query}</span>
+                            <span className="flex-shrink-0" style={{ color: "var(--text-muted)" }}>
+                              {o.kind === "striking_distance"
+                                ? tri(lang, "رتبه " + o.position.toFixed(1) + " — نزدیک به ۳ برتر", "pos " + o.position.toFixed(1) + " — near the top 3", "Pos. " + o.position.toFixed(1) + " — nahe den Top 3")
+                                : tri(lang, "CTR پایین (" + o.ctr.toFixed(1) + "٪) — عنوان/توضیحات را بازنویسی کنید", "low CTR (" + o.ctr.toFixed(1) + "%) — rewrite title/description", "niedrige CTR (" + o.ctr.toFixed(1) + " %) — Titel/Beschreibung überarbeiten")}
+                              {" · +" + o.potentialExtraClicks}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{tri(lang, "پرکلیک‌ترین کلمات کلیدی", "Top queries", "Top-Abfragen")}</p>
+                      <div className="space-y-1">
+                        {gscData.topQueries.slice(0, 10).map((q, i) => (
+                          <div key={i} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg" style={{ background: i % 2 === 0 ? "var(--surface-2)" : "transparent" }}>
+                            <span className="truncate flex-1" style={{ color: "var(--text-primary)" }}>{q.query}</span>
+                            <span className="flex-shrink-0 mr-2" style={{ color: "var(--text-muted)" }}>{q.clicks} / {q.impressions}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{tri(lang, "پرکلیک‌ترین صفحات", "Top pages", "Top-Seiten")}</p>
+                      <div className="space-y-1">
+                        {gscData.topPages.slice(0, 10).map((p, i) => (
+                          <div key={i} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg" style={{ background: i % 2 === 0 ? "var(--surface-2)" : "transparent" }}>
+                            <span className="truncate flex-1" dir="ltr" style={{ color: "var(--text-primary)" }}>{p.page.replace(/^https?:\/\//, "")}</span>
+                            <span className="flex-shrink-0 mr-2" style={{ color: "var(--text-muted)" }}>{p.clicks} / {p.impressions}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </>
-            ) : null}
-          </div>
-        )}
-      </div>
+                </>
+              ) : null}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-2 flex-wrap">
         {tabs.map(tb => (
@@ -472,20 +573,27 @@ export default function SEOPage() {
             </div>
             <div>
               <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.seo.targetKeywordLabel}</label>
-              <input value={targetKeyword} onChange={e => setTargetKeyword(e.target.value)} placeholder={t.seo.targetKeywordPlaceholder}
+              <input aria-label={t.seo.targetKeywordLabel} value={targetKeyword} onChange={e => setTargetKeyword(e.target.value)} placeholder={t.seo.targetKeywordPlaceholder}
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
-            <button disabled={urlAuditLoading || !url.startsWith("http")} onClick={analyzeUrl}
+            <button disabled={urlAuditLoading || !url.trim()} onClick={analyzeUrl}
               className="w-full py-3 rounded-xl font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2" style={{ background: "var(--primary)" }}>
               <Globe className="w-4 h-4" />{urlAuditLoading ? t.seo.analyzing : t.seo.analyzeButton}
             </button>
+            {urlAudit && !urlAuditLoading && (
+              <button disabled={improving} onClick={improveWithAi}
+                className="w-full py-3 rounded-xl font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg,var(--primary),#8b5cf6)" }}>
+                {improving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {improving ? tri(lang, "در حال تهیه برنامه بهبود...", "Building your improvement plan...", "Verbesserungsplan wird erstellt...") : tri(lang, "بهبود با هوش مصنوعی", "Improve with AI", "Mit KI verbessern")} <CreditCost feature="seo.improve" />
+              </button>
+            )}
             {platform && platform !== "other" && urlAudit && !urlAuditLoading && (
               <button disabled={applying} onClick={applyChanges}
                 className="w-full py-3 rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
                 style={{ background: "var(--surface-2)", color: "var(--primary)", border: "1px solid var(--primary)" }}>
                 {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                {applying ? t.seo.applying : t.seo.applyButton}
+                {applying ? t.seo.applying : t.seo.applyButton} <CreditCost feature="seo.suggest" />
               </button>
             )}
           </>
@@ -495,13 +603,13 @@ export default function SEOPage() {
           <>
             <div>
               <label className="block text-sm mb-1.5 font-medium" style={{ color: "var(--text-secondary)" }}>{t.seo.keywordLabel}</label>
-              <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder={t.seo.keywordPlaceholder}
+              <input aria-label={t.seo.keywordLabel} value={keyword} onChange={e => setKeyword(e.target.value)} placeholder={t.seo.keywordPlaceholder}
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <button disabled={loading || !keyword} onClick={() => analyze("keyword", { keyword })}
               className="w-full py-3 rounded-xl font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2" style={{ background: "var(--primary)" }}>
-              <Search className="w-4 h-4" />{loading ? t.seo.analyzing : t.seo.researchButton}
+              <Search className="w-4 h-4" />{loading ? t.seo.analyzing : t.seo.researchButton} <CreditCost feature="seo.analyze" />
             </button>
           </>
         )}
@@ -510,19 +618,19 @@ export default function SEOPage() {
           <>
             <div>
               <label className="block text-sm mb-1.5 font-medium" style={{ color: "var(--text-secondary)" }}>{t.seo.contentKeywordLabel}</label>
-              <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder={t.seo.keywordPlaceholder}
+              <input aria-label={t.seo.contentKeywordLabel} value={keyword} onChange={e => setKeyword(e.target.value)} placeholder={t.seo.keywordPlaceholder}
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div>
               <label className="block text-sm mb-1.5 font-medium" style={{ color: "var(--text-secondary)" }}>{t.seo.contentLabel}</label>
-              <textarea value={content} onChange={e => setContent(e.target.value)} rows={6} placeholder={t.seo.contentPlaceholder}
+              <textarea aria-label={t.seo.contentLabel} value={content} onChange={e => setContent(e.target.value)} rows={6} placeholder={t.seo.contentPlaceholder}
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <button disabled={loading || !keyword || !content} onClick={() => analyze("content", { keyword, content })}
               className="w-full py-3 rounded-xl font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2" style={{ background: "var(--primary)" }}>
-              <FileText className="w-4 h-4" />{loading ? t.seo.optimizing : t.seo.optimizeButton}
+              <FileText className="w-4 h-4" />{loading ? t.seo.optimizing : t.seo.optimizeButton} <CreditCost feature="seo.analyze" />
             </button>
           </>
         )}
@@ -531,19 +639,19 @@ export default function SEOPage() {
           <>
             <div>
               <label className="block text-sm mb-1.5 font-medium" style={{ color: "var(--text-secondary)" }}>{t.seo.metaPageTopicLabel}</label>
-              <input value={pageTopic} onChange={e => setPageTopic(e.target.value)} placeholder={t.seo.metaPageTopicPlaceholder}
+              <input aria-label={t.seo.metaPageTopicLabel} value={pageTopic} onChange={e => setPageTopic(e.target.value)} placeholder={t.seo.metaPageTopicPlaceholder}
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div>
               <label className="block text-sm mb-1.5 font-medium" style={{ color: "var(--text-secondary)" }}>{t.seo.metaKeywordLabel}</label>
-              <input value={metaKeyword} onChange={e => setMetaKeyword(e.target.value)} placeholder={t.seo.metaKeywordPlaceholder}
+              <input aria-label={t.seo.metaKeywordLabel} value={metaKeyword} onChange={e => setMetaKeyword(e.target.value)} placeholder={t.seo.metaKeywordPlaceholder}
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <button disabled={loading || !pageTopic || !metaKeyword} onClick={() => analyze("meta", { keyword: metaKeyword, content: pageTopic })}
               className="w-full py-3 rounded-xl font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2" style={{ background: "var(--primary)" }}>
-              <Tag className="w-4 h-4" />{loading ? t.seo.generating : t.seo.metaGenerateButton}
+              <Tag className="w-4 h-4" />{loading ? t.seo.generating : t.seo.metaGenerateButton} <CreditCost feature="seo.analyze" />
             </button>
           </>
         )}
@@ -572,7 +680,7 @@ export default function SEOPage() {
                 return (
                   <div key={group.id} style={{ borderBottom: "1px solid var(--border)" }}>
                     <button onClick={() => toggleGroup(group.id)} className="w-full flex items-center justify-between px-5 py-3" style={{ background: "var(--surface-2)" }}>
-                      <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{isFa ? group.titleFa : group.titleEn}</span>
+                      <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, group.titleFa, group.titleEn, group.titleDe || group.titleEn)}</span>
                       <div className="flex items-center gap-2">
                         {failCount > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444" }}>{failCount}</span>}
                         {warnCount > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(234,179,8,0.15)", color: "#eab308" }}>{warnCount}</span>}
@@ -601,6 +709,70 @@ export default function SEOPage() {
                   </div>
                 );
               })}
+              {plan && (
+                <div className="p-5 space-y-4" style={{ borderTop: "1px solid var(--border)", background: "var(--surface-2)" }}>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" style={{ color: "var(--primary)" }} />
+                    <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "برنامه بهبود سئو (بر پایه بررسی واقعی صفحه شما)", "SEO improvement plan (based on the real audit of your page)", "SEO-Verbesserungsplan (auf Basis der echten Prüfung Ihrer Seite)")}</span>
+                  </div>
+                  {plan.summary && <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{plan.summary}</p>}
+
+                  {[
+                    { key: "title", label: tri(lang, "عنوان پیشنهادی (Title)", "Suggested title", "Vorgeschlagener Titel"), value: plan.title, max: 60 },
+                    { key: "meta", label: tri(lang, "توضیحات پیشنهادی (Meta Description)", "Suggested meta description", "Vorgeschlagene Meta-Beschreibung"), value: plan.metaDescription, max: 160 },
+                    { key: "h1", label: tri(lang, "H1 پیشنهادی", "Suggested H1", "Vorgeschlagene H1"), value: plan.h1, max: 0 },
+                  ].filter((f) => f.value).map((f) => (
+                    <div key={f.key} className="rounded-xl p-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{f.label}{f.max ? ` · ${f.value.length}/${f.max}` : ""}</span>
+                        <button onClick={() => copyText(f.key, f.value)} className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                          {copiedKey === f.key ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}{copiedKey === f.key ? t.seo.copied : t.seo.copy}
+                        </button>
+                      </div>
+                      <p className="text-sm break-words" style={{ color: "var(--text-primary)" }}>{f.value}</p>
+                    </div>
+                  ))}
+
+                  {plan.fixes.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>{tri(lang, "اقدامات به ترتیب اولویت", "Actions in priority order", "Maßnahmen nach Priorität")}</p>
+                      <div className="space-y-2">
+                        {plan.fixes.map((f, i) => (
+                          <div key={i} className="rounded-xl p-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+                            <div className="flex items-start gap-2">
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 mt-0.5" style={{ background: f.priority === "high" ? "rgba(239,68,68,0.15)" : f.priority === "medium" ? "rgba(234,179,8,0.15)" : "rgba(34,197,94,0.15)", color: f.priority === "high" ? "#ef4444" : f.priority === "medium" ? "#eab308" : "#22c55e" }}>
+                                {f.priority === "high" ? tri(lang, "بالا", "High", "Hoch") : f.priority === "medium" ? tri(lang, "متوسط", "Medium", "Mittel") : tri(lang, "کم", "Low", "Niedrig")}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{f.issue}</p>
+                                <p className="text-xs mt-0.5 break-words" style={{ color: "var(--text-muted)" }}>{f.action}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {plan.contentIdeas.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "ایده‌های محتوا برای این صفحه", "Content ideas for this page", "Content-Ideen für diese Seite")}</p>
+                      <ul className="list-disc ps-5 text-xs space-y-0.5" style={{ color: "var(--text-muted)" }}>{plan.contentIdeas.map((c, i) => <li key={i}>{c}</li>)}</ul>
+                    </div>
+                  )}
+
+                  {platform && platform !== "other" ? (
+                    <button disabled={planApplying || !(plan.title || plan.metaDescription)} onClick={applyPlan}
+                      className="w-full py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                      style={{ background: "var(--surface-1)", color: "var(--primary)", border: "1px solid var(--primary)" }}>
+                      {planApplying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                      {tri(lang, "اعمال عنوان و توضیحات روی سایت من", "Apply title & description to my site", "Titel & Beschreibung auf meiner Website übernehmen")}
+                    </button>
+                  ) : (
+                    <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "برای اعمال خودکار، پلتفرم سایت (مثلاً وردپرس) را بالای صفحه متصل کنید؛ وگرنه موارد بالا را کپی و دستی جایگذاری کنید.", "To apply automatically, connect your site platform (e.g. WordPress) at the top of the page; otherwise copy the items above and paste them in yourself.", "Zum automatischen Übernehmen verbinden Sie oben Ihre Website-Plattform (z. B. WordPress); andernfalls kopieren Sie die Punkte oben manuell.")}</p>
+                  )}
+                </div>
+              )}
             </>
           ) : null}
         </div>

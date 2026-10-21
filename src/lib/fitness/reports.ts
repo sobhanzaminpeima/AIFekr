@@ -1,0 +1,8 @@
+import {prisma} from "@/lib/db/prisma";
+export async function fitnessReport(userId:string,period:"week"|"month",now=new Date()){
+ const start=new Date(now);start.setUTCDate(start.getUTCDate()-(period==="week"?7:30));const previous=new Date(start);previous.setUTCDate(previous.getUTCDate()-(period==="week"?7:30));
+ const rows=await prisma.fitnessSession.findMany({where:{userId,startedAt:{gte:previous,lte:now}},include:{sets:true,program:{select:{title:true}}},orderBy:{startedAt:"asc"}});
+ const summarize=(sessions:typeof rows)=>{const done=sessions.filter(s=>s.status==="COMPLETED");const sets=done.flatMap(s=>s.sets.filter(x=>x.completed&&x.repetitions>0));return {sessions:done.length,sets:sets.length,repetitions:sets.reduce((n,s)=>n+s.repetitions,0),volumeKg:sets.reduce((n,s)=>n+s.weightGrams*s.repetitions/1000,0),averageRpe:sets.filter(s=>s.rpe!=null).length?sets.reduce((n,s)=>n+(s.rpe||0),0)/sets.filter(s=>s.rpe!=null).length:null};};
+ const current=rows.filter(s=>s.startedAt>=start),prior=rows.filter(s=>s.startedAt<start),summary=summarize(current),baseline=summarize(prior);
+ return {period,start:start.toISOString(),end:now.toISOString(),summary,previous:baseline,programs:[...new Set(current.filter(s=>s.status==="COMPLETED").map(s=>s.programId))].map(programId=>{const selected=current.filter(s=>s.programId===programId);return {programId,title:selected[0].program.title,...summarize(selected)};}),timeline:current.filter(s=>s.status==="COMPLETED").map(s=>({date:s.startedAt.toISOString(),title:s.program.title,sets:s.sets.filter(x=>x.completed&&x.repetitions>0).length,volumeKg:s.sets.filter(x=>x.completed&&x.repetitions>0).reduce((n,x)=>n+x.weightGrams*x.repetitions/1000,0)}))};
+}

@@ -5,6 +5,7 @@
 export const REFERRAL_BONUS_CREDITS = 100;
 
 export const CREDIT_COSTS = {
+  AI_COURSE_GENERATION: 100,
   chat: 1,
   image_standard: 5,
   image_hd: 10,
@@ -167,3 +168,95 @@ export const PLAN_NAMES_FA: Record<string, string> = {
   BASIC: "پایه",
   TEAM: "تیمی",
 };
+
+/**
+ * Text-LLM "tool" features that are charged per use. Each gets its own
+ * admin-editable price in Credit Rules (key `tool_<feature>`), defaulting to
+ * the general `tool` cost, so an expensive section (say the website designer)
+ * can be priced apart from a cheap one without a deploy.
+ */
+export const TOOL_FEATURES: Record<string, string> = {
+  "mobile.transcribe": "موبایل — رونویسی صدای فیکا",
+  "accounting.ask": "حسابداری — دستیار مالی (پرسش)",
+  "accounting.cash-flow-narrative": "حسابداری — روایت جریان نقدی",
+  "accounting.owner-statement-assist": "حسابداری — کمک صورت‌حساب مالک",
+  "accounting.propose": "حسابداری — پیشنهاد سند/دسته‌بندی",
+  "business-doctor": "دکتر کسب‌وکار",
+  "ceo.boardroom": "CEO — هیئت‌مدیره",
+  "ceo.question": "CEO — پرسش",
+  "ceo.auto-run": "CEO — گزارش خودکار روزانه",
+  "ceo.orchestrator-run": "CEO — تحلیل ارکستراتور",
+  "ceo.followup-drafts": "CEO — پیش‌نویس پیگیری",
+  "sales.agent": "فروش — عامل فروش",
+  "sales.followup-drafts": "فروش — پیش‌نویس پیگیری",
+  "meeting": "جلسه هوشمند",
+  "seo.analyze": "سئو — تحلیل",
+  "seo.improve": "سئو — بهبود با AI",
+  "seo.suggest": "سئو — پیشنهاد",
+  "seo.pipeline": "سئو — عامل چندمرحله‌ای",
+  "seo.audit-fix": "سئو — رفع مشکلات ممیزی",
+  "social.generate": "شبکه اجتماعی — تولید محتوا",
+  "social.competitors": "شبکه اجتماعی — تحلیل رقبا",
+  "social.ig-report": "اینستاگرام — گزارش",
+  "social.ig-image": "اینستاگرام — تحلیل تصویر",
+  "social.instagram-auto-reply": "اینستاگرام — پاسخ هوشمند دایرکت",
+  "startup.generate": "استارتاپ — تولید",
+  "website-designer": "طراح وب‌سایت",
+  "image.translate": "ترجمه تصویر",
+  "crm.agent-run": "CRM — اجرای عامل تحلیل",
+  "crm.lead-matcher": "CRM — تطبیق سرنخ",
+  "crm.listing-copy": "CRM — متن آگهی ملک",
+  "crm.pricing-advice": "CRM — پیشنهاد قیمت ملک",
+  "crm.agency-report": "CRM — گزارش آژانس",
+  "student.ocr": "دانشجو — OCR تصویر و اسلاید",
+  "student.transcribe": "دانشجو — رونویسی صوت درس",
+  "student.academy-tutor": "دانشجو — مربی دورهٔ آکادمی",
+  "student.academy-description": "آکادمی — بازتولید معرفی",
+  "student.academy-chapter": "آکادمی — بازتولید فصل",
+  "student.academy-lesson": "آکادمی — بازتولید درس",
+  "student.academy-quiz": "آکادمی — بازتولید آزمون",
+  "student.academy-examples": "آکادمی — بازتولید مثال‌ها",
+  "student.academy-summary": "آکادمی — بازتولید خلاصه",
+  "student.academy-flashcards": "آکادمی — بازتولید فلش‌کارت‌ها",
+};
+
+/** English names of the tool features, used in the credit ledger for every non-Persian language. */
+export const TOOL_FEATURES_EN: Record<string, string> = {
+  "mobile.transcribe": "Mobile — FIKA voice transcription",
+  "student.academy-tutor": "Student — Academy course tutor",
+  "student.academy-description": "Academy — regenerate description",
+  "student.academy-chapter": "Academy — regenerate chapter",
+  "student.academy-lesson": "Academy — regenerate lesson",
+  "student.academy-quiz": "Academy — regenerate quiz",
+  "student.academy-examples": "Academy — regenerate examples",
+  "student.academy-summary": "Academy — regenerate summary",
+  "student.academy-flashcards": "Academy — regenerate flashcards",
+  "accounting.ask": "Accounting — finance assistant", "accounting.cash-flow-narrative": "Accounting — cash-flow summary",
+  "accounting.owner-statement-assist": "Accounting — owner statement assist", "accounting.propose": "Accounting — categorisation proposal",
+  "business-doctor": "Business doctor", "ceo.boardroom": "CEO — boardroom", "ceo.question": "CEO — question",
+  "ceo.auto-run": "CEO — daily briefing", "ceo.orchestrator-run": "CEO — orchestrator analysis", "ceo.followup-drafts": "CEO — follow-up drafts",
+  "sales.agent": "Sales — sales agent", "sales.followup-drafts": "Sales — follow-up drafts", "meeting": "Smart meeting",
+  "seo.analyze": "SEO — analysis", "seo.improve": "SEO — improve with AI", "seo.suggest": "SEO — suggestion",
+  "seo.pipeline": "SEO — blog post (content team)", "seo.audit-fix": "SEO — fix audit issues",
+  "social.generate": "Social — content generation", "social.competitors": "Social — competitor analysis",
+  "social.ig-report": "Instagram — report", "social.ig-image": "Instagram — image analysis", "social.instagram-auto-reply": "Instagram — AI DM reply",
+  "startup.generate": "Startup — generate", "website-designer": "Website designer", "image.translate": "Image prompt translation",
+  "crm.agent-run": "CRM — analysis agent", "crm.lead-matcher": "CRM — lead matcher", "crm.listing-copy": "CRM — listing copy",
+  "crm.pricing-advice": "CRM — pricing advice", "crm.agency-report": "CRM — agency report",
+  "student.ocr": "Student — image and slide OCR", "student.transcribe": "Student — lecture transcription",
+};
+
+/** Display name of a tool feature in the user's language (English for languages without their own table). */
+export const toolFeatureLabel = (feature: string, lang: string): string =>
+  (lang === "fa" ? TOOL_FEATURES[feature] : TOOL_FEATURES_EN[feature]) ?? TOOL_FEATURES_EN[feature] ?? feature;
+
+export const toolCostKey = (feature: string) => "tool_" + feature.replace(/[.-]/g, "_");
+
+/** Per-feature defaults: every tool starts at the general `tool` price. */
+export const TOOL_COST_DEFAULTS: Record<string, number> = Object.fromEntries(
+  Object.keys(TOOL_FEATURES).map((f) => [toolCostKey(f), CREDIT_COSTS.tool]),
+);
+
+export const TOOL_COST_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(TOOL_FEATURES).map(([f, label]) => [toolCostKey(f), label]),
+);

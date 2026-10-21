@@ -1,0 +1,8 @@
+import {access} from "node:fs/promises";
+import {getPolicy} from "./config";
+import {rendererReady} from "./render";
+import {remotionReady} from "./remotion";
+import {prisma} from "@/lib/db/prisma";
+export async function factoryReadiness(){const policy=await getPolicy();const exists=async(value:string|undefined)=>{if(!value)return false;try{await access(value);return true;}catch{return false;}};const [renderer,scanner,providers]=await Promise.all([rendererReady(),exists(process.env.VIDEO_FACTORY_CLAMSCAN||process.env.VIDEO_FACTORY_DEFENDER),prisma.videoFactoryProvider.findMany({select:{id:true,kind:true,enabled:true,health:true}})]);const heartbeat=await prisma.siteSetting.findUnique({where:{key:"videoFactoryWorkerHeartbeat"}});return {salesLocked:process.env.VIDEO_FACTORY_SALES_APPROVED!=="true",remotionInstalled:await remotionReady(),workerLastTick:heartbeat?.value||null,enabled:policy.enabled,renderer,scannerConfigured:scanner,workerSecretConfigured:!!process.env.CRON_SECRET,privateStorageConfigured:!!process.env.VIDEO_FACTORY_STORAGE_DIR,textModelApproved:!!policy.approvedModelId,basicPricingConfigured:!!policy.creditsPerChapter&&!!policy.creditsPerRenderMinute,advancedPricing:{clone:!!policy.creditsPerClone,alignment:!!policy.creditsPerAlignment,transcription:!!policy.creditsPerTranscription,semantic:!!policy.creditsPerSemanticReview,sfx:!!policy.creditsPerSfx},credentials:{claude:!!process.env.ANTHROPIC_API_KEY,gemini:!!process.env.GEMINI_API_KEY,openai:!!process.env.OPENAI_API_KEY,elevenlabs:!!process.env.ELEVENLABS_API_KEY,youtube:!!process.env.VIDEO_FACTORY_YOUTUBE_CLIENT_ID&&!!process.env.VIDEO_FACTORY_YOUTUBE_CLIENT_SECRET},providers,liveGenerationVerified:false};}
+
+

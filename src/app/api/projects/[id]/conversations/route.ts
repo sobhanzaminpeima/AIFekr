@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { conversationId } = await req.json();
   const { id: projectId } = params;
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
 export async function DELETE(req: NextRequest, _ctx: unknown) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { conversationId } = await req.json();
 

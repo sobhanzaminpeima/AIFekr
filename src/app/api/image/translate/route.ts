@@ -3,10 +3,11 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { routedStreamChat } from "@/lib/ai/router";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { text } = await req.json();
   if (!text) return NextResponse.json({ error: "متن خالی است" }, { status: 400 });
@@ -30,3 +31,5 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ translated: translated.trim() });
 }
+
+export const POST = withToolCredits("image.translate", handlePost);

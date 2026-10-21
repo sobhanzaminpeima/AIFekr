@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 
 export async function DELETE(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   // OtpCode/CrmContact hold an optional (nullable) userId with no explicit
   // cascade — clear those first so prisma.user.delete() doesn't hit a

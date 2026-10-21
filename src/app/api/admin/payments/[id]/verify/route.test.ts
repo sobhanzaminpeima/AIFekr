@@ -1,0 +1,20 @@
+import { beforeEach, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
+const m = vi.hoisted(() => ({ admin: vi.fn(), find: vi.fn(), verify: vi.fn(), settle: vi.fn(), audit: vi.fn() }));
+vi.mock("@/lib/auth/middleware", () => ({ requireAdmin: m.admin }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: { payment: { findUnique: m.find }, auditLog: { create: m.audit } } }));
+vi.mock("@/lib/payment/zarinpal", () => ({ verifyPayment: m.verify }));
+vi.mock("@/lib/payment/reviewBankPayment", () => ({ settleVerifiedPayment: m.settle }));
+import { POST } from "./route";
+const run = () => POST(new NextRequest("http://localhost/api/admin/payments/p/verify", { method: "POST" }), { params: { id: "p" } });
+beforeEach(() => {
+  vi.resetAllMocks(); m.admin.mockResolvedValue({ id: "admin" });
+  m.find.mockResolvedValue({ id: "p", gateway: "zarinpal", authority: "A", amount: 1000, status: "PENDING", entitlementSnapshot: '{"credits":100,"days":90}' });
+  m.verify.mockResolvedValue({ ok: true, refId: "123" }); m.settle.mockResolvedValue(true);
+});
+it("denies non-admins before loading payment", async () => { m.admin.mockResolvedValue(null); expect((await run()).status).toBe(403); expect(m.find).not.toHaveBeenCalled(); });
+it("verifies the stored authority and amount before settlement", async () => { expect((await run()).status).toBe(200); expect(m.verify).toHaveBeenCalledWith({ authority: "A", amount: 1000 }); expect(m.settle).toHaveBeenCalledWith("p", "A", "123"); expect(m.audit).toHaveBeenCalled(); });
+it("does not grant access on an unverified payment", async () => { m.verify.mockResolvedValue({ ok: false }); expect((await run()).status).toBe(409); expect(m.settle).not.toHaveBeenCalled(); });
+it("does not settle an already successful purchase again", async () => { m.find.mockResolvedValue({ gateway: "zarinpal", authority: "A", status: "SUCCESS" }); expect((await run()).status).toBe(200); expect(m.verify).not.toHaveBeenCalled(); expect(m.settle).not.toHaveBeenCalled(); });
+it("does not route bank transfers through gateway verification", async () => { m.find.mockResolvedValue({ gateway: "bank_transfer" }); expect((await run()).status).toBe(409); expect(m.verify).not.toHaveBeenCalled(); });
+it("allows retry after a provider timeout without settling", async () => { m.verify.mockRejectedValue(new Error("timeout")); expect((await run()).status).toBe(503); expect(m.settle).not.toHaveBeenCalled(); });

@@ -3,12 +3,16 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { CREDIT_COSTS } from "@/lib/utils/credits";
-import { getAvailableCredits, deductCredits } from "@/lib/utils/teamCredits";
+import { getCreditCosts } from "@/lib/utils/creditCosts";
+import { getAvailableCredits, chargeAndLog } from "@/lib/utils/teamCredits";
 import { getLimitsForPlan } from "@/lib/utils/planLimits";
 import * as qwen from "@/lib/ai/qwen";
 import * as openaiImage from "@/lib/ai/openaiImage";
+import { isCustomProviderModel } from "@/lib/ai/customProviders";
+import { generateCustomImage } from "@/lib/ai/customImageProvider";
 import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
+import { isFeatureEnabled, FEATURE_DISABLED_MESSAGE } from "@/lib/utils/featureToggles";
+import { maxReferenceImages } from "@/lib/constants/imageUploadLimits";
 
 // OpenAI (gpt-image) is preferred when configured — real credit was purchased
 // for it — with Qwen kept as the fallback path exactly as qwen.ts documents.
@@ -37,16 +41,33 @@ const OPENAI_IMAGE_MONTHLY_BUDGET_CAP = Number(process.env.OPENAI_IMAGE_MONTHLY_
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
+
+  if (!(await isFeatureEnabled("image"))) {
+    return NextResponse.json({ error: FEATURE_DISABLED_MESSAGE.image }, { status: 503 });
+  }
 
   try {
-    const { prompt, style = "realistic", ratio = "1:1", quality = "standard", count = 1, sourceImageUrl, provider: requestedProvider } = await req.json();
+    const { prompt, style = "realistic", ratio = "1:1", quality = "standard", count = 1, sourceImageUrl, sourceImageUrls, provider: requestedProvider, kind = "standard" } = await req.json();
 
     if (!prompt?.trim()) return NextResponse.json({ error: "توضیحات تصویر الزامی است" }, { status: 400 });
 
+    // `sourceImageUrls` (plural) is the current shape -- multiple reference
+    // photos in one turn, e.g. two people for a "couple" prompt.
+    // `sourceImageUrl` (singular) is kept working for any older caller.
+    const refUrls: string[] = Array.isArray(sourceImageUrls) && sourceImageUrls.length > 0
+      ? sourceImageUrls
+      : sourceImageUrl ? [sourceImageUrl] : [];
+
+    const maxRefs = maxReferenceImages(user.plan);
+    if (refUrls.length > maxRefs) {
+      return NextResponse.json({ error: `پلن شما اجازهٔ حداکثر ${maxRefs} عکس مرجع را می‌دهد` }, { status: 402 });
+    }
+
     const { provider, usageModelTag } = resolveProvider(requestedProvider);
 
-    const creditCost = (quality === "hd" ? CREDIT_COSTS.image_hd : CREDIT_COSTS.image_standard) * count;
+    const costs = await getCreditCosts();
+    const creditCost = (quality === "hd" ? costs.image_hd : costs.image_standard) * count;
 
     if ((await getAvailableCredits(user.id)) < creditCost) {
       return NextResponse.json({ error: `اعتبار کافی ندارید. نیاز به ${creditCost} اعتبار دارید` }, { status: 402 });
@@ -82,9 +103,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Image-to-image when the user uploaded a reference photo, text-to-image otherwise
-    const rawUrls = sourceImageUrl
-      ? await provider.generateImageFromReference({ prompt, style, ratio, count, imageUrl: sourceImageUrl })
+    // Image-to-image when the user uploaded a reference photo, text-to-image otherwise.
+    // Admin-added custom providers (model string "custom:<id>") bypass the
+    // built-in provider table entirely and go through the generic
+    // OpenAI-compatible /images/generations contract in customImageProvider.ts —
+    // reference-image (image-to-image) isn't part of that contract.
+    const rawUrls = isCustomProviderModel(requestedProvider)
+      ? await generateCustomImage(requestedProvider.slice("custom:".length), prompt, {
+          n: count,
+          size: ratio === "16:9" ? "1792x1024" : ratio === "9:16" ? "1024x1792" : "1024x1024",
+        })
+      : refUrls.length > 0
+      ? await provider.generateImageFromReference({ prompt, style, ratio, count, imageUrls: refUrls })
       : quality === "hd"
       ? await provider.generateImagesHQ({ prompt, style, ratio, count })
       : await provider.generateImages({ prompt, style, ratio, count });
@@ -109,20 +139,32 @@ export async function POST(req: NextRequest) {
       })
     );
 
-    // Deduct credits + save
-    await deductCredits(user.id, creditCost);
+    // Charge + usage row in one transaction. The images are already
+    // generated at this point, so a declined charge here means a concurrent
+    // request drained the balance after this one's pre-flight check —
+    // surface it rather than handing over free generations.
+    const charged = await chargeAndLog(user.id, creditCost, {
+      type: "image",
+      model: usageModelTag,
+      metadata: { style, ratio, quality, count },
+      provider: provider === openaiImage ? "openai-image" : "qwen-image",
+      mediaSeconds: count,
+    });
+    if (!charged) {
+      return NextResponse.json({ error: "اعتبار کافی ندارید" }, { status: 402 });
+    }
 
     const saved = await Promise.all(
       finalUrls.map(url =>
         prisma.generatedImage.create({
-          data: { userId: user.id, prompt, style, url, sourceImageUrl: sourceImageUrl || null, credits: Math.round(creditCost / count) },
+          // GeneratedImage only has one sourceImageUrl column (predates
+          // multi-reference support) -- first reference photo is stored for
+          // the gallery preview; the full set matters only at generation
+          // time, not afterward.
+          data: { userId: user.id, prompt, style, url, sourceImageUrl: refUrls[0] || null, credits: Math.round(creditCost / count), kind: kind === "character_sheet" ? "character_sheet" : "standard" },
         })
       )
     );
-
-    await prisma.usageLog.create({
-      data: { userId: user.id, type: "image", model: usageModelTag, credits: creditCost, metadata: JSON.stringify({ style, ratio, quality, count }) },
-    });
 
     return NextResponse.json({ images: saved, credits_used: creditCost });
   } catch (err) {

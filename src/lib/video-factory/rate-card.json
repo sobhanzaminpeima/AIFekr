@@ -1,0 +1,22 @@
+{
+  "checkedAt": "2026-10-19",
+  "billingRoute": "DIRECT",
+  "minimumMarginPercent": 50,
+  "paymentFeePercent": 4,
+  "paymentFixedUsd": 0.30,
+  "retryReservePercent": 25,
+  "platformUsdPerMinute": 0.20,
+  "remotionUsdPerMinute": 0.10,
+  "infrastructureMeasured": false,
+  "rates": [
+    {"id":"writer-input","model":"claude-opus-5-5","unit":"million tokens","usd":4,"quantityPerMinute":0.020,"source":"https://www.anthropic.com/claude/opus"},
+    {"id":"writer-output","model":"claude-opus-5-5","unit":"million tokens","usd":20,"quantityPerMinute":0.006,"source":"https://www.anthropic.com/claude/opus"},
+    {"id":"research-input","model":"gemini-3.1-pro-preview","unit":"million tokens","usd":2,"quantityPerMinute":0.016,"source":"https://ai.google.dev/gemini-api/docs/pricing"},
+    {"id":"research-output","model":"gemini-3.1-pro-preview","unit":"million tokens","usd":12,"quantityPerMinute":0.004,"source":"https://ai.google.dev/gemini-api/docs/pricing"},
+    {"id":"images","model":"gemini-3.1-flash-image","unit":"1K image","usd":0.067,"quantityPerMinute":8,"source":"https://ai.google.dev/gemini-api/docs/pricing"},
+    {"id":"image-input","model":"gemini-3.1-flash-image","unit":"million tokens","usd":0.5,"quantityPerMinute":0.004,"source":"https://ai.google.dev/gemini-api/docs/pricing"},
+    {"id":"image-text-output","model":"gemini-3.1-flash-image","unit":"million tokens","usd":3,"quantityPerMinute":0.0008,"source":"https://ai.google.dev/gemini-api/docs/pricing"},
+    {"id":"voice","model":"eleven_v3","unit":"1000 characters","usd":0.08,"quantityPerMinute":1,"source":"https://elevenlabs.io/pricing/api"},
+    {"id":"music","model":"music_v1","unit":"minute","usd":0.15,"quantityPerMinute":1,"source":"https://elevenlabs.io/pricing/api"}
+  ]
+}

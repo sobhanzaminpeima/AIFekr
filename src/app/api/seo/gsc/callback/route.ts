@@ -2,15 +2,24 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { exchangeGscCode } from "@/lib/googleSearchConsole";
-import { decodeOAuthState } from "@/lib/auth/oauthState";
+import { requireAuth } from "@/lib/auth/middleware";
+import { verifyGscState } from "@/lib/seo/gscState";
+import { encryptSecret } from "@/lib/crypto/secretBox";
+import { publicAppUrl } from "@/lib/utils/publicAppUrl";
 
 export async function GET(req: NextRequest) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
+  const appUrl = publicAppUrl();
   const { searchParams } = new URL(req.url);
   const code = searchParams.get("code");
-  const rawState = searchParams.get("state");
+  // The state is a signed, expiring token issued to one user (see gscState.ts).
+  // Both the signature AND the logged-in session must agree, or someone could
+  // finish consent with a forged state and overwrite another user's connection.
+  const userId = verifyGscState(searchParams.get("state"));
+  const session = await requireAuth(req);
+  if (!userId || !session || session.id !== userId) {
+    return NextResponse.redirect(`${appUrl}/seo?gsc=failed`);
+  }
   const error = searchParams.get("error");
-  const userId = rawState ? decodeOAuthState(rawState) : null;
 
   if (error || !code || !userId) {
     return NextResponse.redirect(`${appUrl}/seo?gsc=failed`);
@@ -30,8 +39,8 @@ export async function GET(req: NextRequest) {
 
     await prisma.gscConnection.upsert({
       where: { userId },
-      update: { refreshToken },
-      create: { userId, refreshToken },
+      update: { refreshToken: encryptSecret(refreshToken) },
+      create: { userId, refreshToken: encryptSecret(refreshToken) },
     });
 
     return NextResponse.redirect(`${appUrl}/seo?gsc=connected`);

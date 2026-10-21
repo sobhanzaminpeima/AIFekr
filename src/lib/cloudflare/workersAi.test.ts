@@ -1,0 +1,8 @@
+import {beforeEach,afterEach,expect,it,vi} from "vitest";
+vi.mock("./config",()=>({getCloudflareConfig:async()=>({enabled:true,accountId:"a".repeat(32),token:"test-token"})}));
+vi.mock("@/lib/crypto/secretBox",()=>({decryptSecret:()=>"test-only-key"}));
+import {workersAiImage,validWorkersModel,probeWorkersAi} from "./workersAi";
+beforeEach(()=>vi.unstubAllGlobals());afterEach(()=>vi.unstubAllGlobals());
+it("rejects paths and unapproved model syntax before making requests",async()=>{const fetcher=vi.fn();vi.stubGlobal("fetch",fetcher);await expect(workersAiImage("../../user/tokens","x")).rejects.toThrow("INVALID_CLOUDFLARE_MODEL");expect(fetcher).not.toHaveBeenCalled();expect(validWorkersModel("@cf/black-forest-labs/flux-1-schnell")).toBe(true);});
+it("checks model access without generation or exposing credentials",async()=>{const fetcher=vi.fn(async()=>new Response(JSON.stringify({success:true,result:[{name:"@cf/meta/test",task:{name:"Text Generation"}}]})));vi.stubGlobal("fetch",fetcher);const result=await probeWorkersAi();expect(result.paidRequests).toBe(0);expect(JSON.stringify(result)).not.toContain("test-only-key");expect(fetcher.mock.calls[0]).toBeDefined();});
+it("normalizes a generated image to PNG using bounded data",async()=>{const sharp=(await import("sharp")).default,jpeg=await sharp({create:{width:16,height:16,channels:3,background:"orange"}}).jpeg().toBuffer();vi.stubGlobal("fetch",vi.fn(async()=>new Response(JSON.stringify({success:true,result:{image:jpeg.toString("base64")}}),{headers:{"content-type":"application/json"}})));const bytes=await workersAiImage("@cf/black-forest-labs/flux-1-schnell","A planet");expect((await sharp(bytes).metadata()).format).toBe("png");});

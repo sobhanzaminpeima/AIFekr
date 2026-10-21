@@ -1,8 +1,8 @@
-import fs from "fs";
-import path from "path";
+import { getDisabledProviders, refreshDisabledProviders } from "./providerConfig";
 import { PROVIDERS, getAvailableProviders, streamProvider, type ChatMessage, type Provider, type TokenUsage } from "./providers";
 
-const STALL_TIMEOUT_MS = 10_000; // 10s — applies to first token AND any gap between chunks
+const FIRST_TOKEN_TIMEOUT_MS = 8_000;
+const STREAM_GAP_TIMEOUT_MS = 30_000;
 
 /**
  * Wraps streamProvider with a *rolling* inactivity timeout (resets on every
@@ -23,6 +23,7 @@ async function streamWithStallGuard(
     let settled = false;
     let receivedAny = false;
     let timer: ReturnType<typeof setTimeout>;
+    const abort = new AbortController();
 
     const fail = (e: Error) => {
       (e as Error & { partial?: boolean }).partial = receivedAny;
@@ -34,14 +35,15 @@ async function streamWithStallGuard(
       timer = setTimeout(() => {
         if (settled) return;
         settled = true;
+        abort.abort();
         fail(
           new Error(
             receivedAny
-              ? `Timeout: stream stalled for ${STALL_TIMEOUT_MS / 1000}s mid-response`
-              : `Timeout: no token within ${STALL_TIMEOUT_MS / 1000}s`
+              ? `Timeout: stream stalled for ${STREAM_GAP_TIMEOUT_MS / 1000}s mid-response`
+              : `Timeout: no token within ${FIRST_TOKEN_TIMEOUT_MS / 1000}s`
           )
         );
-      }, STALL_TIMEOUT_MS);
+      }, receivedAny ? STREAM_GAP_TIMEOUT_MS : FIRST_TOKEN_TIMEOUT_MS);
     };
 
     arm();
@@ -50,7 +52,7 @@ async function streamWithStallGuard(
       receivedAny = true;
       onChunk(text);
       arm();
-    }, maxTokensOverride)
+    }, maxTokensOverride, abort.signal)
       .then((usage) => {
         if (settled) return;
         settled = true;
@@ -70,21 +72,27 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** True for 429 rate-limit errors — worth a short wait-and-retry on the same provider, since token-per-minute budgets refill quickly, unlike auth/billing failures which never recover on retry. */
-function isRateLimitError(error: Error): boolean {
-  return /error 429/i.test(error.message) || /rate limit/i.test(error.message);
+/**
+ * A transient RPM/TPM limit can clear in seconds. A provider's exhausted
+ * account quota, missing billing, or disabled API is permanent until an
+ * operator changes it; retrying it three times makes every affected chat wait
+ * 90 seconds before the normal fallback chain can help. Gemini reports both
+ * conditions as HTTP 429, so status code alone is not enough.
+ */
+function isRetryableRateLimitError(error: Error): boolean {
+  const message = error.message.toLowerCase();
+  if (!(/error 429/.test(message) || /rate limit/.test(message) || /resource_exhausted/.test(message))) return false;
+  return !/(exceeded your current quota|check your plan and billing|billing details|insufficient quota|quota.*exceeded)/.test(message);
 }
 
-function getDisabledProviders(): Set<string> {
-  try {
-    const cfg = JSON.parse(fs.readFileSync(path.join(process.cwd(), "src/lib/ai/provider-config.json"), "utf-8"));
-    return new Set(cfg.disabled ?? []);
-  } catch {
-    return new Set();
-  }
-}
-
-function getEnabledProviders(): Provider[] {
+/**
+ * Exported (not just used internally) so callers that need a *restricted*
+ * subset of providers -- e.g. the floating support assistant, which must
+ * only ever pick from free-tier providers and never fall through to a paid
+ * one -- can filter this same admin-configured enabled/disabled list rather
+ * than re-implementing it (see providerConfig.ts).
+ */
+export function getEnabledProviders(): Provider[] {
   const disabled = getDisabledProviders();
   return getAvailableProviders().filter((p) => !disabled.has(p.id));
 }
@@ -104,6 +112,7 @@ const PATTERNS: Record<QueryType, RegExp> = {
 };
 
 export function detectQueryType(message: string): QueryType {
+  if (/^(سلام|درود|hi|hello|hey|hallo|merhaba)[!.،\s]*$/i.test(message.trim())) return "fast";
   for (const [type, pattern] of Object.entries(PATTERNS) as [QueryType, RegExp][]) {
     if (type === "general") continue;
     if (pattern.test(message)) return type;
@@ -119,7 +128,7 @@ const ROUTING_TABLE: Record<QueryType, string[]> = {
   translation: ["claude", "gemini", "openrouter", "gpt5", "deepseek-v3", "groq", "cohere"],
   business:    ["claude", "gpt5", "openrouter", "gemini", "groq", "cohere"],
   complex:     ["claude", "gpt5", "openrouter", "deepseek-v3", "groq", "cohere"],
-  fast:        ["gemini", "claude", "deepseek-direct", "deepseek-v3", "groq", "cohere"],
+  fast:        ["groq", "gemini", "claude", "deepseek-direct", "deepseek-v3", "cohere"],
   general:     ["claude", "gpt5", "gemini", "openrouter", "deepseek-v3", "deepseek-direct", "groq", "cohere"],
 };
 
@@ -169,6 +178,7 @@ export async function routedStreamChat(
   /** Fired once with real prompt/completion token counts, when the provider that succeeded reports usage. Not every provider returns usage on every request (e.g. no output at all) — in that case this is never called and callers should treat tokens as unknown, not zero. */
   onUsage?: (usage: TokenUsage) => void
 ): Promise<Provider> {
+  await refreshDisabledProviders();
   const message = messages[messages.length - 1]?.content ?? "";
   const primary = selectProvider(message, userPreferredModel);
   onProviderSelected(primary);
@@ -184,13 +194,10 @@ export async function routedStreamChat(
     console.warn(`[Router] ${primary.name} failed:`, error.message);
     onFallback?.({ from: primary, partial });
 
-    // A 429 is a token-budget refill, not a dead provider — worth a few
-    // wait-and-retry passes before moving on, especially with only 1-2
-    // providers enabled where there's no real fallback to fall back to.
-    // Escalating delay (20s/30s/40s) gives the rolling per-minute budget
-    // more room to actually clear between attempts.
-    if (isRateLimitError(error)) {
-      const retryDelaysMs = [20_000, 30_000, 40_000];
+    // Prefer an available fallback immediately; only a sole provider gets
+    // one short retry, so a rate limit does not add a 90-second wait.
+    if (isRetryableRateLimitError(error) && getEnabledProviders().every(p => p.id === primary.id)) {
+      const retryDelaysMs = [1_000];
       for (const delay of retryDelaysMs) {
         await sleep(delay);
         try {
@@ -203,7 +210,7 @@ export async function routedStreamChat(
           const retryPartial = (retryError as Error & { partial?: boolean }).partial ?? false;
           console.warn(`[Router] ${primary.name} retry also failed:`, retryError.message);
           onFallback?.({ from: primary, partial: retryPartial });
-          if (!isRateLimitError(retryError)) break; // non-rate-limit failure — stop retrying, move to fallback chain
+          if (!isRetryableRateLimitError(retryError)) break; // non-retryable failure — move to fallback chain
         }
       }
     }

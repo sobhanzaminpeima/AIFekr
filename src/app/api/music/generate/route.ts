@@ -7,18 +7,25 @@ import { prisma } from "@/lib/db/prisma";
 import { generateMusic } from "@/lib/ai/replicate";
 import { generateMusicElevenLabs } from "@/lib/ai/elevenlabs";
 import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
-import { getAvailableCredits, deductCredits } from "@/lib/utils/teamCredits";
+import { getAvailableCredits, chargeAndLog } from "@/lib/utils/teamCredits";
 import { getLimitsForPlan } from "@/lib/utils/planLimits";
+import { isFeatureEnabled, FEATURE_DISABLED_MESSAGE } from "@/lib/utils/featureToggles";
+import { getCreditCosts } from "@/lib/utils/creditCosts";
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
+
+  if (!(await isFeatureEnabled("music"))) {
+    return NextResponse.json({ error: FEATURE_DISABLED_MESSAGE.music }, { status: 503 });
+  }
 
   try {
     const { prompt, genre = "pop", duration = 30 } = await req.json();
     if (!prompt?.trim()) return NextResponse.json({ error: "توضیحات موزیک الزامی است" }, { status: 400 });
 
-    const creditCost = duration <= 30 ? 10 : duration <= 60 ? 18 : 30;
+    const costs = await getCreditCosts();
+    const creditCost = duration <= 30 ? costs.music_30s : duration <= 60 ? costs.music_60s : costs.music_120s;
 
     if ((await getAvailableCredits(user.id)) < creditCost) {
       return NextResponse.json({ error: `اعتبار کافی ندارید. نیاز به ${creditCost} اعتبار دارید` }, { status: 402 });
@@ -47,7 +54,15 @@ export async function POST(req: NextRequest) {
       console.warn("ElevenLabs music generation failed, falling back to Replicate:", err);
     }
 
-    await deductCredits(user.id, creditCost);
+    const charged = await chargeAndLog(user.id, creditCost, {
+      type: "music",
+      metadata: { provider: elevenLabsResult ? "elevenlabs" : "replicate", genre, duration },
+      provider: elevenLabsResult ? "elevenlabs" : "replicate",
+      mediaSeconds: duration,
+    });
+    if (!charged) {
+      return NextResponse.json({ error: "اعتبار کافی ندارید" }, { status: 402 });
+    }
 
     if (elevenLabsResult) {
       const music = await prisma.generatedMusic.create({
@@ -58,9 +73,6 @@ export async function POST(req: NextRequest) {
       const finalUrl = await uploadToStorage(elevenLabsResult.buffer, key, elevenLabsResult.contentType);
 
       await prisma.generatedMusic.update({ where: { id: music.id }, data: { url: finalUrl } });
-      await prisma.usageLog.create({
-        data: { userId: user.id, type: "music", credits: creditCost, metadata: JSON.stringify({ provider: "elevenlabs", genre, duration }) },
-      });
 
       return NextResponse.json({ musicId: music.id, status: "succeeded", output: finalUrl, credits_used: creditCost });
     }
@@ -76,10 +88,6 @@ export async function POST(req: NextRequest) {
         url: predictionId,
         credits: creditCost,
       },
-    });
-
-    await prisma.usageLog.create({
-      data: { userId: user.id, type: "music", credits: creditCost, metadata: JSON.stringify({ provider: "replicate", predictionId, genre, duration }) },
     });
 
     return NextResponse.json({ musicId: music.id, predictionId, status, credits_used: creditCost });

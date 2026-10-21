@@ -8,7 +8,7 @@ import { acceptTeamInvite } from "@/lib/repositories/userRepository";
 /** Currently logged-in user redeems an invite token and joins the team. */
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { token } = await req.json();
   if (!token) return NextResponse.json({ error: "توکن دعوت الزامی است" }, { status: 400 });

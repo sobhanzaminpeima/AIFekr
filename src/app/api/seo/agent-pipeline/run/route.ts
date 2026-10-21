@@ -1,131 +1,34 @@
+import { notify } from "@/lib/notifications/create";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { routedStreamChat } from "@/lib/ai/router";
-import {
-  AgentKey, buildSystemPrompt, EDITOR_PASS_THRESHOLD, MAX_WRITER_RETRIES,
-  FA_TO_AGENT_KEY, extractEditorScore,
-} from "@/lib/agents/contentPipeline";
-import { markdownToHtml } from "@/lib/utils/markdownToHtml";
-import { hasTavily, searchWeb, formatSearchResultsForPrompt } from "@/lib/search/tavily";
-import { rankByRelevance, embedForStorage } from "@/lib/rag/retrieve";
-import { looksLikeInjectionAttempt } from "@/lib/ai/promptSafety";
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n/tri";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
+import { runContentPipeline } from "@/lib/agents/runContentPipeline";
 
-interface PublishResult { status: "not_published" | "published" | "failed" | "held_for_review"; url: string | null; error: string | null }
-
-/** Publishes the finished post to the user's connected WordPress site (from the SEO tool's SeoConnection), if any. */
-async function publishToConnectedSite(userId: string, title: string, contentMd: string, slug: string, excerpt: string): Promise<PublishResult> {
-  const conn = await prisma.seoConnection.findUnique({ where: { userId } });
-  if (!conn || conn.platform !== "wordpress" || !conn.siteUrl || !conn.wpUsername || !conn.wpAppPassword) {
-    return { status: "not_published", url: null, error: null };
-  }
-
-  try {
-    const base = conn.siteUrl.replace(/\/$/, "");
-    const auth = "Basic " + Buffer.from(`${conn.wpUsername}:${conn.wpAppPassword}`).toString("base64");
-    const res = await fetch(`${base}/wp-json/wp/v2/posts`, {
-      method: "POST",
-      headers: { Authorization: auth, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        content: markdownToHtml(contentMd),
-        excerpt,
-        slug,
-        status: "publish",
-      }),
-    });
-    if (!res.ok) {
-      const errText = await res.text();
-      return { status: "failed", url: null, error: `WordPress error ${res.status}: ${errText.slice(0, 300)}` };
-    }
-    const data = await res.json();
-    return { status: "published", url: data.link || null, error: null };
-  } catch (err) {
-    return { status: "failed", url: null, error: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-async function runAgent(
-  userId: string,
-  runId: string,
-  key: AgentKey,
-  input: string,
-  brandVoice: string | undefined,
-  attempt: number,
-  send: (event: Record<string, unknown>) => void
-): Promise<string> {
-  send({ type: "agentStart", agentKey: key, attempt });
-
-  // Pull a larger recency-capped window, then re-rank by semantic relevance
-  // to this specific input (e.g. "write about X") instead of always using
-  // whichever 5 lessons happen to be newest — a lesson about pricing pages
-  // shouldn't crowd out one about listicles when the topic today is neither.
-  const lessonCandidates = await prisma.contentAgentLesson.findMany({
-    where: { userId, agentKey: key },
-    orderBy: { createdAt: "desc" },
-    take: 30,
-    select: { text: true, embedding: true, createdAt: true },
-  });
-  const relevantLessons = await rankByRelevance(lessonCandidates, input, 5);
-  const lessons = relevantLessons.map((r) => r.text);
-
-  const step = await prisma.contentPipelineStep.create({
-    data: { runId, agentKey: key, attempt, input, status: "running" },
-  });
-
-  const systemPrompt = buildSystemPrompt(key, brandVoice, lessons);
-  let output = "";
-
-  try {
-    await routedStreamChat(
-      [{ role: "user", content: input }],
-      systemPrompt,
-      (text) => {
-        output += text;
-        send({ type: "agentChunk", agentKey: key, text });
-      },
-      () => {},
-      undefined,
-      undefined,
-      4096
-    );
-  } catch (err) {
-    await prisma.contentPipelineStep.update({ where: { id: step.id }, data: { status: "failed", output } });
-    throw err;
-  }
-
-  let score: number | undefined;
-  if (key === "editor") {
-    score = extractEditorScore(output);
-  }
-
-  await prisma.contentPipelineStep.update({
-    where: { id: step.id },
-    data: { status: "done", output, score },
-  });
-
-  send({ type: "agentDone", agentKey: key, attempt, output, score });
-  return output;
-}
-
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
+
+  // The whole 8-agent chain used to be Persian-only with no language input at
+  // all, so an English or German user got a Persian article out of it.
+  const lang = await getServerLang();
 
   const body = await req.json();
   const { topic, brandVoice } = body as { topic?: string; brandVoice?: string };
-  if (!topic?.trim()) return NextResponse.json({ error: "موضوع الزامی است" }, { status: 400 });
+  if (!topic?.trim()) return NextResponse.json({ error: tri(lang, "موضوع الزامی است", "A topic is required", "Ein Thema ist erforderlich") }, { status: 400 });
   // Unbounded topic/brandVoice text flows into every one of the 8 agent prompts below —
   // without a cap, a pasted essay multiplies token cost 8x and risks context overflow
   // in later agents that already carry lessons + research + prior drafts.
   const MAX_INPUT_LEN = 2000;
   if (topic.length > MAX_INPUT_LEN) {
-    return NextResponse.json({ error: `موضوع نباید بیشتر از ${MAX_INPUT_LEN} کاراکتر باشد` }, { status: 400 });
+    return NextResponse.json({ error: tri(lang, `موضوع نباید بیشتر از ${MAX_INPUT_LEN} کاراکتر باشد`, `The topic must not exceed ${MAX_INPUT_LEN} characters`, `Das Thema darf ${MAX_INPUT_LEN} Zeichen nicht überschreiten`) }, { status: 400 });
   }
   if (brandVoice && brandVoice.length > MAX_INPUT_LEN) {
-    return NextResponse.json({ error: `لحن برند نباید بیشتر از ${MAX_INPUT_LEN} کاراکتر باشد` }, { status: 400 });
+    return NextResponse.json({ error: tri(lang, `لحن برند نباید بیشتر از ${MAX_INPUT_LEN} کاراکتر باشد`, `The brand voice must not exceed ${MAX_INPUT_LEN} characters`, `Die Markenstimme darf ${MAX_INPUT_LEN} Zeichen nicht überschreiten`) }, { status: 400 });
   }
 
   // Self-healing cleanup: if a previous run of this user's got orphaned mid-flight
@@ -157,111 +60,12 @@ export async function POST(req: NextRequest) {
       send({ type: "runId", id: run.id });
 
       try {
-        const ideas = await runAgent(user.id, run.id, "ideaFinder", `موضوع/صنعت کسب‌وکار: ${topic}`, brandVoice, 1, send);
-        const strategy = await runAgent(user.id, run.id, "strategist", ideas, brandVoice, 1, send);
-
-        const finalTitle = /عنوان نهایی\s*:\s*(.+)/.exec(strategy)?.[1]?.trim() || topic;
-        const searchResults = hasTavily ? await searchWeb(`${finalTitle} ${topic}`) : null;
-        const researcherInput = searchResults
-          ? `${strategy}\n\n--- نتایج جستجوی زندهٔ وب (استفاده کن، منابع را ذکر کن) ---\n${formatSearchResultsForPrompt(searchResults)}`
-          : strategy;
-        const research = await runAgent(user.id, run.id, "researcher", researcherInput, brandVoice, 1, send);
-
-        let draft = await runAgent(
-          user.id, run.id, "writer",
-          `${strategy}\n\nفکت‌ها و سوالات متداول تحقیق‌شده:\n${research}`,
-          brandVoice, 1, send
-        );
-
-        let editorOutput = "";
-        let score = 0;
-        let writerAttempt = 1;
-        for (let round = 0; round <= MAX_WRITER_RETRIES; round++) {
-          editorOutput = await runAgent(user.id, run.id, "editor", draft, brandVoice, round + 1, send);
-          score = extractEditorScore(editorOutput) ?? 0;
-          if (score >= EDITOR_PASS_THRESHOLD || round === MAX_WRITER_RETRIES) break;
-          writerAttempt += 1;
-          draft = await runAgent(
-            user.id, run.id, "writer",
-            `نسخهٔ قبلی مقاله:\n${draft}\n\nبازخورد ویراستار که باید اعمال کنی:\n${editorOutput}`,
-            brandVoice, writerAttempt, send
-          );
-        }
-
-        const seoOutput = await runAgent(user.id, run.id, "seo", draft, brandVoice, 1, send);
-        const metaTitle = /عنوان سئو\s*:\s*(.+)/.exec(seoOutput)?.[1]?.trim() || topic;
-        const metaDescription = /توضیحات متا\s*:\s*(.+)/.exec(seoOutput)?.[1]?.trim() || "";
-        const slug = /اسلاگ\s*:\s*(.+)/.exec(seoOutput)?.[1]?.trim() || `post-${run.id}`;
-        const keywords = /کلمات کلیدی\s*:\s*(.+)/.exec(seoOutput)?.[1]?.trim() || "";
-        const titleLine = /عنوان نهایی\s*:\s*(.+)/.exec(strategy)?.[1]?.trim() || topic;
-
-        // From here on, the article itself (draft + seoOutput) is already
-        // complete — publisher narration, external publish, and critic
-        // lessons are best-effort extras. A failure in any of them must not
-        // discard the finished article, so each is wrapped independently
-        // instead of sharing the outer try/catch that marks the whole run
-        // "failed" (and skips creating the ContentPost).
-        try {
-          await runAgent(user.id, run.id, "publisher", `${draft}\n\n${seoOutput}`, brandVoice, 1, send);
-        } catch (err) {
-          console.warn("Publisher narration step failed (non-fatal):", err);
-        }
-
-        // Auto-publish is the highest-consequence step in this pipeline — it writes
-        // to the user's real WordPress site with no human in the loop. The article
-        // text was built from user-supplied fields (topic, brandVoice) and live web
-        // search results, both untrusted inputs that could carry an injection attempt
-        // aimed at the writer/editor agents. A hit here doesn't discard the article —
-        // it just holds the publish step for the user to review and publish manually.
-        const suspicious = [topic, brandVoice, titleLine, draft, seoOutput]
-          .some((text) => text && looksLikeInjectionAttempt(text));
-        const publishResult: PublishResult = suspicious
-          ? { status: "held_for_review", url: null, error: "محتوا برای بازبینی نگه داشته شد — الگویی مشابه تلاش برای دستکاری خودکار در متن یا نتایج جستجو شناسایی شد. لطفاً پیش از انتشار، محتوا را بررسی کنید." }
-          : await publishToConnectedSite(user.id, titleLine, draft, slug, metaDescription);
-
-        const post = await prisma.contentPost.create({
-          data: {
-            userId: user.id,
-            runId: run.id,
-            title: titleLine,
-            content: draft,
-            metaTitle,
-            metaDescription,
-            slug,
-            keywords,
-            externalStatus: publishResult.status,
-            externalUrl: publishResult.url,
-            externalError: publishResult.error,
-          },
-        });
-        send({ type: "publishResult", ...publishResult });
-
-        // The article is saved and shareable at this point — mark the run
-        // done before attempting the critic/lessons step, so a failure
-        // there can't retroactively turn a successful article into a
-        // "failed" run.
-        await prisma.contentPipelineRun.update({ where: { id: run.id }, data: { status: "done" } });
-        send({ type: "runDone", runId: run.id, postId: post.id });
-
-        try {
-          const critique = await runAgent(user.id, run.id, "critic", draft, brandVoice, 1, send);
-          const lessonLines = critique.split("\n").filter((l) => l.includes(":"));
-          for (const line of lessonLines) {
-            const [faLabel, ...rest] = line.split(":");
-            const agentKey = FA_TO_AGENT_KEY[faLabel.trim()];
-            const text = rest.join(":").trim();
-            if (agentKey && text) {
-              const embedding = await embedForStorage(text);
-              await prisma.contentAgentLesson.create({ data: { userId: user.id, agentKey, text, source: "critic", embedding } });
-            }
-          }
-        } catch (err) {
-          console.warn("Critic/lessons step failed (non-fatal):", err);
-        }
+        await runContentPipeline({ userId: user.id, runId: run.id, topic, brandVoice, lang, publishMode: "publish", send });
       } catch (err) {
+        await notify(user.id,{type:"seo_content_failed",title:tri(lang,"تولید محتوای سئو انجام نشد","SEO content generation failed","SEO-Inhaltserstellung fehlgeschlagen","SEO içerik üretimi başarısız"),link:"/seo/agent-pipeline",email:true});
         console.error("Agent pipeline error:", err);
         await prisma.contentPipelineRun.update({ where: { id: run.id }, data: { status: "failed" } }).catch(() => {});
-        send({ type: "error", message: "خطا در اجرای زنجیره agent ها. لطفاً دوباره تلاش کنید." });
+        send({ type: "error", message: tri(lang, "خطا در اجرای زنجیره agent ها. لطفاً دوباره تلاش کنید.", "The agent chain failed. Please try again.", "Die Agenten-Kette ist fehlgeschlagen. Bitte versuchen Sie es erneut.") });
       } finally {
         controller.close();
       }
@@ -272,3 +76,5 @@ export async function POST(req: NextRequest) {
     headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" },
   });
 }
+
+export const POST = withToolCredits("seo.pipeline", handlePost);

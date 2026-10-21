@@ -7,17 +7,20 @@ import { prisma } from "@/lib/db/prisma";
 /** Manual grant/revoke of the Voice Agent add-on — for support cases (comped access, refund reversal, etc.), same escape hatch pattern as other admin plan overrides. */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   const admin = await requireAdmin(req);
-  if (!admin) return unauthorizedResponse();
+  if (!admin) return unauthorizedResponse(req);
   const { userId } = await params;
 
   const body = await req.json();
   const { voicePlan, days } = body;
   if (!["NONE", "ACTIVE"].includes(voicePlan)) return NextResponse.json({ error: "voicePlan نامعتبر" }, { status: 400 });
 
+  if(days!==undefined&&(!Number.isInteger(days)||days<1||days>3650)) return NextResponse.json({error:"مدت اشتراک نامعتبر است"},{status:400});
+  if(!await prisma.user.findUnique({where:{id:userId},select:{id:true}})) return NextResponse.json({error:"کاربر یافت نشد"},{status:404});
   const voicePlanExpiry = voicePlan === "ACTIVE"
     ? new Date(Date.now() + (typeof days === "number" ? days : 30) * 24 * 60 * 60 * 1000)
     : null;
 
   const user = await prisma.user.update({ where: { id: userId }, data: { voicePlan, voicePlanExpiry } });
+  await prisma.auditLog.create({data:{actorId:admin.id,action:"voice_activated",targetId:userId,metadata:JSON.stringify({voicePlan,days,voicePlanExpiry})}});
   return NextResponse.json({ voicePlan: user.voicePlan, voicePlanExpiry: user.voicePlanExpiry });
 }

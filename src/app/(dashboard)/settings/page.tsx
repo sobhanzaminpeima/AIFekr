@@ -2,13 +2,18 @@
 
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
+import StudentActivationLink from "@/components/student/StudentActivationLink";
 import { useState, useEffect } from "react";
 import { Save, User, Lock, Trash2, CreditCard, BarChart3, Palette, Loader2, Users, UserPlus, Crown, X } from "lucide-react";
 import toast from "react-hot-toast";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
 import { formatNumber, toJalali } from "@/lib/utils/jalali";
+import WorkspaceLoading from "@/components/layout/WorkspaceLoading";
+import WorkspaceError from "@/components/layout/WorkspaceError";
+import CloudflareStatus from "@/components/settings/CloudflareStatus";
 
 const AVATAR_EMOJIS = ["🙂", "😎", "🚀", "🧠", "🦊", "🐼", "🌟", "🔥", "🎯", "💼", "🧑‍💻", "👩‍💻"];
 
@@ -23,6 +28,9 @@ interface Profile {
   planExpiry: string | null;
   createdAt: string;
   authProvider: string;
+  accountType?: string;
+  studentWorkspaceEnabled?: boolean;
+  industryPack?: {name:string;nameEn:string|null;nameDe:string|null;slug:string}|null;
 }
 
 interface UsageStats {
@@ -32,6 +40,7 @@ interface UsageStats {
 }
 
 interface PaymentRow {
+  transferCurrency: string; transferMinor: number; receiptAt: string | null; reviewNote: string | null;
   id: string;
   amount: number;
   plan: string;
@@ -48,16 +57,26 @@ interface TeamData {
   members: TeamMemberRow[]; invites: TeamInviteRow[];
 }
 
+interface TeamUsageRow {
+  userId: string; name: string | null; email: string | null; role: string;
+  totalCreditsSpent: number;
+  byType: { type: string; count: number; creditsSpent: number }[];
+}
+
 export default function SettingsPage() {
   const { t, lang } = useTranslation();
-  const isFa = lang !== "en";
-  const dateLocale = isFa ? "fa-IR" : "en-US";
-  const STATUS_LABEL: Record<string, string> = { PENDING: t.settingsPage.statusPending, PAID: t.settingsPage.statusPaid, FAILED: t.settingsPage.statusFailed };
+  const isFa = lang === "fa";
+  const dateLocale = lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US";
+  const STATUS_LABEL: Record<string, string> = { PENDING: t.settingsPage.statusPending, SUCCESS: t.settingsPage.statusPaid, REJECTED: tri(lang,"رد شده","Rejected","Abgelehnt","Reddedildi"), PAID: t.settingsPage.statusPaid, FAILED: t.settingsPage.statusFailed };
   const TYPE_LABEL: Record<string, string> = { chat: t.settingsPage.typeChat, image: t.settingsPage.typeImage, video: t.settingsPage.typeVideo, music: t.settingsPage.typeMusic, tool: t.settingsPage.typeTool };
 
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState("");
+  const [currency, setCurrency] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -72,25 +91,29 @@ export default function SettingsPage() {
   const [team, setTeam] = useState<TeamData | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
+  const [teamUsage, setTeamUsage] = useState<TeamUsageRow[] | null>(null);
 
   function loadTeam() {
-    fetch("/api/team", { credentials: "include" }).then((r) => r.json()).then((d) => setTeam(d.team || null));
+    fetch("/api/team", { credentials: "include" }).then((r) => r.json()).then((d) => setTeam(d.team || null)).catch(() => setTeam(null));
+    fetch("/api/team/usage?days=30", { credentials: "include" }).then((r) => r.json()).then((d) => setTeamUsage(d.breakdown || null)).catch(() => setTeamUsage(null));
   }
 
   useEffect(() => {
+    setLoading(true); setLoadFailed(false);
     fetch("/api/user/profile", { credentials: "include" })
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((d) => {
         if (d.user) {
           setProfile(d.user);
           setName(d.user.name || "");
           setAvatar(d.user.avatar || "");
+          setCurrency(d.user.currency || "");
         }
-      });
-    fetch("/api/user/usage", { credentials: "include" }).then((r) => r.json()).then(setUsage);
-    fetch("/api/user/payments", { credentials: "include" }).then((r) => r.json()).then((d) => setPayments(d.payments || []));
+      }).catch(() => setLoadFailed(true)).finally(() => setLoading(false));
+    fetch("/api/user/usage", { credentials: "include" }).then((r) => r.json()).then(setUsage).catch(() => setUsage(null));
+    fetch("/api/user/payments", { credentials: "include" }).then((r) => r.json()).then((d) => setPayments(d.payments || [])).catch(() => setPayments([]));
     loadTeam();
-  }, []);
+  }, [attempt]);
 
   async function sendInvite() {
     if (!inviteEmail.trim()) return;
@@ -131,7 +154,7 @@ export default function SettingsPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ name, avatar }),
+        body: JSON.stringify({ name, avatar, currency: currency || null }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -177,12 +200,17 @@ export default function SettingsPage() {
     }
   }
 
+  if (loading) return <WorkspaceLoading/>;
+  if (loadFailed) return <WorkspaceError reset={() => setAttempt(value => value + 1)}/>;
   return (
-    <div dir={isFa ? "rtl" : "ltr"} className="p-6 max-w-2xl mx-auto space-y-5">
-      <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{t.settingsPage.title}</h1>
+    <div dir={isFa ? "rtl" : "ltr"} className="workspace-page max-w-3xl space-y-5">
+      <header className="workspace-heading"><h1 style={{ color: "var(--text-primary)" }}>{t.settingsPage.title}</h1></header>
+
+      <Link href="/payments" className="flex min-h-12 items-center gap-3 rounded-2xl border px-4 py-4 text-sm font-semibold" style={{ borderColor: "var(--border)", background: "rgba(249,115,22,.08)" }}><CreditCard size={20} className="shrink-0 text-orange-500"/>{tri(lang,"پرداخت‌ها، رسیدها و پیگیری فعال‌سازی","Payments, receipts & activation tracking","Zahlungen, Belege und Aktivierung verfolgen","Ödeme, dekont ve etkinleştirmeyi takip et")}</Link>
+      <CloudflareStatus/>
 
       {/* Profile */}
-      <section className="p-5 rounded-2xl space-y-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+      <section className="p-4 sm:p-5 rounded-2xl space-y-4 min-w-0 overflow-hidden" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
         <div className="flex items-center gap-2">
           <User className="w-5 h-5" style={{ color: "var(--primary)" }} />
           <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>{t.settingsPage.personalInfo}</h2>
@@ -194,6 +222,8 @@ export default function SettingsPage() {
             {AVATAR_EMOJIS.map((e) => (
               <button
                 key={e}
+                aria-label={`${t.settingsPage.avatar}: ${e}`}
+                aria-pressed={avatar === e}
                 onClick={() => setAvatar(e)}
                 className="w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all"
                 style={{ background: avatar === e ? "var(--primary)" : "var(--surface-2)", border: "1px solid var(--border)" }}
@@ -204,20 +234,26 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        <section className="mb-5 rounded-2xl border p-4" style={{borderColor:"var(--border)"}}>
+          <h2 className="font-semibold">{tri(lang,"بسته‌ها و ایجنت‌های حساب من","My packages and agents","Meine Pakete und Agenten","Paketlerim ve ajanlarım")}</h2>
+          <p className="my-3 text-sm opacity-75">{profile?.industryPack ? (lang==="fa"?profile.industryPack.name:lang==="de"?(profile.industryPack.nameDe||profile.industryPack.nameEn||profile.industryPack.name):(profile.industryPack.nameEn||profile.industryPack.name)) : tri(lang,"هنوز بستهٔ صنعتی انتخاب نکرده‌اید","No industry pack selected yet","Noch kein Branchenpaket gewählt","Henüz sektör paketi seçilmedi")}</p>
+          <div className="flex flex-wrap gap-2"><Link href="/industry" className="rounded-xl border px-4 py-2 text-sm" style={{borderColor:"var(--border)"}}>{tri(lang,"مشاهدهٔ بسته‌های صنعتی","Browse industry packs","Branchenpakete ansehen","Sektör paketlerini gör")}</Link><StudentActivationLink className="rounded-xl bg-indigo-600 px-4 py-2 text-sm text-white">{profile?.studentWorkspaceEnabled?tri(lang,"ایجنت دانشجویی فعال — ورود","Student Agent active — open","Lernagent aktiv — öffnen","Öğrenci ajanı etkin — aç"):tri(lang,"فعال‌سازی بستهٔ دانشجویی","Activate student package","Studierendenpaket aktivieren","Öğrenci paketini etkinleştir")}</StudentActivationLink></div>
+        </section>
+
         <div>
-          <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.settingsPage.displayName}</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.settingsPage.namePlaceholder}
+          <label htmlFor="settings-display-name" className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.settingsPage.displayName}</label>
+          <input id="settings-display-name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t.settingsPage.namePlaceholder}
             className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
             style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         </div>
 
         {profile && (
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm min-w-0">
+            <div className="min-w-0">
               <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>{t.settingsPage.emailOrPhone}</div>
-              <div style={{ color: "var(--text-primary)" }} dir="ltr">{profile.email || profile.phone || "—"}</div>
+              <div className="min-w-0 break-all [overflow-wrap:anywhere]" style={{ color: "var(--text-primary)" }} dir="ltr">{profile.email || profile.phone || "—"}</div>
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>{t.settingsPage.currentPlan}</div>
               <div style={{ color: "var(--primary)" }}>{profile.plan}</div>
             </div>
@@ -247,6 +283,38 @@ export default function SettingsPage() {
             <div className="text-xs mb-1.5" style={{ color: "var(--text-muted)" }}>{t.settingsPage.language}</div>
             <LanguageSwitcher />
           </div>
+        </div>
+        <div>
+          <div className="text-xs mb-1.5" style={{ color: "var(--text-muted)" }}>{t.settingsPage.currency}</div>
+          <select
+            value={currency}
+            onChange={async (e) => {
+              const next = e.target.value;
+              setCurrency(next);
+              // Instant apply, same as the theme/language switchers right next
+              // to it -- a separate "save" button here would be inconsistent
+              // with those two and easy to forget.
+              try {
+                const res = await fetch("/api/user/profile", {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({ currency: next || null }),
+                });
+                if (!res.ok) throw new Error();
+                toast.success(t.settingsPage.profileSaved);
+              } catch {
+                toast.error(t.settingsPage.errSaveProfile);
+              }
+            }}
+            className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+            style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+          >
+            <option value="">{t.settingsPage.currencyDefault}</option>
+            <option value="IRT">{t.settingsPage.currencyToman}</option>
+            <option value="USD">{t.settingsPage.currencyUsd}</option>
+            <option value="EUR">{t.settingsPage.currencyEur}</option>
+          </select>
         </div>
       </section>
 
@@ -310,12 +378,13 @@ export default function SettingsPage() {
               <div key={p.id} className="flex items-center justify-between text-sm p-2 rounded-xl" style={{ background: "var(--surface-2)" }}>
                 <div>
                   <div style={{ color: "var(--text-primary)" }}>{p.plan}</div>
-                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? toJalali(p.createdAt) : new Date(p.createdAt).toLocaleDateString("en-US")}</div>
+                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>{lang === "fa" ? toJalali(p.createdAt) : new Date(p.createdAt).toLocaleDateString(dateLocale)}</div>
                 </div>
                 <div className="text-left">
-                  <div style={{ color: "var(--text-primary)" }}>{(p.amount / 10).toLocaleString(dateLocale)} {isFa ? "ت" : "T"}</div>
-                  <div className="text-xs" style={{ color: p.status === "PAID" ? "var(--success)" : p.status === "FAILED" ? "var(--danger)" : "var(--text-muted)" }}>
+                  <div style={{ color: "var(--text-primary)" }}>{p.gateway === "bank_transfer" ? `${(p.transferMinor / 100).toLocaleString(dateLocale)} ${p.transferCurrency}` : `${p.amount.toLocaleString(dateLocale)} Toman`}</div>
+                  <div className="text-xs" style={{ color: p.status === "SUCCESS" ? "var(--success)" : p.status === "FAILED" ? "var(--danger)" : "var(--text-muted)" }}>
                     {STATUS_LABEL[p.status] || p.status}
+                    {p.gateway === "bank_transfer" && <a className="block text-orange-500" href={`/checkout/${p.id}`}>{tri(lang,"جزئیات و رسید","Details and receipt","Details und Beleg","Ayrıntılar ve dekont")}</a>}
                   </div>
                 </div>
               </div>
@@ -390,6 +459,32 @@ export default function SettingsPage() {
               style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
               {t.settingsPage.leaveTeam}
             </button>
+          )}
+
+          {/* AI Workforce Usage -- per-member breakdown of the shared credit pool, last 30 days */}
+          {teamUsage && teamUsage.length > 0 && (
+            <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+              <div className="text-xs font-medium pt-2" style={{ color: "var(--text-muted)" }}>
+                {tri(lang, "مصرف تیم — ۳۰ روز اخیر", "Team usage — last 30 days", "Team-Nutzung — letzte 30 Tage")}
+              </div>
+              {teamUsage.map((row) => (
+                <div key={row.userId} className="p-2.5 rounded-xl" style={{ background: "var(--surface-2)" }}>
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span style={{ color: "var(--text-primary)" }}>{row.name || row.email || row.userId}</span>
+                    <span className="font-medium" style={{ color: "var(--primary)" }}>{formatNumber(row.totalCreditsSpent, lang)} {tri(lang, "کردیت", "credits", "Guthaben")}</span>
+                  </div>
+                  {row.byType.length > 0 && (
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                      {row.byType.map((bt) => (
+                        <span key={bt.type} className="text-xs" style={{ color: "var(--text-muted)" }}>
+                          {TYPE_LABEL[bt.type] ?? bt.type}: {formatNumber(bt.creditsSpent, lang)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </section>
       )}

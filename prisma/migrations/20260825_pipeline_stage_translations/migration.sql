@@ -1,0 +1,4 @@
+ALTER TABLE "CrmPipeline" ADD COLUMN "nameEn" TEXT;
+ALTER TABLE "CrmPipeline" ADD COLUMN "nameDe" TEXT;
+ALTER TABLE "CrmStage" ADD COLUMN "nameEn" TEXT;
+ALTER TABLE "CrmStage" ADD COLUMN "nameDe" TEXT;

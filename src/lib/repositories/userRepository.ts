@@ -16,7 +16,7 @@ export function findUserByPhone(phone: string) {
 }
 
 export function findUserByReferralCode(code: string) {
-  return prisma.user.findUnique({ where: { referralCode: code }, select: { id: true } });
+  return prisma.$queryRaw<{id:string}[]>`SELECT id FROM User WHERE lower(referralCode) = ${code.toLowerCase()} UNION SELECT userId AS id FROM ReferralCodeAlias WHERE lower(code) = ${code.toLowerCase()}`.then(rows => rows.length === 1 ? rows[0] : null);
 }
 
 export function createUser(data: Prisma.UserCreateInput) {
@@ -33,18 +33,6 @@ export function recordLogin(userId: string, rehashedPassword?: string) {
     where: { id: userId },
     data: { lastLoginAt: new Date(), ...(rehashedPassword ? { passwordHash: rehashedPassword } : {}) },
   });
-}
-
-/**
- * Grants the one-time referral bonus to both sides of a referral atomically.
- * Caller is responsible for the `referralRewarded` guard check before calling
- * this (kept out of the transaction so a failed lookup doesn't need a rollback).
- */
-export function grantReferralBonus(userId: string, referrerId: string, amount: number) {
-  return prisma.$transaction([
-    prisma.user.update({ where: { id: userId }, data: { credits: { increment: amount }, referralRewarded: true } }),
-    prisma.user.update({ where: { id: referrerId }, data: { credits: { increment: amount } } }),
-  ]);
 }
 
 /** Removes a team seat and resets the departing member back to the FREE plan, atomically. */

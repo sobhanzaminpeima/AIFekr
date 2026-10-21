@@ -1,0 +1,8 @@
+import {NextRequest,NextResponse} from "next/server";
+import {requireAuth,unauthorizedResponse} from "@/lib/auth/middleware";
+import {studentWorkspaceDisabledResponse} from "@/lib/student/access";
+import {prisma} from "@/lib/db/prisma";
+import {z} from "zod";
+import {enroll} from "@/lib/courses/academy";
+import {courseError} from "@/lib/courses/http";
+export async function POST(req:NextRequest,{params}:{params:{id:string}}){const user=await requireAuth(req);if(!user)return unauthorizedResponse(req);const denied=await studentWorkspaceDisabledResponse(user);if(denied)return denied;try{const body=z.object({pathId:z.string().max(100).optional()}).strict().safeParse(await req.json().catch(()=>({})));if(!body.success)return NextResponse.json({error:"INVALID_ENROLLMENT"},{status:400});if(body.data.pathId){const path=await prisma.academyLearningPath.findFirst({where:{id:body.data.pathId,status:"PUBLISHED"}});if(!path)return NextResponse.json({error:"PATH_NOT_FOUND"},{status:404});const steps:{courseId:string;requiredBeforeNext:boolean}[]=JSON.parse(path.courses),index=steps.findIndex(s=>s.courseId===params.id);if(index<0)return NextResponse.json({error:"COURSE_NOT_IN_PATH"},{status:400});const required=steps.slice(0,index).filter(s=>s.requiredBeforeNext).map(s=>s.courseId),completed=await prisma.aiCourseCompletion.findMany({where:{userId:user.id,courseId:{in:required}},select:{courseId:true},distinct:["courseId"]});if(completed.length<new Set(required).size)return NextResponse.json({error:"PATH_PREREQUISITES_REQUIRED"},{status:409});}return NextResponse.json({enrollment:await enroll(user.id,params.id)});}catch(error){return courseError(error);}}

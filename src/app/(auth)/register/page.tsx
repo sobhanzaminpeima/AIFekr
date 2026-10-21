@@ -5,17 +5,31 @@ import { useSearchParams } from "next/navigation";
 import { Sparkles, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { useTranslation } from "@/lib/i18n";
+import {STUDENT_PLAN_CODE} from "@/lib/plans/studentOffer";
+import { accountTypeFor } from "@/lib/auth/accountAudience";
+import { useTranslation, tri } from "@/lib/i18n";
+import { COUNTRIES, dialCodeFor, registrationPhone } from "@/lib/constants/countries";
+
+const LANG_OPTIONS: { code: "fa" | "en" | "de" | "tr"; label: string }[] = [
+  { code: "fa", label: "فارسی" },
+  { code: "en", label: "English" },
+  { code: "de", label: "Deutsch" },
+  { code: "tr", label: "Türkçe" },
+];
 
 function RegisterForm() {
   const params = useSearchParams();
   const { t, lang } = useTranslation();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const packSlug = params.get("pack") || "";
+  const [promoCode,setPromoCode]=useState(params.get("promo")||params.get("ref")||"");
   const refCode = params.get("ref") || "";
   const planCode = params.get("plan") || "";
+  const billingPeriod = params.get("period") || "";
 
-  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", confirmPassword: "" });
+  const [form, setForm] = useState({ firstName: "", lastName: "", country: "IR", email: "", phone: "", password: "", confirmPassword: "" });
+  const [registerLang, setRegisterLang] = useState<"fa" | "en" | "de" | "tr">(lang);
+  const [accountType, setAccountType] = useState(accountTypeFor(planCode, packSlug ? "BUSINESS" : "PERSONAL"));
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [packName, setPackName] = useState("");
@@ -31,24 +45,37 @@ function RegisterForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name.trim()) return toast.error(t.auth.register.errName);
+    if (!form.firstName.trim()) return toast.error(t.auth.register.errName);
     if (!form.email && !form.phone) return toast.error(t.auth.register.errEmailOrPhone);
     if (form.email && !form.password) return toast.error(t.auth.register.errPasswordRequired);
     if (form.password && form.password !== form.confirmPassword) return toast.error(t.auth.register.errPasswordMismatch);
     if (form.password && form.password.length < 6) return toast.error(t.auth.register.errPasswordShort);
     if (!agreed) return toast.error(t.auth.register.errMustAgree);
 
+    let composedPhone: string;
+    try { composedPhone = registrationPhone(form.phone, form.country); }
+    catch { return toast.error(tri(lang, "شماره موبایل معتبر وارد کنید", "Enter a valid phone number", "Gültige Telefonnummer eingeben", "Geçerli telefon numarası girin")); }
+
     setLoading(true);
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: form.name, email: form.email || undefined, phone: form.phone || undefined, password: form.password || undefined, industryPackSlug: packSlug || undefined, ref: refCode || undefined }),
+        body: JSON.stringify({
+          firstName: form.firstName, lastName: form.lastName || undefined, country: form.country || undefined,
+          language: registerLang, selectedPlan: planCode || (accountType==="STUDENT"?STUDENT_PLAN_CODE:undefined), accountType,
+          email: form.email || undefined, phone: composedPhone || undefined, password: form.password || undefined,
+          industryPackSlug: packSlug || undefined, ref: refCode || undefined, promoCode:promoCode||undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       toast.success(t.auth.register.success);
-      window.location.href = planCode ? `/plans?plan=${planCode}&autobuy=1` : "/chat";
+      // The just-chosen language cookie only takes effect on the NEXT
+      // navigation's server render -- a client-side route push would still
+      // render the old language for a flash. A full reload picks it up cleanly.
+      const purchasePlan=planCode||(accountType==="STUDENT"?STUDENT_PLAN_CODE:"");
+      window.location.href = purchasePlan ? `/welcome?plan=${encodeURIComponent(purchasePlan)}&period=${encodeURIComponent(billingPeriod||"monthly")}` : "/welcome";
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t.auth.register.errGeneric);
     } finally {
@@ -70,7 +97,7 @@ function RegisterForm() {
             </div>
             <span className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>AiFekr</span>
           </div>
-          <p style={{ color: "var(--text-secondary)" }}>{t.auth.register.subtitle}</p>
+          <h1 className="text-base font-normal" style={{ color: "var(--text-secondary)" }}>{t.auth.register.subtitle}</h1>
           {packName && (
             <div className="mt-3 px-4 py-2 rounded-xl inline-block" style={{ background: "rgba(234,88,12,0.1)", border: "1px solid rgba(234,88,12,0.3)" }}>
               <span className="text-sm" style={{ color: "var(--primary)" }}>{t.auth.register.selectedPack} {packName}</span>
@@ -80,23 +107,78 @@ function RegisterForm() {
 
         <div className="glass rounded-2xl p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
+                  <label className="block text-sm">{tri(lang,"کد دعوت / Promo (اختیاری)","Invitation / promo code (optional)","Einladungs- / Promo-Code (optional)","Davet / promosyon kodu (isteğe bağlı)")}<input value={promoCode} onChange={e=>setPromoCode(e.target.value)} maxLength={30} dir="ltr" className="block w-full rounded-xl p-3 mt-2 border" style={{background:"var(--surface-2)",borderColor:"var(--border)"}}/><span className="block text-xs mt-2 opacity-70">{tri(lang,"کد و لینک رفرال یکسان‌اند؛ تخفیف فعال برای اولین خرید در پرداخت نمایش داده می‌شود.","Code and referral link share the same attribution. Any active welcome discount appears at checkout.","Code und Empfehlungslink nutzen dieselbe Zuordnung. Ein aktiver Willkommensrabatt erscheint beim Kauf.","Kod ve referans bağlantısı aynı davet sahibine bağlanır. Etkin ilk satın alma indirimi ödeme adımında gösterilir.")}</span></label>
+
+            <label className="block text-sm" style={{color:"var(--text-secondary)"}}>
+              {tri(lang,"نوع حساب","Account type","Kontotyp","Hesap türü")}
+              <select aria-label={tri(lang,"نوع حساب","Account type","Kontotyp","Hesap türü")} value={accountType} disabled={/^(STUDENT_|TEAM_|CRM_)/.test(planCode)} onChange={e=>setAccountType(accountTypeFor(null,e.target.value))} className="mt-2 w-full rounded-xl p-3" style={{background:"var(--surface-2)",color:"var(--text-primary)"}}>
+                <option value="FITNESS">AIFekr FIT</option><option value="PERSONAL">{tri(lang,"شخصی","Personal","Privat","Kişisel")}</option>
+                <option value="STUDENT">{tri(lang,"دانشجو","Student","Studierende","Öğrenci")}</option>
+                <option value="BUSINESS">{tri(lang,"کسب‌وکار","Business","Unternehmen","İşletme")}</option>
+              </select>
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.firstNameLabel}</label>
+                <input aria-label={t.auth.register.firstNameLabel} type="text" value={form.firstName} onChange={e => setForm({ ...form, firstName: e.target.value })}
+                  placeholder={t.auth.register.firstNamePlaceholder} className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                  style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} required />
+              </div>
+              <div>
+                <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.lastNameLabel}</label>
+                <input aria-label={t.auth.register.lastNameLabel} type="text" value={form.lastName} onChange={e => setForm({ ...form, lastName: e.target.value })}
+                  placeholder={t.auth.register.lastNamePlaceholder} className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                  style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
+            </div>
             <div>
-              <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.nameLabel}</label>
-              <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-                placeholder={t.auth.register.namePlaceholder} className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} required />
+              <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.countryLabel}</label>
+              <select aria-label={t.auth.register.countryLabel} value={form.country} onChange={e => setForm({ ...form, country: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                <option value="">{t.auth.register.countryPlaceholder}</option>
+                {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c[lang] ?? c.en}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.languageLabel}</label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {LANG_OPTIONS.map((l) => (
+
+          <button
+                    key={l.code}
+                    type="button"
+                    onClick={() => setRegisterLang(l.code)}
+                    className="py-2.5 rounded-xl text-sm font-medium transition-all"
+                    style={{
+                      background: registerLang === l.code ? "var(--primary)" : "var(--surface-2)",
+                      color: registerLang === l.code ? "white" : "var(--text-secondary)",
+                      border: `1px solid ${registerLang === l.code ? "var(--primary)" : "var(--border)"}`,
+                    }}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
             </div>
             <div>
               <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.emailLabel}</label>
-              <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
+              <input aria-label={t.auth.register.emailLabel} type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
                 placeholder="example@email.com" dir="ltr" className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div>
               <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.phoneLabel}</label>
-              <input type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })}
-                placeholder="09123456789" dir="ltr" className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <div className="flex gap-2" dir="ltr">
+                {dialCodeFor(form.country) && (
+                  <span className="flex items-center px-3 rounded-xl text-sm flex-shrink-0" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                    {dialCodeFor(form.country)}
+                  </span>
+                )}
+                <input type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })}
+                  placeholder={form.country === "IR" ? "9123456789" : "123456789"} dir="ltr" className="flex-1 min-w-0 px-4 py-3 rounded-xl text-sm outline-none"
+                  style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
             </div>
             <div>
               <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.passwordLabel}</label>
@@ -112,7 +194,7 @@ function RegisterForm() {
             {form.password && (
               <div>
                 <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.confirmPasswordLabel}</label>
-                <input type="password" value={form.confirmPassword} onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
+                <input aria-label={t.auth.register.confirmPasswordLabel} type="password" value={form.confirmPassword} onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
                   placeholder="••••••••" dir="ltr" className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                   style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
               </div>
@@ -141,7 +223,8 @@ function RegisterForm() {
             <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
           </div>
           <a
-            href="/api/auth/google"
+            href={`/api/auth/google?${new URLSearchParams({plan:planCode||(accountType==="STUDENT"?STUDENT_PLAN_CODE:""),period:billingPeriod||"monthly",accountType,language:registerLang,ref:refCode,promo:promoCode})}`}
+            onClick={e=>{if(!agreed){e.preventDefault();toast.error(t.auth.register.errMustAgree);}}}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-medium text-sm transition-all"
             style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
           >

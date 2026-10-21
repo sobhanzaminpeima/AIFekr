@@ -7,95 +7,650 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Shared, administrator-reviewed course catalog. JSON content is strictly validated.
+model AiCourse {
+  id           String   @id @default(cuid())
+  creatorId    String
+  fieldOfStudy String
+  title        String
+  description  String
+  language     String   @default("en")
+  status       String   @default("DRAFT")
+  content      String?
+  version      Int      @default(0)
+  activeJobId  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  publishedAt DateTime?
+  jobs         AiCourseGenerationJob[]
+  progress     AiCourseProgress[]
+  difficulty   String @default("BEGINNER")
+  durationMinutes Int @default(60)
+  topic        String @default("")
+  skills       String @default("[]")
+  prerequisites String @default("")
+  coverUrl     String?
+  configuration String @default("{}")
+  blueprint    String?
+  blueprintApprovedAt DateTime?
+  majors       AiCourseMajor[]
+  publishedVersionId String?
+  publishedVersion AiCourseVersion? @relation("PublishedAcademyVersion",fields:[publishedVersionId],references:[id],onDelete:Restrict)
+  revisions AiCourseRevision[]
+  versions     AiCourseVersion[] @relation("AcademyCourseVersions")
+  @@index([status, language])
+}
+
+/// Idempotency and lease record; credits are held in the existing User/Team wallets.
+model AiCourseGenerationJob {
+  id             String   @id @default(cuid())
+  courseId       String
+  userId         String
+  idempotencyKey String
+  requestHash    String
+  status         String   @default("GENERATING")
+  credits        Int
+  usageLogId     String   @unique
+  payerTeamId    String?
+  mirroredAi     Float    @default(0)
+  previousStatus String
+  failureCode    String?
+  provider       String?
+  model          String?
+  createdAt      DateTime @default(now())
+  expiresAt      DateTime
+  completedAt    DateTime?
+  course         AiCourse @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  phase          String @default("FULL")
+  checkpoint     String @default("{}")
+  @@unique([userId, idempotencyKey])
+  @@index([status, expiresAt])
+}
+
+model AiCourseProgress {
+  id             String   @id @default(cuid())
+  userId         String
+  courseId       String
+  version        Int
+  completed      String   @default("[]")
+  quizPassed     String   @default("[]")
+  completedAt    DateTime?
+  certificateId  String?  @unique
+  certificateTitle String?
+  certificateName String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  versionId      String?
+  startedAt      DateTime?
+  lastActivityAt DateTime?
+  state          String @default("NOT_STARTED")
+  finalPassed    Boolean @default(false)
+  course         AiCourse @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  @@unique([userId, courseId, version])
+}
+
+model AcademicMajor {
+  id String @id @default(cuid())
+  name String
+  slug String @unique
+  description String @default("")
+  faculty String @default("")
+  status String @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  specializations AcademicSpecialization[]
+  profiles StudentAcademicProfile[]
+  courses AiCourseMajor[]
+}
+
+model AcademicSpecialization {
+  id String @id @default(cuid())
+  majorId String
+  name String
+  status String @default("ACTIVE")
+  major AcademicMajor @relation(fields:[majorId], references:[id], onDelete:Restrict)
+  @@unique([majorId,name])
+}
+
+model StudentAcademicProfile {
+  userId String @id
+  majorId String?
+  specializationId String?
+  educationLevel String @default("")
+  institution String @default("")
+  faculty String @default("")
+  academicYear Int?
+  expectedGraduationYear Int?
+  interests String @default("[]")
+  learningGoals String @default("")
+  updatedAt DateTime @updatedAt
+  major AcademicMajor? @relation(fields:[majorId],references:[id],onDelete:Restrict)
+}
+
+model AiCourseMajor {
+  id String @id @default(cuid())
+  courseId String
+  majorId String
+  relevance String @default("PRIMARY")
+  specializationId String?
+  course AiCourse @relation(fields:[courseId],references:[id],onDelete:Restrict)
+  major AcademicMajor @relation(fields:[majorId],references:[id],onDelete:Restrict)
+  @@unique([courseId,majorId])
+}
+
+/// Immutable published educational and assessment requirements.
+model AiCourseVersion {
+  publishedFor AiCourse[] @relation("PublishedAcademyVersion")
+  difficulty String @default("BEGINNER")
+  durationMinutes Int @default(0)
+  topic String @default("")
+  skills String @default("[]")
+  coverUrl String?
+  prerequisites String @default("")
+  majorIds String @default("[]")
+  notes AiCourseLessonNote[]
+  id String @id @default(cuid())
+  courseId String
+  version Int
+  title String
+  description String
+  language String
+  content String
+  requirements String
+  metadata String @default("{}")
+  publishedAt DateTime @default(now())
+  course AiCourse @relation("AcademyCourseVersions",fields:[courseId],references:[id],onDelete:Restrict)
+  @@unique([courseId,version])
+}
+
+model AiCourseAssessmentAttempt {
+  id String @id @default(cuid())
+  enrollmentId String
+  userId String
+  versionId String
+  assessmentId String
+  requestKey String
+  answers String
+  score Float
+  passed Boolean
+  createdAt DateTime @default(now())
+  @@unique([enrollmentId,requestKey])
+  @@index([userId,createdAt])
+  @@index([enrollmentId,assessmentId])
+}
+
+model AiCourseCompletion {
+  id String @id @default(cuid())
+  enrollmentId String @unique
+  userId String
+  courseId String
+  versionId String
+  score Float?
+  completedAt DateTime @default(now())
+  certificate AiCourseCertificate?
+}
+
+model AiCourseCertificate {
+  verificationCount Int @default(0)
+  lastVerifiedAt DateTime?
+  id String @id @default(cuid())
+  completionId String @unique
+  verificationCode String @unique
+  studentName String
+  courseTitle String
+  version Int
+  learningArea String
+  durationMinutes Int
+  skills String
+  status String @default("ACTIVE")
+  issuedAt DateTime @default(now())
+  revokedAt DateTime?
+  revokedBy String?
+  revocationReason String?
+  completion AiCourseCompletion @relation(fields:[completionId],references:[id],onDelete:Restrict)
+  @@index([status,issuedAt])
+}
+
+model AcademyLearningPath {
+  id String @id @default(cuid())
+  title String
+  description String @default("")
+  majorId String?
+  status String @default("DRAFT")
+  courses String @default("[]")
+  updatedAt DateTime @updatedAt
+}
+
 model User {
-  id                String    @id @default(cuid())
-  email             String?   @unique
-  phone             String?   @unique
-  passwordHash      String?
-  name              String?
-  avatar            String?
-  role              String    @default("USER")
-  plan              String    @default("FREE")
-  credits           Int       @default(100)
-  planExpiry        DateTime?
+  playProfile PlayProfile?
+  playSessions PlaySession[]
+  mobileSessions MobileSession[]
+  mobileRequests MobileRequest[]
+  fitnessAccessExpiry DateTime?
+  fitnessProfile FitnessProfile?
+  fitnessSessions FitnessSession[]
+  fitnessDiary FitnessDiary[]
+  fitnessTrainer FitnessTrainer?
+  fitnessApplication FitnessTrainerApplication?
+  fitnessOrders FitnessMarketOrder[]
+  fitnessBookings FitnessBooking[]
+  billingQuotes BillingQuote[]
+
+  referralCodeAliases ReferralCodeAlias[]
+  @@index([signupNotifiedAt, createdAt])
+  id                        String    @id @default(cuid())
+  email                     String?   @unique
+  /// Durable new-account alert to support; historical users are marked in migration.
+  signupNotifiedAt           DateTime?
+  signupNotificationClaimedAt DateTime?
+  signupNotificationAttempts Int       @default(0)
+  signupNotificationError    String?
+  phone                     String?   @unique
+  passwordHash              String?
+  name                      String?
+  /// Split out from `name` so registration/admin can collect them separately.
+  /// `name` stays in sync (firstName + " " + lastName) so every existing
+  /// caller that reads `user.name` keeps working unchanged.
+  firstName                 String?
+  lastName                  String?
+  /// ISO 3166-1 alpha-2 country code (e.g. "IR", "DE", "US") — collected at
+  /// registration and editable from the admin panel.
+  country                   String?
+  /// Registration audience; independent from paid entitlements.
+  accountType               String    @default("PERSONAL")
+  /// "fa" | "en" | "de" — chosen at registration. The `lang` cookie is the
+  /// live, changeable-anytime preference (LanguageSwitcher), but it's just a
+  /// browser cookie: gone on a new device/browser or if cleared. This column
+  /// is what login uses to re-set that cookie, so the choice actually
+  /// survives across logins instead of silently reverting to the site default.
+  language                  String?
+  /// User's preferred display currency for fixed-amount displays (referral
+  /// wallet, etc.) outside the accounting module, which already has its own
+  /// per-property currency. Null means "derive from UI language" (existing
+  /// behavior, unchanged for anyone who hasn't picked one explicitly).
+  /// "IRT" | "USD" | "EUR".
+  currency                  String?
+  avatar                    String?
+  studentPublicSlug         String?   @unique
+  studentProfilePublic      Boolean   @default(false)
+  role                      String    @default("USER")
+  plan                      String    @default("FREE")
+  credits                   Int       @default(100)
+  // Phase 2 of the monetization overhaul: the single `credits` pool is being
+  // split into three separately-tracked wallets, matching how the master
+  // prompt's pricing model actually meters usage (AI chat tokens, media
+  // generation, voice minutes are different cost shapes and need to be
+  // capped/sold separately). `credits` is kept as-is during the transition
+  // -- nothing stops writing to it yet, so existing code paths (plan
+  // activation, credit-tier purchases) keep working unchanged until Phase 3
+  // (billing/plan restructuring) moves them onto the wallets directly. A
+  // one-time backfill script (scripts/split-credits-into-wallets.js) splits
+  // each user's existing `credits` balance into these three proportionally
+  // to their real historical usage mix from UsageLog, per the user's
+  // explicit decision to migrate this way rather than an even 3-way split.
+  aiCredits                 Float     @default(0)
+  mediaCredits              Float     @default(0)
+  voiceMinutes              Float     @default(0)
+  planExpiry                DateTime?
   /// Voice Agent add-on tier, purchased and billed separately from `plan` —
   /// same pattern as crmPlan. "NONE" | "ACTIVE".
-  voicePlan         String    @default("NONE")
-  voicePlanExpiry   DateTime?
+  voicePlan                 String    @default("NONE")
+  voicePlanExpiry           DateTime?
   /// CRM add-on tier, purchased and billed separately from `plan` (the AI-usage
   /// tier) — buying CRM must never overwrite a user's AI plan. "NONE" | "SOLO" | "TEAM".
-  crmPlan           String    @default("NONE")
-  crmPlanExpiry     DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  lastLoginAt       DateTime?
-  isBlocked         Boolean   @default(false)
-  industryPackId    String?
+  crmPlan                   String    @default("NONE")
+  crmPlanExpiry             DateTime?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+  lastLoginAt               DateTime?
+  isBlocked                 Boolean   @default(false)
+  industryPackId            String?
   /// Google OAuth subject id — set when the user signs in with Google
-  googleId          String?   @unique
+  googleId                  String?   @unique
   /// How this account authenticates: "password" | "google"
-  authProvider      String    @default("password")
+  authProvider              String    @default("password")
   /// If true, the CEO orchestrator runs automatically once a day (via cron) and emails a digest — opt-in, off by default.
-  ceoAutoRunEnabled Boolean   @default(false)
+  ceoAutoRunEnabled         Boolean   @default(false)
+  /// Language for the unattended daily CEO briefing. The cron has no request,
+  /// so it cannot read the `lang` cookie the interactive route uses — without
+  /// this column every scheduled briefing went out in Persian regardless of
+  /// the user's language. Captured from the UI language when auto-run is
+  /// switched on. Same pattern as AccountingScheduledReport.lang.
+  ceoAutoRunLang            String    @default("fa")
   /// Onboarding wizard completed
-  onboardingDone    Boolean   @default(false)
+  onboardingDone            Boolean   @default(false)
   /// Referral system
-  referralCode      String?   @unique
-  referredBy        String?
+  referralDiscountPercent   Int       @default(0)
+  referralCode              String?   @unique
+  referredBy                String?
   /// True once the referral signup bonus has been granted to both this user and their referrer — prevents double-granting on plan renewals.
-  referralRewarded  Boolean   @default(false)
+  referralRewarded          Boolean   @default(false)
+  /// Affiliate wallet balance in Toman — earned as a configurable % commission
+  /// (see SiteSetting key "referral_commission_percent", src/lib/utils/referralWallet.ts)
+  /// whenever a user this account referred makes a purchase. Never moved by
+  /// automated code beyond the transactions in WalletTransaction — cash
+  /// payouts always go through a WalletPayoutRequest an admin resolves
+  /// manually after actually sending the money outside this app.
+  walletBalance             Int       @default(0)
+  /// Per-user referral commission override, in percent (0-100) — takes
+  /// priority over the global `referral_commission_percent` site setting.
+  /// Null means "use the global default."
+  commissionPercentOverride Int?
 
-  conversations       Conversation[]
-  projects            Project[]
-  images              GeneratedImage[]
-  videos              GeneratedVideo[]
-  musics              GeneratedMusic[]
-  payments            Payment[]
-  usageLogs           UsageLog[]
-  otpCodes            OtpCode[]
-  crmContacts         CrmContact[]
-  crmContactsAssigned CrmContact[]         @relation("CrmContactAssignee")
-  crmPipelines        CrmPipeline[]
-  crmDealsOwned       CrmDeal[]            @relation("CrmDealOwnerUser")
-  crmDealsAssigned    CrmDeal[]            @relation("CrmDealAssignee")
-  crmDocuments        CrmDocument[]
-  crmAutomationRules  CrmAutomationRule[]
-  crmActivities       CrmActivity[]
-  crmTasks            CrmTask[]
-  crmInsights         CrmInsight[]
-  crmProducts         CrmProduct[]
-  crmInvoices         CrmInvoice[]
-  crmContracts        CrmContract[]
-  crmContractTemplates CrmContractTemplate[]
-  crmNotes            CrmNote[]
-  crmProjects         CrmProject[]
-  businessAnalyses    BusinessAnalysis[]
-  socialPosts         SocialPost[]
-  generatedWebsites   GeneratedWebsite[]
-  industryPack        IndustryPack?        @relation(fields: [industryPackId], references: [id])
-  company             Company?
-  ownedTeam           Team?                @relation("TeamOwner")
-  teamMembership      TeamMember?
-  seoConnection       SeoConnection?
-  gscConnection       GscConnection?
-  instagramConn       InstagramConnection?
-  scheduledPosts      ScheduledPost[]
-  pipelineRuns        ContentPipelineRun[]
-  agentLessons        ContentAgentLesson[]
-  contentPosts        ContentPost[]
-  businessMemories    BusinessMemory[]
-  startupProjects     StartupProject[]
-  startupInquiries    StartupInquiry[]
-  ceoTasks            CeoTask[]
-  boardroomSessions   BoardroomSession[]
-  voiceAgents         VoiceAgent[]
-  voiceProperties     VoiceProperty[]
-  voiceCallLogs       VoiceCallLog[]
-  voiceAppointments   VoiceAppointment[]
-  voiceKnowledgeBase  VoiceKnowledgeBase[]
-  gameSessions        GameSession[]
+  /// Admin "Invite to AIfekr" tool (src/app/admin/invites). A trial
+  /// activation ALSO sets the real plan/planExpiry fields above (those are
+  /// what every plan-gated feature actually checks) — these fields are the
+  /// audit trail of "this was a trial, granted by whom, for what package,"
+  /// distinct from a normal paid Pro subscription.
+  mustChangePassword Boolean   @default(false)
+  trialPlan          String?
+  trialStartsAt      DateTime?
+  trialEndsAt        DateTime?
+  realEstatePackage  Boolean   @default(false)
+  /// The "referral trial" package: full Pro trial except Video Generator and
+  /// Website Designer, which show an upgrade prompt instead of running.
+  /// Independent of trialPlan/trialStartsAt/trialEndsAt (which just record
+  /// the trial's dates) -- this is the one flag every gated route checks.
+  trialLimited       Boolean   @default(false)
+  invitedByAdminId   String?
+  invitedAt          DateTime?
+
+  conversations            Conversation[]
+  projects                 Project[]
+  images                   GeneratedImage[]
+  videos                   GeneratedVideo[]
+  musics                   GeneratedMusic[]
+  payments                 Payment[]
+  walletTransactions       WalletTransaction[]
+  walletPayoutRequests     WalletPayoutRequest[]
+  usageLogs                UsageLog[]
+  otpCodes                 OtpCode[]
+  crmContacts              CrmContact[]
+  crmContactsAssigned      CrmContact[]          @relation("CrmContactAssignee")
+  inviteCards              InviteCard[]
+  crmPipelines             CrmPipeline[]
+  crmDealsOwned            CrmDeal[]             @relation("CrmDealOwnerUser")
+  crmDealsAssigned         CrmDeal[]             @relation("CrmDealAssignee")
+  propertyViewingsAssigned PropertyViewing[]     @relation("PropertyViewingAssignee")
+  crmDocuments             CrmDocument[]
+  crmAutomationRules       CrmAutomationRule[]
+  crmActivities            CrmActivity[]
+  crmTasks                 CrmTask[]
+  crmInsights              CrmInsight[]
+  crmAnalysisRuns          CrmAnalysisRun[]
+  leadForms                LeadForm[]
+  leadSources              LeadSource[]
+  socialBrandProfile       SocialBrandProfile?
+  socialCompetitors        SocialCompetitor[]
+  crmProducts              CrmProduct[]
+  crmInvoices              CrmInvoice[]
+  crmContracts             CrmContract[]
+  crmContractTemplates     CrmContractTemplate[]
+  crmNotes                 CrmNote[]
+  crmProjects              CrmProject[]
+  businessAnalyses         BusinessAnalysis[]
+  socialPosts              SocialPost[]
+  generatedWebsites        GeneratedWebsite[]
+  industryPack             IndustryPack?         @relation(fields: [industryPackId], references: [id])
+  company                  Company?
+  ownedTeam                Team?                 @relation("TeamOwner")
+  teamMembership           TeamMember?
+  seoConnection            SeoConnection?
+  gscConnection            GscConnection?
+  seoSites                 SeoSite[]
+  instagramConnections     InstagramConnection[]
+  scheduledPosts           ScheduledPost[]
+  pipelineRuns             ContentPipelineRun[]
+  agentLessons             ContentAgentLesson[]
+  contentPosts             ContentPost[]
+  businessMemories         BusinessMemory[]
+  startupProjects          StartupProject[]
+  startupInquiries         StartupInquiry[]
+  ceoTasks                 CeoTask[]
+  boardroomSessions        BoardroomSession[]
+  voiceAgents              VoiceAgent[]
+  voiceProperties          Property[]
+  moduleOverrides          UserModuleOverride[]
+  voiceCallLogs            VoiceCallLog[]
+  voiceAppointments        VoiceAppointment[]
+  voiceKnowledgeBase       VoiceKnowledgeBase[]
+  notifications            Notification[]
+  ownedOrganizations       Organization[]        @relation("OrganizationOwner")
+  organizationMemberships  OrganizationMember[]
+  businessMemberships      BusinessMember[]
+  businessesCreated        BusinessWorkspace[]   @relation("BusinessCreator")
+  activeBusinessId         String?
+  activeBusiness           BusinessWorkspace?    @relation("ActiveBusiness", fields: [activeBusinessId], references: [id])
+  organizationLedgerEntries OrganizationCreditLedger[] @relation("OrganizationLedgerActor")
+  organizationAuditEvents  OrganizationAuditLog[] @relation("OrganizationAuditActor")
+  studentCourses           StudentCourse[]
+  studentMaterials         StudentMaterial[]
+  studentNotes             StudentNote[]
+  studentFlashcards        StudentFlashcard[]
+  studentQuizAttempts      StudentQuizAttempt[]
+  studentExams             StudentExam[]
+  studentTasks             StudentTask[]
+  studentStudySessions     StudentStudySession[]
+  ownedStudentGroups       StudentStudyGroup[] @relation("StudentStudyGroupOwner")
+  studentGroupMemberships  StudentStudyGroupMember[]
+  studentGroupMessages     StudentStudyGroupMessage[]
 
   @@index([industryPackId])
+  @@index([activeBusinessId])
+}
+
+/// Enterprise tenant. Existing personal accounts receive exactly one default
+/// organization and workspace during the backwards-compatible backfill; the
+/// normal product continues to behave as it did until another workspace is
+/// explicitly added.
+model Organization {
+  id                    String   @id @default(cuid())
+  name                  String
+  slug                  String   @unique
+  logoUrl               String?
+  industry              String?
+  country               String?
+  timezone              String   @default("UTC")
+  currency              String   @default("USD")
+  language              String   @default("fa")
+  brandSettings         String?
+  resourceStrategy      String   @default("SHARED") // SHARED | ALLOCATED
+  planType              String   @default("PERSONAL")
+  status                String   @default("ACTIVE") // ACTIVE | GRACE | SUSPENDED | ARCHIVED
+  subscriptionStartsAt  DateTime?
+  subscriptionEndsAt    DateTime?
+  renewalStatus         String?
+  aiCredits             Float    @default(0)
+  mediaCredits          Float    @default(0)
+  voiceMinutes          Float    @default(0)
+  ownerId               String
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  owner        User                     @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members      OrganizationMember[]
+  businesses   BusinessWorkspace[]
+  ledger       OrganizationCreditLedger[]
+  featureFlags OrganizationFeatureFlag[]
+  auditLogs    OrganizationAuditLog[]
+
+  @@index([ownerId])
+  @@index([status])
+}
+
+/// A separately authorized operating workspace inside an Organization. New
+/// module records will attach here; legacy records remain available through a
+/// user's default workspace until their module-specific migration is applied.
+model BusinessWorkspace {
+  id                String   @id @default(cuid())
+  organizationId    String
+  name              String
+  slug              String   @unique
+  logoUrl           String?
+  businessType      String?
+  industry          String?
+  description       String?
+  website           String?
+  email             String?
+  phone             String?
+  country           String?
+  timezone          String   @default("UTC")
+  currency          String   @default("USD")
+  /// The business's own working language (fa | en | de | tr) -- distinct from a viewer's personal UI-language cookie.
+  language          String   @default("fa")
+  brandSettings     String?
+  aiInstructions    String?
+  modules           String?  // JSON configuration; module access is server-checked.
+  status            String   @default("ACTIVE") // ACTIVE | ARCHIVED
+  createdById       String?
+  aiCreditLimit     Float?
+  mediaCreditLimit  Float?
+  voiceMinuteLimit  Float?
+  limitMode         String   @default("NONE") // NONE | SOFT | HARD
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?                        @relation("BusinessCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  members      BusinessMember[]
+  activeUsers  User[]                       @relation("ActiveBusiness")
+  ledger       OrganizationCreditLedger[]
+  auditLogs    OrganizationAuditLog[]
+
+  @@index([organizationId, status])
+  @@index([createdById])
+}
+
+/// Organization-level identity and role. `allBusinesses` is an explicit
+/// grant; it is never inferred from a client-provided business id.
+model OrganizationMember {
+  id            String   @id @default(cuid())
+  organizationId String
+  userId        String
+  role          String   @default("MEMBER") // OWNER | ADMIN | MANAGER | MEMBER | VIEWER
+  allBusinesses Boolean  @default(false)
+  status        String   @default("ACTIVE") // ACTIVE | INVITED | SUSPENDED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businesses   BusinessMember[]
+
+  @@unique([organizationId, userId])
+  @@index([userId, status])
+}
+
+/// Explicit per-business entitlement for a member who does not have
+/// OrganizationMember.allBusinesses. Permissions are an extensible JSON list
+/// and must be evaluated server-side through organization/context.ts.
+model BusinessMember {
+  id                   String   @id @default(cuid())
+  businessId           String
+  organizationMemberId String
+  userId               String
+  role                 String   @default("MEMBER")
+  permissions          String?
+  status               String   @default("ACTIVE")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  business           BusinessWorkspace  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  organizationMember OrganizationMember @relation(fields: [organizationMemberId], references: [id], onDelete: Cascade)
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, userId])
+  @@index([organizationMemberId])
+  @@index([userId, status])
+}
+
+/// Immutable organization resource ledger. Balances are fast projections;
+/// this table is the audit source of truth for grants, usage, refunds and
+/// manual adjustments. idempotencyKey prevents retried jobs from charging
+/// twice.
+model OrganizationCreditLedger {
+  id             String   @id @default(cuid())
+  organizationId String
+  businessId     String?
+  userId         String?
+  resourceType   String   // AI_CREDIT | MEDIA_CREDIT | VOICE_MINUTE
+  direction      String   // GRANT | USAGE | REFUND | ADJUSTMENT
+  amount         Float
+  feature        String?
+  provider       String?
+  model          String?
+  providerCostUsd Float?
+  metadata       String?
+  idempotencyKey String?  @unique
+  createdAt      DateTime @default(now())
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  business     BusinessWorkspace? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  user         User?              @relation("OrganizationLedgerActor", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([businessId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model OrganizationFeatureFlag {
+  id             String   @id @default(cuid())
+  organizationId String
+  key            String
+  enabled        Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, key])
+}
+
+model OrganizationAuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  businessId     String?
+  actorId        String?
+  action         String
+  targetType     String?
+  targetId       String?
+  metadata       String?
+  createdAt      DateTime @default(now())
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  business     BusinessWorkspace? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  actor        User?              @relation("OrganizationAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([businessId, createdAt])
+  @@index([actorId])
+}
+
+/// In-app notification for a user — created by notify() in
+/// src/lib/notifications/create.ts whenever something relevant happens even
+/// while the user isn't looking (new CRM lead, voice call ended, scheduled
+/// post published/failed, etc). `type` is kept an open string (not an enum)
+/// so new notification kinds can be added without a migration.
+model Notification {
+  emailPending Boolean @default(false)
+  emailSentAt DateTime?
+  emailAttempts Int @default(0)
+  emailClaimedAt DateTime?
+  emailError String?
+  telegramSentAt DateTime?
+  telegramError String?
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String?
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
 }
 
 /// A TEAM-plan subscription shared by up to maxSeats users. Credits are
@@ -106,6 +661,10 @@ model Team {
   name       String
   ownerId    String    @unique
   credits    Int       @default(0)
+  // Same three-wallet split as User -- see User.aiCredits's schema comment.
+  aiCredits    Float     @default(0)
+  mediaCredits Float     @default(0)
+  voiceMinutes Float     @default(0)
   planExpiry DateTime?
   maxSeats   Int       @default(5)
   createdAt  DateTime  @default(now())
@@ -190,9 +749,18 @@ model Conversation {
   title     String?
   tool      String?
   model     String   @default("claude-haiku-4-5-20251001")
+  /// Bounded JSON state the /chat orchestrator carries between turns: the
+  /// last business domain discussed, plus a short LRU of entity ids it
+  /// surfaced (see src/lib/orchestrator/routing.ts). Bounded on purpose so
+  /// token cost stays flat as a conversation grows. Ids here are never
+  /// trusted on the way back in — every tool re-validates them against the
+  /// workspace before use.
+  routingState String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   projectId String?
+  /// Business this conversation belongs to (nullable: legacy rows, and workspaces with no provisioned business).
+  businessId String?
 
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   project  Project?  @relation(fields: [projectId], references: [id])
@@ -200,6 +768,7 @@ model Conversation {
 
   @@index([userId])
   @@index([projectId])
+  @@index([businessId])
 }
 
 model Message {
@@ -220,6 +789,11 @@ model GeneratedImage {
   userId         String
   prompt         String
   style          String   @default("realistic")
+  /// "standard" for the free-form Image Generator, "character_sheet" for
+  /// the Character Creation submenu — lets the character panel show only
+  /// the user's own saved character sheets instead of every image they've
+  /// ever generated.
+  kind           String   @default("standard")
   url            String
   /// User-uploaded reference photo this image was generated from, if any (image-to-image).
   sourceImageUrl String?
@@ -242,6 +816,10 @@ model GeneratedVideo {
   sourceImageUrl String?
   isPublic       Boolean  @default(false)
   credits        Int      @default(20)
+  /// Set once the async provider job (Replicate/Qwen) reports a terminal
+  /// failure and the credits spent up-front in generate/route.ts have been
+  /// refunded, so status/route.ts's polling never double-refunds the same row.
+  refunded       Boolean  @default(false)
   createdAt      DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -258,6 +836,11 @@ model GeneratedMusic {
   url       String
   isPublic  Boolean  @default(false)
   credits   Int      @default(10)
+  /// Mirrors GeneratedVideo.refunded — set once the async Replicate job
+  /// reports a terminal failure and the up-front charge has been returned,
+  /// so repeated status polls can never double-refund the same row. Music
+  /// had no such column, so a failed generation silently kept the credits.
+  refunded  Boolean  @default(false)
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -266,19 +849,186 @@ model GeneratedMusic {
 }
 
 model Payment {
-  id        String   @id @default(cuid())
-  userId    String
-  amount    Int
-  plan      String
-  status    String   @default("PENDING")
-  gateway   String   @default("zarinpal")
-  refId     String?
-  authority String?  @unique
-  createdAt DateTime @default(now())
+  promoCode String?
+  promoPercent Int @default(0)
+  originalAmount Int?
+  id                  String   @id @default(cuid())
+  userId              String
+  amount              Int
+  plan                String
+  status              String   @default("PENDING")
+  gateway             String   @default("zarinpal")
+  refId               String?
+  authority           String?  @unique
+  createdAt           DateTime @default(now())
+  /// Toman amount of the affiliate-wallet discount already subtracted from
+  /// `amount` for this checkout (0 = no wallet used). Deliberately NOT
+  /// deducted from the wallet at creation time — only at payment success
+  /// (see payment/verify and webhooks/nowpayments) — so an abandoned or
+  /// failed checkout never loses the user real wallet money for nothing.
+  walletDiscountToman Int      @default(0)
+  /// Billing term purchased, in months (1 = monthly, 12 = annual). Expiry is
+  /// Package.duration × this. Without it an annual checkout charged the
+  /// annual price but activation only ever granted one month.
+  periodMonths        Int      @default(1)
 
+  transferCurrency String @default("TRY")
+  transferMinor Int @default(0)
+  bankSnapshot String @default("{}")
+  entitlementSnapshot String @default("{}")
+  receiptData Bytes?
+  receiptMime String?
+  receiptHash String? @unique
+  receiptAt DateTime?
+  reviewBy String?
+  reviewAt DateTime?
+  reviewNote String?
+  telegramSentAt DateTime?
+  telegramError String?
+  notificationSentAt DateTime?
+  notificationAttempts Int @default(0)
+  notificationError String?
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+/// Admin-configurable one-off credit top-up tiers (buy N credits for X Toman,
+/// independent of any subscription plan/duration) -- purchased through the
+/// same Zarinpal flow as plans, dispatched via the "CREDITS_<tierId>" prefix
+/// on Payment.plan, same pattern as the CRM and VOICE add-on prefixes.
+model CreditPricingTier {
+  id              String   @id @default(cuid())
+  creditsAmount   Int
+  priceToman      Int
+  /// Display-only, computed from priceToman vs. the platform's base
+  /// per-credit rate -- stored so it doesn't drift if that base rate changes
+  /// after the tier was set up.
+  discountPercent Int      @default(0)
+  /// "best_value" | "most_discount" | null -- which highlight ribbon, if any.
+  badge           String?
+  sortOrder       Int      @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+/// Audit ledger for User.walletBalance — every balance change is one row
+/// here, so the running balance is always reconstructable/verifiable rather
+/// than trusted blindly. Amount is signed Toman (positive = credit, negative
+/// = debit).
+model WalletTransaction {
+  id               String   @id @default(cuid())
+  userId           String
+  /// commission | redeem_at_checkout | payout_request | payout_rejected_refund
+  type             String
+  amount           Int
+  /// The purchase that generated a commission entry, or that a redeem
+  /// discount was applied to — null for payout entries.
+  relatedPaymentId String?
+  /// The referred user whose purchase generated a commission entry.
+  relatedUserId    String?
+  payoutRequestId  String?
+  note             String?
+  createdAt        DateTime @default(now())
+
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payoutRequest WalletPayoutRequest? @relation(fields: [payoutRequestId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([payoutRequestId])
+}
+
+/// A cash-out request against User.walletBalance. Creating one immediately
+/// reserves (debits) the balance so it can't be double-spent while pending —
+/// see POST /api/wallet/payout-request. Actually sending the money always
+/// happens outside this app (bank transfer / PayPal, done by an admin
+/// manually); this row is only ever marked "paid" after that already
+/// happened, never used to trigger a transfer itself.
+model WalletPayoutRequest {
+  id             String    @id @default(cuid())
+  userId         String
+  amount         Int
+  /// iran_sheba | iran_card | intl_card | paypal
+  method         String
+  sheba          String?
+  cardNumber     String?
+  cardHolderName String?
+  paypalEmail    String?
+  /// pending | paid | rejected
+  status         String    @default("pending")
+  adminNote      String?
+  createdAt      DateTime  @default(now())
+  resolvedAt     DateTime?
+  resolvedById   String?
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+/// Reference data seeded once from prisma/seed-data/countries-cities.json
+/// (github.com/dr5hn/countries-states-cities-database) plus Northern
+/// Cyprus, added explicitly since it's absent from that dataset (a
+/// disputed territory most geo-databases omit). Generic — not tied to
+/// real estate — any part of the app needing a country/city picker (the
+/// Property city field today) can reuse this instead of free text.
+model Country {
+  id     String  @id @default(cuid())
+  /// ISO 3166-1 alpha-2 where one exists; 'CY-N' for Northern Cyprus,
+  /// which has no official ISO code.
+  iso2   String  @unique
+  name   String
+  nameFa String?
+  nameDe String?
+  emoji  String?
+
+  cities City[]
+}
+
+model City {
+  id        String  @id @default(cuid())
+  countryId String
+  name      String
+  /// Only populated for major/well-known cities (curated list, not all
+  /// ~153k rows) — machine-translating every city name isn't reliable for
+  /// obscure places. Falls back to `name` in the UI when null.
+  nameFa    String?
+  nameDe    String?
+
+  country Country @relation(fields: [countryId], references: [id], onDelete: Cascade)
+
+  @@index([countryId])
+  @@index([name])
+}
+
+/// A buyer/tenant lead registered as wanting a specific property this
+/// agency already has — deliberately separate from Property.crmContactId
+/// (the OWNER/seller link, Section 1 item 2). One property can have many
+/// interested contacts, and one contact can be interested in many
+/// properties, so this is its own join row rather than a second FK on
+/// either side.
+model PropertyInterest {
+  id         String   @id @default(cuid())
+  userId     String
+  /// Immutable business boundary for this CRM record. Legacy rows are backfilled
+  /// to the owner's default BusinessWorkspace before business-scoped reads ship.
+  businessId String?
+  propertyId String
+  contactId  String
+  note       String?
+  createdAt  DateTime @default(now())
+
+  property Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  contact  CrmContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, contactId])
+  @@index([userId])
+  @@index([businessId])
+  @@index([propertyId])
+  @@index([contactId])
 }
 
 /// Admin-added AI providers — lets an admin plug in a new chat model (any
@@ -288,6 +1038,9 @@ model Payment {
 model CustomAiProvider {
   id        String   @id @default(cuid())
   name      String
+  /// "chat" | "image" | "video" — which picker (src/app/api/ai/{chat,image,video}-providers)
+  /// this entry shows up in. Defaults to "chat" for rows created before this field existed.
+  type      String   @default("chat")
   baseUrl   String
   apiKey    String
   model     String
@@ -304,17 +1057,152 @@ model UsageLog {
   credits   Int      @default(1)
   metadata  String?
   createdAt DateTime @default(now())
+  /// Provider id from src/lib/ai/providers.ts (e.g. "claude", "gpt5") — the
+  /// PROVIDERS registry, not a separate FK table, since it's a code catalog
+  /// (adding a model is a code change either way; see AiModelPricing's own
+  /// comment for why pricing still gets its own admin-editable table).
+  provider  String?
+  /// Token/media/voice breakdown, kept separate from the single `tokens`
+  /// total above (which predates this and stays for backward compat) so
+  /// cost math can use the actual input/output split instead of guessing a
+  /// ratio. All nullable: most rows only ever populate the ones relevant to
+  /// their `type` (chat -> tokens, video/music -> mediaSeconds, voice ->
+  /// voiceSeconds); an image row and a chat row are never expected to fill
+  /// the same columns.
+  inputTokens      Int?
+  outputTokens     Int?
+  cachedTokens     Int?
+  mediaSeconds     Float?
+  voiceSeconds     Float?
+  /// Estimated cost computed at charge time from AiModelPricing, before the
+  /// provider's real bill is known (which for most providers here, we never
+  /// actually get — see AiModelPricing's comment). Kept distinct from
+  /// actualCostUsd so a future provider that DOES report real billed cost
+  /// (the way Vapi already does for voice, see VoiceCallLog.cost) can fill
+  /// that column without this one silently becoming misleading.
+  estimatedCostUsd Float?
+  actualCostUsd    Float?
+  /// Client-supplied idempotency key for routes that accept one (currently
+  /// none do -- reserved for Phase 6 hardening, not enforced yet).
+  requestId        String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([createdAt])
+  @@index([provider])
+}
+
+// Admin-editable $ pricing per provider+kind, used to compute UsageLog's
+// estimatedCostUsd. Deliberately NOT a full "AiProvider"/"AiModel" pair with
+// priority/fallback/enable-disable columns (the master-prompt spec's shape)
+// -- this app's router already owns enable/disable (providerConfig.ts,
+// SiteSetting-backed, fixed this session) and provider selection/fallback
+// order (router.ts's ROUTING_TABLE, code-level). Duplicating that into a
+// second DB-driven system right after fixing the first one's "config reset
+// by deploy" bug would give the app two sources of truth for the same
+// decision. This table's only job is the dollar figure a given
+// provider+kind actually costs, which had no home anywhere before.
+//
+// providerId matches src/lib/ai/providers.ts's Provider.id for chat/text
+// models; image/video/music routes use a stable string of their own
+// (e.g. "qwen-image", "replicate-video") since those aren't in that
+// registry. One row per (providerId, kind).
+model AiModelPricing {
+  id                     String   @id @default(cuid())
+  providerId             String
+  /// "chat" | "image" | "video" | "music" | "voice"
+  kind                   String
+  /// Chat only: USD per 1,000,000 input/output tokens.
+  inputPricePerMillion   Float?
+  outputPricePerMillion  Float?
+  /// image: USD per generated image. video/music: USD per second.
+  /// voice: USD per minute. Whichever applies to `kind`.
+  pricePerUnit           Float?
+  isActive               Boolean  @default(true)
+  updatedAt              DateTime @updatedAt
+  createdAt              DateTime @default(now())
+
+  @@unique([providerId, kind])
+}
+
+/// Server-side error events, for /admin/logs. That page's "errors" tab used to
+/// say the feature wasn't implemented, which left no way to see what was
+/// actually failing in production beyond SSHing to read pm2 logs.
+/// Deliberately NOT a relation to User: an error is worth keeping after the
+/// account that hit it is deleted, and `userId` is often null anyway
+/// (unauthenticated requests, cron jobs).
+model ErrorLog {
+  id        String   @id @default(cuid())
+  /// "error" | "warn" -- severity, so the tab can show real failures first.
+  level     String   @default("error")
+  /// Where it happened, e.g. "/api/chat" or "cron:instagram-analytics".
+  source    String
+  message   String
+  /// Truncated before storage -- see logError() in src/lib/logging/errorLog.ts.
+  stack     String?
+  /// Correlates a report with the user's session when one is known.
+  userId    String?
+  /// Correlates with the browser/network trace for a single request.
+  requestId String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([level, createdAt])
 }
 
 model SiteSetting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+/// Daily visit count for a public, no-login page (currently just
+/// /share/1980s). One row per page per calendar day, incremented on every
+/// page load -- enough for "how many people opened this link" without the
+/// cost/complexity of a full analytics pipeline for a single page.
+model PublicPageVisit {
+  id    String   @id @default(cuid())
+  page  String
+  date  DateTime
+  count Int      @default(0)
+
+  @@unique([page, date])
+  @@index([page])
+}
+
+/// Pack-level default for one gateable module/agent (see src/lib/industry/moduleAccess.ts
+/// for the full decision function — this is only the "industry pack default" layer,
+/// third priority behind platform-admin bypass and a per-customer UserModuleOverride).
+/// moduleKey values come from the static catalog in src/lib/industry/moduleRegistry.ts.
+model IndustryModuleFlag {
+  id             String   @id @default(cuid())
+  industryPackId String
+  moduleKey      String
+  enabled        Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
+
+  industryPack IndustryPack @relation(fields: [industryPackId], references: [id], onDelete: Cascade)
+
+  @@unique([industryPackId, moduleKey])
+  @@index([industryPackId])
+}
+
+/// Per-customer override of a module/agent's visibility, independent of their
+/// industry pack's default — always wins over IndustryModuleFlag (but loses to
+/// platform-admin bypass). E.g. a real-estate customer who doesn't want the
+/// commission module shown yet, without affecting any other real-estate customer.
+model UserModuleOverride {
+  id        String   @id @default(cuid())
+  userId    String
+  moduleKey String
+  enabled   Boolean
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleKey])
+  @@index([userId])
 }
 
 model Prompt {
@@ -325,11 +1213,23 @@ model Prompt {
   content      String
   /// English prompt text — same fallback rule as titleEn.
   contentEn    String?
+  /// German title/text/guide. Before these existed every consumer did
+  /// `lang !== "fa" ? En : Fa`, so German users always got the English prompt
+  /// and the admin editor had no way to write a German one (QA 2026-09-15,
+  /// Admin/Prompts). Nullable, falling back to the English field, then Persian.
+  titleDe      String?
+  contentDe    String?
+  guideDe      String?
   category     String   @default("general")
   /// Which tool this ready-made prompt is for: "chat" | "image" | "video"
   toolType     String   @default("chat")
   /// Reference thumbnail shown in the picker UI — image/video prompts only.
   thumbnailUrl String?
+  /// Short usage tip shown in the prompt detail view (e.g. "upload a clear
+  /// front-facing photo" or, for a couple prompt, "upload a photo of the
+  /// two of you together") -- nullable so existing rows stay valid.
+  guideFa      String?
+  guideEn      String?
   isActive     Boolean  @default(true)
   sortOrder    Int      @default(0)
   usedCount    Int      @default(0)
@@ -340,47 +1240,66 @@ model Prompt {
 }
 
 model CrmContact {
-  id           String    @id @default(cuid())
-  userId       String?
+  id            String    @id @default(cuid())
+  userId        String?
+  businessId    String?
   /// Team member responsible for this contact — separate from userId (the
   /// workspace owner) so a team's leads/deals can be split across members.
-  assignedToId String?
-  name         String
-  phone        String?
-  email        String?
-  company      String?
-  status       String    @default("lead")
-  source       String    @default("organic")
+  assignedToId  String?
+  name          String
+  phone         String?
+  email         String?
+  whatsapp      String?
+  telegram      String?
+  company       String?
+  status        String    @default("lead")
+  source        String    @default("organic")
   /// Source-specific detail as a JSON string (e.g. the Instagram conversation
   /// link, or the referring Contact's id) — shape varies by source, so this
   /// stays a free-form JSON blob rather than a rigid column set. Set once at
   /// capture time; createdAt already serves as "first captured at" since this
   /// row is never copied/recreated when a lead becomes a customer (§2.1 model).
   sourceDetails String?
-  plan         String?
-  totalSpent   Int       @default(0)
-  notes        String?
-  tags         String?
+  plan          String?
+  totalSpent    Int       @default(0)
+  notes         String?
+  tags          String?
   /// Industry-specific fields (e.g. property type, budget) as a JSON string —
   /// same pattern as Company.notes, avoids a table-per-industry design.
-  customFields String?
-  lastContact  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  customFields  String?
+  lastContact   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   user       User? @relation(fields: [userId], references: [id])
   assignedTo User? @relation("CrmContactAssignee", fields: [assignedToId], references: [id])
 
-  deals      CrmDeal[]
-  activities CrmActivity[]
-  tasks      CrmTask[]
-  documents  CrmDocument[]
-  invoices   CrmInvoice[]
-  contracts  CrmContract[]
-  notesList  CrmNote[]
-  projects   CrmProject[]
+  deals             CrmDeal[]
+  activities        CrmActivity[]
+  tasks             CrmTask[]
+  documents         CrmDocument[]
+  invoices          CrmInvoice[]
+  contracts         CrmContract[]
+  notesList         CrmNote[]
+  projects          CrmProject[]
+  voiceCallLogs     VoiceCallLog[]
+  /// Sale/rent-side link (Property.crmContactId) — a contact IS an owner by
+  /// being linked here; see /api/crm/owners. Named explicitly because a
+  /// second, separate link (below) also points Property -> CrmContact.
+  properties        Property[]         @relation("PropertyCrmContact")
+  viewings          PropertyViewing[]
+  bookings          PropertyBooking[]
+  propertyInterests PropertyInterest[]
+  /// Accounting module's rental-income owner (Property.ownerContactId) —
+  /// was a plain unrelated string column, which meant a contact who was
+  /// ONLY ever set as a rental owner (never the sale/rent crmContactId)
+  /// never appeared in /api/crm/owners at all, and never showed a name on
+  /// the owner-statements page. Named separately from `properties` above
+  /// since both are Property -> CrmContact links.
+  ownedRentalProperties Property[]      @relation("PropertyOwnerContact")
 
   @@index([userId])
+  @@index([businessId])
   @@index([status])
   @@index([assignedToId])
 }
@@ -392,7 +1311,13 @@ model CrmContact {
 model CrmPipeline {
   id           String   @id @default(cuid())
   userId       String
+  businessId   String?
   name         String
+  /// Only populated for pipelines seeded from a template (see
+  /// industryTemplates.ts) — a custom user-typed name has no translation
+  /// and stays as-is in every language. Null falls back to `name`.
+  nameEn       String?
+  nameDe       String?
   /// Optional link to the IndustryPack.slug this pipeline's template came from.
   industrySlug String?
   isDefault    Boolean  @default(false)
@@ -404,6 +1329,7 @@ model CrmPipeline {
   deals  CrmDeal[]
 
   @@index([userId])
+  @@index([businessId])
 }
 
 /// One column on a pipeline's Kanban board (e.g. "بازدید", "مذاکره").
@@ -411,6 +1337,10 @@ model CrmStage {
   id         String  @id @default(cuid())
   pipelineId String
   name       String
+  /// Same idea as CrmPipeline.nameEn/nameDe — only set for template-seeded
+  /// stages; a custom user-typed stage name has no translation.
+  nameEn     String?
+  nameDe     String?
   order      Int
   color      String?
   isWon      Boolean @default(false)
@@ -423,39 +1353,58 @@ model CrmStage {
 }
 
 model CrmDeal {
-  id                String    @id @default(cuid())
+  id                      String    @id @default(cuid())
   /// Workspace owner (whose plan/credits this deal counts against) —
   /// distinct from ownerId, the team member actually working the deal.
-  userId            String
-  ownerId           String?
-  contactId         String
-  pipelineId        String
-  stageId           String
-  title             String
-  value             Float     @default(0)
-  probability       Int       @default(50)
-  expectedCloseDate DateTime?
+  userId                  String
+  businessId              String?
+  ownerId                 String?
+  contactId               String
+  pipelineId              String
+  stageId                 String
+  title                   String
+  value                   Float     @default(0)
+  probability             Int       @default(50)
+  expectedCloseDate       DateTime?
   /// Industry-specific fields (e.g. propertyType, area) as a JSON string.
-  customFields      String?
-  status            String    @default("open") // open | won | lost
-  wonAt             DateTime?
-  lostReason        String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  customFields            String?
+  status                  String    @default("open") // open | won | lost
+  wonAt                   DateTime?
+  lostReason              String?
+  /// Section 1, item 5 — Contract & Commission. Deliberately kept on the
+  /// existing CrmDeal row (deal date = wonAt, final amount = value already
+  /// above) rather than a new table — this is closing-time financial data
+  /// for a deal that already exists, not a separate entity. Visibility is
+  /// already restricted correctly by the existing dealAgentFilter()/
+  /// resolveCrmWorkspace() row-scoping: an AGENT can only ever fetch deals
+  /// they own, MANAGER/OWNER can fetch every deal in the workspace — no
+  /// separate access-control code needed for "relevant agent + manager
+  /// only" beyond gating the fields behind the crm.contractCommission
+  /// module. Commission % and a fixed amount are both stored (not derived)
+  /// since real agencies negotiate either shape per deal.
+  commissionRate          Float?
+  commissionAmount        Float?
+  /// unpaid | partial | paid
+  commissionPaymentStatus String    @default("unpaid")
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
-  user       User          @relation("CrmDealOwnerUser", fields: [userId], references: [id])
-  assignedTo User?         @relation("CrmDealAssignee", fields: [ownerId], references: [id])
-  contact    CrmContact    @relation(fields: [contactId], references: [id])
-  pipeline   CrmPipeline   @relation(fields: [pipelineId], references: [id])
-  stage      CrmStage      @relation(fields: [stageId], references: [id])
-  activities CrmActivity[]
-  documents  CrmDocument[]
-  invoices   CrmInvoice[]
-  contracts  CrmContract[]
-  dealProducts CrmDealProduct[]
-  projects   CrmProject[]
+  user              User                         @relation("CrmDealOwnerUser", fields: [userId], references: [id])
+  assignedTo        User?                        @relation("CrmDealAssignee", fields: [ownerId], references: [id])
+  contact           CrmContact                   @relation(fields: [contactId], references: [id])
+  pipeline          CrmPipeline                  @relation(fields: [pipelineId], references: [id])
+  stage             CrmStage                     @relation(fields: [stageId], references: [id])
+  activities        CrmActivity[]
+  documents         CrmDocument[]
+  invoices          CrmInvoice[]
+  contracts         CrmContract[]
+  dealProducts      CrmDealProduct[]
+  projects          CrmProject[]
+  commissionRecords AccountingCommissionRecord[]
+  properties        Property[]
 
   @@index([userId])
+  @@index([businessId])
   @@index([contactId])
   @@index([pipelineId])
   @@index([stageId])
@@ -465,22 +1414,41 @@ model CrmDeal {
 /// Quote/contract/invoice files attached to a contact or deal — reuses the
 /// project's existing S3 upload path, no new storage infra.
 model CrmDocument {
-  id        String   @id @default(cuid())
-  userId    String
-  contactId String?
-  dealId    String?
-  name      String
-  type      String // quote | contract | invoice | attachment
-  fileUrl   String
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String
+  businessId String?
+  contactId  String?
+  dealId     String?
+  /// Section 1, item 7 — Property document archive (title deed, power of
+  /// attorney, floor plan, photos). Reuses this same table rather than a
+  /// parallel one — a document can attach to a property in addition to (or
+  /// instead of) a contact/deal.
+  propertyId String?
+  name       String
+  /// quote | contract | invoice | attachment | title_deed | power_of_attorney | floor_plan | photo
+  type       String
+  fileUrl    String
+  /// R2 object key for this file — set on every upload going forward. Lets
+  /// GET routes mint a fresh short-lived signed URL per authenticated
+  /// request (see getSignedDownloadUrl in src/lib/storage/r2.ts) instead of
+  /// handing out the long-lived link stored in fileUrl (which, before this
+  /// field existed, was either a public R2_PUBLIC_URL link or a 7-day
+  /// presigned URL — usable by anyone who obtained it, no re-auth). Null
+  /// for rows created before this field existed; those still fall back to
+  /// the legacy fileUrl since there's no key to re-sign.
+  storageKey String?
+  createdAt  DateTime @default(now())
 
-  user    User        @relation(fields: [userId], references: [id])
-  contact CrmContact? @relation(fields: [contactId], references: [id])
-  deal    CrmDeal?    @relation(fields: [dealId], references: [id])
+  user     User        @relation(fields: [userId], references: [id])
+  contact  CrmContact? @relation(fields: [contactId], references: [id])
+  deal     CrmDeal?    @relation(fields: [dealId], references: [id])
+  property Property?   @relation(fields: [propertyId], references: [id])
 
   @@index([userId])
+  @@index([businessId])
   @@index([contactId])
   @@index([dealId])
+  @@index([propertyId])
 }
 
 /// No-code automation rules (e.g. "remind me if a deal has no activity for
@@ -488,6 +1456,7 @@ model CrmDocument {
 model CrmAutomationRule {
   id           String   @id @default(cuid())
   userId       String
+  businessId   String?
   name         String
   trigger      String // stale_deal | new_lead | stage_change | no_activity_days
   condition    String? // JSON, e.g. { "days": 3 }
@@ -499,14 +1468,16 @@ model CrmAutomationRule {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
+  @@index([businessId])
 }
 
 model CrmActivity {
   id        String   @id @default(cuid())
   userId    String
+  businessId String?
   contactId String?
   dealId    String?
-  type      String // call | email | meeting | note | whatsapp
+  type      String // call | email | meeting | note | whatsapp | telegram
   content   String
   createdAt DateTime @default(now())
 
@@ -515,6 +1486,7 @@ model CrmActivity {
   deal    CrmDeal?    @relation(fields: [dealId], references: [id])
 
   @@index([userId])
+  @@index([businessId])
   @@index([contactId])
   @@index([dealId])
 }
@@ -522,18 +1494,27 @@ model CrmActivity {
 model CrmTask {
   id            String    @id @default(cuid())
   userId        String
+  businessId    String?
   contactId     String?
   title         String
   dueDate       DateTime?
   status        String    @default("pending") // pending | done | overdue
   /// True for tasks the CRM Agent generated automatically (Phase 2+), vs. user-created.
   autoGenerated Boolean   @default(false)
+  /// AI-drafted outbound message text (e.g. a post-viewing follow-up) for the
+  /// owner to review and send themselves -- Draft-and-Approve, never sent
+  /// automatically. Null for a plain internal reminder task.
+  draftMessage  String?
+  /// Set when status transitions to "done", cleared if reopened -- lets the
+  /// UI show exactly when a follow-up was completed, not just that it was.
+  completedAt   DateTime?
   createdAt     DateTime  @default(now())
 
   user    User        @relation(fields: [userId], references: [id])
   contact CrmContact? @relation(fields: [contactId], references: [id])
 
   @@index([userId])
+  @@index([businessId])
   @@index([contactId])
 }
 
@@ -542,6 +1523,7 @@ model CrmTask {
 model CrmInsight {
   id          String   @id @default(cuid())
   userId      String
+  businessId  String?
   category    String // pipeline_health | risk | opportunity | forecast
   text        String
   embedding   String?
@@ -551,6 +1533,27 @@ model CrmInsight {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
+  @@index([businessId])
+}
+
+/// A full CRM Agent pipeline-analysis run, dated. Before this model, only the
+/// short "future memory" fragments the agent extracts for itself
+/// (CrmInsight) were persisted -- the actual full report a user reads was
+/// shown once and discarded, with no way to look back at last week's
+/// analysis or see how the read on the pipeline changed over time.
+model CrmAnalysisRun {
+  id        String   @id @default(cuid())
+  userId    String
+  businessId String?
+  /// The full markdown report, memory-notes section already stripped (that
+  /// section is for the next run's prompt, not a human reader).
+  content   String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([businessId, createdAt])
 }
 
 /// A company's product/service catalog — attached to deals (CrmDealProduct)
@@ -558,6 +1561,7 @@ model CrmInsight {
 model CrmProduct {
   id          String   @id @default(cuid())
   userId      String
+  businessId  String?
   name        String
   sku         String?
   description String?
@@ -574,6 +1578,7 @@ model CrmProduct {
   dealProducts CrmDealProduct[]
 
   @@index([userId])
+  @@index([businessId])
 }
 
 /// Links a product to a deal (what's being sold), snapshotting the price at
@@ -595,6 +1600,7 @@ model CrmDealProduct {
 model CrmInvoice {
   id            String    @id @default(cuid())
   userId        String
+  businessId    String?
   contactId     String
   dealId        String?
   /// Per-user sequential number (e.g. INV-2026-0001), minted atomically —
@@ -620,18 +1626,19 @@ model CrmInvoice {
   revisions CrmInvoiceRevision[]
 
   @@index([userId])
+  @@index([businessId])
   @@index([contactId])
   @@index([dealId])
 }
 
 model CrmInvoiceItem {
-  id          String @id @default(cuid())
+  id          String  @id @default(cuid())
   invoiceId   String
   productId   String?
   description String
-  quantity    Float  @default(1)
+  quantity    Float   @default(1)
   unitPrice   Float
-  taxRate     Float  @default(0)
+  taxRate     Float   @default(0)
   lineTotal   Float
 
   invoice CrmInvoice  @relation(fields: [invoiceId], references: [id])
@@ -643,6 +1650,7 @@ model CrmInvoiceItem {
 model CrmContractTemplate {
   id           String   @id @default(cuid())
   userId       String
+  businessId   String?
   name         String
   industrySlug String?
   /// Template text with {{contactName}}/{{dealValue}}/... placeholders,
@@ -654,11 +1662,13 @@ model CrmContractTemplate {
   contracts CrmContract[]
 
   @@index([userId])
+  @@index([businessId])
 }
 
 model CrmContract {
   id         String    @id @default(cuid())
   userId     String
+  businessId String?
   contactId  String
   dealId     String?
   templateId String?
@@ -677,6 +1687,7 @@ model CrmContract {
   revisions CrmContractRevision[]
 
   @@index([userId])
+  @@index([businessId])
   @@index([contactId])
   @@index([dealId])
 }
@@ -684,6 +1695,7 @@ model CrmContract {
 model CrmNote {
   id        String   @id @default(cuid())
   userId    String
+  businessId String?
   contactId String
   content   String
   isPinned  Boolean  @default(false)
@@ -694,6 +1706,7 @@ model CrmNote {
   contact CrmContact @relation(fields: [contactId], references: [id])
 
   @@index([userId])
+  @@index([businessId])
   @@index([contactId])
 }
 
@@ -729,6 +1742,7 @@ model CrmContractRevision {
 model CrmProject {
   id          String    @id @default(cuid())
   userId      String
+  businessId  String?
   contactId   String?
   dealId      String?
   name        String
@@ -739,11 +1753,13 @@ model CrmProject {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  user    User        @relation(fields: [userId], references: [id])
-  contact CrmContact? @relation(fields: [contactId], references: [id])
-  deal    CrmDeal?    @relation(fields: [dealId], references: [id])
+  user     User        @relation(fields: [userId], references: [id])
+  contact  CrmContact? @relation(fields: [contactId], references: [id])
+  deal     CrmDeal?    @relation(fields: [dealId], references: [id])
+  property Property[]
 
   @@index([userId])
+  @@index([businessId])
   @@index([contactId])
   @@index([dealId])
 }
@@ -754,30 +1770,59 @@ model CrmProject {
 /// changes what users see and pay. planCode must match one of the values
 /// stored on User.plan (currently BASIC | PRO | TEAM — FREE has no row
 /// here since it isn't purchasable).
+model ReferralCodeAlias {
+  code String @id
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@index([userId])
+}
+
 model Package {
-  id         String   @id @default(cuid())
-  planCode   String   @unique
-  name       String
-  nameEn     String
+  category String @default("PERSONAL")
+  publicationStatus String @default("PUBLISHED")
+  publicVisible Boolean @default(true)
+  description String @default("")
+  baseCurrency String @default("USD")
+  termPrices String @default("{}")
+  entitlements String @default("{}")
+  badge String @default("")
+  studentEligibility String @default("ACCOUNT_TYPE")
+  creditAllocation String @default("TERM")
+  mediaCredits Int @default(0)
+  voiceMinutes Int @default(0)
+  crmContactLimit Int @default(0)
+  trialEligible Boolean @default(false)
+  promoEligible Boolean @default(false)
+
+  id           String   @id @default(cuid())
+  planCode     String   @unique
+  name         String
+  nameEn       String
   /// Price in Rial (IRR). toman = price/10. Used for ZarinPal (Iran).
-  price      Int
+  price        Int
   /// Price in USD cents (e.g. 1900 = $19.00). Null means Iran-only plan.
-  priceUsd   Int?
+  priceUsd     Int?
+  /// Optional TRY base in kurus. Other currencies use current FX rates.
+  priceTry     Int?
   /// Market segment: "IR" (Iran only) | "INTL" (international only) | "BOTH"
-  market     String   @default("IR")
-  duration   Int      @default(30)
-  credits    Int
-  features   String
-  featuresEn String?
-  isActive   Boolean  @default(true)
-  isFeatured Boolean  @default(false)
-  color      String   @default("#ea580c")
-  sortOrder  Int      @default(0)
+  market       String   @default("IR")
+  duration     Int      @default(30)
+  credits      Int
+  features     String
+  featuresEn   String?
+  isActive     Boolean  @default(true)
+  isFeatured   Boolean  @default(false)
+  color        String   @default("#ea580c")
+  sortOrder    Int      @default(0)
   /// Seat count included for CRM_TEAM-type packages (null for non-CRM or
   /// solo packages). Enforced against Team.maxSeats when this package is purchased.
   crmSeatLimit Int?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  /// Seat count included for an AI workspace package. Kept separate from the
+  /// CRM add-on limit: a business may buy either product independently.
+  teamSeatLimit Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model LlmModel {
@@ -841,7 +1886,9 @@ model GeneratedWebsite {
 /// Facebook Page — there's no way around that, it's a Meta platform rule).
 model InstagramConnection {
   id          String    @id @default(cuid())
-  userId      String    @unique
+  userId      String
+  /// Business this Instagram account belongs to (nullable: legacy rows, and workspaces with no provisioned business).
+  businessId  String?
   igUserId    String
   igUsername  String?
   pageId      String
@@ -851,6 +1898,9 @@ model InstagramConnection {
   updatedAt   DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, businessId])
+  @@index([businessId])
 }
 
 /// One row per connected account per day — built by a daily cron since
@@ -860,13 +1910,15 @@ model InstagramConnection {
 model InstagramFollowerSnapshot {
   id             String   @id @default(cuid())
   userId         String
+  businessId     String?
   date           DateTime // truncated to the day this snapshot was taken
   followersCount Int
   mediaCount     Int
   createdAt      DateTime @default(now())
 
-  @@unique([userId, date])
+  @@unique([userId, businessId, date])
   @@index([userId])
+  @@index([businessId, date])
 }
 
 /// A keyword→DM auto-reply rule. When someone comments `keyword` on `postId`
@@ -876,27 +1928,32 @@ model InstagramFollowerSnapshot {
 /// separate OpenReply-fa app (own Postgres/Redis) since OAuth + tokens for
 /// this account are already handled by InstagramConnection above.
 model InstagramCommentCampaign {
-  id                  String   @id @default(cuid())
-  userId              String
+  id                 String   @id @default(cuid())
+  userId             String
+  name               String   @default("")
+  /// Workspace boundary. Null rows are legacy campaigns created before SaaS workspaces.
+  businessId         String?
   /// Comma/Persian-comma separated — any one matching the comment text triggers the campaign.
-  keyword             String
-  postId              String?
+  keyword            String
+  postId             String?
   /// Supports the {username} token, replaced with the commenter's handle at send time.
-  dmMessage           String
-  publicReplyMessage  String?
+  dmMessage          String
+  publicReplyMessage String?
   /// JSON array of up to 2 {id,label,url,clicks} — sent as tracked short links appended to dmMessage.
-  links               String?
+  links              String?
   /// When on, the real dmMessage is withheld behind a "did you follow?" button
   /// in the DM — Meta gives no API to check an arbitrary commenter's follow
   /// status, so this is a self-reported confirm via a postback button instead.
-  followGateEnabled   Boolean  @default(false)
-  followGatePrompt    String?
-  isActive            Boolean  @default(true)
-  triggerCount        Int      @default(0)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  followGateEnabled  Boolean  @default(false)
+  followGatePrompt   String?
+  isActive           Boolean  @default(true)
+  triggerCount       Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@index([userId])
+  @@index([businessId])
+  @@index([userId, businessId])
 }
 
 /// One row per comment the webhook actually processed — the unique
@@ -905,20 +1962,76 @@ model InstagramCommentCampaign {
 /// times the same event is redelivered).
 model InstagramCommentReplyLog {
   id                String   @id @default(cuid())
-  campaignId        String
+  /// Null for status "no_match" — a comment that reached the webhook but
+  /// matched no campaign. Recorded so the health watchdog can tell
+  /// "no comments arrived" (fine) apart from "comments arrived and nothing
+  /// was sent" (broken), which is exactly the distinction that let
+  /// comment→DM sit dead for a month unnoticed.
+  campaignId        String?
   /// Denormalized from the campaign's owner — lets the per-hour rate-limit
   /// count be a single indexed query instead of a join through the campaign.
   userId            String?
+  businessId        String?
   commentId         String   @unique
-  commenterId        String
+  commenterId       String
   commenterUsername String?
-  /// "sent" | "skipped" | "failed" | "awaiting_follow" (follow-gated campaign, waiting on the postback button click)
-  status             String
-  error              String?
-  createdAt          DateTime @default(now())
+  /// "sent" | "sent_public_fallback" (DM blocked pending instagram_manage_messages
+  /// App Review — delivered as a public reply instead) | "skipped" | "failed" |
+  /// "no_match" | "awaiting_follow" (follow-gated campaign, waiting on the postback button click)
+  status            String
+  error             String?
+  createdAt         DateTime @default(now())
 
   @@index([campaignId])
   @@index([userId, createdAt])
+  @@index([businessId, createdAt])
+}
+
+/// A native Auto Direct rule for inbound Instagram messages. This is intentionally
+/// separate from comment campaigns: a DM can be answered only after Meta delivers
+/// a messaging event, while a comment uses the private-reply endpoint and its own
+/// delivery window.
+model InstagramDirectRule {
+  id           String   @id @default(cuid())
+  userId       String
+  businessId   String?
+  name         String
+  /// keyword | all_messages | ai_fallback. A single fallback rule is permitted per workspace.
+  triggerType  String   @default("keyword")
+  /// Comma/Persian-comma separated keywords. Empty only for all_messages.
+  keywords     String
+  response     String
+  followGateEnabled Boolean @default(false)
+  typingIndicatorEnabled Boolean @default(false)
+  delayMinSeconds Int @default(0)
+  delayMaxSeconds Int @default(0)
+  isActive     Boolean  @default(true)
+  triggerCount Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId, businessId])
+  @@index([businessId, isActive])
+}
+
+/// Audit trail for inbound/outbound Auto Direct messages. `eventId` makes webhook
+/// processing idempotent, so Meta retries cannot send the same automated reply twice.
+model InstagramDirectMessageLog {
+  id          String   @id @default(cuid())
+  userId      String
+  businessId  String?
+  ruleId      String?
+  eventId     String   @unique
+  senderId    String
+  direction   String   // inbound | outbound
+  text        String?
+  replyText   String?
+  status      String   @default("received") // received | awaiting_follow | unlocking | sent | skipped | failed
+  error       String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, businessId, createdAt])
+  @@index([ruleId])
 }
 
 /// A generated Instagram post queued to go out. mode="auto" actually calls
@@ -928,6 +2041,8 @@ model InstagramCommentReplyLog {
 model ScheduledPost {
   id           String   @id @default(cuid())
   userId       String
+  /// Business this post belongs to (nullable: legacy rows, and workspaces with no provisioned business).
+  businessId   String?
   caption      String
   hashtags     String
   imageUrl     String?
@@ -938,11 +2053,19 @@ model ScheduledPost {
   status       String   @default("PENDING") // PENDING | PUBLISHED | FAILED
   igMediaId    String?
   errorMessage String?
+  /// Rule-based content-quality score (0-100) at generation time, plus the
+  /// fixes suggested then — kept so a post's predicted score can later be
+  /// compared against its real reach/engagement and the rules tuned against
+  /// this account's own history rather than generic advice.
+  qualityScore Int?
+  /// JSON array of the quality findings shown to the owner before scheduling.
+  qualityNotes String?
   createdAt    DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([businessId])
   @@index([status, scheduledFor])
 }
 
@@ -960,39 +2083,211 @@ model SeoConnection {
 }
 
 model GscConnection {
-  id           String    @id @default(cuid())
-  userId       String    @unique
+  id           String   @id @default(cuid())
+  userId       String   @unique
   refreshToken String
   siteUrl      String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+/// A website a user tracks in the SEO Command Center. Audits are saved per site
+/// so progress can be compared over time and re-run automatically.
+model SeoSite {
+  id          String    @id @default(cuid())
+  userId      String
+  businessId  String?
+  /// Normalised origin, e.g. "https://mysite.com/"
+  url         String
+  name        String?
+  /// Re-audit automatically on a schedule (see /api/cron/seo-audits)
+  autoAudit   Boolean   @default(true)
+  /// "daily" | "weekly" | "monthly"
+  frequency   String    @default("weekly")
+  lastAuditAt DateTime?
+  nextAuditAt DateTime?
+  lastScore   Int?
+  verificationToken String?
+  verifiedAt DateTime?
+  archivedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  audits      SeoAudit[]
+  contentPlan SeoContentPlan?
+  rankSnapshots SeoRankSnapshot[]
+  researchJobs SeoResearchJob[]
+
+  @@unique([userId, url])
+  @@index([userId])
+  @@index([businessId])
+  @@index([autoAudit, nextAuditAt])
+}
+
+/// Durable SEO provider work using the existing User/Team credit wallet.
+model SeoResearchJob {
+  id String @id
+  siteId String
+  userId String
+  businessId String?
+  organizationId String?
+  idempotencyKey String
+  inputHash String
+  action String
+  input String
+  status String @default("QUEUED")
+  result String?
+  errorCode String?
+  credits Int
+  estimatedCostUsd Float
+  actualCostUsd Float?
+  providerTaskId String?
+  payerTeamId String?
+  mirroredAi Int
+  usageLogId String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  startedAt DateTime?
+  completedAt DateTime?
+  refundedAt DateTime?
+  notificationSentAt DateTime?
+  notificationAttempts Int @default(0)
+  notificationError String?
+  notificationClaimedAt DateTime?
+  notificationCreatedAt DateTime?
+  site SeoSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  @@unique([userId, idempotencyKey])
+  @@index([businessId, createdAt])
+  @@index([siteId, createdAt])
+  @@index([status, expiresAt])
+}
+
+/// One saved audit of a site (several pages crawled). `pages` and `siteChecks`
+/// hold compact JSON; only non-passing checks are stored per page.
+model SeoAudit {
+  id            String    @id @default(cuid())
+  siteId        String
+  userId        String
+  /// "manual" | "auto"
+  source        String    @default("manual")
+  score         Int
+  /// Average score of the crawled pages as a phone sees them (null when no mobile crawl succeeded)
+  mobileScore   Int?
+  pagesCrawled  Int
+  failCount     Int
+  warnCount     Int
+  passCount     Int
+  siteChecks    String
+  pages         String
+  /// AI improvement plan (JSON), generated on demand and saved with the audit
+  plan          String?
+  planCreatedAt DateTime?
+  createdAt     DateTime  @default(now())
+
+  site SeoSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId, createdAt])
+  @@index([userId])
+}
+
+/// Blog automation for a tracked site: on a schedule the content pipeline writes
+/// the next post and either saves it in AiFekr only, as a WordPress draft, or
+/// publishes it live. Default is "draft" -- nothing goes live without opting in.
+model SeoContentPlan {
+  id           String    @id @default(cuid())
+  siteId       String    @unique
+  userId       String
+  enabled      Boolean   @default(false)
+  /// What the blog is about; used when the topic queue is empty
+  theme        String    @default("")
+  /// JSON array of topics to write about, consumed one per run
+  topics       String    @default("[]")
+  brandVoice   String?
+  /// Language the posts are written in (captured from the UI language when the plan is saved)
+  lang         String    @default("fa")
+  /// "daily" | "every3days" | "weekly" | "biweekly"
+  frequency    String    @default("weekly")
+  /// "draft" (WordPress draft) | "publish" (live) | "hold" (kept in AiFekr only)
+  mode         String    @default("draft")
+  nextRunAt    DateTime?
+  lastRunAt    DateTime?
+  lastError    String?
+  /// Set while a run is in flight so two cron ticks cannot start the same plan twice
+  runningSince DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  site SeoSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([enabled, nextRunAt])
+  @@index([userId])
+}
+
+/// One query's real Search Console numbers for a tracked site over a 7-day window
+/// ending on `date`. Only ever written from Search Console data -- never estimated.
+model SeoRankSnapshot {
+  id          String   @id @default(cuid())
+  siteId      String
+  /// Last day (UTC, yyyy-mm-dd) of the 7-day window this row covers
+  date        String
+  query       String
+  clicks      Int
+  impressions Int
+  ctr         Float
+  position    Float
+  createdAt   DateTime @default(now())
+
+  site SeoSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, date, query])
+  @@index([siteId, date])
+}
+
 model IndustryPack {
-  id               String    @id @default(cuid())
-  slug             String    @unique
-  name             String
-  nameEn           String?
-  emoji            String
-  tagline          String
-  taglineEn        String?
-  valueProposition String
-  targetCustomers  String
-  painPoints       String
-  agents           String
-  outcomes         String
-  kpis             String
-  tier             String    @default("professional")
-  price            Int       @default(299)
-  color            String
-  gradientFrom     String
-  gradientTo       String
-  isActive         Boolean   @default(true)
-  sortOrder        Int       @default(0)
-  users            User[]
-  companies        Company[]
+  id                 String               @id @default(cuid())
+  slug               String               @unique
+  name               String
+  nameEn             String?
+  /// German content, same nullable-fallback convention as the *En fields --
+  /// added when German coverage was found missing platform-wide (this model
+  /// had no German columns at all, so a German visitor silently fell back
+  /// to English or Persian depending on the render site).
+  nameDe             String?
+  emoji              String
+  tagline            String
+  taglineEn          String?
+  taglineDe          String?
+  valueProposition   String
+  valuePropositionEn String?
+  valuePropositionDe String?
+  targetCustomers    String
+  targetCustomersEn  String?
+  targetCustomersDe  String?
+  painPoints         String
+  painPointsEn       String?
+  painPointsDe       String?
+  agents             String
+  agentsEn           String?
+  agentsDe           String?
+  outcomes           String
+  outcomesEn         String?
+  outcomesDe         String?
+  kpis               String
+  kpisEn             String?
+  kpisDe             String?
+  tier               String               @default("professional")
+  price              Int                  @default(299)
+  color              String
+  gradientFrom       String
+  gradientTo         String
+  isActive           Boolean              @default(true)
+  sortOrder          Int                  @default(0)
+  users              User[]
+  companies          Company[]
+  moduleFlags        IndustryModuleFlag[]
 }
 
 model BusinessCategory {
@@ -1022,6 +2317,10 @@ model Company {
   categoryId     String?
   isActive       Boolean  @default(true)
   notes          String?
+  /// Company logo, uploaded once in Business Doctor and reused on every
+  /// invoice/contract (CRM) and payslip/owner-statement (accounting) print
+  /// output, so a business never has to re-upload its branding per document.
+  logoUrl        String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -1061,6 +2360,8 @@ model ContentPipelineRun {
   /// "running" | "done" | "failed"
   status     String   @default("running")
   shareToken String?  @unique
+  /// SeoContentPlan that started this run (null for runs started by hand)
+  planId     String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -1069,6 +2370,7 @@ model ContentPipelineRun {
   post  ContentPost?
 
   @@index([userId])
+  @@index([planId])
 }
 
 /// Output of a single agent within one pipeline run. A writer/editor
@@ -1241,27 +2543,46 @@ model BoardroomSession {
 model VoiceAgent {
   id                String   @id @default(cuid())
   userId            String
+  businessId String?
   name              String
   /// "buy" | "sell" | "rent" | "general" — shapes the default system prompt.
   focus             String   @default("general")
+  /// "real_estate" | "general" — which Vapi tool set gets registered for this
+  /// agent (see buildVoiceAgentTools() in src/lib/voice/vapiClient.ts).
+  /// "real_estate" keeps the existing search_properties/book_appointment
+  /// tools; "general" swaps in a business-agnostic tool set so the Voice
+  /// Agent add-on works for any business, not just real estate. Extensible
+  /// to future verticals without a schema change (plain string, not an enum).
+  vertical          String   @default("real_estate")
+  /// Free-text business type/description, only used when vertical="general"
+  /// (e.g. "Dental clinic", "Law firm") — interpolated into the default
+  /// system prompt so the assistant knows what business it represents.
+  businessType      String?
   systemPrompt      String
   /// Vapi voice id (e.g. "jennifer") — cosmetic, defaults server-side if unset.
   voiceId           String?
+  language          String   @default("fa")
+  timezone          String   @default("Europe/Istanbul")
+  appointmentMinutes Int     @default(30)
+  openingHour       Int      @default(9)
+  closingHour       Int      @default(18)
+  provisioningAt    DateTime?
   /// E.164 phone number assigned to this agent once provisioned via Vapi.
   phoneNumber       String?
   vapiAssistantId   String?
-  vapiPhoneNumberId String?
+  vapiPhoneNumberId String?  @unique
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  properties    VoiceProperty[]
+  properties    Property[]
   calls         VoiceCallLog[]
   appointments  VoiceAppointment[]
   knowledgeBase VoiceKnowledgeBase[]
 
   @@index([userId])
+  @@index([businessId])
 }
 
 /// A Q&A / policy / info snippet the agent can pull from mid-call when a
@@ -1272,6 +2593,7 @@ model VoiceAgent {
 model VoiceKnowledgeBase {
   id        String   @id @default(cuid())
   userId    String
+  businessId String?
   agentId   String?
   title     String
   content   String
@@ -1283,37 +2605,197 @@ model VoiceKnowledgeBase {
 
   @@index([userId])
   @@index([agentId])
+  @@index([businessId])
 }
 
 /// A listing the agent can reference/offer during a call. Kept separate from
 /// any future generic "Property" model — intentionally scoped to this add-on.
-model VoiceProperty {
-  id           String   @id @default(cuid())
-  userId       String
-  agentId      String?
-  title        String
-  /// "buy" | "sell" | "rent"
-  listingType  String
-  propertyType String   @default("apartment")
-  /// Price in Toman.
+/// Industry-agnostic "extension record" attached to a CRM contact/deal —
+/// currently only populated by the real-estate voice agent (hence the
+/// mapped table name, kept as-is to avoid a physical rename), but the shape
+/// (owner + optional CrmContact/CrmDeal links + industry-specific columns)
+/// is the reusable pattern for any future industry needing structured
+/// records beyond CrmContact/CrmDeal's generic customFields JSON blob
+/// (e.g. a future VehicleRecord for a car dealership would follow the same
+/// shape: its own table, optional FKs into CRM, zero changes to CRM core).
+model Property {
+  id                      String    @id @default(cuid())
+  userId                  String
+  businessId              String?
+  agentId                 String?
+  /// Optional link to the CRM lead interested in / associated with this
+  /// property (a contact may be linked to several properties they're
+  /// browsing). Nullable — a property can exist with no CRM contact yet.
+  crmContactId            String?
+  /// Optional link to the specific deal this property is being sold/rented
+  /// through — set once a contact's interest turns into an active deal.
+  crmDealId               String?
+  /// Optional link to a CRM Project (the general post-sale/ongoing-work
+  /// tracker) — set for the real-estate industry pack's "پروژه‌های ملکی"
+  /// feature, so a project's transaction-type-specific fields (short-term
+  /// rental booking link/nightly price, below) live on this single unified
+  /// Property row rather than a separate real-estate-only table.
+  crmProjectId            String?
+  /// Accounting module Phase B — the CrmContact (role: owner) this unit's
+  /// short-term-rental income/expenses/management fee are settled with via
+  /// AccountingOwnerStatement. Only meaningful for listingType
+  /// "short_term_rent"; null otherwise.
+  ownerContactId          String?
+  title                   String
+  /// "buy" | "sell" | "rent" | "short_term_rent"
+  listingType             String
+  propertyType            String    @default("apartment")
+  /// Price in Toman. For listingType "short_term_rent" this is unused —
+  /// nightlyPrice is the relevant figure instead.
   /// BigInt, not Int — Toman real-estate prices routinely exceed 2.1B (Int32 max).
-  price        BigInt
-  address      String
-  city         String?
-  bedrooms     Int?
-  bathrooms    Int?
-  areaSqm      Int?
-  description  String?
-  status       String   @default("available") // available | pending | sold | rented
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  price                   BigInt
+  /// Per-night price in Toman — only meaningful when listingType is
+  /// "short_term_rent". BigInt for the same overflow reason as price.
+  nightlyPrice            BigInt?
+  /// Booking-platform listing URL for short-term rentals — deliberately
+  /// generic ("booking platform link"), not Airbnb-specific, so Booking.com
+  /// or a future in-house booking page can be added later without a schema
+  /// change. Not validated as a strict URL at the DB layer — malformed
+  /// values are a warning in the UI, not a save-blocking error, since an
+  /// agent may want to create the project before the listing link exists.
+  bookingLink             String?
+  address                 String
+  city                    String?
+  bedrooms                Int?
+  bathrooms               Int?
+  areaSqm                 Int?
+  description             String?
+  /// JSON array of image URLs (uploaded via the same R2 storage used by
+  /// CrmDocument). Nullable — a property can exist with no photos yet.
+  images                  String?
+  /// IRT (Toman) | IRR (Rial) | USD | GBP | EUR — price/nightlyPrice are
+  /// stored in this currency's smallest common display unit (Toman/Rial
+  /// for IRT/IRR, cents-free whole units for USD/GBP/EUR — this platform
+  /// doesn't handle sub-unit precision anywhere else either). Defaults to
+  /// IRT since every existing row was priced in Toman before this field
+  /// existed.
+  currency                String    @default("IRT")
+  status                  String    @default("available") // available | pending | sold | rented
+  /// Owner-representation terms (Section 1, item 2) — deliberately kept on
+  /// Property rather than on CrmContact, since a single owner contact can
+  /// have different representation dates/commission per listing. "Owner"
+  /// itself is not a stored role — a contact IS an owner by being linked
+  /// here via crmContactId to >=1 property; see /api/crm/owners.
+  representationStartDate DateTime?
+  representationEndDate   DateTime?
+  /// Commission percentage agreed with the owner at listing time (e.g. 2.5
+  /// meaning 2.5%) — distinct from CrmDeal's eventual closing commission
+  /// (item 5), which is the actual amount once a deal closes.
+  agreedCommissionRate    Float?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
-  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  agent        VoiceAgent?        @relation(fields: [agentId], references: [id], onDelete: SetNull)
-  appointments VoiceAppointment[]
+  user              User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent             VoiceAgent?                @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  crmContact        CrmContact?                @relation("PropertyCrmContact", fields: [crmContactId], references: [id], onDelete: SetNull)
+  /// The accounting module's rental-income owner (see ownerContactId doc
+  /// comment above) — now a real relation so it can be `include`d instead
+  /// of joined by hand.
+  ownerContact      CrmContact?                @relation("PropertyOwnerContact", fields: [ownerContactId], references: [id], onDelete: SetNull)
+  crmDeal           CrmDeal?                   @relation(fields: [crmDealId], references: [id], onDelete: SetNull)
+  crmProject        CrmProject?                @relation(fields: [crmProjectId], references: [id], onDelete: SetNull)
+  appointments      VoiceAppointment[]
+  viewings          PropertyViewing[]
+  bookings          PropertyBooking[]
+  documents         CrmDocument[]
+  interests         PropertyInterest[]
+  ownerStatements   AccountingOwnerStatement[]
+  AccountingExpense AccountingExpense[]
 
   @@index([userId])
+  @@index([businessId])
   @@index([agentId])
+  @@index([crmContactId])
+  @@index([ownerContactId])
+  @@index([crmDealId])
+  @@index([crmProjectId])
+  @@map("VoiceProperty")
+}
+
+/// Section 1, item 4 — Viewing Scheduler. A real calendar slot (not a text
+/// field), so double-booking can be checked server-side, distinct from
+/// VoiceAppointment (which is structurally tied to a VoiceAgent's phone
+/// calls and has a required agentId). assignedToId is a human CRM team
+/// member's userId — nullable until someone is assigned.
+model PropertyViewing {
+  id             String   @id @default(cuid())
+  /// Workspace owner's id (ws.workspaceUserId), same scoping convention as
+  /// every other CRM model — never the raw session user id.
+  userId         String
+  businessId     String?
+  propertyId     String
+  /// The buyer/lead attending the viewing — optional so a slot can be
+  /// blocked out before a specific contact is confirmed.
+  contactId      String?
+  /// Human team member conducting the viewing — optional until assigned;
+  /// double-booking is only checked once this is set (see api/crm/viewings).
+  assignedToId   String?
+  scheduledAt    DateTime
+  durationMin    Int      @default(30)
+  /// scheduled | completed | cancelled | no_show
+  status         String   @default("scheduled")
+  /// Post-viewing feedback captured from the buyer or the agent — required
+  /// by the master spec ("post-viewing feedback capture"), free text since
+  /// the shape of useful feedback varies too much for a fixed schema.
+  feedback       String?
+  feedbackRating Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  property   Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  contact    CrmContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  assignedTo User?       @relation("PropertyViewingAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([businessId])
+  @@index([propertyId])
+  @@index([contactId])
+  @@index([assignedToId])
+  @@index([scheduledAt])
+}
+
+/// Section 1, item 6 — Short-term rental occupancy calendar. Mandatory (not
+/// optional) UI for any Property with listingType "short_term_rent", to
+/// prevent double-booking the same nights. Coordinates with (does not
+/// replace) Property.bookingLink: as of this research, Airbnb/Booking.com
+/// only offer one-way, non-instant iCal export/import (no live two-way
+/// API for unaffiliated apps), so this table is the source of truth for
+/// in-app scheduling — bookingLink stays a manual reference for the agent
+/// to cross-check, not an automated sync target.
+model PropertyBooking {
+  id         String   @id @default(cuid())
+  /// Workspace owner's id, same scoping convention as every other CRM model.
+  userId     String
+  businessId String?
+  propertyId String
+  checkIn    DateTime
+  checkOut   DateTime
+  guestName  String?
+  /// Optional link to the CRM lead who booked, if known.
+  contactId  String?
+  /// manual | airbnb_ical | booking_ical — free-text today since only
+  /// "manual" is actually wired up; kept open for when iCal import lands.
+  source     String   @default("manual")
+  /// confirmed | cancelled
+  status     String   @default("confirmed")
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  property Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  contact  CrmContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([businessId])
+  @@index([propertyId])
+  @@index([contactId])
+  @@index([checkIn])
+  @@index([checkOut])
 }
 
 /// One row per phone call handled by a VoiceAgent, populated from Vapi's
@@ -1321,7 +2803,12 @@ model VoiceProperty {
 model VoiceCallLog {
   id           String    @id @default(cuid())
   userId       String
+  businessId String?
   agentId      String
+  /// Best-effort match to a CRM contact by phone number (see matchCrmContactByPhone()
+  /// in src/lib/voice/crmLink.ts) — null when no match was found. Never
+  /// auto-creates a new CrmContact; that stays a manual/user decision.
+  contactId    String?
   vapiCallId   String?   @unique
   callerPhone  String?
   direction    String    @default("inbound") // inbound | outbound
@@ -1334,21 +2821,30 @@ model VoiceCallLog {
   recordingUrl String?
   /// Call cost in USD, as reported by Vapi.
   cost         Float?
+  reservedCredits Int       @default(0)
+  creditsCharged Int        @default(0)
+  billingStatus String      @default("pending")
+  creditTeamId String?
+  creditsPerMinute Int      @default(10)
   createdAt    DateTime  @default(now())
   endedAt      DateTime?
 
   user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   agent       VoiceAgent        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  contact     CrmContact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
   appointment VoiceAppointment?
 
   @@index([userId])
   @@index([agentId])
+  @@index([contactId])
+  @@index([businessId])
 }
 
 /// A property viewing booked by the agent during (or after) a call.
 model VoiceAppointment {
   id          String   @id @default(cuid())
   userId      String
+  businessId String?
   agentId     String
   propertyId  String?
   callLogId   String?  @unique
@@ -1357,84 +2853,1774 @@ model VoiceAppointment {
   scheduledAt DateTime
   status      String   @default("pending") // pending | confirmed | completed | cancelled | no_show
   notes       String?
+  toolCallId  String?  @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  agent    VoiceAgent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  property VoiceProperty? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-  callLog  VoiceCallLog?  @relation(fields: [callLogId], references: [id], onDelete: SetNull)
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent    VoiceAgent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  property Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  callLog  VoiceCallLog? @relation(fields: [callLogId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([agentId])
+  @@index([businessId])
 }
 
-// ─── Games / Play Module ────────────────────────────────────────────────────
-
-model Game {
+/// A rendered invite-card generation record (admin "Invite to AIfekr" tool).
+/// Never stores a referral code of its own — always reads User.referralCode
+/// at render time (the same single source of truth the user's own
+/// dashboard reads), and never stores the raw temporary password — only
+/// the language/text shown, for audit purposes.
+model InviteCard {
   id          String   @id @default(cuid())
-  slug        String   @unique
-  name        String
-  nameEn      String?
-  description String?
-  type        String   // "quiz" | "logic" | "memory" | "pattern" | "business"
-  isActive    Boolean  @default(true)
-  isFeatured  Boolean  @default(false)
-  maxPlayers  Int      @default(1)
-  durationSec Int      @default(60)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  sessions   GameSession[]
-  questions  GameQuestion[]
-}
-
-model GameSession {
-  id          String    @id @default(cuid())
   userId      String
-  gameId      String
-  status      String    @default("active") // active | completed | abandoned
-  score       Int       @default(0)
-  maxScore    Int       @default(0)
-  startedAt   DateTime  @default(now())
-  completedAt DateTime?
-  metadata    String?   // JSON: answers, timing, anti-cheat hash
+  language    String // "fa" | "en" | "de"
+  inviteText  String
+  /// The rendered PNG, uploaded to R2 storage — lets an admin revisit a
+  /// past card without regenerating it. Never a password/credential.
+  imageUrl    String?
+  generatedBy String // admin User.id
+  createdAt   DateTime @default(now())
 
-  user  User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  game  Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@index([gameId])
-  @@index([score])
 }
 
-model GameQuestion {
-  id            String  @id @default(cuid())
-  gameId        String
-  text          String
-  textEn        String?
-  options       String  // JSON array of {id, text}
-  correctOption String
-  difficulty    Int     @default(1) // 1-5
-  points        Int     @default(10)
-  order         Int     @default(0)
+/// Generic admin-action audit trail — who did what, to whom, when. Started
+/// for the "Invite to AIfekr" tool (trial activation, invite-card
+/// generation) but deliberately generic so other admin tools can log to it
+/// too rather than each inventing their own audit table.
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String // admin User.id who performed the action
+  action    String // e.g. "trial_activated" | "invite_card_generated"
+  targetId  String? // e.g. the affected User.id
+  metadata  String? // JSON-encoded extra detail
+  createdAt DateTime @default(now())
 
-  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
-
-  @@index([gameId])
+  @@index([actorId])
+  @@index([targetId])
+  @@index([action])
 }
 
-// ─── Module Registry ────────────────────────────────────────────────────────
-
-model ModuleRegistry {
+/// ─── Accounting module (Phase A: ledger core) ───────────────────────────
+/// Per accounting_master_prompt.md/accounting_module_spec.md, Phase A. Tenant
+/// isolation is application-level (workspaceUserId, matching
+/// resolveCrmWorkspace()'s pattern everywhere else in this codebase) rather
+/// than Postgres RLS — this codebase runs on SQLite, which has no RLS, and
+/// the user explicitly confirmed reusing the existing app-level pattern
+/// instead of the spec's Postgres-specific assumption. See src/lib/accounting/ledger.ts
+/// for the single enforced write path (postJournalEntry()) — nothing else
+/// may insert into AccountingJournalEntryLine directly.
+model AccountingAccount {
   id              String   @id @default(cuid())
-  key             String   @unique  // e.g. "crm", "games", "seo"
+  workspaceUserId String
+  businessId      String?
+  code            String
   name            String
-  description     String?
-  status          String   @default("enabled") // enabled | disabled | maintenance | beta
-  minPlan         String   @default("FREE")
-  isCore          Boolean  @default(false)      // cannot be disabled
-  sortOrder       Int      @default(0)
+  nameEn          String?
+  nameDe          String?
+  nameTr          String?
+  /// "asset" | "liability" | "equity" | "revenue" | "expense"
+  type            String
+  parentId        String?
+  /// Seeded default-chart-of-accounts row — shown but not user-deletable.
+  isSystem        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  parent   AccountingAccount?           @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children AccountingAccount[]          @relation("AccountHierarchy")
+  lines    AccountingJournalEntryLine[]
+
+  @@unique([workspaceUserId, businessId, code])
+  @@index([workspaceUserId])
+  @@index([businessId])
+}
+
+/// One row per financial period an admin can lock. Locking blocks new
+/// postings dated inside the range — enforced inside postJournalEntry(),
+/// the only write path, since SQLite has no deferred/cross-table constraint
+/// triggers capable of expressing "reject if any locked period covers this
+/// date" declaratively.
+model AccountingFiscalPeriod {
+  id              String    @id @default(cuid())
+  workspaceUserId String
+  businessId      String?
+  startDate       DateTime
+  endDate         DateTime
+  isLocked        Boolean   @default(false)
+  lockedAt        DateTime?
+  lockedBy        String?
+  createdAt       DateTime  @default(now())
+
+  @@index([workspaceUserId])
+  @@index([businessId])
+}
+
+/// A balanced double-entry posting. Immutable once created — see comment on
+/// reversesEntryId. Never updated/deleted; a correction always creates a new
+/// reversal entry (isReversed flips true on the original) plus a new
+/// corrected entry, both linked back for a full audit trail.
+model AccountingJournalEntry {
+  id              String   @id @default(cuid())
+  workspaceUserId String
+  businessId      String?
+  entryDate       DateTime @default(now())
+  memo            String?
+  /// Idempotency + traceability key for auto-posted entries, e.g.
+  /// "invoice:sent:<invoiceId>" / "invoice:paid:<invoiceId>". A unique
+  /// constraint here is what makes automatic posting from a CRM event
+  /// idempotent — a retried event / duplicate webhook simply finds the
+  /// existing entry and no-ops instead of double-posting. Null for entries
+  /// entered manually by an accountant.
+  sourceRef       String?  @unique
+  reversesEntryId String?
+  isReversed      Boolean  @default(false)
+  /// User.id who posted it, or the literal string "system" for auto-posted
+  /// entries (invoice events, etc.) with no human actor.
+  postedBy        String
+  createdAt       DateTime @default(now())
+
+  lines         AccountingJournalEntryLine[]
+  reversesEntry AccountingJournalEntry?      @relation("Reversal", fields: [reversesEntryId], references: [id])
+  reversedBy    AccountingJournalEntry[]     @relation("Reversal")
+
+  @@index([workspaceUserId, entryDate])
+  @@index([businessId, entryDate])
+}
+
+/// One debit or credit leg of a journal entry. `debit`/`credit` are
+/// mutually exclusive per row (exactly one is > 0, the other is 0) —
+/// enforced by a CHECK constraint at the database level (see migration SQL)
+/// as well as in postJournalEntry(). The cross-row invariant "sum(debit) ==
+/// sum(credit) for a given entry" is a multi-row invariant SQLite's
+/// synchronous, non-deferrable triggers cannot express safely alongside a
+/// multi-row insert; that half of the balance guarantee is enforced solely
+/// by postJournalEntry() being the one and only write path — see its unit
+/// tests for the enforcement proof.
+model AccountingJournalEntryLine {
+  id        String  @id @default(cuid())
+  entryId   String
+  accountId String
+  debit     Float   @default(0)
+  credit    Float   @default(0)
+  memo      String?
+
+  entry   AccountingJournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account AccountingAccount      @relation(fields: [accountId], references: [id])
+
+  @@index([entryId])
+  @@index([accountId])
+}
+
+/// ─── Accounting module Phase B ──────────────────────────────────────────
+/// Expenses/vendors/approval, agent commission + split, and short-term
+/// rental owner statements. Every economic event here posts through
+/// postJournalEntry() (see src/lib/accounting/ledger.ts) — nothing here
+/// writes AccountingJournalEntryLine directly.
+
+model AccountingVendor {
+  id              String   @id @default(cuid())
+  workspaceUserId String
+  businessId      String?
+  name            String
+  phone           String?
+  email           String?
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  expenses AccountingExpense[]
+
+  @@index([workspaceUserId])
+  @@index([businessId])
+}
+
+/// Covers both spec ۳.۳ concepts — a supplier bill and a standalone cash
+/// expense — as one model distinguished by `kind`, rather than two near-
+/// identical tables. `status` carries the approval workflow: an expense
+/// over the workspace's approval threshold sits at "pending_approval" until
+/// a manager approves it; only "approved" or "paid" expenses may post to
+/// the ledger.
+model AccountingExpense {
+  id              String    @id @default(cuid())
+  workspaceUserId String
+  businessId      String?
+  vendorId        String?
+  /// "bill" | "cash_expense"
+  kind            String    @default("cash_expense")
+  /// AccountingAccount.code this expense books against, e.g. "5200" (Advertising).
+  accountCode     String
+  amount          Float
+  /// Currency `amount` was actually entered in -- IRT/IRR/USD/EUR/GBP/TRY.
+  /// Defaults to IRT since every row before this column existed really was
+  /// Toman (the UI never offered anything else). A non-IRT/IRR expense is
+  /// converted to IRT at the day's rate ONLY when posted to the ledger (see
+  /// payExpense) -- this column always keeps the amount as actually spent,
+  /// e.g. the 3,000 TRY actually paid at a Turkish shop for one unit.
+  currency        String    @default("IRT")
+  /// VAT/input tax paid on this expense, included in `amount` (not on top
+  /// of it) — used only for the Phase C VAT report's input-tax side.
+  taxAmount       Float     @default(0)
+  description     String
+  receiptUrl      String?
+  expenseDate     DateTime  @default(now())
+  dueDate         DateTime?
+  /// Which property this cost belongs to — the electricity bill or the cleaning
+  /// supplies for one specific unit. Nullable on purpose: office rent or a
+  /// software subscription belongs to the agency, not to any single property.
+  /// Without it there was no way to answer "what has this unit cost me?", and
+  /// owner statements had their expense lines retyped by hand every month.
+  propertyId      String?
+  /// "pending_approval" | "approved" | "rejected" | "paid"
+  status          String    @default("approved")
+  approvedBy      String?
+  approvedAt      DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  vendor   AccountingVendor? @relation(fields: [vendorId], references: [id])
+  property Property?         @relation(fields: [propertyId], references: [id])
+
+  @@index([workspaceUserId])
+  @@index([businessId])
+  @@index([vendorId])
+}
+
+/// One row per won deal that earns commission. Split across multiple agents
+/// via AccountingCommissionSplit — see spec ۳.۴'s "Split Commission".
+model AccountingCommissionRecord {
+  id              String   @id @default(cuid())
+  workspaceUserId String
+  businessId      String?
+  dealId          String
+  totalAmount     Float
+  createdAt       DateTime @default(now())
+
+  deal   CrmDeal                     @relation(fields: [dealId], references: [id])
+  splits AccountingCommissionSplit[]
+
+  @@index([workspaceUserId])
+  @@index([businessId])
+  @@index([dealId])
+}
+
+model AccountingCommissionSplit {
+  id                 String    @id @default(cuid())
+  commissionRecordId String
+  /// User.id of the agent this split is owed to.
+  agentUserId        String
+  percent            Float
+  amount             Float
+  /// "pending" | "paid"
+  status             String    @default("pending")
+  paidAt             DateTime?
+  createdAt          DateTime  @default(now())
+
+  commissionRecord AccountingCommissionRecord @relation(fields: [commissionRecordId], references: [id], onDelete: Cascade)
+
+  @@index([commissionRecordId])
+  @@index([agentUserId])
+}
+
+/// Per-property (or per-owner, when propertyId is null — the workspace
+/// default) management fee percentage taken from short-term rental net
+/// profit. A property-level row overrides the owner/workspace default.
+model AccountingManagementFeeRule {
+  id              String   @id @default(cuid())
+  workspaceUserId String
+  businessId      String?
+  propertyId      String?  @unique
+  feePercent      Float    @default(20)
+  createdAt       DateTime @default(now())
+
+  @@index([workspaceUserId])
+  @@index([businessId])
+}
+
+/// One statement per property per month — the Draft-and-Approve envelope
+/// around a batch of AccountingOwnerStatementEntry rows. Numbers are
+/// computed and frozen at generation time (not re-derived live), so an
+/// approved/sent statement never silently changes if entries are edited
+/// later — a correction means regenerating a new draft.
+model AccountingOwnerStatement {
+  id              String    @id @default(cuid())
+  workspaceUserId String
+  businessId      String?
+  propertyId      String
+  /// First day of the statement's month, e.g. 2026-08-01T00:00:00Z.
+  month           DateTime
+  currency        String    @default("IRT")
+  incomeTotal     Float     @default(0)
+  expenseTotal    Float     @default(0)
+  netProfit       Float     @default(0)
+  managementFee   Float     @default(0)
+  ownerShare      Float     @default(0)
+  /// "draft" | "approved" | "sent"
+  status          String    @default("draft")
+  approvedBy      String?
+  approvedAt      DateTime?
+  sentAt          DateTime?
+  createdAt       DateTime  @default(now())
+  /// Lets the owner open this one statement without a platform account —
+  /// "send to owner" used to be email-only, with no page the owner could
+  /// return to or forward. Set once, on first send; unique so the token
+  /// space cannot collide across workspaces.
+  shareToken      String?   @unique
+
+  property Property                        @relation(fields: [propertyId], references: [id])
+  entries  AccountingOwnerStatementEntry[]
+
+  @@unique([propertyId, month])
+  @@index([workspaceUserId])
+  @@index([businessId])
+}
+
+model AccountingOwnerStatementEntry {
+  id          String   @id @default(cuid())
+  statementId String
+  date        DateTime
+  description String
+  /// "guest_stay" | "maintenance" | "utilities" | "consumables" | "other"
+  category    String
+  income      Float    @default(0)
+  expense     Float    @default(0)
+  createdAt   DateTime @default(now())
+
+  statement AccountingOwnerStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+
+  @@index([statementId])
+}
+
+/// ─── Accounting module Phase C ──────────────────────────────────────────
+/// Bank reconciliation, VAT reporting, and budgeting. Everything here is
+/// read/reconciliation tooling around the Phase A/B ledger — none of it
+/// posts new journal entries on its own (a matched bank transaction
+/// confirms money already recorded via an expense/invoice payment; it
+/// doesn't create new financial facts).
+
+model AccountingBankAccount {
+  id              String   @id @default(cuid())
+  workspaceUserId String
+  businessId      String?
+  name            String
+  accountNumber   String?
+  currency        String   @default("IRT")
+  /// Balance before the earliest imported transaction — the anchor a
+  /// running balance is computed from, since Iran has no widespread Open
+  /// Banking API to pull a canonical starting balance from (spec ۳.۶).
+  openingBalance  Float    @default(0)
+  createdAt       DateTime @default(now())
+
+  transactions AccountingBankTransaction[]
+
+  @@index([workspaceUserId])
+  @@index([businessId])
+}
+
+/// One row per imported bank statement line (CSV/Excel import, per spec —
+/// no xlsx dependency; reuses the dependency-free CSV parser already built
+/// for property import). Reconciliation links a transaction to the
+/// existing record that already explains it — it never creates a ledger
+/// entry itself.
+model AccountingBankTransaction {
+  id              String    @id @default(cuid())
+  workspaceUserId String
+  businessId      String?
+  bankAccountId   String
+  date            DateTime
+  description     String
+  /// Positive = money in, negative = money out.
+  amount          Float
+  /// "unmatched" | "matched" | "ignored"
+  status          String    @default("unmatched")
+  /// "expense" | "invoice" — which table matchedId points into. Null until matched.
+  matchedType     String?
+  matchedId       String?
+  matchedAt       DateTime?
+  matchedBy       String?
+  createdAt       DateTime  @default(now())
+
+  bankAccount AccountingBankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceUserId])
+  @@index([businessId])
+  @@index([bankAccountId])
+  @@index([status])
+}
+
+/// Configurable tax rates (spec ۳.۷) — Iran VAT, or a rate for an
+/// international customer under Paddle. Invoices already carry their own
+/// per-line taxRate (CrmInvoiceItem.taxRate); this is the named-rate
+/// picklist an admin manages, not a new tax engine.
+model AccountingTaxRate {
+  id              String   @id @default(cuid())
+  workspaceUserId String
+  businessId      String?
+  name            String
+  ratePercent     Float
+  isDefault       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  @@index([workspaceUserId])
+  @@index([businessId])
+}
+
+/// One row per account/period budget line (spec ۳.۸). Compared against
+/// actual ledger activity for Budget vs Actual — never a source of truth
+/// for real numbers itself.
+model AccountingBudget {
+  id              String   @id @default(cuid())
+  workspaceUserId String
+  businessId      String?
+  accountCode     String
+  /// First day of the budgeted month.
+  period          DateTime
+  amount          Float
+  createdAt       DateTime @default(now())
+
+  @@unique([workspaceUserId, businessId, accountCode, period])
+  @@index([workspaceUserId])
+  @@index([businessId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase D — payroll, scheduled reports, external BI export (spec ۳.۵ / ۴).
+// ---------------------------------------------------------------------------
+
+/// One row per paid employee/agent in a workspace (spec ۳.۵ — simple payroll:
+/// base salary + commission + bonus/deductions). userId links to an app User
+/// (usually a TeamMember) so commission earned via AccountingCommissionSplit
+/// can be pulled in automatically; it is nullable because a workspace may pay
+/// someone (e.g. an assistant) who has no login of their own.
+model AccountingEmployee {
+  id              String   @id @default(cuid())
+  workspaceUserId String
+  businessId      String?
+  userId          String?
+  name            String
+  baseSalary      Float    @default(0)
+  isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  payslips AccountingPayslip[]
+
+  @@index([workspaceUserId])
+  @@index([businessId])
+  @@index([userId])
+}
+
+/// One payroll run per workspace/month. Lifecycle mirrors the rest of the
+/// module's Draft-and-Approve pattern: draft (payslips editable) → approved
+/// (numbers frozen) → paid (posts the aggregate ledger entry). Never posts to
+/// the ledger before "paid", and never re-editable once paid.
+model AccountingPayrollRun {
+  id              String    @id @default(cuid())
+  workspaceUserId String
+  businessId      String?
+  /// First day of the paid month.
+  period          DateTime
+  /// "draft" | "approved" | "paid"
+  status          String    @default("draft")
+  createdAt       DateTime  @default(now())
+  approvedBy      String?
+  approvedAt      DateTime?
+  paidBy          String?
+  paidAt          DateTime?
+
+  payslips AccountingPayslip[]
+
+  @@unique([workspaceUserId, businessId, period])
+  @@index([workspaceUserId])
+  @@index([businessId])
+}
+
+/// One line per employee within a payroll run. commissionTotal is pulled from
+/// AccountingCommissionSplit rows paid to this employee's userId during the
+/// run's period — never a second, independently-typed number.
+model AccountingPayslip {
+  id              String   @id @default(cuid())
+  payrollRunId    String
+  employeeId      String
+  baseSalary      Float
+  commissionTotal Float    @default(0)
+  bonus           Float    @default(0)
+  deductions      Float    @default(0)
+  netPay          Float
+  createdAt       DateTime @default(now())
+
+  payrollRun AccountingPayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employee   AccountingEmployee   @relation(fields: [employeeId], references: [id])
+
+  @@unique([payrollRunId, employeeId])
+  @@index([payrollRunId])
+  @@index([employeeId])
+}
+
+/// Recurring emailed report config (spec ۴ "گزارش‌های زمان‌بندی‌شده"). Per the
+/// master prompt's explicit rule for this phase, a newly-created report never
+/// auto-emails: its first due run only generates a preview (firstRunPreview)
+/// and waits in "awaiting_approval" for a human to review the actual content
+/// before the recurring send is switched on permanently.
+model AccountingScheduledReport {
+  id              String    @id @default(cuid())
+  workspaceUserId String
+  businessId      String?
+  /// "weekly_summary" | "monthly_pl" | "monthly_vat"
+  reportType      String
+  /// "weekly" | "monthly"
+  frequency       String
+  recipientEmail  String
+  lang            String    @default("fa")
+  /// Presentation currency for this report, independent of `lang` and of the
+  /// reader's UI language: a Persian admin can schedule an English report in
+  /// EUR. NULL means no conversion — amounts appear in the currency they were
+  /// recorded in, which is always what the report leads with anyway.
+  currency        String?
+  /// "pending_first_approval" | "awaiting_approval" | "active" | "paused"
+  status          String    @default("pending_first_approval")
+  /// Snapshot (subject+html) of the run currently awaiting human approval.
+  firstRunPreview String?
+  lastRunAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([workspaceUserId])
+  @@index([businessId])
+}
+
+/// A long-lived, revocable token for the external-BI read-only export API
+/// (spec ۴ "API برای اتصال BI خارجی"). Only the sha256 hash is stored — the
+/// raw token is shown to the user once, at creation, like any API-key pattern.
+model AccountingApiToken {
+  id              String    @id @default(cuid())
+  workspaceUserId String
+  businessId      String?
+  label           String
+  tokenHash       String    @unique
+  createdAt       DateTime  @default(now())
+  lastUsedAt      DateTime?
+  revokedAt       DateTime?
+
+  @@index([workspaceUserId])
+  @@index([businessId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase E — Finance AI Agent (spec ۸). Per the master prompt's explicit rule
+// for this phase: the agent has READ-ONLY access to financial data (via the
+// existing report functions — reports.ts/tax.ts/budget.ts — never raw SQL or
+// direct table writes); its only write path is this table, which always
+// starts "pending" and is never itself a ledger/expense mutation. A human
+// must call approveProposal() — which is the only code that actually posts
+// to the ledger or updates an expense — before anything the AI suggested
+// takes effect. Never bypass this table to let the agent write directly.
+model AccountingAiProposal {
+  id              String    @id @default(cuid())
+  workspaceUserId String
+  businessId      String?
+  /// "journal_entry" | "expense_categorization"
+  type            String
+  /// JSON payload — shape depends on `type` (see financeAgent.ts).
+  payload         String
+  /// "pending" | "approved" | "rejected"
+  status          String    @default("pending")
+  /// The question/context that led to this proposal, for audit traceability.
+  sourceContext   String?
+  /// Provider id (e.g. "claude") that generated this proposal — required for
+  /// the audit_log's "source: ai_agent + model version" traceability rule.
+  modelUsed       String
+  createdAt       DateTime  @default(now())
+  reviewedBy      String?
+  reviewedAt      DateTime?
+
+  @@index([workspaceUserId])
+  @@index([businessId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Lead Generation module — a TENANT-FACING product feature, not lead-gen for
+// AIFekr itself. Any registered company (workspace = userId) builds its own
+// branded lead-capture form, shares the public /f/<slug> link or embeds it on
+// its own site, and every submission lands in THAT company's CRM as a
+// CrmContact (status "lead", source "lead_form"). Fixed field set (name /
+// phone / email / company / message); the tenant only chooses which to show
+// and which are required (`fields` JSON). No external API keys involved —
+// Meta Lead Ads / Google connectors, when added later, become extra rows
+// beside this, per-tenant.
+model LeadForm {
+  id             String   @id @default(cuid())
+  userId         String
+  businessId String?
+  /// Public URL segment: /f/<slug>. Globally unique, slugified from title + short random suffix.
+  slug           String   @unique
+  title          String
+  titleEn        String?
+  titleDe        String?
+  description    String?
+  descriptionEn  String?
+  descriptionDe  String?
+  /// JSON: { name: {show,required}, phone: {...}, email, company, message }.
+  /// Only these five fixed keys are ever honoured server-side.
+  fields         String   @default("{}")
+  accentColor    String   @default("#ea580c")
+  logoUrl        String?
+  submitLabel    String?
+  successMessage String?
+  /// Optional URL to send the visitor to after a successful submit.
+  redirectUrl    String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user        User                 @relation(fields: [userId], references: [id])
+  submissions LeadFormSubmission[]
+
+  @@index([userId])
+  @@index([businessId])
+}
+
+model LeadFormSubmission {
+  id          String   @id @default(cuid())
+  formId      String
+  /// The CrmContact this submission created (null only if contact creation failed).
+  contactId   String?
+  /// JSON of the raw submitted values, kept verbatim for audit / re-processing.
+  data        String
+  /// Rule-based 0-100 lead score at capture time (see lib/leadgen/score.ts).
+  score       Int      @default(0)
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  /// SHA-256 of visitor IP + a server salt — for per-IP throttling and
+  /// dedupe without storing the raw address.
+  ipHash      String?
+  createdAt   DateTime @default(now())
+
+  form LeadForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId, createdAt])
+}
+
+// A tenant's connection to an external lead channel. One row per connected
+// Meta Page, one row per tenant for Google Ads (whose leads arrive by
+// webhook and need no stored token). Meta's page token is long-lived (~60d)
+// and refreshed opportunistically; `status` flips to "error" with
+// `lastError` set when a Graph call fails so the UI can prompt a reconnect.
+model LeadSource {
+  id            String    @id @default(cuid())
+  userId        String
+  businessId String?
+  /// "meta" | "google"
+  provider      String
+  /// Meta: the Facebook Page id. Google: "default" (one per tenant).
+  externalId    String
+  name          String
+  /// Meta: long-lived Page access token. Google: null (webhook carries the data).
+  accessToken   String?
+  tokenExpiry   DateTime?
+  /// Google: per-tenant secret the incoming webhook must present. Meta: null.
+  webhookKey    String?
+  /// "active" | "error" | "disconnected"
+  status        String    @default("active")
+  lastError     String?
+  lastLeadAt    DateTime?
+  leadsImported Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, provider, externalId])
+  @@index([userId])
+  @@index([provider, externalId])
+  @@index([businessId])
+}
+
+// ---------------------------------------------------------------------------
+// Social media growth layer (Phase A2). The Social module used to be blind to
+// the rest of AIFekr — brand name was retyped into an empty form every
+// session while Business Doctor already held the tenant's target customers,
+// competitors and unique value. These tables give the module a memory of who
+// the business is, and an official (business_discovery, never scraping) view
+// of comparable pages.
+
+/// One row per tenant: how this business positions its own Instagram page.
+/// Seeded as a draft from Company + Company.notes on first load so the owner
+/// edits a pre-filled form instead of starting from blank.
+model SocialBrandProfile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  pageType       String?
+  specialty      String?
+  audience       String?
+  tone           String?
+  /// JSON array of 3-5 content pillars.
+  contentPillars String?
+  /// Hard "never post this" list. Also appended to when the owner rejects a
+  /// competitor-derived suggestion as off-brand, so the next one is better.
+  avoidTopics    String?
+  positioning    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// A comparable public Instagram business/creator account the tenant wants
+/// benchmarked. Data comes from Meta's business_discovery edge only.
+model SocialCompetitor {
+  id        String   @id @default(cuid())
+  userId    String
+  /// Instagram handle without the @.
+  username  String
+  label     String?
+  /// "manual" | "suggested"
+  source    String   @default("manual")
+  isActive  Boolean  @default(true)
+  /// Last discovery error (e.g. private account, not a business account).
+  lastError String?
+  createdAt DateTime @default(now())
+
+  user      User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snapshots SocialCompetitorSnapshot[]
+
+  @@unique([userId, username])
+  @@index([userId])
+}
+
+/// Point-in-time capture of a competitor, so their growth is comparable to
+/// the tenant's own InstagramFollowerSnapshot series.
+model SocialCompetitorSnapshot {
+  id             String   @id @default(cuid())
+  competitorId   String
+  takenAt        DateTime @default(now())
+  followersCount Int
+  mediaCount     Int
+  /// JSON array of posts at capture time (caption, likes, comments, type,
+  /// timestamp, permalink) — business_discovery returns no insights metrics
+  /// for other accounts, so engagement is inferred from likes+comments only.
+  topPosts       String
+
+  competitor SocialCompetitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+
+  @@index([competitorId, takenAt])
+}
+
+/// ─── Knowledge base (floating support assistant, `support_mode`) ───────────
+/// Platform documentation the support assistant answers from. Deliberately
+/// NOT tenant data: there is one shared doc-set for the whole platform, no
+/// userId column, and nothing user-submitted is ever ingested — that last
+/// point is what stops retrieval from becoming a prompt-injection vector.
+///
+/// Authored as trilingual markdown in `docs/knowledge-base/<slug>.md` and
+/// synced into these tables by POST /api/admin/kb/sync, so editing a doc and
+/// re-syncing costs one admin click rather than a redeploy, and only the
+/// chunks whose text actually changed get re-embedded (see KbChunk.hash).
+model KbDocument {
+  id    String @id @default(cuid())
+  /// Matches the markdown filename and `Capability.docSlug` in src/lib/orchestrator/registry.ts.
+  slug  String
+  /// "fa" | "en" | "de" — one row per language block of the source file.
+  lang  String
+  title String
+  /// Capability key this document describes, when it describes exactly one.
+  /// Null for cross-cutting docs (navigation, troubleshooting, account).
+  capabilityKey String?
+  /// SHA-256 of this language block's raw source, so an unchanged block is skipped entirely.
+  hash      String
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  chunks KbChunk[]
+
+  @@unique([slug, lang])
+}
+
+/// One retrievable passage — a single `###` section of a document. Chunking on
+/// headings rather than a fixed character window keeps each chunk a complete
+/// thought ("How to use it", "Common problems"), which is what makes a short
+/// grounded answer possible.
+model KbChunk {
+  id         String @id @default(cuid())
+  documentId String
+  /// Position within the document, for stable ordering and citation.
+  ordinal    Int
+  /// The `###` heading this chunk came from — shown as the citation label.
+  heading    String
+  text       String
+  /// SHA-256 of `text`. On sync, a chunk whose hash is unchanged keeps its
+  /// existing embedding instead of spending another Cohere call.
+  hash       String
+  /// JSON-stringified embedding vector, same convention as BusinessMemory.embedding
+  /// — null when embedding generation failed or hasn't run yet, in which case
+  /// retrieval falls back to keyword scoring rather than returning nothing.
+  embedding  String?
+
+  document KbDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, ordinal])
+}
+
+/// ─── Orchestrator write-path audit + confirmation record (full_mode) ───────
+/// One row per COMMIT-tier tool call the /chat orchestrator proposes.
+///
+/// This is the mechanism that makes "the chat can act on my business" safe:
+/// a COMMIT tool never executes in the turn that proposes it. The server
+/// validates the arguments, stores them here as PENDING, and streams only
+/// this row's id to the client. The confirmation card the user sees is
+/// rendered from THESE stored arguments — never from the model's own prose —
+/// so a model that describes one action while requesting another cannot make
+/// the card lie. Executing requires a second, explicit request naming this id.
+///
+/// It doubles as the audit trail for "what did the AI actually do on my
+/// account", which AuditLog does not cover for chat-initiated writes.
+model OrchestratorAction {
+  id             String  @id @default(cuid())
+  conversationId String
+  /// The workspace the action operates in — the CRM workspace owner, not
+  /// necessarily the session user (see src/lib/crm/workspace.ts).
+  workspaceUserId String
+  /// The logged-in user who asked for it. Kept separately from
+  /// workspaceUserId so a team member's action is attributable to them.
+  actingUserId   String
+  /// Tool key from src/lib/orchestrator/tools — e.g. "crm.updateDealStage".
+  toolKey        String
+  /// JSON of the validated arguments. The confirmation card and the
+  /// execution both read from here, never from model text.
+  argsJson       String
+  /// Short human-readable summary built server-side at propose time, for the card.
+  summary        String
+  /// PENDING | EXECUTED | REJECTED | EXPIRED | FAILED
+  status         String   @default("PENDING")
+  /// JSON result or error text once executed.
+  resultJson     String?
+  /// PENDING actions past this point are refused — a stale confirmation
+  /// button in an old tab must not fire a write hours later.
+  expiresAt      DateTime
+  confirmedAt    DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([conversationId])
+  @@index([workspaceUserId, status])
+}
+
+/// Personal study workspace. Student data is intentionally scoped to the
+/// owning user rather than the currently selected business workspace.
+model StudentCourse {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  courseCode  String?
+  institution String?
+  term        String?
+  instructor  String?
+  description String?
+  color       String   @default("#f97316")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  materials   StudentMaterial[]
+  notes       StudentNote[]
+  flashcards  StudentFlashcard[]
+  quizzes     StudentQuiz[]
+  exams       StudentExam[]
+  tasks       StudentTask[]
+  studySessions StudentStudySession[]
+  studyGroups StudentStudyGroup[]
+
+  @@index([userId, updatedAt])
+}
+
+model StudentMaterial {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  title     String
+  content   String
+  source    String   @default("text")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    StudentCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([userId, courseId, createdAt])
+}
+
+model StudentNote {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    StudentCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([userId, courseId, updatedAt])
+}
+
+model StudentFlashcard {
+  id            String   @id @default(cuid())
+  userId        String
+  courseId      String
+  question      String
+  answer        String
+  masteryLevel  Int      @default(0)
+  reviewCount   Int      @default(0)
+  lastReviewedAt DateTime?
+  nextReviewAt  DateTime?
+  createdAt     DateTime @default(now())
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    StudentCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([userId, courseId, createdAt])
+}
+
+model StudentQuiz {
+  id        String   @id @default(cuid())
+  courseId  String
+  title     String
+  questions String
+  timeLimitSeconds Int?
+  createdAt DateTime @default(now())
+  course    StudentCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  attempts  StudentQuizAttempt[]
+
+  @@index([courseId, createdAt])
+}
+
+model StudentQuizAttempt {
+  id          String   @id @default(cuid())
+  userId      String
+  quizId      String
+  answers     String
+  score       Int
+  total       Int
+  weakTopics  String?
+  completedAt DateTime @default(now())
+  startedAt DateTime?
+  attemptToken String? @unique
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quiz        StudentQuiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@index([userId, completedAt])
+  @@index([quizId, completedAt])
+}
+
+model StudentExam {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  title     String
+  examAt    DateTime
+  createdAt DateTime @default(now())
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    StudentCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([userId, examAt])
+  @@index([courseId, examAt])
+}
+
+/// Personal assignment/deadline and editable study-plan item.
+model StudentTask {
+  id          String        @id @default(cuid())
+  userId      String
+  courseId    String?
+  title       String
+  description String        @default("")
+  taskType    String        @default("assignment") // assignment | study
+  dueAt       DateTime?
+  priority    Int           @default(2) // 1 low, 2 normal, 3 high
+  completedAt DateTime?
+  generated   Boolean       @default(false)
+  dedupeKey   String?       @unique
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course      StudentCourse? @relation(fields: [courseId], references: [id], onDelete: SetNull)
+
+  @@index([userId, completedAt, dueAt])
+  @@index([courseId, dueAt])
+}
+
+/// Server-timestamped study sessions used for student progress reports.
+/// activeUserKey is set only while a session is running; the nullable unique
+/// index guarantees one active timer per student without blocking history.
+model StudentStudySession {
+  id             String    @id @default(cuid())
+  userId         String
+  courseId       String?
+  startedAt      DateTime  @default(now())
+  endedAt        DateTime?
+  durationSeconds Int      @default(0)
+  activeUserKey  String?   @unique
+  pausedAt       DateTime?
+  lastResumedAt  DateTime?
+  pauseHistory   String    @default("[]")
+  createdAt      DateTime  @default(now())
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course         StudentCourse? @relation(fields: [courseId], references: [id], onDelete: SetNull)
+
+  @@index([userId, startedAt])
+  @@index([courseId, startedAt])
+}
+
+/// Small opt-in study groups. A high-entropy invite code grants membership;
+/// all group reads and messages are scoped to active membership.
+model StudentStudyGroup {
+  id         String   @id @default(cuid())
+  name       String
+  inviteCode String   @unique
+  ownerId    String
+  courseId   String?
+  createdAt  DateTime @default(now())
+  owner      User     @relation("StudentStudyGroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  course     StudentCourse? @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  members    StudentStudyGroupMember[]
+  messages   StudentStudyGroupMessage[]
+  @@index([courseId, createdAt])
+  @@index([ownerId, createdAt])
+}
+
+model StudentStudyGroupMember {
+  id        String   @id @default(cuid())
+  groupId   String
+  userId    String
+  joinedAt  DateTime @default(now())
+  group     StudentStudyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([groupId, userId])
+  @@index([userId, joinedAt])
+}
+
+model StudentStudyGroupMessage {
+  id        String   @id @default(cuid())
+  groupId   String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  group     StudentStudyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([groupId, createdAt])
+}
+
+/// Private notes scoped to an enrolled immutable academy lesson.
+model AiCourseLessonNote {
+  version AiCourseVersion @relation(fields:[versionId],references:[id],onDelete:Restrict)
+  id String @id @default(cuid())
+  userId String
+  versionId String
+  lessonId String
+  content String @default("")
+  updatedAt DateTime @updatedAt
+  @@unique([userId, versionId, lessonId])
+}
+/// Immutable administrator draft revisions, separate from published learning versions.
+model AiCourseRevision {
+  course AiCourse @relation(fields:[courseId],references:[id],onDelete:Restrict)
+  id String @id @default(cuid())
+  courseId String
+  version Int
+  actorId String
+  reason String
+  metadata String
+  content String
+  createdAt DateTime @default(now())
+  @@unique([courseId, version])
+}
+
+model BillingExchangeRate {
+  id String @id @default(cuid())
+  source String @default("USD")
+  target String
+  rate String
+  provider String
+  rateType String
+  approvedBy String?
+  validUntil DateTime
+  createdAt DateTime @default(now())
+  @@index([target,createdAt])
+}
+model BillingQuote {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  planCode String
+  period String
+  currency String
+  amountMinor Int
+  amountToman Int
+  snapshot String
+  paymentId String? @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([userId,expiresAt])
+}
+model FitnessProfile {
+  userId String @id
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  age Int
+  heightCm Int?
+  weightKg Float?
+  targetWeightKg Float?
+  daysPerWeek Int @default(3)
+  sessionMinutes Int @default(45)
+  trainingLocation String @default("GYM")
+  goal String
+  level String @default("BEGINNER")
+  equipment String @default("[]")
+  limitations String @default("")
+  preferredProgramId String?
+  selectedCoachId String?
+  dietaryPreferences String @default("")
+  allergens String @default("")
+  consentAt DateTime
+  entitlementExpiry DateTime?
+  updatedAt DateTime @updatedAt
+}
+model FitnessTrainer {
+  id String @id @default(cuid())
+  slug String @unique
+  userId String? @unique
+  user User? @relation(fields:[userId],references:[id],onDelete:SetNull)
+  name String
+  type String @default("HUMAN")
+  status String @default("DEMO")
+  biography String
+  specializations String @default("[]")
+  languages String @default("[]")
+  country String @default("")
+  timezone String @default("UTC")
+  image String
+  certifications String @default("[]")
+  consentAt DateTime?
+  priceMinor Int @default(0)
+  currency String @default("USD")
+  capacity Int @default(0)
+  programs FitnessProgram[]
+  products FitnessProduct[]
+  slots FitnessAvailability[]
+  bookings FitnessBooking[]
+  application FitnessTrainerApplication?
+  createdAt DateTime @default(now())
+}
+model FitnessExercise {
+  id String @id @default(cuid())
+  slug String @unique
+  name String
+  instructions String
+  equipment String
+  category String
+  videoUrl String?
+  imageUrl String?
+  active Boolean @default(true)
+}
+model FitnessProgram {
+  id String @id @default(cuid())
+  trainerId String?
+  ownerUserId String?
+  trainer FitnessTrainer? @relation(fields:[trainerId],references:[id],onDelete:SetNull)
+  title String
+  description String
+  level String
+  status String @default("DRAFT")
+  version Int @default(1)
+  content String
+  minutes Int @default(30)
+  sessions FitnessSession[]
+  createdAt DateTime @default(now())
+}
+model FitnessSession {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  programId String
+  program FitnessProgram @relation(fields:[programId],references:[id])
+  programSnapshot String
+  clientKey String
+  status String @default("IN_PROGRESS")
+  revision Int @default(0)
+  recovery Int @default(3)
+  sets FitnessSetLog[]
+  startedAt DateTime @default(now())
+  completedAt DateTime?
+  @@unique([userId,clientKey])
+  @@index([userId,startedAt])
+}
+model FitnessSetLog {
+  id String @id @default(cuid())
+  sessionId String
+  session FitnessSession @relation(fields:[sessionId],references:[id],onDelete:Cascade)
+  exerciseId String
+  setNumber Int
+  repetitions Int
+  weightGrams Int @default(0)
+  rpe Int?
+  rir Int?
+  completed Boolean @default(true)
+  @@unique([sessionId,exerciseId,setNumber])
+}
+model FitnessDiary {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  day DateTime
+  kind String
+  content String
+  createdAt DateTime @default(now())
+  @@index([userId,day])
+}
+model FitnessProduct {
+  id String @id @default(cuid())
+  trainerId String
+  trainer FitnessTrainer @relation(fields:[trainerId],references:[id])
+  title String
+  kind String
+  status String @default("DRAFT")
+  priceMinor Int
+  currency String @default("USD")
+  inventory Int @default(0)
+  description String
+  digitalAsset String?
+  orders FitnessMarketOrder[]
+  createdAt DateTime @default(now())
+}
+
+model BillingPromotion {
+  id String @id @default(cuid())
+  name String
+  enabled Boolean @default(false)
+  configuration String
+  startsAt DateTime
+  endsAt DateTime
+  maxRedemptions Int @default(1000)
+  redemptions BillingPromotionRedemption[]
+}
+model BillingPromotionRedemption {
+  id String @id @default(cuid())
+  promotionId String
+  promotion BillingPromotion @relation(fields:[promotionId],references:[id])
+  userId String
+  paymentId String @unique
+  createdAt DateTime @default(now())
+  @@unique([promotionId,userId])
+}
+
+model FitnessTrainerApplication {
+ id String @id @default(cuid())
+ userId String @unique
+ user User @relation(fields:[userId],references:[id])
+ trainerId String? @unique
+ trainer FitnessTrainer? @relation(fields:[trainerId],references:[id])
+ status String @default("PENDING")
+ name String
+ biography String
+ qualifications String
+ credentials String @default("[]")
+ languages String
+ specialties String
+ country String
+ timezone String
+ consentAt DateTime
+ reviewNote String?
+ reviewedBy String?
+ reviewedAt DateTime?
+ createdAt DateTime @default(now())
+}
+model FitnessAvailability {
+ id String @id @default(cuid())
+ trainerId String
+ trainer FitnessTrainer @relation(fields:[trainerId],references:[id])
+ startsAt DateTime
+ endsAt DateTime
+ status String @default("OPEN")
+ priceMinor Int
+ currency String @default("USD")
+ bookings FitnessBooking[]
+ @@unique([trainerId,startsAt])
+}
+model FitnessBooking {
+ id String @id @default(cuid())
+ userId String
+ user User @relation(fields:[userId],references:[id])
+ trainerId String
+ trainer FitnessTrainer @relation(fields:[trainerId],references:[id])
+ slotId String
+ slot FitnessAvailability @relation(fields:[slotId],references:[id])
+ status String @default("AWAITING_PAYMENT")
+ paymentId String? @unique
+ order FitnessMarketOrder?
+ review FitnessVerifiedReview?
+ createdAt DateTime @default(now())
+ @@index([userId,createdAt])
+}
+model FitnessMarketOrder {
+ id String @id @default(cuid())
+ userId String
+ user User @relation(fields:[userId],references:[id])
+ trainerId String
+ productId String?
+ product FitnessProduct? @relation(fields:[productId],references:[id])
+ bookingId String? @unique
+ booking FitnessBooking? @relation(fields:[bookingId],references:[id])
+ paymentId String @unique
+ clientKey String
+ status String @default("AWAITING_PAYMENT")
+ quantity Int @default(1)
+ totalMinor Int
+ currency String
+ snapshot String
+ shippingAddress String?
+ fulfillmentReference String?
+ refundReason String?
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ ledger FitnessSellerLedger[]
+ @@unique([userId,clientKey])
+}
+model FitnessSellerLedger {
+ id String @id @default(cuid())
+ orderId String
+ order FitnessMarketOrder @relation(fields:[orderId],references:[id])
+ trainerId String
+ kind String
+ amountToman Int
+ status String @default("HELD")
+ reference String?
+ createdAt DateTime @default(now())
+ @@unique([orderId,kind])
+}
+model FitnessVerifiedReview {
+ id String @id @default(cuid())
+ bookingId String @unique
+ booking FitnessBooking @relation(fields:[bookingId],references:[id])
+ userId String
+ trainerId String
+ rating Int
+ body String
+ status String @default("PENDING")
+ createdAt DateTime @default(now())
+}
+
+model MobileSession {
+  id String @id
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String
+  previousRefreshTokenHash String?
+  deviceName String
+  createdAt DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+  pushToken String?
+  pushEnabledAt DateTime?
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+}
+
+model MobileRequest {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requestKey String
+  inputHash String
+  status String @default("RUNNING")
+  responseJson String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([userId, requestKey])
+  @@index([status, createdAt])
+}
+
+model MobileStorePurchase {
+  id String @id @default(cuid())
+  tokenHash String @unique
+  orderId String @unique
+  userId String
+  productId String
+  credits Int
+  state String @default("GRANTED")
+  testPurchase Boolean
+  createdAt DateTime @default(now())
+  @@index([userId, createdAt])
+}
+
+
+model PlayProfile {
+  userId String @id
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  xp Int @default(0)
+  sessions Int @default(0)
+  points Int @default(0)
+  publicName Boolean @default(false)
+  suspended Boolean @default(false)
+  moderationReason String @default("")
+  lastActivity DateTime?
+  createdAt DateTime @default(now())
+  grants PlayAchievementGrant[]
+  competitionEntries PlayTournamentEntry[]
+  rewards PlayRewardGrant[]
+}
+
+model PlayGame {
+  slug String @id
+  status String @default("ENABLED")
+  version Int @default(1)
+  configuration String @default("{}")
+  updatedAt DateTime @updatedAt
+  sessions PlaySession[]
+}
+
+model PlaySession {
+  tournamentId String?
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  gameSlug String
+  game PlayGame @relation(fields:[gameSlug],references:[slug],onDelete:Restrict)
+  configVersion Int
+  configuration String
+  seed Int
+  status String @default("OPEN")
+  score Int @default(0)
+  xp Int @default(0)
+  frames Int @default(0)
+  replay String @default("[]")
+  evidenceHash String?
+  rejectionReason String?
+  questions String @default("[]")
+  answered Int @default(0)
+  questionAt DateTime @default(now())
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  completedAt DateTime?
+  xpEntry PlayXpEntry?
+  @@index([userId,createdAt])
+  @@index([gameSlug,status,completedAt])
+  @@index([tournamentId,userId,status])
+}
+
+model PlayXpEntry {
+  id String @id @default(cuid())
+  userId String
+  sessionId String @unique
+  session PlaySession @relation(fields:[sessionId],references:[id],onDelete:Restrict)
+  amount Int
+  createdAt DateTime @default(now())
+  @@index([userId,createdAt])
+}
+
+model PlayAchievementGrant {
+  id String @id @default(cuid())
+  userId String
+  profile PlayProfile @relation(fields:[userId],references:[userId],onDelete:Restrict)
+  code String
+  createdAt DateTime @default(now())
+  @@unique([userId,code])
+}
+
+model PlayQuestion {
+  id String @id @default(cuid())
+  language String
+  prompt String
+  options String
+  answer Int
+  explanation String
+  status String @default("DRAFT")
+  difficulty String @default("NORMAL")
+  fingerprint String @unique
+  createdAt DateTime @default(now())
+  @@index([language,status])
+}
+
+model PlayTournament {
+  id String @id @default(cuid())
+  title String
+  description String
+  gameSlug String
+  status String @default("DRAFT")
+  seed Int
+  configuration String @default("{}")
+  configVersion Int @default(1)
+  startsAt DateTime
+  endsAt DateTime
+  maxAttempts Int @default(3)
+  maxParticipants Int @default(1000)
+  rewardTitle String @default("")
+  terms String
+  results String @default("[]")
+  createdAt DateTime @default(now())
+  entries PlayTournamentEntry[]
+  grants PlayRewardGrant[]
+}
+
+model PlayTournamentEntry {
+  id String @id @default(cuid())
+  tournamentId String
+  tournament PlayTournament @relation(fields:[tournamentId],references:[id],onDelete:Restrict)
+  userId String
+  profile PlayProfile @relation(fields:[userId],references:[userId],onDelete:Restrict)
+  joinedAt DateTime @default(now())
+  @@unique([tournamentId,userId])
+}
+
+model PlayRewardGrant {
+  id String @id @default(cuid())
+  tournamentId String
+  tournament PlayTournament @relation(fields:[tournamentId],references:[id],onDelete:Restrict)
+  userId String
+  profile PlayProfile @relation(fields:[userId],references:[userId],onDelete:Restrict)
+  title String
+  status String @default("APPROVED")
+  deliveryNote String @default("")
+  approvedBy String
+  fulfilledAt DateTime?
+  createdAt DateTime @default(now())
+  @@unique([tournamentId,userId])
+}
+
+model VideoFactoryProject {
+  id String @id @default(cuid())
+  userId String
+  title String
+  brief String
+  configuration String
+  manifest String @default("{}")
+  version Int @default(0)
+  activeJobId String?
+  research String @default("[]")
+  publishing String @default("{}")
+  planning String @default("{}")
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  jobs VideoFactoryJob[]
+  versions VideoFactoryVersion[]
+  assets VideoFactoryAsset[]
+  approvals VideoFactoryApproval[]
+  publishJobs VideoFactoryPublishJob[]
+  @@index([userId, updatedAt])
+}
+
+model VideoFactoryVersion {
+  id String @id @default(cuid())
+  projectId String
+  version Int
+  manifest String
+  actorId String
+  createdAt DateTime @default(now())
+  project VideoFactoryProject @relation(fields:[projectId],references:[id],onDelete:Restrict)
+  @@unique([projectId, version])
+}
+
+model VideoFactoryJob {
+  id String @id
+  projectId String
+  userId String
+  projectVersion Int
+  idempotencyKey String
+  requestHash String
+  status String @default("QUEUED")
+  stage String @default("SCRIPTING")
+  cursor Int @default(0)
+  checkpoint String @default("{}")
+  policy String
+  credits Int
+  spentCredits Int @default(0)
+  usageLogId String @unique
+  payerTeamId String?
+  mirroredAi Float @default(0)
+  leaseToken String?
+  leaseUntil DateTime?
+  errorCode String?
+  priority Int @default(0)
+  nextAttemptAt DateTime?
+  attempts Int @default(0)
+  actualCostUsd Float?
+  storageBytes Float @default(0)
+  sourceJobId String?
+  plan String @default("{}")
+  settledAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project VideoFactoryProject @relation(fields:[projectId],references:[id],onDelete:Restrict)
+  steps VideoFactoryStep[]
+  artifacts VideoFactoryArtifact[]
+  @@unique([userId, idempotencyKey])
+  @@index([status, leaseUntil, createdAt])
+  @@index([projectId, createdAt])
+}
+
+model VideoFactoryStep {
+  id String @id @default(cuid())
+  jobId String
+  key String
+  status String
+  inputHash String
+  output String?
+  provider String?
+  model String?
+  credits Int @default(0)
+  providerJobId String?
+  usage String?
+  costUsd Float?
+  latencyMs Int?
+  promptVersion Int?
+  startedAt DateTime @default(now())
+  completedAt DateTime?
+  job VideoFactoryJob @relation(fields:[jobId],references:[id],onDelete:Restrict)
+  @@unique([jobId,key])
+}
+
+model VideoFactoryArtifact {
+  id String @id @default(cuid())
+  jobId String
+  kind String
+  fileName String
+  bytes Int
+  createdAt DateTime @default(now())
+  job VideoFactoryJob @relation(fields:[jobId],references:[id],onDelete:Restrict)
+  @@unique([jobId,kind])
+}
+
+model VideoFactoryAsset {
+  id String @id
+  projectId String
+  userId String
+  jobId String?
+  shotId String?
+  kind String
+  storageKey String
+  mimeType String
+  bytes Int
+  sha256 String
+  name String
+  provenance String
+  metadata String @default("{}")
+  status String @default("READY")
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  project VideoFactoryProject @relation(fields:[projectId],references:[id],onDelete:Restrict)
+  @@index([userId, kind, createdAt])
+  @@index([projectId, status])
+  @@index([jobId, shotId, kind])
+}
+
+model VideoFactoryStorageQuota {
+  userId String @id
+  usedBytes Float @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model VideoFactoryProvider {
+  id String @id
+  name String
+  kind String
+  adapter String
+  model String
+  version Int @default(1)
+  enabled Boolean @default(false)
+  secret String?
+  credentialRef String?
+  settings String
+  pricing String
+  failures Int @default(0)
+  circuitUntil DateTime?
+  health String @default("UNKNOWN")
+  checkedAt DateTime?
+  updatedAt DateTime @updatedAt
+  @@index([kind, enabled])
+}
+
+model VideoFactoryResource {
+  id String @id
+  kind String
+  name String
+  configuration String
+  version Int @default(1)
+  enabled Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([kind, enabled])
+}
+
+model VideoFactoryConfigVersion {
+  id String @id @default(cuid())
+  resourceId String
+  kind String
+  version Int
+  configuration String
+  actorId String
+  createdAt DateTime @default(now())
+  @@unique([resourceId,kind,version])
+}
+
+model VideoFactoryApproval {
+  id String @id @default(cuid())
+  projectId String
+  jobId String
+  actorId String
+  stage String
+  version Int
+  decision String
+  createdAt DateTime @default(now())
+  project VideoFactoryProject @relation(fields:[projectId],references:[id],onDelete:Restrict)
+  @@index([projectId, createdAt])
+}
+
+model VideoFactoryQualityReport {
+  id String @id @default(cuid())
+  jobId String
+  shotId String?
+  kind String
+  status String
+  findings String
+  createdAt DateTime @default(now())
+  @@index([jobId, createdAt])
+  @@index([kind, status])
+}
+
+model VideoFactoryPublishJob {
+  id String @id
+  projectId String
+  userId String
+  artifactId String
+  idempotencyKey String
+  status String @default("SCHEDULED")
+  scheduledAt DateTime
+  authorizedAt DateTime
+  metadata String
+  uploadUrl String?
+  uploadedBytes Int @default(0)
+  leaseToken String?
+  leaseUntil DateTime?
+  providerId String?
+  errorCode String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project VideoFactoryProject @relation(fields:[projectId],references:[id],onDelete:Restrict)
+  @@unique([userId,idempotencyKey])
+  @@index([status,scheduledAt])
+}
+
+model VideoFactoryChannel {
+  userId String @id
+  refreshToken String
+  scope String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VideoFactoryWebhookEvent {
+  id String @id
+  providerJobId String
+  createdAt DateTime @default(now())
+  @@index([createdAt])
 }

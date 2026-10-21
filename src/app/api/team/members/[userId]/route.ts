@@ -12,7 +12,7 @@ import { removeTeamSeatAndResetPlan } from "@/lib/repositories/userRepository";
  */
 export async function DELETE(req: NextRequest, { params }: { params: { userId: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const membership = await prisma.teamMember.findUnique({ where: { userId: params.userId } });
   if (!membership) return NextResponse.json({ error: "این کاربر عضو تیمی نیست" }, { status: 404 });

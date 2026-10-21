@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { readApiResponse } from "@/lib/utils/apiResponse";
+import WorkspaceError from "@/components/layout/WorkspaceError";
 import {
   Stethoscope, Building2, Send, ChevronRight, ChevronLeft,
   CheckCircle, Edit2, Users, TrendingUp, Target, Zap,
@@ -8,9 +10,13 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import Link from "next/link";
+import Image from "next/image";
 import ShareButton from "@/components/ui/ShareButton";
 import { trackFeature } from "@/lib/analytics";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
+import LongRunIndicator from "@/components/ui/LongRunIndicator";
+import { Upload, X } from "lucide-react";
+import CreditCost from "@/components/ui/CreditCost";
 
 interface BusinessProfile {
   name: string;
@@ -28,11 +34,12 @@ interface BusinessProfile {
   businessModel?: string;
   uniqueValue?: string;
   foundedYear?: string;
+  logoUrl?: string;
 }
 
 export default function BusinessDoctorPage() {
   const { t, lang } = useTranslation();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const s = t.businessDoctorPage;
 
   const INDUSTRIES = s.industries;
@@ -44,7 +51,13 @@ export default function BusinessDoctorPage() {
 
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [profileError, setProfileError] = useState("");
+  const [profileFailed, setProfileFailed] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoError, setLogoError] = useState("");
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<BusinessProfile>({
@@ -60,21 +73,29 @@ export default function BusinessDoctorPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [showQuickAnalysis, setShowQuickAnalysis] = useState(false);
   const resultRef = useRef<HTMLDivElement>(null);
+  // Cancel control for a long analysis (QA 2026-09-15: long AI waits had no
+  // stage, time estimate, or cancel — users resent and paid twice).
+  const abortRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
+  const loadProfile = useCallback(() => {
+    setLoadingProfile(true);
+    setProfileError("");
+    setProfileFailed(false);
     fetch("/api/business-profile")
-      .then((r) => r.json())
+      .then((r) => readApiResponse<{ profile: BusinessProfile | null }>(r, tri(lang, "دریافت مشخصات کسب‌وکار انجام نشد.", "Unable to load business profile.", "Unternehmensprofil konnte nicht geladen werden.", "İşletme profili yüklenemedi.")))
       .then((d) => {
         if (d.profile) {
           setProfile(d.profile);
           setForm(d.profile);
+          setLogoUrl(d.profile.logoUrl || null);
         } else {
           setEditMode(true);
         }
       })
-      .catch(() => {})
+      .catch((e) => { setProfileError(e instanceof Error ? e.message : "Unable to load business profile"); setProfileFailed(true); })
       .finally(() => setLoadingProfile(false));
-  }, []);
+  }, [lang]);
+  useEffect(() => { loadProfile(); }, [loadProfile]);
 
   useEffect(() => {
     if (result && resultRef.current) {
@@ -86,21 +107,50 @@ export default function BusinessDoctorPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  async function uploadLogo(file: File) {
+    setLogoError("");
+    setLogoUploading(true);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch("/api/business-profile/logo", { method: "POST", body });
+      const data = await res.json();
+      if (!res.ok) { setLogoError(data.error || tri(lang, "خطا در آپلود لوگو", "Failed to upload logo", "Logo konnte nicht hochgeladen werden")); return; }
+      setLogoUrl(data.logoUrl);
+    } catch {
+      setLogoError(tri(lang, "خطا در آپلود لوگو", "Failed to upload logo", "Logo konnte nicht hochgeladen werden"));
+    } finally {
+      setLogoUploading(false);
+    }
+  }
+
+  async function removeLogo() {
+    setLogoUploading(true);
+    try {
+      await fetch("/api/business-profile/logo", { method: "DELETE" });
+      setLogoUrl(null);
+    } finally {
+      setLogoUploading(false);
+    }
+  }
+
   async function saveProfile() {
     if (!form.name || !form.industry) return;
     setSaving(true);
+    setProfileError("");
     try {
       const res = await fetch("/api/business-profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      if (res.ok) {
+      await readApiResponse(res, tri(lang, "ذخیره انجام نشد؛ دوباره تلاش کنید.", "Save failed. Please retry.", "Speichern fehlgeschlagen. Bitte erneut versuchen.", "Kayıt başarısız. Tekrar deneyin."));
+      {
         setProfile(form);
         setEditMode(false);
         setStep(1);
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { setProfileError(e instanceof Error ? e.message : "Save failed"); }
     finally { setSaving(false); }
   }
 
@@ -112,11 +162,15 @@ export default function BusinessDoctorPage() {
     setAnalysisId(null);
     trackFeature("business_doctor");
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const res = await fetch("/api/business-doctor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: finalQ }),
+        signal: controller.signal,
       });
 
       const reader = res.body!.getReader();
@@ -135,11 +189,15 @@ export default function BusinessDoctorPage() {
           } catch (e) { if (e instanceof SyntaxError) continue; throw e; }
         }
       }
-    } catch (e) { console.error(e); }
-    finally { setAnalyzing(false); }
+    } catch (e) {
+      // A user cancel keeps any partial analysis and isn't logged as a failure.
+      if ((e as Error)?.name !== "AbortError") console.error(e);
+    }
+    finally { setAnalyzing(false); abortRef.current = null; }
   }
 
   const QUICK_QUESTIONS = s.quickQuestions;
+  if (profileFailed) return <WorkspaceError reset={loadProfile}/>;
 
   if (loadingProfile) {
     return (
@@ -152,6 +210,7 @@ export default function BusinessDoctorPage() {
   return (
     <div className="min-h-screen p-6" style={{ background: "var(--surface-0)" }} dir={isFa ? "rtl" : "ltr"}>
       <div className="max-w-4xl mx-auto">
+        {profileError && <div className="workspace-alert" role="alert">{profileError}</div>}
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
@@ -182,6 +241,60 @@ export default function BusinessDoctorPage() {
             </div>
           )}
         </div>
+
+        {/* Company logo — used on invoice/contract (CRM) and payslip/owner-statement (accounting) print output.
+            Always rendered, even before a profile exists: the upload endpoint needs a saved
+            Company row (created only once the profile form below is submitted), so a brand-new
+            user used to have this entire block hidden with no explanation -- it looked like the
+            feature simply wasn't there. Now it's always visible and explains itself instead. */}
+        <div className="flex items-center gap-4 mb-6 p-4 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+            <div className="w-16 h-16 rounded-xl flex items-center justify-center overflow-hidden shrink-0" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+              {logoUrl ? (
+                <Image src={logoUrl} alt="logo" width={64} height={64} className="w-full h-full object-contain" unoptimized />
+              ) : (
+                <Building2 className="w-6 h-6" style={{ color: "var(--text-muted)" }} />
+              )}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium mb-1" style={{ color: "var(--text-primary)" }}>
+                {tri(lang, "لوگوی کمپانی", "Company logo", "Firmenlogo")}
+              </p>
+              <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
+                {profile
+                  ? tri(lang,
+                      "برای استفاده در خروجی فاکتور و قرارداد (CRM) و فیش حقوقی و گزارش تسویه (حسابداری)",
+                      "Used on invoice/contract (CRM) and payslip/owner-statement (accounting) print output",
+                      "Wird auf Rechnung/Vertrag (CRM) sowie Lohnabrechnung/Eigentümerabrechnung (Buchhaltung) gedruckt")
+                  : tri(lang,
+                      "ابتدا پروفایل کسب‌وکار را تکمیل کنید تا بتوانید لوگو آپلود کنید",
+                      "Complete your business profile below first, then you can upload a logo",
+                      "Vervollständigen Sie zuerst Ihr Unternehmensprofil, dann können Sie ein Logo hochladen")}
+              </p>
+              <div className="flex items-center gap-2">
+                <input ref={logoInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/svg+xml" className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = ""; }} />
+                <button onClick={() => logoInputRef.current?.click()} disabled={logoUploading || !profile}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50"
+                  style={{ background: "var(--surface-2)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
+                  <Upload className="w-3.5 h-3.5" />
+                  {logoUploading
+                    ? tri(lang, "در حال آپلود...", "Uploading...", "Wird hochgeladen...")
+                    : logoUrl
+                      ? tri(lang, "تغییر لوگو", "Change logo", "Logo ändern")
+                      : tri(lang, "آپلود لوگو", "Upload logo", "Logo hochladen")}
+                </button>
+                {logoUrl && (
+                  <button onClick={removeLogo} disabled={logoUploading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50"
+                    style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+                    <X className="w-3.5 h-3.5" />
+                    {tri(lang, "حذف", "Remove", "Entfernen")}
+                  </button>
+                )}
+              </div>
+              {logoError && <p className="text-xs mt-1.5" style={{ color: "#ef4444" }}>{logoError}</p>}
+            </div>
+          </div>
 
         {/* === EDIT / WIZARD MODE === */}
         {editMode && (
@@ -465,7 +578,7 @@ export default function BusinessDoctorPage() {
                 <button onClick={() => { setShowQuickAnalysis(true); askDoctor(); }} disabled={analyzing || !question.trim()}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-40 flex-shrink-0"
                   style={{ background: "var(--primary)" }}>
-                  {analyzing ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send className="w-4 h-4" />}
+                  {analyzing ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send className="w-4 h-4" />} <CreditCost feature="business-doctor" />
                 </button>
               </div>
             </div>
@@ -476,8 +589,12 @@ export default function BusinessDoctorPage() {
                 <div className="flex items-center gap-2 mb-4">
                   <Stethoscope className="w-5 h-5" style={{ color: "var(--primary)" }} />
                   <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>{s.analysisTitle}</h2>
-                  {analyzing && <span className="w-4 h-4 border-2 border-orange-500/30 border-t-orange-500 rounded-full animate-spin" />}
                 </div>
+                {analyzing && (
+                  <div className="mb-4">
+                    <LongRunIndicator lang={lang} expectedSeconds={45} onCancel={() => abortRef.current?.abort()} receivedAny={!!result} />
+                  </div>
+                )}
                 <div className="prose prose-invert max-w-none text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
                   <ReactMarkdown>{result}</ReactMarkdown>
                 </div>

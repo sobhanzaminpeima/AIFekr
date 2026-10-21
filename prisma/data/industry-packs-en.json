@@ -1,0 +1,218 @@
+{
+  "construction": {
+    "valueProposition": "Deliver projects on time, keep costs under control and win more contracts — all with AI agents working around the clock.",
+    "targetCustomers": ["Construction companies", "General contractors", "Property developers", "Builders and subcontractors"],
+    "painPoints": [
+      "Project delays that cost thousands a day",
+      "Procurement and material costs running unchecked",
+      "A thin lead pipeline and weak sales follow-up",
+      "No real-time visibility into project progress",
+      "Manual reporting that eats hours every week"
+    ],
+    "kpis": ["Active projects", "On-time rate", "Budget variance", "New leads", "Proposals sent", "Win rate"],
+    "outcomes": [
+      { "metric": "30% fewer delays", "description": "AI watches every milestone and flags slippage early" },
+      { "metric": "15% cost savings", "description": "Better procurement and early detection of overruns" },
+      { "metric": "3x more leads", "description": "An automated outreach and follow-up pipeline" },
+      { "metric": "10 hrs/week saved", "description": "Reporting and status updates generated automatically" }
+    ],
+    "agents": {
+      "project-manager": ["AI Project Manager", "Tracks milestones, flags delays and keeps stakeholders updated automatically"],
+      "procurement-manager": ["AI Procurement Manager", "Compares supplier pricing, manages purchase orders and tracks material deliveries"],
+      "cost-controller": ["AI Cost Controller", "Monitors budget against actual spend, flags overruns and forecasts final cost"],
+      "sales-agent": ["AI Sales Agent", "Qualifies construction leads, sends proposals and follows up automatically"],
+      "crm-agent": ["AI CRM Agent", "Manages client relationships and keeps a full history of every interaction"],
+      "marketing-agent": ["AI Marketing Agent", "Produces project showcases, LinkedIn posts and before/after content"],
+      "ceo-assistant": ["AI CEO Assistant", "Synthesises portfolio health and the strategic decisions that follow from it"]
+    }
+  },
+  "real-estate": {
+    "valueProposition": "Generate more qualified leads, close deals faster and own your local market with 8 AI agents that never stop working.",
+    "targetCustomers": ["Real estate agencies", "Property developers", "Agents and brokers", "Property management companies"],
+    "painPoints": [
+      "Lead generation that swings wildly month to month",
+      "Slow follow-up letting warm leads go cold",
+      "No time to produce marketing content for listings",
+      "CRM data that is stale and incomplete",
+      "Poor visibility on Google and social media"
+    ],
+    "kpis": ["New leads", "Viewings booked", "Active listings", "Deals closed", "Average days on market", "Revenue"],
+    "outcomes": [
+      { "metric": "5x more leads", "description": "Multi-channel AI prospecting that never stops" },
+      { "metric": "60% faster follow-up", "description": "AI answers enquiries in under 60 seconds" },
+      { "metric": "40% more listings", "description": "Content at scale that attracts sellers" },
+      { "metric": "Top 3 on Google", "description": "AI SEO built for local property search" }
+    ],
+    "agents": {
+      "lead-hunter": ["AI Lead Hunter", "Finds buyer and seller leads across social, the web and portals, 24/7"],
+      "sales-agent": ["AI Sales Agent", "Qualifies leads, schedules viewings and sends personalised offers"],
+      "crm-agent": ["AI CRM Agent", "Keeps every contact current and follow-up reminders automatic"],
+      "property-marketing": ["AI Property Marketing", "Writes listing copy, social posts and email campaigns for each property"],
+      "call-center": ["AI Call Centre", "Answers inbound calls, qualifies callers and books appointments"],
+      "seo-agent": ["AI SEO Agent", "Optimises the agency site and property listings for Google search"],
+      "social-agent": ["AI Social Agent", "Publishes daily property content to Instagram, Facebook and LinkedIn"],
+      "ceo-assistant": ["AI CEO Assistant", "Weekly business performance review and a 90-day growth strategy"]
+    }
+  },
+  "clinic": {
+    "valueProposition": "Fill your appointment calendar, cut no-shows and grow patient reviews — while your staff stay focused on care.",
+    "targetCustomers": ["Medical clinics", "Dental clinics", "Specialist physicians", "Physiotherapy centres"],
+    "painPoints": [
+      "Empty slots wasting clinic capacity",
+      "High no-show rates without reminders",
+      "Negative reviews left unmanaged",
+      "Marketing budget wasted on the wrong channels",
+      "Reception staff buried in phone calls"
+    ],
+    "kpis": ["Today's appointments", "No-show rate", "New patients", "Google rating", "Monthly revenue", "Patient retention"],
+    "outcomes": [
+      { "metric": "40% fewer no-shows", "description": "Automatic multi-channel appointment reminders" },
+      { "metric": "2x new patients", "description": "AI marketing and reputation management" },
+      { "metric": "4.8-star average", "description": "Reviews actively collected and answered" },
+      { "metric": "2 full-time roles saved", "description": "The AI receptionist handles 80% of inbound calls" }
+    ],
+    "agents": {
+      "receptionist": ["AI Receptionist", "Answers calls, books appointments and handles enquiries 24/7"],
+      "appointment-agent": ["AI Appointment Agent", "Sends reminders, reduces no-shows and manages cancellations"],
+      "call-center": ["AI Call Centre", "Handles patient follow-up calls and post-visit check-ins"],
+      "marketing-agent": ["AI Marketing Agent", "Creates health content, seasonal campaigns and patient education posts"],
+      "crm-agent": ["AI CRM Agent", "Tracks patient history, visit frequency and recall"],
+      "reputation-manager": ["AI Reputation Manager", "Monitors and replies to reviews on Google and health platforms"],
+      "ceo-assistant": ["AI CEO Assistant", "Monthly clinic performance report and growth recommendations"]
+    }
+  },
+  "restaurant": {
+    "valueProposition": "Fill more tables, take control of your online reputation and grow loyal regulars with an AI team that never sleeps.",
+    "targetCustomers": ["Restaurants", "Cafés and coffee shops", "Cloud kitchens", "Catering companies"],
+    "painPoints": [
+      "Unpredictable bookings and empty off-peak hours",
+      "Negative reviews damaging your online reputation",
+      "No budget for a full marketing team",
+      "Low customer return rate",
+      "Posting to social by hand eats time"
+    ],
+    "kpis": ["Today's bookings", "Table occupancy", "Google rating", "Returning customers", "Social reach", "Weekly revenue"],
+    "outcomes": [
+      { "metric": "30% more guests", "description": "AI fills off-peak hours with targeted promotions" },
+      { "metric": "4.7-star rating", "description": "Every review answered in under 2 hours" },
+      { "metric": "25% return rate", "description": "Loyalty campaigns that bring customers back" },
+      { "metric": "Daily social presence", "description": "Content published every day without the effort" }
+    ],
+    "agents": {
+      "reservation-agent": ["AI Reservation Agent", "Handles online and phone bookings and manages table availability"],
+      "marketing-agent": ["AI Marketing Agent", "Builds promotional campaigns, special offers and event announcements"],
+      "social-agent": ["AI Social Agent", "Writes daily food-photo captions, stories, hashtags and engagement"],
+      "review-manager": ["AI Review Manager", "Monitors Google, TripAdvisor and Zomato and replies to every review"],
+      "crm-agent": ["AI CRM Agent", "Tracks regulars, birthday campaigns and the loyalty programme"],
+      "ceo-assistant": ["AI CEO Assistant", "Weekly revenue and menu performance analysis"]
+    }
+  },
+  "university": {
+    "valueProposition": "Increase enrolment, support students 24/7 and automate administrative workload with AI built for education.",
+    "targetCustomers": ["Private universities", "Educational institutes", "Schools", "Online course platforms"],
+    "painPoints": [
+      "Low enrolment and a slow student recruitment pipeline",
+      "Students get no answer outside office hours",
+      "Marketing budget with poor return",
+      "Admin staff buried in repetitive questions",
+      "No data on which students are at risk of dropping out"
+    ],
+    "kpis": ["Prospective students", "Applications received", "Enrolment rate", "Student satisfaction", "Question response time", "Retention rate"],
+    "outcomes": [
+      { "metric": "3x enrolment leads", "description": "The AI admissions pipeline runs 24/7" },
+      { "metric": "80% of answers automated", "description": "The AI student advisor handles repetitive questions" },
+      { "metric": "50% lower admin cost", "description": "Scheduling, reminders and follow-up run themselves" },
+      { "metric": "Higher retention", "description": "Early detection of and intervention on dropout risk" }
+    ],
+    "agents": {
+      "admissions-agent": ["AI Admissions Agent", "Qualifies prospective students, books info sessions and follows up"],
+      "student-advisor": ["AI Student Advisor", "Answers questions on courses, tuition and schedules 24/7"],
+      "call-center": ["AI Call Centre", "Handles inbound calls for admissions and student support"],
+      "marketing-agent": ["AI Marketing Agent", "Builds enrolment campaigns, open-day promotion and testimonial content"],
+      "crm-agent": ["AI CRM Agent", "Tracks prospective and current students across the whole lifecycle"],
+      "research-assistant": ["AI Research Assistant", "Summarises papers and helps faculty with literature reviews"],
+      "ceo-assistant": ["AI CEO Assistant", "Enrolment trend analysis and an institutional performance dashboard"]
+    }
+  },
+  "ecommerce": {
+    "valueProposition": "Scale revenue, cut cart abandonment and win on Google Shopping — with an AI team optimising your store 24/7.",
+    "targetCustomers": ["Online stores", "D2C brands", "Dropshipping businesses", "Amazon / marketplace sellers"],
+    "painPoints": [
+      "High cart abandonment with no follow-up",
+      "Weak SEO rankings on Google and marketplaces",
+      "Rising ad costs with falling return",
+      "No time for the volume of customer support",
+      "Product and pricing decisions made without data"
+    ],
+    "kpis": ["Daily orders", "Revenue", "Cart abandonment rate", "Return on ad spend", "Organic traffic", "Support satisfaction"],
+    "outcomes": [
+      { "metric": "25% more revenue", "description": "AI cart recovery and automated cross-selling" },
+      { "metric": "3x organic traffic", "description": "AI SEO applied to every product page" },
+      { "metric": "60% faster support", "description": "AI resolves 80% of customer questions instantly" },
+      { "metric": "Higher return on ad spend", "description": "Ads optimised daily by AI" }
+    ],
+    "agents": {
+      "product-manager": ["AI Product Manager", "Analyses best sellers, flags slow movers and suggests price changes"],
+      "ads-agent": ["AI Ads Agent", "Runs Google and Meta ad campaigns and optimises return daily"],
+      "seo-agent": ["AI SEO Agent", "Optimises titles, descriptions and category pages for search"],
+      "customer-support": ["AI Customer Support", "Handles returns, questions, order status and complaints instantly"],
+      "crm-agent": ["AI CRM Agent", "Abandoned-cart recovery, repeat-purchase campaigns and VIP segmentation"],
+      "sales-agent": ["AI Sales Agent", "Offers cross-sells and upgrades over email and chat"],
+      "ceo-assistant": ["AI CEO Assistant", "Weekly revenue intelligence report and growth strategy"]
+    }
+  },
+  "law-firm": {
+    "valueProposition": "Convert more consultation enquiries, run client intake automatically and grow your firm's online reputation.",
+    "targetCustomers": ["Law firms", "Independent lawyers", "Legal consultants", "Notary offices"],
+    "painPoints": [
+      "Slow or missed responses to consultation enquiries",
+      "Time lost to admin and non-billable intake",
+      "Low online visibility in a competitive legal market",
+      "Inconsistent client communication and follow-up",
+      "No system for tracking leads and conversion"
+    ],
+    "kpis": ["New enquiries", "Consultations booked", "Cases won", "Billable hours", "Google ranking", "Monthly revenue"],
+    "outcomes": [
+      { "metric": "3x consultations booked", "description": "AI intake never misses a new client enquiry" },
+      { "metric": "5 hrs/week saved per lawyer", "description": "AI drafts routine documents and client updates" },
+      { "metric": "Top 5 local on Google", "description": "AI SEO for practice-area plus city search" },
+      { "metric": "90% lead response rate", "description": "Every enquiry answered in under 5 minutes" }
+    ],
+    "agents": {
+      "intake-agent": ["AI Intake Agent", "Qualifies new client enquiries, gathers case details and books consultations"],
+      "crm-agent": ["AI CRM Agent", "Tracks every client interaction, deadline and follow-up"],
+      "document-assistant": ["AI Document Assistant", "Drafts standard letters, NDAs, contracts and legal summaries"],
+      "marketing-agent": ["AI Marketing Agent", "Writes legal articles, LinkedIn thought leadership and case-study posts"],
+      "call-center": ["AI Call Centre", "Answers inbound calls, pre-qualifies callers and routes them to the right lawyer"],
+      "seo-agent": ["AI SEO Agent", "Optimises the firm's site for practice-area keywords and local search"],
+      "ceo-assistant": ["AI CEO Assistant", "Monthly firm performance review, pipeline health and revenue forecast"]
+    }
+  },
+  "hotel": {
+    "valueProposition": "Maximise occupancy, automate guest communication and build a 5-star online reputation with AI hospitality agents.",
+    "targetCustomers": ["Hotels", "Boutique guesthouses", "Serviced apartments", "Resort properties"],
+    "painPoints": [
+      "Low direct bookings — heavy dependence on OTAs",
+      "Slow responses to guest questions and reviews",
+      "No personalised upselling or loyalty programme",
+      "High front-desk and concierge staffing costs",
+      "Weak online reputation management"
+    ],
+    "kpis": ["Occupancy rate", "RevPAR", "Direct booking share", "Guest rating", "Review response rate", "Average daily rate"],
+    "outcomes": [
+      { "metric": "20% more direct bookings", "description": "AI converts website visitors into direct guests" },
+      { "metric": "4.9 stars across platforms", "description": "Every review answered within the hour" },
+      { "metric": "15% higher average daily rate", "description": "AI offers upgrades and packages to every guest" },
+      { "metric": "1 full-time role saved", "description": "AI handles 70% of front-desk enquiries" }
+    ],
+    "agents": {
+      "booking-agent": ["AI Booking Agent", "Handles direct booking enquiries, availability checks and confirmations"],
+      "guest-experience": ["AI Guest Experience Agent", "Pre-arrival messaging, in-stay requests and post-checkout follow-up"],
+      "call-center": ["AI Call Centre", "Answers phone enquiries, handles requests and routes them to departments"],
+      "reputation-manager": ["AI Reputation Manager", "Monitors Booking.com, TripAdvisor and Google and replies to reviews"],
+      "marketing-agent": ["AI Marketing Agent", "Builds seasonal packages, flash sales and loyalty campaigns"],
+      "revenue-manager": ["AI Revenue Manager", "Watches competitor pricing and proposes dynamic rate adjustments"],
+      "ceo-assistant": ["AI CEO Assistant", "Weekly RevPAR analysis, occupancy forecast and strategy review"]
+    }
+  }
+}

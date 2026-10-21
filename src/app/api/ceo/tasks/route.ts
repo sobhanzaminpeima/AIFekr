@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { id, status } = await req.json();
   if (!id || !status) return NextResponse.json({ error: "id and status required" }, { status: 400 });
@@ -37,7 +37,7 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { id } = await req.json();
   await prisma.ceoTask.deleteMany({ where: { id, userId: user.id } });

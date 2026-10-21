@@ -34,8 +34,61 @@ export interface Provider {
    * hard-errors above 4096, Groq enforces a tokens-per-minute budget.
    */
   maxOutputCeiling?: number;
+  structuredJson?: boolean;
   creditCost: number;
 }
+
+// ─── FreeLLMAPI (self-hosted free-tier aggregator) ──────────────────────────
+// Self-hosted at http://127.0.0.1:3001 (Docker, localhost-only — never
+// exposed publicly) — aggregates free tiers from provider accounts the admin
+// has added keys for, behind one OpenAI-compatible endpoint.
+// https://github.com/tashfeenahmed/freellmapi
+//
+// IMPORTANT — only Mistral-family models are actually usable on this server
+// right now, despite Google/Groq/Cerebras keys also being configured:
+//   - Google (Gemini) is blocked at the network level from this VPS's IP
+//     (same known issue as the `gemini` provider above — bare 403s).
+//   - Groq/Cerebras models aren't unlocked on the free "monthly" catalog
+//     snapshot tier this install is on (paid $19/yr unlocks same-day access
+//     to new models) — they fail with "no usable key configured" even
+//     though a healthy key exists for the platform.
+// Re-verify with a real request (not just /v1/models' `available` flag,
+// which lies for both cases above) before adding any non-Mistral model here.
+const FREELLMAPI_BASE_URL = process.env.FREELLMAPI_BASE_URL || "http://127.0.0.1:3001/v1";
+const FREELLMAPI_API_KEY = process.env.FREELLMAPI_API_KEY || "";
+
+function freeModel(id: string, name: string, model: string, strengths: string[]): Provider {
+  return {
+    id,
+    name,
+    provider: "freellmapi",
+    model,
+    baseURL: FREELLMAPI_BASE_URL,
+    apiKey: FREELLMAPI_API_KEY,
+    strengths,
+    maxTokens: 4096,
+    maxOutputCeiling: 8192,
+    creditCost: 1,
+  };
+}
+
+// All 13 confirmed working with a real request as of 2026-08-28 — see
+// testall.sh results referenced in the deploy commit for this block.
+const FREELLMAPI_PROVIDERS: Provider[] = [
+  freeModel("free-mistral-large-3", "Mistral Large 3", "mistral-large-3", ["general", "business", "reasoning", "complex"]),
+  freeModel("free-mistral-medium-3-5", "Mistral Medium 3.5", "mistral-medium-3.5", ["general", "business", "reasoning"]),
+  freeModel("free-mistral-small-4", "Mistral Small 4", "mistral-small-4", ["general", "fast"]),
+  freeModel("free-magistral-medium", "Magistral Medium", "magistral-medium", ["reasoning", "math", "complex"]),
+  freeModel("free-magistral-small", "Magistral Small", "magistral-small", ["reasoning", "math"]),
+  freeModel("free-ministral-14b", "Ministral 14B", "ministral-14b", ["general", "fast"]),
+  freeModel("free-ministral-3-8b", "Ministral 3 8B", "ministral-3-8b", ["general", "fast"]),
+  freeModel("free-codestral", "Codestral", "codestral", ["code", "technical"]),
+  freeModel("free-devstral", "Devstral", "devstral", ["code", "technical"]),
+  freeModel("free-devstral-medium", "Devstral Medium", "devstral-medium", ["code", "technical"]),
+  freeModel("free-mistral-code", "Mistral Code", "mistral-code", ["code", "technical"]),
+  freeModel("free-mistral-code-agent", "Mistral Code Agent", "mistral-code-agent", ["code", "technical"]),
+  freeModel("free-mistral-vibe-cli", "Mistral Vibe CLI Fast", "mistral-vibe-cli-fast", ["code", "fast"]),
+];
 
 // ─── Provider registry ──────────────────────────────────────────────────────
 export const PROVIDERS: Provider[] = [
@@ -127,10 +180,21 @@ export const PROVIDERS: Provider[] = [
     // above has failed. Groq's free tier has a much higher daily request
     // cap than other free options, but it's still a shared free pool, so
     // this must never be promoted above a paid provider in ROUTING_TABLE.
+    //
+    // Was "llama-3.3-70b-versatile" — Groq retired the entire Llama-3.x
+    // family from this account's catalog at some point (found 2026-09-11,
+    // while building the floating support assistant: every real request
+    // came back "404 model_not_found", meaning this fallback had been
+    // silently dead — routedStreamChat just moved on to the next provider
+    // in the chain, so nothing user-facing ever surfaced the failure).
+    // Verified against Groq's live /v1/models: the current free catalog is
+    // openai/gpt-oss-{20b,120b,safeguard-20b}, qwen/qwen3.{6,8}-27b,
+    // groq/compound{,-mini}, allam-2-7b — gpt-oss-20b is the closest match
+    // to the old model's "fast, general, last-resort" role.
     id: "groq",
-    name: "Groq (Llama 3.3 70B, free tier)",
+    name: "Groq (GPT-OSS 20B, free tier)",
     provider: "groq",
-    model: "llama-3.3-70b-versatile",
+    model: "openai/gpt-oss-20b",
     baseURL: RELAY_BASE_URL ? `${RELAY_BASE_URL}/groq/openai/v1` : "https://api.groq.com/openai/v1",
     apiKey: process.env.GROQ_API_KEY || "",
     strengths: ["general", "fast"],
@@ -155,6 +219,7 @@ export const PROVIDERS: Provider[] = [
     maxTokens: 4096,
     creditCost: 1,
   },
+  ...FREELLMAPI_PROVIDERS,
 ];
 
 export function getProviderById(id: string): Provider | undefined {
@@ -171,8 +236,20 @@ export async function streamOpenAICompat(
   messages: ChatMessage[],
   systemPrompt: string,
   onChunk: (text: string) => void,
-  maxTokensOverride?: number
+  maxTokensOverride?: number,
+  signal?: AbortSignal
 ): Promise<TokenUsage | null> {
+  const tokenCap = maxTokensOverride ? Math.min(maxTokensOverride, provider.maxOutputCeiling ?? provider.maxTokens) : provider.maxTokens;
+  if(provider.structuredJson){
+    const response=await fetch(`${provider.baseURL}/chat/completions`,{method:"POST",signal,redirect:"error",headers:{"Content-Type":"application/json",Authorization:`Bearer ${provider.apiKey}`},body:JSON.stringify({model:provider.model,messages:[{role:"system",content:systemPrompt},...messages],stream:false,max_tokens:tokenCap,temperature:0.2,response_format:{type:"json_object"}})});
+    if(!response.ok){await response.body?.cancel();throw Error(`STRUCTURED_PROVIDER_HTTP_${response.status}`);}
+    const {boundedBytes}=await import("@/lib/video-factory/mediaAdapters");
+    const data=JSON.parse((await boundedBytes(response,1000000)).toString());const content=data.choices?.[0]?.message?.content;
+    if(typeof content!=="string"||!content.trim())throw Error("STRUCTURED_PROVIDER_EMPTY_RESPONSE");
+    JSON.parse(content);onChunk(content);
+    return data.usage?{promptTokens:data.usage.prompt_tokens||0,completionTokens:data.usage.completion_tokens||0,totalTokens:data.usage.total_tokens||0}:null;
+  }
+
   const body = JSON.stringify({
     model: provider.model,
     messages: [
@@ -181,8 +258,31 @@ export async function streamOpenAICompat(
     ],
     stream: true,
     stream_options: { include_usage: true },
-    max_tokens: maxTokensOverride ? Math.min(maxTokensOverride, provider.maxOutputCeiling ?? provider.maxTokens) : provider.maxTokens,
-    temperature: 0.7,
+    // OpenAI's own API renamed this parameter and now hard-rejects the old
+    // name: "Unsupported parameter: 'max_tokens' is not supported with this
+    // model. Use 'max_completion_tokens' instead" — a 400 on every single
+    // request, which made this provider a silently dead link in the fallback
+    // chain (found 2026-09-12 in the dev server logs while testing the
+    // orchestrator; same failure mode as the retired Groq model found in
+    // Phase 3). Scoped to `provider: "openai"` because every other
+    // OpenAI-*compatible* provider here — Groq, Mistral/FreeLLMAPI,
+    // DeepSeek, OpenRouter, Cohere — still expects `max_tokens` and would
+    // itself 400 on the new name.
+    ...(provider.provider === "openai" ? { max_completion_tokens: tokenCap } : { max_tokens: tokenCap }),
+    temperature: provider.structuredJson ? 0.2 : 0.7,
+    ...(provider.structuredJson ? {response_format:{type:"json_object"}} : {}),
+    // Groq's current free catalog is now exclusively "reasoning" models
+    // (openai/gpt-oss-*, qwen3.x) -- unlike the plain instruct model this
+    // provider used to point at, they spend part of the completion token
+    // budget on an internal reasoning pass (delivered as `delta.reasoning`,
+    // a field this function already ignores -- only `delta.content` below is
+    // read) before writing the visible answer. Left at the model's default
+    // effort, a longer prompt can burn the whole max_tokens budget on
+    // reasoning and return no visible text at all (measured: with
+    // max_tokens=100 and no override, "low" used 5 reasoning tokens and left
+    // the rest for the answer). Scoped to Groq specifically since that's the
+    // one measured -- other providers may not recognise this field at all.
+    ...(provider.provider === "groq" ? { reasoning_effort: "low" } : {}),
   });
 
   const headers: Record<string, string> = {
@@ -198,6 +298,7 @@ export async function streamOpenAICompat(
 
   const res = await fetch(`${provider.baseURL}/chat/completions`, {
     method: "POST",
+    signal,
     headers,
     body,
   });
@@ -253,10 +354,12 @@ async function streamAnthropic(
   messages: ChatMessage[],
   systemPrompt: string,
   onChunk: (text: string) => void,
-  maxTokensOverride?: number
+  maxTokensOverride?: number,
+  signal?: AbortSignal
 ): Promise<TokenUsage | null> {
   const res = await fetch(`${provider.baseURL}/messages`, {
     method: "POST",
+    signal,
     headers: {
       "Content-Type": "application/json",
       "x-api-key": provider.apiKey,
@@ -323,10 +426,11 @@ export async function streamProvider(
   messages: ChatMessage[],
   systemPrompt: string,
   onChunk: (text: string) => void,
-  maxTokensOverride?: number
+  maxTokensOverride?: number,
+  signal?: AbortSignal
 ): Promise<TokenUsage | null> {
   if (provider.provider === "anthropic") {
-    return streamAnthropic(provider, messages, systemPrompt, onChunk, maxTokensOverride);
+    return streamAnthropic(provider, messages, systemPrompt, onChunk, maxTokensOverride, signal);
   }
-  return streamOpenAICompat(provider, messages, systemPrompt, onChunk, maxTokensOverride);
+  return streamOpenAICompat(provider, messages, systemPrompt, onChunk, maxTokensOverride, signal);
 }

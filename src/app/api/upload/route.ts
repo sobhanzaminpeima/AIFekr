@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
-import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
+import { uploadToStorage, getStorageKey, StorageNotConfiguredError } from "@/lib/storage/r2";
 
 const MAX_SIZE_BYTES = 8 * 1024 * 1024; // 8MB
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -15,7 +15,7 @@ const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
  */
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const form = await req.formData();
   const file = form.get("file");
@@ -32,7 +32,20 @@ export async function POST(req: NextRequest) {
   const buf = Buffer.from(await file.arrayBuffer());
   const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
   const key = getStorageKey(user.id, "reference", `ref.${ext}`);
-  const url = await uploadToStorage(buf, key, file.type);
-
-  return NextResponse.json({ url });
+  try {
+    const url = await uploadToStorage(buf, key, file.type);
+    return NextResponse.json({ url });
+  } catch (e) {
+    if (e instanceof StorageNotConfiguredError) {
+      // Same fallback every other upload path in the app already applies
+      // (see /api/image/generate and /api/image/character-board) when R2
+      // isn't configured -- without this, EVERY "upload your own photo"
+      // reference-image flow (image-to-image, image-to-video, Character
+      // Creator step 1) hard-fails with a 503 instead of degrading.
+      console.error("upload falling back to data URI (storage not configured):", e.message);
+      const url = `data:${file.type};base64,${buf.toString("base64")}`;
+      return NextResponse.json({ url });
+    }
+    throw e;
+  }
 }

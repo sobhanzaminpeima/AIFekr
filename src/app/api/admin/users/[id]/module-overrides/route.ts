@@ -1,0 +1,89 @@
+import {activateStudentAsAdmin} from "@/lib/student/adminActivation";
+export const dynamic = "force-dynamic";
+
+import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth/middleware";
+import { prisma } from "@/lib/db/prisma";
+import { getAllModules } from "@/lib/industry/moduleRegistry";
+import { STUDENT_WORKSPACE_MODULE_KEY } from "@/lib/student/access";
+
+async function checkAdmin(req: NextRequest) {
+  const user = await requireAuth(req);
+  if (!user || !["ADMIN", "SUPER_ADMIN"].includes(user.role)) return null;
+  return user;
+}
+
+// Full module catalog merged with this customer's current overrides
+// (enabled/disabled/none — "none" means the pack-level default applies).
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const admin = await checkAdmin(req);
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const targetUser = await prisma.user.findUnique({ where: { id: params.id } });
+  if (!targetUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+  const overrides = await prisma.userModuleOverride.findMany({ where: { userId: params.id } });
+  const overrideMap = new Map(overrides.map((o) => [o.moduleKey, o.enabled]));
+
+  const modules = [
+    ...getAllModules().map((m) => ({
+      ...m,
+      override: overrideMap.has(m.key) ? overrideMap.get(m.key) : null,
+    })),
+    {
+      key: STUDENT_WORKSPACE_MODULE_KEY,
+      category: "student" as const,
+      labelFa: "ماژول دانشجویی",
+      labelEn: "Student Workspace",
+      labelDe: "Lernbereich",
+      industrySlug: "education",
+      override: overrideMap.get(STUDENT_WORKSPACE_MODULE_KEY) ?? null,
+    },
+  ];
+
+  return NextResponse.json({ user: { id: targetUser.id, name: targetUser.name, industryPackId: targetUser.industryPackId }, modules });
+}
+
+// Set or clear a per-customer override. enabled: true/false sets an override;
+// enabled: null removes it so the pack-level default applies again.
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const admin = await checkAdmin(req);
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { moduleKey, enabled } = await req.json();
+  if (!moduleKey) return NextResponse.json({ error: "moduleKey is required" }, { status: 400 });
+  if (moduleKey !== STUDENT_WORKSPACE_MODULE_KEY && !getAllModules().some((module) => module.key === moduleKey)) {
+    return NextResponse.json({ error: "ماژول نامعتبر است" }, { status: 400 });
+  }
+
+  if(moduleKey===STUDENT_WORKSPACE_MODULE_KEY&&enabled===true){
+    try{const user=await activateStudentAsAdmin(params.id,admin.id);
+    return NextResponse.json({user,override:{moduleKey,enabled:true}});}
+    catch(error){
+      const code=error instanceof Error?error.message:"";
+      if(code==="STUDENT_PACKAGE_INACTIVE")return NextResponse.json({error:"پکیج سه‌ماههٔ دانشجویی در مدیریت پکیج‌ها غیرفعال است؛ ابتدا آن را فعال کنید."},{status:409});
+      if(code==="INVALID_STUDENT_DAYS")return NextResponse.json({error:"مدت فعال‌سازی دانشجویی معتبر نیست."},{status:400});
+      if(code.includes("Record to update not found")||code.includes("No User found"))return NextResponse.json({error:"کاربر موردنظر پیدا نشد."},{status:404});
+      console.error("Admin student activation failed",error);
+      return NextResponse.json({error:"فعال‌سازی دانشجویی به‌دلیل خطای داخلی انجام نشد. دوباره تلاش کنید."},{status:500});
+    }
+  }
+
+  if (enabled === null) {
+    await prisma.userModuleOverride.deleteMany({ where: { userId: params.id, moduleKey } });
+    return NextResponse.json({ cleared: true });
+  }
+
+  if (typeof enabled !== "boolean") {
+    return NextResponse.json({ error: "enabled must be boolean or null" }, { status: 400 });
+  }
+
+  const override = await prisma.userModuleOverride.upsert({
+    where: { userId_moduleKey: { userId: params.id, moduleKey } },
+    create: { userId: params.id, moduleKey, enabled },
+    update: { enabled },
+  });
+
+  await prisma.auditLog.create({data:{actorId:admin.id,action:"module_override_updated",targetId:params.id,metadata:JSON.stringify({moduleKey,enabled})}});
+  return NextResponse.json({ override });
+}

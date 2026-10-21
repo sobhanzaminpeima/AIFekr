@@ -1,0 +1,6 @@
+/** Integer monetary operations; rates are decimal strings, never binary floats. */
+export function ratio(value:string):[bigint,bigint]{if(!/^\d+(\.\d{1,12})?$/.test(value))throw Error("INVALID_RATE");const [a,b=""]=value.split(".");const numerator=BigInt(a+b);if(numerator<=BigInt(0))throw Error("INVALID_RATE");return [numerator,BigInt(10)**BigInt(b.length)];}
+export function convertMinor(amount:number,rate:string,sourceScale=100,targetScale=100){if(!Number.isSafeInteger(amount)||amount<0)throw Error("INVALID_AMOUNT");const [n,d]=ratio(rate);const numerator=BigInt(amount)*n*BigInt(targetScale);const denominator=d*BigInt(sourceScale);const result=Number((numerator+denominator/BigInt(2))/denominator);if(!Number.isSafeInteger(result)||result>2147483647)throw Error("AMOUNT_OUT_OF_RANGE");return result;}
+export function discountMinor(amount:number,percent:number){if(!Number.isInteger(percent)||percent<0||percent>50)throw Error("INVALID_DISCOUNT");return convertMinor(amount,String(100-percent),100,1);}
+export function inverseRate(rate:string){const [n,d]=ratio(rate);return ((d*BigInt(10)**BigInt(12))/n).toString().padStart(13,"0").replace(/(\d{12})$/,".$1");}
+export function tomanToRial(amount:number){return convertMinor(amount,"10",1,1);}

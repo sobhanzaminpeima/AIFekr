@@ -1,28 +1,40 @@
-import Link from "next/link";
-import Image from "next/image";
+import PublicShell from "@/components/marketing/PublicShell";
 import { prisma } from "@/lib/db/prisma";
 import { Mail, Phone, MapPin, MessageCircle } from "lucide-react";
-import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
 import { getServerLang } from "@/lib/i18n/server";
+// tri must come from "@/lib/i18n/tri", NOT "@/lib/i18n": the index is a
+// "use client" module, so a Server Component importing tri from it gets a
+// client-reference proxy instead of the function and crashes at render.
+import { tri } from "@/lib/i18n/tri";
+import type { Metadata } from "next";
+import { pageMetadata, pageJsonLd } from "@/lib/seo/site";
+import JsonLd from "@/components/seo/JsonLd";
 
 export const dynamic = "force-dynamic";
 
 const DEFAULTS = {
   contact_email: "support@aifekr.com",
-  contact_phone: "021-12345678",
-  contact_address: "تهران، ایران",
-  contact_telegram: "@aifekr_support",
+  contact_phone: "+905391016485",
+  contact_address: "Cyprus",
+  contact_telegram: "",
+};
+
+const DEFAULTS_DE = {
+  contact_email: "support@aifekr.com",
+  contact_phone: "+905391016485",
+  contact_address: "Cyprus",
+  contact_telegram: "",
 };
 
 const DEFAULTS_EN = {
   contact_email: "support@aifekr.com",
-  contact_phone: "021-12345678",
-  contact_address: "Tehran, Iran",
-  contact_telegram: "@aifekr_support",
+  contact_phone: "+905391016485",
+  contact_address: "Cyprus",
+  contact_telegram: "",
 };
 
-async function getSettings(isFa: boolean) {
-  const defaults = isFa ? DEFAULTS : DEFAULTS_EN;
+async function getSettings(lang: string) {
+  const defaults = lang === "de" ? DEFAULTS_DE : lang === "fa" ? DEFAULTS : DEFAULTS_EN;
   try {
     const rows = await prisma.siteSetting.findMany({
       where: { key: { in: ["contact_email", "contact_phone", "contact_address", "contact_telegram"] } },
@@ -30,48 +42,48 @@ async function getSettings(isFa: boolean) {
     const map: Record<string, string> = {};
     for (const r of rows) map[r.key] = r.value;
     // The address field from the DB is Persian-authored, so only apply DB overrides in Persian mode.
-    return isFa ? { ...defaults, ...map } : { ...defaults, ...map, contact_address: defaults.contact_address };
+    return {
+      ...defaults,
+      ...map,
+      contact_email: "support@aifekr.com",
+      contact_phone: "+905391016485",
+      contact_address: "Cyprus",
+    };
   } catch {
     return defaults;
   }
 }
 
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getServerLang();
+  const meta = pageMetadata(lang, "/contact", {"fa":"تماس با ما — پشتیبانی و همکاری","en":"Contact Us — Support & Partnerships","de":"Kontakt — Support & Partnerschaften","tr":"İletişim — Destek ve İş Birliği"}, {"fa":"با تیم AiFekr در ارتباط باشید: پشتیبانی، همکاری و سؤال درباره بسته‌های هوش مصنوعی صنعتی.","en":"Get in touch with the AiFekr team: support, partnerships and questions about our industry AI packs.","de":"Kontaktieren Sie das AiFekr-Team: Support, Partnerschaften und Fragen zu unseren Branchen-KI-Paketen.","tr":"AiFekr ekibiyle iletişime geçin: destek, iş birliği ve sektörel yapay zekâ paketleri hakkında sorular."});
+  return meta;
+}
+
 export default async function ContactPage() {
   const lang = await getServerLang();
-  const isFa = lang !== "en";
-  const s = await getSettings(isFa);
+  const isFa = lang === "fa";
+  const s = await getSettings(lang);
 
   const cards = [
-    { icon: Mail, label: isFa ? "ایمیل" : "Email", value: s.contact_email, href: `mailto:${s.contact_email}` },
-    { icon: Phone, label: isFa ? "تلفن" : "Phone", value: s.contact_phone, href: `tel:${s.contact_phone.replace(/[^0-9+]/g, "")}` },
-    { icon: MessageCircle, label: isFa ? "تلگرام" : "Telegram", value: s.contact_telegram, href: `https://t.me/${s.contact_telegram.replace("@", "")}` },
-    { icon: MapPin, label: isFa ? "آدرس" : "Address", value: s.contact_address, href: undefined },
-  ];
+    { icon: Mail, label: lang === "tr" ? "E-posta" : lang === "de" ? "E-Mail" : isFa ? "ایمیل" : "Email", value: s.contact_email, href: `mailto:${s.contact_email}` },
+    { icon: Phone, label: lang === "tr" ? "Telefon" : lang === "de" ? "Telefon" : isFa ? "تلفن" : "Phone", value: s.contact_phone, href: `tel:${s.contact_phone.replace(/[^0-9+]/g, "")}` },
+    { icon: MessageCircle, label: lang === "de" ? "Telegram" : isFa ? "تلگرام" : "Telegram", value: s.contact_telegram, href: `https://t.me/${s.contact_telegram.replace("@", "")}` },
+    { icon: MapPin, label: lang === "tr" ? "Adres" : lang === "de" ? "Adresse" : isFa ? "آدرس" : "Address", value: s.contact_address, href: undefined },
+  ].filter(card => card.value);
 
   return (
-    <div className="min-h-screen" dir={isFa ? "rtl" : "ltr"} style={{ background: "#0a0a0f", color: "#f5f5f5" }}>
-      <nav
-        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4"
-        style={{ background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
-      >
-        <Link href="/" className="flex items-center gap-2">
-          <Image src="/logo.svg" alt="AiFekr" width={32} height={32} className="rounded-lg" />
-          <span className="font-bold text-lg text-white">AiFekr</span>
-        </Link>
-        <div className="flex items-center gap-2">
-          <Link href="/about" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{isFa ? "درباره ما" : "About"}</Link>
-          <Link href="/contact" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "#ea580c" }}>{isFa ? "تماس با ما" : "Contact"}</Link>
-          <Link href="/login" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{isFa ? "ورود" : "Log in"}</Link>
-          <Link href="/register" className="text-sm px-4 py-2 rounded-xl font-medium text-white transition-all" style={{ background: "#ea580c" }}>{isFa ? "ثبت‌نام" : "Sign up"}</Link>
-        </div>
-      </nav>
+    <PublicShell lang={lang}><div className="m-public-existing">
+      <JsonLd data={pageJsonLd(lang, "/contact", "ContactPage")} />
 
-      <section className="pt-40 pb-10 px-6 max-w-3xl mx-auto text-center">
-        <h1 className="text-4xl md:text-5xl font-bold mb-4">{isFa ? "تماس با ما" : "Contact Us"}</h1>
+      <section className="pt-12 pb-10 px-6 max-w-3xl mx-auto text-center">
+        <h1 className="text-4xl md:text-5xl font-bold mb-4">{tri(lang, "تماس با ما", "Contact Us", "Kontakt", "İletişim")}</h1>
         <p className="text-lg" style={{ color: "rgba(255,255,255,0.65)" }}>
-          {isFa
-            ? "سؤالی داری یا نیاز به راهنمایی داری؟ از هر کدام از راه‌های زیر می‌توانی با تیم AiFekr در ارتباط باشی."
-            : "Have a question or need help? You can reach the AiFekr team through any of the channels below."}
+          {lang === "tr" ? "Sorunuz mu var veya yardıma mı ihtiyacınız var? Aşağıdaki kanallardan AIFekr ekibine ulaşabilirsiniz." : lang === "de"
+            ? "Haben Sie eine Frage oder benötigen Sie Hilfe? Sie können das AiFekr-Team über einen der folgenden Kanäle erreichen."
+            : isFa
+              ? "سؤالی داری یا نیاز به راهنمایی داری؟ از هر کدام از راه‌های زیر می‌توانی با تیم AiFekr در ارتباط باشی."
+              : "Have a question or need help? You can reach the AiFekr team through any of the channels below."}
         </p>
       </section>
 
@@ -81,25 +93,21 @@ export default async function ContactPage() {
           return (
             <Wrapper
               key={i}
-              {...(c.href ? { href: c.href, target: "_blank" } : {})}
+              {...(c.href ? { href: c.href, target: "_blank", rel: "noopener noreferrer" } : {})}
               className="p-6 rounded-2xl flex items-start gap-4 transition-all hover:opacity-90"
               style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}
             >
               <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(234,88,12,0.12)" }}>
                 <c.icon className="w-5 h-5" style={{ color: "#ea580c" }} />
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="text-xs mb-1" style={{ color: "rgba(255,255,255,0.5)" }}>{c.label}</div>
-                <div className="font-medium" dir="ltr">{c.value}</div>
+                <div className="font-medium break-all" dir="ltr">{c.value}</div>
               </div>
             </Wrapper>
           );
         })}
       </section>
-
-      <footer className="py-8 px-6 text-center" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        <SocialFooterLinks />
-      </footer>
-    </div>
+    </div></PublicShell>
   );
 }

@@ -6,20 +6,22 @@ import { prisma } from "@/lib/db/prisma";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { searchParams } = new URL(req.url);
   const page = Number(searchParams.get("page") || 1);
+  const kind = searchParams.get("kind");
   const limit = 12;
+  const where = { userId: user.id, ...(kind ? { kind } : {}) };
 
   const [images, total] = await Promise.all([
     prisma.generatedImage.findMany({
-      where: { userId: user.id },
+      where,
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,
     }),
-    prisma.generatedImage.count({ where: { userId: user.id } }),
+    prisma.generatedImage.count({ where }),
   ]);
 
   return NextResponse.json({ images, total, page, totalPages: Math.ceil(total / limit) });
@@ -27,7 +29,7 @@ export async function GET(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { id } = await req.json();
   const image = await prisma.generatedImage.findFirst({ where: { id, userId: user.id } });
@@ -39,7 +41,7 @@ export async function DELETE(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { id, isPublic } = await req.json();
   const image = await prisma.generatedImage.findFirst({ where: { id, userId: user.id } });

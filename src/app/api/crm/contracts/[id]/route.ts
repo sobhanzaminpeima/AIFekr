@@ -3,38 +3,42 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { resolveCrmWorkspace, hasCrmAccess, businessFilter } from "@/lib/crm/workspace";
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n/tri";
 
 const VALID_STATUSES = ["draft", "sent", "signed", "cancelled"];
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
-  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
+  const lang = await getServerLang();
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
   const contract = await prisma.crmContract.findFirst({
-    where: { id: params.id, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { contact: { assignedToId: ws.actingUserId } } : {}) },
+    where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws), ...(ws.isAgentRestricted ? { contact: { assignedToId: ws.actingUserId } } : {}) },
     include: { contact: true, deal: { select: { id: true, title: true } } },
   });
-  if (!contract) return NextResponse.json({ error: "پیدا نشد" }, { status: 404 });
+  if (!contract) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
   return NextResponse.json({ contract });
 }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
-  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
+  const lang = await getServerLang();
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
   const existing = await prisma.crmContract.findFirst({
-    where: { id: params.id, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { contact: { assignedToId: ws.actingUserId } } : {}) },
+    where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws), ...(ws.isAgentRestricted ? { contact: { assignedToId: ws.actingUserId } } : {}) },
   });
-  if (!existing) return NextResponse.json({ error: "پیدا نشد" }, { status: 404 });
+  if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
   const body = await req.json();
   const { status, content } = body;
-  if (status && !VALID_STATUSES.includes(status)) return NextResponse.json({ error: "وضعیت نامعتبر است" }, { status: 400 });
+  if (status && !VALID_STATUSES.includes(status)) return NextResponse.json({ error: tri(lang, "وضعیت نامعتبر است", "Invalid status", "Ungültiger Status") }, { status: 400 });
 
   // Editing the content of an already-finalized (not draft) contract snapshots
   // the pre-edit text first — the same guarantee as invoices.
@@ -55,14 +59,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
-  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
+  const lang = await getServerLang();
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
   const existing = await prisma.crmContract.findFirst({
-    where: { id: params.id, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { contact: { assignedToId: ws.actingUserId } } : {}) },
+    where: { id: params.id, userId: ws.workspaceUserId, ...businessFilter(ws), ...(ws.isAgentRestricted ? { contact: { assignedToId: ws.actingUserId } } : {}) },
   });
-  if (!existing) return NextResponse.json({ error: "پیدا نشد" }, { status: 404 });
+  if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
   await prisma.crmContractRevision.deleteMany({ where: { contractId: params.id } });
   await prisma.crmContract.delete({ where: { id: params.id } });

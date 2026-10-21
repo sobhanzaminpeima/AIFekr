@@ -5,7 +5,7 @@ import { buildBusinessSnapshot } from "@/lib/agents/businessSnapshot";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const snapshot = await buildBusinessSnapshot(user.id);
   return NextResponse.json(snapshot);
 }

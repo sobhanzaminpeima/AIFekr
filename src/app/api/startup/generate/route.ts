@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { routedStreamChat } from "@/lib/ai/router";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
 const STAGE_PROMPTS: Record<string, (data: unknown, lang: string) => string> = {
   idea: (data: unknown, lang: string) => {
@@ -192,9 +193,9 @@ Provide a practical, actionable response with sufficient technical detail.`;
   },
 };
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { stage, data, lang = "fa" } = await req.json();
   if (!stage || !STAGE_PROMPTS[stage]) {
@@ -218,3 +219,5 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ result: fullText });
 }
+
+export const POST = withToolCredits("startup.generate", handlePost);

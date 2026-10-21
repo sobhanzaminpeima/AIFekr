@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { Image as ImageIcon, Video, Music, Download, Trash2, Globe, Lock, Loader2 } from "lucide-react";
 import { toJalali } from "@/lib/utils/jalali";
 import toast from "react-hot-toast";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
 
 type Tab = "image" | "video" | "music";
 
 export default function GalleryPage() {
   const { lang } = useTranslation();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const [tab, setTab] = useState<Tab>("image");
   const [items, setItems] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
@@ -18,26 +18,36 @@ export default function GalleryPage() {
   useEffect(() => {
     setLoading(true);
     fetch(`/api/gallery?type=${tab}`)
-      .then((r) => r.json())
-      .then((data) => { setItems(data.items || []); setLoading(false); });
-  }, [tab]);
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((data) => setItems(data.items || []))
+      .catch(() => {
+        // Same bug class as the standalone image gallery page: without this,
+        // a failed fetch left `loading` stuck true forever with no error and
+        // no way to retry other than a full page reload.
+        toast.error(tri(lang, "بارگذاری گالری با خطا مواجه شد", "Failed to load the gallery", "Galerie konnte nicht geladen werden"));
+      })
+      .finally(() => setLoading(false));
+  }, [tab, lang]);
 
   async function deleteItem(id: string) {
-    if (!confirm(isFa ? "آیا مطمئن هستید؟" : "Are you sure?")) return;
+    if (!confirm(tri(lang, "آیا مطمئن هستید؟", "Are you sure?", "Sind Sie sicher?"))) return;
     await fetch(`/api/gallery/${id}`, { method: "DELETE" });
     setItems((prev) => prev.filter((i) => (i as { id: string }).id !== id));
-    toast.success(isFa ? "حذف شد" : "Deleted");
+    toast.success(tri(lang, "حذف شد", "Deleted", "Gelöscht"));
   }
 
   const TABS = [
-    { id: "image", label: isFa ? "تصاویر" : "Images", icon: ImageIcon },
-    { id: "video", label: isFa ? "ویدیوها" : "Videos", icon: Video },
-    { id: "music", label: isFa ? "موزیک‌ها" : "Music", icon: Music },
+    { id: "image", label: tri(lang, "تصاویر", "Images", "Bilder"), icon: ImageIcon },
+    { id: "video", label: tri(lang, "ویدیوها", "Videos", "Videos"), icon: Video },
+    { id: "music", label: tri(lang, "موزیک‌ها", "Music", "Musik"), icon: Music },
   ];
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "گالری من" : "My Gallery"}</h1>
+      <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "گالری من", "My Gallery", "Meine Galerie")}</h1>
 
       <div className="flex gap-2">
         {TABS.map(({ id, label, icon: Icon }) => (
@@ -64,7 +74,7 @@ export default function GalleryPage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px dashed var(--border)" }}>
           <ImageIcon className="w-12 h-12 mb-3 opacity-20" style={{ color: "var(--text-muted)" }} />
-          <p style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز موردی ساخته نشده" : "Nothing created yet"}</p>
+          <p style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز موردی ساخته نشده", "Nothing created yet", "Noch nichts erstellt")}</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -90,7 +100,7 @@ export default function GalleryPage() {
                 </div>
                 <div className="p-3" style={{ background: "var(--surface-1)" }}>
                   <p className="text-xs truncate mb-1" style={{ color: "var(--text-secondary)" }}>{i.prompt}</p>
-                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? toJalali(i.createdAt) : new Date(i.createdAt).toLocaleDateString("en-US")}</p>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? toJalali(i.createdAt) : new Date(i.createdAt).toLocaleDateString(tri(lang, "fa-IR", "en-US", "de-DE"))}</p>
                 </div>
               </div>
             );

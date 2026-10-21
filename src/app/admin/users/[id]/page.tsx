@@ -1,12 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowRight, Loader2, MessageSquare, Image as ImageIcon, Video, Wallet, Ban, UserCheck } from "lucide-react";
 import { toJalali, formatNumber } from "@/lib/utils/jalali";
 import toast from "react-hot-toast";
+import AdminFitnessAccess from "@/components/admin/AdminFitnessAccess";
+import GatewayRecheck from "@/components/admin/GatewayRecheck";
+import AdminAcademy from "@/components/courses/AdminAcademy";
+import { COUNTRIES, dialCodeFor } from "@/lib/constants/countries";
+
+const CURRENCY_OPTIONS = [
+  { value: "", label: "پیش‌فرض (بر اساس زبان)" },
+  { value: "IRT", label: "تومان" },
+  { value: "USD", label: "دلار" },
+  { value: "EUR", label: "یورو" },
+];
 
 interface Payment {
+  transferMinor: number; transferCurrency: string; receiptAt: string | null;
   id: string;
   amount: number;
   plan: string;
@@ -26,28 +38,52 @@ interface UsageLog {
 
 interface UserDetail {
   id: string;
+  accountType?:string;
   name?: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  country?: string | null;
+  currency?: string | null;
   email?: string;
   phone?: string;
   role: string;
   plan: string;
   credits: number;
-  planExpiry?: string;
+  planExpiry?: string | null;
   isBlocked: boolean;
   createdAt: string;
   lastLoginAt?: string;
   crmPlan?: string;
   crmPlanExpiry?: string;
+  commissionPercentOverride?: number | null;
   _count: { conversations: number; images: number; videos: number; payments: number };
   payments: Payment[];
   usageLogs: UsageLog[];
 }
 
+interface ModuleRow {
+  key: string;
+  category: "crm" | "agent" | "student";
+  labelFa: string;
+  labelEn: string;
+  industrySlug: string;
+  override: boolean | null; // null = pack default applies
+}
+
 const PLAN_BADGE: Record<string, { label: string; color: string }> = {
+  STUDENT_FIRST_THREE_MONTHS:{label:"دانشجویی ۳ ماهه",color:"#6366f1"},
+  STUDENT_MONTHLY:{label:"دانشجویی ماهانه",color:"#6366f1"},
   FREE: { label: "رایگان", color: "#71717a" },
   BASIC: { label: "پایه", color: "#3b82f6" },
+  ECHO: { label: "اکو", color: "#0ea5e9" },
+  PLUS: { label: "پلاس", color: "#6366f1" },
   PRO: { label: "حرفه‌ای", color: "#ea580c" },
+  ALPHA: { label: "آلفا", color: "#a855f7" },
   TEAM: { label: "تیمی", color: "#8b5cf6" },
+  STARTER_USD: { label: "Starter", color: "#3b82f6" },
+  PLUS_USD: { label: "Plus", color: "#6366f1" },
+  PRO_USD: { label: "Pro", color: "#ea580c" },
+  ULTRA_USD: { label: "Ultra", color: "#a855f7" },
 };
 
 const CRM_PLAN_LABEL: Record<string, { label: string; color: string }> = {
@@ -62,26 +98,147 @@ const PAYMENT_STATUS: Record<string, { label: string; color: string }> = {
   FAILED: { label: "ناموفق", color: "#ef4444" },
 };
 
+function toLocalDateTimeInput(value?: string | null): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
+
 export default function AdminUserDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
   const [user, setUser] = useState<UserDetail | null>(null);
+  const [history,setHistory]=useState<{id:string;action:string;createdAt:string;actorId:string}[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("payments");
+  const [commissionInput, setCommissionInput] = useState("");
+  const [savingCommission, setSavingCommission] = useState(false);
+  const [planExpiryInput, setPlanExpiryInput] = useState("");
+  const [savingPlanExpiry, setSavingPlanExpiry] = useState(false);
+  const [profileForm, setProfileForm] = useState({ firstName: "", lastName: "", country: "", currency: "", phone: "" });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [modules, setModules] = useState<ModuleRow[] | null>(null);
+  const [savingModuleKey, setSavingModuleKey] = useState<string | null>(null);
 
-  async function load() {
+  const load=useCallback(async()=>{
     setLoading(true);
     try {
       const res = await fetch(`/api/admin/users/${id}`);
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "خطا در بارگذاری"); return; }
       setUser(data.user);
+      setHistory(data.history||[]);
+      setPlanExpiryInput(toLocalDateTimeInput(data.user.planExpiry));
+      setCommissionInput(data.user.commissionPercentOverride != null ? String(data.user.commissionPercentOverride) : "");
+      setProfileForm({
+        firstName: data.user.firstName || "",
+        lastName: data.user.lastName || "",
+        country: data.user.country || "",
+        currency: data.user.currency || "",
+        phone: data.user.phone || "",
+      });
     } finally {
       setLoading(false);
     }
+  },[id]);
+
+  const loadModules=useCallback(async()=>{
+    try {
+      const res = await fetch(`/api/admin/users/${id}/module-overrides`);
+      const data = await res.json();
+      if (res.ok) setModules(data.modules || []);
+    } catch { /* module toggles are a nicety on this page, never block the rest of it */ }
+  },[id]);
+
+  useEffect(() => { if (id) { load(); loadModules(); } }, [id,load,loadModules]);
+
+  // enabled: true/false sets an explicit per-user override; null clears it
+  // back to whatever the user's industry pack defaults to.
+  async function setModuleOverride(moduleKey: string, enabled: boolean | null) {
+    setSavingModuleKey(moduleKey);
+    try {
+      const res = await fetch(`/api/admin/users/${id}/module-overrides`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ moduleKey, enabled }),
+      });
+      const data=await res.json();
+      if (!res.ok) { toast.error(data.error||"خطا در بروزرسانی ماژول"); return; }
+      if(moduleKey==="student.workspace"){await load();toast.success(enabled?"فضای دانشجویی فعال و کاربر به فهرست دانشجویان اضافه شد":"دسترسی دانشجویی به‌روزرسانی شد");}
+      setModules((prev) => prev && prev.map((m) => (m.key === moduleKey ? { ...m, override: enabled } : m)));
+    } finally {
+      setSavingModuleKey(null);
+    }
   }
 
-  useEffect(() => { if (id) load(); }, [id]);
+  async function saveProfile() {
+    setSavingProfile(true);
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: profileForm.firstName.trim() || null,
+          lastName: profileForm.lastName.trim() || null,
+          country: profileForm.country || null,
+          currency: profileForm.currency || null,
+          phone: profileForm.phone.trim() || null,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) { toast.error(data?.error || "خطا در بروزرسانی"); return; }
+      toast.success("اطلاعات کاربر بروزرسانی شد");
+      load();
+    } finally {
+      setSavingProfile(false);
+    }
+  }
+
+  async function savePlanExpiry() {
+    if (!user) return;
+    if (planExpiryInput && Number.isNaN(new Date(planExpiryInput).getTime())) {
+      toast.error("تاریخ انقضا معتبر نیست");
+      return;
+    }
+    if (!planExpiryInput && user.plan !== "FREE" && !window.confirm("تاریخ خالی یعنی پلن بدون انقضا و دسترسی نامحدود. ادامه می‌دهید؟")) return;
+
+    setSavingPlanExpiry(true);
+    try {
+      const planExpiry = planExpiryInput ? new Date(planExpiryInput).toISOString() : null;
+      const res = await fetch(`/api/admin/users/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planExpiry }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) { toast.error(data?.error || "خطا در ذخیره تاریخ انقضا"); return; }
+      toast.success("تاریخ انقضای پلن ذخیره شد");
+      await load();
+    } finally {
+      setSavingPlanExpiry(false);
+    }
+  }
+
+  async function saveCommissionOverride() {
+    setSavingCommission(true);
+    try {
+      const value = commissionInput.trim() === "" ? null : Number(commissionInput);
+      if (value !== null && (!Number.isFinite(value) || value < 0 || value > 100)) {
+        toast.error("درصد باید بین ۰ تا ۱۰۰ باشد"); return;
+      }
+      await fetch(`/api/admin/users/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commissionPercentOverride: value }),
+      });
+      toast.success("درصد کمیسیون اختصاصی ذخیره شد");
+      load();
+    } finally {
+      setSavingCommission(false);
+    }
+  }
 
   async function toggleBlock() {
     if (!user) return;
@@ -116,7 +273,7 @@ export default function AdminUserDetailPage() {
     return <div className="p-6" style={{ color: "var(--text-secondary)" }}>کاربر یافت نشد</div>;
   }
 
-  const badge = PLAN_BADGE[user.plan] || PLAN_BADGE.FREE;
+  const badge = PLAN_BADGE[user.plan] || {label:user.plan,color:"#71717a"};
 
   return (
     <div className="p-6 space-y-6">
@@ -143,7 +300,9 @@ export default function AdminUserDetailPage() {
               {user.isBlocked ? "مسدود" : "فعال"}
             </span>
           </div>
-          <div className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{user.email || user.phone || "—"}</div>
+          <div className="text-sm mt-1" style={{ color: "var(--text-secondary)" }} dir="ltr">
+            {[user.email, user.phone].filter(Boolean).join(" · ") || "—"}
+          </div>
           <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
             عضویت از {toJalali(user.createdAt)}
             {user.lastLoginAt && ` · آخرین ورود ${toJalali(user.lastLoginAt)}`}
@@ -157,6 +316,96 @@ export default function AdminUserDetailPage() {
         >
           {user.isBlocked ? <UserCheck className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
           {user.isBlocked ? "آزادسازی کاربر" : "مسدودسازی کاربر"}
+        </button>
+      </div>
+
+      {/* General AI-plan expiration is separate from CRM and industry access. */}
+      <nav aria-label="بخش‌های مدیریت کاربر" className="flex flex-wrap gap-2 rounded-2xl border p-2" style={{borderColor:"var(--border)",background:"var(--surface-1)"}}>
+        {[["payments","پرداخت‌ها"],["account","مشخصات و اشتراک"],["access","دسترسی و کمیسیون"],["academy","آموزش و ورزش"],["activity","فعالیت و تاریخچه"]].map(([key,label])=><button key={key} aria-pressed={tab===key} onClick={()=>setTab(key)} className="rounded-xl px-4 py-2.5 text-sm" style={{background:tab===key?"var(--primary)":"transparent",color:tab===key?"white":"var(--text-secondary)"}}>{label}</button>)}
+      </nav>
+      {tab==="academy"&&<div className="space-y-5"><AdminFitnessAccess userId={id}/><AdminAcademy userId={id}/></div>}
+      <div hidden={tab!=="account"} className="space-y-5">
+      <div className="rounded-2xl p-5 space-y-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>پلن هوش مصنوعی و زمان انقضا</span>
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>پلن فعلی: {PLAN_BADGE[user.plan]?.label || user.plan}{user.planExpiry ? ` · انقضا: ${toJalali(user.planExpiry)}` : " · بدون تاریخ انقضا"}</p>
+          </div>
+          {user.plan !== "FREE" && (
+            <span className="px-2.5 py-1 rounded-full text-xs font-medium" style={{
+              background: !user.planExpiry ? "rgba(59,130,246,0.12)" : new Date(user.planExpiry).getTime() < Date.now() ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.12)",
+              color: !user.planExpiry ? "#3b82f6" : new Date(user.planExpiry).getTime() < Date.now() ? "#ef4444" : "#22c55e",
+            }}>
+              {!user.planExpiry ? "بدون انقضا" : new Date(user.planExpiry).getTime() < Date.now() ? "منقضی‌شده" : "فعال"}
+            </span>
+          )}
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+          <div className="flex-1">
+            <label htmlFor="user-plan-expiry" className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>تاریخ و ساعت انقضا (زمان محلی مرورگر)</label>
+            <input id="user-plan-expiry" type="datetime-local" value={planExpiryInput} onChange={(e) => setPlanExpiryInput(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          </div>
+          <button onClick={savePlanExpiry} disabled={savingPlanExpiry}
+            className="px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+            {savingPlanExpiry ? "در حال ذخیره..." : "ذخیره تاریخ انقضا"}
+          </button>
+        </div>
+      </div>
+
+      {/* Profile info — name split, country, display currency */}
+      <div className="rounded-2xl p-5 space-y-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>اطلاعات شخصی</span>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <div>
+            <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>نام</label>
+            <input value={profileForm.firstName} onChange={(e) => setProfileForm((p) => ({ ...p, firstName: e.target.value }))}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>نام خانوادگی</label>
+            <input value={profileForm.lastName} onChange={(e) => setProfileForm((p) => ({ ...p, lastName: e.target.value }))}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>کشور</label>
+            <select value={profileForm.country} onChange={(e) => setProfileForm((p) => ({ ...p, country: e.target.value }))}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              <option value="">—</option>
+              {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.fa}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>ارز نمایشی</label>
+            <select value={profileForm.currency} onChange={(e) => setProfileForm((p) => ({ ...p, currency: e.target.value }))}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              {CURRENCY_OPTIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>
+              موبایل
+              {profileForm.country && dialCodeFor(profileForm.country) && (
+                <span className="mr-1" style={{ color: "var(--text-muted)" }}>(کد کشور: {dialCodeFor(profileForm.country)})</span>
+              )}
+            </label>
+            {/* Existing phone values are already stored in full international
+                format (see /register's own composedPhone logic) -- this field
+                intentionally keeps accepting/saving the raw string the admin
+                types rather than re-composing it from the country dropdown,
+                so editing an existing user's phone can't silently double up
+                or strip a dial code that's already baked into the stored
+                value. The dial-code hint above is just a visual aid tied to
+                the "کشور" dropdown, matching what /register and the invite
+                form show. */}
+            <input value={profileForm.phone} onChange={(e) => setProfileForm((p) => ({ ...p, phone: e.target.value }))} dir="ltr"
+              placeholder={profileForm.country && dialCodeFor(profileForm.country) ? `${dialCodeFor(profileForm.country)}123456789` : "09123456789"}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          </div>
+        </div>
+        <button onClick={saveProfile} disabled={savingProfile}
+          className="px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+          {savingProfile ? "..." : "ذخیره اطلاعات"}
         </button>
       </div>
 
@@ -179,7 +428,76 @@ export default function AdminUserDetailPage() {
         </select>
       </div>
 
+      <section className="rounded-2xl border p-5 space-y-3" style={{borderColor:"var(--border)",background:"var(--surface-1)"}}>
+        <h2 className="font-semibold">حساب دانشجویی</h2><p className="text-sm opacity-70">فعال‌سازی فضای دانشگاه/مدرسه، پکیج ۹۰ روزه و اعتبار دانشجویی؛ کاربر در فیلتر دانشجویان نمایش داده می‌شود. اعتبار حساب فعال دوباره اضافه نمی‌شود.</p>
+        <p>نوع حساب: {user.accountType==="STUDENT"?"دانشجو":user.accountType==="BUSINESS"?"کسب‌وکار":"شخصی"}</p>
+        <button disabled={savingModuleKey!==null} onClick={()=>void setModuleOverride("student.workspace",true)} className="rounded-xl bg-indigo-600 px-4 py-3 text-white disabled:opacity-50">فعال‌سازی پکیج دانشجویی</button>
+      </section>
+      {/* Per-user module toggles (e.g. enabling just "Property Management"
+      */}
+      </div>
+      <div hidden={tab!=="access"} className="space-y-5">
+      {/* Per-user module toggles (e.g. enabling just "Property Management"
+          for a real-estate user) -- independent of the pack-level defaults;
+          "پیش‌فرض پکیج" clears the override and falls back to those. */}
+      {modules && modules.length > 0 && (
+        <div className="rounded-2xl p-5 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <div>
+            <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>ماژول‌های اختصاصی این کاربر</span>
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>دسترسی این کاربر را جداگانه تنظیم کنید؛ «پیش‌فرض» به تنظیم سراسری یا پک صنعتی برمی‌گردد.</p>
+          </div>
+          <div className="space-y-1.5">
+            {modules.map((m) => (
+              <div key={m.key} className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl" style={{ background: "var(--surface-2)" }}>
+                <span className="text-sm truncate" style={{ color: "var(--text-primary)" }}>{m.labelFa}</span>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {([
+                    { value: true, label: "فعال" },
+                    { value: false, label: "غیرفعال" },
+                    { value: null, label: "پیش‌فرض" },
+                  ] as const).map((opt) => (
+                    <button
+                      key={String(opt.value)}
+                      disabled={savingModuleKey === m.key}
+                      onClick={() => setModuleOverride(m.key, opt.value)}
+                      className="px-2.5 py-1 rounded-lg text-xs font-medium disabled:opacity-50"
+                      style={{
+                        background: m.override === opt.value ? "var(--primary)" : "var(--surface-1)",
+                        color: m.override === opt.value ? "white" : "var(--text-secondary)",
+                        border: "1px solid var(--border)",
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Referral commission override */}
+      <div className="rounded-2xl p-5 flex items-center justify-between flex-wrap gap-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <div>
+          <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>درصد کمیسیون رفرال اختصاصی</span>
+          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>خالی = استفاده از درصد پیش‌فرض سراسری (تنظیمات افیلیت). فقط برای این کاربر جایگزین می‌شود.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input value={commissionInput} onChange={(e) => setCommissionInput(e.target.value)} type="number" min={0} max={100} step={0.5}
+            placeholder="پیش‌فرض" dir="ltr"
+            className="w-28 px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <span className="text-sm" style={{ color: "var(--text-secondary)" }}>٪</span>
+          <button onClick={saveCommissionOverride} disabled={savingCommission}
+            className="px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+            {savingCommission ? "..." : "ذخیره"}
+          </button>
+        </div>
+      </div>
+
       {/* Stats */}
+      </div>
+      <div hidden={tab!=="payments"} className="space-y-5">
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { icon: Wallet, label: "اعتبار", value: formatNumber(user.credits) },
@@ -218,12 +536,12 @@ export default function AdminUserDetailPage() {
                 return (
                   <tr key={p.id} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td className="px-4 py-2.5" style={{ color: "var(--text-primary)" }}>{PLAN_BADGE[p.plan]?.label || p.plan}</td>
-                    <td className="px-4 py-2.5" style={{ color: "var(--text-primary)" }}>{formatNumber(p.amount)}</td>
-                    <td className="px-4 py-2.5" style={{ color: "var(--text-secondary)" }}>{p.gateway}</td>
+                    <td className="px-4 py-2.5" style={{ color: "var(--text-primary)" }}>{p.gateway === "bank_transfer" ? `${p.transferMinor/100} ${p.transferCurrency}` : formatNumber(p.amount)}</td>
+                    <td className="px-4 py-2.5" style={{ color: "var(--text-secondary)" }}>{p.gateway}{p.receiptAt && <a className="block text-orange-500" href={`/api/payment/${p.id}/receipt`}>رسید</a>}<a className="block" href={`/admin/financial?userId=${user.id}`}>تاریخچه و بررسی</a></td>
                     <td className="px-4 py-2.5">
                       <span className="px-2 py-0.5 rounded-full text-xs" style={{ background: st.color + "22", color: st.color }}>{st.label}</span>
                     </td>
-                    <td className="px-4 py-2.5 text-xs" style={{ color: "var(--text-muted)" }}>{toJalali(p.createdAt)}</td>
+                    <td className="px-4 py-2.5 text-xs" style={{ color: "var(--text-muted)" }}>{toJalali(p.createdAt)}{p.gateway==="zarinpal"&&p.status==="PENDING"&&<GatewayRecheck id={p.id} onVerified={()=>void load()}/>}</td>
                   </tr>
                 );
               })}
@@ -233,6 +551,9 @@ export default function AdminUserDetailPage() {
       </div>
 
       {/* Usage log */}
+      </div>
+      <div hidden={tab!=="activity"}>
+      <section className="rounded-2xl border p-5 space-y-3" style={{borderColor:"var(--border)",background:"var(--surface-1)"}}><h2 className="font-semibold">تاریخچهٔ حساب</h2><p className="text-xs opacity-70">ثبت‌نام: {toJalali(user.createdAt)} · آخرین ورود: {user.lastLoginAt?toJalali(user.lastLoginAt):"ثبت نشده"}</p>{history.length===0?<p className="text-sm opacity-70">هنوز رویداد مدیریتی ثبت نشده است.</p>:<ol className="space-y-2">{history.map(event=><li key={event.id} className="rounded-xl p-3 text-sm" style={{background:"var(--surface-0)"}}><b>{{account_registered:"ثبت‌نام",last_login:"آخرین ورود",payment_pending:"درخواست خرید",payment_success:"پرداخت موفق",payment_failed:"پرداخت ناموفق",payment_rejected:"رسید ردشده",voice_number_connected:"راه‌اندازی شماره تماس",student_activated:"فعال‌سازی دانشجویی",account_updated:"ویرایش حساب",module_override_updated:"تغییر دسترسی ماژول",trial_activated:"فعال‌سازی دعوت",account_created:"ساخت حساب",voice_activated:"تغییر دسترسی تماس"}[event.action]||(event.action.startsWith("usage_")?`مصرف اعتبار · ${event.action.slice(6)}`:event.action)}</b><time className="block text-xs opacity-60">{toJalali(event.createdAt)}</time></li>)}</ol>}</section>
       <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
         <div className="px-4 py-3 font-medium text-sm" style={{ color: "var(--text-primary)", borderBottom: "1px solid var(--border)" }}>
           آخرین فعالیت‌ها
@@ -260,6 +581,7 @@ export default function AdminUserDetailPage() {
             </tbody>
           </table>
         )}
+      </div>
       </div>
     </div>
   );

@@ -20,7 +20,9 @@
 
 ## Demo Accounts
 
-Live demo is running at **http://185.81.96.229:3000**
+Production runs at **https://aifekr.com** (VPS `194.59.171.82`).
+
+> The old demo box `185.81.96.229` is no longer the live environment — do not deploy there.
 
 ### Regular Users
 
@@ -151,6 +153,7 @@ A full growth toolkit built on Meta's **Instagram API with Instagram Login** (`s
 
 ### ⚙️ Admin Panel
 - User management, conversation logs, credit top-ups
+- Per-user AI plan expiry management (including clearing an expiry for an intentionally unlimited plan)
 - Industry pack management
 - Site settings with DB persistence (name, currency, language, email)
 - Role-based access: ADMIN, SUPER_ADMIN
@@ -357,6 +360,23 @@ JWT_SECRET="your-strong-256-bit-secret"
 ANTHROPIC_API_KEY="sk-ant-..."
 ```
 
+### Student workspace
+
+The `/student` workspace includes a persistent study timer that stays available
+while navigating the signed-in dashboard. Pauses and resumes are recorded with
+the study session and included in study reports. Study groups can optionally be
+associated with one of the student's own courses. The planner accepts exam and
+task dates using a locale-aware date input. The workspace adapts its navigation
+and actions for narrow mobile screens; dashboard pages support pull-to-refresh,
+and the active study timer stays above the mobile navigation. See
+[`docs/student-module-status.md`](docs/student-module-status.md) for the module
+scope, migration, and verification details.
+
+The current student schema change is additive and lives in
+`prisma/migrations/20261003_student_timer_pauses_and_group_course/`. Back up the
+production database before applying it, and use the repository's deployment
+procedure against the production database URL rather than a developer database.
+
 ---
 
 ## Contributing
@@ -382,3 +402,35 @@ Built with ❤️ by the **AiFekr** team
 [Live Demo](http://193.162.129.138) · [Report a Bug](https://github.com/inexpoaiagent/AIFekr/issues) · [Request a Feature](https://github.com/inexpoaiagent/AIFekr/issues)
 
 </div>
+
+## FIT workspace, marketplace and billing (October 2026)
+AIFekr FIT is integrated into the platform shell at `/fitness`, with the shared sidebar language selector. It includes a daily dashboard, saved coach/program choices, real workout logs, rolling weekly/monthly reports, advanced programs and admin-granted independent access.
+
+- Marketplace: `/fitness/marketplace`; admin: `/admin/fitness/marketplace`.
+- User access: Admin → Users → user profile → AIFekr FIT. Grants are time-limited and audited; health profiles still require genuine user consent.
+- Billing: Admin package editor is the source for public catalogs. Future quote base prices: Growth USD 129/329/599, Scale USD 149/349/649, Student TRY 1199.99/2799.99, FIT USD 49.99/134.99/239.99. Terms are monthly/quarterly/semiannual where configured. Historical invoices and locked purchase snapshots are preserved.
+- Affiliate commission applies to each successful referred purchase exactly once; welcome-credit bonus is still one-time. Seller fees are separately configurable. Bank transfers support persistent receipt recovery.
+- Required additive migrations: `20261011140000_fit_dynamic_billing`, `20261012024500_business_credit_allocation`, `20261012150000_fit_marketplace`, `20261012180000_advanced_fit_programs`, `20261012200000_fit_access_pricing`. Run `prisma migrate deploy`; never reset production.
+- Configure XE in Admin → Billing → Rates. Toman is manually approved with expiry; official IRR is not substituted for the free-market rate. Keep provider secrets server-side.
+- Set persistent `FIT_PRIVATE_UPLOAD_DIR` outside public roots. Schedule authenticated `/api/cron/fitness-marketplace` for abandoned bank-order holds and `/api/cron/billing-rates` for provider refresh.
+- Refunds/payouts are externally performed and audited by administrators; automatic bank transfers, carrier integration, tax automation and full PWA background synchronization are not claimed.
+- See [delivery notes](docs/fit-pricing-release.md) for detailed architecture, limitations and deployment safeguards. The current branch is `codex/fit-dynamic-billing`; production deployment status must be verified separately from GitHub publication.
+
+
+### Video Factory package billing
+
+Video Factory includes dedicated draft creator packages, verified-payment quotas (video count and production minutes), an eight-minute maximum per video, and exact-once technical-failure credit refunds. See [package operations](docs/video-factory/packages.md). Sales and unverified supplier rates remain locked pending owner approval.
+
+The 2026-10-19 draft pipeline uses Claude direction, Gemini declarative scene animation, Nano Banana 2 images, ElevenLabs voice/music and trusted Remotion/FFmpeg rendering. Admin economics includes official supplier rate sources, explicit usage/overhead assumptions, a minimum 50% gross-margin floor and draft-only repricing. No Argon or external generated-video API is selected. Native providers and package sales remain disabled; no paid smoke test has been run.
+
+Published package retail amounts can be fixed separately for USD, TRY, IRT and EUR in Admin → Packages. Catalog and checkout use the same stored amounts; historical quotes and invoices are unchanged. Run `scripts/freeze-published-prices.cjs` once after taking a database backup to initialize amounts from recorded rates. Video package prices can be public while checkout remains unavailable until production is operational.
+
+Run `scripts/link-codecraft-llm-manager.cjs` to expose existing CodeCraft text models in the main LLM Manager. These entries reference the encrypted Video Factory credential vault and start disabled; no secret is copied into responses and no paid test runs automatically. Direct Gemini and ElevenLabs access from the current production server returned HTTP 403, so real end-to-end video delivery is still blocked pending restored supplier access.
+
+Cloudflare infrastructure credentials are managed at `/admin/cloudflare`. The API token is encrypted at rest, excluded from generic settings responses, and can be replaced without exposing the saved value. `/api/integrations/cloudflare/status` provides authenticated workspace users with connection availability only; account identifiers and credentials remain admin-only. Connection verification checks both token validity and access to the configured account.
+
+Workers AI has an independent permission probe at `/api/admin/cloudflare/workers-ai`. Account Settings Read is not required to invoke Workers AI. `scripts/register-workers-ai.cjs` links the existing encrypted credential to a Llama text model and FLUX image model in the normal model pickers, so existing generation credit reservation/refund paths apply. Video Factory also supports explicit `CLOUDFLARE_TEXT` and `CLOUDFLARE_IMAGE` adapters. Video-provider routing and sales remain separately controlled; the registration script does not enable video sales. The authorized smoke operator script requires `AIFEKR_PAID_SMOKE_APPROVED=true` and performs at most one bounded chapter completion and one image generation before a local video render.
+# AIFekr PLAY
+
+The integrated free arcade is available at `/play`; administration is at `/admin/play`. Six games share existing users and server-verified scoring, separate XP, rankings and reviewed free competitions. Installation, API routes, security limits and verification are documented in [docs/play.md](docs/play.md).
+

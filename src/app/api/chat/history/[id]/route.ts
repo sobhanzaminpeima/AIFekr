@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const conv = await prisma.conversation.findFirst({ where: { id: params.id, userId: user.id } });
   if (!conv) return NextResponse.json({ error: "گفتگو پیدا نشد" }, { status: 404 });

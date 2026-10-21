@@ -1,9 +1,10 @@
-import Link from "next/link";
-import Image from "next/image";
-import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
+import PublicShell from "@/components/marketing/PublicShell";
 import { getServerLang } from "@/lib/i18n/server";
+import type { Metadata } from "next";
+import { pageMetadata, pageJsonLd } from "@/lib/seo/site";
+import JsonLd from "@/components/seo/JsonLd";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 const SECTIONS_FA = [
   {
@@ -90,32 +91,80 @@ const SECTIONS_EN = [
     body: "For any questions about these terms, please contact AiFekr support through the \"Contact Us\" page.",
   },
 ];
+const SECTIONS_DE = [
+  {
+    title: "1. Annahme der Bedingungen",
+    body: "Durch die Registrierung und Nutzung von AiFekr akzeptieren Sie diese Terms of Service. Wenn Sie mit einem Teil dieser Bedingungen nicht einverstanden sind, nutzen Sie bitte nicht unsere Dienste.",
+  },
+  {
+    title: "2. Beschreibung der Dienste",
+    body: "AiFekr ist eine KI-Plattform, die Dienste wie intelligenten Chat, Bild-/Video-/Musikerstellung, SEO-Tools und Social-Media-Automatisierung (Instagram) auf Basis eines Gutschriftsystems anbietet. Einige Tools (wie WordPress- oder Instagram-Integration) erfordern die Verbindung Ihrer Drittanbieter-Konten, was vollständig optional und nur mit Ihrer ausdrücklichen Genehmigung erfolgt.",
+  },
+  {
+    title: "3. Benutzerkonto",
+    body: "Sie sind verantwortlich für die Vertraulichkeit Ihrer Zugangsdaten (E-Mail/Mobilnummer und Passwort). Sie sind verantwortlich für jede Aktivität, die über Ihr Konto ausgeführt wird. Bei unbefugter Nutzung müssen Sie sofort den Support informieren.",
+  },
+  {
+    title: "4. Gutschriften, Pläne und Zahlung",
+    body: "Pläne und Gutschriften werden über das Zarinpal-Zahlungsportal gekauft. Gekaufte Gutschrifte laufen nicht ab, bis sie vollständig verbraucht sind. Preise können sich ohne Vorankündigung ändern, aber Preisänderungen beeinflussen bereits gekaufte Pläne nicht.",
+  },
+  {
+    title: "5. Rückerstattungsrichtlinie",
+    body: "Aufgrund der sofortigen Verbrauchsart von KI-Gutschriften sind Zahlungen für verbrauchte Gutschrifte nicht erstattungsfähig. Wenn ein technischer Fehler zu Gutschriftabzügen ohne Ergebnis führt, werden die Gutschrifte als Entschädigung auf Ihr Konto zurückerstattet, nachdem Sie einen Beleg (z.B. Transaktions-ID) über den Support vorgelegt haben.",
+  },
+  {
+    title: "6. Erlaubte Nutzung",
+    body: "Die Nutzung von AiFekr zur Erstellung illegaler oder beleidigender Inhalte, Inhalte die geistige Eigentumsrechte verletzen, oder jede Tätigkeit gegen die Gesetze der Islamischen Republik Iran ist verboten. AiFekr kann Konten ohne Vorankündigung sperren, wenn solche Verstöße festgestellt werden.",
+  },
+  {
+    title: "7. KI-generierte Inhalte",
+    body: "Von KI-Modellen generierte Ausgaben können Fehler oder Ungenauigkeiten enthalten. Der Benutzer ist verantwortlich für die endgültige Überprüfung und Nutzung jeder Ausgabe (Text, Bilder, Social-Media-Beiträge, SEO-Änderungen), insbesondere bei Automatisierungsfunktionen (wie automatische Veröffentlichung auf Instagram oder automatische Website-Edits), die direkt auf Ihren echten Konten/Websites angewendet werden.",
+  },
+  {
+    title: "8. Haftungsbeschränkung",
+    body: "AiFekr übernimmt keine Garantie für dauerhafte Serviceverfügbarkeit oder 100%ige Genauigkeit von KI-generierten Ausgaben. Im maximal gesetzlich zulässigen Umfang ist die Haftung von AiFekr für mittelbare Schäden beschränkt.",
+  },
+  {
+    title: "9. Änderungen der Bedingungen",
+    body: "Diese Bedingungen können in Zukunft aktualisiert werden. Das Datum der letzten Aktualisierung wird unten auf dieser Seite angezeigt. Durch die weitere Nutzung des Dienstes nach einer Änderung der Bedingungen akzeptieren Sie die neuen Bedingungen.",
+  },
+  {
+    title: "10. Kontakt",
+    body: "Bei Fragen zu diesen Bedingungen kontaktieren Sie bitte den AiFekr-Support über die Seite \"Kontakt\".",
+  },
+];
+
+const SECTIONS_TR = [
+  { title: "1. Koşulların kabulü", body: "AIFekr'e kayıt ve hizmet kullanımı bu koşulların kabulü anlamına gelir. Kabul etmiyorsanız hizmeti kullanmayın." },
+  { title: "2. Hizmetler", body: "Platform kredi temelli sohbet, görsel, video, müzik, SEO ve sosyal medya araçları sunar. WordPress ve Instagram gibi hesap bağlantıları isteğe bağlıdır ve izninizi gerektirir." },
+  { title: "3. Hesap", body: "Giriş bilgilerinizin gizliliğinden ve hesabınızdaki faaliyetlerden siz sorumlusunuz. Yetkisiz kullanım fark ederseniz destekle iletişime geçin." },
+  { title: "4. Krediler ve ödeme", body: "Plan ve kredi alımları mevcut ödeme seçenekleriyle yapılır. Satın alınan krediler tüketilene kadar geçerlidir. Fiyat değişiklikleri daha önce tamamlanmış alımları etkilemez." },
+  { title: "5. İade", body: "Tüketilen krediler için iade yapılmaz. Teknik hata sonucu çıktı almadan kredi düşülürse işlem bilgisiyle desteğe başvurun; inceleme sonrası telafi kredisi verilebilir." },
+  { title: "6. İzin verilen kullanım", body: "Yasa dışı, saldırgan veya fikri mülkiyet haklarını ihlal eden içerikler yasaktır. İhlallerde hesap erişimi durdurulabilir." },
+  { title: "7. Yapay zekâ çıktıları", body: "Çıktılar hatalı olabilir. Özellikle yayın ve otomasyon işlemlerinden önce içerikleri incelemek ve kullanımını değerlendirmek sizin sorumluluğunuzdur." },
+  { title: "8. Sorumluluk sınırı", body: "Kesintisiz erişim veya çıktıların yüzde yüz doğruluğu garanti edilmez. Yasal sınırlar içinde dolaylı zararlara ilişkin sorumluluk sınırlıdır." },
+  { title: "9. Değişiklikler", body: "Koşullar güncellenebilir. Güncelleme sonrasında hizmeti kullanmayı sürdürmek yeni koşulları kabul etmek anlamına gelir." },
+  { title: "10. İletişim", body: "Sorularınız için iletişim sayfasından destek ekibine ulaşın." },
+];
+
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getServerLang();
+  const meta = pageMetadata(lang, "/terms", {"fa":"شرایط استفاده — قوانین، پرداخت و اعتبار","en":"Terms of Service — Rules, Payments & Credits","de":"Nutzungsbedingungen — Regeln, Zahlung & Credits","tr":"Kullanım Koşulları — Kurallar, Ödeme ve Krediler"}, {"fa":"شرایط و قوانین استفاده از پلتفرم هوش مصنوعی AiFekr، پرداخت‌ها و اعتبارها.","en":"Terms and conditions for using the AiFekr AI platform, payments and credits.","de":"Nutzungsbedingungen der KI-Plattform AiFekr, Zahlungen und Credits.","tr":"AiFekr yapay zekâ platformunun kullanım koşulları, ödemeler ve krediler."});
+  return meta;
+}
 
 export default async function TermsPage() {
   const lang = await getServerLang();
-  const isFa = lang !== "en";
-  const SECTIONS = isFa ? SECTIONS_FA : SECTIONS_EN;
+  const isFa = lang === "fa";
+  const SECTIONS = lang === "tr" ? SECTIONS_TR : lang === "de" ? SECTIONS_DE : isFa ? SECTIONS_FA : SECTIONS_EN;
 
   return (
-    <div className="min-h-screen" dir={isFa ? "rtl" : "ltr"} style={{ background: "#0a0a0f", color: "#f5f5f5" }}>
-      <nav
-        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4"
-        style={{ background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
-      >
-        <Link href="/" className="flex items-center gap-2">
-          <Image src="/logo.svg" alt="AiFekr" width={32} height={32} className="rounded-lg" />
-          <span className="font-bold text-lg text-white">AiFekr</span>
-        </Link>
-        <div className="flex items-center gap-2">
-          <Link href="/terms" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "#ea580c" }}>{isFa ? "قوانین و مقررات" : "Terms of Service"}</Link>
-          <Link href="/privacy" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{isFa ? "حریم خصوصی" : "Privacy Policy"}</Link>
-          <Link href="/login" className="text-sm px-3 py-2 rounded-xl transition-all" style={{ color: "rgba(255,255,255,0.7)" }}>{isFa ? "ورود" : "Log in"}</Link>
-        </div>
-      </nav>
+    <PublicShell lang={lang}><div className="m-public-existing">
+      <JsonLd data={pageJsonLd(lang, "/terms")} />
 
-      <section className="pt-40 pb-16 px-6 max-w-3xl mx-auto">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2">{isFa ? "قوانین و مقررات استفاده از AiFekr" : "AiFekr Terms of Service"}</h1>
-        <p className="text-sm mb-10" style={{ color: "rgba(255,255,255,0.5)" }}>{isFa ? "آخرین به‌روزرسانی: تیر ۱۴۰۵" : "Last updated: July 2026"}</p>
+      <section className="pt-12 pb-16 px-6 max-w-3xl mx-auto">
+        <h1 className="text-3xl md:text-4xl font-bold mb-2">{lang === "tr" ? "AIFekr kullanım koşulları" : lang === "de" ? "AiFekr Nutzungsbedingungen" : isFa ? "قوانین و مقررات استفاده از AiFekr" : "AiFekr Terms of Service"}</h1>
+        <p className="text-sm mb-10" style={{ color: "rgba(255,255,255,0.5)" }}>{lang === "tr" ? "Son güncelleme: Temmuz 2026" : lang === "de" ? "Zuletzt aktualisiert: Juli 2026" : isFa ? "آخرین به‌روزرسانی: تیر ۱۴۰۵" : "Last updated: July 2026"}</p>
 
         <div className="space-y-8">
           {SECTIONS.map((s) => (
@@ -126,10 +175,6 @@ export default async function TermsPage() {
           ))}
         </div>
       </section>
-
-      <footer className="py-8 px-6 text-center" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        <SocialFooterLinks />
-      </footer>
-    </div>
+    </div></PublicShell>
   );
 }

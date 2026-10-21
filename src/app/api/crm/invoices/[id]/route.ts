@@ -5,48 +5,54 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { computeInvoiceTotals, InvoiceItemInput } from "@/lib/repositories/crmInvoiceRepository";
 import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
+import { getServerLang } from "@/lib/i18n/server";
+import { tri } from "@/lib/i18n/tri";
+import { postJournalEntry } from "@/lib/accounting/ledger";
+import { ensureDefaultChartOfAccounts } from "@/lib/accounting/chartOfAccounts";
 
 const VALID_STATUSES = ["draft", "sent", "paid", "overdue", "cancelled"];
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
-  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
+  const lang = await getServerLang();
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
   const invoice = await prisma.crmInvoice.findFirst({
     where: { id: params.id, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { contact: { assignedToId: ws.actingUserId } } : {}) },
     include: { items: true, contact: true, deal: { select: { id: true, title: true } } },
   });
-  if (!invoice) return NextResponse.json({ error: "پیدا نشد" }, { status: 404 });
+  if (!invoice) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
   return NextResponse.json({ invoice });
 }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
-  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
+  const lang = await getServerLang();
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
   const existing = await prisma.crmInvoice.findFirst({
     where: { id: params.id, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { contact: { assignedToId: ws.actingUserId } } : {}) },
     include: { items: true },
   });
-  if (!existing) return NextResponse.json({ error: "پیدا نشد" }, { status: 404 });
+  if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
   const body = await req.json();
   const { status, notes, dueDate, items, discount } = body as {
     status?: string; notes?: string; dueDate?: string | null; items?: InvoiceItemInput[]; discount?: number;
   };
-  if (status && !VALID_STATUSES.includes(status)) return NextResponse.json({ error: "وضعیت نامعتبر است" }, { status: 400 });
+  if (status && !VALID_STATUSES.includes(status)) return NextResponse.json({ error: tri(lang, "وضعیت نامعتبر است", "Invalid status", "Ungültiger Status") }, { status: 400 });
 
   let itemsUpdate: ReturnType<typeof computeInvoiceTotals> | null = null;
   if (items) {
-    if (!Array.isArray(items) || items.length === 0) return NextResponse.json({ error: "حداقل یک آیتم فاکتور الزامی است" }, { status: 400 });
+    if (!Array.isArray(items) || items.length === 0) return NextResponse.json({ error: tri(lang, "حداقل یک آیتم فاکتور الزامی است", "At least one invoice item is required", "Mindestens eine Rechnungsposition ist erforderlich") }, { status: 400 });
     try {
       itemsUpdate = computeInvoiceTotals(items);
     } catch (err) {
-      return NextResponse.json({ error: err instanceof Error ? err.message : "آیتم فاکتور نامعتبر است" }, { status: 400 });
+      return NextResponse.json({ error: err instanceof Error ? err.message : tri(lang, "آیتم فاکتور نامعتبر است", "Invalid invoice item", "Ungültige Rechnungsposition") }, { status: 400 });
     }
   }
 
@@ -54,9 +60,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     // Bumping CrmContact.totalSpent only happens on the draft->paid transition —
     // guarded inside the transaction so a repeated PUT with status:"paid" (or a
     // race between two requests) can't double-count the same invoice.
+    let becameSentForLedger = false;
+    let becamePaidForLedger = false;
+    let ledgerTotal = 0;
+
     const invoice = await prisma.$transaction(async (tx) => {
       const current = await tx.crmInvoice.findUniqueOrThrow({ where: { id: params.id }, include: { items: true } });
       const becamePaid = status === "paid" && current.status !== "paid";
+      const becameSent = status === "sent" && current.status === "draft";
 
       // Editing an already-finalized (not draft) invoice's amounts is allowed,
       // but the pre-edit state is snapshotted first — a customer who already
@@ -101,25 +112,82 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         });
       }
 
+      // Ledger posting happens after this transaction commits (postJournalEntry
+      // runs its own transaction — Prisma doesn't support nesting interactive
+      // transactions), guarded by sourceRef idempotency so a retry of this
+      // same PUT can never double-post.
+      becameSentForLedger = becameSent;
+      becamePaidForLedger = becamePaid;
+      ledgerTotal = total;
+
       return updated;
     });
 
-    return NextResponse.json({ invoice });
+    // Best-effort: an invoice edit should never fail outright just because
+    // ledger posting hit an issue (e.g. a locked fiscal period) — the CRM
+    // invoice is already the source of truth for what the customer sees;
+    // the ledger gets a chance to catch up next time this route runs, since
+    // sourceRef makes a later retry safe. Failures are logged AND returned
+    // as `ledgerWarning` so the UI can tell the user their books need a
+    // manual look, instead of the accounting side silently drifting out of
+    // sync with no one aware.
+    let ledgerWarning: string | null = null;
+    if (becameSentForLedger || becamePaidForLedger) {
+      await ensureDefaultChartOfAccounts(ws.workspaceUserId).catch((e) => {
+        console.error("ensureDefaultChartOfAccounts failed:", e);
+        ledgerWarning = tri(lang, "فاکتور ذخیره شد ولی ثبت آن در حسابداری با خطا مواجه شد — لطفاً دفترکل را بررسی کنید.", "The invoice was saved, but posting it to Accounting failed — please check the ledger.", "Die Rechnung wurde gespeichert, aber die Buchung in der Buchhaltung ist fehlgeschlagen — bitte prüfen Sie das Hauptbuch.", "Fatura kaydedildi ancak muhasebeye kaydedilirken hata oluştu — lütfen defteri kontrol edin.");
+      });
+    }
+    if (becameSentForLedger && ledgerTotal > 0) {
+      await postJournalEntry({
+        workspaceUserId: ws.workspaceUserId,
+        businessId: ws.businessId ?? undefined,
+        postedBy: "system",
+        memo: `Invoice ${invoice.invoiceNumber} issued`,
+        sourceRef: `invoice:sent:${params.id}`,
+        lines: [
+          { accountCode: "1200", debit: ledgerTotal },
+          { accountCode: "4000", credit: ledgerTotal },
+        ],
+      }).catch((e) => {
+        console.error("Ledger post (invoice sent) failed:", e);
+        ledgerWarning = tri(lang, "فاکتور ارسال شد ولی ثبت آن در حسابداری با خطا مواجه شد — لطفاً دفترکل را بررسی کنید.", "The invoice was sent, but posting it to Accounting failed — please check the ledger.", "Die Rechnung wurde versendet, aber die Buchung in der Buchhaltung ist fehlgeschlagen — bitte prüfen Sie das Hauptbuch.", "Fatura gönderildi ancak muhasebeye kaydedilirken hata oluştu — lütfen defteri kontrol edin.");
+      });
+    }
+    if (becamePaidForLedger && ledgerTotal > 0) {
+      await postJournalEntry({
+        workspaceUserId: ws.workspaceUserId,
+        businessId: ws.businessId ?? undefined,
+        postedBy: "system",
+        memo: `Invoice ${invoice.invoiceNumber} paid`,
+        sourceRef: `invoice:paid:${params.id}`,
+        lines: [
+          { accountCode: "1000", debit: ledgerTotal },
+          { accountCode: "1200", credit: ledgerTotal },
+        ],
+      }).catch((e) => {
+        console.error("Ledger post (invoice paid) failed:", e);
+        ledgerWarning = tri(lang, "فاکتور به‌عنوان پرداخت‌شده ثبت شد ولی ثبت آن در حسابداری با خطا مواجه شد — لطفاً دفترکل را بررسی کنید.", "The invoice was marked paid, but posting it to Accounting failed — please check the ledger.", "Die Rechnung wurde als bezahlt markiert, aber die Buchung in der Buchhaltung ist fehlgeschlagen — bitte prüfen Sie das Hauptbuch.", "Fatura ödendi olarak işaretlendi ancak muhasebeye kaydedilirken hata oluştu — lütfen defteri kontrol edin.");
+      });
+    }
+
+    return NextResponse.json({ invoice, ledgerWarning });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "خطا در ویرایش فاکتور" }, { status: 400 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : tri(lang, "خطا در ویرایش فاکتور", "Failed to update invoice", "Fehler beim Aktualisieren der Rechnung") }, { status: 400 });
   }
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
-  if (!hasCrmAccess(ws)) return NextResponse.json({ error: "این قابلیت نیاز به خرید افزونه CRM دارد" }, { status: 402 });
+  const lang = await getServerLang();
+  if (!hasCrmAccess(ws)) return NextResponse.json({ error: tri(lang, "این قابلیت نیاز به خرید افزونه CRM دارد", "This feature requires the CRM add-on", "Diese Funktion erfordert das CRM-Add-on") }, { status: 402 });
 
   const existing = await prisma.crmInvoice.findFirst({
     where: { id: params.id, userId: ws.workspaceUserId, ...(ws.isAgentRestricted ? { contact: { assignedToId: ws.actingUserId } } : {}) },
   });
-  if (!existing) return NextResponse.json({ error: "پیدا نشد" }, { status: 404 });
+  if (!existing) return NextResponse.json({ error: tri(lang, "پیدا نشد", "Not found", "Nicht gefunden") }, { status: 404 });
 
   await prisma.$transaction([
     prisma.crmInvoiceRevision.deleteMany({ where: { invoiceId: params.id } }),

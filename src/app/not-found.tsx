@@ -1,30 +1,8 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
-
+import { getServerLang } from "@/lib/i18n/server";
+import { copy, text } from "@/lib/marketing/catalog";
+import PublicShell from "@/components/marketing/PublicShell";
 export default async function NotFound() {
-  const cookieStore = await cookies();
-  const isFa = cookieStore.get("lang")?.value !== "en";
-
-  return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center"
-      style={{ background: "var(--surface-0)", color: "var(--text-primary)" }}
-      dir={isFa ? "rtl" : "ltr"}
-    >
-      <h1 className="text-6xl font-bold mb-4" style={{ color: "var(--primary)" }}>
-        404
-      </h1>
-      <p className="text-xl mb-2">{isFa ? "صفحه پیدا نشد" : "Page not found"}</p>
-      <p className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>
-        {isFa ? "صفحه‌ای که دنبالش هستید وجود ندارد" : "The page you're looking for doesn't exist"}
-      </p>
-      <Link
-        href="/"
-        className="px-6 py-3 rounded-xl font-medium text-white"
-        style={{ background: "var(--primary)" }}
-      >
-        {isFa ? "بازگشت به خانه" : "Back to home"}
-      </Link>
-    </div>
-  );
+  const lang = await getServerLang();
+  return <PublicShell lang={lang}><section className="m-detail-hero"><div className="m-container"><span className="m-eyebrow">404 / AIFekr</span><h1>{text(lang, ["این صفحه پیدا نشد.", "This page wasn't found.", "Diese Seite wurde nicht gefunden.", "Bu sayfa bulunamadı."])}</h1><p>{text(lang, ["از صفحهٔ اصلی یا فهرست قابلیت‌ها مسیرتان را ادامه دهید.", "Continue from the homepage or explore our features.", "Von der Startseite aus fortfahren oder Funktionen entdecken.", "Ana sayfadan devam edin veya özellikleri keşfedin."])}</p><div className="m-actions"><Link className="m-button" href="/">{text(lang, copy.explore)}</Link><Link className="m-button m-secondary" href="/contact">{text(lang, copy.contact)}</Link></div></div></section></PublicShell>;
 }

@@ -3,12 +3,12 @@
 // reliably (scheduler + Graph API calls) — lower plans get the same AI
 // content generation but must publish manually.
 export function canAutoPublish(plan: string): boolean {
-  return plan === "PRO" || plan === "TEAM";
+  return ["PRO", "ALPHA", "TEAM", "PRO_USD", "ULTRA_USD"].includes(plan);
 }
 
 /// CRM: FREE/ECHO get a capped contact list to try the feature; PLUS and up
 /// get unlimited. -1 means unlimited, matching the convention in planLimits.ts.
 export function crmContactLimit(plan: string): number {
-  if (plan === "FREE" || plan === "ECHO") return 20;
+  if (plan === "FREE" || plan === "ECHO" || plan.startsWith("STUDENT_")) return 20;
   return -1;
 }

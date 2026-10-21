@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { verifyToken } from "@/lib/auth/jwt";
 import { prisma } from "@/lib/db/prisma";
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import AdminNavShell from "@/components/admin/AdminNavShell";
+import "./admin.css";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
@@ -14,19 +16,18 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const payload = verifyToken(token);
   if (!payload) redirect("/login");
 
-  if (payload.role !== "ADMIN" && payload.role !== "SUPER_ADMIN") redirect("/chat");
-
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { name: true, role: true },
+    select: { name: true, role: true, isBlocked: true },
   });
 
+  if (!user || user.isBlocked) redirect("/login");
+  if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") redirect("/chat");
+
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: "var(--surface-0)" }}>
-      <AdminSidebar adminName={user?.name || "ادمین"} role={user?.role || "ADMIN"} />
-      <main className="flex-1 overflow-y-auto">
-        {children}
-      </main>
+    <div className="platform-shell admin-shell flex h-screen overflow-hidden" style={{ background: "var(--surface-0)" }}>
+      <AdminNavShell sidebar={<AdminSidebar adminName={user?.name || "ادمین"} role={user?.role || "ADMIN"} />}>{children}</AdminNavShell>
     </div>
   );
 }
+export const metadata = { robots: { index: false, follow: false } };

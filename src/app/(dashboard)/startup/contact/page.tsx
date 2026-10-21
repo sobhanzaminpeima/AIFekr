@@ -141,7 +141,7 @@ export default function StartupContactPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.name}</label>
-              <input
+              <input aria-label={t.name}
                 required
                 value={form.name}
                 onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
@@ -151,7 +151,7 @@ export default function StartupContactPage() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.email}</label>
-              <input
+              <input aria-label={t.email}
                 required
                 type="email"
                 dir="ltr"
@@ -163,7 +163,7 @@ export default function StartupContactPage() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.phone}</label>
-              <input
+              <input aria-label={t.phone}
                 dir="ltr"
                 value={form.phone}
                 onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
@@ -173,7 +173,7 @@ export default function StartupContactPage() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.startupName}</label>
-              <input
+              <input aria-label={t.startupName}
                 value={form.startupName}
                 onChange={(e) => setForm((p) => ({ ...p, startupName: e.target.value }))}
                 className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
@@ -183,7 +183,7 @@ export default function StartupContactPage() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.message}</label>
-            <textarea
+            <textarea aria-label={t.message}
               required
               rows={5}
               value={form.message}

@@ -4,13 +4,15 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { canAutoPublish } from "@/lib/utils/planGates";
 import { normalizeLinks } from "@/lib/utils/campaignLinks";
+import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
+import { instagramWorkspaceScope } from "@/lib/instagram/workspaceScope";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const campaigns = await prisma.instagramCommentCampaign.findMany({
-    where: { userId: user.id },
+    where: { userId: user.id, ...instagramWorkspaceScope(await activeBusinessIdFor(user.id)) },
     orderBy: { createdAt: "desc" },
   });
   return NextResponse.json({ campaigns });
@@ -18,23 +20,34 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   if (!canAutoPublish(user.plan)) {
     return NextResponse.json({ error: "این قابلیت فقط برای پلن‌های پرو و تیم فعال است" }, { status: 403 });
   }
 
-  const conn = await prisma.instagramConnection.findUnique({ where: { userId: user.id } });
+  const businessId = await activeBusinessIdFor(user.id);
+  const conn = await prisma.instagramConnection.findFirst({ where: { userId: user.id, businessId } });
   if (!conn) return NextResponse.json({ error: "اینستاگرام متصل نیست" }, { status: 400 });
 
-  const { keyword, dmMessage, publicReplyMessage, postId, links, followGateEnabled, followGatePrompt } = await req.json().catch(() => ({}));
+  const { name, keyword, dmMessage, publicReplyMessage, postId, links, followGateEnabled, followGatePrompt } = await req.json().catch(() => ({}));
   if (!keyword?.trim() || !dmMessage?.trim()) {
     return NextResponse.json({ error: "کلمه کلیدی و پیام دایرکت الزامی است" }, { status: 400 });
+  }
+  // Keep older clients compatible: a descriptive campaign name is now
+  // supported, while legacy callers can safely fall back to their keyword.
+  const campaignName = typeof name === "string" && name.trim()
+    ? name.trim()
+    : String(keyword).trim().slice(0, 80);
+  if (campaignName.length > 80) {
+    return NextResponse.json({ error: "نام کمپین باید حداکثر ۸۰ نویسه باشد" }, { status: 400 });
   }
 
   const campaign = await prisma.instagramCommentCampaign.create({
     data: {
       userId: user.id,
+      businessId,
+      name: campaignName,
       keyword: String(keyword).trim(),
       dmMessage: String(dmMessage).trim(),
       publicReplyMessage: publicReplyMessage?.trim() || null,

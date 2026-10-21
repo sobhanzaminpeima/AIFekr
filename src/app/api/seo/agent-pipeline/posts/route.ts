@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const posts = await prisma.contentPost.findMany({
     where: { userId: user.id },
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { postId, heroImageUrl } = await req.json().catch(() => ({}));
   if (!postId || !heroImageUrl) return NextResponse.json({ error: "پارامترها ناقص است" }, { status: 400 });

@@ -2,13 +2,18 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Script from "next/script";
-import { Share2, Copy, Check, Calendar, Camera, Zap, Loader2, Image as ImageIcon, Upload, Wand2, X, TrendingUp, Users, Heart, MessageCircle, Sparkles, ExternalLink, PenLine, ChevronLeft, Clock, Link2, Printer, Megaphone, Target, CheckCircle2, BarChart3, Activity, Video } from "lucide-react";
+import { Share2, Copy, Check, Calendar, Camera, Zap, Loader2, Image as ImageIcon, Upload, Wand2, X, TrendingUp, Users, Heart, MessageCircle, Sparkles, ExternalLink, PenLine, ChevronLeft, Clock, Link2, Printer, Megaphone, Target, CheckCircle2, BarChart3, Activity, Video, Send, Inbox } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
+import { downscaleImage } from "@/lib/image/downscaleImage";
 import { toJalali } from "@/lib/utils/jalali";
 import JalaliDateTimePicker from "@/components/ui/JalaliDateTimePicker";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import BrandProfileCard from "@/components/social/BrandProfileCard";
+import GrowthInsights, { type SocialAnalysisView } from "@/components/social/GrowthInsights";
+import CreditCost from "@/components/ui/CreditCost";
+import InstagramCommentAutomationBuilder from "@/components/social/InstagramCommentAutomationBuilder";
 
 declare global {
   interface Window {
@@ -67,7 +72,7 @@ function splitReportSections(markdown: string): { title: string; body: string }[
 
 export default function SocialPage() {
   const { t, lang } = useTranslation();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const TONES = [
     { value: "Professional", label: t.social.tones.professional },
     { value: "Casual", label: t.social.tones.casual },
@@ -86,6 +91,8 @@ export default function SocialPage() {
   });
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
+  const [contentIdeas, setContentIdeas] = useState<{ ideas: { title: string; format: string; why: string }[]; isGeneric: boolean } | null>(null);
+  const [showIdeas, setShowIdeas] = useState(false);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -148,6 +155,19 @@ export default function SocialPage() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    fetch("/api/social/content-ideas", { credentials: "include" })
+      .then(async (r) => {
+        const data = await r.json();
+        // An error body (e.g. a stale request landing right after logout, or
+        // a 401) has no `.ideas` array -- setting it anyway crashed the page
+        // later with "Cannot read properties of undefined (reading 'length')"
+        // at contentIdeas.ideas.length below.
+        if (r.ok && Array.isArray(data.ideas)) setContentIdeas(data);
+      })
+      .catch(() => {});
+  }, []);
+
   const [videoProviders, setVideoProviders] = useState<{ id: string; name: string }[]>([]);
   const [videoModel, setVideoModel] = useState<string>("qwen");
 
@@ -182,7 +202,8 @@ export default function SocialPage() {
 
   // ── 7-day content calendar ──────────────────────────────────────────────
   const [calendarGenerating, setCalendarGenerating] = useState(false);
-  const [calendarDays, setCalendarDays] = useState<{ dayOffset: number; date: Date; caption: string; hashtags: string[]; scheduling: boolean; scheduled: boolean }[] | null>(null);
+  const [calendarDays, setCalendarDays] = useState<{ dayOffset: number; date: Date; caption: string; hashtags: string[]; imageUrl: string | null; scheduling: boolean; scheduled: boolean }[] | null>(null);
+  const [calendarGenerateImages, setCalendarGenerateImages] = useState(false);
 
   async function generateCalendar() {
     if (!form.brandName || !form.topic) return toast.error(t.common.error);
@@ -200,9 +221,24 @@ export default function SocialPage() {
         const date = new Date(today);
         date.setDate(date.getDate() + 1 + p.dayOffset);
         date.setHours(19, 0, 0, 0);
-        return { dayOffset: p.dayOffset, date, caption: p.caption, hashtags: p.hashtags, scheduling: false, scheduled: false };
+        return { dayOffset: p.dayOffset, date, caption: p.caption, hashtags: p.hashtags, imageUrl: null, scheduling: false, scheduled: false };
       });
       setCalendarDays(days);
+      // If user wants images, generate them after calendar is ready
+      if (calendarGenerateImages && window.puter) {
+        for (let i = 0; i < days.length; i++) {
+          const day = days[i];
+          const prompt = tri(lang,
+            `یک تصویر اینستاگرامی حرفه‌ای برای پست: "${day.caption.slice(0, 100)}" — سبک بصری تمیز و مدرن، مناسب برای انتشار در شبکه اجتماعی، بدون متن روی تصویر.`,
+            `A professional Instagram image for a post: "${day.caption.slice(0, 100)}" — clean modern visual style, suitable for social media, no text on image.`,
+            `Ein professionelles Instagram-Bild für einen Beitrag: "${day.caption.slice(0, 100)}" — sauberer moderner visueller Stil, geeignet für soziale Medien, kein Text auf dem Bild.`
+          );
+          try {
+            const imgEl = await window.puter.ai.txt2img(prompt, { model: "gpt-image-1-mini" });
+            setCalendarDays((prev) => prev && prev.map((d) => (d.dayOffset === day.dayOffset ? { ...d, imageUrl: imgEl.src } : d)));
+          } catch {}
+        }
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t.common.error);
     } finally {
@@ -214,6 +250,32 @@ export default function SocialPage() {
     setCalendarDays((prev) => prev && prev.map((d) => (d.dayOffset === dayOffset ? { ...d, ...patch } : d)));
   }
 
+  async function generateCalendarImage(dayOffset: number) {
+    if (!window.puter) return;
+    setCalendarDays((prev) => prev && prev.map((d) => (d.dayOffset === dayOffset ? { ...d, scheduling: true } : d)));
+    try {
+      const day = calendarDays?.find((d) => d.dayOffset === dayOffset);
+      if (!day) return;
+      const prompt = tri(lang,
+        `یک تصویر اینستاگرامی حرفه‌ای برای پست: "${day.caption.slice(0, 100)}" — سبک بصری تمیز و مدرن، مناسب برای انتشار در شبکه اجتماعی، بدون متن روی تصویر.`,
+        `A professional Instagram image for a post: "${day.caption.slice(0, 100)}" — clean modern visual style, suitable for social media, no text on image.`,
+        `Ein professionelles Instagram-Bild für einen Beitrag: "${day.caption.slice(0, 100)}" — sauberer moderner visueller Stil, geeignet für soziale Medien, kein Text auf dem Bild.`
+      );
+      const imgEl = await window.puter.ai.txt2img(prompt, { model: "gpt-image-1-mini" });
+      setCalendarDays((prev) => prev && prev.map((d) => (d.dayOffset === dayOffset ? { ...d, imageUrl: imgEl.src, scheduling: false } : d)));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t.common.error);
+      setCalendarDays((prev) => prev && prev.map((d) => (d.dayOffset === dayOffset ? { ...d, scheduling: false } : d)));
+    }
+  }
+
+  async function generateAllCalendarImages() {
+    if (!calendarDays) return;
+    for (const day of calendarDays) {
+      if (!day.imageUrl) await generateCalendarImage(day.dayOffset);
+    }
+  }
+
   async function scheduleCalendarDay(dayOffset: number) {
     const day = calendarDays?.find((d) => d.dayOffset === dayOffset);
     if (!day) return;
@@ -223,7 +285,7 @@ export default function SocialPage() {
       const scheduledFor = `${day.date.getFullYear()}-${pad(day.date.getMonth() + 1)}-${pad(day.date.getDate())}T${pad(day.date.getHours())}:${pad(day.date.getMinutes())}`;
       const r = await fetch("/api/social/instagram/schedule", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caption: day.caption, hashtags: day.hashtags, imageUrl: null, scheduledFor, mode: "manual" }),
+        body: JSON.stringify({ caption: day.caption, hashtags: day.hashtags, imageUrl: day.imageUrl, scheduledFor, mode: "manual" }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
@@ -258,7 +320,10 @@ export default function SocialPage() {
     igUsername: string | null;
     current: { followersCount: number; mediaCount: number } | null;
     trend: { date: string; followersCount: number; mediaCount: number }[];
-    recentMedia: { id: string; caption: string | null; mediaType: string; mediaUrl: string | null; thumbnailUrl: string | null; permalink: string; timestamp: string; likeCount: number; commentsCount: number }[];
+    recentMedia: { id: string; caption: string | null; mediaType: string; mediaProductType?: string | null; mediaUrl: string | null; thumbnailUrl: string | null; permalink: string; timestamp: string; likeCount: number; commentsCount: number; views?: number | null; reach?: number | null; saved?: number | null; shares?: number | null }[];
+    mediaBreakdown?: { type: string; count: number; totalLikes: number; totalComments: number; totalViews: number; totalReach: number; avgLikes: number; avgComments: number; avgViews: number }[];
+    analysis?: SocialAnalysisView | null;
+    mediaError?: string | null;
   } | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [aiReport, setAiReport] = useState("");
@@ -297,12 +362,12 @@ export default function SocialPage() {
   // ── Comment → DM auto-reply campaigns ────────────────────────────────────
   type CampaignLink = { id: string; label: string; url: string; clicks: number };
   type CampaignLog = { id: string; commenterUsername: string | null; status: string; error: string | null; createdAt: string };
-  const [campaigns, setCampaigns] = useState<{ id: string; keyword: string; dmMessage: string; publicReplyMessage: string | null; links: string | null; postId: string | null; followGateEnabled: boolean; followGatePrompt: string | null; isActive: boolean; triggerCount: number }[]>([]);
+  const [campaigns, setCampaigns] = useState<{ id: string; name: string; keyword: string; dmMessage: string; publicReplyMessage: string | null; links: string | null; postId: string | null; followGateEnabled: boolean; followGatePrompt: string | null; isActive: boolean; triggerCount: number }[]>([]);
   const [campaignsLoading, setCampaignsLoading] = useState(false);
   const [newKeyword, setNewKeyword] = useState("");
   const [newDmMessage, setNewDmMessage] = useState("");
   const [newPublicReply, setNewPublicReply] = useState("");
-  const [newPostId, setNewPostId] = useState(""); // "" = applies to every post
+  const [newPostId, setNewPostId] = useState("");
   const [newFollowGate, setNewFollowGate] = useState(false);
   const [newFollowGatePrompt, setNewFollowGatePrompt] = useState("");
   const [newLink1Label, setNewLink1Label] = useState("");
@@ -313,6 +378,129 @@ export default function SocialPage() {
   const [openLogsFor, setOpenLogsFor] = useState<string | null>(null);
   const [campaignLogs, setCampaignLogs] = useState<CampaignLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
+
+  // ── Native SaaS Auto Direct rules ──────────────────────────────────────
+  type DirectRule = { id: string; name: string; triggerType: "keyword" | "all_messages" | "ai_fallback"; keywords: string; response: string; followGateEnabled: boolean; typingIndicatorEnabled: boolean; delayMinSeconds: number; delayMaxSeconds: number; isActive: boolean; triggerCount: number };
+  type DirectLog = { id: string; senderId: string; direction: "inbound" | "outbound"; text: string | null; replyText: string | null; status: string; error: string | null; createdAt: string };
+  const [directRules, setDirectRules] = useState<DirectRule[]>([]);
+  const [directLogs, setDirectLogs] = useState<DirectLog[]>([]);
+  const [directLoading, setDirectLoading] = useState(false);
+  const [subscribingInstagram, setSubscribingInstagram] = useState(false);
+  const [instagramWebhookStatus, setInstagramWebhookStatus] = useState<"checking" | "active" | "inactive" | "unknown">("unknown");
+  const [savingDirectRule, setSavingDirectRule] = useState(false);
+  const [directName, setDirectName] = useState("");
+  const [directKeywords, setDirectKeywords] = useState("");
+  const [directResponse, setDirectResponse] = useState("");
+  const [directFallback, setDirectFallback] = useState(false);
+  const [directAiFallback, setDirectAiFallback] = useState(false);
+  const [directFollowGate, setDirectFollowGate] = useState(false);
+  const [directTypingIndicator, setDirectTypingIndicator] = useState(false);
+  const [directDelayRange, setDirectDelayRange] = useState("0:0");
+  const [selectedDirectSender, setSelectedDirectSender] = useState("");
+  const [directReplyDraft, setDirectReplyDraft] = useState("");
+  const [sendingDirectReply, setSendingDirectReply] = useState(false);
+  const directReplyAttemptRef = useRef<{ text: string; id: string } | null>(null);
+
+  const loadDirectRules = useCallback(async () => {
+    setDirectLoading(true);
+    try {
+      const r = await fetch("/api/social/instagram/direct-rules", { credentials: "include" });
+      const d = await r.json();
+      if (r.ok) {
+        setDirectRules(d.rules || []);
+        const messages = d.recentMessages || [];
+        setDirectLogs(messages);
+        setSelectedDirectSender((current) => current || messages.find((message: DirectLog) => message.direction === "inbound")?.senderId || "");
+      }
+    } catch {} finally { setDirectLoading(false); }
+  }, []);
+
+  async function createDirectRule() {
+    if (!directName.trim() || !directResponse.trim() || (!directFallback && !directAiFallback && !directKeywords.trim())) {
+      return toast.error(tri(lang, "نام، پاسخ و کلمه کلیدی الزامی است", "Name, response and a keyword are required", "Name, Antwort und Schlüsselwort sind erforderlich"));
+    }
+    setSavingDirectRule(true);
+    try {
+      const r = await fetch("/api/social/instagram/direct-rules", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: directName, triggerType: directAiFallback ? "ai_fallback" : directFallback ? "all_messages" : "keyword", keywords: directKeywords, response: directResponse, followGateEnabled: directFollowGate, typingIndicatorEnabled: directTypingIndicator, delayMinSeconds: Number(directDelayRange.split(":")[0]), delayMaxSeconds: Number(directDelayRange.split(":")[1]) }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      setDirectName(""); setDirectKeywords(""); setDirectResponse(""); setDirectFallback(false); setDirectAiFallback(false); setDirectFollowGate(false); setDirectTypingIndicator(false); setDirectDelayRange("0:0");
+      toast.success(tri(lang, "قانون دایرکت فعال شد", "Auto Direct rule is active", "Auto-Direct-Regel ist aktiv"));
+      loadDirectRules();
+    } catch (error) { toast.error(error instanceof Error ? error.message : t.common.error); }
+    finally { setSavingDirectRule(false); }
+  }
+
+  async function updateDirectRule(id: string, isActive: boolean) {
+    setDirectRules((rules) => rules.map((rule) => rule.id === id ? { ...rule, isActive } : rule));
+    const r = await fetch(`/api/social/instagram/direct-rules/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive }) });
+    if (!r.ok) loadDirectRules();
+  }
+
+  async function deleteDirectRule(id: string) {
+    const r = await fetch(`/api/social/instagram/direct-rules/${id}`, { method: "DELETE", credentials: "include" });
+    if (r.ok) setDirectRules((rules) => rules.filter((rule) => rule.id !== id)); else toast.error(t.common.error);
+  }
+
+  async function sendDirectReply() {
+    const text = directReplyDraft.trim();
+    if (!selectedDirectSender || !text || sendingDirectReply) return;
+    if (!directReplyAttemptRef.current || directReplyAttemptRef.current.text !== text) {
+      directReplyAttemptRef.current = { text, id: globalThis.crypto.randomUUID() };
+    }
+    setSendingDirectReply(true);
+    try {
+      const r = await fetch("/api/social/instagram/inbox/reply", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientId: selectedDirectSender, text, requestId: directReplyAttemptRef.current.id }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || t.common.error);
+      setDirectReplyDraft("");
+      directReplyAttemptRef.current = null;
+      await loadDirectRules();
+      toast.success(tri(lang, "پاسخ ارسال شد", "Reply sent", "Antwort gesendet"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t.common.error);
+    } finally {
+      setSendingDirectReply(false);
+    }
+  }
+
+  async function enableDirectWebhooks() {
+    setSubscribingInstagram(true);
+    try {
+      const r = await fetch("/api/social/instagram/webhooks/subscribe", { method: "POST", credentials: "include" });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      setInstagramWebhookStatus(d.subscribed ? "active" : "inactive");
+      toast.success(tri(lang, "دریافت پیام‌های اینستاگرام فعال شد", "Instagram message events are enabled", "Instagram-Nachrichtenereignisse sind aktiviert"));
+    } catch (error) {
+      setInstagramWebhookStatus("inactive");
+      toast.error(error instanceof Error ? error.message : t.common.error);
+    }
+    finally { setSubscribingInstagram(false); }
+  }
+
+  useEffect(() => {
+    if (!igConnected) {
+      setInstagramWebhookStatus("unknown");
+      return;
+    }
+    let cancelled = false;
+    setInstagramWebhookStatus("checking");
+    fetch("/api/social/instagram/webhooks/subscribe", { credentials: "include" })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Webhook status unavailable");
+        if (!cancelled) setInstagramWebhookStatus(data.subscribed ? "active" : "inactive");
+      })
+      .catch(() => { if (!cancelled) setInstagramWebhookStatus("unknown"); });
+    return () => { cancelled = true; };
+  }, [igConnected]);
 
   function parseCampaignLinks(links: string | null): CampaignLink[] {
     if (!links) return [];
@@ -340,34 +528,29 @@ export default function SocialPage() {
     finally { setCampaignsLoading(false); }
   }, []);
 
+  // Retained for compatibility with the legacy form markup while the visual
+  // builder is introduced; the visible builder owns its own validated submit.
   async function createCampaign() {
-    if (!newKeyword.trim() || !newDmMessage.trim()) return toast.error(isFa ? "کلمه کلیدی و پیام دایرکت الزامی است" : "Keyword and DM message are required");
     setSavingCampaign(true);
     try {
       const links = [
         { label: newLink1Label, url: newLink1Url },
         { label: newLink2Label, url: newLink2Url },
-      ].filter((l) => l.label.trim() && l.url.trim());
-      const r = await fetch("/api/social/instagram/campaigns", {
-        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+      ].filter((link) => link.label.trim() && link.url.trim());
+      const response = await fetch("/api/social/instagram/campaigns", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          name: newKeyword.trim() || "Instagram comment automation",
           keyword: newKeyword, dmMessage: newDmMessage, publicReplyMessage: newPublicReply || undefined,
-          links: links.length > 0 ? links : undefined, postId: newPostId || undefined,
-          followGateEnabled: newFollowGate, followGatePrompt: newFollowGate ? (newFollowGatePrompt || undefined) : undefined,
+          links: links.length ? links : undefined, postId: newPostId || undefined,
+          followGateEnabled: newFollowGate, followGatePrompt: newFollowGate ? newFollowGatePrompt || undefined : undefined,
         }),
       });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error);
-      toast.success(isFa ? "کمپین ساخته شد" : "Campaign created");
-      setNewKeyword(""); setNewDmMessage(""); setNewPublicReply(""); setNewPostId("");
-      setNewLink1Label(""); setNewLink1Url(""); setNewLink2Label(""); setNewLink2Url("");
-      setNewFollowGate(false); setNewFollowGatePrompt("");
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || t.common.error);
       loadCampaigns();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.common.error);
-    } finally {
-      setSavingCampaign(false);
-    }
+    } catch (error) { toast.error(error instanceof Error ? error.message : t.common.error); }
+    finally { setSavingCampaign(false); }
   }
 
   async function toggleCampaign(id: string, isActive: boolean) {
@@ -400,14 +583,20 @@ export default function SocialPage() {
 
   const [disconnectingIg, setDisconnectingIg] = useState(false);
   async function disconnectInstagram() {
-    if (!confirm(isFa ? "اتصال اینستاگرام قطع بشه؟ کمپین‌ها و تنظیمات باقی می‌مونن." : "Disconnect Instagram? Your campaigns and settings will stay.")) return;
+    if (!confirm(tri(lang, "اتصال اینستاگرام قطع بشه؟ کمپین‌ها و تنظیمات باقی می‌مونن.", "Disconnect Instagram? Your campaigns and settings will stay.", "Instagram trennen? Ihre Kampagnen und Einstellungen bleiben erhalten."))) return;
     setDisconnectingIg(true);
     try {
       const r = await fetch("/api/social/instagram/status", { method: "DELETE", credentials: "include" });
       if (!r.ok) throw new Error();
       setIgConnected(false);
       setIgUsername(null);
-      toast.success(isFa ? "اتصال اینستاگرام قطع شد" : "Instagram disconnected");
+      // Scheduled posts and analytics belonged to the account that was just
+      // disconnected -- leaving them on screen made it look like they'd
+      // carry over to whichever account gets connected next.
+      setPosts([]);
+      setAnalytics(null);
+      setCanAuto(false);
+      toast.success(tri(lang, "اتصال اینستاگرام قطع شد", "Instagram disconnected", "Instagram getrennt"));
     } catch {
       toast.error(t.common.error);
     } finally {
@@ -426,7 +615,7 @@ export default function SocialPage() {
   }, [loadIgStatus]);
 
   useEffect(() => {
-    if (igConnected) { loadAnalytics(); loadCampaigns(); }
+    if (igConnected) { loadAnalytics(); loadCampaigns(); loadDirectRules(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [igConnected]);
 
@@ -435,8 +624,9 @@ export default function SocialPage() {
     if (!file) return;
     setRefUploading(true);
     try {
+      const compressed = await downscaleImage(file);
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", compressed);
       const res = await fetch("/api/upload", { method: "POST", body: form });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -541,7 +731,7 @@ export default function SocialPage() {
       : `A short, professional, eye-catching Instagram Reel video for the business "${form.brandName}" about "${form.topic}", ${form.tone} visual style, social-media ready.`;
 
     setVideoGenerating(true);
-    setVideoGenStatus(isFa ? "در حال ارسال درخواست..." : "Sending request...");
+    setVideoGenStatus(tri(lang, "در حال ارسال درخواست...", "Sending request...", "Anfrage wird gesendet..."));
     try {
       const res = await fetch("/api/video/generate", {
         method: "POST",
@@ -551,7 +741,7 @@ export default function SocialPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t.common.error);
 
-      setVideoGenStatus(isFa ? "در حال پردازش ویدیو..." : "Processing video...");
+      setVideoGenStatus(tri(lang, "در حال پردازش ویدیو...", "Processing video...", "Video wird verarbeitet..."));
       const { predictionId, videoId } = data;
       const maxAttempts = 40; // 40 * 6s = 4 minutes
       for (let i = 0; i < maxAttempts; i++) {
@@ -561,12 +751,12 @@ export default function SocialPage() {
         if (statusData.status === "succeeded") {
           setIgVideoUrl(statusData.output);
           setIgImageUrl("");
-          toast.success(isFa ? "ویدیو ساخته شد" : "Video generated");
+          toast.success(tri(lang, "ویدیو ساخته شد", "Video generated", "Video generiert"));
           return;
         }
-        if (statusData.status === "failed") throw new Error(isFa ? "ساخت ویدیو ناموفق بود" : "Video generation failed");
+        if (statusData.status === "failed") throw new Error(tri(lang, "ساخت ویدیو ناموفق بود", "Video generation failed", "Video-Erstellung fehlgeschlagen"));
       }
-      throw new Error(isFa ? "ساخت ویدیو بیش از حد طول کشید" : "Video generation took too long");
+      throw new Error(tri(lang, "ساخت ویدیو بیش از حد طول کشید", "Video generation took too long", "Video-Erstellung hat zu lange gedauert"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t.common.error);
     } finally {
@@ -583,22 +773,38 @@ export default function SocialPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ businessName: form.brandName, businessType: form.platform, topic: form.topic, language: lang, model: textModel }),
       });
-      let d: { caption?: string; hashtags?: string[]; bestTime?: string; error?: string };
+      let d: { caption?: string; hashtags?: string[]; bestTime?: string; error?: string; quality?: { score: number; band: string; findings: { code: string }[] } };
       try {
         d = await r.json();
       } catch {
         // A gateway/proxy timeout returns an HTML error page instead of JSON — surface
         // a plain-language message instead of a raw "Unexpected token '<'" parse error.
-        throw new Error(isFa ? "پاسخ سرور خیلی طول کشید. دوباره امتحان کن." : "The server took too long to respond. Please try again.");
+        throw new Error(tri(lang, "پاسخ سرور خیلی طول کشید. دوباره امتحان کن.", "The server took too long to respond. Please try again.", "Der Server hat zu lange geantwortet. Bitte versuchen Sie es erneut."));
       }
       if (!r.ok) throw new Error(d.error || t.common.error);
       setIgCaption(d.caption || "");
       setIgHashtags(d.hashtags || []);
       setIgBestTime(d.bestTime || "");
       setWizardStep(2);
+      // Grade what was generated so the owner can judge it before scheduling.
+      refreshQuality(d.caption || "", d.hashtags || []);
     } catch (e) { toast.error(e instanceof Error ? e.message : t.common.error); }
     finally { setIgGenerating(false); }
   }
+
+  // ── Content quality (deterministic, server-side rules) ───────────────────
+  const [quality, setQuality] = useState<{ score: number; band: string; findings: { code: string; message: string }[] } | null>(null);
+
+  const refreshQuality = useCallback(async (caption: string, hashtags: string[], format?: string | null) => {
+    if (!caption.trim()) { setQuality(null); return; }
+    try {
+      const r = await fetch("/api/social/quality", {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ caption, hashtags, format: format ?? null }),
+      });
+      if (r.ok) setQuality(await r.json());
+    } catch { /* advisory only — never block the wizard on this */ }
+  }, []);
 
   function confirmManualContent() {
     if (!igCaption.trim()) return toast.error(t.common.error);
@@ -640,12 +846,12 @@ export default function SocialPage() {
   }
 
   async function cancelScheduledPost(postId: string) {
-    if (!confirm(isFa ? "این پست از صف انتشار حذف بشه؟" : "Remove this post from the publish queue?")) return;
+    if (!confirm(tri(lang, "این پست از صف انتشار حذف بشه؟", "Remove this post from the publish queue?", "Diesen Beitrag aus der Veröffentlichungswarteschlange entfernen?"))) return;
     try {
       const r = await fetch(`/api/social/instagram/schedule/${postId}`, { method: "DELETE", credentials: "include" });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
-      toast.success(isFa ? "پست لغو شد" : "Post cancelled");
+      toast.success(tri(lang, "پست لغو شد", "Post cancelled", "Beitrag abgebrochen"));
       setPosts((ps) => ps.filter((p) => p.id !== postId));
     } catch (e) { toast.error(e instanceof Error ? e.message : t.common.error); }
   }
@@ -686,6 +892,9 @@ export default function SocialPage() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  const directSenders = Array.from(new Set(directLogs.filter((message) => message.direction === "inbound").map((message) => message.senderId)));
+  const selectedDirectMessages = directLogs.filter((message) => message.senderId === selectedDirectSender).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
   return (
     <div className="min-h-screen p-6" style={{ background: "var(--surface-0)" }}>
       <Script src="https://js.puter.com/v2/" strategy="afterInteractive" onReady={() => setPuterReady(true)} />
@@ -701,12 +910,48 @@ export default function SocialPage() {
           </div>
         </div>
 
+        {/* Describe the page once — pre-filled from Business Doctor — and every
+            caption, calendar and report below is generated against it. */}
+        <BrandProfileCard lang={lang} />
+
+        {/* Content-format suggestions — framed honestly as proven patterns for
+            this industry, never "trending now" (no live trend-data source exists). */}
+        {contentIdeas && contentIdeas.ideas.length > 0 && (
+          <div className="rounded-2xl p-4 mb-6" style={{ background: "rgba(139,92,246,0.06)", border: "1px solid rgba(139,92,246,0.2)" }}>
+            <button onClick={() => setShowIdeas((v) => !v)} className="w-full flex items-center justify-between text-right">
+              <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                <Sparkles className="w-4 h-4 text-violet-400" />
+                {isFa ? "پیشنهاد فرمت محتوای پرتعامل — می‌خوای امتحان کنیم؟" : lang === "de" ? "Vorschlag für engagement-starke Formate — möchten Sie es ausprobieren?" : "Suggested engaging content formats — want to try one?"}
+              </span>
+              <ChevronLeft className="w-4 h-4 transition-transform" style={{ color: "var(--text-muted)", transform: showIdeas ? "rotate(-90deg)" : "none" }} />
+            </button>
+            {showIdeas && (
+              <div className="mt-3 space-y-2">
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  {isFa
+                    ? `بر اساس بهترین‌های شناخته‌شدهٔ ${contentIdeas.isGeneric ? "شبکه‌های اجتماعی" : "این صنعت"} — نه لزوماً ترند همین هفته:`
+                    : lang === "de"
+                    ? `Basierend auf bekannten Best Practices ${contentIdeas.isGeneric ? "für Social Media" : "dieser Branche"} — nicht unbedingt der aktuelle Trend dieser Woche:`
+                    : `Based on known best practices for ${contentIdeas.isGeneric ? "social media" : "this industry"} — not necessarily this week's trend:`}
+                </p>
+                {contentIdeas.ideas.map((idea, i) => (
+                  <div key={i} className="p-3 rounded-xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+                    <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{idea.title}</p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{idea.format}</p>
+                    <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>💡 {idea.why}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Form */}
         <div className="rounded-2xl p-6 mb-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.social.brandName}</label>
-              <input
+              <input aria-label={t.social.brandName}
                 value={form.brandName}
                 onChange={(e) => setForm({ ...form, brandName: e.target.value })}
                 placeholder={t.social.brandNamePlaceholder}
@@ -716,7 +961,7 @@ export default function SocialPage() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.social.topic}</label>
-              <input
+              <input aria-label={t.social.topic}
                 value={form.topic}
                 onChange={(e) => setForm({ ...form, topic: e.target.value })}
                 placeholder={t.social.topicPlaceholder}
@@ -745,7 +990,7 @@ export default function SocialPage() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.social.tone}</label>
-              <select
+              <select aria-label={t.social.tone}
                 value={form.tone}
                 onChange={(e) => setForm({ ...form, tone: e.target.value })}
                 className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
@@ -754,7 +999,7 @@ export default function SocialPage() {
                 {TONES.map((tone) => <option key={tone.value} value={tone.value}>{tone.label}</option>)}
               </select>
             </div>
-            <div className="flex items-center gap-6">
+            <div className="flex items-center flex-wrap gap-4 gap-y-3">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -776,7 +1021,7 @@ export default function SocialPage() {
               {chatProviders.length > 0 && (
                 <select value={textModel} onChange={(e) => setTextModel(e.target.value)}
                   className="px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-                  <option value="auto">{isFa ? "مدل هوشمند (خودکار)" : "Smart model (auto)"}</option>
+                  <option value="auto">{tri(lang, "مدل هوشمند (خودکار)", "Smart model (auto)", "Intelligentes Modell (auto)")}</option>
                   {chatProviders.map((p) => <option key={p.id} value={p.model}>{p.name}</option>)}
                 </select>
               )}
@@ -790,7 +1035,7 @@ export default function SocialPage() {
               style={{ background: "var(--primary)" }}
             >
               {loading ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Share2 className="w-4 h-4" />}
-              {loading ? t.social.generating : t.social.generate}
+              {loading ? t.social.generating : t.social.generate} <CreditCost feature="social.generate" />
             </button>
             <button
               onClick={() => generate("calendar")}
@@ -801,6 +1046,7 @@ export default function SocialPage() {
               {calendarLoading ? <span className="w-4 h-4 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin" /> : <Calendar className="w-4 h-4" />}
               {t.social.calendar}
             </button>
+              <CreditCost feature="social.generate" />
           </div>
         </div>
 
@@ -841,7 +1087,7 @@ export default function SocialPage() {
                   className="text-xs px-2.5 py-1 rounded-full disabled:opacity-50"
                   style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}
                 >
-                  {disconnectingIg ? <Loader2 className="w-3 h-3 animate-spin" /> : (isFa ? "قطع اتصال" : "Disconnect")}
+                  {disconnectingIg ? <Loader2 className="w-3 h-3 animate-spin" /> : tri(lang, "قطع اتصال", "Disconnect", "Trennen")}
                 </button>
               </div>
             )}
@@ -852,7 +1098,7 @@ export default function SocialPage() {
             <div className="text-center py-10">
               <Link2 className="w-10 h-10 mx-auto mb-3 opacity-40" style={{ color: "var(--text-muted)" }} />
               <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
-                {isFa ? "برای ساخت و انتشار پست، اول اینستاگرامت رو وصل کن." : "Connect your Instagram account first to create and publish posts."}
+                {tri(lang, "برای ساخت و انتشار پست، اول اینستاگرامت رو وصل کن.", "Connect your Instagram account first to create and publish posts.", "Verbinden Sie zuerst Ihr Instagram-Konto, um Beiträge zu erstellen und zu veröffentlichen.")}
               </p>
               <a href="/api/social/instagram/connect" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white" style={{ background: "#e1306c" }}>
                 {t.social.igConnectButton}
@@ -878,10 +1124,10 @@ export default function SocialPage() {
                 ))}
               </div>
               <p className="text-xs font-medium mb-4" style={{ color: "var(--text-muted)" }}>
-                {wizardStep === 1 && (isFa ? "۱. روش ساخت پست" : "1. Choose how to create the post")}
-                {wizardStep === 2 && (isFa ? "۲. تصویر پست" : "2. Post image")}
-                {wizardStep === 3 && (isFa ? "۳. زمان‌بندی انتشار" : "3. Publish timing")}
-                {wizardStep === 4 && (isFa ? "۴. تایید نهایی" : "4. Final review")}
+                {wizardStep === 1 && tri(lang, "۱. روش ساخت پست", "1. Choose how to create the post", "1. Beitragsart wählen")}
+                {wizardStep === 2 && tri(lang, "۲. تصویر پست", "2. Post image", "2. Beitragsbild")}
+                {wizardStep === 3 && tri(lang, "۳. زمان‌بندی انتشار", "3. Publish timing", "3. Veröffentlichungszeitpunkt")}
+                {wizardStep === 4 && tri(lang, "۴. تایید نهایی", "4. Final review", "4. Finale Überprüfung")}
               </p>
 
               {/* Step 1: creation mode */}
@@ -893,29 +1139,29 @@ export default function SocialPage() {
                         className="p-4 rounded-xl text-right flex flex-col items-start gap-2 transition-all hover:opacity-90"
                         style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
                         <Zap className="w-5 h-5" style={{ color: "var(--primary)" }} />
-                        <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{isFa ? "تولید با AI" : "Generate with AI"}</span>
-                        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "کپشن و هشتگ از روی برند و موضوع" : "Caption + hashtags from your brand & topic"}</span>
+                        <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "تولید با AI", "Generate with AI", "Mit KI generieren")}</span>
+                        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "کپشن و هشتگ از روی برند و موضوع", "Caption + hashtags from your brand & topic", "Caption + Hashtags von Ihrer Marke & Ihrem Thema")}</span>
                       </button>
                       <button onClick={() => setCreationMode("recreate")}
                         className="p-4 rounded-xl text-right flex flex-col items-start gap-2 transition-all hover:opacity-90"
                         style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
                         <Wand2 className="w-5 h-5" style={{ color: "var(--primary)" }} />
-                        <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{isFa ? "بازآفرینی از نمونه" : "Recreate from a sample"}</span>
-                        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "آپلود یک پست قبلی، ساخت مشابه آن" : "Upload a past post, build something similar"}</span>
+                        <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "بازآفرینی از نمونه", "Recreate from a sample", "Aus Vorlage nachbauen")}</span>
+                        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "آپلود یک پست قبلی، ساخت مشابه آن", "Upload a past post, build something similar", "Laden Sie einen vergangenen Beitrag hoch, bauen Sie etwas Ähnliches")}</span>
                       </button>
                       <button onClick={() => setCreationMode("manual")}
                         className="p-4 rounded-xl text-right flex flex-col items-start gap-2 transition-all hover:opacity-90"
                         style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
                         <PenLine className="w-5 h-5" style={{ color: "var(--primary)" }} />
-                        <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{isFa ? "نوشتن دستی" : "Write manually"}</span>
-                        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "کپشن و هشتگ خودت رو بنویس" : "Write your own caption and hashtags"}</span>
+                        <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "نوشتن دستی", "Write manually", "Manuell schreiben")}</span>
+                        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "کپشن و هشتگ خودت رو بنویس", "Write your own caption and hashtags", "Schreiben Sie eigene Caption und Hashtags")}</span>
                       </button>
                       <button onClick={() => setCreationMode("calendar")}
                         className="p-4 rounded-xl text-right flex flex-col items-start gap-2 transition-all hover:opacity-90"
                         style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
                         <Calendar className="w-5 h-5" style={{ color: "var(--primary)" }} />
-                        <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{isFa ? "تقویم محتوایی ۷ روزه" : "7-day content calendar"}</span>
-                        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "یک هفته پست، هر روز یک ایده" : "A week of posts, a different idea each day"}</span>
+                        <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "تقویم محتوایی ۷ روزه", "7-day content calendar", "7-Tage-Content-Kalender")}</span>
+                        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "یک هفته پست، هر روز یک ایده", "A week of posts, a different idea each day", "Eine Woche Beiträge, jeden Tag eine neue Idee")}</span>
                       </button>
                     </div>
                   )}
@@ -935,7 +1181,7 @@ export default function SocialPage() {
                       {chatProviders.length > 0 && (
                         <select value={textModel} onChange={(e) => setTextModel(e.target.value)}
                           className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-                          <option value="auto">{isFa ? "مدل هوشمند (خودکار)" : "Smart model (auto)"}</option>
+                          <option value="auto">{tri(lang, "مدل هوشمند (خودکار)", "Smart model (auto)", "Intelligentes Modell (auto)")}</option>
                           {chatProviders.map((p) => <option key={p.id} value={p.model}>{p.name}</option>)}
                         </select>
                       )}
@@ -947,20 +1193,39 @@ export default function SocialPage() {
                             {igHashtags.map((h, i) => <span key={i} className="text-xs px-2 py-1 rounded-md" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{h}</span>)}
                           </div>
                           {igBestTime && <p className="text-xs" style={{ color: "var(--text-muted)" }}>⏰ {t.social.bestTime}: {igBestTime}</p>}
+                          {quality && (
+                            <div className="pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold"
+                                  style={{
+                                    background: quality.band === "strong" ? "rgba(34,197,94,0.15)" : quality.band === "ok" ? "rgba(234,179,8,0.15)" : "rgba(239,68,68,0.12)",
+                                    color: quality.band === "strong" ? "#16a34a" : quality.band === "ok" ? "#ca8a04" : "#dc2626",
+                                  }}>
+                                  {tri(lang, "کیفیت", "Quality", "Qualität")} {quality.score}/100
+                                </span>
+                                <button onClick={() => refreshQuality(igCaption, igHashtags)} className="text-[11px] underline" style={{ color: "var(--text-muted)" }}>
+                                  {tri(lang, "بررسی دوباره", "Re-check", "Erneut prüfen")}
+                                </button>
+                              </div>
+                              {quality.findings.slice(0, 3).map((f) => (
+                                <p key={f.code} className="text-[11px] leading-5" style={{ color: "var(--text-muted)" }}>• {f.message}</p>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ) : null}
                       <div className="flex gap-2">
                         <button onClick={() => { setCreationMode(null); setIgCaption(""); }} className="px-4 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-                          {isFa ? "بازگشت" : "Back"}
+                          {tri(lang, "بازگشت", "Back", "Zurück")}
                         </button>
                         <button onClick={generateIgPost} disabled={igGenerating || !form.brandName || !form.topic}
                           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
                           {igGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                          {igCaption ? (isFa ? "تولید دوباره" : "Regenerate") : t.social.igGenerateButton}
+                          {igCaption ? (tri(lang, "تولید دوباره", "Regenerate", "Neu generieren")) : t.social.igGenerateButton}
                         </button>
                         {igCaption && (
                           <button onClick={goToImageStep} className="mr-auto flex items-center gap-1 px-5 py-2.5 rounded-xl text-sm font-medium text-white" style={{ background: "#e1306c" }}>
-                            {isFa ? "بعدی" : "Next"} <ChevronLeft className="w-4 h-4" />
+                            {tri(lang, "بعدی", "Next", "Weiter")} <ChevronLeft className="w-4 h-4" />
                           </button>
                         )}
                       </div>
@@ -997,7 +1262,7 @@ export default function SocialPage() {
                           <button onClick={recreateFromReference} disabled={!refImageUrl || recreating || !puterReady}
                             className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
                             {recreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                            {recreating ? (recreateStep || (isFa ? "در حال پردازش..." : "Processing...")) : (isFa ? "تحلیل و بازسازی" : "Analyze & Recreate")}
+                            {recreating ? (recreateStep || (tri(lang, "در حال پردازش...", "Processing...", "Verarbeitung..."))) : (tri(lang, "تحلیل و بازسازی", "Analyze & Recreate", "Analysieren & Nachbauen"))} <CreditCost feature="social.ig-image" plus={["image_standard"]} />
                           </button>
                           {styleDescription && (
                             <p className="text-xs leading-6 p-3 rounded-xl" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{styleDescription}</p>
@@ -1005,7 +1270,7 @@ export default function SocialPage() {
                         </div>
                       </div>
                       <button onClick={() => { setCreationMode(null); setRefImageUrl(""); setStyleDescription(""); }} className="px-4 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-                        {isFa ? "بازگشت" : "Back"}
+                        {tri(lang, "بازگشت", "Back", "Zurück")}
                       </button>
                     </div>
                   )}
@@ -1013,18 +1278,18 @@ export default function SocialPage() {
                   {creationMode === "manual" && (
                     <div className="space-y-3">
                       <textarea value={igCaption} onChange={(e) => setIgCaption(e.target.value)} rows={4}
-                        placeholder={isFa ? "کپشن پست..." : "Post caption..."}
+                        placeholder={tri(lang, "کپشن پست...", "Post caption...", "Beitrags-Caption...")}
                         className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                       <input value={manualHashtagsInput} onChange={(e) => setManualHashtagsInput(e.target.value)}
-                        placeholder={isFa ? "هشتگ‌ها (با فاصله یا کاما جدا کن)" : "Hashtags (space or comma separated)"}
+                        placeholder={tri(lang, "هشتگ‌ها (با فاصله یا کاما جدا کن)", "Hashtags (space or comma separated)", "Hashtags (durch Leerzeichen oder Komma getrennt)")}
                         className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                       <div className="flex gap-2">
                         <button onClick={() => { setCreationMode(null); setIgCaption(""); setManualHashtagsInput(""); }} className="px-4 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-                          {isFa ? "بازگشت" : "Back"}
+                          {tri(lang, "بازگشت", "Back", "Zurück")}
                         </button>
                         <button onClick={confirmManualContent} disabled={!igCaption.trim()}
                           className="mr-auto flex items-center gap-1 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "#e1306c" }}>
-                          {isFa ? "بعدی" : "Next"} <ChevronLeft className="w-4 h-4" />
+                          {tri(lang, "بعدی", "Next", "Weiter")} <ChevronLeft className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
@@ -1040,14 +1305,20 @@ export default function SocialPage() {
                             <input value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value })} placeholder={t.social.topicPlaceholder}
                               className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex items-center gap-4">
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                              <input type="checkbox" checked={calendarGenerateImages} onChange={(e) => setCalendarGenerateImages(e.target.checked)} className="w-4 h-4 rounded" style={{ accentColor: "var(--primary)" }} />
+                              <span className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                                {tri(lang, "تصاویر با AI ساخته شود", "Generate images with AI", "Bilder mit KI generieren")}
+                              </span>
+                            </label>
                             <button onClick={() => setCreationMode(null)} className="px-4 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-                              {isFa ? "بازگشت" : "Back"}
+                              {tri(lang, "بازگشت", "Back", "Zurück")}
                             </button>
                             <button onClick={generateCalendar} disabled={calendarGenerating || !form.brandName || !form.topic}
                               className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
                               {calendarGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calendar className="w-4 h-4" />}
-                              {calendarGenerating ? (isFa ? "در حال ساخت تقویم..." : "Building calendar...") : (isFa ? "تولید تقویم ۷ روزه" : "Generate 7-day calendar")}
+                              {calendarGenerating ? tri(lang, "در حال ساخت تقویم...", "Building calendar...", "Kalender wird erstellt...") : tri(lang, "تولید تقویم ۷ روزه", "Generate 7-day calendar", "7-Tage-Kalender generieren")}
                             </button>
                           </div>
                         </>
@@ -1057,24 +1328,48 @@ export default function SocialPage() {
                         <>
                           <div className="flex items-center justify-between">
                             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                              {isFa ? "هر روز رو می‌تونی ویرایش کنی، بعد جدا یا همه با هم اضافه‌شون کن به زمان‌بندی (ساعت ۱۹:۰۰ هر روز، قابل تغییر از لیست پایین)." : "Edit each day, then add them individually or all at once (default 7:00 PM each day — adjust later from the list below)."}
+                              {tri(lang, "هر روز رو می‌تونی ویرایش کنی، بعد جدا یا همه با هم اضافه‌شون کن به زمان‌بندی (ساعت ۱۹:۰۰ هر روز، قابل تغییر از لیست پایین).", "Edit each day, then add them individually or all at once (default 7:00 PM each day — adjust later from the list below).", "Bearbeiten Sie jeden Tag und fügen Sie ihn einzeln oder alle auf einmal hinzu (Standard 19:00 Uhr — später anpassbar).")}
                             </p>
-                            <button onClick={scheduleAllCalendarDays}
-                              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white" style={{ background: "#e1306c" }}>
-                              <Check className="w-3.5 h-3.5" /> {isFa ? "افزودن همه" : "Add all"}
-                            </button>
+                            <div className="flex gap-2">
+                              {calendarGenerateImages && window.puter && (
+                                <button onClick={generateAllCalendarImages}
+                                  className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px dashed var(--border)" }}>
+                                  <Wand2 className="w-3.5 h-3.5" /> {tri(lang, "تولید تصاویر", "Generate images", "Bilder generieren")}
+                                </button>
+                              )}
+                              <button onClick={scheduleAllCalendarDays}
+                                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white" style={{ background: "#e1306c" }}>
+                                <Check className="w-3.5 h-3.5" /> {tri(lang, "افزودن همه", "Add all", "Alle hinzufügen")}
+                              </button>
+                            </div>
                           </div>
                           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
                             {calendarDays.map((day) => (
                               <div key={day.dayOffset} className="rounded-xl overflow-hidden flex flex-col" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
                                 <div className="px-3 py-2 flex items-center justify-between" style={{ background: "var(--surface-1)", borderBottom: "1px solid var(--border)" }}>
                                   <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
-                                    {isFa ? toJalali(day.date) : day.date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                                    {lang === "fa" ? toJalali(day.date) : day.date.toLocaleDateString(lang === "de" ? "de-DE" : "en-US", { weekday: "short", month: "short", day: "numeric" })}
                                   </span>
                                   <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                                    {day.date.toLocaleTimeString(isFa ? "fa-IR" : "en-US", { hour: "2-digit", minute: "2-digit" })}
+                                    {day.date.toLocaleTimeString(lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US", { hour: "2-digit", minute: "2-digit" })}
                                   </span>
                                 </div>
+                                {day.imageUrl && (
+                                  <div className="px-3 py-1">
+                                    <img src={day.imageUrl} alt="" className="w-full h-32 object-cover rounded-lg" style={{ border: "1px solid var(--border)" }} />
+                                  </div>
+                                )}
+                                {!day.imageUrl && calendarGenerateImages && window.puter && (
+                                  <div className="px-3 py-1">
+                                    <button
+                                      onClick={() => generateCalendarImage(day.dayOffset)}
+                                      disabled={day.scheduling}
+                                      className="w-full h-32 flex items-center justify-center rounded-lg text-xs" style={{ border: "1px dashed var(--border)", color: "var(--text-muted)", background: "transparent" }}
+                                    >
+                                      {day.scheduling ? <Loader2 className="w-4 h-4 animate-spin" /> : tri(lang, "تولید تصویر", "Generate image", "Bild generieren")}
+                                    </button>
+                                  </div>
+                                )}
                                 <textarea
                                   value={day.caption}
                                   onChange={(e) => updateCalendarDay(day.dayOffset, { caption: e.target.value })}
@@ -1094,15 +1389,15 @@ export default function SocialPage() {
                                   className="w-full px-3 py-2 text-xs font-medium disabled:opacity-70"
                                   style={{ background: day.scheduled ? "rgba(34,197,94,0.15)" : "var(--surface-1)", color: day.scheduled ? "#22c55e" : "var(--primary)", borderTop: "1px solid var(--border)" }}
                                 >
-                                  {day.scheduling ? <Loader2 className="w-3.5 h-3.5 animate-spin inline" /> : day.scheduled ? (isFa ? "✓ اضافه شد" : "✓ Added") : (isFa ? "افزودن به زمان‌بندی" : "Add to schedule")}
+                                  {day.scheduling ? <Loader2 className="w-3.5 h-3.5 animate-spin inline" /> : day.scheduled ? tri(lang, "✓ اضافه شد", "✓ Added", "✓ Hinzugefügt") : tri(lang, "افزودن به زمان‌بندی", "Add to schedule", "Zum Kalender hinzufügen")}
                                 </button>
                               </div>
                             ))}
                           </div>
                           <div className="flex gap-2">
-                            <button onClick={() => { setCreationMode(null); setCalendarDays(null); }} className="px-4 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-                              {isFa ? "بازگشت" : "Back"}
-                            </button>
+                          <button onClick={() => { setCreationMode(null); setCalendarDays(null); }} className="px-4 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                            {tri(lang, "بازگشت", "Back", "Zurück")}
+                          </button>
                           </div>
                         </>
                       )}
@@ -1117,17 +1412,17 @@ export default function SocialPage() {
                   {igImageUrl ? (
                     <div className="relative flex items-center gap-2 p-2 rounded-lg" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
                       <img src={igImageUrl} alt="" className="w-14 h-14 rounded-md object-cover flex-shrink-0" />
-                      <span className="flex-1 text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "عکس انتخاب شد" : "Image selected"}</span>
+                      <span className="flex-1 text-xs" style={{ color: "var(--text-secondary)" }}>{tri(lang, "عکس انتخاب شد", "Image selected", "Bild ausgewählt")}</span>
                       <button onClick={openGalleryPicker} className="text-xs px-2 py-1 rounded-md flex-shrink-0" style={{ background: "var(--surface-1)", color: "var(--primary)" }}>
-                        {isFa ? "تغییر" : "Change"}
+                        {tri(lang, "تغییر", "Change", "Ändern")}
                       </button>
                     </div>
                   ) : igVideoUrl ? (
                     <div className="relative flex items-center gap-2 p-2 rounded-lg" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
                       <video src={igVideoUrl} className="w-14 h-14 rounded-md object-cover flex-shrink-0" muted />
-                      <span className="flex-1 text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "ویدیو (ریل) انتخاب شد" : "Video (Reel) selected"}</span>
+                      <span className="flex-1 text-xs" style={{ color: "var(--text-secondary)" }}>{tri(lang, "ویدیو (ریل) انتخاب شد", "Video (Reel) selected", "Video (Reel) ausgewählt")}</span>
                       <button onClick={() => setIgVideoUrl("")} className="text-xs px-2 py-1 rounded-md flex-shrink-0" style={{ background: "var(--surface-1)", color: "var(--primary)" }}>
-                        {isFa ? "تغییر" : "Change"}
+                        {tri(lang, "تغییر", "Change", "Ändern")}
                       </button>
                     </div>
                   ) : (
@@ -1140,7 +1435,7 @@ export default function SocialPage() {
                             className="w-full px-2 py-1.5 rounded-lg text-xs"
                             style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
                           >
-                            <option value="puter">{isFa ? "رایگان (Puter)" : "Free (Puter)"}</option>
+                            <option value="puter">{tri(lang, "رایگان (Puter)", "Free (Puter)", "Kostenlos (Puter)")}</option>
                             {imageProviders.map((p) => (
                               <option key={p.id} value={p.id}>{p.name}</option>
                             ))}
@@ -1150,14 +1445,14 @@ export default function SocialPage() {
                           className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm disabled:opacity-50"
                           style={{ background: "var(--surface-2)", border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
                           {aiImageGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                          {aiImageGenerating ? (isFa ? "در حال ساخت عکس..." : "Generating image...") : (isFa ? "طراحی عکس با AI" : "Design image with AI")}
+                          {aiImageGenerating ? (tri(lang, "در حال ساخت عکس...", "Generating image...", "Bild wird generiert...")) : (tri(lang, "طراحی عکس با AI", "Design image with AI", "Bild mit KI gestalten"))} <CreditCost costKey="image_standard" />
                         </button>
                       </div>
                       <button onClick={openGalleryPicker}
                         className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm"
                         style={{ background: "var(--surface-2)", border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
                         <ImageIcon className="w-4 h-4" />
-                        {isFa ? "انتخاب از گالری" : "Choose from gallery"}
+                        {tri(lang, "انتخاب از گالری", "Choose from gallery", "Aus Galerie wählen")}
                       </button>
                       {videoProviders.length > 0 && (
                         <div className="flex flex-col gap-1.5 sm:col-span-2">
@@ -1175,21 +1470,21 @@ export default function SocialPage() {
                             className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm disabled:opacity-50"
                             style={{ background: "var(--surface-2)", border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
                             {videoGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Video className="w-4 h-4" />}
-                            {videoGenerating ? (videoGenStatus || (isFa ? "در حال ساخت ویدیو..." : "Generating video...")) : (isFa ? "ساخت ریل با AI" : "Create Reel with AI")}
+                            {videoGenerating ? (videoGenStatus || (tri(lang, "در حال ساخت ویدیو...", "Generating video...", "Video wird generiert..."))) : (tri(lang, "ساخت ریل با AI", "Create Reel with AI", "Reel mit KI erstellen"))} <CreditCost costKey="video_5s" />
                           </button>
                         </div>
                       )}
                     </div>
                   )}
                   <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                    {isFa ? "بدون انتخاب عکس/ویدیو هم می‌توانی ادامه بدی — پست فقط با متن و کپشن ثبت می‌شود." : "You can also continue without media — the post will be text-only."}
+                    {tri(lang, "بدون انتخاب عکس/ویدیو هم می‌توانی ادامه بدی — پست فقط با متن و کپشن ثبت می‌شود.", "You can also continue without media — the post will be text-only.", "Sie können auch ohne Medien fortfahren — der Beitrag wird nur mit Text erstellt.")}
                   </p>
                   <div className="flex gap-2">
                     <button onClick={() => setWizardStep(1)} className="px-4 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-                      {isFa ? "بازگشت" : "Back"}
+                      {tri(lang, "بازگشت", "Back", "Zurück")}
                     </button>
                     <button onClick={() => setWizardStep(3)} className="mr-auto flex items-center gap-1 px-5 py-2.5 rounded-xl text-sm font-medium text-white" style={{ background: "#e1306c" }}>
-                      {isFa ? "بعدی" : "Next"} <ChevronLeft className="w-4 h-4" />
+                      {tri(lang, "بعدی", "Next", "Weiter")} <ChevronLeft className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -1202,18 +1497,18 @@ export default function SocialPage() {
                     <button onClick={() => setScheduleChoice("now")}
                       className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium"
                       style={{ background: scheduleChoice === "now" ? "var(--primary)" : "var(--surface-2)", color: scheduleChoice === "now" ? "white" : "var(--text-secondary)" }}>
-                      <Zap className="w-4 h-4" /> {isFa ? "همین الان" : "Right now"}
+                      <Zap className="w-4 h-4" /> {tri(lang, "همین الان", "Right now", "Jetzt")}
                     </button>
                     <button onClick={() => setScheduleChoice("scheduled")}
                       className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium"
                       style={{ background: scheduleChoice === "scheduled" ? "var(--primary)" : "var(--surface-2)", color: scheduleChoice === "scheduled" ? "white" : "var(--text-secondary)" }}>
-                      <Clock className="w-4 h-4" /> {isFa ? "زمان مشخص" : "Specific time"}
+                      <Clock className="w-4 h-4" /> {tri(lang, "زمان مشخص", "Specific time", "Bestimmte Zeit")}
                     </button>
                   </div>
 
                   {scheduleChoice === "scheduled" && (
                     <>
-                      {isFa ? (
+                      {lang === "fa" ? (
                         <JalaliDateTimePicker value={igScheduledFor} onChange={setIgScheduledFor}
                           className="w-full px-3 py-2 rounded-lg text-sm outline-none text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                       ) : (
@@ -1258,13 +1553,13 @@ export default function SocialPage() {
 
                   <div className="flex gap-2">
                     <button onClick={() => setWizardStep(2)} className="px-4 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-                      {isFa ? "بازگشت" : "Back"}
+                      {tri(lang, "بازگشت", "Back", "Zurück")}
                     </button>
                     <button
                       onClick={() => setWizardStep(4)}
                       disabled={scheduleChoice === "scheduled" && !igScheduledFor}
                       className="mr-auto flex items-center gap-1 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "#e1306c" }}>
-                      {isFa ? "بعدی" : "Next"} <ChevronLeft className="w-4 h-4" />
+                      {tri(lang, "بعدی", "Next", "Weiter")} <ChevronLeft className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -1290,14 +1585,14 @@ export default function SocialPage() {
                       </div>
                       <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
                         {scheduleChoice === "now"
-                          ? (isFa ? "زمان‌بندی: همین الان" : "Timing: right now")
-                          : `${isFa ? "زمان‌بندی" : "Timing"}: ${igScheduledFor ? (isFa ? toJalali(igScheduledFor) : new Date(igScheduledFor).toLocaleString("en-US")) : "—"} (${igMode === "auto" ? t.social.igAutoLabel : t.social.igManualLabel})`}
+                          ? tri(lang, "زمان‌بندی: همین الان", "Timing: right now", "Zeitplanung: Jetzt")
+                          : `${tri(lang, "زمان‌بندی", "Timing", "Zeitplanung")}: ${igScheduledFor ? (lang === "fa" ? toJalali(igScheduledFor) : new Date(igScheduledFor).toLocaleString(lang === "de" ? "de-DE" : "en-US")) : "—"} (${igMode === "auto" ? t.social.igAutoLabel : t.social.igManualLabel})`}
                       </p>
                     </div>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => setWizardStep(3)} className="px-4 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-                      {isFa ? "بازگشت" : "Back"}
+                      {tri(lang, "بازگشت", "Back", "Zurück")}
                     </button>
                     <button
                       onClick={() => {
@@ -1313,7 +1608,7 @@ export default function SocialPage() {
                       disabled={scheduling}
                       className="mr-auto flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "#e1306c" }}>
                       {scheduling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                      {scheduling ? t.social.igScheduling : (isFa ? "تایید و ثبت" : "Confirm & Save")}
+                      {scheduling ? t.social.igScheduling : (tri(lang, "تایید و ثبت", "Confirm & Save", "Bestätigen & Speichern"))}
                     </button>
                   </div>
                 </div>
@@ -1328,11 +1623,11 @@ export default function SocialPage() {
                 <table className="w-full text-xs" style={{ borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ background: "var(--surface-2)" }}>
-                      <th className="px-3 py-2.5 text-right font-medium" style={{ color: "var(--text-muted)" }}>{isFa ? "عکس" : "Image"}</th>
-                      <th className="px-3 py-2.5 text-right font-medium" style={{ color: "var(--text-muted)" }}>{isFa ? "کپشن" : "Caption"}</th>
-                      <th className="px-3 py-2.5 text-right font-medium" style={{ color: "var(--text-muted)" }}>{isFa ? "تاریخ/ساعت" : "Date/Time"}</th>
-                      <th className="px-3 py-2.5 text-right font-medium" style={{ color: "var(--text-muted)" }}>{isFa ? "حالت" : "Mode"}</th>
-                      <th className="px-3 py-2.5 text-right font-medium" style={{ color: "var(--text-muted)" }}>{isFa ? "وضعیت" : "Status"}</th>
+                      <th className="px-3 py-2.5 text-right font-medium" style={{ color: "var(--text-muted)" }}>{tri(lang, "عکس", "Image", "Bild")}</th>
+                      <th className="px-3 py-2.5 text-right font-medium" style={{ color: "var(--text-muted)" }}>{tri(lang, "کپشن", "Caption", "Caption")}</th>
+                      <th className="px-3 py-2.5 text-right font-medium" style={{ color: "var(--text-muted)" }}>{tri(lang, "تاریخ/ساعت", "Date/Time", "Datum/Uhrzeit")}</th>
+                      <th className="px-3 py-2.5 text-right font-medium" style={{ color: "var(--text-muted)" }}>{tri(lang, "حالت", "Mode", "Modus")}</th>
+                      <th className="px-3 py-2.5 text-right font-medium" style={{ color: "var(--text-muted)" }}>{tri(lang, "وضعیت", "Status", "Status")}</th>
                       <th className="px-3 py-2.5 text-right font-medium" style={{ color: "var(--text-muted)" }}></th>
                     </tr>
                   </thead>
@@ -1346,8 +1641,8 @@ export default function SocialPage() {
                           <span className="block truncate" style={{ color: "var(--text-secondary)" }}>{p.caption}</span>
                         </td>
                         <td className="px-3 py-2.5 whitespace-nowrap" style={{ color: "var(--text-secondary)" }}>
-                          {isFa ? toJalali(p.scheduledFor) : new Date(p.scheduledFor).toLocaleDateString("en-US")}
-                          {" "}{new Date(p.scheduledFor).toLocaleTimeString(isFa ? "fa-IR" : "en-US", { hour: "2-digit", minute: "2-digit" })}
+                          {lang === "fa" ? toJalali(p.scheduledFor) : new Date(p.scheduledFor).toLocaleDateString(lang === "de" ? "de-DE" : "en-US")}
+                          {" "}{new Date(p.scheduledFor).toLocaleTimeString(lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US", { hour: "2-digit", minute: "2-digit" })}
                         </td>
                         <td className="px-3 py-2.5 whitespace-nowrap" style={{ color: "var(--text-secondary)" }}>
                           {p.mode === "auto" ? t.social.igAutoLabel : t.social.igManualLabel}
@@ -1366,7 +1661,7 @@ export default function SocialPage() {
                           )}
                           {p.status === "PENDING" && (
                             <button onClick={() => cancelScheduledPost(p.id)} className="px-2 py-1 rounded-md" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
-                              {isFa ? "لغو" : "Cancel"}
+                              {tri(lang, "لغو", "Cancel", "Abbrechen")}
                             </button>
                           )}
                         </td>
@@ -1385,19 +1680,19 @@ export default function SocialPage() {
             <div className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5" style={{ color: "#3b82f6" }} />
               <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>
-                {isFa ? "آنالیز و رشد پیج" : "Page Analytics & Growth"}
+                {tri(lang, "آنالیز و رشد پیج", "Page Analytics & Growth", "Seitenanalyse & Wachstum")}
               </h2>
             </div>
             {igConnected && (
               <button onClick={loadAnalytics} disabled={analyticsLoading} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-                {analyticsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : (isFa ? "بروزرسانی" : "Refresh")}
+                {analyticsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : (tri(lang, "بروزرسانی", "Refresh", "Aktualisieren"))}
               </button>
             )}
           </div>
 
           {!igConnected ? (
             <p className="text-xs px-3 py-2 rounded-lg" style={{ background: "rgba(234,88,12,0.1)", color: "var(--primary)" }}>
-              {isFa ? "برای تحلیل پیج، اول اینستاگرام رو از بخش بالا وصل کن." : "Connect your Instagram account above to see page analytics."}
+              {tri(lang, "برای تحلیل پیج، اول اینستاگرام رو از بخش بالا وصل کن.", "Connect your Instagram account above to see page analytics.", "Verbinden Sie Ihr Instagram-Konto oben, um Seitenanalysen zu sehen.")}
             </p>
           ) : analyticsLoading && !analytics ? (
             <div className="flex items-center justify-center py-10">
@@ -1408,47 +1703,113 @@ export default function SocialPage() {
               {/* Stat tiles */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
                 <div className="rounded-xl p-4" style={{ background: "var(--surface-2)" }}>
-                  <div className="flex items-center gap-1.5 mb-1"><Users className="w-3.5 h-3.5" style={{ color: "#3b82f6" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "فالوور" : "Followers"}</span></div>
+                  <div className="flex items-center gap-1.5 mb-1"><Users className="w-3.5 h-3.5" style={{ color: "#3b82f6" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "فالوور", "Followers", "Follower")}</span></div>
                   <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{analytics?.current?.followersCount ?? "—"}</p>
                 </div>
                 <div className="rounded-xl p-4" style={{ background: "var(--surface-2)" }}>
-                  <div className="flex items-center gap-1.5 mb-1"><ImageIcon className="w-3.5 h-3.5" style={{ color: "#8b5cf6" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "تعداد پست" : "Posts"}</span></div>
+                  <div className="flex items-center gap-1.5 mb-1"><ImageIcon className="w-3.5 h-3.5" style={{ color: "#8b5cf6" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "تعداد پست", "Posts", "Beiträge")}</span></div>
                   <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{analytics?.current?.mediaCount ?? "—"}</p>
                 </div>
                 <div className="rounded-xl p-4" style={{ background: "var(--surface-2)" }}>
-                  <div className="flex items-center gap-1.5 mb-1"><TrendingUp className="w-3.5 h-3.5" style={{ color: "#22c55e" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "روند فالوور" : "Follower Trend"}</span></div>
+                  <div className="flex items-center gap-1.5 mb-1"><TrendingUp className="w-3.5 h-3.5" style={{ color: "#22c55e" }} /><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "روند فالوور", "Follower Trend", "Follower-Trend")}</span></div>
                   <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
                     {(analytics?.trend?.length ?? 0) >= 2
                       ? (() => { const d = analytics!.trend[analytics!.trend.length - 1].followersCount - analytics!.trend[0].followersCount; return `${d >= 0 ? "+" : ""}${d}`; })()
-                      : (isFa ? "در حال جمع‌آوری" : "Collecting")}
+                      : (analytics?.trend?.length ?? 0) === 1
+                        ? (tri(lang, "از امروز", "Since today", "Ab heute"))
+                        : (tri(lang, "در حال جمع‌آوری", "Collecting", "Wird gesammelt"))}
                   </p>
                 </div>
               </div>
 
-              {/* Follower growth chart */}
-              {(analytics?.trend?.length ?? 0) >= 2 ? (
+              {/* Follower growth chart — renders from the first snapshot; a
+                  snapshot is taken every few hours so the line fills in fast. */}
+              {(analytics?.trend?.length ?? 0) >= 1 ? (
                 <div className="rounded-xl p-4 mb-5" style={{ background: "var(--surface-2)" }}>
-                  <p className="text-xs font-medium mb-3" style={{ color: "var(--text-secondary)" }}>{isFa ? "روند رشد فالوور" : "Follower Growth Trend"}</p>
+                  <p className="text-xs font-medium mb-3" style={{ color: "var(--text-secondary)" }}>{tri(lang, "روند رشد فالوور", "Follower Growth Trend", "Follower-Wachstumstrend")}</p>
                   <ResponsiveContainer width="100%" height={200}>
-                    <LineChart data={analytics!.trend.map((d) => ({ ...d, dateLabel: isFa ? toJalali(d.date) : new Date(d.date).toLocaleDateString("en-US") }))}>
+                    <LineChart data={analytics!.trend.map((d) => ({
+                      ...d,
+                      dateLabel: lang === "fa"
+                        ? toJalali(d.date)
+                        : new Date(d.date).toLocaleDateString(lang === "de" ? "de-DE" : "en-US", { month: "short", day: "numeric" }),
+                    }))}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis dataKey="dateLabel" tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
-                      <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+                      <YAxis domain={["dataMin - 5", "dataMax + 5"]} tick={{ fontSize: 10, fill: "var(--text-muted)" }} allowDecimals={false} />
                       <Tooltip contentStyle={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
-                      <Line type="monotone" dataKey="followersCount" stroke="#3b82f6" strokeWidth={2} dot={false} name={isFa ? "فالوور" : "Followers"} />
+                      <Line type="monotone" dataKey="followersCount" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3, fill: "#3b82f6" }} name={tri(lang, "فالوور", "Followers", "Follower")} />
                     </LineChart>
                   </ResponsiveContainer>
+                  {(analytics?.trend?.length ?? 0) < 3 && (
+                    <p className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>
+                      {tri(lang, "هر چند ساعت یک نقطه‌ی جدید اضافه می‌شود — خط روند طی امروز و فردا کامل می‌شود.", "A new point is added every few hours — the trend line fills in over today and tomorrow.", "Alle paar Stunden kommt ein neuer Punkt hinzu — die Trendlinie füllt sich über heute und morgen.")}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <p className="text-xs mb-5 px-3 py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
-                  {isFa ? "نمودار روند رشد بعد از چند روز جمع‌آوری داده در دسترس قرار می‌گیرد (هر روز یک اسنپ‌شات گرفته می‌شود)." : "The growth trend chart becomes available after a few days of data collection (one snapshot per day)."}
+                  {tri(lang, "اولین اسنپ‌شات به‌زودی گرفته می‌شود و نمودار فعال می‌شود.", "The first snapshot is taken shortly and the chart activates.", "Der erste Snapshot wird in Kürze erstellt und das Diagramm aktiviert.")}
                 </p>
               )}
 
+              {/* Deterministic growth analysis — weekly buckets, growth rate,
+                  engagement rate, audience quality, rule-based findings. */}
+              <GrowthInsights analysis={analytics?.analysis ?? null} lang={lang} />
+
+              {/* Media type breakdown — posts vs reels, views, avg engagement */}
+              {(analytics?.mediaBreakdown?.length ?? 0) > 0 && (
+                <div className="mb-5">
+                  <p className="text-xs font-medium mb-3" style={{ color: "var(--text-secondary)" }}>
+                    {tri(lang, "تفکیک بر اساس نوع محتوا (اخیر)", "Breakdown by content type (recent)", "Aufschlüsselung nach Inhaltstyp (aktuell)")}
+                  </p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs" style={{ color: "var(--text-secondary)" }}>
+                      <thead>
+                        <tr style={{ color: "var(--text-muted)" }}>
+                          <th className="text-start py-1.5 pe-3">{tri(lang, "نوع", "Type", "Typ")}</th>
+                          <th className="text-start py-1.5 pe-3">{tri(lang, "تعداد", "Count", "Anzahl")}</th>
+                          <th className="text-start py-1.5 pe-3">{tri(lang, "بازدید کل", "Total views", "Aufrufe gesamt")}</th>
+                          <th className="text-start py-1.5 pe-3">{tri(lang, "میانگین بازدید", "Avg views", "Ø Aufrufe")}</th>
+                          <th className="text-start py-1.5 pe-3">{tri(lang, "میانگین لایک", "Avg likes", "Ø Likes")}</th>
+                          <th className="text-start py-1.5 pe-3">{tri(lang, "میانگین کامنت", "Avg comments", "Ø Kommentare")}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analytics!.mediaBreakdown!.map((b) => {
+                          const label = b.type === "REELS" ? tri(lang, "ریلز", "Reels", "Reels")
+                            : b.type === "IMAGE" ? tri(lang, "عکس", "Photo", "Foto")
+                            : b.type === "CAROUSEL_ALBUM" ? tri(lang, "آلبوم", "Carousel", "Karussell")
+                            : b.type === "VIDEO" ? tri(lang, "ویدیو", "Video", "Video") : b.type;
+                          return (
+                            <tr key={b.type} style={{ borderTop: "1px solid var(--border)" }}>
+                              <td className="py-1.5 pe-3 font-medium" style={{ color: "var(--text-primary)" }}>{label}</td>
+                              <td className="py-1.5 pe-3">{b.count}</td>
+                              <td className="py-1.5 pe-3">{b.totalViews ? b.totalViews.toLocaleString() : "—"}</td>
+                              <td className="py-1.5 pe-3">{b.avgViews ? b.avgViews.toLocaleString() : "—"}</td>
+                              <td className="py-1.5 pe-3">{b.avgLikes.toLocaleString()}</td>
+                              <td className="py-1.5 pe-3">{b.avgComments.toLocaleString()}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               {/* Content performance */}
+              {analytics?.mediaError && (analytics?.recentMedia?.length ?? 0) === 0 && (
+                <p className="text-xs mb-5 px-3 py-2 rounded-lg" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+                  {tri(lang,
+                    "دریافت پست‌های اینستاگرام ناموفق بود — لطفاً حساب اینستاگرام را دوباره متصل کنید.",
+                    "Failed to load Instagram posts — please reconnect your Instagram account.",
+                    "Instagram-Beiträge konnten nicht geladen werden — bitte verbinden Sie Ihr Instagram-Konto erneut.")}
+                </p>
+              )}
               {(analytics?.recentMedia?.length ?? 0) > 0 && (
                 <div className="mb-5">
-                  <p className="text-xs font-medium mb-3" style={{ color: "var(--text-secondary)" }}>{isFa ? "روند و عملکرد محتوا" : "Content Performance"}</p>
+                  <p className="text-xs font-medium mb-3" style={{ color: "var(--text-secondary)" }}>{tri(lang, "روند و عملکرد محتوا", "Content Performance", "Inhaltsleistung")}</p>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {analytics!.recentMedia.map((m) => (
                       <a key={m.id} href={m.permalink} target="_blank" rel="noopener noreferrer" className="rounded-xl overflow-hidden relative group" style={{ border: "1px solid var(--border)" }}>
@@ -1458,7 +1819,15 @@ export default function SocialPage() {
                           className="w-full aspect-square object-cover bg-[var(--surface-1)]"
                           onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                         />
+                        {(m.mediaProductType === "REELS" || m.mediaType === "VIDEO") && (
+                          <span className="absolute top-1.5 end-1.5 text-[10px] px-1.5 py-0.5 rounded bg-black/70 text-white">
+                            {m.mediaProductType === "REELS" ? tri(lang, "ریلز", "Reel", "Reel") : tri(lang, "ویدیو", "Video", "Video")}
+                          </span>
+                        )}
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white text-[11px]">
+                          {typeof m.views === "number" && m.views > 0 && (
+                            <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" /> {m.views.toLocaleString()}</span>
+                          )}
                           <span className="flex items-center gap-1"><Heart className="w-3 h-3" /> {m.likeCount}</span>
                           <span className="flex items-center gap-1"><MessageCircle className="w-3 h-3" /> {m.commentsCount}</span>
                           <ExternalLink className="w-3 h-3 mt-1" />
@@ -1469,12 +1838,19 @@ export default function SocialPage() {
                 </div>
               )}
 
+              {/* Comparable public pages (official business_discovery API) —
+                  hidden from tenants until instagram_basic clears Meta App
+                  Review; showing a non-functional panel with an
+                  "awaiting approval" message is an internal/admin state,
+                  not something a customer should see. Re-enable by restoring
+                  the CompetitorsPanel import + this line once approved. */}
+
               {/* AI growth report */}
               <button onClick={generateAiReport} disabled={aiReportLoading}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
                 style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)" }}>
                 {aiReportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                {aiReportLoading ? (isFa ? "در حال تحلیل..." : "Analyzing...") : (isFa ? "تحلیل و برنامه رشد با AI" : "AI Growth Analysis & Plan")}
+                {aiReportLoading ? (tri(lang, "در حال تحلیل...", "Analyzing...", "Wird analysiert...")) : (tri(lang, "تحلیل و برنامه رشد با AI", "AI Growth Analysis & Plan", "KI-Wachstumsanalyse & Plan"))} <CreditCost feature="social.ig-report" />
               </button>
 
               {aiReport && (
@@ -1491,15 +1867,15 @@ export default function SocialPage() {
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <Sparkles className="w-4 h-4 text-white" />
-                        <span className="text-white/80 text-[11px] font-medium tracking-wide">AiFekr — {isFa ? "گزارش هوشمند رشد اینستاگرام" : "AI Instagram Growth Report"}</span>
+                        <span className="text-white/80 text-[11px] font-medium tracking-wide">AiFekr — {tri(lang, "گزارش هوشمند رشد اینستاگرام", "AI Instagram Growth Report", "KI-Instagram-Wachstumsbericht")}</span>
                       </div>
                       <h3 className="text-white font-bold text-lg">
                         @{analytics?.igUsername || igUsername || ""}
                       </h3>
                       {aiReportDate && (
                         <p className="text-white/70 text-xs mt-0.5">
-                          {isFa ? "تاریخ تولید گزارش: " : "Generated: "}
-                          {isFa ? toJalali(aiReportDate.toISOString()) : aiReportDate.toLocaleDateString("en-US")}
+                          {tri(lang, "تاریخ تولید گزارش: ", "Generated: ", "Erstellt: ")}
+                          {lang === "fa" ? toJalali(aiReportDate.toISOString()) : aiReportDate.toLocaleDateString(lang === "de" ? "de-DE" : "en-US")}
                         </p>
                       )}
                     </div>
@@ -1509,22 +1885,22 @@ export default function SocialPage() {
                       style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.3)" }}
                     >
                       <Printer className="w-3.5 h-3.5" />
-                      {isFa ? "چاپ / PDF" : "Print / PDF"}
+                      {tri(lang, "چاپ / PDF", "Print / PDF", "Drucken / PDF")}
                     </button>
                   </div>
 
                   {/* KPI strip pulled from real account data */}
                   <div className="grid grid-cols-3 divide-x divide-x-reverse" style={{ background: "var(--surface-1)", borderBottom: "1px solid var(--border)" }}>
                     <div className="px-4 py-3 text-center">
-                      <p className="text-[11px] mb-0.5" style={{ color: "var(--text-muted)" }}>{isFa ? "فالوور" : "Followers"}</p>
+                      <p className="text-[11px] mb-0.5" style={{ color: "var(--text-muted)" }}>{tri(lang, "فالوور", "Followers", "Follower")}</p>
                       <p className="text-base font-bold" style={{ color: "var(--text-primary)" }}>{analytics?.current?.followersCount ?? "—"}</p>
                     </div>
                     <div className="px-4 py-3 text-center">
-                      <p className="text-[11px] mb-0.5" style={{ color: "var(--text-muted)" }}>{isFa ? "تعداد پست" : "Posts"}</p>
+                      <p className="text-[11px] mb-0.5" style={{ color: "var(--text-muted)" }}>{tri(lang, "تعداد پست", "Posts", "Beiträge")}</p>
                       <p className="text-base font-bold" style={{ color: "var(--text-primary)" }}>{analytics?.current?.mediaCount ?? "—"}</p>
                     </div>
                     <div className="px-4 py-3 text-center">
-                      <p className="text-[11px] mb-0.5" style={{ color: "var(--text-muted)" }}>{isFa ? "روند فالوور" : "Trend"}</p>
+                      <p className="text-[11px] mb-0.5" style={{ color: "var(--text-muted)" }}>{tri(lang, "روند فالوور", "Trend", "Trend")}</p>
                       <p className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
                         {(analytics?.trend?.length ?? 0) >= 2
                           ? (() => { const d = analytics!.trend[analytics!.trend.length - 1].followersCount - analytics!.trend[0].followersCount; return `${d >= 0 ? "+" : ""}${d}`; })()
@@ -1554,7 +1930,7 @@ export default function SocialPage() {
                   </div>
 
                   <div className="px-5 py-3 text-center text-[11px]" style={{ background: "var(--surface-2)", color: "var(--text-muted)", borderTop: "1px solid var(--border)" }}>
-                    {isFa ? "این گزارش توسط هوش مصنوعی AiFekr تولید شده است." : "This report was generated by AiFekr AI."}
+                    {tri(lang, "این گزارش توسط هوش مصنوعی AiFekr تولید شده است.", "This report was generated by AiFekr AI.", "Dieser Bericht wurde von AiFekr KI erstellt.")}
                   </div>
                 </div>
               )}
@@ -1564,13 +1940,89 @@ export default function SocialPage() {
 
       </div>
 
+      {/* Native Auto Direct */}
+      {igConnected && (
+        <div className="rounded-2xl p-6 mt-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center gap-2 mb-1"><MessageCircle className="w-5 h-5" style={{ color: "#a855f7" }} /><h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "Auto Direct — پاسخ خودکار دایرکت", "Auto Direct — DM replies", "Auto Direct — DM-Antworten")}</h2></div>
+          <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>{tri(lang, "قانون‌های هر کسب‌وکار جداست. پیام‌های ورودی با webhook امن ثبت می‌شوند و هر پیام فقط یک‌بار پاسخ می‌گیرد.", "Rules are isolated per business. Secure webhook events are logged and each message can be answered only once.", "Regeln sind je Geschäft getrennt. Webhook-Ereignisse werden sicher protokolliert und jede Nachricht wird nur einmal beantwortet.")}</p>
+          <div className="mb-4 rounded-xl p-3" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+            <div className="flex flex-wrap items-center gap-3">
+              <button onClick={enableDirectWebhooks} disabled={subscribingInstagram || !canAuto} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-50" style={{ background: "var(--surface-1)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>{subscribingInstagram || instagramWebhookStatus === "checking" ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}{tri(lang, "بررسی و فعال‌سازی وبهوک", "Verify and enable webhook", "Webhook prüfen und aktivieren")}</button>
+              <span className="text-xs" style={{ color: instagramWebhookStatus === "active" ? "#16a34a" : "var(--text-muted)" }}>
+                {instagramWebhookStatus === "active"
+                  ? tri(lang, "اشتراک حساب برای کامنت و دایرکت تأیید شد", "Account subscription for comments and DMs verified", "Konto-Abo für Kommentare und DMs bestätigt")
+                  : instagramWebhookStatus === "inactive"
+                    ? tri(lang, "اشتراک Meta فعال نیست؛ دکمه را بزنید یا تنظیمات اپ را بررسی کنید.", "Meta subscription is not active; retry or check the app configuration.", "Meta-Abonnement ist nicht aktiv; erneut versuchen oder App-Konfiguration prüfen.")
+                    : instagramWebhookStatus === "checking"
+                      ? tri(lang, "در حال بررسی وضعیت Meta…", "Checking Meta subscription…", "Meta-Abonnement wird geprüft…")
+                      : tri(lang, "وضعیت اشتراک Meta قابل بررسی نیست.", "Meta subscription status could not be verified.", "Meta-Abonnementstatus konnte nicht geprüft werden.")}
+              </span>
+            </div>
+            <p className="mt-2 text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "این فقط اشتراک حساب را بررسی می‌کند. در پنل توسعه‌دهندگان Meta نیز باید محصول Instagram/Webhooks و فیلد comments فعال و به همین callback متصل باشد.", "This verifies the account subscription only. In Meta Developers, the Instagram/Webhooks product must also enable the comments field and point to this app’s callback.", "Dies prüft nur das Konto-Abo. In Meta Developers müssen Instagram/Webhooks und das Feld comments ebenfalls aktiviert und mit diesem Callback verbunden sein.")}</p>
+          </div>
+          {!canAuto ? <p className="text-xs px-3 py-2 rounded-lg" style={{ background: "rgba(234,88,12,0.1)", color: "var(--primary)" }}>{tri(lang, "Auto Direct در پلن‌های Pro و Team فعال است.", "Auto Direct is available on Pro and Team plans.", "Auto Direct ist für Pro- und Team-Pläne verfügbar.")}</p> : <>
+            <div className="rounded-xl p-4 space-y-3 mb-4" style={{ background: "var(--surface-2)" }}>
+              <input value={directName} onChange={(e) => setDirectName(e.target.value)} placeholder={tri(lang, "نام قانون (مثلاً پاسخ قیمت)", "Rule name (e.g. pricing reply)", "Regelname (z.B. Preisantwort)")} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <label className="flex items-center gap-2 text-xs" style={{ color: "var(--text-secondary)" }}><input type="checkbox" checked={directFallback} onChange={(e) => { setDirectFallback(e.target.checked); if (e.target.checked) setDirectAiFallback(false); }} className="accent-purple-500" />{tri(lang, "پاسخ ثابت پیش‌فرض برای همهٔ پیام‌ها", "Fixed fallback reply for all messages", "Feste Standardantwort für alle Nachrichten")}</label>
+              <label className="flex items-center gap-2 text-xs" style={{ color: "var(--text-secondary)" }}><input type="checkbox" checked={directAiFallback} onChange={(e) => { setDirectAiFallback(e.target.checked); if (e.target.checked) setDirectFallback(false); }} className="accent-purple-500" />{tri(lang, "پاسخ AI وقتی هیچ کلمه‌ای تطبیق ندارد", "AI reply when no keyword matches", "KI-Antwort, wenn kein Schlüsselwort passt")} <CreditCost feature="social.instagram-auto-reply" /></label>
+              {!directFallback && !directAiFallback && <input value={directKeywords} onChange={(e) => setDirectKeywords(e.target.value)} placeholder={tri(lang, "کلمات کلیدی با کاما: قیمت، مشاوره", "Keywords, comma-separated: price, consultation", "Schlüsselwörter, kommagetrennt: Preis, Beratung")} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />}
+              <textarea value={directResponse} onChange={(e) => setDirectResponse(e.target.value)} rows={2} placeholder={directAiFallback ? tri(lang, "راهنمای کسب‌وکار برای پاسخ AI (قیمت/قوانین واقعی را بنویس)", "Business guidance for AI replies (add accurate pricing and policies)", "Geschäftshinweise für KI-Antworten (Preise und Richtlinien ergänzen)") : tri(lang, "پاسخ خودکار دایرکت…", "Automated DM response…", "Automatische DM-Antwort…")} className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="flex items-start gap-2 rounded-lg p-3 text-xs" style={{ background: "var(--surface-1)", color: "var(--text-secondary)" }}>
+                  <input type="checkbox" checked={directFollowGate} onChange={(e) => setDirectFollowGate(e.target.checked)} className="mt-0.5 accent-purple-500" />
+                  <span><span className="block font-medium" style={{ color: "var(--text-primary)" }}>{tri(lang, "درخواست فالو پیش از پاسخ", "Follow confirmation gate", "Follow-Bestätigung vor der Antwort")}</span><span className="block mt-1">{tri(lang, "پاسخ تا زدن دکمهٔ ادامه پنهان می‌ماند. Meta فالو را خودکار تأیید نمی‌کند؛ این گزینه تأیید کاربر است.", "The reply stays hidden until the user taps Continue. Meta does not expose an automatic follow check; this is self-confirmation.", "Die Antwort bleibt verborgen, bis die Person auf Weiter tippt. Meta bietet keine automatische Follow-Prüfung; dies ist eine Selbstbestätigung.")}</span></span>
+                </label>
+                <label className="flex items-start gap-2 rounded-lg p-3 text-xs" style={{ background: "var(--surface-1)", color: "var(--text-secondary)" }}>
+                  <input type="checkbox" checked={directTypingIndicator} onChange={(e) => setDirectTypingIndicator(e.target.checked)} className="mt-0.5 accent-purple-500" />
+                  <span><span className="block font-medium" style={{ color: "var(--text-primary)" }}>{tri(lang, "نمایش وضعیت در حال نوشتن", "Mimic active typing status", "Schreibstatus anzeigen")}</span><span className="block mt-1">{tri(lang, "بهترین‌تلاش؛ اگر Meta پشتیبانی نکند، پاسخ اصلی همچنان ارسال می‌شود.", "Best effort; if Meta rejects the indicator, the actual reply still sends.", "Best-Effort; wird der Indikator abgelehnt, wird die Antwort trotzdem gesendet.")}</span></span>
+                </label>
+              </div>
+              <label className="block text-xs" style={{ color: "var(--text-secondary)" }}>{tri(lang, "تأخیر تصادفی ارسال", "Randomized delivery delay", "Zufällige Sendeverzögerung")}
+                <select value={directDelayRange} onChange={(e) => setDirectDelayRange(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                  <option value="0:0">{tri(lang, "ارسال فوری", "Send immediately", "Sofort senden")}</option>
+                  <option value="1:3">{tri(lang, "۱ تا ۳ ثانیه", "1–3 seconds", "1–3 Sekunden")}</option>
+                  <option value="3:5">{tri(lang, "۳ تا ۵ ثانیه", "3–5 seconds", "3–5 Sekunden")}</option>
+                </select>
+                <span className="block mt-1 text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "سقف تأخیر عمداً ۵ ثانیه است تا پاسخ‌های وب‌هوک بیش از حد معطل نشوند.", "The maximum is capped at 5 seconds to keep webhook replies bounded.", "Die Verzögerung ist auf 5 Sekunden begrenzt, damit Webhook-Antworten nicht unnötig warten.")}</span>
+              </label>
+              <button onClick={createDirectRule} disabled={savingDirectRule} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50" style={{ background: "#a855f7" }}>{savingDirectRule ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}{tri(lang, "فعال‌سازی قانون", "Activate rule", "Regel aktivieren")}</button>
+            </div>
+            {directLoading ? <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin" /></div> : <div className="space-y-2">{directRules.map((rule) => <div key={rule.id} className="rounded-xl p-3 flex items-center justify-between gap-3" style={{ background: "var(--surface-2)" }}><div className="min-w-0"><p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{rule.name} <span className="text-[11px] font-normal" style={{ color: "var(--text-muted)" }}>· {rule.triggerCount}×</span></p><p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{rule.triggerType === "all_messages" ? tri(lang, "پاسخ پیش‌فرض ثابت", "Fixed fallback", "Feste Standardantwort") : rule.triggerType === "ai_fallback" ? tri(lang, "پاسخ AI پس از تطبیق‌نشدن keyword", "AI fallback after keyword matching", "KI-Fallback nach Schlüsselwortsuche") : rule.keywords} → {rule.response}</p><p className="mt-1 text-[10px]" style={{ color: "var(--text-muted)" }}>{[rule.followGateEnabled && tri(lang, "تأیید فالو", "follow confirmation", "Follow-Bestätigung"), rule.typingIndicatorEnabled && tri(lang, "وضعیت تایپ", "typing status", "Schreibstatus"), rule.delayMaxSeconds > 0 && `${rule.delayMinSeconds}–${rule.delayMaxSeconds}s`].filter(Boolean).join(" · ") || tri(lang, "ارسال فوری", "immediate delivery", "sofortige Zustellung")}</p></div><div className="flex gap-2"><button onClick={() => updateDirectRule(rule.id, !rule.isActive)} className="relative w-10 h-5 rounded-full" style={{ background: rule.isActive ? "#a855f7" : "var(--surface-1)" }}><span className="absolute top-0.5 w-4 h-4 rounded-full bg-white" style={{ right: rule.isActive ? "0.125rem" : "calc(100% - 1.125rem)" }} /></button><button onClick={() => deleteDirectRule(rule.id)} className="p-1.5" style={{ color: "var(--text-muted)" }}><X className="w-4 h-4" /></button></div></div>)}</div>}
+            {directLogs.length > 0 && <div className="mt-4"><p className="text-[11px] mb-2" style={{ color: "var(--text-muted)" }}>{tri(lang, "فعالیت‌های اخیر دایرکت", "Recent Direct activity", "Letzte Direct-Aktivität")}</p><div className="space-y-2">{directLogs.slice(0, 5).map((log) => <div key={log.id} className="rounded-lg px-3 py-2 text-[11px]" style={{ background: "var(--surface-2)" }}><div className="flex items-center justify-between gap-3"><span className="min-w-0 truncate" style={{ color: "var(--text-secondary)" }}>@{log.senderId} · {log.text || "—"}</span><span className="shrink-0" style={{ color: log.status === "sent" ? "#22c55e" : log.status === "failed" ? "#ef4444" : "var(--text-muted)" }}>{log.status === "sent" ? tri(lang, "پاسخ داده شد", "replied", "beantwortet") : log.status === "awaiting_follow" ? tri(lang, "در انتظار تأیید", "waiting for confirmation", "wartet auf Bestätigung") : log.status === "failed" ? tri(lang, "خطا", "failed", "fehlgeschlagen") : tri(lang, "ثبت شد", "logged", "protokolliert")}</span></div>{log.replyText && <p className="mt-1" style={{ color: "var(--text-muted)" }}>↳ {log.replyText}</p>}</div>)}</div></div>}
+          </>}
+        </div>
+      )}
+
+      {/* Instagram customer inbox — manual replies are limited to user-initiated conversations. */}
+      {igConnected && canAuto && (
+        <section className="rounded-2xl p-6 mt-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center gap-2 mb-1"><Inbox className="w-5 h-5" style={{ color: "#a855f7" }} /><h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "صندوق پیام اینستاگرام", "Instagram Inbox", "Instagram-Postfach")}</h2></div>
+          <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>{tri(lang, "گفتگوهای ورودی و پاسخ‌های خودکار این کسب‌وکار را ببین و دستی پاسخ بده. ارسال فقط به مخاطبی ممکن است که قبلاً به همین حساب پیام داده باشد؛ محدودیت‌های پنجرهٔ پاسخ Meta همچنان اعمال می‌شود.", "Review inbound conversations and automation replies for this business, then reply manually. Replies are limited to people who messaged this connected account; Meta's messaging window still applies.", "Eingehende Gespräche und automatische Antworten dieses Geschäfts ansehen und manuell antworten. Antworten sind nur an Personen möglich, die diesem verbundenen Konto geschrieben haben; Metas Nachrichtenfenster gilt weiterhin.")}</p>
+          {directSenders.length === 0 ? <div className="rounded-xl p-5 text-center text-sm" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>{tri(lang, "هنوز گفتگویی دریافت نشده است. پس از فعال‌سازی وب‌هوک پیام‌ها، گفتگوهای جدید اینجا نمایش داده می‌شوند.", "No conversations yet. New threads will appear here after Instagram message webhooks are enabled.", "Noch keine Gespräche. Neue Unterhaltungen erscheinen hier, sobald Instagram-Nachrichten-Webhooks aktiviert sind.")}</div> : <div className="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
+            <div className="space-y-1 max-h-80 overflow-y-auto rounded-xl p-2" style={{ background: "var(--surface-2)" }}>{directSenders.map((sender) => {
+              const latest = directLogs.find((message) => message.senderId === sender);
+              return <button key={sender} onClick={() => setSelectedDirectSender(sender)} className="w-full rounded-lg px-3 py-2 text-left text-xs" style={{ background: selectedDirectSender === sender ? "var(--surface-1)" : "transparent", color: "var(--text-primary)" }}><span className="block font-medium">{tri(lang, "گفتگو", "Conversation", "Gespräch")} · {sender.slice(-8)}</span><span className="block mt-1 truncate" style={{ color: "var(--text-muted)" }}>{latest?.text || latest?.replyText || "—"}</span></button>;
+            })}</div>
+            <div className="min-w-0 rounded-xl p-3 flex flex-col" style={{ background: "var(--surface-2)" }}>
+              <div className="flex-1 min-h-40 max-h-80 overflow-y-auto space-y-2 pb-3">{selectedDirectMessages.map((message) => <div key={message.id} className="space-y-1">
+                {message.direction === "inbound" && <div className="max-w-[85%] rounded-xl rounded-tl-sm px-3 py-2 text-xs" style={{ background: "var(--surface-1)", color: "var(--text-primary)" }}><p>{message.text || "—"}</p><span className="block mt-1 text-[10px]" style={{ color: "var(--text-muted)" }}>{new Date(message.createdAt).toLocaleTimeString(lang, { hour: "2-digit", minute: "2-digit" })}</span></div>}
+                {message.direction === "outbound" && <div className="ml-auto max-w-[85%] rounded-xl rounded-tr-sm px-3 py-2 text-xs" style={{ background: "rgba(168,85,247,0.18)", color: "var(--text-primary)" }}><p>{message.text || "—"}</p><span className="block mt-1 text-[10px]" style={{ color: "var(--text-muted)" }}>{new Date(message.createdAt).toLocaleTimeString(lang, { hour: "2-digit", minute: "2-digit" })} · {message.status}</span></div>}
+                {message.direction === "inbound" && message.replyText && <div className="ml-auto max-w-[85%] rounded-xl rounded-tr-sm px-3 py-2 text-xs" style={{ background: "rgba(168,85,247,0.18)", color: "var(--text-primary)" }}><p>{message.replyText}</p><span className="block mt-1 text-[10px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "پاسخ خودکار", "Automated reply", "Automatische Antwort")} · {message.status}</span></div>}
+                {message.direction === "inbound" && message.status === "awaiting_follow" && <p className="text-[10px] text-center" style={{ color: "var(--text-muted)" }}>{tri(lang, "پاسخ تا تأیید مخاطب نگه داشته شده است", "Reply is waiting for the recipient's confirmation", "Antwort wartet auf Bestätigung der Person")}</p>}
+              </div>)}</div>
+              <div className="flex gap-2 border-t pt-3" style={{ borderColor: "var(--border)" }}><textarea value={directReplyDraft} onChange={(e) => setDirectReplyDraft(e.target.value)} rows={2} maxLength={1000} disabled={!selectedDirectSender || sendingDirectReply} placeholder={tri(lang, "پاسخ دستی…", "Write a manual reply…", "Manuelle Antwort schreiben…")} className="flex-1 resize-none rounded-lg px-3 py-2 text-xs outline-none disabled:opacity-50" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} /><button onClick={sendDirectReply} disabled={!selectedDirectSender || !directReplyDraft.trim() || sendingDirectReply} className="self-end flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-white disabled:opacity-50" style={{ background: "#a855f7" }}>{sendingDirectReply ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}{tri(lang, "ارسال", "Send", "Senden")}</button></div>
+            </div>
+          </div>}
+        </section>
+      )}
+
       {/* Comment → DM auto-reply campaigns */}
       {igConnected && (
         <div className="rounded-2xl p-6 mt-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <div className="flex items-center gap-2 mb-1">
             <MessageCircle className="w-5 h-5" style={{ color: "#22c55e" }} />
             <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>
-              {isFa ? "پاسخ خودکار کامنت به دایرکت" : "Comment → DM Auto-Reply"}
+              {tri(lang, "پاسخ خودکار کامنت به دایرکت", "Comment → DM Auto-Reply", "Kommentar → DM-Autoantwort")}
             </h2>
           </div>
           <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
@@ -1581,31 +2033,32 @@ export default function SocialPage() {
 
           {!canAuto ? (
             <p className="text-xs px-3 py-2 rounded-lg" style={{ background: "rgba(234,88,12,0.1)", color: "var(--primary)" }}>
-              {isFa ? "این قابلیت فقط برای پلن‌های پرو و تیم فعال است." : "This feature is only available on Pro and Team plans."}
+              {tri(lang, "این قابلیت فقط برای پلن‌های پرو و تیم فعال است.", "This feature is only available on Pro and Team plans.", "Diese Funktion ist nur für Pro- und Team-Pläne verfügbar.")}
             </p>
           ) : (
             <>
-              {/* New campaign form */}
-              <div className="rounded-xl p-4 mb-4 space-y-3" style={{ background: "var(--surface-2)" }}>
+              <InstagramCommentAutomationBuilder posts={analytics?.recentMedia || []} lang={lang} onCreated={loadCampaigns} />
+              {/* Legacy form kept hidden during rollout so existing saved campaigns remain unaffected. */}
+              <div hidden className="rounded-xl p-4 mb-4 space-y-3" style={{ background: "var(--surface-2)" }}>
                 <input
                   value={newKeyword} onChange={(e) => setNewKeyword(e.target.value)}
-                  placeholder={isFa ? "کلمه‌های کلیدی، با کاما جدا کن (مثلاً: قیمت, هزینه)" : "Keywords, comma-separated (e.g. price, cost)"}
+                  placeholder={tri(lang, "کلمه‌های کلیدی، با کاما جدا کن (مثلاً: قیمت, هزینه)", "Keywords, comma-separated (e.g. price, cost)", "Schlüsselwörter, kommagetrennt (z.B. Preis, Kosten)")}
                   className="w-full px-3 py-2 rounded-lg text-sm outline-none"
                   style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
                 />
                 <div>
                   <label className="text-[11px] block mb-1" style={{ color: "var(--text-muted)" }}>
-                    {isFa ? "این کمپین فقط روی کدوم پست فعال باشه؟" : "Which post should this campaign apply to?"}
+                    {tri(lang, "این کمپین فقط روی کدوم پست فعال باشه؟", "Which post should this campaign apply to?", "Auf welchen Beitrag soll diese Kampagne angewendet werden?")}
                   </label>
-                  <select
+                  <select aria-label={tri(lang, "این کمپین فقط روی کدوم پست فعال باشه؟", "Which post should this campaign apply to?", "Auf welchen Beitrag soll diese Kampagne angewendet werden?")}
                     value={newPostId} onChange={(e) => setNewPostId(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg text-sm outline-none"
                     style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
                   >
-                    <option value="">{isFa ? "همه پست‌ها" : "All posts"}</option>
+                    <option value="">{tri(lang, "همه پست‌ها", "All posts", "Alle Beiträge")}</option>
                     {(analytics?.recentMedia || []).map((m) => (
                       <option key={m.id} value={m.id}>
-                        {(m.caption || "").slice(0, 60) || m.id} — {new Date(m.timestamp).toLocaleDateString(isFa ? "fa-IR" : "en-US")}
+                        {(m.caption || "").slice(0, 60) || m.id} — {new Date(m.timestamp).toLocaleDateString(lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US")}
                       </option>
                     ))}
                   </select>
@@ -1613,31 +2066,31 @@ export default function SocialPage() {
                 <div>
                   <textarea
                     value={newDmMessage} onChange={(e) => setNewDmMessage(e.target.value)}
-                    placeholder={isFa ? "متن پیام خصوصی... مثلاً: سلام {username}، ممنون از کامنتت!" : "The private DM message... e.g. Hey {username}, thanks for commenting!"}
+                    placeholder={tri(lang, "متن پیام خصوصی... مثلاً: سلام {username}، ممنون از کامنتت!", "The private DM message... e.g. Hey {username}, thanks for commenting!", "Die private DM-Nachricht... z.B. Hallo {username}, danke für deinen Kommentar!")}
                     rows={2}
                     className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none"
                     style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
                   />
                   <p className="text-[11px] mt-1" style={{ color: "var(--text-muted)" }}>
-                    {isFa ? "می‌تونی از {username} برای نوشتن نام کاربر در پیام استفاده کنی." : "Use {username} to insert the commenter's handle in the message."}
+                    {tri(lang, "می‌تونی از {username} برای نوشتن نام کاربر در پیام استفاده کنی.", "Use {username} to insert the commenter's handle in the message.", "Verwenden Sie {username}, um den Benutzernamen des Kommentators in die Nachricht einzufügen.")}
                   </p>
                 </div>
                 <input
                   value={newPublicReply} onChange={(e) => setNewPublicReply(e.target.value)}
-                  placeholder={isFa ? "پاسخ عمومی زیر کامنت (اختیاری، مثلاً: چک کن دایرکتت رو 📩)" : "Public reply under the comment (optional, e.g. Check your DMs 📩)"}
+                  placeholder={tri(lang, "پاسخ عمومی زیر کامنت (اختیاری، مثلاً: چک کن دایرکتت رو 📩)", "Public reply under the comment (optional, e.g. Check your DMs 📩)", "Öffentliche Antwort unter dem Kommentar (optional, z.B. Prüfen Sie Ihre DMs 📩)")}
                   className="w-full px-3 py-2 rounded-lg text-sm outline-none"
                   style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
                 />
                 <div>
                   <p className="text-[11px] mb-1.5" style={{ color: "var(--text-muted)" }}>
-                    {isFa ? "تا ۲ لینک قابل کلیک، به همراه آمار کلیک، به انتهای پیام اضافه می‌شه (اختیاری)" : "Up to 2 trackable links appended to the message (optional)"}
+                    {tri(lang, "تا ۲ لینک قابل کلیک، به همراه آمار کلیک، به انتهای پیام اضافه می‌شه (اختیاری)", "Up to 2 trackable links appended to the message (optional)", "Bis zu 2 verfolgbare Links am Ende der Nachricht (optional)")}
                   </p>
                   <div className="grid grid-cols-2 gap-2 mb-2">
-                    <input value={newLink1Label} onChange={(e) => setNewLink1Label(e.target.value)} placeholder={isFa ? "برچسب لینک ۱" : "Link 1 label"} className="px-3 py-2 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                    <input value={newLink1Label} onChange={(e) => setNewLink1Label(e.target.value)} placeholder={tri(lang, "برچسب لینک ۱", "Link 1 label", "Link 1 Bezeichnung")} className="px-3 py-2 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                     <input value={newLink1Url} onChange={(e) => setNewLink1Url(e.target.value)} placeholder="https://..." dir="ltr" className="px-3 py-2 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <input value={newLink2Label} onChange={(e) => setNewLink2Label(e.target.value)} placeholder={isFa ? "برچسب لینک ۲" : "Link 2 label"} className="px-3 py-2 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                    <input value={newLink2Label} onChange={(e) => setNewLink2Label(e.target.value)} placeholder={tri(lang, "برچسب لینک ۲", "Link 2 label", "Link 2 Bezeichnung")} className="px-3 py-2 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                     <input value={newLink2Url} onChange={(e) => setNewLink2Url(e.target.value)} placeholder="https://..." dir="ltr" className="px-3 py-2 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                   </div>
                 </div>
@@ -1645,16 +2098,16 @@ export default function SocialPage() {
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={newFollowGate} onChange={(e) => setNewFollowGate(e.target.checked)} className="w-4 h-4 accent-green-500" />
                     <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-                      {isFa ? "Follow Gate — اول فالو کن، بعد اطلاعات بگیر" : "Follow Gate — follow first, then get the info"}
+                      {tri(lang, "Follow Gate — اول فالو کن، بعد اطلاعات بگیر", "Follow Gate — follow first, then get the info", "Follow Gate — zuerst folgen, dann Informationen erhalten")}
                     </span>
                   </label>
                   <p className="text-[11px] mt-1" style={{ color: "var(--text-muted)" }}>
-                    {isFa ? "قبل از پیام اصلی، یه دکمه «فالو کردم» توی دایرکت می‌فرستیم. متا API نداره که خودکار چک کنیم فالو کرده یا نه، برای همین با کلیک خود کاربر تایید می‌شه." : "Sends an \"I followed\" button before the real message. Meta has no API to auto-check follow status, so this is self-confirmed via the button tap."}
+                    {tri(lang, "قبل از پیام اصلی، یه دکمه «فالو کردم» توی دایرکت می‌فرستیم. متا API نداره که خودکار چک کنیم فالو کرده یا نه، برای همین با کلیک خود کاربر تایید می‌شه.", "Sends an \"I followed\" button before the real message. Meta has no API to auto-check follow status, so this is self-confirmed via the button tap.", "Sendet eine \"Ich habe gefolgt\"-Schaltfläche vor der eigentlichen Nachricht. Meta hat keine API, um den Follow-Status automatisch zu prüfen, daher wird dies über den Button-Klick selbst bestätigt.")}
                   </p>
                   {newFollowGate && (
                     <input
                       value={newFollowGatePrompt} onChange={(e) => setNewFollowGatePrompt(e.target.value)}
-                      placeholder={isFa ? "متن دعوت به فالو (اختیاری، پیش‌فرض دارد)" : "Follow-prompt text (optional, has a default)"}
+                      placeholder={tri(lang, "متن دعوت به فالو (اختیاری، پیش‌فرض دارد)", "Follow-prompt text (optional, has a default)", "Folgeaufforderungstext (optional, hat Standardwert)")}
                       className="w-full mt-2 px-3 py-2 rounded-lg text-xs outline-none"
                       style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
                     />
@@ -1666,7 +2119,7 @@ export default function SocialPage() {
                   style={{ background: "#22c55e" }}
                 >
                   {savingCampaign ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                  {isFa ? "ساخت کمپین" : "Create Campaign"}
+                  {tri(lang, "ساخت کمپین", "Create Campaign", "Kampagne erstellen")}
                 </button>
               </div>
 
@@ -1677,7 +2130,7 @@ export default function SocialPage() {
                 </div>
               ) : campaigns.length === 0 ? (
                 <p className="text-xs px-3 py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
-                  {isFa ? "هنوز کمپینی نساختی." : "No campaigns yet."}
+                  {tri(lang, "هنوز کمپینی نساختی.", "No campaigns yet.", "Noch keine Kampagnen erstellt.")}
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -1687,6 +2140,7 @@ export default function SocialPage() {
                       <div key={c.id} className="rounded-xl p-3" style={{ background: "var(--surface-2)" }}>
                         <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>{c.name || c.keyword}</p>
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                               {c.keyword.split(/[,،]/).map((k) => k.trim()).filter(Boolean).map((k) => (
                                 <span key={k} className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>
@@ -1694,11 +2148,11 @@ export default function SocialPage() {
                                 </span>
                               ))}
                               <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                                {isFa ? `${c.triggerCount} بار ارسال شده` : `triggered ${c.triggerCount}x`}
+                                {tri(lang, `${c.triggerCount} بار ارسال شده`, `triggered ${c.triggerCount}x`, `${c.triggerCount}x ausgelöst`)}
                               </span>
                               {c.postId && (
                                 <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: "rgba(59,130,246,0.15)", color: "#3b82f6" }}>
-                                  🎯 {isFa ? "پست خاص" : "specific post"}
+                                  🎯 {tri(lang, "پست خاص", "specific post", "Bestimmter Beitrag")}
                                 </span>
                               )}
                               {c.followGateEnabled && (
@@ -1712,7 +2166,7 @@ export default function SocialPage() {
                               <div className="flex items-center gap-3 mt-1">
                                 {links.map((l) => (
                                   <span key={l.id} className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                                    🔗 {l.label}: {l.clicks} {isFa ? "کلیک" : "clicks"}
+                                    🔗 {l.label}: {l.clicks} {tri(lang, "کلیک", "clicks", "Klicks")}
                                   </span>
                                 ))}
                               </div>
@@ -1720,7 +2174,7 @@ export default function SocialPage() {
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <button onClick={() => toggleLogs(c.id)} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-1)", color: "var(--text-secondary)" }}>
-                              {isFa ? "لاگ‌ها" : "Logs"}
+                              {tri(lang, "لاگ‌ها", "Logs", "Logs")}
                             </button>
                             <button
                               onClick={() => toggleCampaign(c.id, !c.isActive)}
@@ -1742,21 +2196,22 @@ export default function SocialPage() {
                                 <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--text-muted)" }} />
                               </div>
                             ) : campaignLogs.length === 0 ? (
-                              <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز رویدادی ثبت نشده." : "No events logged yet."}</p>
+                              <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز رویدادی ثبت نشده.", "No events logged yet.", "Noch keine Ereignisse protokolliert.")}</p>
                             ) : (
                               <div className="space-y-1 max-h-40 overflow-y-auto">
                                 {campaignLogs.map((log) => (
                                   <div key={log.id} className="flex items-center justify-between text-[11px]">
                                     <span style={{ color: "var(--text-secondary)" }}>@{log.commenterUsername || "?"}</span>
                                     <span style={{
-                                      color: log.status === "sent" ? "#22c55e" : log.status === "awaiting_follow" ? "#3b82f6" : log.status === "skipped" ? "#eab308" : "#ef4444",
+                                      color: log.status === "sent" ? "#22c55e" : log.status === "sent_public_fallback" ? "#3b82f6" : log.status === "awaiting_follow" ? "#3b82f6" : log.status === "skipped" ? "#eab308" : "#ef4444",
                                     }}>
-                                      {log.status === "sent" ? (isFa ? "ارسال شد" : "sent")
-                                        : log.status === "awaiting_follow" ? (isFa ? "منتظر تایید فالو" : "awaiting follow")
-                                        : log.status === "skipped" ? (isFa ? "رد شد (محدودیت نرخ)" : "skipped (rate limit)")
-                                        : (isFa ? "خطا" : "failed")}
+                                      {log.status === "sent" ? (tri(lang, "ارسال شد", "sent", "Gesendet"))
+                                        : log.status === "sent_public_fallback" ? (tri(lang, "پاسخ عمومی (دایرکت در انتظار تأیید متا)", "public reply (DM pending Meta approval)", "öffentliche Antwort (DM wartet auf Meta-Freigabe)"))
+                                        : log.status === "awaiting_follow" ? (tri(lang, "منتظر تایید فالو", "awaiting follow", "Wartet auf Folgen"))
+                                        : log.status === "skipped" ? (tri(lang, "رد شد (محدودیت نرخ)", "skipped (rate limit)", "Übersprungen (Ratenlimit)"))
+                                        : (tri(lang, "خطا", "failed", "Fehlgeschlagen"))}
                                     </span>
-                                    <span style={{ color: "var(--text-muted)" }}>{new Date(log.createdAt).toLocaleString(isFa ? "fa-IR" : "en-US")}</span>
+                                    <span style={{ color: "var(--text-muted)" }}>{new Date(log.createdAt).toLocaleString(lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US")}</span>
                                   </div>
                                 ))}
                               </div>
@@ -1787,7 +2242,7 @@ export default function SocialPage() {
           >
             <div className="flex items-center justify-between px-5 py-4 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
               <h2 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
-                {lang === "fa" ? "انتخاب عکس از گالری" : "Choose an Image"}
+                {tri(lang, "انتخاب عکس از گالری", "Choose an Image", "Bild aus Galerie wählen")}
               </h2>
               <button onClick={() => setShowGalleryPicker(false)} className="p-1.5 rounded-lg" style={{ color: "var(--text-muted)" }}>
                 <X className="w-5 h-5" />
@@ -1802,7 +2257,7 @@ export default function SocialPage() {
                 <div className="text-center py-16">
                   <ImageIcon className="w-10 h-10 mx-auto mb-3 opacity-30" style={{ color: "var(--text-muted)" }} />
                   <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                    {lang === "fa" ? "هنوز عکسی نساختی. اول از «تولید تصویر» یا «بازآفرینی از پست قبلی» یک عکس بساز." : "You haven't created any images yet. First generate one from Image Generation or Recreate from Sample Post."}
+                    {tri(lang, "هنوز عکسی نساختی. اول از «تولید تصویر» یا «بازآفرینی از پست قبلی» یک عکس بساز.", "You haven't created any images yet. First generate one from Image Generation or Recreate from Sample Post.", "Sie haben noch keine Bilder erstellt. Erstellen Sie zuerst eines über Bildgenerierung oder Nachbauen aus Beispielbeitrag.")}
                   </p>
                 </div>
               ) : (

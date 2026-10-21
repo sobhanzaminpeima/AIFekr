@@ -6,34 +6,66 @@ import { prisma } from "@/lib/db/prisma";
 
 export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req);
-  if (!admin) return unauthorizedResponse();
+  if (!admin) return unauthorizedResponse(req);
 
   const providers = await prisma.customAiProvider.findMany({ orderBy: { createdAt: "desc" } });
   // API keys never leave the server once saved — the admin list only needs
   // to confirm one is set, not display/re-edit the actual value.
   return NextResponse.json({
-    providers: providers.map((p) => ({ id: p.id, name: p.name, baseUrl: p.baseUrl, model: p.model, enabled: p.enabled, hasApiKey: !!p.apiKey })),
+    providers: providers.map((p) => ({ id: p.id, name: p.name, type: p.type, baseUrl: p.baseUrl, model: p.model, enabled: p.enabled, hasApiKey: !!p.apiKey })),
   });
+}
+
+const VALID_TYPES = new Set(["chat", "image", "video"]);
+
+// Blunt SSRF guard: an admin (or a compromised admin account) shouldn't be
+// able to point this server's outbound requests at itself or internal-network
+// hosts. Not exhaustive (doesn't resolve DNS to catch rebinding), but blocks
+// the obvious cases cheaply.
+const BLOCKED_HOST_PATTERNS: RegExp[] = [
+  /^localhost$/i,
+  /^127\./,
+  /^0\.0\.0\.0$/,
+  /^10\./,
+  /^192\.168\./,
+  /^172\.(1[6-9]|2\d|3[0-1])\./,
+  /^169\.254\./, // link-local / cloud metadata (e.g. 169.254.169.254)
+  /^\[?::1\]?$/,
+];
+
+function isBlockedBaseUrl(url: string): boolean {
+  try {
+    const { hostname } = new URL(url);
+    return BLOCKED_HOST_PATTERNS.some((re) => re.test(hostname));
+  } catch {
+    return true; // unparseable URL — reject rather than guess
+  }
 }
 
 export async function POST(req: NextRequest) {
   const admin = await requireAdmin(req);
-  if (!admin) return unauthorizedResponse();
+  if (!admin) return unauthorizedResponse(req);
 
-  const { name, baseUrl, apiKey, model } = await req.json();
+  const { name, type = "chat", baseUrl, apiKey, model } = await req.json();
   if (!name?.trim() || !baseUrl?.trim() || !apiKey?.trim() || !model?.trim()) {
     return NextResponse.json({ error: "همه‌ی فیلدها الزامی است" }, { status: 400 });
   }
+  if (!VALID_TYPES.has(type)) {
+    return NextResponse.json({ error: "نوع مدل نامعتبر است" }, { status: 400 });
+  }
+  if (isBlockedBaseUrl(baseUrl.trim())) {
+    return NextResponse.json({ error: "این آدرس مجاز نیست (شبکه داخلی/لوکال)" }, { status: 400 });
+  }
 
   const provider = await prisma.customAiProvider.create({
-    data: { name: name.trim(), baseUrl: baseUrl.trim().replace(/\/$/, ""), apiKey: apiKey.trim(), model: model.trim() },
+    data: { name: name.trim(), type, baseUrl: baseUrl.trim().replace(/\/$/, ""), apiKey: apiKey.trim(), model: model.trim() },
   });
-  return NextResponse.json({ provider: { id: provider.id, name: provider.name, baseUrl: provider.baseUrl, model: provider.model, enabled: provider.enabled } });
+  return NextResponse.json({ provider: { id: provider.id, name: provider.name, type: provider.type, baseUrl: provider.baseUrl, model: provider.model, enabled: provider.enabled } });
 }
 
 export async function PATCH(req: NextRequest) {
   const admin = await requireAdmin(req);
-  if (!admin) return unauthorizedResponse();
+  if (!admin) return unauthorizedResponse(req);
 
   const { id, enabled } = await req.json();
   if (!id) return NextResponse.json({ error: "id الزامی است" }, { status: 400 });
@@ -44,7 +76,7 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const admin = await requireAdmin(req);
-  if (!admin) return unauthorizedResponse();
+  if (!admin) return unauthorizedResponse(req);
 
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id الزامی است" }, { status: 400 });

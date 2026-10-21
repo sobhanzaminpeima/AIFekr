@@ -5,14 +5,19 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useRef } from "react";
 import {  Wand2, Loader2, CheckCircle, AlertCircle, Download, Play, Pause, Upload, X, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, tri } from "@/lib/i18n";
+import { downscaleImage } from "@/lib/image/downscaleImage";
+import UpgradeRequiredModal from "@/components/ui/UpgradeRequiredModal";
+import CreditCost from "@/components/ui/CreditCost";
 
 interface PromptTemplate {
   id: string;
   title: string;
   titleEn: string | null;
+  titleDe?: string | null;
   content: string;
   contentEn: string | null;
+  contentDe?: string | null;
 }
 
 const RATIOS = ["16:9", "9:16", "1:1"];
@@ -21,7 +26,7 @@ type GenStatus = "idle" | "generating" | "polling" | "succeeded" | "failed";
 
 export default function VideoGeneratePage() {
   const { t, lang } = useTranslation();
-  const isFa = lang !== "en";
+  const isFa = lang === "fa";
   const s = t.videoGeneratePage;
   const STYLES = s.styles;
   const DURATIONS = s.durations;
@@ -47,6 +52,7 @@ export default function VideoGeneratePage() {
   const [videoProviders, setVideoProviders] = useState<{ id: string; name: string }[]>([]);
   const [videoProvidersLoaded, setVideoProvidersLoaded] = useState(false);
   const [videoProvider, setVideoProvider] = useState<string>("qwen");
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   useEffect(() => {
     fetch("/api/prompts?toolType=video")
@@ -69,8 +75,9 @@ export default function VideoGeneratePage() {
     if (!file) return;
     setUploading(true);
     try {
+      const compressed = await downscaleImage(file);
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", compressed);
       const res = await fetch("/api/upload", { method: "POST", body: form });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -85,7 +92,9 @@ export default function VideoGeneratePage() {
   }
 
   function pickTemplate(tpl: PromptTemplate) {
-    setPrompt(tpl.content);
+    // Same language fallback as the chat templates: German, then English, then
+    // Persian — a German/English user used to get the Persian prompt text.
+    setPrompt((lang === "de" && tpl.contentDe) || (lang !== "fa" && tpl.contentEn) || tpl.content);
     setShowTemplates(false);
     fetch("/api/prompts", {
       method: "POST",
@@ -134,7 +143,11 @@ export default function VideoGeneratePage() {
       body: JSON.stringify({ prompt, style, duration, ratio, sourceImageUrl, provider: videoProvider }),
     });
     const data = await res.json();
-    if (!res.ok) { setStatus("failed"); setProgress(0); return toast.error(data.error || s.errGenerate); }
+    if (!res.ok) {
+      setStatus("failed"); setProgress(0);
+      if (data.requiresUpgrade) { setShowUpgradeModal(true); return; }
+      return toast.error(data.error || s.errGenerate);
+    }
     setPredictionId(data.predictionId);
     setVideoId(data.videoId);
     setStatus("polling");
@@ -222,9 +235,9 @@ export default function VideoGeneratePage() {
         {!sourceImageUrl && videoProviders.length > 0 && (
           <div>
             <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
-              {isFa ? "مدل ویدیو" : "Video Model"}
+              {tri(lang, "مدل ویدیو", "Video Model", "Videomodell")}
             </label>
-            <select
+            <select aria-label={tri(lang, "مدل ویدیو", "Video Model", "Videomodell")}
               value={videoProvider}
               onChange={(e) => setVideoProvider(e.target.value)}
               disabled={isLoading}
@@ -239,7 +252,7 @@ export default function VideoGeneratePage() {
         )}
         {!sourceImageUrl && videoProvidersLoaded && videoProviders.length === 0 && (
           <div className="p-3 rounded-xl text-xs" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
-            {isFa ? "هیچ مدل ویدیویی پیکربندی نشده است. با پشتیبانی تماس بگیرید." : "No video models are configured. Contact support."}
+            {tri(lang, "هیچ مدل ویدیویی پیکربندی نشده است. با پشتیبانی تماس بگیرید.", "No video models are configured. Contact support.", "Keine Videomodelle konfiguriert. Kontaktieren Sie den Support.")}
           </div>
         )}
 
@@ -287,7 +300,7 @@ export default function VideoGeneratePage() {
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-white disabled:opacity-50"
           style={{ background: "var(--primary)" }}>
           {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Wand2 className="w-5 h-5" />}
-          {isLoading ? s.generatingText : s.generateBtn}
+          {isLoading ? s.generatingText : s.generateBtn} <CreditCost costKey={duration <= 5 ? "video_5s" : duration <= 10 ? "video_10s" : "video_30s"} />
         </button>
       </div>
 
@@ -341,6 +354,8 @@ export default function VideoGeneratePage() {
           <button onClick={() => setStatus("idle")} className="px-3 py-1 rounded-lg text-xs" style={{ background: "rgba(239,68,68,0.2)", color: "#ef4444" }}>{s.retryBtn}</button>
         </div>
       )}
+
+      {showUpgradeModal && <UpgradeRequiredModal lang={lang} onClose={() => setShowUpgradeModal(false)} />}
     </div>
   );
 }

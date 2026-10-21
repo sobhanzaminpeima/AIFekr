@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -7,18 +5,34 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { generateVideo as generateVideoQwen, generateVideoFromReference } from "@/lib/ai/qwen";
 import { generateVideo as generateVideoReplicate } from "@/lib/ai/replicate";
-import { getAvailableCredits, deductCredits } from "@/lib/utils/teamCredits";
+import { isCustomProviderModel } from "@/lib/ai/customProviders";
+import { startCustomVideoJob } from "@/lib/ai/customVideoProvider";
+import { getCreditCosts } from "@/lib/utils/creditCosts";
+import { getAvailableCredits, chargeAndLog } from "@/lib/utils/teamCredits";
 import { getLimitsForPlan } from "@/lib/utils/planLimits";
+import { isFeatureEnabled, FEATURE_DISABLED_MESSAGE } from "@/lib/utils/featureToggles";
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
+
+  if (!(await isFeatureEnabled("video"))) {
+    return NextResponse.json({ error: FEATURE_DISABLED_MESSAGE.video }, { status: 503 });
+  }
+
+  // Referral-trial accounts (activated via /admin/invites with the "limited"
+  // package) get everything except Video Generator and Website Designer --
+  // see prisma schema's User.trialLimited comment for the full flag lifecycle.
+  if (user.trialLimited) {
+    return NextResponse.json({ error: "برای استفاده از این بخش باید اکانت خود را ارتقا دهید", requiresUpgrade: true }, { status: 403 });
+  }
 
   try {
     const { prompt, duration = 5, ratio = "16:9", style = "واقعی", sourceImageUrl, provider = "qwen" } = await req.json();
     if (!prompt?.trim()) return NextResponse.json({ error: "توضیحات ویدیو الزامی است" }, { status: 400 });
 
-    const creditCost = duration <= 5 ? 20 : duration <= 10 ? 35 : 80;
+    const costs = await getCreditCosts();
+    const creditCost = duration <= 5 ? costs.video_5s : duration <= 10 ? costs.video_10s : costs.video_30s;
 
     if ((await getAvailableCredits(user.id)) < creditCost) {
       return NextResponse.json({ error: `اعتبار کافی ندارید. نیاز به ${creditCost} اعتبار دارید` }, { status: 402 });
@@ -38,14 +52,32 @@ export async function POST(req: NextRequest) {
 
     // Image-to-video always goes through Replicate — Qwen's I2V endpoint isn't
     // wired up yet (see qwen.ts). Text-to-video respects the user's provider choice.
-    const { predictionId, status } = sourceImageUrl
+    // Admin-added custom providers (model string "custom:<id>") bypass the
+    // built-in provider table and go through the generic async job-based
+    // contract in customVideoProvider.ts — reference-image (image-to-video)
+    // isn't part of that contract.
+    const { predictionId, status } = isCustomProviderModel(provider)
+      ? await startCustomVideoJob(provider.slice("custom:".length), prompt, { duration, ratio, style })
+      : sourceImageUrl
       ? await generateVideoFromReference({ prompt, duration: duration as any, ratio, style, imageUrl: sourceImageUrl })
       : provider === "replicate"
       ? await generateVideoReplicate({ prompt, duration: duration as any, ratio, style })
       : await generateVideoQwen({ prompt, duration: duration as any, ratio, style });
 
-    // Deduct credits immediately
-    await deductCredits(user.id, creditCost);
+    // Charge immediately (the provider job is already running) together with
+    // the usage row, so the two can't drift apart. A declined charge means a
+    // concurrent request drained the balance after this one's pre-flight
+    // check — the job is left to finish but nothing is saved, so it never
+    // reaches the user's gallery uncharged.
+    const charged = await chargeAndLog(user.id, creditCost, {
+      type: "video",
+      metadata: { predictionId, duration, ratio, style },
+      provider: isCustomProviderModel(provider) ? provider.slice("custom:".length) : sourceImageUrl ? "qwen-video-i2v" : provider,
+      mediaSeconds: duration,
+    });
+    if (!charged) {
+      return NextResponse.json({ error: "اعتبار کافی ندارید" }, { status: 402 });
+    }
 
     // Save with pending status
     const video = await prisma.generatedVideo.create({
@@ -59,15 +91,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    await prisma.usageLog.create({
-      data: { userId: user.id, type: "video", credits: creditCost, metadata: JSON.stringify({ predictionId, duration, ratio, style }) },
-    });
-
     return NextResponse.json({ videoId: video.id, predictionId, status, credits_used: creditCost });
   } catch (err) {
-    if (err instanceof Error && err.message === "INSUFFICIENT_CREDITS") {
-      return NextResponse.json({ error: "اعتبار کافی نیست" }, { status: 402 });
-    }
     console.error("video generate error:", err);
     return NextResponse.json({ error: "خطا در تولید ویدیو" }, { status: 500 });
   }

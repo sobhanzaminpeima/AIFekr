@@ -22,11 +22,15 @@ export interface BusinessProfile {
   foundedYear?: string;
   businessModel?: string;
   uniqueValue?: string;
+  /// Read-only here — set via POST /api/business-profile/logo, never accepted
+  /// through this route's own POST body (that body is the free-form wizard
+  /// profile, JSON-stuffed into Company.notes; logoUrl has its own column).
+  logoUrl?: string;
 }
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const company = await prisma.company.findUnique({ where: { userId: user.id } });
   if (!company) return NextResponse.json({ profile: null });
@@ -44,6 +48,7 @@ export async function GET(req: NextRequest) {
     size: company.size || undefined,
     revenue: company.revenue || undefined,
     ...extra,
+    logoUrl: company.logoUrl || undefined,
   };
 
   return NextResponse.json({ profile });
@@ -51,7 +56,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const body: BusinessProfile = await req.json();
   const { name, industry, website, phone, email, address, size, revenue, ...extra } = body;

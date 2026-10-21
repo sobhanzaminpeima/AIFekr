@@ -8,11 +8,11 @@ export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin) {
     const user = await (await import("@/lib/auth/middleware")).requireAuth(req);
-    return user ? forbiddenResponse() : unauthorizedResponse();
+    return user ? forbiddenResponse() : unauthorizedResponse(req);
   }
 
   const { searchParams } = new URL(req.url);
-  const page = parseInt(searchParams.get("page") || "1");
+  const page = Math.max(1,Math.floor(Number(searchParams.get("page"))||1));
   const limit = 20;
   const search = searchParams.get("search") || "";
 
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     }),
     prisma.user.count({ where }),
     Promise.all([
-      prisma.user.count({ where: { voicePlan: "ACTIVE" } }),
+      prisma.user.count({ where: { voicePlan: "ACTIVE", OR:[{voicePlanExpiry:null},{voicePlanExpiry:{gt:new Date()}}] } }),
       prisma.voiceAgent.count(),
       prisma.voiceAgent.count({ where: { phoneNumber: { not: null } } }),
       prisma.voiceCallLog.count(),

@@ -1,0 +1,6 @@
+import {afterEach,expect,it,vi} from "vitest";
+import {streamOpenAICompat,type Provider} from "./providers";
+const provider:Provider={id:"test-json",name:"Test",provider:"cloudflare",model:"@cf/meta/test",baseURL:"https://api.cloudflare.com/test",apiKey:"test-only",structuredJson:true,maxTokens:100,creditCost:0,strengths:[]};
+afterEach(()=>vi.unstubAllGlobals());
+it("uses nonstream JSON mode and records token usage",async()=>{let requestBody="";const fetcher=vi.fn(async(_url:unknown,init:RequestInit)=>{requestBody=String(init.body);return new Response(JSON.stringify({choices:[{message:{content:'{"title":"Valid"}'}}],usage:{prompt_tokens:4,completion_tokens:5,total_tokens:9}}));});vi.stubGlobal("fetch",fetcher);let output="";expect(await streamOpenAICompat(provider,[],"Return JSON",s=>output+=s)).toEqual({promptTokens:4,completionTokens:5,totalTokens:9});expect(JSON.parse(output).title).toBe("Valid");expect(JSON.parse(requestBody).stream).toBe(false);});
+it("rejects malformed generated JSON without publishing it",async()=>{vi.stubGlobal("fetch",vi.fn(async()=>new Response(JSON.stringify({choices:[{message:{content:'{"x": ,}'}}]}))));const onChunk=vi.fn();await expect(streamOpenAICompat(provider,[],"Return JSON",onChunk)).rejects.toThrow();expect(onChunk).not.toHaveBeenCalled();});

@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import { isCronAuthorized } from "@/lib/auth/cronAuth";
 
 // Hit by a system crontab entry every few minutes, same pattern as
 // cron/instagram-publish — a shared-secret-protected endpoint with no user
@@ -12,8 +13,7 @@ import { prisma } from "@/lib/db/prisma";
 // are rejected at rule-creation time (see automation-rules/route.ts) since
 // there's no notification channel or CRM Agent built yet to back them.
 export async function GET(req: NextRequest) {
-  const secret = req.nextUrl.searchParams.get("secret");
-  if (!secret || secret !== process.env.CRON_SECRET) {
+  if (!isCronAuthorized(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

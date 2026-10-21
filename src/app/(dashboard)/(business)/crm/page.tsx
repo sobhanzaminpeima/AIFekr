@@ -1,35 +1,88 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import {
-  Briefcase, Plus, X, Phone, Mail, Building2, Loader2,
-  Users, LayoutGrid, Clock, CheckCircle2, Circle, Zap, FileText, Trash2, Upload, Sparkles, CalendarDays,
-  Package, Receipt, FileSignature, Pin, Printer, FolderKanban,
+  Briefcase, Plus, X, Phone, Mail, Building2, Loader2, ChevronDown, ChevronUp,
+  Users, LayoutGrid, Clock, CheckCircle2, Circle, Zap, FileText, FileDown, Trash2, Upload, Sparkles, CalendarDays,
+  Package, Receipt, FileSignature, Pin, Printer, FolderKanban, PhoneCall,
+  MessageCircle, Send, BarChart2, Check, DollarSign, Tag, GitBranch, User, Share2,
 } from "lucide-react";
-import { useTranslation } from "@/lib/i18n";
+import toast from "react-hot-toast";
+import { useTranslation, tri, type Lang } from "@/lib/i18n";
+import type { Translations } from "@/lib/i18n/en";
+import { downscaleImage } from "@/lib/image/downscaleImage";
 import { toJalali } from "@/lib/utils/jalali";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import ReactMarkdown from "react-markdown";
+import { useCompanyLogo } from "@/lib/hooks/useCompanyLogo";
+import CreditCost from "@/components/ui/CreditCost";
 
-interface Stage { id: string; name: string; order: number; isWon: boolean; isLost: boolean; }
-interface Pipeline { id: string; name: string; industrySlug: string | null; isDefault: boolean; stages: Stage[]; }
+interface Stage { id: string; name: string; nameEn: string | null; nameDe: string | null; order: number; isWon: boolean; isLost: boolean; }
+interface Pipeline { id: string; name: string; nameEn: string | null; nameDe: string | null; industrySlug: string | null; isDefault: boolean; stages: Stage[]; }
+
+// Falls back to the Persian `name` when there's no translation (a custom
+// user-typed pipeline/stage name, or a row from before this feature).
+function localizedName(item: { name: string; nameEn: string | null; nameDe: string | null }, lang: Lang): string {
+  return lang === "en" ? (item.nameEn || item.name) : lang === "de" ? (item.nameDe || item.name) : item.name;
+}
 interface DealContact { id: string; name: string; phone: string | null; company: string | null; }
 interface Deal {
   id: string; title: string; value: number; stageId: string; pipelineId: string;
   status: string; contactId: string; contact: DealContact; expectedCloseDate: string | null; ownerId: string | null;
+  wonAt?: string | null;
+  commissionRate?: number | null; commissionAmount?: number | null; commissionPaymentStatus?: string;
 }
 interface Contact {
-  id: string; name: string; phone: string | null; email: string | null; company: string | null;
+  id: string; name: string; phone: string | null; email: string | null;
+  whatsapp: string | null; telegram: string | null; company: string | null;
   status: string; totalSpent: number; lastContact: string | null; assignedToId?: string | null;
+  _count?: { properties: number; propertyInterests: number };
 }
 interface TeamMember { id: string; name: string; email: string; }
 interface Activity { id: string; type: string; content: string; createdAt: string; }
-interface Task { id: string; title: string; status: string; dueDate: string | null; }
+interface Task { id: string; title: string; status: string; dueDate: string | null; draftMessage?: string | null; completedAt?: string | null; }
 interface ContactDetail extends Contact {
   deals: Deal[]; activities: Activity[]; tasks: Task[];
 }
 interface AutomationRule { id: string; name: string; trigger: string; condition: string | null; action: string; isActive: boolean; }
-interface CrmDocument { id: string; name: string; type: string; fileUrl: string; createdAt: string; }
+interface CrmDocument { id: string; name: string; type: string; createdAt: string; }
+
+type CrmTab = "board" | "contacts" | "automation" | "agent" | "calendar" | "analytics" | "products" | "invoices" | "contracts" | "projects" | "properties" | "owners" | "viewings" | "matches" | "performance";
+
+interface PropertyRow {
+  id: string; title: string; listingType: string; propertyType: string;
+  price: number; nightlyPrice: number | null; currency: string; bookingLink: string | null;
+  address: string; city: string | null; bedrooms: number | null; bathrooms: number | null; areaSqm: number | null;
+  description: string | null; images: string | null; status: string;
+  representationStartDate: string | null; representationEndDate: string | null; agreedCommissionRate: number | null;
+  crmContact: { id: string; name: string; phone: string | null } | null;
+  crmDeal: { id: string; title: string } | null;
+  /// Accounting module's rental-income owner (spec 3.9) — distinct from crmContact above. Only meaningful for listingType "short_term_rent".
+  ownerContactId: string | null;
+}
+
+interface OwnerRow {
+  id: string; name: string; phone: string | null; email: string | null;
+  propertiesOwnedCount: number;
+  properties: { id: string; title: string; status: string; listingType: string; address: string; city: string | null; representationStartDate: string | null; representationEndDate: string | null; agreedCommissionRate: number | null }[];
+}
+
+interface ViewingRow {
+  id: string; propertyId: string; contactId: string | null; assignedToId: string | null;
+  scheduledAt: string; durationMin: number; status: string; feedback: string | null; feedbackRating: number | null;
+  property: { id: string; title: string; address: string };
+  contact: { id: string; name: string; phone: string | null } | null;
+  assignedTo: { id: string; name: string } | null;
+}
+
+const REAL_ESTATE_MODULE_KEYS = ["crm.property", "crm.owner", "crm.viewingScheduler", "crm.contractCommission", "crm.shortTermCalendar", "crm.matchView", "crm.propertyDocuments", "crm.performanceReport", "agent.leadMatcher", "agent.listingCopywriter", "agent.viewingCoordinator", "agent.pricingAdvisor", "agent.agencyManager"];
+
+interface BuyerMatchRow {
+  contactId: string; contactName: string; phone: string | null;
+  criteria: { propertyType?: string; listingType?: string; city?: string; budgetMin?: number; budgetMax?: number; minBedrooms?: number };
+  matches: { id: string; title: string; listingType: string; propertyType: string; price: number; city: string | null; bedrooms: number | null; address: string }[];
+}
 
 const INDUSTRY_OPTIONS: { slug: string; labelFa: string; labelEn: string }[] = [
   { slug: "real-estate", labelFa: "املاک", labelEn: "Real Estate" },
@@ -47,13 +100,45 @@ function fmtMoney(n: number) {
   return new Intl.NumberFormat("fa-IR").format(n);
 }
 
-export default function CrmPage() {
-  const { lang } = useTranslation();
-  const isFa = lang !== "en";
+// A 401 here means the session expired mid-visit (not a recoverable
+// in-page error) — send the user to log back in with a way back to
+// exactly where they were, instead of leaving a bare "authentication
+// required" string on screen with no path forward.
+function redirectToLogin() {
+  const returnTo = window.location.pathname + window.location.search;
+  window.location.href = `/login?redirect=${encodeURIComponent(returnTo)}`;
+}
 
-  const [tab, setTab] = useState<"board" | "contacts" | "automation" | "agent" | "calendar" | "analytics" | "products" | "invoices" | "contracts" | "projects">("board");
+export default function CrmPage() {
+  const { t, lang } = useTranslation();
+  const isFa = lang === "fa";
+  const c = t.crm;
+
+  // Supports deep-linking from outside the CRM (e.g. /crm?tab=properties from
+  // the Home page's quick actions). A lazy useState initializer only runs on
+  // first mount -- since the App Router keeps this page instance alive across
+  // client-side navigations that only change the query string (e.g. going
+  // Home -> CRM?tab=properties after CRM was already visited once this
+  // session), it silently ignored every deep link after the first. Reading
+  // via useSearchParams() and re-syncing in an effect below fixes that.
+  const searchParams = useSearchParams();
+  const VALID_TABS: CrmTab[] = ["board", "contacts", "automation", "agent", "calendar", "analytics", "products", "invoices", "contracts", "projects", "properties", "owners", "viewings", "matches", "performance"];
+  const [tab, setTab] = useState<CrmTab>(() => {
+    const requested = searchParams.get("tab");
+    return VALID_TABS.includes(requested as CrmTab) ? (requested as CrmTab) : "board";
+  });
+  useEffect(() => {
+    const requested = searchParams.get("tab");
+    if (requested && VALID_TABS.includes(requested as CrmTab)) setTab(requested as CrmTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [loading, setLoading] = useState(true);
+  // Clicking a property under an owner (Owners tab) used to do nothing --
+  // the property list and its detail modal live inside PropertiesPanel's own
+  // state, so opening one from a different tab means switching tab AND
+  // telling PropertiesPanel which id to open once its own list has loaded.
+  const [openPropertyId, setOpenPropertyId] = useState<string | null>(null);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -69,24 +154,46 @@ export default function CrmPage() {
   const [contactDetail, setContactDetail] = useState<ContactDetail | null>(null);
   const [error, setError] = useState("");
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [contactSearch, setContactSearch] = useState("");
+  const [contactStatusFilter, setContactStatusFilter] = useState("");
   const [crmPlan, setCrmPlan] = useState<string | null>(null);
   const [upgrading, setUpgrading] = useState(false);
+  const [moduleAccess, setModuleAccess] = useState<Record<string, boolean>>({});
+  // Every *Enabled flag below defaults to false until this resolves — the
+  // tab-guard effects further down must wait for this before deciding a
+  // requested tab (e.g. from a ?tab= deep link) is actually disabled,
+  // otherwise they'd bounce back to the board tab on every load.
+  const [moduleAccessLoaded, setModuleAccessLoaded] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me").then((r) => r.json()).then((d) => setCrmPlan(d.user?.crmPlan || "NONE")).catch(() => setCrmPlan("NONE"));
+    fetch(`/api/crm/module-access?keys=${REAL_ESTATE_MODULE_KEYS.join(",")}`).then((r) => r.json()).then((d) => setModuleAccess(d.access || {})).catch(() => setModuleAccess({})).finally(() => setModuleAccessLoaded(true));
   }, []);
+  const propertiesEnabled = !!moduleAccess["crm.property"];
+  const ownersEnabled = !!moduleAccess["crm.owner"];
+  const viewingsEnabled = !!moduleAccess["crm.viewingScheduler"];
+  const commissionEnabled = !!moduleAccess["crm.contractCommission"];
+  const shortTermCalendarEnabled = !!moduleAccess["crm.shortTermCalendar"];
+  const matchViewEnabled = !!moduleAccess["crm.matchView"];
+  const propertyDocumentsEnabled = !!moduleAccess["crm.propertyDocuments"];
+  const performanceReportEnabled = !!moduleAccess["crm.performanceReport"];
+  const leadMatcherAgentEnabled = !!moduleAccess["agent.leadMatcher"];
+  const listingCopywriterEnabled = !!moduleAccess["agent.listingCopywriter"];
+  const viewingCoordinatorEnabled = !!moduleAccess["agent.viewingCoordinator"];
+  const pricingAdvisorEnabled = !!moduleAccess["agent.pricingAdvisor"];
+  const agencyManagerEnabled = !!moduleAccess["agent.agencyManager"];
 
   async function purchaseCrmPlan(planCode: "CRM_SOLO" | "CRM_TEAM") {
     setUpgrading(true);
     try {
       const res = await fetch("/api/payment/create", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: planCode }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: planCode, currency: lang === "fa" ? "IRR" : "TRY" }),
       });
       const data = await res.json();
-      if (!res.ok || !data.paymentUrl) throw new Error(data.error || "خطا در شروع پرداخت");
+      if (!res.ok || !data.paymentUrl) throw new Error(data.error || c.errors.paymentStartFailed);
       window.location.href = data.paymentUrl;
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "خطا در پرداخت");
+      setError(err instanceof Error ? err.message : c.errors.paymentGeneric);
       setUpgrading(false);
     }
   }
@@ -95,6 +202,7 @@ export default function CrmPage() {
 
   const loadPipelines = useCallback(async () => {
     const res = await fetch("/api/crm/pipelines");
+    if (res.status === 401) { redirectToLogin(); return; }
     const data = await res.json();
     setPipelines(data.pipelines || []);
     if (data.pipelines?.length && !selectedPipelineId) setSelectedPipelineId(data.pipelines[0].id);
@@ -121,7 +229,12 @@ export default function CrmPage() {
 
   useEffect(() => { loadPipelines(); }, [loadPipelines]);
   useEffect(() => { if (selectedPipelineId) loadDeals(selectedPipelineId); }, [selectedPipelineId, loadDeals]);
-  useEffect(() => { if (tab === "contacts" || tab === "invoices" || tab === "contracts" || tab === "projects") loadContacts(); }, [tab, loadContacts]);
+  useEffect(() => { if (tab === "contacts" || tab === "invoices" || tab === "contracts" || tab === "projects" || tab === "properties" || tab === "owners" || tab === "viewings") loadContacts(); }, [tab, loadContacts]);
+  useEffect(() => { if (moduleAccessLoaded && tab === "properties" && !propertiesEnabled) setTab("board"); }, [tab, propertiesEnabled, moduleAccessLoaded]);
+  useEffect(() => { if (moduleAccessLoaded && tab === "owners" && !ownersEnabled) setTab("board"); }, [tab, ownersEnabled, moduleAccessLoaded]);
+  useEffect(() => { if (moduleAccessLoaded && tab === "viewings" && !viewingsEnabled) setTab("board"); }, [tab, viewingsEnabled, moduleAccessLoaded]);
+  useEffect(() => { if (moduleAccessLoaded && tab === "matches" && !matchViewEnabled) setTab("board"); }, [tab, matchViewEnabled, moduleAccessLoaded]);
+  useEffect(() => { if (moduleAccessLoaded && tab === "performance" && !performanceReportEnabled) setTab("board"); }, [tab, performanceReportEnabled, moduleAccessLoaded]);
   useEffect(() => { if (tab === "automation") loadRules(); }, [tab, loadRules]);
   useEffect(() => {
     fetch("/api/team").then((r) => r.json()).then((data) => {
@@ -136,14 +249,15 @@ export default function CrmPage() {
       const res = await fetch("/api/crm/pipelines", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(industryChoice ? { industrySlug: industryChoice } : { name: isFa ? "فروش عمومی" : "General Sales" }),
+        body: JSON.stringify(industryChoice ? { industrySlug: industryChoice } : { name: c.empty.defaultPipelineName }),
       });
+      if (res.status === 401) { redirectToLogin(); return; }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       await loadPipelines();
       setSelectedPipelineId(data.pipeline.id);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "خطا");
+      setError(e instanceof Error ? e.message : tri(lang, "خطا", "Error", "Fehler", "Hata"));
     } finally {
       setCreatingPipeline(false);
     }
@@ -176,52 +290,35 @@ export default function CrmPage() {
   }
 
   return (
-    <div dir={isFa ? "rtl" : "ltr"} className="p-6 max-w-6xl mx-auto space-y-6">
+    <div dir={isFa ? "rtl" : "ltr"} className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
         <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(234,88,12,0.15)" }}>
           <Briefcase className="w-5 h-5" style={{ color: "var(--primary)" }} />
         </div>
         <div>
-          <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "مدیریت مشتریان (CRM)" : "CRM"}</h1>
-          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "پایپلاین فروش و مخاطبین کسب‌وکار شما" : "Your sales pipeline and business contacts"}</p>
+          <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{c.header.title}</h1>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{c.header.subtitle}</p>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-6 px-6 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "thin" }}>
-        {[
-          { id: "board" as const, label: isFa ? "پایپلاین" : "Pipeline", icon: LayoutGrid },
-          { id: "contacts" as const, label: isFa ? "مخاطبین" : "Contacts", icon: Users },
-          { id: "automation" as const, label: isFa ? "اتوماسیون" : "Automation", icon: Zap },
-          { id: "agent" as const, label: isFa ? "تحلیل CRM" : "CRM Agent", icon: Sparkles },
-          { id: "calendar" as const, label: isFa ? "تقویم" : "Calendar", icon: CalendarDays },
-          { id: "analytics" as const, label: isFa ? "آمار" : "Analytics", icon: LayoutGrid },
-          { id: "products" as const, label: isFa ? "محصولات" : "Products", icon: Package },
-          { id: "invoices" as const, label: isFa ? "فاکتورها" : "Invoices", icon: Receipt },
-          { id: "contracts" as const, label: isFa ? "قراردادها" : "Contracts", icon: FileSignature },
-          { id: "projects" as const, label: isFa ? "پروژه‌ها" : "Projects", icon: FolderKanban },
-        ].map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all flex-shrink-0"
-            style={{ background: tab === t.id ? "var(--primary)" : "var(--surface-1)", color: tab === t.id ? "white" : "var(--text-secondary)", border: "1px solid var(--border)" }}>
-            <t.icon className="w-4 h-4" /> {t.label}
-          </button>
-        ))}
-      </div>
+      <div className={`flex ${isFa ? "md:flex-row-reverse" : "md:flex-row"} flex-col gap-4 md:gap-6 items-start`}>
+        <CrmSidebar tab={tab} setTab={setTab} c={c} isFa={isFa} lang={lang} propertiesEnabled={propertiesEnabled} ownersEnabled={ownersEnabled} viewingsEnabled={viewingsEnabled} matchViewEnabled={matchViewEnabled} performanceReportEnabled={performanceReportEnabled} />
 
+        <div className="flex-1 min-w-0 w-full space-y-6">
       {crmPlan === "NONE" && (
         <div className="rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3" style={{ background: "rgba(234,88,12,0.08)", border: "1px solid rgba(234,88,12,0.3)" }}>
           <div>
-            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{isFa ? "فاکتور، قرارداد، کاتالوگ محصولات و اتوماسیون بخشی از افزونه‌ی CRM حرفه‌ای است" : "Invoicing, contracts, product catalog, and automation are part of the CRM Pro add-on"}</p>
-            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "پایپلاین و مخاطبین همچنان رایگان (تا ۲۰ مخاطب) در دسترس‌اند." : "Pipeline and contacts remain free (up to 20 contacts)."}</p>
+            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{c.upgrade.banner}</p>
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{c.upgrade.bannerSub}</p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => purchaseCrmPlan("CRM_SOLO")} disabled={upgrading}
               className="px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-50" style={{ background: "var(--surface-1)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
-              {isFa ? "CRM انفرادی" : "CRM Solo"}
+              {c.upgrade.solo}
             </button>
             <button onClick={() => purchaseCrmPlan("CRM_TEAM")} disabled={upgrading}
               className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-              {upgrading ? <Loader2 className="w-4 h-4 animate-spin" /> : (isFa ? "CRM تیمی" : "CRM Team")}
+              {upgrading ? <Loader2 className="w-4 h-4 animate-spin" /> : c.upgrade.team}
             </button>
           </div>
         </div>
@@ -232,17 +329,17 @@ export default function CrmPage() {
       {pipelines.length === 0 && tab === "board" ? (
         <div className="rounded-2xl p-8 text-center space-y-4" style={{ background: "var(--surface-1)", border: "1px dashed var(--border)" }}>
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            {isFa ? "هنوز هیچ پایپلاینی نساختی. صنعت خودت رو انتخاب کن تا یک پایپلاین آماده با مراحل مناسب برات بسازیم." : "You don't have a pipeline yet. Pick your industry to get a ready-made pipeline with the right stages."}
+            {c.empty.noPipeline}
           </p>
           <div className="flex items-center justify-center gap-2 flex-wrap">
             <select value={industryChoice} onChange={(e) => setIndustryChoice(e.target.value)}
               className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-              {INDUSTRY_OPTIONS.map((o) => <option key={o.slug} value={o.slug}>{isFa ? o.labelFa : o.labelEn}</option>)}
+              {INDUSTRY_OPTIONS.map((o) => <option key={o.slug} value={o.slug}>{c.industries[(o.slug || "generic") as keyof typeof c.industries]}</option>)}
             </select>
             <button onClick={createPipeline} disabled={creatingPipeline}
               className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
               {creatingPipeline ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              {isFa ? "ساخت پایپلاین" : "Create Pipeline"}
+              {c.empty.createPipeline}
             </button>
           </div>
         </div>
@@ -252,23 +349,23 @@ export default function CrmPage() {
             {pipelines.length > 1 ? (
               <select value={selectedPipelineId || ""} onChange={(e) => setSelectedPipelineId(e.target.value)}
                 className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                {pipelines.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                {pipelines.map((p) => <option key={p.id} value={p.id}>{localizedName(p, lang)}</option>)}
               </select>
             ) : (
-              <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{selectedPipeline?.name}</h2>
+              <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{selectedPipeline && localizedName(selectedPipeline, lang)}</h2>
             )}
             <div className="flex-1" />
             <a href="/api/crm/export?type=deals" download
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
-              {isFa ? "خروجی CSV" : "Export CSV"}
+              {c.board.exportCsv}
             </a>
             <button onClick={() => setShowNewDeal(true)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-              <Plus className="w-4 h-4" /> {isFa ? "معامله جدید" : "New Deal"}
+              <Plus className="w-4 h-4" /> {c.board.newDeal}
             </button>
           </div>
 
-          <div className="flex gap-3 overflow-x-auto pb-2">
+          <BoardScrollRow>
             {selectedPipeline?.stages.sort((a, b) => a.order - b.order).map((stage) => {
               const stageDeals = deals.filter((d) => d.stageId === stage.id);
               const stageTotal = stageDeals.reduce((sum, d) => sum + d.value, 0);
@@ -279,20 +376,24 @@ export default function CrmPage() {
                     const dealId = e.dataTransfer.getData("dealId");
                     if (dealId) moveDeal(dealId, stage.id);
                   }}
-                  className="flex-shrink-0 w-64 rounded-2xl p-3 space-y-2"
+                  // A stage with 35 deals used to stretch the board to ~3800px and
+                  // drag every empty column to that same height, because flex
+                  // children stretch to the tallest sibling. The column is now a
+                  // bounded flex column: header fixed, card list scrolls inside it.
+                  className="flex-shrink-0 w-64 rounded-2xl p-3 flex flex-col gap-2 max-h-full"
                   style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
                   <div className="flex items-center justify-between px-1">
                     <div className="flex items-center gap-1.5">
                       {stage.isWon && <CheckCircle2 className="w-3.5 h-3.5" style={{ color: "#22c55e" }} />}
                       {stage.isLost && <Circle className="w-3.5 h-3.5" style={{ color: "#ef4444" }} />}
-                      <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{stage.name}</span>
+                      <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{localizedName(stage, lang)}</span>
                     </div>
                     <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>{stageDeals.length}</span>
                   </div>
                   {stageTotal > 0 && (
-                    <p className="text-[10px] px-1" style={{ color: "var(--text-muted)" }}>{fmtMoney(stageTotal)} {isFa ? "تومان" : ""}</p>
+                    <p className="text-[10px] px-1" style={{ color: "var(--text-muted)" }}>{fmtMoney(stageTotal)} {c.board.currency}</p>
                   )}
-                  <div className="space-y-2 min-h-[40px]">
+                  <div className="space-y-2 min-h-[40px] overflow-y-auto flex-1 -mx-1 px-1" style={{ scrollbarWidth: "thin" }}>
                     {stageDeals.map((deal) => (
                       <div key={deal.id}
                         draggable
@@ -309,25 +410,44 @@ export default function CrmPage() {
                 </div>
               );
             })}
-          </div>
+          </BoardScrollRow>
         </div>
       ) : tab === "contacts" ? (
         <div className="space-y-3">
           <div className="flex justify-end gap-2">
             <a href="/api/crm/export?type=contacts" download
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
-              {isFa ? "خروجی CSV" : "Export CSV"}
+              {c.contacts.exportCsv}
             </a>
             <button onClick={() => setShowNewContact(true)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-              <Plus className="w-4 h-4" /> {isFa ? "مخاطب جدید" : "New Contact"}
+              <Plus className="w-4 h-4" /> {c.contacts.newContact}
             </button>
           </div>
-          {contacts.length === 0 ? (
-            <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز مخاطبی ثبت نشده" : "No contacts yet"}</p>
-          ) : (
+          {contacts.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <input value={contactSearch} onChange={(e) => setContactSearch(e.target.value)}
+                placeholder={tri(lang, "جستجو (نام، تلفن، ایمیل یا شرکت)", "Search (name, phone, email, or company)", "Suche (Name, Telefon, E-Mail oder Firma)", "Ara (isim, telefon, e-posta veya şirket)")}
+                className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <select value={contactStatusFilter} onChange={(e) => setContactStatusFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                <option value="">{tri(lang, "همه وضعیت‌ها", "All statuses", "Alle Status", "Tüm durumlar")}</option>
+                {Array.from(new Set(contacts.map((ct) => ct.status))).map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          )}
+          {(() => {
+            const filteredContacts = contacts.filter((ct) => {
+              if (contactStatusFilter && ct.status !== contactStatusFilter) return false;
+              const q = contactSearch.trim().toLowerCase();
+              if (!q) return true;
+              return ct.name.toLowerCase().includes(q) || (ct.phone || "").includes(q) || (ct.email || "").toLowerCase().includes(q) || (ct.company || "").toLowerCase().includes(q);
+            });
+            if (contacts.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{c.empty.noContacts}</p>;
+            if (filteredContacts.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "مخاطبی با این مشخصات پیدا نشد", "No contacts match your search", "Keine Kontakte entsprechen der Suche", "Aramanızla eşleşen kişi yok")}</p>;
+            return (
             <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-              {contacts.map((c, i) => (
+              {filteredContacts.map((c, i) => (
                 <button key={c.id} onClick={() => openContact(c.id)}
                   className="w-full flex items-center justify-between px-4 py-3 text-right transition-all hover:opacity-80"
                   style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
@@ -340,35 +460,63 @@ export default function CrmPage() {
                       <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{c.phone || c.email || c.company || "—"}</p>
                     </div>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium"
-                    style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{c.status}</span>
+                  <div className="flex items-center gap-1.5">
+                    {propertiesEnabled && !!c._count?.properties && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: "rgba(234,88,12,0.12)", color: "var(--primary)" }}>
+                        {tri(lang, `مالک ${c._count.properties} ملک`, `Owner of ${c._count.properties}`, `Eigentümer von ${c._count.properties}`, `${c._count.properties} mülkün sahibi`)}
+                      </span>
+                    )}
+                    {propertiesEnabled && !!c._count?.propertyInterests && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>
+                        {tri(lang, `علاقه‌مند به ${c._count.propertyInterests} ملک`, `Interested in ${c._count.propertyInterests}`, `Interessiert an ${c._count.propertyInterests}`, `${c._count.propertyInterests} mülkle ilgileniyor`)}
+                      </span>
+                    )}
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium"
+                      style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{c.status}</span>
+                  </div>
                 </button>
               ))}
             </div>
-          )}
+            );
+          })()}
         </div>
       ) : tab === "automation" ? (
-        <AutomationPanel isFa={isFa} rules={rules} onChanged={loadRules} />
+        <AutomationPanel isFa={isFa} t={c} rules={rules} onChanged={loadRules} />
       ) : tab === "agent" ? (
-        <CrmAgentPanel isFa={isFa} />
+        <CrmAgentPanel isFa={isFa} lang={lang} t={c} />
       ) : tab === "calendar" ? (
-        <CalendarPanel isFa={isFa} />
+        <CalendarPanel isFa={isFa} lang={lang} t={c} />
       ) : tab === "analytics" ? (
-        <AnalyticsPanel isFa={isFa} pipelines={pipelines} />
+        <AnalyticsPanel isFa={isFa} lang={lang} t={c} pipelines={pipelines} onOpenContact={(id) => { setTab("contacts"); openContact(id); }} />
       ) : tab === "products" ? (
-        <ProductsPanel isFa={isFa} />
+        <ProductsPanel isFa={isFa} lang={lang} t={c} />
       ) : tab === "invoices" ? (
-        <InvoicesPanel isFa={isFa} contacts={contacts} />
+        <InvoicesPanel isFa={isFa} lang={lang} t={c} contacts={contacts} />
       ) : tab === "contracts" ? (
-        <ContractsPanel isFa={isFa} contacts={contacts} />
+        <ContractsPanel isFa={isFa} lang={lang} t={c} contacts={contacts} />
+      ) : tab === "properties" && propertiesEnabled ? (
+        <PropertiesPanel isFa={isFa} lang={lang} contacts={contacts} shortTermCalendarEnabled={shortTermCalendarEnabled} propertyDocumentsEnabled={propertyDocumentsEnabled} listingCopywriterEnabled={listingCopywriterEnabled} pricingAdvisorEnabled={pricingAdvisorEnabled}
+          openPropertyId={openPropertyId} onOpenPropertyHandled={() => setOpenPropertyId(null)} />
+      ) : tab === "owners" && ownersEnabled ? (
+        <OwnersPanel lang={lang} onOpenProperty={(id) => { setTab("properties"); setOpenPropertyId(id); }} />
+      ) : tab === "viewings" && viewingsEnabled ? (
+        <ViewingsPanel lang={lang} contacts={contacts} teamMembers={teamMembers} viewingCoordinatorEnabled={viewingCoordinatorEnabled} />
+      ) : tab === "matches" && matchViewEnabled ? (
+        <BuyerMatchPanel lang={lang} leadMatcherAgentEnabled={leadMatcherAgentEnabled} />
+      ) : tab === "performance" && performanceReportEnabled ? (
+        <PerformanceReportPanel lang={lang} agencyManagerEnabled={agencyManagerEnabled} />
       ) : (
-        <ProjectsPanel isFa={isFa} contacts={contacts} />
+        <ProjectsPanel isFa={isFa} lang={lang} t={c} contacts={contacts} isRealEstate={pipelines.some((p) => p.industrySlug === "real-estate")} />
       )}
+        </div>
+      </div>
 
       {/* New Deal modal */}
       {showNewDeal && selectedPipeline && (
         <NewDealModal
           isFa={isFa}
+          lang={lang}
+          t={c}
           pipeline={selectedPipeline}
           onClose={() => setShowNewDeal(false)}
           onCreated={() => { setShowNewDeal(false); if (selectedPipelineId) loadDeals(selectedPipelineId); }}
@@ -377,16 +525,21 @@ export default function CrmPage() {
 
       {/* New Contact modal */}
       {showNewContact && (
-        <NewContactModal isFa={isFa} onClose={() => setShowNewContact(false)} onCreated={() => { setShowNewContact(false); loadContacts(); }} />
+        <NewContactModal isFa={isFa} lang={lang} t={c} propertiesEnabled={propertiesEnabled} onClose={() => setShowNewContact(false)} onCreated={() => { setShowNewContact(false); loadContacts(); }} />
       )}
 
       {/* Deal detail panel */}
       {selectedDealId && (
         <DealDetailModal
+          key={selectedDealId}
           isFa={isFa}
+          lang={lang}
+          t={c}
           dealId={selectedDealId}
           deal={deals.find((d) => d.id === selectedDealId) || null}
+          pipelines={pipelines}
           teamMembers={teamMembers}
+          commissionEnabled={commissionEnabled}
           onClose={() => setSelectedDealId(null)}
           onChanged={() => { if (selectedPipelineId) loadDeals(selectedPipelineId); }}
         />
@@ -395,11 +548,122 @@ export default function CrmPage() {
       {/* Contact detail panel */}
       {selectedContactId && contactDetail && (
         <ContactDetailModal
+          key={selectedContactId}
           isFa={isFa}
+          lang={lang}
+          t={c}
           contact={contactDetail}
           teamMembers={teamMembers}
           onClose={() => { setSelectedContactId(null); setContactDetail(null); }}
           onChanged={() => openContact(selectedContactId)}
+        />
+      )}
+    </div>
+  );
+}
+
+function CrmSidebar({ tab, setTab, c, isFa, lang, propertiesEnabled, ownersEnabled, viewingsEnabled, matchViewEnabled, performanceReportEnabled }: { tab: CrmTab; setTab: (t: CrmTab) => void; c: Translations["crm"]; isFa: boolean; lang: Lang; propertiesEnabled: boolean; ownersEnabled: boolean; viewingsEnabled: boolean; matchViewEnabled: boolean; performanceReportEnabled: boolean }) {
+  const items: { id: CrmTab; label: string; icon: React.ElementType }[] = [
+    { id: "board", label: c.tabs.board, icon: LayoutGrid },
+    { id: "contacts", label: c.tabs.contacts, icon: Users },
+    { id: "automation", label: c.tabs.automation, icon: Zap },
+    { id: "agent", label: c.tabs.agent, icon: Sparkles },
+    { id: "calendar", label: c.tabs.calendar, icon: CalendarDays },
+    { id: "analytics", label: c.tabs.analytics, icon: LayoutGrid },
+    { id: "products", label: c.tabs.products, icon: Package },
+    { id: "invoices", label: c.tabs.invoices, icon: Receipt },
+    { id: "contracts", label: c.tabs.contracts, icon: FileSignature },
+    { id: "projects", label: c.tabs.projects, icon: FolderKanban },
+    // Real-estate industry-pack modules — hidden entirely (not greyed out)
+    // unless isModuleEnabled() says so for this user, per the platform's
+    // access-control rule: invisible by default, never a fail-open leak.
+    ...(propertiesEnabled ? [{ id: "properties" as CrmTab, label: tri(lang, "ملک‌ها", "Properties", "Immobilien", "Mülkler"), icon: Building2 }] : []),
+    ...(ownersEnabled ? [{ id: "owners" as CrmTab, label: tri(lang, "مالکین", "Owners", "Eigentümer", "Mülk sahipleri"), icon: Users }] : []),
+    ...(viewingsEnabled ? [{ id: "viewings" as CrmTab, label: tri(lang, "زمان‌بندی بازدید", "Viewings", "Besichtigungen", "Görüntülemeler"), icon: CalendarDays }] : []),
+    ...(matchViewEnabled ? [{ id: "matches" as CrmTab, label: tri(lang, "تطبیق خریدار↔ملک", "Buyer Match", "Käufer-Abgleich", "Alıcı Eşleştirme"), icon: Users }] : []),
+    ...(performanceReportEnabled ? [{ id: "performance" as CrmTab, label: tri(lang, "گزارش عملکرد", "Performance", "Leistung", "Performans"), icon: BarChart2 }] : []),
+  ];
+
+  return (
+    <nav
+      className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-1 md:pb-0 -mx-6 px-6 md:mx-0 md:px-0 w-full min-w-0 md:w-52 lg:w-56 md:flex-shrink-0 md:sticky md:top-6 flex-shrink-0"
+      style={{ scrollbarWidth: "thin" }}
+      aria-label={c.header.title}
+    >
+      {items.map((item) => {
+        const active = tab === item.id;
+        return (
+          <button
+            key={item.id}
+            onClick={() => setTab(item.id)}
+            className="flex items-center gap-2 px-4 py-2.5 md:px-3.5 rounded-xl text-sm font-medium transition-all flex-shrink-0 md:w-full"
+            style={{
+              background: active ? "var(--primary)" : "var(--surface-1)",
+              color: active ? "white" : "var(--text-secondary)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <item.icon className="w-4 h-4 flex-shrink-0" />
+            <span className="whitespace-nowrap md:whitespace-normal">{item.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function BoardScrollRow({ children }: { children: React.ReactNode }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showStartFade, setShowStartFade] = useState(false);
+  const [showEndFade, setShowEndFade] = useState(false);
+
+  const updateFades = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    setShowStartFade(el.scrollLeft > 4);
+    setShowEndFade(el.scrollLeft < maxScroll - 4);
+  }, []);
+
+  useEffect(() => {
+    updateFades();
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => updateFades();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", updateFades);
+    // Re-check after content (deal cards / stages) has rendered.
+    const t = setTimeout(updateFades, 100);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", updateFades);
+      clearTimeout(t);
+    };
+  }, [updateFades, children]);
+
+  return (
+    <div className="relative">
+      {/* The board is bounded to the viewport so a busy stage scrolls inside its
+          own column instead of stretching the board — and every other column
+          with it — to several thousand pixels. `items-stretch` keeps the empty
+          columns full height so they stay valid drop targets. */}
+      <div
+        ref={scrollRef}
+        className="flex items-stretch gap-3 overflow-x-auto pb-2"
+        style={{ scrollbarWidth: "thin", maxHeight: "calc(100vh - 300px)", minHeight: 320 }}
+      >
+        {children}
+      </div>
+      {showStartFade && (
+        <div
+          className="pointer-events-none absolute top-0 bottom-2 left-0 w-8"
+          style={{ background: "linear-gradient(to right, var(--surface-0), transparent)" }}
+        />
+      )}
+      {showEndFade && (
+        <div
+          className="pointer-events-none absolute top-0 bottom-2 right-0 w-8"
+          style={{ background: "linear-gradient(to left, var(--surface-0), transparent)" }}
         />
       )}
     </div>
@@ -416,12 +680,13 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose: () =
   );
 }
 
-function NewDealModal({ isFa, pipeline, onClose, onCreated }: { isFa: boolean; pipeline: Pipeline; onClose: () => void; onCreated: () => void }) {
+function NewDealModal({ isFa, lang, t, pipeline, onClose, onCreated }: { isFa: boolean; lang: Lang; t: Translations["crm"]; pipeline: Pipeline; onClose: () => void; onCreated: () => void }) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactId, setContactId] = useState("");
   const [title, setTitle] = useState("");
   const [value, setValue] = useState("");
   const [stageId, setStageId] = useState(pipeline.stages[0]?.id || "");
+  const [expectedCloseDate, setExpectedCloseDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -430,20 +695,20 @@ function NewDealModal({ isFa, pipeline, onClose, onCreated }: { isFa: boolean; p
   }, []);
 
   async function submit() {
-    if (!contactId || !title.trim()) { setError(isFa ? "مخاطب و عنوان الزامی است" : "Contact and title are required"); return; }
+    if (!contactId || !title.trim()) { setError(t.newDealModal.errorRequired); return; }
     setSaving(true);
     setError("");
     try {
       const res = await fetch("/api/crm/deals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contactId, pipelineId: pipeline.id, stageId, title: title.trim(), value: Number(value) || 0 }),
+        body: JSON.stringify({ contactId, pipelineId: pipeline.id, stageId, title: title.trim(), value: Number(value) || 0, expectedCloseDate: expectedCloseDate || undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       onCreated();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "خطا");
+      setError(e instanceof Error ? e.message : t.newDealModal.errorGeneric);
     } finally {
       setSaving(false);
     }
@@ -451,30 +716,57 @@ function NewDealModal({ isFa, pipeline, onClose, onCreated }: { isFa: boolean; p
 
   return (
     <Modal onClose={onClose}>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "معامله جدید" : "New Deal"}</h2>
-        <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(234,88,12,0.12)" }}>
+          <Briefcase className="w-5 h-5" style={{ color: "var(--primary)" }} />
+        </div>
+        <h2 className="text-lg font-bold flex-1" style={{ color: "var(--text-primary)" }}>{t.newDealModal.title}</h2>
+        <button onClick={onClose} className="p-1 rounded-lg hover:opacity-70"><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
       </div>
-      <div className="space-y-3">
-        <select value={contactId} onChange={(e) => setContactId(e.target.value)}
-          className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-          <option value="">{isFa ? "انتخاب مخاطب..." : "Select contact..."}</option>
-          {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={isFa ? "عنوان معامله" : "Deal title"}
-          className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-        <input value={value} onChange={(e) => setValue(e.target.value)} type="number" placeholder={isFa ? "ارزش معامله (تومان)" : "Deal value"}
-          className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-        <select value={stageId} onChange={(e) => setStageId(e.target.value)}
-          className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-          {pipeline.stages.sort((a, b) => a.order - b.order).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
+      <div className="space-y-4">
+        <FormField icon={User} label={t.newDealModal.selectContact}>
+          <select value={contactId} onChange={(e) => setContactId(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{t.newDealModal.selectContact}</option>
+            {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </FormField>
+        <FormField icon={Tag} label={t.newDealModal.titlePlaceholder}>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t.newDealModal.titlePlaceholder}
+            className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        </FormField>
+        <FormField icon={DollarSign} label={t.newDealModal.valuePlaceholder}>
+          <input value={value} onChange={(e) => setValue(e.target.value)} type="number" placeholder={t.newDealModal.valuePlaceholder}
+            className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        </FormField>
+        <FormField icon={GitBranch} label={tri(lang, "مرحله", "Stage", "Phase", "Aşama")}>
+          <select value={stageId} onChange={(e) => setStageId(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            {pipeline.stages.sort((a, b) => a.order - b.order).map((s) => <option key={s.id} value={s.id}>{localizedName(s, lang)}</option>)}
+          </select>
+        </FormField>
+        <FormField icon={CalendarDays} label={t.newDealModal.expectedCloseDateLabel}>
+          <input type="date" value={expectedCloseDate} onChange={(e) => setExpectedCloseDate(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        </FormField>
         {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
-        <button onClick={submit} disabled={saving} className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-          {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ساخت معامله" : "Create Deal")}
+        <button onClick={submit} disabled={saving} className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2 transition-opacity hover:opacity-90" style={{ background: "var(--primary)" }}>
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4" />{t.newDealModal.submit}</>}
         </button>
       </div>
     </Modal>
+  );
+}
+
+function FormField({ icon: Icon, label, children }: { icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="flex items-center gap-1.5 text-xs font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
+        <Icon className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} />
+        {label}
+      </label>
+      {children}
+    </div>
   );
 }
 
@@ -487,30 +779,60 @@ const LEAD_SOURCE_OPTIONS: { value: string; fa: string; en: string }[] = [
   { value: "other", fa: "سایر", en: "Other" },
 ];
 
-function NewContactModal({ isFa, onClose, onCreated }: { isFa: boolean; onClose: () => void; onCreated: () => void }) {
+function NewContactModal({ isFa, lang, t, propertiesEnabled, onClose, onCreated }: { isFa: boolean; lang: Lang; t: Translations["crm"]; propertiesEnabled: boolean; onClose: () => void; onCreated: () => void }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [telegram, setTelegram] = useState("");
   const [company, setCompany] = useState("");
   const [source, setSource] = useState("manual");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // Real-estate relation — optional, only shown when the property module is
+  // on. Lets a contact be marked as a property's owner or an interested
+  // buyer/tenant right when it's created, instead of only being settable
+  // from the property side.
+  const [propertyRole, setPropertyRole] = useState<"" | "owner" | "interested">("");
+  const [properties, setProperties] = useState<{ id: string; title: string }[]>([]);
+  const [relatedPropertyId, setRelatedPropertyId] = useState("");
+
+  useEffect(() => {
+    if (propertiesEnabled && propertyRole && properties.length === 0) {
+      fetch("/api/crm/properties").then((r) => r.json()).then((d) => setProperties((d.properties || []).map((p: { id: string; title: string }) => ({ id: p.id, title: p.title }))));
+    }
+  }, [propertiesEnabled, propertyRole, properties.length]);
+
   async function submit() {
-    if (!name.trim()) { setError(isFa ? "نام الزامی است" : "Name is required"); return; }
+    if (!name.trim()) { setError(t.newContactModal.errorNameRequired); return; }
+    if (propertyRole && !relatedPropertyId) { setError(tri(lang, "یک ملک را انتخاب کنید", "Select a property", "Wählen Sie eine Immobilie", "Bir mülk seçin")); return; }
     setSaving(true);
     setError("");
     try {
       const res = await fetch("/api/crm/contacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), phone: phone || undefined, email: email || undefined, company: company || undefined, source }),
+        body: JSON.stringify({ name: name.trim(), phone: phone || undefined, email: email || undefined, whatsapp: whatsapp || undefined, telegram: telegram || undefined, company: company || undefined, source }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+
+      if (propertyRole === "owner" && relatedPropertyId) {
+        await fetch(`/api/crm/properties/${relatedPropertyId}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ crmContactId: data.contact.id }),
+        });
+      } else if (propertyRole === "interested" && relatedPropertyId) {
+        await fetch(`/api/crm/properties/${relatedPropertyId}/interests`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contactId: data.contact.id }),
+        });
+      }
+
       onCreated();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "خطا");
+      setError(e instanceof Error ? e.message : t.newContactModal.errorGeneric);
     } finally {
       setSaving(false);
     }
@@ -518,39 +840,79 @@ function NewContactModal({ isFa, onClose, onCreated }: { isFa: boolean; onClose:
 
   return (
     <Modal onClose={onClose}>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "مخاطب جدید" : "New Contact"}</h2>
-        <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(234,88,12,0.12)" }}>
+          <User className="w-5 h-5" style={{ color: "var(--primary)" }} />
+        </div>
+        <h2 className="text-lg font-bold flex-1" style={{ color: "var(--text-primary)" }}>{t.newContactModal.title}</h2>
+        <button onClick={onClose} className="p-1 rounded-lg hover:opacity-70"><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
       </div>
       <div className="space-y-3">
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={isFa ? "نام" : "Name"}
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.newContactModal.namePlaceholder}
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-        <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={isFa ? "موبایل" : "Phone"}
+        <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t.newContactModal.phonePlaceholder}
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-        <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={isFa ? "ایمیل" : "Email"}
+        <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t.newContactModal.emailPlaceholder}
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-        <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder={isFa ? "شرکت (اختیاری)" : "Company (optional)"}
+        <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder={t.newContactModal.whatsappPlaceholder}
+          className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        <input value={telegram} onChange={(e) => setTelegram(e.target.value)} placeholder={t.newContactModal.telegramPlaceholder}
+          className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder={t.newContactModal.companyPlaceholder}
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         <div>
-          <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>{isFa ? "این لید از کجا آمده؟" : "Where did this lead come from?"}</p>
+          <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>{t.newContactModal.sourceLabel}</p>
           <select value={source} onChange={(e) => setSource(e.target.value)}
             className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            {LEAD_SOURCE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{isFa ? o.fa : o.en}</option>)}
+            {Object.entries(t.leadSources).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </div>
+        {propertiesEnabled && (
+          <div className="pt-1" style={{ borderTop: "1px solid var(--border)" }}>
+            <p className="text-xs font-semibold mb-1.5 mt-2" style={{ color: "var(--text-primary)" }}>
+              {tri(lang, "ارتباط با ملک (اختیاری)", "Property relation (optional)", "Immobilienbezug (optional)", "Mülk ilişkisi (isteğe bağlı)")}
+            </p>
+            <select value={propertyRole} onChange={(e) => { setPropertyRole(e.target.value as typeof propertyRole); setRelatedPropertyId(""); }}
+              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none mb-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              <option value="">{tri(lang, "بدون ارتباط", "No relation", "Keine Zuordnung", "İlişki yok")}</option>
+              <option value="owner">{tri(lang, "مالک ملک", "Property owner", "Immobilieneigentümer", "Mülk sahibi")}</option>
+              <option value="interested">{tri(lang, "مشتری علاقه‌مند به ملک", "Interested buyer/tenant", "Interessierter Käufer/Mieter", "İlgilenen alıcı/kiracı")}</option>
+            </select>
+            {propertyRole && (
+              <select value={relatedPropertyId} onChange={(e) => setRelatedPropertyId(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                <option value="">{tri(lang, "انتخاب ملک...", "Select property...", "Immobilie wählen...", "Mülk seçin...")}</option>
+                {properties.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+              </select>
+            )}
+          </div>
+        )}
         {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
-        <button onClick={submit} disabled={saving} className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-          {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ساخت مخاطب" : "Create Contact")}
+        <button onClick={submit} disabled={saving} className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2 transition-opacity hover:opacity-90" style={{ background: "var(--primary)" }}>
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4" />{t.newContactModal.submit}</>}
         </button>
       </div>
     </Modal>
   );
 }
 
-function DealDetailModal({ isFa, dealId, deal, teamMembers, onClose, onChanged }: { isFa: boolean; dealId: string; deal: Deal | null; teamMembers: TeamMember[]; onClose: () => void; onChanged: () => void }) {
+function DealDetailModal({ isFa, lang, t, dealId, deal, pipelines, teamMembers, commissionEnabled, onClose, onChanged }: { isFa: boolean; lang: Lang; t: Translations["crm"]; dealId: string; deal: Deal | null; pipelines: Pipeline[]; teamMembers: TeamMember[]; commissionEnabled: boolean; onClose: () => void; onChanged: () => void }) {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [ownerId, setOwnerId] = useState(deal?.ownerId || "");
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [commissionRate, setCommissionRate] = useState(deal?.commissionRate != null ? String(deal.commissionRate) : "");
+  const [commissionAmount, setCommissionAmount] = useState(deal?.commissionAmount != null ? String(deal.commissionAmount) : "");
+  const [commissionPaymentStatus, setCommissionPaymentStatus] = useState(deal?.commissionPaymentStatus || "unpaid");
+  const [savingCommission, setSavingCommission] = useState(false);
+
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/crm/activities?dealId=${dealId}`);
+    const data = await res.json();
+    setActivities(data.activities || []);
+  }, [dealId]);
+
+  useEffect(() => { load(); }, [load]);
 
   async function addActivity() {
     if (!note.trim()) return;
@@ -562,6 +924,7 @@ function DealDetailModal({ isFa, dealId, deal, teamMembers, onClose, onChanged }
     });
     setNote("");
     setSaving(false);
+    load();
   }
 
   async function assignOwner(newOwnerId: string) {
@@ -578,31 +941,106 @@ function DealDetailModal({ isFa, dealId, deal, teamMembers, onClose, onChanged }
     onClose();
   }
 
+  async function saveCommission() {
+    setSavingCommission(true);
+    try {
+      await fetch(`/api/crm/deals/${dealId}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          commissionRate: commissionRate ? Number(commissionRate) : null,
+          commissionAmount: commissionAmount ? Number(commissionAmount) : null,
+          commissionPaymentStatus,
+        }),
+      });
+      onChanged();
+    } finally {
+      setSavingCommission(false);
+    }
+  }
+
+  const pipeline = pipelines.find((p) => p.id === deal?.pipelineId);
+  const stage = pipeline?.stages.find((s) => s.id === deal?.stageId);
+
   return (
     <Modal onClose={onClose}>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{deal?.title || (isFa ? "جزئیات معامله" : "Deal Detail")}</h2>
+        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{deal?.title || t.dealDetail.fallbackTitle}</h2>
         <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
       </div>
+
+      {deal && (
+        <div className="grid grid-cols-2 gap-2 text-sm mb-4">
+          <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "ارزش: ", "Value: ", "Wert: ", "Değer: ")}</span><span style={{ color: "var(--text-primary)" }}>{fmtMoney(deal.value)}</span></div>
+          <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "مرحله: ", "Stage: ", "Phase: ", "Aşama: ")}</span><span style={{ color: "var(--text-primary)" }}>{stage ? localizedName(stage, lang) : "—"}</span></div>
+          <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "پایپ‌لاین: ", "Pipeline: ", "Pipeline: ", "Pipeline: ")}</span><span style={{ color: "var(--text-primary)" }}>{pipeline ? localizedName(pipeline, lang) : "—"}</span></div>
+          <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "وضعیت: ", "Status: ", "Status: ", "Durum: ")}</span><span style={{ color: "var(--text-primary)" }}>{deal.status}</span></div>
+          <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "مخاطب: ", "Contact: ", "Kontakt: ", "Kişi: ")}</span><span style={{ color: "var(--text-primary)" }}>{deal.contact.name}{deal.contact.phone ? ` — ${deal.contact.phone}` : ""}</span></div>
+          {deal.expectedCloseDate && (
+            <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "تاریخ تخمینی بستن: ", "Expected close: ", "Erwarteter Abschluss: ", "Beklenen kapanış: ")}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(deal.expectedCloseDate)}</span></div>
+          )}
+        </div>
+      )}
+
+      {/* Section 1, item 5 — Contract & Commission. Row-level visibility (relevant agent + manager only) already comes from dealAgentFilter() server-side; this UI section is additionally hidden entirely when the module is off. Deal date reuses deal.wonAt, final amount reuses deal.value — no duplicate fields. */}
+      {deal && commissionEnabled && (
+        <div className="rounded-2xl p-3 mb-4 space-y-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+          <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "قرارداد و کمیسیون", "Contract & Commission", "Vertrag & Provision", "Sözleşme ve Komisyon")}</p>
+          {deal.wonAt && (
+            <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "تاریخ معامله: ", "Deal date: ", "Abschlussdatum: ", "Anlaşma tarihi: ")}{toJalali(deal.wonAt)}</p>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <input value={commissionRate} onChange={(e) => setCommissionRate(e.target.value)} type="number" step="0.1"
+              placeholder={tri(lang, "کمیسیون %", "Commission %", "Provision %", "Komisyon %")}
+              className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <input value={commissionAmount} onChange={(e) => setCommissionAmount(e.target.value)} type="number"
+              placeholder={tri(lang, "مبلغ کمیسیون (تومان)", "Commission amount (Toman)", "Provisionsbetrag (Toman)", "Komisyon tutarı (Toman)")}
+              className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          </div>
+          <select value={commissionPaymentStatus} onChange={(e) => setCommissionPaymentStatus(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="unpaid">{tri(lang, "پرداخت‌نشده", "Unpaid", "Unbezahlt", "Ödenmedi")}</option>
+            <option value="partial">{tri(lang, "پرداخت جزئی", "Partially paid", "Teilweise bezahlt", "Kısmen ödendi")}</option>
+            <option value="paid">{tri(lang, "پرداخت‌شده", "Paid", "Bezahlt", "Ödendi")}</option>
+          </select>
+          <button onClick={saveCommission} disabled={savingCommission} className="w-full py-1.5 rounded-xl text-xs font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+            {savingCommission ? "..." : tri(lang, "ذخیره کمیسیون", "Save commission", "Provision speichern", "Komisyonu kaydet")}
+          </button>
+        </div>
+      )}
+
       <div className="space-y-3">
         {teamMembers.length > 0 && (
           <div>
-            <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>{isFa ? "تخصیص به عضو تیم" : "Assign to team member"}</p>
+            <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>{t.common.assignToTeam}</p>
             <select value={ownerId} onChange={(e) => assignOwner(e.target.value)}
               className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-              <option value="">{isFa ? "تخصیص‌نیافته" : "Unassigned"}</option>
+              <option value="">{t.common.unassigned}</option>
               {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
           </div>
         )}
-        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder={isFa ? "یادداشت/فعالیت جدید..." : "New note/activity..."}
+
+        <div>
+          <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{t.contactDetail.activity}</p>
+          <div className="space-y-1.5 mb-2 max-h-40 overflow-y-auto">
+            {activities.map((a) => (
+              <div key={a.id} className="flex items-start gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
+                <Clock className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
+                <span style={{ color: "var(--text-secondary)" }}>{a.content}</span>
+              </div>
+            ))}
+            {activities.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t.contactDetail.noActivity}</p>}
+          </div>
+        </div>
+
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder={t.dealDetail.notePlaceholder}
           className="w-full px-3 py-2.5 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         <div className="flex gap-2">
           <button onClick={addActivity} disabled={saving} className="flex-1 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-            {isFa ? "ثبت فعالیت" : "Log Activity"}
+            {t.dealDetail.logActivity}
           </button>
           <button onClick={deleteDeal} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
-            {isFa ? "حذف" : "Delete"}
+            {t.common.delete}
           </button>
         </div>
       </div>
@@ -610,10 +1048,76 @@ function DealDetailModal({ isFa, dealId, deal, teamMembers, onClose, onChanged }
   );
 }
 
-function ContactDetailModal({ isFa, contact, teamMembers, onClose, onChanged }: { isFa: boolean; contact: ContactDetail; teamMembers: TeamMember[]; onClose: () => void; onChanged: () => void }) {
+type ContactDetailTab = "profile" | "deals" | "tasks" | "activity" | "notesFiles";
+
+function ContactDetailModal({ isFa, lang, t, contact, teamMembers, onClose, onChanged }: { isFa: boolean; lang: Lang; t: Translations["crm"]; contact: ContactDetail; teamMembers: TeamMember[]; onClose: () => void; onChanged: () => void }) {
   const [note, setNote] = useState("");
   const [taskTitle, setTaskTitle] = useState("");
   const [assignedToId, setAssignedToId] = useState(contact.assignedToId || "");
+  const [callingViaVoice, setCallingViaVoice] = useState(false);
+  const [whatsappMessage, setWhatsappMessage] = useState("");
+  const [showWhatsappInput, setShowWhatsappInput] = useState(false);
+  const [tab, setTab] = useState<ContactDetailTab>("profile");
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: contact.name, phone: contact.phone || "", email: contact.email || "",
+    whatsapp: contact.whatsapp || "", telegram: contact.telegram || "", company: contact.company || "",
+  });
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  async function saveProfile() {
+    setSavingProfile(true);
+    try {
+      await fetch(`/api/crm/contacts/${contact.id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editForm),
+      });
+      setEditing(false);
+      onChanged();
+    } finally {
+      setSavingProfile(false);
+    }
+  }
+
+  async function logActivity(type: string, content: string) {
+    await fetch("/api/crm/activities", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactId: contact.id, type, content }),
+    });
+    onChanged();
+  }
+
+  function sendWhatsapp() {
+    if (!contact.whatsapp) return;
+    const digits = contact.whatsapp.replace(/[^\d+]/g, "").replace(/^\+/, "");
+    const url = `https://wa.me/${digits}${whatsappMessage.trim() ? `?text=${encodeURIComponent(whatsappMessage.trim())}` : ""}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+    logActivity("whatsapp", t.contactDetail.whatsappActivityLog + (whatsappMessage.trim() ? `: ${whatsappMessage.trim()}` : ""));
+    setWhatsappMessage("");
+    setShowWhatsappInput(false);
+  }
+
+  function openTelegram() {
+    if (!contact.telegram) return;
+    const username = encodeURIComponent(contact.telegram.replace(/^@/, ""));
+    window.open(`https://t.me/${username}`, "_blank", "noopener,noreferrer");
+    logActivity("telegram", t.contactDetail.telegramActivityLog);
+  }
+
+  async function callViaVoiceAgent() {
+    setCallingViaVoice(true);
+    try {
+      const res = await fetch("/api/crm/voice-call", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contactId: contact.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || tri(lang, "خطا در برقراری تماس", "Failed to start call", "Fehler beim Anruf", "Arama başlatılamadı"));
+      onChanged();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : tri(lang, "خطا", "Error", "Fehler", "Hata"));
+    } finally {
+      setCallingViaVoice(false);
+    }
+  }
 
   async function assignTo(newAssigneeId: string) {
     setAssignedToId(newAssigneeId);
@@ -651,6 +1155,14 @@ function ContactDetailModal({ isFa, contact, teamMembers, onClose, onChanged }: 
     onChanged();
   }
 
+  const TABS: { id: ContactDetailTab; label: string }[] = [
+    { id: "profile", label: t.contactDetail.profile },
+    { id: "deals", label: t.contactDetail.deals },
+    { id: "tasks", label: t.contactDetail.tasks },
+    { id: "activity", label: t.contactDetail.activity },
+    { id: "notesFiles", label: t.contactDetail.notesFiles },
+  ];
+
   return (
     <Modal onClose={onClose}>
       <div className="flex items-center justify-between mb-4">
@@ -658,81 +1170,205 @@ function ContactDetailModal({ isFa, contact, teamMembers, onClose, onChanged }: 
         <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
       </div>
 
-      <div className="flex flex-wrap gap-3 mb-4 text-xs" style={{ color: "var(--text-secondary)" }}>
+      <div className="flex flex-wrap items-center gap-3 mb-4 text-xs" style={{ color: "var(--text-secondary)" }}>
         {contact.phone && <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5" />{contact.phone}</span>}
         {contact.email && <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5" />{contact.email}</span>}
+        {contact.whatsapp && <span className="flex items-center gap-1"><MessageCircle className="w-3.5 h-3.5" />{contact.whatsapp}</span>}
+        {contact.telegram && <span className="flex items-center gap-1"><Send className="w-3.5 h-3.5" />{contact.telegram}</span>}
         {contact.company && <span className="flex items-center gap-1"><Building2 className="w-3.5 h-3.5" />{contact.company}</span>}
+        {contact.phone && (
+          <button onClick={callViaVoiceAgent} disabled={callingViaVoice}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium disabled:opacity-50"
+            style={{ background: "rgba(22,163,74,0.12)", color: "#16a34a" }}>
+            {callingViaVoice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PhoneCall className="w-3.5 h-3.5" />}
+            {t.contactDetail.callViaVoiceAgent}
+          </button>
+        )}
+        {contact.whatsapp && (
+          <button onClick={() => setShowWhatsappInput((v) => !v)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+            style={{ background: "rgba(37,211,102,0.12)", color: "#25d366" }}>
+            <MessageCircle className="w-3.5 h-3.5" />
+            {t.contactDetail.sendWhatsapp}
+          </button>
+        )}
+        {contact.telegram && (
+          <button onClick={openTelegram}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+            style={{ background: "rgba(34,158,217,0.12)", color: "#229ed9" }}>
+            <Send className="w-3.5 h-3.5" />
+            {t.contactDetail.openTelegram}
+          </button>
+        )}
       </div>
 
-      {teamMembers.length > 0 && (
-        <div className="mb-4">
-          <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>{isFa ? "تخصیص به عضو تیم" : "Assign to team member"}</p>
-          <select value={assignedToId} onChange={(e) => assignTo(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{isFa ? "تخصیص‌نیافته" : "Unassigned"}</option>
-            {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </select>
+      {showWhatsappInput && contact.whatsapp && (
+        <div className="flex gap-2 mb-4">
+          <input value={whatsappMessage} onChange={(e) => setWhatsappMessage(e.target.value)} placeholder={t.contactDetail.whatsappMessagePlaceholder}
+            className="flex-1 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <button onClick={sendWhatsapp} className="px-3 py-2 rounded-xl text-xs font-medium text-white" style={{ background: "#25d366" }}>
+            {t.contactDetail.sendWhatsapp}
+          </button>
         </div>
       )}
 
-      {contact.deals.length > 0 && (
-        <div className="mb-4">
-          <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{isFa ? "معاملات" : "Deals"}</p>
-          <div className="space-y-1.5">
-            {contact.deals.map((d) => (
-              <div key={d.id} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
-                <span style={{ color: "var(--text-primary)" }}>{d.title}</span>
-                <span style={{ color: "var(--text-muted)" }}>{d.status}</span>
+      {/* Tab bar */}
+      <div className="flex flex-wrap gap-1.5 mb-4 pb-3" style={{ borderBottom: "1px solid var(--border)" }}>
+        {TABS.map((tb) => (
+          <button key={tb.id} onClick={() => setTab(tb.id)}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            style={{ background: tab === tb.id ? "var(--primary)" : "var(--surface-2)", color: tab === tb.id ? "white" : "var(--text-secondary)" }}>
+            {tb.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "profile" && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{t.contactDetail.profile}</p>
+            {!editing ? (
+              <button onClick={() => setEditing(true)} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                {t.contactDetail.edit}
+              </button>
+            ) : (
+              <div className="flex gap-1.5">
+                <button onClick={saveProfile} disabled={savingProfile} className="px-3 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+                  {t.contactDetail.save}
+                </button>
+                <button onClick={() => { setEditing(false); setEditForm({ name: contact.name, phone: contact.phone || "", email: contact.email || "", whatsapp: contact.whatsapp || "", telegram: contact.telegram || "", company: contact.company || "" }); }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                  {t.contactDetail.cancel}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {editing ? (
+            <div className="grid grid-cols-2 gap-3">
+              {([
+                ["name", tri(lang, "نام", "Name", "Name", "İsim")], ["phone", tri(lang, "تلفن", "Phone", "Telefon", "Telefon")], ["email", tri(lang, "ایمیل", "Email", "E-Mail", "E-posta")],
+                ["whatsapp", "WhatsApp"], ["telegram", "Telegram"], ["company", tri(lang, "شرکت", "Company", "Unternehmen", "Şirket")],
+              ] as const).map(([key, label]) => (
+                <div key={key}>
+                  <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{label}</label>
+                  <input value={editForm[key]} onChange={(e) => setEditForm((p) => ({ ...p, [key]: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "نام: ", "Name: ", "Name: ", "İsim: ")}</span><span style={{ color: "var(--text-primary)" }}>{contact.name}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "تلفن: ", "Phone: ", "Telefon: ", "Telefon: ")}</span><span style={{ color: "var(--text-primary)" }}>{contact.phone || "—"}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "ایمیل: ", "Email: ", "E-Mail: ", "E-posta: ")}</span><span style={{ color: "var(--text-primary)" }}>{contact.email || "—"}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>WhatsApp: </span><span style={{ color: "var(--text-primary)" }}>{contact.whatsapp || "—"}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>Telegram: </span><span style={{ color: "var(--text-primary)" }}>{contact.telegram || "—"}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "شرکت: ", "Company: ", "Unternehmen: ", "Şirket: ")}</span><span style={{ color: "var(--text-primary)" }}>{contact.company || "—"}</span></div>
+            </div>
+          )}
+
+          {teamMembers.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>{t.common.assignToTeam}</p>
+              <select value={assignedToId} onChange={(e) => assignTo(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                <option value="">{t.common.unassigned}</option>
+                {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "deals" && (
+        <div className="space-y-1.5">
+          {contact.deals.map((d) => (
+            <div key={d.id} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
+              <span style={{ color: "var(--text-primary)" }}>{d.title}</span>
+              <span style={{ color: "var(--text-muted)" }}>{d.status}</span>
+            </div>
+          ))}
+          {contact.deals.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t.contactDetail.noActivity}</p>}
+        </div>
+      )}
+
+      {tab === "tasks" && (
+        <div>
+          <div className="space-y-1.5 mb-2">
+            {contact.tasks.map((tk) => (
+              <div key={tk.id} className="rounded-xl" style={{ background: "var(--surface-2)" }}>
+                <button onClick={() => toggleTask(tk.id, tk.status)} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-right">
+                  {tk.status === "done" ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#22c55e" }} /> : <Circle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />}
+                  <span className="flex-1" style={{ color: tk.status === "done" ? "var(--text-muted)" : "var(--text-primary)", textDecoration: tk.status === "done" ? "line-through" : "none" }}>{tk.title}</span>
+                  {tk.status === "done" && tk.completedAt && (
+                    <span className="text-[10px] flex-shrink-0" style={{ color: "var(--text-muted)", textDecoration: "none" }}>
+                      {new Date(tk.completedAt).toLocaleString(isFa ? "fa-IR" : lang === "de" ? "de-DE" : "en-US", { dateStyle: "medium", timeStyle: "short" })}
+                    </span>
+                  )}
+                </button>
+                {/* AI-drafted follow-up message (e.g. after a viewing with no
+                    feedback) -- shown for review, never sent automatically.
+                    Copy is the only action here since there's no outbound
+                    messaging channel wired up yet; the owner pastes it into
+                    WhatsApp/SMS/wherever they actually message this contact. */}
+                {tk.draftMessage && (
+                  <div className="px-3 pb-2.5">
+                    <p className="text-[11px] leading-5 p-2 rounded-lg whitespace-pre-wrap" style={{ background: "var(--surface-1)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
+                      {tk.draftMessage}
+                    </p>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(tk.draftMessage!); toast.success(tri(lang, "کپی شد", "Copied", "Kopiert", "Kopyalandı")); }}
+                      className="mt-1.5 text-[11px] font-medium px-2 py-1 rounded-lg"
+                      style={{ background: "rgba(234,88,12,0.12)", color: "var(--primary)" }}
+                    >
+                      {tri(lang, "کپی پیام", "Copy message", "Nachricht kopieren", "Mesajı kopyala")}
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
+          </div>
+          <div className="flex gap-2">
+            <input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder={t.contactDetail.newTaskPlaceholder}
+              className="flex-1 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <button onClick={addTask} className="px-3 py-2 rounded-xl text-xs font-medium text-white" style={{ background: "var(--primary)" }}>+</button>
           </div>
         </div>
       )}
 
-      <div className="mb-4">
-        <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{isFa ? "تسک‌ها" : "Tasks"}</p>
-        <div className="space-y-1.5 mb-2">
-          {contact.tasks.map((t) => (
-            <button key={t.id} onClick={() => toggleTask(t.id, t.status)} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-right" style={{ background: "var(--surface-2)" }}>
-              {t.status === "done" ? <CheckCircle2 className="w-3.5 h-3.5" style={{ color: "#22c55e" }} /> : <Circle className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} />}
-              <span style={{ color: t.status === "done" ? "var(--text-muted)" : "var(--text-primary)", textDecoration: t.status === "done" ? "line-through" : "none" }}>{t.title}</span>
-            </button>
-          ))}
+      {tab === "activity" && (
+        <div>
+          <div className="space-y-1.5 mb-2 max-h-64 overflow-y-auto">
+            {contact.activities.map((a) => (
+              <div key={a.id} className="flex items-start gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
+                <Clock className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
+                <span style={{ color: "var(--text-secondary)" }}>{a.content}</span>
+              </div>
+            ))}
+            {contact.activities.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t.contactDetail.noActivity}</p>}
+          </div>
+          <div className="flex gap-2">
+            <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t.contactDetail.newNotePlaceholder}
+              className="flex-1 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <button onClick={addActivity} className="px-3 py-2 rounded-xl text-xs font-medium text-white" style={{ background: "var(--primary)" }}>+</button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder={isFa ? "تسک جدید..." : "New task..."}
-            className="flex-1 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-          <button onClick={addTask} className="px-3 py-2 rounded-xl text-xs font-medium text-white" style={{ background: "var(--primary)" }}>+</button>
-        </div>
-      </div>
+      )}
 
-      <div>
-        <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{isFa ? "فعالیت‌ها" : "Activity"}</p>
-        <div className="space-y-1.5 mb-2 max-h-32 overflow-y-auto">
-          {contact.activities.map((a) => (
-            <div key={a.id} className="flex items-start gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
-              <Clock className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
-              <span style={{ color: "var(--text-secondary)" }}>{a.content}</span>
-            </div>
-          ))}
-          {contact.activities.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? "فعالیتی ثبت نشده" : "No activity yet"}</p>}
+      {tab === "notesFiles" && (
+        <div>
+          <PinnedNotesSection isFa={isFa} t={t} contactId={contact.id} />
+          <DocumentsSection isFa={isFa} t={t} contactId={contact.id} />
         </div>
-        <div className="flex gap-2">
-          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={isFa ? "یادداشت جدید..." : "New note..."}
-            className="flex-1 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-          <button onClick={addActivity} className="px-3 py-2 rounded-xl text-xs font-medium text-white" style={{ background: "var(--primary)" }}>+</button>
-        </div>
-      </div>
-
-      <PinnedNotesSection isFa={isFa} contactId={contact.id} />
-      <DocumentsSection isFa={isFa} contactId={contact.id} />
+      )}
     </Modal>
   );
 }
 
 interface CrmNoteRow { id: string; content: string; isPinned: boolean; createdAt: string; }
 
-function PinnedNotesSection({ isFa, contactId }: { isFa: boolean; contactId: string }) {
+function PinnedNotesSection({ isFa, t, contactId }: { isFa: boolean; t: Translations["crm"]; contactId: string }) {
   const [notes, setNotes] = useState<CrmNoteRow[]>([]);
   const [newNote, setNewNote] = useState("");
 
@@ -766,7 +1402,7 @@ function PinnedNotesSection({ isFa, contactId }: { isFa: boolean; contactId: str
 
   return (
     <div className="mt-4">
-      <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{isFa ? "یادداشت‌های سنجاق‌شده" : "Pinned Notes"}</p>
+      <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{t.notes.title}</p>
       <div className="space-y-1.5 mb-2">
         {notes.map((n) => (
           <div key={n.id} className="flex items-start gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
@@ -777,10 +1413,10 @@ function PinnedNotesSection({ isFa, contactId }: { isFa: boolean; contactId: str
             <button onClick={() => deleteNote(n.id)}><Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} /></button>
           </div>
         ))}
-        {notes.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? "یادداشتی ثبت نشده" : "No notes yet"}</p>}
+        {notes.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t.notes.empty}</p>}
       </div>
       <div className="flex gap-2">
-        <input value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder={isFa ? "یادداشت جدید..." : "New note..."}
+        <input value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder={t.notes.placeholder}
           className="flex-1 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         <button onClick={addNote} className="px-3 py-2 rounded-xl text-xs font-medium text-white" style={{ background: "var(--primary)" }}>+</button>
       </div>
@@ -788,7 +1424,7 @@ function PinnedNotesSection({ isFa, contactId }: { isFa: boolean; contactId: str
   );
 }
 
-function DocumentsSection({ isFa, contactId }: { isFa: boolean; contactId: string }) {
+function DocumentsSection({ isFa, t, contactId }: { isFa: boolean; t: Translations["crm"]; contactId: string }) {
   const [documents, setDocuments] = useState<CrmDocument[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -816,7 +1452,7 @@ function DocumentsSection({ isFa, contactId }: { isFa: boolean; contactId: strin
       if (!res.ok) throw new Error(data.error);
       load();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "خطا");
+      setError(err instanceof Error ? err.message : t.documents.errorGeneric);
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -830,30 +1466,30 @@ function DocumentsSection({ isFa, contactId }: { isFa: boolean; contactId: strin
 
   return (
     <div className="mt-4">
-      <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{isFa ? "اسناد (پیش‌فاکتور، قرارداد، فاکتور)" : "Documents"}</p>
+      <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{t.documents.title}</p>
       <div className="space-y-1.5 mb-2">
         {documents.map((d) => (
           <div key={d.id} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
-            <a href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+            <a href={`/api/crm/documents/${d.id}/download`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
               <FileText className="w-3.5 h-3.5" style={{ color: "var(--primary)" }} /> {d.name}
             </a>
             <button onClick={() => removeDoc(d.id)}><Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} /></button>
           </div>
         ))}
-        {documents.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? "سندی آپلود نشده" : "No documents yet"}</p>}
+        {documents.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t.documents.empty}</p>}
       </div>
       {error && <p className="text-xs mb-2" style={{ color: "#ef4444" }}>{error}</p>}
       <label className="flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-medium cursor-pointer"
         style={{ background: "var(--surface-2)", border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
         {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-        {uploading ? (isFa ? "در حال آپلود..." : "Uploading...") : (isFa ? "آپلود سند" : "Upload Document")}
+        {uploading ? t.documents.uploading : t.documents.upload}
         <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" onChange={handleUpload} disabled={uploading} className="hidden" />
       </label>
     </div>
   );
 }
 
-function AutomationPanel({ isFa, rules, onChanged }: { isFa: boolean; rules: AutomationRule[]; onChanged: () => void }) {
+function AutomationPanel({ isFa, t, rules, onChanged }: { isFa: boolean; t: Translations["crm"]; rules: AutomationRule[]; onChanged: () => void }) {
   const [showNew, setShowNew] = useState(false);
   const [name, setName] = useState("");
   const [days, setDays] = useState("3");
@@ -861,7 +1497,7 @@ function AutomationPanel({ isFa, rules, onChanged }: { isFa: boolean; rules: Aut
   const [error, setError] = useState("");
 
   async function createRule() {
-    if (!name.trim()) { setError(isFa ? "نام قانون الزامی است" : "Rule name is required"); return; }
+    if (!name.trim()) { setError(t.automation.errorNameRequired); return; }
     setSaving(true);
     setError("");
     try {
@@ -875,7 +1511,7 @@ function AutomationPanel({ isFa, rules, onChanged }: { isFa: boolean; rules: Aut
       setName("");
       onChanged();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "خطا");
+      setError(err instanceof Error ? err.message : t.automation.errorGeneric);
     } finally {
       setSaving(false);
     }
@@ -896,36 +1532,34 @@ function AutomationPanel({ isFa, rules, onChanged }: { isFa: boolean; rules: Aut
   return (
     <div className="space-y-3">
       <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-        {isFa
-          ? "قوانین اتوماسیون هر چند دقیقه یک‌بار بررسی می‌شوند و برای معاملات بازی که مدتی فعالیت نداشته‌اند، به‌طور خودکار یک تسک پیگیری می‌سازند."
-          : "Automation rules are checked every few minutes and auto-create a follow-up task for open deals that have had no activity for a while."}
+        {t.automation.description}
       </p>
       <div className="flex justify-end">
         <button onClick={() => setShowNew((v) => !v)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-          <Plus className="w-4 h-4" /> {isFa ? "قانون جدید" : "New Rule"}
+          <Plus className="w-4 h-4" /> {t.automation.newRule}
         </button>
       </div>
 
       {showNew && (
         <div className="rounded-2xl p-4 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={isFa ? "مثال: پیگیری معاملات راکد" : "e.g. Follow up stale deals"}
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.automation.namePlaceholder}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <div className="flex items-center gap-2">
-            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "اگر معامله‌ای بیش از" : "If a deal has had no activity for more than"}</span>
+            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{t.automation.conditionPrefix}</span>
             <input value={days} onChange={(e) => setDays(e.target.value)} type="number" min={1}
               className="w-16 px-2 py-1.5 rounded-lg text-sm outline-none text-center" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{isFa ? "روز فعالیتی نداشت، یک تسک پیگیری بساز" : "days, create a follow-up task"}</span>
+            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{t.automation.conditionSuffix}</span>
           </div>
           {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
           <button onClick={createRule} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ساخت قانون" : "Create Rule")}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t.automation.createRule}
           </button>
         </div>
       )}
 
       {rules.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز قانون اتوماسیونی نساختی" : "No automation rules yet"}</p>
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.automation.empty}</p>
       ) : (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           {rules.map((r, i) => {
@@ -936,14 +1570,14 @@ function AutomationPanel({ isFa, rules, onChanged }: { isFa: boolean; rules: Aut
                 <div>
                   <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{r.name}</p>
                   <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                    {isFa ? `معاملات بدون فعالیت بیش از ${days} روز → ساخت تسک پیگیری` : `Deals with no activity for ${days}+ days → create follow-up task`}
+                    {t.automation.ruleSummaryPrefix} {days} {t.automation.ruleSummarySuffix}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button onClick={() => toggleRule(r.id, r.isActive)}
                     className="px-2.5 py-1 rounded-full text-[10px] font-medium"
                     style={{ background: r.isActive ? "rgba(34,197,94,0.15)" : "var(--surface-2)", color: r.isActive ? "#22c55e" : "var(--text-muted)" }}>
-                    {r.isActive ? (isFa ? "فعال" : "Active") : (isFa ? "غیرفعال" : "Inactive")}
+                    {r.isActive ? t.automation.active : t.automation.inactive}
                   </button>
                   <button onClick={() => deleteRule(r.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
                 </div>
@@ -957,12 +1591,16 @@ function AutomationPanel({ isFa, rules, onChanged }: { isFa: boolean; rules: Aut
 }
 
 interface CrmInsightRow { id: string; category: string; text: string; createdAt: string; }
+interface CrmRunRow { id: string; content: string; createdAt: string; }
 
-function CrmAgentPanel({ isFa }: { isFa: boolean }) {
+function CrmAgentPanel({ isFa, lang, t }: { isFa: boolean; lang: Lang; t: Translations["crm"] }) {
   const [running, setRunning] = useState(false);
   const [analysis, setAnalysis] = useState("");
   const [insights, setInsights] = useState<CrmInsightRow[]>([]);
   const [loadingInsights, setLoadingInsights] = useState(true);
+  const [runs, setRuns] = useState<CrmRunRow[]>([]);
+  const [loadingRuns, setLoadingRuns] = useState(true);
+  const [openRunId, setOpenRunId] = useState<string | null>(null);
 
   const loadInsights = useCallback(async () => {
     const res = await fetch("/api/crm/agent/insights");
@@ -971,7 +1609,19 @@ function CrmAgentPanel({ isFa }: { isFa: boolean }) {
     setLoadingInsights(false);
   }, []);
 
-  useEffect(() => { loadInsights(); }, [loadInsights]);
+  const loadRuns = useCallback(async () => {
+    const res = await fetch("/api/crm/agent/runs");
+    const data = await res.json();
+    setRuns(data.runs || []);
+    setLoadingRuns(false);
+  }, []);
+
+  useEffect(() => { loadInsights(); loadRuns(); }, [loadInsights, loadRuns]);
+
+  function formatRunDate(iso: string): string {
+    const d = new Date(iso);
+    return d.toLocaleString(isFa ? "fa-IR" : lang === "de" ? "de-DE" : "en-US", { dateStyle: "medium", timeStyle: "short" });
+  }
 
   async function runAgent() {
     setRunning(true);
@@ -1001,6 +1651,7 @@ function CrmAgentPanel({ isFa }: { isFa: boolean }) {
     } finally {
       setRunning(false);
       loadInsights();
+      loadRuns();
     }
   }
 
@@ -1008,14 +1659,12 @@ function CrmAgentPanel({ isFa }: { isFa: boolean }) {
     <div className="space-y-4">
       <div className="rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
         <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-          {isFa
-            ? "CRM Agent وضعیت Pipeline فروش شما را با داده‌های واقعی تحلیل می‌کند و اقدامات پیشنهادی می‌سازد."
-            : "The CRM Agent analyzes your sales pipeline using real data and generates suggested actions."}
+          {t.agent.description}
         </p>
         <button onClick={runAgent} disabled={running}
           className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
           {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          {isFa ? "تحلیل CRM من" : "Analyze My CRM"}
+          {t.agent.analyzeButton} <CreditCost feature="crm.agent-run" />
         </button>
       </div>
 
@@ -1030,12 +1679,51 @@ function CrmAgentPanel({ isFa }: { isFa: boolean }) {
         </div>
       )}
 
+      {/* Dated history of past analysis runs -- previously each run's report
+          was shown once and lost on refresh, with no way to compare this
+          week's read on the pipeline against last week's. */}
       <div className="space-y-2">
-        <h3 className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>{isFa ? "نکات ذخیره‌شده از تحلیل‌های قبلی" : "Saved notes from prior analyses"}</h3>
+        <h3 className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+          {tri(lang, "تاریخچه‌ی تحلیل‌ها", "Analysis history", "Analyseverlauf", "Analiz geçmişi")}
+        </h3>
+        {loadingRuns ? (
+          <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--text-muted)" }} />
+        ) : runs.length === 0 ? (
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            {tri(lang, "هنوز تحلیلی ذخیره نشده", "No analysis saved yet", "Noch keine Analyse gespeichert", "Henüz kaydedilmiş analiz yok")}
+          </p>
+        ) : (
+          <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+            {runs.map((r, i) => (
+              <div key={r.id} style={{ borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+                <button
+                  onClick={() => setOpenRunId(openRunId === r.id ? null : r.id)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 text-xs"
+                  style={{ background: "var(--surface-1)", color: "var(--text-primary)" }}
+                >
+                  <span className="flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
+                    <CalendarDays className="w-3.5 h-3.5" />
+                    {formatRunDate(r.createdAt)}
+                  </span>
+                  {openRunId === r.id ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+                {openRunId === r.id && (
+                  <div className="px-4 pb-3 prose prose-invert prose-sm max-w-none leading-6" style={{ background: "var(--surface-1)", color: "var(--text-primary)" }}>
+                    <ReactMarkdown>{r.content}</ReactMarkdown>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>{t.agent.savedNotesTitle}</h3>
         {loadingInsights ? (
           <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--text-muted)" }} />
         ) : insights.length === 0 ? (
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز تحلیلی اجرا نشده" : "No analysis run yet"}</p>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t.agent.noAnalysis}</p>
         ) : (
           <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
             {insights.map((n, i) => (
@@ -1051,9 +1739,18 @@ function CrmAgentPanel({ isFa }: { isFa: boolean }) {
   );
 }
 
-interface CalendarItem { id: string; date: string; label: string; type: "task" | "deal"; }
+interface CalendarItem { id: string; date: string; label: string; type: "task" | "deal" | "viewing"; who?: string | null; }
 
-function CalendarPanel({ isFa }: { isFa: boolean }) {
+/**
+ * Shared team calendar. QA 2026-09-15 listed "no shared team calendar" as a
+ * missing feature: this panel showed only pending tasks and deal close dates,
+ * so the one thing a real-estate team actually schedules together — property
+ * viewings, and which agent is on each — was invisible here and only reachable
+ * one list at a time under Viewings. Viewings now appear alongside, labelled
+ * with the assigned agent and the visitor, for the whole workspace (an AGENT
+ * still sees only their own, enforced server-side by /api/crm/viewings).
+ */
+function CalendarPanel({ isFa, lang, t }: { isFa: boolean; lang: Lang; t: Translations["crm"] }) {
   const [items, setItems] = useState<CalendarItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -1061,20 +1758,30 @@ function CalendarPanel({ isFa }: { isFa: boolean }) {
     Promise.all([
       fetch("/api/crm/tasks?status=pending").then((r) => r.json()),
       fetch("/api/crm/deals?status=open").then((r) => r.json()),
-    ]).then(([taskData, dealData]) => {
+      // 403 when the viewing-scheduler module isn't enabled for this workspace
+      // — that just means no viewings to show, not a failure of the calendar.
+      fetch("/api/crm/viewings?status=scheduled").then((r) => (r.ok ? r.json() : { viewings: [] })).catch(() => ({ viewings: [] })),
+    ]).then(([taskData, dealData, viewingData]) => {
       const taskItems: CalendarItem[] = (taskData.tasks || [])
         .filter((t: Task) => t.dueDate)
         .map((t: Task) => ({ id: `task-${t.id}`, date: t.dueDate as string, label: t.title, type: "task" as const }));
       const dealItems: CalendarItem[] = (dealData.deals || [])
         .filter((d: Deal) => d.expectedCloseDate)
         .map((d: Deal) => ({ id: `deal-${d.id}`, date: d.expectedCloseDate as string, label: `${d.title} — ${d.contact?.name || ""}`, type: "deal" as const }));
-      setItems([...taskItems, ...dealItems].sort((a, b) => a.date.localeCompare(b.date)));
+      const viewingItems: CalendarItem[] = (viewingData.viewings || []).map((v: ViewingRow) => ({
+        id: `viewing-${v.id}`,
+        date: v.scheduledAt,
+        label: `${tri(lang, "بازدید", "Viewing", "Besichtigung", "Görüntüleme")}: ${v.property.title}${v.contact ? ` — ${v.contact.name}` : ""} · ${new Date(v.scheduledAt).toLocaleTimeString(lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US", { hour: "2-digit", minute: "2-digit" })}`,
+        type: "viewing" as const,
+        who: v.assignedTo?.name ?? null,
+      }));
+      setItems([...taskItems, ...dealItems, ...viewingItems].sort((a, b) => a.date.localeCompare(b.date)));
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, []);
+  }, [lang]);
 
   if (loading) return <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />;
-  if (items.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "هیچ تسک یا معامله‌ای با تاریخ سررسید ثبت نشده" : "No tasks or deals with a due/close date"}</p>;
+  if (items.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.calendar.empty}</p>;
 
   const grouped = new Map<string, CalendarItem[]>();
   for (const item of items) {
@@ -1086,12 +1793,21 @@ function CalendarPanel({ isFa }: { isFa: boolean }) {
     <div className="space-y-4">
       {Array.from(grouped.entries()).map(([day, dayItems]) => (
         <div key={day} className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-          <p className="text-xs font-semibold mb-2" style={{ color: "var(--primary)" }}>{isFa ? toJalali(day) : new Date(day).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
+          <p className="text-xs font-semibold mb-2" style={{ color: "var(--primary)" }}>{tri(lang, toJalali(day), new Date(day).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }), new Date(day).toLocaleDateString("de-DE", { year: "numeric", month: "long", day: "numeric" }))}</p>
           <div className="space-y-1.5">
             {dayItems.map((item) => (
               <div key={item.id} className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
-                {item.type === "task" ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} /> : <Briefcase className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--primary)" }} />}
-                <span style={{ color: "var(--text-primary)" }}>{item.label}</span>
+                {item.type === "task"
+                  ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
+                  : item.type === "viewing"
+                    ? <CalendarDays className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#3b82f6" }} />
+                    : <Briefcase className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--primary)" }} />}
+                <span className="flex-1 min-w-0" style={{ color: "var(--text-primary)" }}>{item.label}</span>
+                {item.who && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] flex-shrink-0" style={{ background: "var(--surface-1)", color: "var(--text-secondary)" }}>
+                    {item.who}
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -1101,7 +1817,8 @@ function CalendarPanel({ isFa }: { isFa: boolean }) {
   );
 }
 
-function AnalyticsPanel({ isFa, pipelines }: { isFa: boolean; pipelines: Pipeline[] }) {
+function AnalyticsPanel({ isFa, lang, t, pipelines, onOpenContact }: { isFa: boolean; lang: Lang; t: Translations["crm"]; pipelines: Pipeline[]; onOpenContact: (id: string) => void }) {
+  const [subTab, setSubTab] = useState<"pipeline" | "calls">("pipeline");
   const [pipelineId, setPipelineId] = useState(pipelines[0]?.id || "");
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1130,11 +1847,40 @@ function AnalyticsPanel({ isFa, pipelines }: { isFa: boolean; pipelines: Pipelin
 
   const pipeline = pipelines.find((p) => p.id === pipelineId) || null;
 
-  if (pipelines.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "ابتدا یک پایپلاین بساز" : "Create a pipeline first"}</p>;
+  const subTabToggle = (
+    <div className="flex gap-2">
+      <button onClick={() => setSubTab("pipeline")}
+        className="px-3.5 py-1.5 rounded-xl text-xs font-medium"
+        style={{ background: subTab === "pipeline" ? "var(--primary)" : "var(--surface-1)", color: subTab === "pipeline" ? "white" : "var(--text-secondary)", border: "1px solid var(--border)" }}>
+        {t.analytics.pipelineSubTab}
+      </button>
+      <button onClick={() => setSubTab("calls")}
+        className="px-3.5 py-1.5 rounded-xl text-xs font-medium"
+        style={{ background: subTab === "calls" ? "var(--primary)" : "var(--surface-1)", color: subTab === "calls" ? "white" : "var(--text-secondary)", border: "1px solid var(--border)" }}>
+        {t.analytics.callsSubTab}
+      </button>
+    </div>
+  );
+
+  if (subTab === "calls") {
+    return (
+      <div className="space-y-4">
+        {subTabToggle}
+        <VoiceCallAnalyticsPanel isFa={isFa} lang={lang} t={t} onOpenContact={onOpenContact} />
+      </div>
+    );
+  }
+
+  if (pipelines.length === 0) return (
+    <div className="space-y-4">
+      {subTabToggle}
+      <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.analytics.noPipeline}</p>
+    </div>
+  );
 
   const funnelData = pipeline
     ? [...pipeline.stages].sort((a, b) => a.order - b.order).map((s) => ({
-        name: s.name,
+        name: localizedName(s, lang),
         count: deals.filter((d) => d.stageId === s.id).length,
         value: deals.filter((d) => d.stageId === s.id).reduce((sum, d) => sum + d.value, 0),
       }))
@@ -1146,10 +1892,11 @@ function AnalyticsPanel({ isFa, pipelines }: { isFa: boolean; pipelines: Pipelin
 
   return (
     <div className="space-y-4">
+      {subTabToggle}
       {pipelines.length > 1 && (
         <select value={pipelineId} onChange={(e) => setPipelineId(e.target.value)}
           className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-          {pipelines.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          {pipelines.map((p) => <option key={p.id} value={p.id}>{localizedName(p, lang)}</option>)}
         </select>
       )}
 
@@ -1159,17 +1906,17 @@ function AnalyticsPanel({ isFa, pipelines }: { isFa: boolean; pipelines: Pipelin
         <>
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-              <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "کل معاملات" : "Total Deals"}</p>
+              <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{t.analytics.totalDeals}</p>
               <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{totalDeals}</p>
             </div>
             <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-              <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{isFa ? "نرخ تبدیل کلی" : "Overall Conversion"}</p>
+              <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{t.analytics.overallConversion}</p>
               <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{overallConversion}%</p>
             </div>
           </div>
 
           <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-            <p className="text-xs font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{isFa ? "قیف تبدیل بر اساس مرحله" : "Conversion Funnel by Stage"}</p>
+            <p className="text-xs font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{t.analytics.funnelTitle}</p>
             <div style={{ width: "100%", height: 280 }}>
               <ResponsiveContainer>
                 <BarChart data={funnelData}>
@@ -1185,13 +1932,13 @@ function AnalyticsPanel({ isFa, pipelines }: { isFa: boolean; pipelines: Pipelin
 
           {sourceStats.length > 0 && (
             <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-              <p className="text-xs font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{isFa ? "عملکرد منابع لید" : "Lead Source Performance"}</p>
+              <p className="text-xs font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{t.analytics.sourcePerfTitle}</p>
               <div className="space-y-2">
                 {sourceStats.map((s) => (
                   <div key={s.source.value} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
-                    <span style={{ color: "var(--text-primary)" }}>{isFa ? s.source.fa : s.source.en}</span>
+                    <span style={{ color: "var(--text-primary)" }}>{t.leadSources[s.source.value as keyof typeof t.leadSources]}</span>
                     <span style={{ color: "var(--text-secondary)" }}>
-                      {s.total} {isFa ? "لید" : "leads"} · {s.converted} {isFa ? "مشتری" : "customers"} · <b style={{ color: "var(--primary)" }}>{s.rate}%</b>
+                      {s.total} {t.analytics.leads} · {s.converted} {t.analytics.customers} · <b style={{ color: "var(--primary)" }}>{s.rate}%</b>
                     </span>
                   </div>
                 ))}
@@ -1200,6 +1947,154 @@ function AnalyticsPanel({ isFa, pipelines }: { isFa: boolean; pipelines: Pipelin
           )}
         </>
       )}
+    </div>
+  );
+}
+
+interface VoiceAnalyticsData {
+  totalCalls: number;
+  totalDurationSec: number;
+  avgDurationSec: number;
+  completedCalls: number;
+  successRate: number;
+  byStatus: { status: string; count: number }[];
+  byOutcome: { outcome: string; count: number }[];
+  callsPerDay: { date: string; count: number }[];
+  recentCalls: {
+    id: string; callerPhone: string | null; direction: string; status: string; outcome: string | null;
+    durationSec: number | null; createdAt: string; contactId: string | null; contactName: string | null;
+  }[];
+}
+
+function fmtDuration(sec: number) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+const CALL_STATUS_COLOR: Record<string, string> = {
+  completed: "#22c55e",
+  in_progress: "#3b82f6",
+  failed: "#ef4444",
+  no_answer: "var(--text-muted)",
+};
+
+function VoiceCallAnalyticsPanel({ isFa, lang, t, onOpenContact }: { isFa: boolean; lang: Lang; t: Translations["crm"]; onOpenContact: (id: string) => void }) {
+  const [data, setData] = useState<VoiceAnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const tv = t.voiceAnalytics;
+
+  useEffect(() => {
+    setLoading(true);
+    fetch("/api/crm/voice-analytics").then((r) => r.json()).then((d) => {
+      setData(d);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  if (loading) return <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />;
+  if (!data || data.totalCalls === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tv.empty}</p>;
+
+  const totalMinutes = Math.round(data.totalDurationSec / 60);
+  const maxDayCount = Math.max(1, ...data.callsPerDay.map((d) => d.count));
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tv.totalCalls}</p>
+          <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{data.totalCalls}</p>
+        </div>
+        <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tv.totalMinutes}</p>
+          <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{totalMinutes}</p>
+        </div>
+        <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tv.avgDuration}</p>
+          <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{fmtDuration(data.avgDurationSec)}</p>
+        </div>
+        <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{tv.successRate}</p>
+          <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{data.successRate}%</p>
+        </div>
+      </div>
+
+      <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <p className="text-xs font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{tv.trendTitle}</p>
+        <div className="flex items-end gap-[2px]" style={{ height: 80 }}>
+          {data.callsPerDay.map((d) => (
+            <div key={d.date} title={`${d.date}: ${d.count}`} className="flex-1 rounded-sm" style={{
+              height: `${Math.max(2, (d.count / maxDayCount) * 80)}px`,
+              background: "var(--primary)",
+              opacity: d.count === 0 ? 0.2 : 0.85,
+            }} />
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <p className="text-xs font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{tv.byStatusTitle}</p>
+          <div className="space-y-2">
+            {data.byStatus.map((s) => (
+              <div key={s.status} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
+                <span style={{ color: CALL_STATUS_COLOR[s.status] || "var(--text-secondary)" }}>{tv.status[s.status as keyof typeof tv.status] || s.status}</span>
+                <b style={{ color: "var(--text-primary)" }}>{s.count}</b>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <p className="text-xs font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{tv.byOutcomeTitle}</p>
+          <div className="space-y-2">
+            {data.byOutcome.map((o) => (
+              <div key={o.outcome} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
+                <span style={{ color: "var(--text-secondary)" }}>{tv.outcome[o.outcome as keyof typeof tv.outcome] || o.outcome}</span>
+                <b style={{ color: "var(--text-primary)" }}>{o.count}</b>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+        <p className="text-xs font-semibold px-4 py-3" style={{ color: "var(--text-primary)", background: "var(--surface-1)" }}>{tv.recentCallsTitle}</p>
+        {data.recentCalls.map((call, i) => (
+          <div key={call.id} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2"
+            style={{ background: "var(--surface-1)", borderTop: "1px solid var(--border)" }}>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(234,88,12,0.15)" }}>
+                <PhoneCall className="w-3.5 h-3.5" style={{ color: "var(--primary)" }} />
+              </div>
+              <div>
+                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                  {call.contactName || call.callerPhone || tv.unknownCaller}
+                </p>
+                <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                  {call.callerPhone} · {new Date(call.createdAt).toLocaleString(tri(lang, "fa-IR", "en-US", "de-DE", "tr-TR"))}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: "var(--surface-2)", color: CALL_STATUS_COLOR[call.status] || "var(--text-secondary)" }}>
+                {tv.status[call.status as keyof typeof tv.status] || call.status}
+              </span>
+              {call.outcome && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                  {tv.outcome[call.outcome as keyof typeof tv.outcome] || call.outcome}
+                </span>
+              )}
+              <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{call.durationSec != null ? fmtDuration(call.durationSec) : "—"}</span>
+              {call.contactId && (
+                <button onClick={() => onOpenContact(call.contactId!)}
+                  className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--primary)" }}>
+                  {tv.viewContact}
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1215,7 +2110,7 @@ interface ProductFormState {
 
 const EMPTY_PRODUCT_FORM: ProductFormState = { name: "", sku: "", description: "", price: "", unit: "", taxRate: "0", imageUrl: "" };
 
-function ProductsPanel({ isFa }: { isFa: boolean }) {
+function ProductsPanel({ isFa, lang, t }: { isFa: boolean; lang: Lang; t: Translations["crm"] }) {
   const [products, setProducts] = useState<CrmProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState<ProductFormState | null>(null);
@@ -1223,6 +2118,12 @@ function ProductsPanel({ isFa }: { isFa: boolean }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [detailProduct, setDetailProduct] = useState<CrmProduct | null>(null);
+  const [search, setSearch] = useState("");
+  const filteredProducts = products.filter((p) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return p.name.toLowerCase().includes(q) || (p.sku || "").toLowerCase().includes(q);
+  });
 
   const load = useCallback(async () => {
     const res = await fetch("/api/crm/products");
@@ -1237,13 +2138,13 @@ function ProductsPanel({ isFa }: { isFa: boolean }) {
     setUploading(true);
     try {
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", await downscaleImage(file));
       const res = await fetch("/api/upload", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setForm((f) => (f ? { ...f, imageUrl: data.url } : f));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "خطا در آپلود تصویر");
+      setError(err instanceof Error ? err.message : t.products.errorImageUpload);
     } finally {
       setUploading(false);
     }
@@ -1251,9 +2152,9 @@ function ProductsPanel({ isFa }: { isFa: boolean }) {
 
   async function saveProduct() {
     if (!form) return;
-    if (!form.name.trim()) { setError(isFa ? "نام محصول الزامی است" : "Product name is required"); return; }
+    if (!form.name.trim()) { setError(t.products.errorNameRequired); return; }
     const priceNum = Number(form.price);
-    if (!Number.isFinite(priceNum) || priceNum < 0) { setError(isFa ? "قیمت معتبر الزامی است" : "Valid price is required"); return; }
+    if (!Number.isFinite(priceNum) || priceNum < 0) { setError(t.products.errorPriceRequired); return; }
     setSaving(true);
     setError("");
     try {
@@ -1269,7 +2170,7 @@ function ProductsPanel({ isFa }: { isFa: boolean }) {
       setForm(null);
       load();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "خطا");
+      setError(err instanceof Error ? err.message : t.products.errorGeneric);
     } finally {
       setSaving(false);
     }
@@ -1294,7 +2195,7 @@ function ProductsPanel({ isFa }: { isFa: boolean }) {
       <div className="flex justify-end">
         <button onClick={() => { setForm(EMPTY_PRODUCT_FORM); setError(""); }}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-          <Plus className="w-4 h-4" /> {isFa ? "محصول جدید" : "New Product"}
+          <Plus className="w-4 h-4" /> {t.products.new}
         </button>
       </div>
 
@@ -1305,40 +2206,47 @@ function ProductsPanel({ isFa }: { isFa: boolean }) {
               {form.imageUrl ? <img src={form.imageUrl} alt="" className="w-full h-full object-cover" /> : <Package className="w-6 h-6" style={{ color: "var(--text-muted)" }} />}
             </div>
             <label className="text-xs px-3 py-1.5 rounded-lg cursor-pointer" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-              {uploading ? (isFa ? "در حال آپلود..." : "Uploading...") : (isFa ? "آپلود عکس" : "Upload photo")}
+              {uploading ? t.products.uploadingPhoto : t.products.uploadPhoto}
               <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={uploading}
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(f); }} />
             </label>
           </div>
-          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={isFa ? "نام محصول/خدمت" : "Product/service name"}
+          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t.products.namePlaceholder}
             className="col-span-2 px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-          <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={isFa ? "توضیحات (اختیاری)" : "Description (optional)"}
+          <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={t.products.descriptionPlaceholder}
             className="col-span-2 px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-          <input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder={isFa ? "کد محصول (اختیاری)" : "SKU (optional)"}
+          <input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder={t.products.skuPlaceholder}
             className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-          <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} type="number" placeholder={isFa ? "قیمت" : "Price"}
+          <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} type="number" placeholder={t.products.pricePlaceholder}
             className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-          <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder={isFa ? "واحد (اختیاری)" : "Unit (optional)"}
+          <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder={t.products.unitPlaceholder}
             className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-          <input value={form.taxRate} onChange={(e) => setForm({ ...form, taxRate: e.target.value })} type="number" placeholder={isFa ? "درصد مالیات" : "Tax %"}
+          <input value={form.taxRate} onChange={(e) => setForm({ ...form, taxRate: e.target.value })} type="number" placeholder={t.products.taxPlaceholder}
             className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           {error && <p className="col-span-2 text-xs" style={{ color: "#ef4444" }}>{error}</p>}
           <div className="col-span-2 flex gap-2">
             <button onClick={() => setForm(null)} className="flex-1 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-              {isFa ? "انصراف" : "Cancel"}
+              {t.products.cancel}
             </button>
             <button onClick={saveProduct} disabled={saving} className="flex-1 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-              {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ذخیره" : "Save")}
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t.products.save}
             </button>
           </div>
         </div>
       )}
 
+      {products.length > 0 && (
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجوی محصول (نام یا کد)", "Search products (name or SKU)", "Produkte suchen (Name oder SKU)", "Ürün ara (isim veya SKU)")}
+          className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+      )}
+
       {products.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز محصولی ثبت نشده" : "No products yet"}</p>
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.products.empty}</p>
+      ) : filteredProducts.length === 0 ? (
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "محصولی با این مشخصات پیدا نشد", "No products match your search", "Keine Produkte gefunden", "Aramanızla eşleşen ürün yok")}</p>
       ) : (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-          {products.map((p, i) => (
+          {filteredProducts.map((p, i) => (
             <div key={p.id} className="flex items-center justify-between px-4 py-3" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined, opacity: p.isActive ? 1 : 0.5 }}>
               <button onClick={() => setDetailProduct(p)} className="flex items-center gap-3 flex-1 text-right">
                 <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ background: "var(--surface-2)" }}>
@@ -1346,18 +2254,18 @@ function ProductsPanel({ isFa }: { isFa: boolean }) {
                 </div>
                 <div>
                   <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{p.name}</p>
-                  <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{fmtMoney(p.price)} {p.unit ? `/ ${p.unit}` : ""} {p.taxRate > 0 ? `· ${p.taxRate}% ${isFa ? "مالیات" : "tax"}` : ""}</p>
+                  <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{fmtMoney(p.price)} {p.unit ? `/ ${p.unit}` : ""} {p.taxRate > 0 ? `· ${p.taxRate}% ${t.products.tax}` : ""}</p>
                 </div>
               </button>
               <div className="flex items-center gap-2">
                 <button onClick={() => setForm({ id: p.id, name: p.name, sku: p.sku || "", description: p.description || "", price: String(p.price), unit: p.unit || "", taxRate: String(p.taxRate), imageUrl: p.imageUrl || "" })}
                   className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
-                  {isFa ? "ویرایش" : "Edit"}
+                  {t.products.edit}
                 </button>
                 <button onClick={() => toggleActive(p)}
                   className="px-2.5 py-1 rounded-full text-[10px] font-medium"
                   style={{ background: p.isActive ? "rgba(34,197,94,0.15)" : "var(--surface-2)", color: p.isActive ? "#22c55e" : "var(--text-muted)" }}>
-                  {p.isActive ? (isFa ? "فعال" : "Active") : (isFa ? "غیرفعال" : "Inactive")}
+                  {p.isActive ? t.products.active : t.products.inactive}
                 </button>
                 <button onClick={() => deleteProduct(p.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
               </div>
@@ -1366,12 +2274,12 @@ function ProductsPanel({ isFa }: { isFa: boolean }) {
         </div>
       )}
 
-      {detailProduct && <ProductDetailModal isFa={isFa} product={detailProduct} onClose={() => setDetailProduct(null)} />}
+      {detailProduct && <ProductDetailModal isFa={isFa} t={t} product={detailProduct} onClose={() => setDetailProduct(null)} />}
     </div>
   );
 }
 
-function ProductDetailModal({ isFa, product, onClose }: { isFa: boolean; product: CrmProduct; onClose: () => void }) {
+function ProductDetailModal({ isFa, t, product, onClose }: { isFa: boolean; t: Translations["crm"]; product: CrmProduct; onClose: () => void }) {
   const [contacts, setContacts] = useState<{ id: string; name: string }[] | null>(null);
 
   useEffect(() => {
@@ -1390,11 +2298,11 @@ function ProductDetailModal({ isFa, product, onClose }: { isFa: boolean; product
         </div>
       </div>
       {product.description && <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>{product.description}</p>}
-      <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{isFa ? "مشتریانی که این محصول را خریده‌اند" : "Customers who bought this"}</p>
+      <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{t.products.detail.customersWhoBought}</p>
       {contacts === null ? (
         <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--text-muted)" }} />
       ) : contacts.length === 0 ? (
-        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز در فاکتوری استفاده نشده" : "Not used in any invoice yet"}</p>
+        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t.products.detail.notUsedYet}</p>
       ) : (
         <div className="space-y-1.5">
           {contacts.map((c) => (
@@ -1421,7 +2329,7 @@ const INVOICE_STATUS_LABEL: Record<string, { fa: string; en: string; color: stri
   cancelled: { fa: "لغوشده", en: "Cancelled", color: "var(--text-muted)" },
 };
 
-function InvoicesPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] }) {
+function InvoicesPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang; t: Translations["crm"]; contacts: Contact[] }) {
   const [invoices, setInvoices] = useState<CrmInvoiceRow[]>([]);
   const [products, setProducts] = useState<CrmProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1433,6 +2341,8 @@ function InvoicesPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
   const [contactId, setContactId] = useState("");
   const [items, setItems] = useState<InvoiceItemRow[]>([{ description: "", quantity: 1, unitPrice: 0, taxRate: 0, lineTotal: 0 }]);
   const [discount, setDiscount] = useState("0");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
   const load = useCallback(async () => {
     const [invRes, prodRes] = await Promise.all([fetch("/api/crm/invoices"), fetch("/api/crm/products?activeOnly=1")]);
@@ -1460,8 +2370,8 @@ function InvoicesPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
   const total = Math.max(0, subtotal + taxTotal - (Number(discount) || 0));
 
   async function createInvoice() {
-    if (!contactId) { setError(isFa ? "انتخاب مشتری الزامی است" : "Selecting a contact is required"); return; }
-    if (items.some((it) => !it.description.trim())) { setError(isFa ? "توضیح همه آیتم‌ها الزامی است" : "All items need a description"); return; }
+    if (!contactId) { setError(t.invoices.errorContactRequired); return; }
+    if (items.some((it) => !it.description.trim())) { setError(t.invoices.errorItemDescriptionRequired); return; }
     setSaving(true);
     setError("");
     try {
@@ -1475,14 +2385,16 @@ function InvoicesPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
       setContactId(""); setItems([{ description: "", quantity: 1, unitPrice: 0, taxRate: 0, lineTotal: 0 }]); setDiscount("0");
       load();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "خطا");
+      setError(err instanceof Error ? err.message : t.invoices.errorGeneric);
     } finally {
       setSaving(false);
     }
   }
 
   async function setStatus(id: string, status: string) {
-    await fetch(`/api/crm/invoices/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    const res = await fetch(`/api/crm/invoices/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    const data = await res.json().catch(() => null);
+    if (data?.ledgerWarning) toast.error(data.ledgerWarning, { duration: 8000 });
     load();
   }
 
@@ -1498,7 +2410,7 @@ function InvoicesPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
       <div className="flex justify-end">
         <button onClick={() => setShowNew((v) => !v)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-          <Plus className="w-4 h-4" /> {isFa ? "فاکتور جدید" : "New Invoice"}
+          <Plus className="w-4 h-4" /> {t.invoices.new}
         </button>
       </div>
 
@@ -1506,7 +2418,7 @@ function InvoicesPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
         <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <select value={contactId} onChange={(e) => setContactId(e.target.value)}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{isFa ? "انتخاب مشتری..." : "Select contact..."}</option>
+            <option value="">{t.invoices.selectContact}</option>
             {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
 
@@ -1515,54 +2427,75 @@ function InvoicesPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
               <div key={idx} className="grid grid-cols-12 gap-1.5 items-center">
                 <select onChange={(e) => e.target.value && pickProduct(idx, e.target.value)} defaultValue=""
                   className="col-span-3 px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                  <option value="">{isFa ? "از کاتالوگ" : "From catalog"}</option>
+                  <option value="">{t.invoices.fromCatalog}</option>
                   {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
-                <input value={it.description} onChange={(e) => updateItem(idx, { description: e.target.value })} placeholder={isFa ? "شرح آیتم" : "Item description"}
+                <input value={it.description} onChange={(e) => updateItem(idx, { description: e.target.value })} placeholder={t.invoices.itemDescription}
                   className="col-span-4 px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-                <input value={it.quantity} onChange={(e) => updateItem(idx, { quantity: Number(e.target.value) || 1 })} type="number" placeholder={isFa ? "تعداد" : "Qty"}
+                <input value={it.quantity} onChange={(e) => updateItem(idx, { quantity: Number(e.target.value) || 1 })} type="number" placeholder={t.invoices.qty}
                   className="col-span-2 px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-                <input value={it.unitPrice} onChange={(e) => updateItem(idx, { unitPrice: Number(e.target.value) || 0 })} type="number" placeholder={isFa ? "قیمت واحد" : "Unit price"}
+                <input value={it.unitPrice} onChange={(e) => updateItem(idx, { unitPrice: Number(e.target.value) || 0 })} type="number" placeholder={t.invoices.unitPrice}
                   className="col-span-2 px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                 <button onClick={() => setItems((prev) => prev.filter((_, i) => i !== idx))} className="col-span-1"><Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} /></button>
               </div>
             ))}
             <button onClick={() => setItems((prev) => [...prev, { description: "", quantity: 1, unitPrice: 0, taxRate: 0, lineTotal: 0 }])}
-              className="text-xs" style={{ color: "var(--primary)" }}>+ {isFa ? "افزودن آیتم" : "Add item"}</button>
+              className="text-xs" style={{ color: "var(--primary)" }}>+ {t.invoices.addItem}</button>
           </div>
 
           <div className="flex items-center justify-between text-xs" style={{ color: "var(--text-secondary)" }}>
             <div className="flex items-center gap-1.5">
-              <span>{isFa ? "تخفیف:" : "Discount:"}</span>
+              <span>{t.invoices.discount}</span>
               <input value={discount} onChange={(e) => setDiscount(e.target.value)} type="number"
                 className="w-24 px-2 py-1 rounded-lg text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
-            <span>{isFa ? "جمع کل:" : "Total:"} <b style={{ color: "var(--text-primary)" }}>{fmtMoney(total)}</b></span>
+            <span>{t.invoices.total} <b style={{ color: "var(--text-primary)" }}>{fmtMoney(total)}</b></span>
           </div>
 
           {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
           <button onClick={createInvoice} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ساخت فاکتور" : "Create Invoice")}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t.invoices.createInvoice}
           </button>
         </div>
       )}
 
-      {invoices.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز فاکتوری ثبت نشده" : "No invoices yet"}</p>
-      ) : (
+      {invoices.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجو (شماره فاکتور یا نام مشتری)", "Search (invoice number or customer)", "Suchen (Rechnungsnummer oder Kunde)", "Ara (fatura no veya müşteri)")}
+            className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{tri(lang, "همه وضعیت‌ها", "All statuses", "Alle Status", "Tüm durumlar")}</option>
+            {Object.keys(INVOICE_STATUS_LABEL).map((val) => (
+              <option key={val} value={val}>{t.invoiceStatus[val as keyof typeof t.invoiceStatus] || val}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {(() => {
+        const filteredInvoices = invoices.filter((inv) => {
+          if (statusFilter && inv.status !== statusFilter) return false;
+          const q = search.trim().toLowerCase();
+          if (!q) return true;
+          return inv.invoiceNumber.toLowerCase().includes(q) || inv.contact.name.toLowerCase().includes(q);
+        });
+        if (invoices.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.invoices.empty}</p>;
+        if (filteredInvoices.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "فاکتوری با این مشخصات پیدا نشد", "No invoices match your search", "Keine Rechnungen gefunden", "Aramanızla eşleşen fatura yok")}</p>;
+        return (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-          {invoices.map((inv, i) => {
+          {filteredInvoices.map((inv, i) => {
             const st = INVOICE_STATUS_LABEL[inv.status] || INVOICE_STATUS_LABEL.draft;
             return (
               <div key={inv.id} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
                 <div>
                   <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{inv.invoiceNumber} — {inv.contact.name}</p>
-                  <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{fmtMoney(inv.total)} {isFa ? "تومان" : ""}</p>
+                  <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{fmtMoney(inv.total)} {t.invoices.currency}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-medium" style={{ background: "var(--surface-2)", color: st.color }}>{isFa ? st.fa : st.en}</span>
-                  {inv.status === "draft" && <button onClick={() => setStatus(inv.id, "sent")} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{isFa ? "ارسال" : "Send"}</button>}
-                  {inv.status !== "paid" && inv.status !== "cancelled" && <button onClick={() => setStatus(inv.id, "paid")} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>{isFa ? "پرداخت شد" : "Mark Paid"}</button>}
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-medium" style={{ background: "var(--surface-2)", color: st.color }}>{t.invoiceStatus[inv.status as keyof typeof t.invoiceStatus] || t.invoiceStatus.draft}</span>
+                  {inv.status === "draft" && <button onClick={() => setStatus(inv.id, "sent")} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{t.invoices.send}</button>}
+                  {inv.status !== "paid" && inv.status !== "cancelled" && <button onClick={() => setStatus(inv.id, "paid")} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>{t.invoices.markPaid}</button>}
                   <button onClick={() => setPrintInvoice(inv)}><Printer className="w-4 h-4" style={{ color: "var(--text-secondary)" }} /></button>
                   <button onClick={() => deleteInvoice(inv.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
                 </div>
@@ -1570,34 +2503,74 @@ function InvoicesPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
             );
           })}
         </div>
-      )}
+        );
+      })()}
 
-      {printInvoice && <InvoicePrintModal isFa={isFa} invoice={printInvoice} onClose={() => setPrintInvoice(null)} />}
+      {printInvoice && <InvoicePrintModal isFa={isFa} lang={lang} t={t} invoice={printInvoice} onClose={() => setPrintInvoice(null)} />}
     </div>
   );
 }
 
-function InvoicePrintModal({ isFa, invoice, onClose }: { isFa: boolean; invoice: CrmInvoiceRow; onClose: () => void }) {
+function InvoicePrintModal({ isFa, lang, t, invoice, onClose }: { isFa: boolean; lang: Lang; t: Translations["crm"]; invoice: CrmInvoiceRow; onClose: () => void }) {
+  const logoUrl = useCompanyLogo();
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  async function handleDownloadPdf() {
+    setDownloadingPdf(true);
+    try {
+      // Dynamically imported -- @react-pdf/renderer is a heavy dependency
+      // that only the small fraction of users who actually export an
+      // invoice need; a static import bloated every /crm visitor's bundle
+      // by ~400kB whether they ever open this modal or not.
+      const { downloadInvoicePdf } = await import("@/components/crm/CrmPdfDocuments");
+      await downloadInvoicePdf(
+        {
+          invoiceNumber: invoice.invoiceNumber,
+          issueDate: invoice.issueDate,
+          contactName: invoice.contact.name,
+          items: invoice.items.map((it) => ({ description: it.description, quantity: it.quantity, unitPrice: it.unitPrice })),
+          subtotal: invoice.subtotal,
+          taxTotal: invoice.taxTotal,
+          discount: invoice.discount,
+          total: invoice.total,
+          currency: invoice.currency,
+          logoUrl,
+        },
+        t.invoices.print,
+        isFa,
+        lang === "fa" ? toJalali(invoice.issueDate) : new Date(invoice.issueDate).toLocaleDateString(lang === "de" ? "de-DE" : "en-US"),
+      );
+    } catch {
+      toast.error(tri(lang, "ساخت PDF با خطا مواجه شد", "Failed to generate the PDF", "PDF-Erstellung fehlgeschlagen"));
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:p-0 print:static" style={{ background: "rgba(0,0,0,0.6)" }}>
       <div className="print:hidden absolute top-4 left-4 flex gap-2">
-        <button onClick={() => window.print()} className="px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>{isFa ? "چاپ / PDF" : "Print / PDF"}</button>
-        <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>{isFa ? "بستن" : "Close"}</button>
+        <button onClick={handleDownloadPdf} disabled={downloadingPdf} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+          {downloadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />} {t.invoices.print.downloadPdf}
+        </button>
+        <button onClick={() => window.print()} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>{t.invoices.print.printPdf}</button>
+        <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>{t.invoices.print.close}</button>
       </div>
       <div dir={isFa ? "rtl" : "ltr"} className="w-full max-w-xl rounded-2xl p-8 space-y-4 max-h-[85vh] overflow-y-auto print:max-h-none print:overflow-visible print:shadow-none print:rounded-none"
         style={{ background: "#fff", color: "#111" }}>
+        {logoUrl && <img src={logoUrl} alt="logo" className="h-10 object-contain" style={{ maxWidth: 160 }} />}
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">{isFa ? "فاکتور" : "Invoice"} {invoice.invoiceNumber}</h2>
-          <span className="text-xs">{isFa ? toJalali(invoice.issueDate) : new Date(invoice.issueDate).toLocaleDateString("en-US")}</span>
+          <h2 className="text-lg font-bold">{t.invoices.print.invoiceTitle} {invoice.invoiceNumber}</h2>
+          <span className="text-xs">{lang === "fa" ? toJalali(invoice.issueDate) : new Date(invoice.issueDate).toLocaleDateString(lang === "de" ? "de-DE" : "en-US")}</span>
         </div>
-        <p className="text-sm">{isFa ? "مشتری:" : "Bill to:"} {invoice.contact.name}</p>
+        <p className="text-sm">{t.invoices.print.billTo} {invoice.contact.name}</p>
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr style={{ borderBottom: "1px solid #ddd" }}>
-              <th className="text-right py-1">{isFa ? "شرح" : "Description"}</th>
-              <th className="text-right py-1">{isFa ? "تعداد" : "Qty"}</th>
-              <th className="text-right py-1">{isFa ? "قیمت واحد" : "Unit"}</th>
-              <th className="text-right py-1">{isFa ? "جمع" : "Total"}</th>
+              <th className="text-right py-1">{t.invoices.print.description}</th>
+              <th className="text-right py-1">{t.invoices.print.qty}</th>
+              <th className="text-right py-1">{t.invoices.print.unit}</th>
+              <th className="text-right py-1">{t.invoices.print.total}</th>
             </tr>
           </thead>
           <tbody>
@@ -1612,10 +2585,10 @@ function InvoicePrintModal({ isFa, invoice, onClose }: { isFa: boolean; invoice:
           </tbody>
         </table>
         <div className="text-sm space-y-1 text-left">
-          <p>{isFa ? "جمع جزء:" : "Subtotal:"} {fmtMoney(invoice.subtotal)}</p>
-          <p>{isFa ? "مالیات:" : "Tax:"} {fmtMoney(invoice.taxTotal)}</p>
-          {invoice.discount > 0 && <p>{isFa ? "تخفیف:" : "Discount:"} -{fmtMoney(invoice.discount)}</p>}
-          <p className="font-bold text-base">{isFa ? "جمع کل:" : "Total:"} {fmtMoney(invoice.total)} {invoice.currency}</p>
+          <p>{t.invoices.print.subtotal} {fmtMoney(invoice.subtotal)}</p>
+          <p>{t.invoices.print.tax} {fmtMoney(invoice.taxTotal)}</p>
+          {invoice.discount > 0 && <p>{t.invoices.print.discount} -{fmtMoney(invoice.discount)}</p>}
+          <p className="font-bold text-base">{t.invoices.print.grandTotal} {fmtMoney(invoice.total)} {invoice.currency}</p>
         </div>
       </div>
     </div>
@@ -1635,7 +2608,7 @@ const CONTRACT_STATUS_LABEL: Record<string, { fa: string; en: string; color: str
   cancelled: { fa: "لغوشده", en: "Cancelled", color: "var(--text-muted)" },
 };
 
-function ContractsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] }) {
+function ContractsPanel({ isFa, lang, t, contacts }: { isFa: boolean; lang: Lang; t: Translations["crm"]; contacts: Contact[] }) {
   const [contracts, setContracts] = useState<CrmContractRow[]>([]);
   const [templates, setTemplates] = useState<CrmContractTemplateRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1645,6 +2618,8 @@ function ContractsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[]
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [restoringDefaults, setRestoringDefaults] = useState(false);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
   const [contactId, setContactId] = useState("");
   const [templateId, setTemplateId] = useState("");
@@ -1698,7 +2673,7 @@ function ContractsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[]
   useEffect(() => { load(); }, [load]);
 
   async function createContract() {
-    if (!contactId || !title.trim()) { setError(isFa ? "مشتری و عنوان الزامی است" : "Contact and title are required"); return; }
+    if (!contactId || !title.trim()) { setError(t.contracts.errorRequired); return; }
     setSaving(true);
     setError("");
     try {
@@ -1712,7 +2687,7 @@ function ContractsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[]
       setContactId(""); setTemplateId(""); setTitle(""); setContent("");
       load();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "خطا");
+      setError(err instanceof Error ? err.message : t.contracts.errorGeneric);
     } finally {
       setSaving(false);
     }
@@ -1736,44 +2711,42 @@ function ContractsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[]
         <button onClick={restoreDefaultTemplates} disabled={restoringDefaults}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-50" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
           {restoringDefaults ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-          {isFa ? "بازیابی قالب‌های پیش‌فرض" : "Restore default templates"}
+          {t.contracts.restoreDefaults}
         </button>
         <button onClick={() => setShowTemplates((v) => !v)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
-          <FileSignature className="w-4 h-4" /> {isFa ? "مدیریت قالب‌ها" : "Manage Templates"}
+          <FileSignature className="w-4 h-4" /> {t.contracts.manageTemplates}
         </button>
         <button onClick={() => setShowNew((v) => !v)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-          <Plus className="w-4 h-4" /> {isFa ? "قرارداد جدید" : "New Contract"}
+          <Plus className="w-4 h-4" /> {t.contracts.newContract}
         </button>
       </div>
 
       {showNew && (
         <div className="rounded-2xl p-4 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <p className="text-[11px] p-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
-            {isFa
-              ? "این قالب صرفاً یک نقطه شروع است و توصیه یا مشاوره حقوقی محسوب نمی‌شود. لطفاً پیش از استفاده، نسخه‌ی نهایی را با یک وکیل یا مشاور حقوقی متخصص بازبینی کنید."
-              : "This template is a starting point only and does not constitute legal advice. Please have your customized version reviewed by a qualified lawyer before use."}
+            {t.contracts.legalDisclaimer}
           </p>
           <select value={contactId} onChange={(e) => setContactId(e.target.value)}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{isFa ? "انتخاب مشتری..." : "Select contact..."}</option>
+            <option value="">{t.contracts.selectContact}</option>
             {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={isFa ? "عنوان قرارداد" : "Contract title"}
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t.contracts.titlePlaceholder}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <select value={templateId} onChange={(e) => setTemplateId(e.target.value)}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{isFa ? "بدون قالب (متن آزاد)" : "No template (free text)"}</option>
-            {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            <option value="">{t.contracts.noTemplate}</option>
+            {templates.map((tpl) => <option key={tpl.id} value={tpl.id}>{tpl.name}</option>)}
           </select>
           {!templateId && (
-            <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={5} placeholder={isFa ? "متن قرارداد..." : "Contract text..."}
+            <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={5} placeholder={t.contracts.contentPlaceholder}
               className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           )}
           {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
           <button onClick={createContract} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ساخت قرارداد" : "Create Contract")}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t.contracts.createContract}
           </button>
         </div>
       )}
@@ -1781,14 +2754,14 @@ function ContractsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[]
       {showTemplates && (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           {templates.length === 0 ? (
-            <p className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز قالبی ثبت نشده" : "No templates yet"}</p>
+            <p className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>{t.contracts.noTemplatesYet}</p>
           ) : (
-            templates.map((t, i) => (
-              <div key={t.id} className="flex items-center justify-between px-4 py-3" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
-                <p className="text-sm" style={{ color: "var(--text-primary)" }}>{t.name}</p>
+            templates.map((tpl, i) => (
+              <div key={tpl.id} className="flex items-center justify-between px-4 py-3" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+                <p className="text-sm" style={{ color: "var(--text-primary)" }}>{tpl.name}</p>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setEditingTemplate(t)} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{isFa ? "ویرایش" : "Edit"}</button>
-                  <button onClick={() => deleteTemplate(t.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
+                  <button onClick={() => setEditingTemplate(tpl)} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{t.contracts.edit}</button>
+                  <button onClick={() => deleteTemplate(tpl.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
                 </div>
               </div>
             ))
@@ -1796,60 +2769,105 @@ function ContractsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[]
         </div>
       )}
 
-      {contracts.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز قراردادی ثبت نشده" : "No contracts yet"}</p>
-      ) : (
+      {contracts.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجو (عنوان یا نام مشتری)", "Search (title or customer)", "Suchen (Titel oder Kunde)", "Ara (başlık veya müşteri)")}
+            className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{tri(lang, "همه وضعیت‌ها", "All statuses", "Alle Status", "Tüm durumlar")}</option>
+            {Object.keys(CONTRACT_STATUS_LABEL).map((val) => (
+              <option key={val} value={val}>{t.contractStatus[val as keyof typeof t.contractStatus] || val}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {(() => {
+        const filteredContracts = contracts.filter((ct) => {
+          if (statusFilter && ct.status !== statusFilter) return false;
+          const q = search.trim().toLowerCase();
+          if (!q) return true;
+          return ct.title.toLowerCase().includes(q) || ct.contact.name.toLowerCase().includes(q);
+        });
+        if (contracts.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.contracts.empty}</p>;
+        if (filteredContracts.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "قراردادی با این مشخصات پیدا نشد", "No contracts match your search", "Keine Verträge gefunden", "Aramanızla eşleşen sözleşme yok")}</p>;
+        return (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-          {contracts.map((c, i) => {
-            const st = CONTRACT_STATUS_LABEL[c.status] || CONTRACT_STATUS_LABEL.draft;
+          {filteredContracts.map((ct, i) => {
+            const st = CONTRACT_STATUS_LABEL[ct.status] || CONTRACT_STATUS_LABEL.draft;
             return (
-              <div key={c.id} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+              <div key={ct.id} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
                 <div>
-                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{c.title} — {c.contact.name}</p>
+                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{ct.title} — {ct.contact.name}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-medium" style={{ background: "var(--surface-2)", color: st.color }}>{isFa ? st.fa : st.en}</span>
-                  {c.status === "draft" && <button onClick={() => setStatus(c.id, "sent")} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{isFa ? "ارسال" : "Send"}</button>}
-                  {c.status !== "signed" && c.status !== "cancelled" && <button onClick={() => setStatus(c.id, "signed")} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>{isFa ? "امضا شد" : "Mark Signed"}</button>}
-                  <button onClick={() => setEditingContract(c)} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{isFa ? "ویرایش" : "Edit"}</button>
-                  <button onClick={() => setPrintContract(c)}><Printer className="w-4 h-4" style={{ color: "var(--text-secondary)" }} /></button>
-                  <button onClick={() => deleteContract(c.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-medium" style={{ background: "var(--surface-2)", color: st.color }}>{t.contractStatus[ct.status as keyof typeof t.contractStatus] || t.contractStatus.draft}</span>
+                  {ct.status === "draft" && <button onClick={() => setStatus(ct.id, "sent")} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{t.contracts.send}</button>}
+                  {ct.status !== "signed" && ct.status !== "cancelled" && <button onClick={() => setStatus(ct.id, "signed")} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>{t.contracts.markSigned}</button>}
+                  <button onClick={() => setEditingContract(ct)} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{t.contracts.edit}</button>
+                  <button onClick={() => setPrintContract(ct)}><Printer className="w-4 h-4" style={{ color: "var(--text-secondary)" }} /></button>
+                  <button onClick={() => deleteContract(ct.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
                 </div>
               </div>
             );
           })}
         </div>
-      )}
+        );
+      })()}
 
-      {printContract && <ContractPrintModal isFa={isFa} contract={printContract} onClose={() => setPrintContract(null)} />}
+      {printContract && <ContractPrintModal isFa={isFa} t={t} contract={printContract} onClose={() => setPrintContract(null)} />}
       {editingContract && (
-        <ContractEditModal isFa={isFa} contract={editingContract} onClose={() => setEditingContract(null)} onSave={saveEditedContract} />
+        <ContractEditModal isFa={isFa} t={t} contract={editingContract} onClose={() => setEditingContract(null)} onSave={saveEditedContract} />
       )}
       {editingTemplate && (
-        <TemplateEditModal isFa={isFa} template={editingTemplate} onClose={() => setEditingTemplate(null)} onSave={saveTemplateEdit} />
+        <TemplateEditModal isFa={isFa} t={t} template={editingTemplate} onClose={() => setEditingTemplate(null)} onSave={saveTemplateEdit} />
       )}
     </div>
   );
 }
 
-function ContractPrintModal({ isFa, contract, onClose }: { isFa: boolean; contract: CrmContractRow; onClose: () => void }) {
+function ContractPrintModal({ isFa, t, contract, onClose }: { isFa: boolean; t: Translations["crm"]; contract: CrmContractRow; onClose: () => void }) {
+  const logoUrl = useCompanyLogo();
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  async function handleDownloadPdf() {
+    setDownloadingPdf(true);
+    try {
+      const { downloadContractPdf } = await import("@/components/crm/CrmPdfDocuments");
+      await downloadContractPdf(
+        { title: contract.title, contactName: contract.contact.name, content: contract.content, logoUrl },
+        t.contracts.print,
+        isFa,
+      );
+    } catch {
+      toast.error(isFa ? "ساخت PDF با خطا مواجه شد" : "Failed to generate the PDF");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:p-0 print:static" style={{ background: "rgba(0,0,0,0.6)" }}>
       <div className="print:hidden absolute top-4 left-4 flex gap-2">
-        <button onClick={() => window.print()} className="px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>{isFa ? "چاپ / PDF" : "Print / PDF"}</button>
-        <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>{isFa ? "بستن" : "Close"}</button>
+        <button onClick={handleDownloadPdf} disabled={downloadingPdf} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+          {downloadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />} {t.contracts.print.downloadPdf}
+        </button>
+        <button onClick={() => window.print()} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>{t.contracts.print.printPdf}</button>
+        <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>{t.contracts.print.close}</button>
       </div>
       <div dir={isFa ? "rtl" : "ltr"} className="w-full max-w-xl rounded-2xl p-8 space-y-4 max-h-[85vh] overflow-y-auto print:max-h-none print:overflow-visible print:shadow-none print:rounded-none whitespace-pre-wrap"
         style={{ background: "#fff", color: "#111" }}>
+        {logoUrl && <img src={logoUrl} alt="logo" className="h-10 object-contain" style={{ maxWidth: 160 }} />}
         <h2 className="text-lg font-bold">{contract.title}</h2>
-        <p className="text-xs">{isFa ? "مشتری:" : "Contact:"} {contract.contact.name}</p>
+        <p className="text-xs">{t.contracts.print.contact} {contract.contact.name}</p>
         <div className="text-sm leading-7">{contract.content}</div>
       </div>
     </div>
   );
 }
 
-function ContractEditModal({ isFa, contract, onClose, onSave }: { isFa: boolean; contract: CrmContractRow; onClose: () => void; onSave: (content: string) => void }) {
+function ContractEditModal({ isFa, t, contract, onClose, onSave }: { isFa: boolean; t: Translations["crm"]; contract: CrmContractRow; onClose: () => void; onSave: (content: string) => void }) {
   const [content, setContent] = useState(contract.content);
   const [saving, setSaving] = useState(false);
 
@@ -1862,26 +2880,24 @@ function ContractEditModal({ isFa, contract, onClose, onSave }: { isFa: boolean;
   return (
     <Modal onClose={onClose}>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "ویرایش قرارداد" : "Edit Contract"}</h2>
+        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{t.contracts.editModal.title}</h2>
         <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
       </div>
       {contract.status !== "draft" && (
         <p className="text-[11px] p-2 rounded-lg mb-2" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
-          {isFa
-            ? "این قرارداد نهایی‌شده — نسخه‌ی فعلی پیش از ذخیره تغییرات، آرشیو می‌شود."
-            : "This contract is finalized — the current version will be archived before your changes are saved."}
+          {t.contracts.editModal.finalizedNotice}
         </p>
       )}
       <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={12}
         className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
       <button onClick={handleSave} disabled={saving} className="w-full mt-3 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-        {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ذخیره تغییرات" : "Save Changes")}
+        {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t.contracts.editModal.save}
       </button>
     </Modal>
   );
 }
 
-function TemplateEditModal({ isFa, template, onClose, onSave }: { isFa: boolean; template: CrmContractTemplateRow; onClose: () => void; onSave: (name: string, content: string) => void }) {
+function TemplateEditModal({ isFa, t, template, onClose, onSave }: { isFa: boolean; t: Translations["crm"]; template: CrmContractTemplateRow; onClose: () => void; onSave: (name: string, content: string) => void }) {
   const [name, setName] = useState(template.name);
   const [content, setContent] = useState(template.content);
   const [saving, setSaving] = useState(false);
@@ -1895,49 +2911,75 @@ function TemplateEditModal({ isFa, template, onClose, onSave }: { isFa: boolean;
   return (
     <Modal onClose={onClose}>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{isFa ? "ویرایش قالب قرارداد" : "Edit Contract Template"}</h2>
+        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{t.contracts.templateEditModal.title}</h2>
         <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
       </div>
       <p className="text-[11px] p-2 rounded-lg mb-2" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
-        {isFa
-          ? "این قالب صرفاً یک نقطه شروع است و توصیه یا مشاوره حقوقی محسوب نمی‌شود. متن را با توجه به سیاست‌های کسب‌وکار خود ویرایش کنید."
-          : "This template is a starting point only and does not constitute legal advice. Edit the text to match your own business policy."}
+        {t.contracts.templateEditModal.legalDisclaimer}
       </p>
-      <input value={name} onChange={(e) => setName(e.target.value)} placeholder={isFa ? "نام قالب" : "Template name"}
+      <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.contracts.templateEditModal.namePlaceholder}
         className="w-full px-3 py-2 rounded-xl text-sm outline-none mb-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
       <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={12}
         className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
       <button onClick={handleSave} disabled={saving} className="w-full mt-3 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-        {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ذخیره تغییرات" : "Save Changes")}
+        {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t.contracts.templateEditModal.save}
       </button>
     </Modal>
   );
 }
 
+interface ProjectProperty {
+  id: string; listingType: string; propertyType: string; price: number; nightlyPrice: number | null;
+  bookingLink: string | null; address: string; city: string | null; areaSqm: number | null;
+}
 interface CrmProjectRow {
   id: string; name: string; status: string; description: string | null;
   startDate: string | null; endDate: string | null;
   contact: { id: string; name: string } | null; deal: { id: string; title: string } | null;
+  property: ProjectProperty | null;
 }
 
-const PROJECT_STATUS_LABEL: Record<string, { fa: string; en: string; color: string }> = {
-  active: { fa: "در حال انجام", en: "Active", color: "#3b82f6" },
-  on_hold: { fa: "متوقف‌شده", en: "On Hold", color: "#f59e0b" },
-  completed: { fa: "تکمیل‌شده", en: "Completed", color: "#22c55e" },
-  cancelled: { fa: "لغوشده", en: "Cancelled", color: "var(--text-muted)" },
+const PROJECT_LISTING_TYPE_LABEL: Record<string, { fa: string; en: string; de: string; tr: string }> = {
+  sell: { fa: "فروش", en: "Sale", de: "Verkauf", tr: "Sale" },
+  rent: { fa: "اجاره", en: "Rent", de: "Miete", tr: "Rent" },
+  short_term_rent: { fa: "اجاره روزانه", en: "Short-term rental", de: "Kurzzeitvermietung", tr: "Short-term rental" },
+};
+
+// `de` filled in: the render site read `(st as any).de || st.en`, so a German
+// user saw English status chips throughout Projects (QA 2026-09-15, U12).
+const PROJECT_STATUS_LABEL: Record<string, { fa: string; en: string; de: string; color: string }> = {
+  active: { fa: "در حال انجام", en: "Active", de: "Aktiv", color: "#3b82f6" },
+  on_hold: { fa: "متوقف‌شده", en: "On Hold", de: "Pausiert", color: "#f59e0b" },
+  completed: { fa: "تکمیل‌شده", en: "Completed", de: "Abgeschlossen", color: "#22c55e" },
+  cancelled: { fa: "لغوشده", en: "Cancelled", de: "Storniert", color: "var(--text-muted)" },
 };
 
 /** Generic post-sale/ongoing-work tracking — usable by any vertical (a construction job, a real-estate closing's paperwork, a service engagement), not tied to one industry's schema. */
-function ProjectsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] }) {
+function ProjectsPanel({ isFa, lang, t, contacts, isRealEstate }: { isFa: boolean; lang: Lang; t: Translations["crm"]; contacts: Contact[]; isRealEstate: boolean }) {
   const [projects, setProjects] = useState<CrmProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
   const [name, setName] = useState("");
   const [contactId, setContactId] = useState("");
   const [description, setDescription] = useState("");
+
+  // Real-estate industry pack only — conditional fields per deal type, all
+  // stored on the linked Property row (see api/crm/projects), never on
+  // CrmProject itself, so a non-real-estate customer's schema/UI is
+  // completely unaffected.
+  const [dealType, setDealType] = useState("");
+  const [propertyType, setPropertyType] = useState("apartment");
+  const [reAddress, setReAddress] = useState("");
+  const [reCity, setReCity] = useState("");
+  const [price, setPrice] = useState("");
+  const [nightlyPrice, setNightlyPrice] = useState("");
+  const [bookingLink, setBookingLink] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch("/api/crm/projects");
@@ -1949,21 +2991,31 @@ function ProjectsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
   useEffect(() => { load(); }, [load]);
 
   async function createProject() {
-    if (!name.trim()) { setError(isFa ? "نام پروژه الزامی است" : "Project name is required"); return; }
+    if (!name.trim()) { setError(t.projects.errorNameRequired); return; }
     setSaving(true);
     setError("");
     try {
       const res = await fetch("/api/crm/projects", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), contactId: contactId || undefined, description: description.trim() || undefined }),
+        body: JSON.stringify({
+          name: name.trim(), contactId: contactId || undefined, description: description.trim() || undefined,
+          realEstate: isRealEstate && dealType ? {
+            dealType, propertyType, address: reAddress.trim(), city: reCity.trim() || undefined,
+            price: dealType !== "short_term_rent" ? price : undefined,
+            nightlyPrice: dealType === "short_term_rent" ? nightlyPrice : undefined,
+            bookingLink: bookingLink.trim() || undefined,
+          } : undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      if (data.bookingLinkWarning) alert(data.bookingLinkWarning);
       setShowNew(false);
       setName(""); setContactId(""); setDescription("");
+      setDealType(""); setPropertyType("apartment"); setReAddress(""); setReCity(""); setPrice(""); setNightlyPrice(""); setBookingLink("");
       load();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "خطا");
+      setError(err instanceof Error ? err.message : t.projects.errorGeneric);
     } finally {
       setSaving(false);
     }
@@ -1986,44 +3038,104 @@ function ProjectsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
       <div className="flex justify-end">
         <button onClick={() => setShowNew((v) => !v)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
-          <Plus className="w-4 h-4" /> {isFa ? "پروژه جدید" : "New Project"}
+          <Plus className="w-4 h-4" /> {t.projects.new}
         </button>
       </div>
 
       {showNew && (
         <div className="rounded-2xl p-4 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={isFa ? "نام پروژه" : "Project name"}
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.projects.namePlaceholder}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
           <select value={contactId} onChange={(e) => setContactId(e.target.value)}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">{isFa ? "بدون مخاطب (اختیاری)" : "No contact (optional)"}</option>
+            <option value="">{t.projects.noContact}</option>
             {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder={isFa ? "توضیحات (اختیاری)" : "Description (optional)"}
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder={t.projects.descriptionPlaceholder}
             className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+
+          {isRealEstate && (
+            <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+              <select value={dealType} onChange={(e) => setDealType(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                <option value="">{tri(lang, "نوع معامله (اختیاری)", "Deal type (optional)", "Geschäftsart (optional)", "İşlem türü (isteğe bağlı)")}</option>
+                {Object.entries(PROJECT_LISTING_TYPE_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
+              </select>
+
+              {dealType && (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                      <option value="apartment">{tri(lang, "آپارتمان", "Apartment", "Wohnung", "Daire")}</option>
+                      <option value="villa">{tri(lang, "ویلا", "Villa", "Villa", "Villa")}</option>
+                      <option value="land">{tri(lang, "زمین", "Land", "Grundstück", "Arsa")}</option>
+                      <option value="commercial">{tri(lang, "تجاری", "Commercial", "Gewerbe", "Ticari")}</option>
+                    </select>
+                    <input value={reCity} onChange={(e) => setReCity(e.target.value)} placeholder={tri(lang, "شهر", "City", "Stadt", "Şehir")}
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                  </div>
+                  <input value={reAddress} onChange={(e) => setReAddress(e.target.value)} placeholder={tri(lang, "آدرس", "Address", "Adresse", "Adres")}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+
+                  {dealType === "short_term_rent" ? (
+                    <>
+                      <input value={nightlyPrice} onChange={(e) => setNightlyPrice(e.target.value)} type="number" placeholder={tri(lang, "قیمت هر شب (تومان)", "Price per night (Toman)", "Preis pro Nacht (Toman)", "Gecelik fiyat (Toman)")}
+                        className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                      <input value={bookingLink} onChange={(e) => setBookingLink(e.target.value)} placeholder={tri(lang, "لینک پلتفرم رزرو (Airbnb، Booking.com و...)", "Booking platform link (Airbnb, Booking.com, ...)", "Buchungsplattform-Link (Airbnb, Booking.com, ...)", "Rezervasyon platformu linki (Airbnb, Booking.com, ...)")}
+                        className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                    </>
+                  ) : (
+                    <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" placeholder={tri(lang, "قیمت کل (تومان)", "Total price (Toman)", "Gesamtpreis (Toman)", "Toplam fiyat (Toman)")}
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
           <button onClick={createProject} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFa ? "ساخت پروژه" : "Create Project")}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t.projects.createProject}
           </button>
         </div>
       )}
 
-      {projects.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{isFa ? "هنوز پروژه‌ای ثبت نشده" : "No projects yet"}</p>
-      ) : (
+      {projects.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجو (نام پروژه یا مشتری)", "Search (project name or customer)", "Suchen (Projektname oder Kunde)", "Ara (proje adı veya müşteri)")}
+            className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{tri(lang, "همه وضعیت‌ها", "All statuses", "Alle Status", "Tüm durumlar")}</option>
+            {Object.entries(t.projectStatus).map(([val, label]) => <option key={val} value={val}>{label}</option>)}
+          </select>
+        </div>
+      )}
+
+      {(() => {
+        const filteredProjects = projects.filter((p) => {
+          if (statusFilter && p.status !== statusFilter) return false;
+          const q = search.trim().toLowerCase();
+          if (!q) return true;
+          return p.name.toLowerCase().includes(q) || (p.contact?.name || "").toLowerCase().includes(q);
+        });
+        if (projects.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{t.projects.empty}</p>;
+        if (filteredProjects.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "پروژه‌ای با این مشخصات پیدا نشد", "No projects match your search", "Keine Projekte gefunden", "Aramanızla eşleşen proje yok")}</p>;
+        return (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-          {projects.map((p, i) => {
+          {filteredProjects.map((p, i) => {
             const st = PROJECT_STATUS_LABEL[p.status] || PROJECT_STATUS_LABEL.active;
             return (
-              <div key={p.id} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+              <div key={p.id} onClick={() => setSelectedProjectId(p.id)} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2 cursor-pointer transition-colors hover:bg-white/[0.02]" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
                 <div>
                   <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{p.name} {p.contact ? `— ${p.contact.name}` : ""}</p>
                   {p.description && <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{p.description}</p>}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                   <select value={p.status} onChange={(e) => setStatus(p.id, e.target.value)}
                     className="text-[10px] px-2 py-1 rounded-full font-medium outline-none" style={{ background: "var(--surface-2)", color: st.color, border: "none" }}>
-                    {Object.entries(PROJECT_STATUS_LABEL).map(([val, l]) => <option key={val} value={val}>{isFa ? l.fa : l.en}</option>)}
+                    {Object.entries(t.projectStatus).map(([val, label]) => <option key={val} value={val}>{label}</option>)}
                   </select>
                   <button onClick={() => deleteProject(p.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
                 </div>
@@ -2031,7 +3143,2257 @@ function ProjectsPanel({ isFa, contacts }: { isFa: boolean; contacts: Contact[] 
             );
           })}
         </div>
+        );
+      })()}
+
+      {selectedProjectId && (
+        <ProjectDetailModal
+          key={selectedProjectId}
+          isFa={isFa}
+          lang={lang}
+          t={t}
+          project={projects.find((p) => p.id === selectedProjectId) || null}
+          onClose={() => setSelectedProjectId(null)}
+          onChanged={load}
+        />
       )}
     </div>
+  );
+}
+
+const PROPERTY_LISTING_TYPE_LABEL: Record<string, Record<Lang, string>> = {
+  buy: { fa: "خرید", en: "Buy", de: "Kauf", tr: "Buy" },
+  sell: { fa: "فروش", en: "Sell", de: "Verkauf", tr: "Sell" },
+  rent: { fa: "اجاره", en: "Rent", de: "Miete", tr: "Rent" },
+  short_term_rent: { fa: "اجاره روزانه", en: "Short-term rental", de: "Kurzzeitmiete", tr: "Short-term rental" },
+};
+const PROPERTY_TYPE_LABEL: Record<string, Record<Lang, string>> = {
+  apartment: { fa: "آپارتمان", en: "Apartment", de: "Wohnung", tr: "Apartment" },
+  villa: { fa: "ویلا", en: "Villa", de: "Villa", tr: "Villa" },
+  land: { fa: "زمین", en: "Land", de: "Grundstück", tr: "Land" },
+  commercial: { fa: "تجاری", en: "Commercial", de: "Gewerbe", tr: "Commercial" },
+};
+const PROPERTY_STATUS_LABEL: Record<string, Record<Lang, string>> = {
+  available: { fa: "موجود", en: "Available", de: "Verfügbar", tr: "Available" },
+  pending: { fa: "در حال معامله", en: "Pending", de: "Ausstehend", tr: "Pending" },
+  sold: { fa: "فروخته‌شده", en: "Sold", de: "Verkauft", tr: "Sold" },
+  rented: { fa: "اجاره‌داده‌شده", en: "Rented", de: "Vermietet", tr: "Rented" },
+};
+// IRT/IRR only make sense in Persian; USD/GBP/EUR are offered regardless of
+// UI language (an agency may list a property in whatever currency the
+// listing itself was priced in) — but the *default* choice when creating a
+// property follows the current UI language (fa->IRT, de->EUR, else USD).
+const CURRENCY_OPTIONS: { value: string; fa?: true; symbol: string; label: Record<Lang, string> }[] = [
+  { value: "IRT", fa: true, symbol: "تومان", label: { fa: "تومان (IRT)", en: "Toman (IRT)", de: "Toman (IRT)", tr: "Toman (IRT)" } },
+  { value: "IRR", fa: true, symbol: "ریال", label: { fa: "ریال (IRR)", en: "Rial (IRR)", de: "Rial (IRR)", tr: "Rial (IRR)" } },
+  { value: "USD", symbol: "$", label: { fa: "دلار (USD)", en: "US Dollar (USD)", de: "US-Dollar (USD)", tr: "US Dollar (USD)" } },
+  { value: "GBP", symbol: "£", label: { fa: "پوند (GBP)", en: "British Pound (GBP)", de: "Britisches Pfund (GBP)", tr: "British Pound (GBP)" } },
+  { value: "EUR", symbol: "€", label: { fa: "یورو (EUR)", en: "Euro (EUR)", de: "Euro (EUR)", tr: "Euro (EUR)" } },
+  { value: "TRY", symbol: "₺", label: { fa: "لیر ترکیه (TRY)", en: "Turkish Lira (TRY)", de: "Türkische Lira (TRY)", tr: "Turkish Lira (TRY)" } },
+];
+function defaultCurrencyForLang(lang: Lang): string {
+  return lang === "fa" ? "IRT" : lang === "de" ? "EUR" : "USD";
+}
+// Digit formatting follows the CURRENCY, never the viewer's own UI language
+// (`lang` param kept for API compatibility but no longer drives numerals) --
+// an Iranian admin looking at a Lira/Dollar/Pound amount owed to a non-
+// Iranian owner must see ordinary Western digits, exactly as that owner
+// will; a Toman/Rial amount stays in Persian digits regardless of which
+// language the admin's own UI is set to. Fixing this bug was requested
+// explicitly after testing a real multi-owner, multi-currency scenario.
+function fmtPrice(n: number, currency: string, _lang: Lang): string {
+  // Property.price is a non-nullable BigInt, so a listing saved with the price
+  // field left blank stores 0 -- and 0 was being rendered as a real price
+  // ("۰ تومان"), which reads as "this property is free" rather than "no price
+  // set yet" (QA 2026-09-15, U11). An actually-free listing isn't a thing in
+  // this product, so 0 always means "not specified".
+  if (!n) return "—";
+  const opt = CURRENCY_OPTIONS.find((c) => c.value === currency);
+  const formatted = new Intl.NumberFormat(opt?.fa ? "fa-IR" : "en-US").format(n);
+  if (!opt) return formatted;
+  return opt.fa ? `${formatted} ${opt.symbol}` : `${opt.symbol}${formatted}`;
+}
+
+/** Real-estate industry-pack module — Property/Listing Management. Only rendered when isModuleEnabled("crm.property") returned true (checked once in the parent via /api/crm/module-access). Reuses the unified Property model — same one Voice Agent and CRM Projects already write to — never a parallel table. */
+interface GeoCountry { id: string; iso2: string; name: string; nameFa: string | null; nameDe: string | null; emoji: string | null; }
+interface GeoCity { id: string; name: string; nameFa: string | null; nameDe: string | null; }
+
+// Module-level cache, keyed by lang (server sorts by the localized name) —
+// the country list (251 rows) never changes during a session, so every
+// CountryCityPicker instance on a page shares one fetch per language
+// instead of each form issuing its own.
+const countriesCache: Partial<Record<Lang, Promise<GeoCountry[]>>> = {};
+function loadCountries(lang: Lang): Promise<GeoCountry[]> {
+  if (!countriesCache[lang]) {
+    countriesCache[lang] = fetch(`/api/geo/countries?lang=${lang}`).then((r) => r.json()).then((d) => d.countries || []);
+  }
+  return countriesCache[lang]!;
+}
+
+/** Country → City cascading picker, backed by the seeded Country/City reference tables (prisma/seed-data/countries-cities.json, ~251 countries / ~141k cities, including Northern Cyprus). Only ever writes the plain city name into onCityChange — Property.city stays a string, this is purely an input-quality improvement over free text. */
+let geoPickerSeq = 0;
+function CountryCityPicker({ lang, cityValue, onCityChange }: { lang: Lang; cityValue: string; onCityChange: (city: string) => void }) {
+  const [instanceId] = useState(() => ++geoPickerSeq);
+  const [countries, setCountries] = useState<GeoCountry[]>([]);
+  const [countryId, setCountryId] = useState("");
+  const [countryQuery, setCountryQuery] = useState("");
+  const [cities, setCities] = useState<GeoCity[]>([]);
+  const [loadingCities, setLoadingCities] = useState(false);
+
+  useEffect(() => { loadCountries(lang).then(setCountries); }, [lang]);
+
+  useEffect(() => {
+    if (!countryId) { setCities([]); return; }
+    setLoadingCities(true);
+    fetch(`/api/geo/cities?countryId=${countryId}`).then((r) => r.json()).then((d) => setCities(d.cities || [])).finally(() => setLoadingCities(false));
+  }, [countryId]);
+
+  function countryLabel(c: GeoCountry) {
+    const name = lang === "fa" ? (c.nameFa || c.name) : lang === "de" ? (c.nameDe || c.name) : c.name;
+    return `${c.emoji ? c.emoji + " " : ""}${name}`;
+  }
+  // Falls back to the English name when a city has no curated translation
+  // (only ~100 major cities are translated, not all ~153k rows).
+  function cityLabel(c: GeoCity) {
+    return lang === "fa" ? (c.nameFa || c.name) : lang === "de" ? (c.nameDe || c.name) : c.name;
+  }
+
+  const countryListId = `geo-countries-${instanceId}`;
+  const cityListId = `geo-cities-${instanceId}`;
+
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <div>
+        <input
+          list={countryListId}
+          value={countryQuery}
+          placeholder={tri(lang, "جستجوی کشور...", "Search country...", "Land suchen...", "Ülke ara...")}
+          onChange={(e) => {
+            const val = e.target.value;
+            setCountryQuery(val);
+            const match = countries.find((c) => countryLabel(c) === val);
+            if (match) { setCountryId(match.id); onCityChange(""); }
+            else if (countryId) { setCountryId(""); onCityChange(""); }
+          }}
+          className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+        />
+        <datalist id={countryListId}>
+          {countries.map((c) => <option key={c.id} value={countryLabel(c)} />)}
+        </datalist>
+      </div>
+      <div>
+        <input
+          list={cityListId}
+          value={cityValue}
+          disabled={!countryId}
+          placeholder={!countryId ? tri(lang, "ابتدا کشور را انتخاب کنید", "Select a country first", "Zuerst Land wählen", "Önce bir ülke seçin") : loadingCities ? tri(lang, "در حال بارگذاری...", "Loading...", "Wird geladen...", "Yükleniyor...") : tri(lang, "جستجوی شهر...", "Search city...", "Stadt suchen...", "Şehir ara...")}
+          onChange={(e) => onCityChange(e.target.value)}
+          className="w-full px-3 py-2 rounded-xl text-sm outline-none disabled:opacity-50" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+        />
+        <datalist id={cityListId}>
+          {cities.map((c) => <option key={c.id} value={cityLabel(c)} />)}
+        </datalist>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Minimal "create an owner right here" modal for the property form — a full
+ * new property used to require the owner to already exist as a CrmContact,
+ * created separately in the Contacts tab first. This only collects what an
+ * owner record actually needs (name, phone, email); anyone who wants the
+ * fuller contact form (WhatsApp/Telegram/company/source) still has
+ * NewContactModal in the Contacts tab.
+ */
+function QuickAddOwnerModal({ lang, onClose, onCreated }: { lang: Lang; onClose: () => void; onCreated: (contact: Contact) => void }) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit() {
+    if (!name.trim()) { setError(tri(lang, "نام الزامی است", "Name is required", "Name ist erforderlich", "Ad gereklidir")); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/crm/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), phone: phone || undefined, email: email || undefined, source: "manual" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      onCreated(data.contact);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : tri(lang, "خطا", "Error", "Fehler", "Hata"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl p-5 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{tri(lang, "افزودن مالک جدید", "Add new owner", "Neuen Eigentümer hinzufügen", "Yeni sahip ekle")}</h3>
+          <button onClick={onClose}><X className="w-4 h-4" style={{ color: "var(--text-muted)" }} /></button>
+        </div>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={tri(lang, "نام", "Name", "Name", "Ad")} autoFocus
+          className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={tri(lang, "تلفن (اختیاری)", "Phone (optional)", "Telefon (optional)", "Telefon (isteğe bağlı)")} dir="ltr"
+          className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={tri(lang, "ایمیل (اختیاری)", "Email (optional)", "E-Mail (optional)", "E-posta (isteğe bağlı)")} dir="ltr"
+          className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
+        <button onClick={submit} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+          {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : tri(lang, "افزودن مالک", "Add owner", "Eigentümer hinzufügen", "Sahibi ekle")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, propertyDocumentsEnabled, listingCopywriterEnabled, pricingAdvisorEnabled, openPropertyId, onOpenPropertyHandled }: { isFa: boolean; lang: Lang; contacts: Contact[]; shortTermCalendarEnabled: boolean; propertyDocumentsEnabled: boolean; listingCopywriterEnabled: boolean; pricingAdvisorEnabled: boolean; openPropertyId?: string | null; onOpenPropertyHandled?: () => void }) {
+  const [properties, setProperties] = useState<PropertyRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showNew, setShowNew] = useState(false);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [selected, setSelected] = useState<PropertyRow | null>(null);
+
+  // Deep-link from the Owners tab: once this property is in the loaded list,
+  // open its detail modal exactly as if the row itself had been clicked.
+  useEffect(() => {
+    if (!openPropertyId) return;
+    const match = properties.find((p) => p.id === openPropertyId);
+    if (match) {
+      setSelected(match);
+      onOpenPropertyHandled?.();
+    }
+  }, [openPropertyId, properties, onOpenPropertyHandled]);
+  const [calendarPropertyId, setCalendarPropertyId] = useState<string | null>(null);
+  const [docsPropertyId, setDocsPropertyId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [listingTypeFilter, setListingTypeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  // Property comparison (QA 2026-09-15 missing feature): tick up to 3 listings
+  // and see them side by side, instead of opening each detail modal in turn.
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [showCompare, setShowCompare] = useState(false);
+  const MAX_COMPARE = 3;
+  function toggleCompare(id: string) {
+    setCompareIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : prev.length >= MAX_COMPARE ? prev : [...prev, id]));
+  }
+
+  const [title, setTitle] = useState("");
+  const [listingType, setListingType] = useState("sell");
+  const [propertyType, setPropertyType] = useState("apartment");
+  const [price, setPrice] = useState("");
+  const [nightlyPrice, setNightlyPrice] = useState("");
+  const [currency, setCurrency] = useState(defaultCurrencyForLang(lang));
+  const [bookingLink, setBookingLink] = useState("");
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [bedrooms, setBedrooms] = useState("");
+  const [bathrooms, setBathrooms] = useState("");
+  const [areaSqm, setAreaSqm] = useState("");
+  const [description, setDescription] = useState("");
+  const [ownerContactId, setOwnerContactId] = useState("");
+  // Owners created inline from this form (see QuickAddOwnerModal below), so
+  // the select shows them immediately without a full contacts reload -- a
+  // new property used to REQUIRE the owner to already exist as a CrmContact
+  // created separately in the Contacts tab first.
+  const [extraOwnerContacts, setExtraOwnerContacts] = useState<Contact[]>([]);
+  const [quickAddTarget, setQuickAddTarget] = useState<"owner" | "rentalOwner" | null>(null);
+  const ownerOptions = [...contacts, ...extraOwnerContacts];
+  // Distinct from ownerContactId above (which is actually the CRM lead/
+  // buyer-seller link, sent as crmContactId) — this is Property.ownerContactId,
+  // the accounting module's rental-income owner (spec 3.9), only meaningful
+  // for short_term_rent and only ever settable from here until now.
+  const [rentalOwnerContactId, setRentalOwnerContactId] = useState("");
+
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ createdCount: number; totalRows: number; errors: { row: number; error: string }[] } | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
+
+  const load = useCallback(async () => {
+    const res = await fetch("/api/crm/properties");
+    const data = await res.json();
+    setProperties(data.properties || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/crm/properties/import", { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setImportResult(data);
+      load();
+    } catch (err: unknown) {
+      setImportResult({ createdCount: 0, totalRows: 0, errors: [{ row: 0, error: err instanceof Error ? err.message : tri(lang, "خطا در وارد کردن فایل", "Failed to import file", "Fehler beim Importieren der Datei", "Dosya içe aktarılamadı") }] });
+    } finally {
+      setImporting(false);
+      if (importInputRef.current) importInputRef.current.value = "";
+    }
+  }
+
+  function resetForm() {
+    setTitle(""); setListingType("sell"); setPropertyType("apartment"); setPrice(""); setNightlyPrice("");
+    setCurrency(defaultCurrencyForLang(lang));
+    setBookingLink(""); setAddress(""); setCity(""); setBedrooms(""); setBathrooms(""); setAreaSqm(""); setDescription(""); setOwnerContactId(""); setRentalOwnerContactId("");
+  }
+
+  async function createProperty() {
+    if (!title.trim()) { setError(tri(lang, "عنوان ملک الزامی است", "Property title is required", "Immobilientitel ist erforderlich", "Mülk başlığı gereklidir")); return; }
+    if (!address.trim()) { setError(tri(lang, "آدرس الزامی است", "Address is required", "Adresse ist erforderlich", "Adres gereklidir")); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/crm/properties", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(), listingType, propertyType, address: address.trim(), city: city.trim() || undefined,
+          price: listingType !== "short_term_rent" ? price : undefined,
+          nightlyPrice: listingType === "short_term_rent" ? nightlyPrice : undefined,
+          currency,
+          bookingLink: bookingLink.trim() || undefined,
+          bedrooms: bedrooms || undefined, bathrooms: bathrooms || undefined, areaSqm: areaSqm || undefined,
+          description: description.trim() || undefined,
+          crmContactId: ownerContactId || undefined,
+          ownerContactId: listingType === "short_term_rent" ? (rentalOwnerContactId || undefined) : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (data.bookingLinkWarning) alert(data.bookingLinkWarning);
+      setShowNew(false);
+      resetForm();
+      load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در ذخیره ملک", "Failed to save property", "Fehler beim Speichern der Immobilie", "Mülk kaydedilemedi"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function setStatus(id: string, status: string) {
+    await fetch(`/api/crm/properties/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    load();
+  }
+
+  async function deleteProperty(id: string) {
+    await fetch(`/api/crm/properties/${id}`, { method: "DELETE" });
+    setSelected(null);
+    load();
+  }
+
+  if (loading) return <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end items-center gap-2 flex-wrap">
+        <a href="/api/crm/properties/import/template" download
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
+          <FileDown className="w-3.5 h-3.5" /> {tri(lang, "دانلود نمونه اکسل", "Download sample template", "Beispielvorlage herunterladen", "Örnek şablonu indir")}
+        </a>
+        <button onClick={() => importInputRef.current?.click()} disabled={importing}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium disabled:opacity-50" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
+          {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+          {tri(lang, "وارد کردن از فایل", "Import from file", "Aus Datei importieren", "Dosyadan içe aktar")}
+        </button>
+        <input ref={importInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleImportFile} />
+        <button onClick={() => setShowNew((v) => !v)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
+          <Plus className="w-4 h-4" /> {tri(lang, "ملک جدید", "New property", "Neue Immobilie", "Yeni mülk")}
+        </button>
+      </div>
+
+      {importResult && (
+        <div className="rounded-2xl p-4 space-y-2 text-sm" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center justify-between">
+            <p style={{ color: importResult.createdCount > 0 ? "#22c55e" : "var(--text-primary)" }}>
+              {tri(lang, `${importResult.createdCount} از ${importResult.totalRows} ردیف با موفقیت وارد شد`, `${importResult.createdCount} of ${importResult.totalRows} rows imported successfully`, `${importResult.createdCount} von ${importResult.totalRows} Zeilen erfolgreich importiert`, `${importResult.totalRows} satırdan ${importResult.createdCount} tanesi başarıyla içe aktarıldı`)}
+            </p>
+            <button onClick={() => setImportResult(null)} style={{ color: "var(--text-muted)" }}><X className="w-4 h-4" /></button>
+          </div>
+          {importResult.errors.length > 0 && (
+            <ul className="text-xs space-y-1" style={{ color: "#ef4444" }}>
+              {importResult.errors.slice(0, 20).map((e, i) => (
+                <li key={i}>{e.row > 0 ? tri(lang, `ردیف ${e.row}: `, `Row ${e.row}: `, `Zeile ${e.row}: `, `Satır ${e.row}: `) : ""}{e.error}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {showNew && (
+        <div className="rounded-2xl p-4 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tri(lang, "عنوان ملک", "Property title", "Immobilientitel", "Mülk başlığı")}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <div className="grid grid-cols-2 gap-2">
+            <select value={listingType} onChange={(e) => setListingType(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              {Object.entries(PROPERTY_LISTING_TYPE_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
+            </select>
+            <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              {Object.entries(PROPERTY_TYPE_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
+            </select>
+          </div>
+          <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={tri(lang, "آدرس", "Address", "Adresse", "Adres")}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <CountryCityPicker lang={lang} cityValue={city} onCityChange={setCity} />
+
+          {listingType === "short_term_rent" ? (
+            <div className="grid grid-cols-2 gap-2">
+              <input value={nightlyPrice} onChange={(e) => setNightlyPrice(e.target.value)} type="number" placeholder={tri(lang, "قیمت هر شب", "Price per night", "Preis pro Nacht", "Gecelik fiyat")}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <select value={currency} onChange={(e) => setCurrency(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                {CURRENCY_OPTIONS.map((c) => <option key={c.value} value={c.value}>{c.label[lang]}</option>)}
+              </select>
+              <input value={bookingLink} onChange={(e) => setBookingLink(e.target.value)} placeholder={tri(lang, "لینک Airbnb یا پلتفرم رزرو", "Airbnb or booking platform link", "Airbnb- oder Buchungsplattform-Link", "Airbnb veya rezervasyon platformu linki")}
+                className="col-span-2 w-full px-3 py-2 rounded-xl text-sm outline-none" dir="ltr" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" placeholder={tri(lang, "قیمت کل", "Total price", "Gesamtpreis", "Toplam fiyat")}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <select value={currency} onChange={(e) => setCurrency(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                {CURRENCY_OPTIONS.map((c) => <option key={c.value} value={c.value}>{c.label[lang]}</option>)}
+              </select>
+            </div>
+          )}
+
+          <div className="grid grid-cols-3 gap-2">
+            <input value={bedrooms} onChange={(e) => setBedrooms(e.target.value)} type="number" placeholder={tri(lang, "خواب", "Bedrooms", "Schlafzimmer", "Yatak odası")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <input value={bathrooms} onChange={(e) => setBathrooms(e.target.value)} type="number" placeholder={tri(lang, "سرویس", "Bathrooms", "Badezimmer", "Banyo")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <input value={areaSqm} onChange={(e) => setAreaSqm(e.target.value)} type="number" placeholder={tri(lang, "متراژ", "Area (sqm)", "Fläche (qm)", "Alan (m²)")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          </div>
+
+          <div className="flex gap-2">
+            <select value={ownerContactId} onChange={(e) => setOwnerContactId(e.target.value)}
+              className="flex-1 px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              <option value="">{tri(lang, "بدون مالک/مخاطب مشخص", "No owner/contact set", "Kein Eigentümer/Kontakt festgelegt", "Sahip/kişi belirlenmemiş")}</option>
+              {ownerOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <button type="button" onClick={() => setQuickAddTarget("owner")} title={tri(lang, "مالک جدید", "New owner", "Neuer Eigentümer", "Yeni sahip")}
+              className="px-3 rounded-xl text-sm font-medium flex-shrink-0" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--primary)" }}>
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+
+          {listingType === "short_term_rent" && (
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: "var(--text-muted)" }}>{tri(lang, "مالک اجاره کوتاه‌مدت (برای گزارش تسویه)", "Short-term rental owner (for owner statements)", "Eigentümer der Kurzzeitvermietung (für Eigentümerabrechnungen)", "Kısa dönem kiralama sahibi (mülk sahibi ekstreleri için)")}</label>
+              <div className="flex gap-2">
+                <select value={rentalOwnerContactId} onChange={(e) => setRentalOwnerContactId(e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                  <option value="">{tri(lang, "بدون مالک تعیین‌شده", "No owner set", "Kein Eigentümer festgelegt", "Sahip belirlenmemiş")}</option>
+                  {ownerOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <button type="button" onClick={() => setQuickAddTarget("rentalOwner")} title={tri(lang, "مالک جدید", "New owner", "Neuer Eigentümer", "Yeni sahip")}
+                  className="px-3 rounded-xl text-sm font-medium flex-shrink-0" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--primary)" }}>
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {quickAddTarget && (
+            <QuickAddOwnerModal
+              lang={lang}
+              onClose={() => setQuickAddTarget(null)}
+              onCreated={(contact) => {
+                setExtraOwnerContacts((prev) => [...prev, contact]);
+                if (quickAddTarget === "owner") setOwnerContactId(contact.id);
+                else setRentalOwnerContactId(contact.id);
+                setQuickAddTarget(null);
+              }}
+            />
+          )}
+
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder={tri(lang, "توضیحات", "Description", "Beschreibung", "Açıklama")}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+
+          {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
+          <button onClick={createProperty} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : tri(lang, "ذخیره ملک", "Save property", "Immobilie speichern", "Mülkü kaydet")}
+          </button>
+        </div>
+      )}
+
+      {properties.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجو (عنوان یا آدرس)", "Search (title or address)", "Suche (Titel oder Adresse)", "Ara (başlık veya adres)")}
+            className="flex-1 min-w-[180px] px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <select value={listingTypeFilter} onChange={(e) => setListingTypeFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{tri(lang, "همه نوع‌ها", "All types", "Alle Typen", "Tüm türler")}</option>
+            {Object.entries(PROPERTY_LISTING_TYPE_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
+          </select>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{tri(lang, "همه وضعیت‌ها", "All statuses", "Alle Status", "Tüm durumlar")}</option>
+            {Object.entries(PROPERTY_STATUS_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
+          </select>
+        </div>
+      )}
+
+      {compareIds.length > 0 && (
+        <div className="flex items-center justify-between gap-2 rounded-xl px-4 py-2.5 flex-wrap" style={{ background: "rgba(234,88,12,0.08)", border: "1px solid rgba(234,88,12,0.25)" }}>
+          <span className="text-xs" style={{ color: "var(--text-primary)" }}>
+            {tri(lang, `${compareIds.length} ملک برای مقایسه انتخاب شده`, `${compareIds.length} selected for comparison`, `${compareIds.length} zum Vergleich ausgewählt`, `Karşılaştırma için ${compareIds.length} seçildi`)}
+          </span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setCompareIds([])} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+              {tri(lang, "پاک کردن", "Clear", "Leeren", "Temizle")}
+            </button>
+            <button onClick={() => setShowCompare(true)} disabled={compareIds.length < 2}
+              className="text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-50" style={{ background: "var(--primary)" }}
+              title={compareIds.length < 2 ? tri(lang, "حداقل دو ملک انتخاب کنید", "Select at least two", "Mindestens zwei auswählen", "En az iki tane seçin") : undefined}>
+              {tri(lang, "مقایسه", "Compare", "Vergleichen", "Karşılaştır")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showCompare && (() => {
+        const chosen = compareIds.map((id) => properties.find((p) => p.id === id)).filter((p): p is PropertyRow => !!p);
+        const priceOf = (p: PropertyRow) => p.listingType === "short_term_rent"
+          ? (p.nightlyPrice ? `${fmtPrice(p.nightlyPrice, p.currency, lang)} ${tri(lang, "/ شب", "/ night", "/ Nacht", "/ gece")}` : "—")
+          : fmtPrice(p.price, p.currency, lang);
+        const perSqm = (p: PropertyRow) => p.listingType !== "short_term_rent" && p.price && p.areaSqm
+          ? fmtPrice(Math.round(p.price / p.areaSqm), p.currency, lang) : "—";
+        const rows: { label: string; cell: (p: PropertyRow) => React.ReactNode }[] = [
+          { label: tri(lang, "نوع معامله", "Listing type", "Angebotsart", "İlan türü"), cell: (p) => PROPERTY_LISTING_TYPE_LABEL[p.listingType]?.[lang] || p.listingType },
+          { label: tri(lang, "قیمت", "Price", "Preis", "Fiyat"), cell: priceOf },
+          { label: tri(lang, "متراژ", "Area", "Fläche", "Alan"), cell: (p) => (p.areaSqm ? `${p.areaSqm} ${tri(lang, "متر", "sqm", "m²", "m²")}` : "—") },
+          { label: tri(lang, "قیمت هر متر", "Price per sqm", "Preis pro m²", "m² başına fiyat"), cell: perSqm },
+          { label: tri(lang, "اتاق خواب", "Bedrooms", "Schlafzimmer", "Yatak odası"), cell: (p) => p.bedrooms ?? "—" },
+          { label: tri(lang, "سرویس", "Bathrooms", "Badezimmer", "Banyo"), cell: (p) => p.bathrooms ?? "—" },
+          { label: tri(lang, "موقعیت", "Location", "Lage", "Konum"), cell: (p) => `${p.address}${p.city ? `، ${p.city}` : ""}` },
+          { label: tri(lang, "وضعیت", "Status", "Status", "Durum"), cell: (p) => PROPERTY_STATUS_LABEL[p.status]?.[lang] || p.status },
+          { label: tri(lang, "مالک / مخاطب", "Owner / contact", "Eigentümer / Kontakt", "Sahip / kişi"), cell: (p) => p.crmContact?.name || "—" },
+        ];
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }} onClick={() => setShowCompare(false)}>
+            <div className="w-full max-w-4xl rounded-2xl p-5 max-h-[85vh] overflow-y-auto" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }} onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مقایسهٔ املاک", "Property comparison", "Immobilienvergleich", "Mülk karşılaştırması")}</h3>
+                <button onClick={() => setShowCompare(false)}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs min-w-[520px]">
+                  <thead>
+                    <tr style={{ background: "var(--surface-2)" }}>
+                      <th className="px-3 py-2 text-start font-medium" style={{ color: "var(--text-muted)" }} />
+                      {chosen.map((p) => (
+                        <th key={p.id} className="px-3 py-2 text-start font-semibold" style={{ color: "var(--text-primary)" }}>{p.title}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r, i) => (
+                      <tr key={r.label} style={{ background: i % 2 === 0 ? "var(--surface-1)" : "var(--surface-0)" }}>
+                        <td className="px-3 py-2 font-medium whitespace-nowrap" style={{ color: "var(--text-muted)" }}>{r.label}</td>
+                        {chosen.map((p) => (
+                          <td key={p.id} className="px-3 py-2" style={{ color: "var(--text-primary)" }}>{r.cell(p)}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {(() => {
+        const filteredProperties = properties.filter((p) => {
+          if (listingTypeFilter && p.listingType !== listingTypeFilter) return false;
+          if (statusFilter && p.status !== statusFilter) return false;
+          const q = search.trim().toLowerCase();
+          if (!q) return true;
+          return p.title.toLowerCase().includes(q) || p.address.toLowerCase().includes(q) || (p.city || "").toLowerCase().includes(q);
+        });
+        if (properties.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز ملکی ثبت نشده است", "No properties yet", "Noch keine Immobilien", "Henüz mülk yok")}</p>;
+        if (filteredProperties.length === 0) return <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "ملکی با این مشخصات پیدا نشد", "No properties match your search", "Keine Immobilien entsprechen der Suche", "Aramanızla eşleşen mülk yok")}</p>;
+        return (
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+          {filteredProperties.map((p, i) => (
+            <div key={p.id} onClick={() => setSelected(p)} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2 cursor-pointer transition-colors hover:bg-white/[0.02]" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+              <div>
+                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                  {p.title} — {PROPERTY_LISTING_TYPE_LABEL[p.listingType]?.[lang] || p.listingType}
+                  {p.crmContact ? ` · ${p.crmContact.name}` : ""}
+                </p>
+                <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                  {p.address}{p.city ? `، ${p.city}` : ""} · {p.listingType === "short_term_rent" ? (p.nightlyPrice ? `${fmtPrice(p.nightlyPrice, p.currency, lang)} ${tri(lang, "شب", "/night", "/Nacht", "/gece")}` : "—") : fmtPrice(p.price, p.currency, lang)}
+                </p>
+              </div>
+              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                <label className="flex items-center gap-1 text-[10px] cursor-pointer" style={{ color: "var(--text-muted)" }}
+                  title={tri(lang, `حداکثر ${MAX_COMPARE} ملک برای مقایسه`, `Compare up to ${MAX_COMPARE} properties`, `Bis zu ${MAX_COMPARE} Immobilien vergleichen`, `En fazla ${MAX_COMPARE} mülkü karşılaştırın`)}>
+                  <input type="checkbox" className="w-3.5 h-3.5 accent-orange-500"
+                    checked={compareIds.includes(p.id)}
+                    disabled={!compareIds.includes(p.id) && compareIds.length >= MAX_COMPARE}
+                    onChange={() => toggleCompare(p.id)} />
+                  {tri(lang, "مقایسه", "Compare", "Vergleich", "Karşılaştır")}
+                </label>
+                <select value={p.status} onChange={(e) => setStatus(p.id, e.target.value)}
+                  className="text-[10px] px-2 py-1 rounded-full font-medium outline-none" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "none" }}>
+                  {Object.entries(PROPERTY_STATUS_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
+                </select>
+                {p.listingType === "short_term_rent" && shortTermCalendarEnabled && (
+                  <button onClick={() => setCalendarPropertyId(p.id)} title={tri(lang, "تقویم اشغال", "Occupancy calendar", "Belegungskalender", "Doluluk takvimi")}>
+                    <CalendarDays className="w-4 h-4" style={{ color: "var(--primary)" }} />
+                  </button>
+                )}
+                {propertyDocumentsEnabled && (
+                  <button onClick={() => setDocsPropertyId(p.id)} title={tri(lang, "اسناد ملک", "Property documents", "Immobiliendokumente", "Mülk belgeleri")}>
+                    <FileText className="w-4 h-4" style={{ color: "var(--primary)" }} />
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/p/${p.id}`);
+                    toast.success(tri(lang, "لینک اشتراک‌گذاری کپی شد", "Share link copied", "Link kopiert", "Paylaşım linki kopyalandı"));
+                  }}
+                  title={tri(lang, "کپی لینک اشتراک‌گذاری عمومی", "Copy public share link", "Öffentlichen Link kopieren", "Herkese açık paylaşım linkini kopyala")}
+                >
+                  <Share2 className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
+                </button>
+                <button onClick={() => deleteProperty(p.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+        );
+      })()}
+
+      {calendarPropertyId && (
+        <OccupancyCalendarModal lang={lang} propertyId={calendarPropertyId} contacts={contacts} onClose={() => setCalendarPropertyId(null)} />
+      )}
+      {docsPropertyId && (
+        <PropertyDocsModal lang={lang} propertyId={docsPropertyId} onClose={() => setDocsPropertyId(null)} />
+      )}
+      {selected && (
+        <PropertyDetailModal lang={lang} property={selected} contacts={contacts} listingCopywriterEnabled={listingCopywriterEnabled} pricingAdvisorEnabled={pricingAdvisorEnabled}
+          onClose={() => setSelected(null)}
+          onChanged={() => { load(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Section 1, item 6 — Short-term rental occupancy calendar. Mandatory (not an optional add-on) for any property with listingType "short_term_rent" — the calendar icon always appears on that row's property whenever crm.shortTermCalendar is enabled, never behind a further per-property opt-in. Surfaces Property.bookingLink alongside the in-app calendar since (per researched Airbnb/Booking.com API limits) no live two-way sync exists — bookingLink stays a manual cross-check, not an automated source. */
+function OccupancyCalendarModal({ lang, propertyId, contacts, onClose }: { lang: Lang; propertyId: string; contacts: Contact[]; onClose: () => void }) {
+  const [bookings, setBookings] = useState<{ id: string; checkIn: string; checkOut: string; guestName: string | null; status: string; contact: { id: string; name: string } | null }[]>([]);
+  const [bookingLink, setBookingLink] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [checkIn, setCheckIn] = useState("");
+  const [checkOut, setCheckOut] = useState("");
+  const [guestName, setGuestName] = useState("");
+  const [contactId, setContactId] = useState("");
+
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/crm/properties/${propertyId}/bookings`);
+    const data = await res.json();
+    setBookings(data.bookings || []);
+    setBookingLink(data.bookingLink || null);
+    setLoading(false);
+  }, [propertyId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function addBooking() {
+    if (!checkIn || !checkOut) { setError(tri(lang, "تاریخ ورود و خروج الزامی است", "Check-in and check-out are required", "An- und Abreise erforderlich", "Giriş ve çıkış tarihleri gereklidir")); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/crm/properties/${propertyId}/bookings`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ checkIn, checkOut, guestName: guestName.trim() || undefined, contactId: contactId || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setCheckIn(""); setCheckOut(""); setGuestName(""); setContactId("");
+      load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در ثبت رزرو", "Failed to save booking", "Fehler beim Speichern der Buchung", "Rezervasyon kaydedilemedi"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function cancelBooking(id: string) {
+    await fetch(`/api/crm/bookings/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "cancelled" }) });
+    load();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }}>
+      <div className="w-full max-w-lg rounded-2xl p-5 space-y-3 max-h-[85vh] overflow-y-auto" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "تقویم اشغال", "Occupancy calendar", "Belegungskalender", "Doluluk takvimi")}</h3>
+          <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
+        </div>
+
+        {bookingLink && (
+          <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+            {tri(lang, "لینک پلتفرم رزرو (بررسی دستی — سینک آنی خودکار موجود نیست): ", "Booking platform link (manual check — no instant auto-sync available): ", "Buchungsplattform-Link (manuelle Prüfung — keine sofortige Auto-Synchronisierung): ", "Rezervasyon platformu linki (manuel kontrol — anlık otomatik senkronizasyon yok): ")}
+            <a href={bookingLink} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>{bookingLink}</a>
+          </p>
+        )}
+
+        <div className="rounded-xl p-3 space-y-2" style={{ background: "var(--surface-2)" }}>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>{tri(lang, "ورود", "Check-in", "Anreise", "Giriş")}</label>
+              <input aria-label={tri(lang, "ورود", "Check-in", "Anreise", "Giriş")} type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)}
+                className="w-full px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+            <div>
+              <label className="block text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>{tri(lang, "خروج", "Check-out", "Abreise", "Çıkış")}</label>
+              <input aria-label={tri(lang, "خروج", "Check-out", "Abreise", "Çıkış")} type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)}
+                className="w-full px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+          </div>
+          <input value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder={tri(lang, "نام مهمان (اختیاری)", "Guest name (optional)", "Gastname (optional)", "Misafir adı (isteğe bağlı)")}
+            className="w-full px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <select value={contactId} onChange={(e) => setContactId(e.target.value)}
+            className="w-full px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{tri(lang, "بدون لینک به مخاطب", "No linked contact", "Kein verknüpfter Kontakt", "Bağlı kişi yok")}</option>
+            {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          {error && <p className="text-[11px]" style={{ color: "#ef4444" }}>{error}</p>}
+          <button onClick={addBooking} disabled={saving} className="w-full py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+            {saving ? "..." : tri(lang, "ثبت رزرو", "Add booking", "Buchung hinzufügen", "Rezervasyon ekle")}
+          </button>
+        </div>
+
+        {loading ? (
+          <Loader2 className="w-5 h-5 animate-spin mx-auto" style={{ color: "var(--primary)" }} />
+        ) : bookings.filter((b) => b.status === "confirmed").length === 0 ? (
+          <p className="text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز رزروی ثبت نشده است", "No bookings yet", "Noch keine Buchungen", "Henüz rezervasyon yok")}</p>
+        ) : (
+          <div className="space-y-1.5">
+            {bookings.filter((b) => b.status === "confirmed").map((b) => (
+              <div key={b.id} className="flex items-center justify-between px-3 py-2 rounded-lg text-xs" style={{ background: "var(--surface-2)" }}>
+                <span style={{ color: "var(--text-primary)" }}>
+                  {b.checkIn.slice(0, 10)} → {b.checkOut.slice(0, 10)}{b.guestName ? ` · ${b.guestName}` : b.contact ? ` · ${b.contact.name}` : ""}
+                </span>
+                <button onClick={() => cancelBooking(b.id)} className="text-[11px]" style={{ color: "#ef4444" }}>
+                  {tri(lang, "لغو", "Cancel", "Stornieren", "İptal")}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const DOC_TYPE_LABEL: Record<string, Record<Lang, string>> = {
+  title_deed: { fa: "سند مالکیت", en: "Title deed", de: "Eigentumsurkunde", tr: "Title deed" },
+  power_of_attorney: { fa: "وکالت‌نامه", en: "Power of attorney", de: "Vollmacht", tr: "Power of attorney" },
+  floor_plan: { fa: "نقشه پلان", en: "Floor plan", de: "Grundriss", tr: "Floor plan" },
+  photo: { fa: "عکس", en: "Photo", de: "Foto", tr: "Photo" },
+  attachment: { fa: "سایر", en: "Other", de: "Sonstiges", tr: "Other" },
+};
+
+/** Section 1, item 7 — Property document archive. Reuses the existing CrmDocument model/upload route (adds propertyId) — not a parallel table. Files are only ever fetched through /api/crm/documents/[id]/download, which mints a short-lived signed URL per authenticated request instead of exposing the long-lived link stored in the DB. */
+function PropertyDocsModal({ lang, propertyId, onClose }: { lang: Lang; propertyId: string; onClose: () => void }) {
+  const [documents, setDocuments] = useState<{ id: string; name: string; type: string; createdAt: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [docType, setDocType] = useState("title_deed");
+  const [error, setError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/crm/documents?propertyId=${propertyId}`);
+    const data = await res.json();
+    setDocuments(data.documents || []);
+    setLoading(false);
+  }, [propertyId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("propertyId", propertyId);
+      form.append("type", docType);
+      form.append("name", file.name);
+      const res = await fetch("/api/crm/documents", { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در آپلود فایل", "Upload failed", "Upload fehlgeschlagen", "Yükleme başarısız oldu"));
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function removeDoc(id: string) {
+    await fetch("/api/crm/documents", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    load();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }}>
+      <div className="w-full max-w-lg rounded-2xl p-5 space-y-3 max-h-[85vh] overflow-y-auto" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "اسناد ملک", "Property documents", "Immobiliendokumente", "Mülk belgeleri")}</h3>
+          <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
+        </div>
+
+        <div className="rounded-xl p-3 space-y-2" style={{ background: "var(--surface-2)" }}>
+          <select value={docType} onChange={(e) => setDocType(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            {Object.entries(DOC_TYPE_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
+          </select>
+          <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" onChange={handleFileSelect} disabled={uploading}
+            className="w-full text-xs" style={{ color: "var(--text-secondary)" }} />
+          <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "PDF، تصویر، Word یا Excel — حداکثر ۱۵ مگابایت", "PDF, image, Word, or Excel — max 15MB", "PDF, Bild, Word oder Excel — max. 15MB", "PDF, resim, Word veya Excel — en fazla 15MB")}</p>
+          {uploading && <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--primary)" }} />}
+          {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
+        </div>
+
+        {loading ? (
+          <Loader2 className="w-5 h-5 animate-spin mx-auto" style={{ color: "var(--primary)" }} />
+        ) : documents.length === 0 ? (
+          <p className="text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز سندی آپلود نشده است", "No documents uploaded yet", "Noch keine Dokumente hochgeladen", "Henüz belge yüklenmedi")}</p>
+        ) : (
+          <div className="space-y-1.5">
+            {documents.map((d) => (
+              <div key={d.id} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
+                <a href={`/api/crm/documents/${d.id}/download`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                  <FileText className="w-3.5 h-3.5" style={{ color: "var(--primary)" }} />
+                  {d.name} <span style={{ color: "var(--text-muted)" }}>— {DOC_TYPE_LABEL[d.type]?.[lang] || d.type}</span>
+                </a>
+                <button onClick={() => removeDoc(d.id)}><Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} /></button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** "View more" property detail — clicking a property row used to just set state with no modal ever rendering it (a real bug). Also covers: photo upload/gallery, editable currency, editable booking (Airbnb) link post-creation, and converting/creating an owner contact inline instead of only picking an existing one. */
+function PropertyDetailModal({ lang, property, contacts, listingCopywriterEnabled, pricingAdvisorEnabled, onClose, onChanged }: { lang: Lang; property: PropertyRow; contacts: Contact[]; listingCopywriterEnabled: boolean; pricingAdvisorEnabled: boolean; onClose: () => void; onChanged: () => void }) {
+  const [pricingAdvice, setPricingAdvice] = useState<{ priceRangeLow: number; priceRangeHigh: number; reasoning: string; dataLimitation: string; comparablesUsed: number } | null>(null);
+  const [generatingAdvice, setGeneratingAdvice] = useState(false);
+  const [adviceError, setAdviceError] = useState("");
+
+  async function generatePricingAdviceClick() {
+    setGeneratingAdvice(true);
+    setAdviceError("");
+    setPricingAdvice(null);
+    try {
+      const res = await fetch(`/api/crm/properties/${property.id}/pricing-advice`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setPricingAdvice(data);
+    } catch (err: unknown) {
+      setAdviceError(err instanceof Error ? err.message : tri(lang, "خطا در تولید پیشنهاد قیمت", "Failed to generate pricing advice", "Fehler bei der Preisempfehlung", "Fiyatlandırma önerisi oluşturulamadı"));
+    } finally {
+      setGeneratingAdvice(false);
+    }
+  }
+  const [copyPlatform, setCopyPlatform] = useState<"instagram" | "divar" | "website">("instagram");
+  const [copyResult, setCopyResult] = useState<{ content: string; hashtags?: string[] } | null>(null);
+  const [generatingCopy, setGeneratingCopy] = useState(false);
+  const [copyError, setCopyError] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  async function generateCopy() {
+    setGeneratingCopy(true);
+    setCopyError("");
+    setCopyResult(null);
+    try {
+      const res = await fetch(`/api/crm/properties/${property.id}/listing-copy?platform=${copyPlatform}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setCopyResult(data);
+    } catch (err: unknown) {
+      setCopyError(err instanceof Error ? err.message : tri(lang, "خطا در تولید متن آگهی", "Failed to generate listing copy", "Fehler beim Erstellen des Anzeigentexts", "İlan metni oluşturulamadı"));
+    } finally {
+      setGeneratingCopy(false);
+    }
+  }
+
+  function copyToClipboard() {
+    if (!copyResult) return;
+    const full = copyResult.hashtags?.length ? `${copyResult.content}\n\n${copyResult.hashtags.join(" ")}` : copyResult.content;
+    navigator.clipboard.writeText(full);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [form, setForm] = useState({
+    title: property.title,
+    price: property.listingType === "short_term_rent" ? "" : String(property.price),
+    nightlyPrice: property.nightlyPrice != null ? String(property.nightlyPrice) : "",
+    currency: property.currency,
+    bookingLink: property.bookingLink || "",
+    address: property.address,
+    city: property.city || "",
+    bedrooms: property.bedrooms != null ? String(property.bedrooms) : "",
+    bathrooms: property.bathrooms != null ? String(property.bathrooms) : "",
+    areaSqm: property.areaSqm != null ? String(property.areaSqm) : "",
+    description: property.description || "",
+  });
+  const [ownerContactId, setOwnerContactId] = useState(property.crmContact?.id || "");
+  const [rentalOwnerContactId, setRentalOwnerContactId] = useState(property.ownerContactId || "");
+  const [showNewOwner, setShowNewOwner] = useState(false);
+  const [newOwnerName, setNewOwnerName] = useState("");
+  const [newOwnerPhone, setNewOwnerPhone] = useState("");
+  const [savingOwner, setSavingOwner] = useState(false);
+
+  const [images, setImages] = useState<string[]>(() => {
+    try { return property.images ? JSON.parse(property.images) : []; } catch { return []; }
+  });
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  // Interested customers — buyers/tenants who want THIS property, distinct
+  // from the owner above (Property.crmContactId is the owner/seller link).
+  const [interests, setInterests] = useState<{ contactId: string; note: string | null; contact: { id: string; name: string; phone: string | null; email: string | null } }[]>([]);
+  const [loadingInterests, setLoadingInterests] = useState(true);
+  const [showRegisterInterest, setShowRegisterInterest] = useState(false);
+  const [interestContactId, setInterestContactId] = useState("");
+  const [interestNewName, setInterestNewName] = useState("");
+  const [interestNewPhone, setInterestNewPhone] = useState("");
+  const [interestNote, setInterestNote] = useState("");
+  const [savingInterest, setSavingInterest] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/crm/properties/${property.id}/interests`)
+      .then((r) => r.json())
+      .then((d) => setInterests(d.interests || []))
+      .finally(() => setLoadingInterests(false));
+  }, [property.id]);
+
+  async function registerInterest() {
+    setSavingInterest(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/crm/properties/${property.id}/interests`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          interestContactId
+            ? { contactId: interestContactId, note: interestNote.trim() || undefined }
+            : { name: interestNewName.trim(), phone: interestNewPhone.trim() || undefined, note: interestNote.trim() || undefined }
+        ),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setInterests((prev) => [data.interest, ...prev.filter((i) => i.contactId !== data.interest.contactId)]);
+      setShowRegisterInterest(false);
+      setInterestContactId(""); setInterestNewName(""); setInterestNewPhone(""); setInterestNote("");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در ثبت مشتری", "Failed to register customer", "Fehler beim Registrieren des Kunden", "Müşteri kaydedilemedi"));
+    } finally {
+      setSavingInterest(false);
+    }
+  }
+
+  async function removeInterest(contactId: string) {
+    await fetch(`/api/crm/properties/${property.id}/interests`, {
+      method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contactId }),
+    });
+    setInterests((prev) => prev.filter((i) => i.contactId !== contactId));
+  }
+
+  async function saveEdit() {
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/crm/properties/${property.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: form.title.trim(),
+          price: property.listingType !== "short_term_rent" ? form.price : undefined,
+          nightlyPrice: property.listingType === "short_term_rent" ? form.nightlyPrice : undefined,
+          currency: form.currency,
+          bookingLink: form.bookingLink.trim() || null,
+          address: form.address.trim(),
+          city: form.city.trim() || null,
+          bedrooms: form.bedrooms || null,
+          bathrooms: form.bathrooms || null,
+          areaSqm: form.areaSqm || null,
+          description: form.description.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (data.bookingLinkWarning) alert(data.bookingLinkWarning);
+      setEditing(false);
+      onChanged();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در ذخیره", "Failed to save", "Fehler beim Speichern", "Kaydedilemedi"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function changeOwner(contactId: string) {
+    setOwnerContactId(contactId);
+    await fetch(`/api/crm/properties/${property.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ crmContactId: contactId || null }),
+    });
+    onChanged();
+  }
+
+  async function changeRentalOwner(contactId: string) {
+    setRentalOwnerContactId(contactId);
+    await fetch(`/api/crm/properties/${property.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ownerContactId: contactId || null }),
+    });
+    onChanged();
+  }
+
+  async function createOwnerAndAssign() {
+    if (!newOwnerName.trim()) return;
+    setSavingOwner(true);
+    try {
+      const res = await fetch("/api/crm/contacts", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newOwnerName.trim(), phone: newOwnerPhone.trim() || undefined, status: "customer" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      await changeOwner(data.contact.id);
+      setShowNewOwner(false);
+      setNewOwnerName(""); setNewOwnerPhone("");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در ایجاد مالک", "Failed to create owner", "Fehler beim Anlegen des Eigentümers", "Sahip oluşturulamadı"));
+    } finally {
+      setSavingOwner(false);
+    }
+  }
+
+  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const form2 = new FormData();
+      form2.append("file", await downscaleImage(file));
+      const res = await fetch(`/api/crm/properties/${property.id}/images`, { method: "POST", body: form2 });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setImages(data.images || []);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در آپلود عکس", "Failed to upload photo", "Fehler beim Hochladen des Fotos", "Fotoğraf yüklenemedi"));
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = "";
+    }
+  }
+
+  async function removeImage(url: string) {
+    const res = await fetch(`/api/crm/properties/${property.id}/images`, {
+      method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }),
+    });
+    const data = await res.json();
+    if (res.ok) setImages(data.images || []);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
+      <div className="w-full max-w-2xl rounded-2xl p-5 space-y-4 max-h-[88vh] overflow-y-auto" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>{property.title}</h3>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setEditing((v) => !v)} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+              {editing ? tri(lang, "انصراف", "Cancel", "Abbrechen", "İptal") : tri(lang, "ویرایش", "Edit", "Bearbeiten", "Düzenle")}
+            </button>
+            <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
+          </div>
+        </div>
+
+        {/* Photo gallery */}
+        <div>
+          <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{tri(lang, "تصاویر ملک", "Property photos", "Immobilienfotos", "Mülk fotoğrafları")}</p>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {images.map((url) => (
+              <div key={url} className="relative w-20 h-20 rounded-xl overflow-hidden group" style={{ background: "var(--surface-2)" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="" className="w-full h-full object-cover" />
+                <button onClick={() => removeImage(url)} className="absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-xs" style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}>×</button>
+              </div>
+            ))}
+            <label className="w-20 h-20 rounded-xl flex items-center justify-center cursor-pointer" style={{ background: "var(--surface-2)", border: "1px dashed var(--border)" }}>
+              {uploadingImage ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--primary)" }} /> : <Upload className="w-4 h-4" style={{ color: "var(--text-muted)" }} />}
+              <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageSelect} disabled={uploadingImage} className="hidden" />
+            </label>
+          </div>
+          <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{tri(lang, "JPEG، PNG یا WebP — حداکثر ۸ مگابایت", "JPEG, PNG, or WebP — max 8MB", "JPEG, PNG oder WebP — max. 8MB", "JPEG, PNG veya WebP — en fazla 8MB")}</p>
+        </div>
+
+        {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
+
+        {editing ? (
+          <div className="space-y-2">
+            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={tri(lang, "عنوان", "Title", "Titel", "Başlık")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <div className="grid grid-cols-2 gap-2">
+              {property.listingType === "short_term_rent" ? (
+                <input value={form.nightlyPrice} onChange={(e) => setForm({ ...form, nightlyPrice: e.target.value })} type="number" placeholder={tri(lang, "قیمت هر شب", "Price per night", "Preis pro Nacht", "Gecelik fiyat")}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              ) : (
+                <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} type="number" placeholder={tri(lang, "قیمت کل", "Total price", "Gesamtpreis", "Toplam fiyat")}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              )}
+              <select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                {CURRENCY_OPTIONS.map((c) => <option key={c.value} value={c.value}>{c.label[lang]}</option>)}
+              </select>
+            </div>
+            {property.listingType === "short_term_rent" && (
+              <input value={form.bookingLink} onChange={(e) => setForm({ ...form, bookingLink: e.target.value })} placeholder={tri(lang, "لینک Airbnb یا پلتفرم رزرو", "Airbnb or booking platform link", "Airbnb- oder Buchungsplattform-Link", "Airbnb veya rezervasyon platformu linki")} dir="ltr"
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            )}
+            <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder={tri(lang, "آدرس", "Address", "Adresse", "Adres")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <CountryCityPicker lang={lang} cityValue={form.city} onCityChange={(city) => setForm({ ...form, city })} />
+            <div className="grid grid-cols-3 gap-2">
+              <input value={form.bedrooms} onChange={(e) => setForm({ ...form, bedrooms: e.target.value })} type="number" placeholder={tri(lang, "خواب", "Bedrooms", "Schlafzimmer", "Yatak odası")}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <input value={form.bathrooms} onChange={(e) => setForm({ ...form, bathrooms: e.target.value })} type="number" placeholder={tri(lang, "سرویس", "Bathrooms", "Badezimmer", "Banyo")}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <input value={form.areaSqm} onChange={(e) => setForm({ ...form, areaSqm: e.target.value })} type="number" placeholder={tri(lang, "متراژ", "Area (sqm)", "Fläche (qm)", "Alan (m²)")}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} placeholder={tri(lang, "توضیحات", "Description", "Beschreibung", "Açıklama")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <button onClick={saveEdit} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : tri(lang, "ذخیره تغییرات", "Save changes", "Änderungen speichern", "Değişiklikleri kaydet")}
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "نوع معامله: ", "Deal type: ", "Geschäftsart: ", "İşlem türü: ")}</span><span style={{ color: "var(--text-primary)" }}>{PROPERTY_LISTING_TYPE_LABEL[property.listingType]?.[lang] || property.listingType}</span></div>
+            <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "نوع ملک: ", "Property type: ", "Immobilientyp: ", "Mülk türü: ")}</span><span style={{ color: "var(--text-primary)" }}>{PROPERTY_TYPE_LABEL[property.propertyType]?.[lang] || property.propertyType}</span></div>
+            <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "قیمت: ", "Price: ", "Preis: ", "Fiyat: ")}</span><span style={{ color: "var(--text-primary)" }}>{property.listingType === "short_term_rent" ? (property.nightlyPrice ? `${fmtPrice(property.nightlyPrice, property.currency, lang)} / ${tri(lang, "شب", "night", "Nacht", "gece")}` : "—") : fmtPrice(property.price, property.currency, lang)}</span></div>
+            {property.listingType === "short_term_rent" && property.bookingLink && (
+              <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "لینک رزرو: ", "Booking link: ", "Buchungslink: ", "Rezervasyon linki: ")}</span><a href={property.bookingLink} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>{property.bookingLink}</a></div>
+            )}
+            <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "آدرس: ", "Address: ", "Adresse: ", "Adres: ")}</span><span style={{ color: "var(--text-primary)" }}>{property.address}{property.city ? `، ${property.city}` : ""}</span></div>
+            {(property.bedrooms != null || property.bathrooms != null || property.areaSqm != null) && (
+              <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "مشخصات: ", "Details: ", "Details: ", "Detaylar: ")}</span><span style={{ color: "var(--text-primary)" }}>{[property.bedrooms != null ? tri(lang, `${property.bedrooms} خواب`, `${property.bedrooms} bed`, `${property.bedrooms} Schlafz.`, `${property.bedrooms} yatak odası`) : null, property.bathrooms != null ? tri(lang, `${property.bathrooms} سرویس`, `${property.bathrooms} bath`, `${property.bathrooms} Bad`, `${property.bathrooms} banyo`) : null, property.areaSqm != null ? tri(lang, `${property.areaSqm} متر`, `${property.areaSqm} sqm`, `${property.areaSqm} qm`, `${property.areaSqm} m²`) : null].filter(Boolean).join(" · ")}</span></div>
+            )}
+            {property.description && (
+              <div className="col-span-2"><span style={{ color: "var(--text-muted)" }}>{tri(lang, "توضیحات: ", "Description: ", "Beschreibung: ", "Açıklama: ")}</span><span style={{ color: "var(--text-primary)" }}>{property.description}</span></div>
+            )}
+          </div>
+        )}
+
+        {/* Owner section — pick existing, or create+assign a new one inline. */}
+        <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+          <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مالک", "Owner", "Eigentümer", "Sahip")}</p>
+          {!showNewOwner ? (
+            <div className="flex items-center gap-2">
+              <select value={ownerContactId} onChange={(e) => changeOwner(e.target.value)}
+                className="flex-1 px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                <option value="">{tri(lang, "بدون مالک", "No owner", "Kein Eigentümer", "Sahip yok")}</option>
+                {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <button onClick={() => setShowNewOwner(true)} className="text-xs px-3 py-2 rounded-xl whitespace-nowrap" style={{ background: "var(--surface-2)", color: "var(--primary)" }}>
+                {tri(lang, "+ مالک جدید", "+ New owner", "+ Neuer Eigentümer", "+ Yeni sahip")}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <input value={newOwnerName} onChange={(e) => setNewOwnerName(e.target.value)} placeholder={tri(lang, "نام مالک", "Owner name", "Name des Eigentümers", "Sahip adı")}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                <input value={newOwnerPhone} onChange={(e) => setNewOwnerPhone(e.target.value)} placeholder={tri(lang, "شماره تماس (اختیاری)", "Phone (optional)", "Telefon (optional)", "Telefon (isteğe bağlı)")}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
+              <div className="flex gap-2">
+                <button onClick={createOwnerAndAssign} disabled={savingOwner || !newOwnerName.trim()} className="flex-1 py-2 rounded-xl text-xs font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+                  {savingOwner ? "..." : tri(lang, "ایجاد و انتساب مالک", "Create & assign owner", "Erstellen & zuweisen", "Sahip oluştur ve ata")}
+                </button>
+                <button onClick={() => setShowNewOwner(false)} className="flex-1 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                  {tri(lang, "لغو", "Cancel", "Abbrechen", "İptal")}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {property.listingType === "short_term_rent" && (
+          <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+            <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مالک اجاره کوتاه‌مدت (برای گزارش تسویه)", "Short-term rental owner (for owner statements)", "Eigentümer der Kurzzeitvermietung (für Eigentümerabrechnungen)", "Kısa dönem kiralama sahibi (mülk sahibi ekstreleri için)")}</p>
+            <select value={rentalOwnerContactId} onChange={(e) => changeRentalOwner(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              <option value="">{tri(lang, "بدون مالک تعیین‌شده", "No owner set", "Kein Eigentümer festgelegt", "Sahip belirlenmemiş")}</option>
+              {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+        )}
+
+        {/* Interested customers — buyers/tenants who want THIS property; distinct from the owner above. */}
+        <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مشتریان علاقه‌مند به این ملک", "Customers interested in this property", "Interessierte Kunden", "Bu mülkle ilgilenen müşteriler")}</p>
+            <button onClick={() => setShowRegisterInterest((v) => !v)} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--primary)" }}>
+              {tri(lang, "+ ثبت مشتری", "+ Register customer", "+ Kunde registrieren", "+ Müşteri kaydet")}
+            </button>
+          </div>
+
+          {showRegisterInterest && (
+            <div className="rounded-xl p-3 space-y-2" style={{ background: "var(--surface-2)" }}>
+              <select value={interestContactId} onChange={(e) => setInterestContactId(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                <option value="">{tri(lang, "مشتری جدید (نام را زیر وارد کنید)", "New customer (enter name below)", "Neuer Kunde (Namen unten eingeben)", "Yeni müşteri (aşağıya isim girin)")}</option>
+                {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              {!interestContactId && (
+                <div className="grid grid-cols-2 gap-2">
+                  <input value={interestNewName} onChange={(e) => setInterestNewName(e.target.value)} placeholder={tri(lang, "نام مشتری", "Customer name", "Kundenname", "Müşteri adı")}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                  <input value={interestNewPhone} onChange={(e) => setInterestNewPhone(e.target.value)} placeholder={tri(lang, "شماره تماس (اختیاری)", "Phone (optional)", "Telefon (optional)", "Telefon (isteğe bağlı)")}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </div>
+              )}
+              <input value={interestNote} onChange={(e) => setInterestNote(e.target.value)} placeholder={tri(lang, "یادداشت (اختیاری)", "Note (optional)", "Notiz (optional)", "Not (isteğe bağlı)")}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              <div className="flex gap-2">
+                <button onClick={registerInterest} disabled={savingInterest || (!interestContactId && !interestNewName.trim())} className="flex-1 py-2 rounded-xl text-xs font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+                  {savingInterest ? "..." : tri(lang, "ثبت", "Register", "Registrieren", "Kaydet")}
+                </button>
+                <button onClick={() => setShowRegisterInterest(false)} className="flex-1 py-2 rounded-xl text-xs" style={{ background: "var(--surface-1)", color: "var(--text-secondary)" }}>
+                  {tri(lang, "لغو", "Cancel", "Abbrechen", "İptal")}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {loadingInterests ? (
+            <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--primary)" }} />
+          ) : interests.length === 0 ? (
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز مشتری‌ای ثبت نشده است", "No customers registered yet", "Noch keine Kunden registriert", "Henüz kayıtlı müşteri yok")}</p>
+          ) : (
+            <div className="space-y-1.5">
+              {interests.map((i) => (
+                <div key={i.contactId} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
+                  <div>
+                    <span style={{ color: "var(--text-primary)" }}>{i.contact.name}</span>
+                    {i.contact.phone && <span style={{ color: "var(--text-muted)" }}> · {i.contact.phone}</span>}
+                    {i.note && <p style={{ color: "var(--text-muted)" }}>{i.note}</p>}
+                  </div>
+                  <button onClick={() => removeInterest(i.contactId)}><Trash2 className="w-3.5 h-3.5" style={{ color: "#ef4444" }} /></button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Section 2, item 2 — Listing Copywriter agent. AI only ever produces a draft here; the agent copies it to actually post/publish, nothing is auto-published. */}
+        {listingCopywriterEnabled && (
+          <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+            <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "متن آگهی (چندپلتفرمی)", "Listing copy (multi-platform)", "Anzeigentext (mehrere Plattformen)", "İlan metni (çoklu platform)")}</p>
+            <div className="flex items-center gap-2">
+              {(["instagram", "divar", "website"] as const).map((p) => (
+                <button key={p} onClick={() => { setCopyPlatform(p); setCopyResult(null); }}
+                  className="text-xs px-3 py-1.5 rounded-lg"
+                  style={{ background: copyPlatform === p ? "var(--primary)" : "var(--surface-2)", color: copyPlatform === p ? "#fff" : "var(--text-secondary)" }}>
+                  {p === "instagram" ? "Instagram" : p === "divar" ? "دیوار" : tri(lang, "وبسایت", "Website", "Website", "Web sitesi")}
+                </button>
+              ))}
+              <button onClick={generateCopy} disabled={generatingCopy} className="text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-50 flex items-center gap-1.5" style={{ background: "var(--primary)" }}>
+                {generatingCopy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                {tri(lang, "تولید", "Generate", "Generieren", "Oluştur")} <CreditCost feature="crm.listing-copy" />
+              </button>
+            </div>
+            {copyError && <p className="text-xs" style={{ color: "#ef4444" }}>{copyError}</p>}
+            {copyResult && (
+              <div className="rounded-xl p-3 space-y-2" style={{ background: "var(--surface-2)" }}>
+                <p className="text-xs whitespace-pre-wrap" style={{ color: "var(--text-primary)" }}>{copyResult.content}</p>
+                {copyResult.hashtags && copyResult.hashtags.length > 0 && (
+                  <p className="text-xs" style={{ color: "var(--primary)" }} dir="ltr">{copyResult.hashtags.join(" ")}</p>
+                )}
+                <button onClick={copyToClipboard} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: copied ? "#22c55e" : "var(--surface-1)", color: copied ? "#fff" : "var(--text-secondary)" }}>
+                  {copied ? tri(lang, "کپی شد", "Copied", "Kopiert", "Kopyalandı") : tri(lang, "کپی متن", "Copy text", "Text kopieren", "Metni kopyala")}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Section 2, item 5 — Pricing Advisor. The most sensitive of the six agents (real money, owner trust): internal CRM data only, suggestion never a decision, reasoning always shown, and the "few comparables" limitation is surfaced honestly rather than hidden. */}
+        {pricingAdvisorEnabled && (
+          <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "مشاور قیمت‌گذاری", "Pricing Advisor", "Preisberater", "Fiyatlandırma Danışmanı")}</p>
+              <button onClick={generatePricingAdviceClick} disabled={generatingAdvice} className="text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-50 flex items-center gap-1.5" style={{ background: "var(--primary)" }}>
+                {generatingAdvice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                {tri(lang, "تحلیل قیمت", "Analyze price", "Preis analysieren", "Fiyatı analiz et")} <CreditCost feature="crm.pricing-advice" />
+              </button>
+            </div>
+            {adviceError && <p className="text-xs" style={{ color: "#ef4444" }}>{adviceError}</p>}
+            {pricingAdvice && (
+              <div className="rounded-xl p-3 space-y-2" style={{ background: "var(--surface-2)" }}>
+                <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                  {tri(lang, "⚠️ فقط بر اساس داده‌های داخلی CRM — بدون دسترسی به بازار زنده یا خارجی. این یک پیشنهاد است، نه تصمیم قطعی.", "⚠️ Based only on internal CRM data — no live or external market access. This is a suggestion, not a final decision.", "⚠️ Nur basierend auf internen CRM-Daten — kein Zugriff auf Live- oder externe Marktdaten. Dies ist ein Vorschlag, keine endgültige Entscheidung.", "⚠️ Yalnızca dahili CRM verilerine dayanmaktadır — canlı veya harici pazar erişimi yoktur. Bu bir öneridir, kesin karar değildir.")}
+                </p>
+                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                  {fmtPrice(pricingAdvice.priceRangeLow, property.currency, lang)} – {fmtPrice(pricingAdvice.priceRangeHigh, property.currency, lang)}
+                </p>
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{pricingAdvice.reasoning}</p>
+                <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{tri(lang, `بر اساس ${pricingAdvice.comparablesUsed} ملک مشابه در سیستم شما.`, `Based on ${pricingAdvice.comparablesUsed} comparable properties in your system.`, `Basierend auf ${pricingAdvice.comparablesUsed} vergleichbaren Immobilien in Ihrem System.`, `Sisteminizdeki ${pricingAdvice.comparablesUsed} benzer mülke dayanmaktadır.`)}</p>
+                {pricingAdvice.dataLimitation && (
+                  <p className="text-[10px]" style={{ color: "#f59e0b" }}>{pricingAdvice.dataLimitation}</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Section 1, item 2 — Owner Management. "Owner" is derived, not a stored role: a CrmContact shows up here purely because it's linked via Property.crmContactId to >=1 property. Representation terms are edited per-property (same PATCH endpoint as PropertiesPanel), gated separately behind crm.owner. */
+function OwnersPanel({ lang, onOpenProperty }: { lang: Lang; onOpenProperty: (id: string) => void }) {
+  const [owners, setOwners] = useState<OwnerRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ ownerId: string; propertyId: string } | null>(null);
+  const [form, setForm] = useState({ representationStartDate: "", representationEndDate: "", agreedCommissionRate: "" });
+  const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+  const filteredOwners = owners.filter((o) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return o.name.toLowerCase().includes(q) || (o.phone || "").includes(q) || (o.email || "").toLowerCase().includes(q);
+  });
+
+  const load = useCallback(async () => {
+    const res = await fetch("/api/crm/owners");
+    const data = await res.json();
+    setOwners(data.owners || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  function startEdit(ownerId: string, prop: OwnerRow["properties"][number]) {
+    setEditing({ ownerId, propertyId: prop.id });
+    setForm({
+      representationStartDate: prop.representationStartDate ? prop.representationStartDate.slice(0, 10) : "",
+      representationEndDate: prop.representationEndDate ? prop.representationEndDate.slice(0, 10) : "",
+      agreedCommissionRate: prop.agreedCommissionRate != null ? String(prop.agreedCommissionRate) : "",
+    });
+  }
+
+  async function saveRepresentation() {
+    if (!editing) return;
+    setSaving(true);
+    try {
+      await fetch(`/api/crm/properties/${editing.propertyId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          representationStartDate: form.representationStartDate || null,
+          representationEndDate: form.representationEndDate || null,
+          agreedCommissionRate: form.agreedCommissionRate ? Number(form.agreedCommissionRate) : null,
+        }),
+      });
+      setEditing(null);
+      load();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />;
+
+  return (
+    <div className="space-y-3">
+      {owners.length > 0 && (
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tri(lang, "جستجوی مالک (نام، تلفن یا ایمیل)", "Search owners (name, phone, or email)", "Eigentümer suchen (Name, Telefon oder E-Mail)", "Sahip ara (isim, telefon veya e-posta)")}
+          className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+      )}
+      {owners.length === 0 ? (
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>
+          {tri(lang, "هنوز مالکی ثبت نشده — یک مخاطب را در فرم ثبت ملک به‌عنوان مالک انتخاب کنید", "No owners yet — link a contact as owner when creating a property", "Noch keine Eigentümer — verknüpfen Sie einen Kontakt beim Anlegen einer Immobilie", "Henüz sahip yok — mülk oluştururken bir kişiyi sahip olarak bağlayın")}
+        </p>
+      ) : filteredOwners.length === 0 ? (
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "مالکی با این مشخصات پیدا نشد", "No owners match your search", "Keine Eigentümer entsprechen der Suche", "Aramanızla eşleşen sahip yok")}</p>
+      ) : (
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+          {filteredOwners.map((o, i) => (
+            <div key={o.id} style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+              <button onClick={() => setExpanded(expanded === o.id ? null : o.id)} className="w-full flex items-center justify-between px-4 py-3 text-right">
+                <div>
+                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{o.name}</p>
+                  <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{o.phone || o.email || "—"}</p>
+                </div>
+                <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(234,88,12,0.12)", color: "var(--primary)" }}>
+                  {o.propertiesOwnedCount} {tri(lang, "ملک", "properties", "Immobilien", "mülk")}
+                </span>
+              </button>
+              {expanded === o.id && (
+                <div className="px-4 pb-3 space-y-2">
+                  {o.properties.map((p) => (
+                    <div key={p.id} className="rounded-xl p-3 space-y-2" style={{ background: "var(--surface-2)" }}>
+                      <div className="flex items-center justify-between">
+                        <button onClick={() => onOpenProperty(p.id)} className="text-xs font-medium text-start hover:underline" style={{ color: "var(--text-primary)" }}>
+                          {p.title} — {p.address}{p.city ? `${tri(lang, "،", ",", ",", ",")} ${p.city}` : ""}
+                        </button>
+                        {editing?.propertyId !== p.id && (
+                          <button onClick={() => startEdit(o.id, p)} className="text-[11px]" style={{ color: "var(--primary)" }}>
+                            {tri(lang, "ویرایش قرارداد", "Edit terms", "Bedingungen bearbeiten", "Koşulları düzenle")}
+                          </button>
+                        )}
+                      </div>
+                      {editing?.propertyId === p.id ? (
+                        <div className="grid grid-cols-3 gap-2">
+                          <input type="date" value={form.representationStartDate} onChange={(e) => setForm({ ...form, representationStartDate: e.target.value })}
+                            className="px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                          <input type="date" value={form.representationEndDate} onChange={(e) => setForm({ ...form, representationEndDate: e.target.value })}
+                            className="px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                          <input type="number" step="0.1" value={form.agreedCommissionRate} onChange={(e) => setForm({ ...form, agreedCommissionRate: e.target.value })}
+                            placeholder={tri(lang, "کمیسیون %", "Commission %", "Provision %", "Komisyon %")}
+                            className="px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                          <div className="col-span-3 flex gap-2">
+                            <button onClick={saveRepresentation} disabled={saving} className="flex-1 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+                              {saving ? "..." : tri(lang, "ذخیره", "Save", "Speichern", "Kaydet")}
+                            </button>
+                            <button onClick={() => setEditing(null)} className="flex-1 py-1.5 rounded-lg text-xs" style={{ background: "var(--surface-1)", color: "var(--text-secondary)" }}>
+                              {tri(lang, "لغو", "Cancel", "Abbrechen", "İptal")}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                          {tri(lang, "بازه قرارداد:", "Agreement period:", "Vertragszeitraum:", "Anlaşma süresi:")} {p.representationStartDate ? p.representationStartDate.slice(0, 10) : "—"} → {p.representationEndDate ? p.representationEndDate.slice(0, 10) : "—"}
+                          {" · "}{tri(lang, "کمیسیون:", "Commission:", "Provision:", "Komisyon:")} {p.agreedCommissionRate != null ? `${p.agreedCommissionRate}%` : "—"}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Section 1, item 4 — Viewing Scheduler. A real calendar slot per PropertyViewing row (not a text field), server-side double-booking check per assigned team member (src/app/api/crm/viewings). Post-viewing feedback capture built in. */
+function ViewingsPanel({ lang, contacts, teamMembers, viewingCoordinatorEnabled }: { lang: Lang; contacts: Contact[]; teamMembers: TeamMember[]; viewingCoordinatorEnabled: boolean }) {
+  const [viewings, setViewings] = useState<ViewingRow[]>([]);
+  const [properties, setProperties] = useState<PropertyRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showNew, setShowNew] = useState(false);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [feedbackTarget, setFeedbackTarget] = useState<ViewingRow | null>(null);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackRating, setFeedbackRating] = useState("");
+
+  const [propertyId, setPropertyId] = useState("");
+  const [contactId, setContactId] = useState("");
+  const [assignedToId, setAssignedToId] = useState("");
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [autoSlot, setAutoSlot] = useState(true);
+
+  const [needsFeedback, setNeedsFeedback] = useState<{ id: string; scheduledAt: string; property: { title: string }; contact: { name: string } | null }[]>([]);
+
+  const load = useCallback(async () => {
+    const [vRes, pRes] = await Promise.all([fetch("/api/crm/viewings"), fetch("/api/crm/properties")]);
+    const vData = await vRes.json();
+    const pData = await pRes.json();
+    setViewings(vData.viewings || []);
+    setProperties(pData.properties || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!viewingCoordinatorEnabled) return;
+    fetch("/api/crm/viewings/needs-feedback").then((r) => r.json()).then((d) => setNeedsFeedback(d.viewings || [])).catch(() => {});
+  }, [viewingCoordinatorEnabled, viewings]);
+
+  async function createViewing() {
+    if (!propertyId) { setError(tri(lang, "ملک الزامی است", "Property is required", "Immobilie ist erforderlich", "Mülk gereklidir")); return; }
+    if (!scheduledAt) { setError(tri(lang, "زمان بازدید الزامی است", "Viewing time is required", "Besichtigungszeit ist erforderlich", "Görüntüleme zamanı gereklidir")); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/crm/viewings", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          propertyId, contactId: contactId || undefined, assignedToId: assignedToId || undefined, scheduledAt,
+          autoSlot: viewingCoordinatorEnabled && !!assignedToId && autoSlot,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (data.autoRescheduled) {
+        alert(tri(lang, `زمان درخواستی پر بود — بازدید در نزدیک‌ترین بازه آزاد (${new Date(data.viewing.scheduledAt).toLocaleString("fa-IR")}) ثبت شد.`, `The requested time was busy — booked at the nearest free slot (${new Date(data.viewing.scheduledAt).toLocaleString()}) instead.`, `Der gewünschte Termin war belegt — auf den nächsten freien Slot (${new Date(data.viewing.scheduledAt).toLocaleString()}) gebucht.`, `İstenen zaman doluydu — en yakın boş zamana (${new Date(data.viewing.scheduledAt).toLocaleString()}) rezerve edildi.`));
+      }
+      setShowNew(false);
+      setPropertyId(""); setContactId(""); setAssignedToId(""); setScheduledAt("");
+      load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : tri(lang, "خطا در ثبت بازدید", "Failed to book viewing", "Fehler beim Buchen der Besichtigung", "Görüntüleme rezerve edilemedi"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function setStatus(id: string, status: string) {
+    await fetch(`/api/crm/viewings/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    load();
+  }
+
+  async function deleteViewing(id: string) {
+    await fetch(`/api/crm/viewings/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  async function saveFeedback() {
+    if (!feedbackTarget) return;
+    await fetch(`/api/crm/viewings/${feedbackTarget.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ feedback: feedbackText, feedbackRating: feedbackRating ? Number(feedbackRating) : null, status: "completed" }),
+    });
+    setFeedbackTarget(null);
+    setFeedbackText(""); setFeedbackRating("");
+    load();
+  }
+
+  const STATUS_LABEL: Record<string, Record<Lang, string>> = {
+    scheduled: { fa: "برنامه‌ریزی‌شده", en: "Scheduled", de: "Geplant", tr: "Scheduled" },
+    completed: { fa: "انجام‌شده", en: "Completed", de: "Abgeschlossen", tr: "Completed" },
+    cancelled: { fa: "لغوشده", en: "Cancelled", de: "Storniert", tr: "Cancelled" },
+    no_show: { fa: "عدم حضور", en: "No-show", de: "Nicht erschienen", tr: "No-show" },
+  };
+
+  if (loading) return <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />;
+
+  return (
+    <div className="space-y-3">
+      {/* Section 2, item 3 — Viewing Coordinator: post-viewing feedback nudge. Only a display/reminder — never messages the customer automatically. */}
+      {viewingCoordinatorEnabled && needsFeedback.length > 0 && (
+        <div className="rounded-2xl p-3" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)" }}>
+          <p className="text-xs font-medium" style={{ color: "#f59e0b" }}>
+            {tri(lang, `${needsFeedback.length} بازدید گذشته هنوز بازخورد ثبت نشده دارند`, `${needsFeedback.length} past viewings still need feedback logged`, `${needsFeedback.length} vergangene Besichtigungen brauchen noch Rückmeldung`, `${needsFeedback.length} geçmiş görüntüleme için hâlâ geri bildirim gerekiyor`)}
+          </p>
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <button onClick={() => setShowNew((v) => !v)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
+          <Plus className="w-4 h-4" /> {tri(lang, "بازدید جدید", "New viewing", "Neue Besichtigung", "Yeni görüntüleme")}
+        </button>
+      </div>
+
+      {showNew && (
+        <div className="rounded-2xl p-4 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <select value={propertyId} onChange={(e) => setPropertyId(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{tri(lang, "انتخاب ملک", "Select property", "Immobilie auswählen", "Mülk seç")}</option>
+            {properties.map((p) => <option key={p.id} value={p.id}>{p.title} — {p.address}</option>)}
+          </select>
+          {/* The visitor. PropertyViewing.contactId and the POST body already
+              carried it — only this picker was missing, so a booked viewing had
+              no one attached to it and post-viewing follow-up had nobody to
+              follow up with (QA 2026-09-15, missing features / CRM-Viewings).
+              Optional, matching the schema: a slot can be blocked out before the
+              buyer is confirmed. */}
+          <select value={contactId} onChange={(e) => setContactId(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{tri(lang, "بازدیدکننده / مشتری (اختیاری)", "Visitor / customer (optional)", "Besucher / Kunde (optional)", "Ziyaretçi / müşteri (isteğe bağlı)")}</option>
+            {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <select value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{tri(lang, "کارشناس (اختیاری)", "Agent (optional)", "Makler (optional)", "Danışman (isteğe bağlı)")}</option>
+            {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </select>
+          {viewingCoordinatorEnabled && assignedToId && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={autoSlot} onChange={(e) => setAutoSlot(e.target.checked)} className="w-4 h-4 accent-orange-500" />
+              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                {tri(lang, "اگر این زمان پر بود، نزدیک‌ترین بازه آزاد را خودکار پیدا کن", "If this time is busy, automatically find the nearest free slot", "Falls dieser Termin belegt ist, automatisch den nächsten freien Slot finden", "Bu zaman doluysa, en yakın boş zamanı otomatik bul")}
+              </span>
+            </label>
+          )}
+          {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
+          <button onClick={createViewing} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : tri(lang, "ثبت بازدید", "Book viewing", "Besichtigung buchen", "Görüntüleme rezerve et")}
+          </button>
+        </div>
+      )}
+
+      {viewings.length === 0 ? (
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز بازدیدی ثبت نشده است", "No viewings yet", "Noch keine Besichtigungen", "Henüz görüntüleme yok")}</p>
+      ) : (
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+          {viewings.map((v, i) => (
+            <div key={v.id} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+              <div>
+                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{v.property.title} — {v.property.address}</p>
+                <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                  {new Date(v.scheduledAt).toLocaleString(lang === "fa" ? "fa-IR" : "en-US")}
+                  {v.contact ? ` · ${v.contact.name}` : ""}{v.assignedTo ? ` · ${v.assignedTo.name}` : ""}
+                </p>
+                {v.feedback && <p className="text-[11px] mt-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "بازخورد:", "Feedback:", "Rückmeldung:", "Geri bildirim:")} {v.feedback}{v.feedbackRating ? ` (${v.feedbackRating}/5)` : ""}</p>}
+              </div>
+              <div className="flex items-center gap-2">
+                <select value={v.status} onChange={(e) => setStatus(v.id, e.target.value)}
+                  className="text-[10px] px-2 py-1 rounded-full font-medium outline-none" style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "none" }}>
+                  {Object.entries(STATUS_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
+                </select>
+                {v.status !== "completed" && (
+                  <button onClick={() => { setFeedbackTarget(v); setFeedbackText(v.feedback || ""); setFeedbackRating(v.feedbackRating ? String(v.feedbackRating) : ""); }}
+                    className="text-[11px]" style={{ color: "var(--primary)" }}>
+                    {tri(lang, "ثبت بازخورد", "Add feedback", "Rückmeldung", "Geri bildirim ekle")}
+                  </button>
+                )}
+                <button onClick={() => deleteViewing(v.id)}><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {feedbackTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }}>
+          <div className="w-full max-w-md rounded-2xl p-5 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+            <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{tri(lang, "بازخورد پس از بازدید", "Post-viewing feedback", "Rückmeldung nach der Besichtigung", "Görüntüleme sonrası geri bildirim")}</h3>
+            <textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} rows={3}
+              placeholder={tri(lang, "نظر خریدار/کارشناس درباره ملک", "Buyer/agent's impression of the property", "Eindruck des Käufers/Maklers", "Alıcının/danışmanın mülk hakkındaki izlenimi")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <select value={feedbackRating} onChange={(e) => setFeedbackRating(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              <option value="">{tri(lang, "امتیاز (اختیاری)", "Rating (optional)", "Bewertung (optional)", "Puan (isteğe bağlı)")}</option>
+              {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}/5</option>)}
+            </select>
+            <div className="flex gap-2">
+              <button onClick={saveFeedback} className="flex-1 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--primary)" }}>{tri(lang, "ذخیره", "Save", "Speichern", "Kaydet")}</button>
+              <button onClick={() => setFeedbackTarget(null)} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>{tri(lang, "لغو", "Cancel", "Abbrechen", "İptal")}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Section 1, item 3 — Buyer↔Property match view, feeding the Lead Matcher agent (Section 2). Buyer criteria live in CrmContact.customFields.buyerCriteria — reuses the existing contacts PUT endpoint to save, only this read-side matching view is new. */
+function BuyerMatchPanel({ lang, leadMatcherAgentEnabled }: { lang: Lang; leadMatcherAgentEnabled: boolean }) {
+  const [results, setResults] = useState<BuyerMatchRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [contacts, setContacts] = useState<{ id: string; name: string }[]>([]);
+  const [showSetCriteria, setShowSetCriteria] = useState(false);
+  const [selectedContactId, setSelectedContactId] = useState("");
+  const [propertyType, setPropertyType] = useState("");
+  const [listingType, setListingType] = useState("");
+  const [city, setCity] = useState("");
+  const [budgetMin, setBudgetMin] = useState("");
+  const [budgetMax, setBudgetMax] = useState("");
+  const [minBedrooms, setMinBedrooms] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const [leadDrafts, setLeadDrafts] = useState<{ contactId: string; name: string; email: string | null; matchedPropertyIds: string[]; message: string }[]>([]);
+  const [loadingDrafts, setLoadingDrafts] = useState(false);
+  const [sendingDraftId, setSendingDraftId] = useState<string | null>(null);
+  const [sentDraftIds, setSentDraftIds] = useState<Set<string>>(new Set());
+
+  const load = useCallback(async () => {
+    const [mRes, cRes] = await Promise.all([fetch("/api/crm/buyer-matches"), fetch("/api/crm/contacts")]);
+    const mData = await mRes.json();
+    const cData = await cRes.json();
+    setResults(mData.results || []);
+    setContacts((cData.contacts || []).map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })));
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function saveCriteria() {
+    if (!selectedContactId) { setError(tri(lang, "یک مخاطب انتخاب کنید", "Select a contact", "Kontakt auswählen", "Bir kişi seçin")); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const buyerCriteria: Record<string, unknown> = {};
+      if (propertyType) buyerCriteria.propertyType = propertyType;
+      if (listingType) buyerCriteria.listingType = listingType;
+      if (city) buyerCriteria.city = city;
+      if (budgetMin) buyerCriteria.budgetMin = Number(budgetMin);
+      if (budgetMax) buyerCriteria.budgetMax = Number(budgetMax);
+      if (minBedrooms) buyerCriteria.minBedrooms = Number(minBedrooms);
+
+      const res = await fetch(`/api/crm/contacts/${selectedContactId}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customFields: { buyerCriteria } }),
+      });
+      if (!res.ok) throw new Error();
+      setShowSetCriteria(false);
+      setSelectedContactId(""); setPropertyType(""); setListingType(""); setCity(""); setBudgetMin(""); setBudgetMax(""); setMinBedrooms("");
+      load();
+    } catch {
+      setError(tri(lang, "خطا در ذخیره معیارها", "Failed to save criteria", "Fehler beim Speichern", "Kriterler kaydedilemedi"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function loadLeadMatcherDrafts() {
+    setLoadingDrafts(true);
+    try {
+      const res = await fetch("/api/crm/lead-matcher");
+      const data = await res.json();
+      setLeadDrafts(data.drafts || []);
+    } finally {
+      setLoadingDrafts(false);
+    }
+  }
+
+  async function sendLeadDraft(d: { contactId: string; message: string }) {
+    setSendingDraftId(d.contactId);
+    try {
+      const res = await fetch("/api/sales/followups/send", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId: d.contactId, message: d.message }),
+      });
+      if (res.ok) setSentDraftIds((prev) => new Set(prev).add(d.contactId));
+    } finally {
+      setSendingDraftId(null);
+    }
+  }
+
+  if (loading) return <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />;
+
+  return (
+    <div className="space-y-3">
+      {/* Section 2, item 1 — Lead Matcher agent. Proposes ready-to-send follow-up drafts only; a human must click send. Falls back to a generic (no-property) draft when a lead has no saved criteria or no property matched — never errors. */}
+      {leadMatcherAgentEnabled && (
+        <div className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
+            <div>
+              <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "ایجنت تطبیق لید", "Lead Matcher agent", "Lead-Matcher-Agent", "Lead Eşleştirme ajanı")}</h2>
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{tri(lang, "پیش‌نویس پیام پیگیری برای لیدها — با اشاره به ملک منطبق در صورت وجود", "Follow-up message drafts for leads — mentioning a matching property where one exists", "Follow-up-Entwürfe für Leads — mit passender Immobilie, falls vorhanden", "Lead'ler için takip mesajı taslakları — varsa eşleşen mülkten bahsedilir")}</p>
+            </div>
+            <button onClick={loadLeadMatcherDrafts} disabled={loadingDrafts}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold disabled:opacity-50"
+              style={{ background: "var(--surface-2)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
+              {loadingDrafts ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+              {tri(lang, "تولید پیش‌نویس", "Generate drafts", "Entwürfe generieren", "Taslak oluştur")} <CreditCost feature="crm.lead-matcher" />
+            </button>
+          </div>
+          {leadDrafts.length === 0 && !loadingDrafts ? (
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{tri(lang, "روی «تولید پیش‌نویس» بزنید", "Click \"Generate drafts\"", "Klicken Sie auf \"Entwürfe generieren\"", "\"Taslak oluştur\"a tıklayın")}</p>
+          ) : (
+            <div className="space-y-2">
+              {leadDrafts.map((d) => {
+                const sent = sentDraftIds.has(d.contactId);
+                return (
+                  <div key={d.contactId} className="rounded-xl p-3 flex items-start justify-between gap-3" style={{ background: "var(--surface-2)" }}>
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
+                        {d.name}{d.matchedPropertyIds.length > 0 && <span className="mr-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(34,197,94,0.1)", color: "#22c55e" }}>{tri(lang, "با ملک منطبق", "with match", "mit Treffer", "eşleşme ile")}</span>}
+                      </p>
+                      <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{d.message}</p>
+                    </div>
+                    {sent ? (
+                      <span className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg flex-shrink-0" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>
+                        <Check className="w-3.5 h-3.5" />{tri(lang, "ارسال شد", "Sent", "Gesendet", "Gönderildi")}
+                      </span>
+                    ) : d.email ? (
+                      <button onClick={() => sendLeadDraft(d)} disabled={sendingDraftId === d.contactId}
+                        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg flex-shrink-0 disabled:opacity-50"
+                        style={{ background: "var(--primary)", color: "white" }}>
+                        {sendingDraftId === d.contactId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                        {tri(lang, "ارسال", "Send", "Senden", "Gönder")}
+                      </button>
+                    ) : (
+                      <span className="text-xs px-2.5 py-1.5 rounded-lg flex-shrink-0" style={{ background: "var(--surface-1)", color: "var(--text-muted)" }}>{tri(lang, "بدون ایمیل", "No email", "Keine E-Mail", "E-posta yok")}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <button onClick={() => setShowSetCriteria((v) => !v)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>
+          <Plus className="w-4 h-4" /> {tri(lang, "تعیین معیار خریدار", "Set buyer criteria", "Käuferkriterien festlegen", "Alıcı kriterlerini belirle")}
+        </button>
+      </div>
+
+      {showSetCriteria && (
+        <div className="rounded-2xl p-4 space-y-2" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <select value={selectedContactId} onChange={(e) => setSelectedContactId(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <option value="">{tri(lang, "انتخاب مخاطب خریدار", "Select buyer contact", "Käuferkontakt auswählen", "Alıcı kişisini seç")}</option>
+            {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <div className="grid grid-cols-2 gap-2">
+            <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              <option value="">{tri(lang, "نوع ملک (هر نوع)", "Property type (any)", "Immobilientyp (alle)", "Mülk türü (herhangi)")}</option>
+              {Object.entries(PROPERTY_TYPE_LABEL).map(([val, l]) => <option key={val} value={val}>{l[lang]}</option>)}
+            </select>
+            <select value={listingType} onChange={(e) => setListingType(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              <option value="">{tri(lang, "نوع معامله (هر نوع)", "Deal type (any)", "Geschäftsart (alle)", "İşlem türü (herhangi)")}</option>
+              <option value="buy">{tri(lang, "خرید", "Buy", "Kauf", "Satın al")}</option>
+              <option value="rent">{tri(lang, "اجاره", "Rent", "Miete", "Kirala")}</option>
+            </select>
+          </div>
+          <input value={city} onChange={(e) => setCity(e.target.value)} placeholder={tri(lang, "شهر (هر شهر)", "City (any)", "Stadt (alle)", "Şehir (herhangi)")}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <div className="grid grid-cols-3 gap-2">
+            <input value={budgetMin} onChange={(e) => setBudgetMin(e.target.value)} type="number" placeholder={tri(lang, "حداقل بودجه", "Min budget", "Min. Budget", "Min bütçe")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <input value={budgetMax} onChange={(e) => setBudgetMax(e.target.value)} type="number" placeholder={tri(lang, "حداکثر بودجه", "Max budget", "Max. Budget", "Maks bütçe")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <input value={minBedrooms} onChange={(e) => setMinBedrooms(e.target.value)} type="number" placeholder={tri(lang, "حداقل خواب", "Min bedrooms", "Min. Schlafzimmer", "Min yatak odası")}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          </div>
+          {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
+          <button onClick={saveCriteria} disabled={saving} className="w-full py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : tri(lang, "ذخیره معیارها", "Save criteria", "Kriterien speichern", "Kriterleri kaydet")}
+          </button>
+        </div>
+      )}
+
+      {results.length === 0 ? (
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز هیچ خریداری معیار جستجو ندارد", "No buyers have search criteria yet", "Noch keine Käuferkriterien", "Henüz arama kriteri olan alıcı yok")}</p>
+      ) : (
+        <div className="space-y-3">
+          {results.map((r) => (
+            <div key={r.contactId} className="rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{r.contactName}{r.phone ? ` · ${r.phone}` : ""}</p>
+                <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: r.matches.length > 0 ? "rgba(34,197,94,0.1)" : "var(--surface-2)", color: r.matches.length > 0 ? "#22c55e" : "var(--text-muted)" }}>
+                  {r.matches.length} {tri(lang, "ملک منطبق", "matches", "Treffer", "eşleşme")}
+                </span>
+              </div>
+              {r.matches.length > 0 && (
+                <div className="space-y-1.5">
+                  {r.matches.map((m) => (
+                    <div key={m.id} className="flex items-center justify-between px-3 py-2 rounded-xl text-xs" style={{ background: "var(--surface-2)" }}>
+                      <span style={{ color: "var(--text-primary)" }}>{m.title} — {m.address}{m.city ? `${tri(lang, "،", ",", ",", ",")} ${m.city}` : ""}</span>
+                      <span style={{ color: "var(--primary)" }}>{fmtMoney(m.price)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface PerformanceRow {
+  agentId: string; agentName: string | null;
+  propertiesClosedCount: number; commissionVolume: number;
+  viewingsScheduled: number; viewingsCompleted: number;
+  viewingToContractConversionRate: number | null;
+}
+
+function isoDate(d: Date) { return d.toISOString().slice(0, 10); }
+
+/** Section 1, item 8 — Agent/Team performance report. Has no storage of its own — every figure is computed from CrmDeal (item 5) and PropertyViewing (item 4) rows already created elsewhere, not a separate ledger. */
+function PerformanceReportPanel({ lang, agencyManagerEnabled }: { lang: Lang; agencyManagerEnabled: boolean }) {
+  const today = new Date();
+  const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const [startDate, setStartDate] = useState(isoDate(monthAgo));
+  const [endDate, setEndDate] = useState(isoDate(today));
+  const [report, setReport] = useState<PerformanceRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [periodDays, setPeriodDays] = useState("7");
+  const [agencyReport, setAgencyReport] = useState("");
+  const [generatingAgencyReport, setGeneratingAgencyReport] = useState(false);
+  const [agencyReportError, setAgencyReportError] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res = await fetch(`/api/crm/performance-report?startDate=${startDate}&endDate=${endDate}`);
+    const data = await res.json();
+    setReport(data.report || []);
+    setLoading(false);
+  }, [startDate, endDate]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function generateAgencyReport() {
+    setGeneratingAgencyReport(true);
+    setAgencyReportError("");
+    setAgencyReport("");
+    try {
+      const res = await fetch(`/api/crm/agency-report?periodDays=${periodDays}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setAgencyReport(data.report);
+    } catch (err: unknown) {
+      setAgencyReportError(err instanceof Error ? err.message : tri(lang, "خطا در تولید گزارش", "Failed to generate report", "Fehler beim Erstellen des Berichts", "Rapor oluşturulamadı"));
+    } finally {
+      setGeneratingAgencyReport(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Section 2, item 6 — Agency Manager Assistant. Purely reportive/suggestive — the report text itself is written to ask questions per stale item, never to just dump numbers; nothing here writes to any CRM record. */}
+      {agencyManagerEnabled && (
+        <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "دستیار مدیر آژانس", "Agency Manager Assistant", "Assistent der Agenturleitung", "Ajans Yöneticisi Asistanı")}</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{tri(lang, "خلاصهٔ دوره‌ای Pipeline + سوالات پیشنهادی درباره لیدهای رهاشده و بازدیدهای بدون بازخورد", "Periodic pipeline summary + suggested questions about abandoned leads and feedback-less viewings", "Regelmäßige Pipeline-Zusammenfassung + Fragen zu inaktiven Leads und Besichtigungen ohne Rückmeldung", "Periyodik pipeline özeti + terkedilmiş lead'ler ve geri bildirimsiz görüntülemeler hakkında önerilen sorular")}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <select value={periodDays} onChange={(e) => setPeriodDays(e.target.value)}
+                className="px-2 py-1.5 rounded-lg text-xs outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                <option value="7">{tri(lang, "هفتگی", "Weekly", "Wöchentlich", "Haftalık")}</option>
+                <option value="14">{tri(lang, "دو‌هفتگی", "Bi-weekly", "Zweiwöchentlich", "İki haftada bir")}</option>
+                <option value="30">{tri(lang, "ماهانه", "Monthly", "Monatlich", "Aylık")}</option>
+              </select>
+              <button onClick={generateAgencyReport} disabled={generatingAgencyReport} className="text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-50 flex items-center gap-1.5" style={{ background: "var(--primary)" }}>
+                {generatingAgencyReport ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                {tri(lang, "تولید گزارش", "Generate report", "Bericht erstellen", "Rapor oluştur")} <CreditCost feature="crm.agency-report" />
+              </button>
+            </div>
+          </div>
+          {agencyReportError && <p className="text-xs" style={{ color: "#ef4444" }}>{agencyReportError}</p>}
+          {agencyReport && (
+            <div className="rounded-xl p-3 prose prose-invert prose-sm max-w-none" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>
+              <ReactMarkdown>{agencyReport}</ReactMarkdown>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+          className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        <span className="text-sm" style={{ color: "var(--text-muted)" }}>{tri(lang, "تا", "to", "bis", "ile")}</span>
+        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+          className="px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+      </div>
+
+      {loading ? (
+        <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--primary)" }} />
+      ) : report.length === 0 ? (
+        <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tri(lang, "داده‌ای در این بازه یافت نشد", "No data in this range", "Keine Daten in diesem Zeitraum", "Bu aralıkta veri yok")}</p>
+      ) : (
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+          {report.map((r, i) => (
+            <div key={r.agentId} className="px-4 py-3" style={{ background: "var(--surface-1)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+              <p className="text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>{r.agentName || tri(lang, "بدون نام", "Unnamed", "Unbenannt", "İsimsiz")}</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                <div>
+                  <p style={{ color: "var(--text-muted)" }}>{tri(lang, "ملک بسته‌شده", "Properties closed", "Abgeschlossene Immobilien", "Kapatılan mülkler")}</p>
+                  <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{r.propertiesClosedCount}</p>
+                </div>
+                <div>
+                  <p style={{ color: "var(--text-muted)" }}>{tri(lang, "حجم کمیسیون", "Commission volume", "Provisionsvolumen", "Komisyon hacmi")}</p>
+                  <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{fmtMoney(r.commissionVolume)}</p>
+                </div>
+                <div>
+                  <p style={{ color: "var(--text-muted)" }}>{tri(lang, "بازدید انجام‌شده", "Viewings completed", "Abgeschlossene Besichtigungen", "Tamamlanan görüntülemeler")}</p>
+                  <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{r.viewingsCompleted} / {r.viewingsScheduled}</p>
+                </div>
+                <div>
+                  <p style={{ color: "var(--text-muted)" }}>{tri(lang, "نرخ تبدیل بازدید→قرارداد", "Viewing→contract rate", "Besichtigung→Vertrag-Rate", "Görüntüleme→sözleşme oranı")}</p>
+                  <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{r.viewingToContractConversionRate != null ? `${r.viewingToContractConversionRate}%` : "—"}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <CommissionSplitsByAgent lang={lang} agents={report} />
+    </div>
+  );
+}
+
+/**
+ * Per-agent commission split report. QA 2026-09-15 listed "no per-agent
+ * commission split report" as a missing feature. The data already existed —
+ * AccountingCommissionSplit rows recorded when a deal's commission is split
+ * between agents — but it was only visible deal-by-deal as "pending
+ * commissions" on the Accounting dashboard, never totalled per agent or shown
+ * where the team's performance lives. Paid vs still-owed is what an agency
+ * owner reconciles at month end, so that's the breakdown.
+ */
+function CommissionSplitsByAgent({ lang, agents }: { lang: Lang; agents: PerformanceRow[] }) {
+  const [rows, setRows] = useState<{ agentUserId: string; count: number; total: number; paid: number; pending: number }[] | null>(null);
+
+  useEffect(() => {
+    fetch("/api/accounting/commissions")
+      // 402 without the CRM add-on: nothing to show, not an error to surface.
+      .then((r) => (r.ok ? r.json() : { records: [] }))
+      .then((d: { records?: { splits: { agentUserId: string; amount: number; status: string }[] }[] }) => {
+        const byAgent = new Map<string, { agentUserId: string; count: number; total: number; paid: number; pending: number }>();
+        for (const rec of d.records || []) {
+          for (const s of rec.splits) {
+            const row = byAgent.get(s.agentUserId) || { agentUserId: s.agentUserId, count: 0, total: 0, paid: 0, pending: 0 };
+            row.count += 1;
+            row.total += s.amount;
+            if (s.status === "paid") row.paid += s.amount; else row.pending += s.amount;
+            byAgent.set(s.agentUserId, row);
+          }
+        }
+        setRows(Array.from(byAgent.values()).sort((a, b) => b.total - a.total));
+      })
+      .catch(() => setRows([]));
+  }, []);
+
+  if (!rows || rows.length === 0) return null;
+  const nameOf = (id: string) => agents.find((a) => a.agentId === id)?.agentName || tri(lang, "مشاور", "Agent", "Makler", "Danışman");
+
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+      <div className="px-4 py-3 flex items-center justify-between" style={{ background: "var(--surface-1)", borderBottom: "1px solid var(--border)" }}>
+        <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          {tri(lang, "تسهیم کمیسیون به تفکیک مشاور", "Commission splits by agent", "Provisionsaufteilung nach Makler", "Danışmana göre komisyon paylaşımı")}
+        </p>
+        <a href="/accounting" className="text-xs" style={{ color: "var(--primary)" }}>
+          {tri(lang, "حسابداری ←", "Accounting →", "Buchhaltung →", "Muhasebe →")}
+        </a>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs min-w-[480px]">
+          <thead>
+            <tr style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+              <th className="px-4 py-2 text-start font-medium">{tri(lang, "مشاور", "Agent", "Makler", "Danışman")}</th>
+              <th className="px-4 py-2 text-center font-medium">{tri(lang, "تعداد سهم", "Splits", "Anteile", "Paylaşımlar")}</th>
+              <th className="px-4 py-2 text-center font-medium">{tri(lang, "کل", "Total", "Gesamt", "Toplam")}</th>
+              <th className="px-4 py-2 text-center font-medium">{tri(lang, "پرداخت‌شده", "Paid", "Bezahlt", "Ödendi")}</th>
+              <th className="px-4 py-2 text-center font-medium">{tri(lang, "مانده", "Owed", "Offen", "Borç")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={r.agentUserId} style={{ background: i % 2 === 0 ? "var(--surface-1)" : "var(--surface-0)" }}>
+                <td className="px-4 py-2" style={{ color: "var(--text-primary)" }}>{nameOf(r.agentUserId)}</td>
+                <td className="px-4 py-2 text-center" style={{ color: "var(--text-secondary)" }}>{r.count}</td>
+                <td className="px-4 py-2 text-center font-semibold" style={{ color: "var(--text-primary)" }}>{fmtMoney(r.total)}</td>
+                <td className="px-4 py-2 text-center" style={{ color: "#22c55e" }}>{fmtMoney(r.paid)}</td>
+                <td className="px-4 py-2 text-center" style={{ color: r.pending > 0 ? "#f59e0b" : "var(--text-muted)" }}>{fmtMoney(r.pending)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ProjectDetailModal({ isFa, lang, t, project, onClose, onChanged }: { isFa: boolean; lang: Lang; t: Translations["crm"]; project: CrmProjectRow | null; onClose: () => void; onChanged: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    name: project?.name || "", description: project?.description || "",
+    startDate: project?.startDate ? project.startDate.slice(0, 10) : "",
+    endDate: project?.endDate ? project.endDate.slice(0, 10) : "",
+  });
+  const [reForm, setReForm] = useState({
+    propertyType: project?.property?.propertyType || "apartment",
+    address: project?.property?.address || "",
+    city: project?.property?.city || "",
+    price: project?.property?.price ? String(project.property.price) : "",
+    nightlyPrice: project?.property?.nightlyPrice ? String(project.property.nightlyPrice) : "",
+    bookingLink: project?.property?.bookingLink || "",
+  });
+
+  if (!project) return null;
+  const st = PROJECT_STATUS_LABEL[project.status] || PROJECT_STATUS_LABEL.active;
+  const isShortTerm = project.property?.listingType === "short_term_rent";
+
+  async function save() {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/crm/projects/${project!.id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form, startDate: form.startDate || null, endDate: form.endDate || null,
+          realEstate: project!.property ? {
+            propertyType: reForm.propertyType, address: reForm.address, city: reForm.city,
+            price: isShortTerm ? undefined : reForm.price, nightlyPrice: isShortTerm ? reForm.nightlyPrice : undefined,
+            bookingLink: reForm.bookingLink,
+          } : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.bookingLinkWarning) alert(data.bookingLinkWarning);
+      setEditing(false);
+      onChanged();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal onClose={onClose}>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{project.name}</h2>
+        <button onClick={onClose}><X className="w-5 h-5" style={{ color: "var(--text-muted)" }} /></button>
+      </div>
+
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[11px] px-2 py-1 rounded-full font-medium" style={{ background: "var(--surface-2)", color: st.color }}>
+          {tri(lang, st.fa, st.en, st.de)}
+        </span>
+        {!editing ? (
+          <button onClick={() => setEditing(true)} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+            {t.contactDetail.edit}
+          </button>
+        ) : (
+          <div className="flex gap-1.5">
+            <button onClick={save} disabled={saving} className="px-3 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-50" style={{ background: "var(--primary)" }}>
+              {t.contactDetail.save}
+            </button>
+            <button onClick={() => setEditing(false)} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+              {t.contactDetail.cancel}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {editing ? (
+        <div className="space-y-3">
+          <input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} rows={3}
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "تاریخ شروع", "Start date", "Startdatum", "Başlangıç tarihi")}</label>
+              <input aria-label={tri(lang, "تاریخ شروع", "Start date", "Startdatum", "Başlangıç tarihi")} type="date" value={form.startDate} onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "تاریخ پایان", "End date", "Enddatum", "Bitiş tarihi")}</label>
+              <input aria-label={tri(lang, "تاریخ پایان", "End date", "Enddatum", "Bitiş tarihi")} type="date" value={form.endDate} onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            </div>
+          </div>
+
+          {project.property && (
+            <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+              <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
+                {PROJECT_LISTING_TYPE_LABEL[project.property.listingType]?.[lang] || project.property.listingType}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <select value={reForm.propertyType} onChange={(e) => setReForm((p) => ({ ...p, propertyType: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                  <option value="apartment">{tri(lang, "آپارتمان", "Apartment", "Wohnung", "Daire")}</option>
+                  <option value="villa">{tri(lang, "ویلا", "Villa", "Villa", "Villa")}</option>
+                  <option value="land">{tri(lang, "زمین", "Land", "Grundstück", "Arsa")}</option>
+                  <option value="commercial">{tri(lang, "تجاری", "Commercial", "Gewerbe", "Ticari")}</option>
+                </select>
+                <input value={reForm.city} onChange={(e) => setReForm((p) => ({ ...p, city: e.target.value }))} placeholder={tri(lang, "شهر", "City", "Stadt", "Şehir")}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
+              <input value={reForm.address} onChange={(e) => setReForm((p) => ({ ...p, address: e.target.value }))} placeholder={tri(lang, "آدرس", "Address", "Adresse", "Adres")}
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              {isShortTerm ? (
+                <>
+                  <input value={reForm.nightlyPrice} onChange={(e) => setReForm((p) => ({ ...p, nightlyPrice: e.target.value }))} type="number" placeholder={tri(lang, "قیمت هر شب (تومان)", "Price per night (Toman)", "Preis pro Nacht (Toman)", "Gecelik fiyat (Toman)")}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                  <input value={reForm.bookingLink} onChange={(e) => setReForm((p) => ({ ...p, bookingLink: e.target.value }))} placeholder={tri(lang, "لینک پلتفرم رزرو", "Booking platform link", "Buchungsplattform-Link", "Rezervasyon platformu linki")}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </>
+              ) : (
+                <input value={reForm.price} onChange={(e) => setReForm((p) => ({ ...p, price: e.target.value }))} type="number" placeholder={tri(lang, "قیمت کل (تومان)", "Total price (Toman)", "Gesamtpreis (Toman)", "Toplam fiyat (Toman)")}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2 text-sm">
+          {project.description && <p style={{ color: "var(--text-secondary)" }}>{project.description}</p>}
+          {project.contact && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "مخاطب: ", "Contact: ", "Kontakt: ", "Kişi: ")}</span><span style={{ color: "var(--text-primary)" }}>{project.contact.name}</span></div>}
+          {project.deal && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "معامله مرتبط: ", "Related deal: ", "Zugehöriger Deal: ", "İlgili anlaşma: ")}</span><span style={{ color: "var(--text-primary)" }}>{project.deal.title}</span></div>}
+          {project.startDate && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "شروع: ", "Start: ", "Start: ", "Başlangıç: ")}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(project.startDate)}</span></div>}
+          {project.endDate && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "پایان: ", "End: ", "Ende: ", "Bitiş: ")}</span><span style={{ color: "var(--text-primary)" }}>{toJalali(project.endDate)}</span></div>}
+          {project.property && (
+            <div className="pt-2 mt-2 space-y-1" style={{ borderTop: "1px solid var(--border)" }}>
+              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "نوع معامله: ", "Deal type: ", "Geschäftsart: ", "İşlem türü: ")}</span><span style={{ color: "var(--text-primary)" }}>{PROJECT_LISTING_TYPE_LABEL[project.property.listingType]?.[lang] || project.property.listingType}</span></div>
+              <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "آدرس: ", "Address: ", "Adresse: ", "Adres: ")}</span><span style={{ color: "var(--text-primary)" }}>{project.property.address}{project.property.city ? `، ${project.property.city}` : ""}</span></div>
+              {isShortTerm ? (
+                <>
+                  {project.property.nightlyPrice != null && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "قیمت هر شب: ", "Per night: ", "Pro Nacht: ", "Gecelik: ")}</span><span style={{ color: "var(--text-primary)" }}>{fmtMoney(project.property.nightlyPrice)}</span></div>}
+                  {project.property.bookingLink && (
+                    <div>
+                      <span style={{ color: "var(--text-muted)" }}>{tri(lang, "لینک رزرو: ", "Booking link: ", "Buchungslink: ", "Rezervasyon linki: ")}</span>
+                      <a href={project.property.bookingLink} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>{project.property.bookingLink}</a>
+                    </div>
+                  )}
+                </>
+              ) : (
+                project.property.price > 0 && <div><span style={{ color: "var(--text-muted)" }}>{tri(lang, "قیمت: ", "Price: ", "Preis: ", "Fiyat: ")}</span><span style={{ color: "var(--text-primary)" }}>{fmtMoney(project.property.price)}</span></div>
+              )}
+            </div>
+          )}
+          {!project.description && !project.contact && !project.deal && !project.startDate && !project.endDate && !project.property && (
+            <p style={{ color: "var(--text-muted)" }}>{t.contactDetail.noActivity}</p>
+          )}
+        </div>
+      )}
+    </Modal>
   );
 }

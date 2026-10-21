@@ -1,8 +1,10 @@
-import Link from "next/link";
-import Image from "next/image";
+import PublicShell from "@/components/marketing/PublicShell";
 import { getServerLang } from "@/lib/i18n/server";
-import SocialFooterLinks from "@/components/layout/SocialFooterLinks";
 import AiTeamPipeline from "@/components/landing/AiTeamPipeline";
+import type { Metadata } from "next";
+import { pageMetadata, pageJsonLd } from "@/lib/seo/site";
+import JsonLd from "@/components/seo/JsonLd";
+import { copy, text, features } from "@/lib/marketing/catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -93,28 +95,82 @@ const STR = {
     finalCtaDesc: "No credit card needed — start free",
     finalCtaButton: "Start Free",
   },
+  de: {
+    back: "Zurück zur Startseite",
+    heroEyebrow: "Autonomes Business-Betriebssystem",
+    heroTitle: "Ein komplettes Team von KI-Agenten, das für Sie arbeitet",
+    heroDesc: "AiFekr ist längst kein Einzweck-Tool mehr. Eine Kette aus 8 spezialisierten Agenten schreibt und veröffentlicht Inhalte, und ein KI-Geschäftsführer behält Ihr gesamtes Unternehmen im Blick, analysiert es und entscheidet, was wichtig ist — mit einem gemeinsamen Gedächtnis, das sich mit jedem Durchlauf verbessert.",
+    heroCta: "Kostenlos starten",
+    pipelineTitle: "Content-Pipeline — 8 Agenten, eine Kette",
+    pipelineDesc: "Die Ausgabe jedes Agenten ist die Eingabe des nächsten. Das Ergebnis: ein vollständiger, SEO-optimierter Artikel, bereit zur direkten Veröffentlichung auf Ihrer Website.",
+    agents: [
+      { title: "Ideenfinder", desc: "Findet 6-8 unterschiedliche Artikelideen für Ihre Branche." },
+      { title: "Content-Stratege", desc: "Wählt die beste Idee nach Nutzerwert und SEO-Potenzial aus." },
+      { title: "Rechercheur", desc: "Nutzt Live-Websuche für aktuelle, echte Fakten — keine Vermutungen." },
+      { title: "Autor", desc: "Schreibt einen vollständigen Entwurf im Ton Ihrer Marke." },
+      { title: "Lektor", desc: "Bewertet den Entwurf; ist die Note niedrig, geht er zur Überarbeitung zurück an den Autor." },
+      { title: "SEO-Experte", desc: "Optimiert Titel, Meta-Beschreibung, Slug und Keywords." },
+      { title: "Publisher", desc: "Veröffentlicht den freigegebenen Artikel direkt auf Ihrer WordPress-Website." },
+      { title: "Kritiker", desc: "Bewertet den veröffentlichten Beitrag und hält praktische Lehren für den nächsten Durchlauf fest." },
+    ],
+    loopTitle: "Eine echte Feedback-Schleife",
+    loopDesc: "Bewertet der Lektor den Entwurf niedrig, geht er automatisch zur Überarbeitung an den Autor zurück — bis zu mehreren Runden — bevor es zu SEO und Veröffentlichung weitergeht.",
+    memoryTitle: "Gemeinsames Gedächtnis — das System wird mit jedem Mal besser",
+    memoryDesc: "Nach jedem Durchlauf schreibt der Kritiker kurze, praktische Lehren für jeden Agenten (z. B. „kürzere Sätze schreiben“). Diese werden bei zukünftigen Durchläufen automatisch abgerufen. Sie können auch selbst Hinweise hinzufügen.",
+    doctorEyebrow: "Ein weiteres Mitglied des Teams",
+    doctorTitle: "Business-Doktor — Eine vollständige Diagnose, keine oberflächliche Antwort",
+    doctorDesc: "Ein simulierter Berater mit 20 Jahren Erfahrung, der Ihr Unternehmen wie eine Krankenakte untersucht und einen vollständigen Diagnosebericht liefert — dessen Ergebnisse fließen auch direkt in das gemeinsame Gedächtnis des CEO-Orchestrators ein.",
+    doctorFeatures: [
+      { title: "Vollständige SWOT-Analyse", desc: "Identifiziert die echten Stärken, Schwächen, Chancen und Risiken Ihres Unternehmens." },
+      { title: "Erkennung zentraler Herausforderungen", desc: "Findet die größten Wachstumshindernisse — auch solche, die Ihnen selbst vielleicht nicht aufgefallen sind." },
+      { title: "30/60/90-Tage-Aktionsplan", desc: "Eine konkrete, terminierte Roadmap für die nächsten drei Monate — statt allgemeiner Ratschläge." },
+      { title: "Wichtige Leistungskennzahlen (KPIs)", desc: "Definiert die Kennzahlen, mit denen Sie echten Fortschritt messen können." },
+    ],
+    ceoTitle: "KI-Geschäftsführer — Der reale Blick auf Ihr Unternehmen",
+    ceoDesc: "Ein eigener Agent, der den tatsächlichen Status all Ihrer Tools sieht und priorisiert — keine Demo, sondern eine Analyse auf Basis echter Daten.",
+    ceoFeatures: [
+      { title: "Echte Daten, keine Fiktion", desc: "Analysen des Business-Doktors, veröffentlichte Artikel, Social-Media-Beiträge, CRM-Kontakte mit Nachfassbedarf, Umsatz und Aktivität der letzten 30 Tage." },
+      { title: "Live-Markt- und Wettbewerbsrecherche", desc: "Durchsucht das Web nach den neuesten Trends und Wettbewerbern in Ihrer Branche." },
+      { title: "Entwürfe für Vertriebs-Follow-ups", desc: "Verfasst versandfertige Nachrichten für Kontakte, die nachgefasst werden müssen — Sie prüfen und senden." },
+      { title: "Automatischer täglicher Lauf", desc: "Aktivieren Sie ihn, damit er jeden Tag ohne Ihr Zutun läuft und eine Zusammenfassung per E-Mail sendet." },
+    ],
+    finalCtaTitle: "Testen Sie dieses System jetzt sofort",
+    finalCtaDesc: "Keine Kreditkarte nötig — kostenlos starten",
+    finalCtaButton: "Kostenlos starten",
+  },
 };
+
+const STR_TR = {
+  heroEyebrow: "Bağlantılı yapay zekâ çalışma alanı", heroTitle: "İşiniz için uzman yapay zekâ rolleri", heroDesc: "İçerik akışı, işletme analizi ve koordinasyon için uzman roller. Çıktıları inceleyin; yayın ve bağlantılar izin ve kurulum gerektirir.", heroCta: "AIFekr ile başlayın",
+  pipelineTitle: "İçerik akışı: sekiz uzman rol", pipelineDesc: "Fikirden araştırmaya, yazımdan düzenlemeye ve SEO'ya. WordPress yayını için etkin bağlantı gerekir.",
+  agents: [
+    { title: "Fikir bulucu", desc: "İçerik fikirleri önerir." }, { title: "Stratejist", desc: "Hedefe uygun fikri değerlendirir." }, { title: "Araştırmacı", desc: "Araştırma kaynaklarını toplar; doğruluğu inceleyin." }, { title: "Yazar", desc: "İlk taslağı oluşturur." }, { title: "Editör", desc: "Taslağı inceler ve düzeltme önerir." }, { title: "SEO uzmanı", desc: "Başlık, açıklama ve anahtar kelimeleri hazırlar." }, { title: "Yayıncı", desc: "Yapılandırılmış WordPress bağlantısını kullanır." }, { title: "Eleştirmen", desc: "Sonucu değerlendirir ve öğrenilenleri kaydeder." },
+  ],
+  loopTitle: "Düzenleme geri bildirimi", loopDesc: "Editör değerlendirmesi, sınırlı sayıda yeniden yazım adımına yön verebilir.", memoryTitle: "Paylaşılan dersler", memoryDesc: "Akıştan çıkarılan kısa notlar sonraki çalışmalara bağlam sağlar.",
+  doctorEyebrow: "İşletme analizi", doctorTitle: "İşletme doktoru", doctorDesc: "İşletme bilgilerinizden AI destekli analiz ve eylem önerileri üretir. Gerçek bir danışmanın değerlendirmesinin yerini almaz.",
+  doctorFeatures: [{ title: "SWOT", desc: "Güçlü ve zayıf yönleri, fırsatları ve riskleri ele alır." }, { title: "Zorluklar", desc: "Geliştirme alanları önerir." }, { title: "Eylem planı", desc: "Aşamalı adımlar önerir." }, { title: "Takip", desc: "Sonraki kararlar için referans sağlar." }],
+  ceoTitle: "İşletme koordinatörü", ceoDesc: "Mevcut işletme verilerinizden bir özet ve öneriler oluşturur. Bağlı modüller ve izinler, kullanılabilir bağlamı belirler.",
+  ceoFeatures: [{ title: "İşletme özeti", desc: "Mevcut bilgileri bir araya getirir." }, { title: "Öneriler", desc: "Öncelikler ve eylem taslakları sunar." }, { title: "Takip taslakları", desc: "Göndermeden önce inceleyebileceğiniz mesajlar hazırlar." }, { title: "Zamanlanmış çalışma", desc: "Etkinleştirme, sunucu zamanlayıcısı ve e-posta yapılandırmasına bağlıdır." }],
+  finalCtaTitle: "Ekibinizi keşfedin", finalCtaDesc: "Erişim planınıza ve etkin modüllere bağlıdır.", finalCtaButton: "AIFekr ile başlayın",
+};
+
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getServerLang();
+  const meta = pageMetadata(lang, "/ai-team", {"fa":"تیم هوش مصنوعی شما — مدیرعامل، فروش، سئو و بیشتر","en":"Your AI Team — CEO, Sales, Accountant & SEO Agents","de":"Ihr KI-Team — CEO-, Vertriebs-, Buchhaltungs- & SEO-Agenten","tr":"Yapay Zekâ Ekibiniz — CEO, Satış, Muhasebe ve SEO"}, {"fa":"با عوامل AI تخصصی AiFekr آشنا شوید: مدیرعامل، فروش، حسابدار، سئو و محتوا — در فضای کاری متصل، با دسترسی وابسته به پلن و تنظیمات.","en":"Meet AiFekr's specialist AI agents: CEO, sales, accountant, SEO and content — connected workspaces, subject to plan and configuration.","de":"Lernen Sie die spezialisierten KI-Agenten von AiFekr kennen: CEO, Vertrieb, Buchhaltung, SEO und Content — vernetzte Arbeitsbereiche, abhängig von Tarif und Konfiguration.","tr":"AiFekr'in uzman yapay zekâ ajanlarıyla tanışın: CEO, satış, muhasebe, SEO ve içerik — plan ve yapılandırmaya bağlı, bağlantılı çalışma alanları."});
+  return meta;
+}
 
 export default async function AiTeamPage() {
   const lang = await getServerLang();
-  const s = STR[lang];
-  const dir = lang === "fa" ? "rtl" : "ltr";
+  const s = lang === "tr" ? STR_TR : STR[lang];
+
 
   return (
-    <div className="min-h-screen" dir={dir} style={{ background: "#0a0a0f", color: "#f5f5f5" }}>
-      <header className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <Link href="/" className="flex items-center gap-2">
-          <Image src="/logo.svg" alt="AiFekr" width={28} height={28} className="rounded-lg" />
-          <span className="font-bold text-white">AiFekr</span>
-        </Link>
-        <Link href="/" className="text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>{s.back}</Link>
-      </header>
+    <PublicShell lang={lang}><div className="m-public-existing">
+      <JsonLd data={pageJsonLd(lang, "/ai-team")} />
 
+      <div className="m-container m-notice"><h2>{text(lang, copy.requirements)}</h2><p>{text(lang, features.find(f => f.slug === "agents")!.requirement)}</p></div>
       <AiTeamPipeline s={s} />
-
-      <footer className="py-8 px-6 text-center text-sm" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.3)" }}>
-        <SocialFooterLinks />
-      </footer>
-    </div>
+    </div></PublicShell>
   );
 }

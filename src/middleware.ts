@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/utils/rateLimit";
+import { isPublicRoute, stripPublicLocale } from "@/lib/seo/locales";
 
 // Path-prefix -> { limit, windowMs }. First match wins (checked in order).
 // Auth endpoints get the tightest limits (brute-force/OTP-spam protection);
@@ -7,6 +8,7 @@ import { rateLimit, getClientIp } from "@/lib/utils/rateLimit";
 // single VPS from being hammered; everything else under /api gets a generous
 // default so normal UI polling never trips it.
 const RULES: Array<{ prefix: string; limit: number; windowMs: number }> = [
+  { prefix: "/api/mobile/v1/session", limit: 20, windowMs: 60 * 1000 },
   { prefix: "/api/auth/send-otp", limit: 5, windowMs: 10 * 60 * 1000 },
   { prefix: "/api/auth/verify-otp", limit: 10, windowMs: 10 * 60 * 1000 },
   { prefix: "/api/auth/login", limit: 15, windowMs: 5 * 60 * 1000 },
@@ -47,13 +49,39 @@ function unverifiedUserId(req: NextRequest): string | null {
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  // Only public landing routes get a locale header. API rate limits below are unchanged.
-  if (["/fa", "/en", "/de"].includes(pathname)) {
+  if (!pathname.startsWith("/api/")) {
+    const localized = stripPublicLocale(pathname);
+    const forwardedLocale = req.nextUrl.searchParams.get("__public_locale");
     const requestHeaders = new Headers(req.headers);
-    requestHeaders.set("x-aifekr-landing-locale", pathname.slice(1));
+    requestHeaders.delete("x-public-lang");
+    requestHeaders.set("x-aifekr-path", pathname + req.nextUrl.search);
+    if (isPublicRoute(localized.path)) {
+      const effectiveLang = pathname === localized.path && ["en", "de", "tr"].includes(forwardedLocale ?? "") ? forwardedLocale! : localized.lang;
+      requestHeaders.set("x-public-lang", effectiveLang);
+      if (pathname !== localized.path) {
+        const target = req.nextUrl.clone();
+        // TLS terminates at the reverse proxy; the local Next server is HTTP.
+        // Next may retain the forwarded HTTPS scheme with its localhost origin.
+        const localProxy = ["localhost", "127.0.0.1", "[::1]"].includes(target.hostname) && target.protocol === "https:";
+        if (localProxy) {
+          target.protocol = "http:";
+          // Cross-protocol rewrites are proxied as a second request by Next.
+          // Carry the locale through that request; middleware headers alone
+          // are not forwarded by the external rewrite proxy.
+          target.searchParams.set("__public_locale", localized.lang);
+        }
+        target.pathname = localized.path;
+        // Industry records currently contain Persian/English/German content only.
+        if (localized.lang === "tr" && localized.path.startsWith("/industry/")) {
+          target.pathname = `/en${localized.path}`;
+          return NextResponse.redirect(target, 308);
+        }
+        if (localized.lang === "fa") return NextResponse.redirect(target, 308);
+        return NextResponse.rewrite(target, { request: { headers: requestHeaders } });
+      }
+    }
     return NextResponse.next({ request: { headers: requestHeaders } });
   }
-
   const rule = RULES.find((r) => pathname.startsWith(r.prefix));
   if (!rule) return NextResponse.next();
 
@@ -75,5 +103,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/:path*", "/fa", "/en", "/de"],
+  matcher: ["/api/:path*", "/((?!api|_next|.*\\..*).*)"],
 };

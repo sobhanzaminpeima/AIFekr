@@ -1,0 +1,2 @@
+"use client";import DynamicPlans from "@/components/billing/DynamicPlans";import type {Lang} from "@/lib/i18n/server";import type {PublicPlan} from "@/lib/marketing/data";import type {FxRates} from "@/lib/utils/currency";import type {StudentPackage} from "./StudentOffer";
+export default function PricingComparison(_props:{lang:Lang;plans:PublicPlan[]|null;rates:FxRates;student?:StudentPackage|null}){return <><DynamicPlans key={_props.lang}/><DynamicPlans key={`video-${_props.lang}`} category="VIDEO_FACTORY"/></>;}

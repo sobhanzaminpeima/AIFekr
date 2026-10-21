@@ -2,14 +2,15 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { routedStreamChat } from "@/lib/ai/router";
+import { withToolCredits } from "@/lib/utils/withToolCredits";
 
 // Structured counterpart to /api/seo/analyze — that endpoint streams a free
 // -form markdown report; this one asks for strict JSON so the "اعمال خودکار"
 // button has concrete title/metaDescription values to actually write back
 // to the site instead of parsing them out of prose.
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { url, targetKeyword } = await req.json();
   if (!url) return NextResponse.json({ error: "آدرس الزامی است" }, { status: 400 });
@@ -35,3 +36,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "پاسخ AI قابل تفسیر نبود" }, { status: 502 });
   }
 }
+
+export const POST = withToolCredits("seo.suggest", handlePost);

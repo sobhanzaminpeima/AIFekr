@@ -1,0 +1,14 @@
+{
+  "name": "aifekr-screenshot-tour",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Read-only Playwright tour that screenshots every AIfekr page for promo-video source material. Not part of the main app build.",
+  "scripts": {
+    "install-browser": "playwright install chromium",
+    "run": "node run.js"
+  },
+  "dependencies": {
+    "playwright": "^1.47.0",
+    "archiver": "^7.0.1"
+  }
+}

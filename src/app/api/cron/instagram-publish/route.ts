@@ -2,20 +2,21 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { publishToInstagram, publishReelToInstagram } from "@/lib/instagram";
+import { notify } from "@/lib/notifications/create";
+import { isCronAuthorized } from "@/lib/auth/cronAuth";
+import { bizScope } from "@/lib/accounting/scope";
 
 // Hit by a system crontab entry every few minutes (see deployment notes) —
 // this is what makes mode="auto" posts actually go out without a human
 // clicking "publish". Protected by a shared secret since it has no user
 // session; not meant to be called from the browser.
 export async function GET(req: NextRequest) {
-  const secret = req.nextUrl.searchParams.get("secret");
-  if (!secret || secret !== process.env.CRON_SECRET) {
+  if (!isCronAuthorized(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   const due = await prisma.scheduledPost.findMany({
     where: { mode: "auto", status: "PENDING", scheduledFor: { lte: new Date() } },
-    include: { user: { include: { instagramConn: true } } },
   });
 
   const results = [];
@@ -32,9 +33,17 @@ export async function GET(req: NextRequest) {
     });
     if (claim.count === 0) continue;
 
-    const conn = post.user.instagramConn;
+    // The post's own business, not "whichever account this user has now" -- a user with
+    // several businesses must have this post go out through the business it was queued for.
+    const conn = await prisma.instagramConnection.findFirst({ where: { userId: post.userId, ...bizScope(post.businessId) } });
     if (!conn || (!post.imageUrl && !post.videoUrl)) {
       await prisma.scheduledPost.update({ where: { id: post.id }, data: { status: "FAILED", errorMessage: "اتصال اینستاگرام یا تصویر/ویدیو موجود نیست" } });
+      notify(post.userId, {
+        type: "social_post",
+        title: "انتشار پست ناموفق بود",
+        body: "اتصال اینستاگرام یا تصویر/ویدیو موجود نیست",
+        link: "/social",
+      }).catch(() => {});
       results.push({ id: post.id, ok: false });
       continue;
     }
@@ -43,10 +52,22 @@ export async function GET(req: NextRequest) {
         ? await publishReelToInstagram(conn.igUserId, conn.accessToken, post.videoUrl, `${post.caption}\n\n${post.hashtags}`)
         : await publishToInstagram(conn.igUserId, conn.accessToken, post.imageUrl!, `${post.caption}\n\n${post.hashtags}`);
       await prisma.scheduledPost.update({ where: { id: post.id }, data: { status: "PUBLISHED", igMediaId } });
+      notify(post.userId, {
+        type: "social_post",
+        title: "پست اینستاگرام منتشر شد",
+        body: post.caption?.slice(0, 120) || undefined,
+        link: "/social",
+      }).catch(() => {});
       results.push({ id: post.id, ok: true });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "خطا";
       await prisma.scheduledPost.update({ where: { id: post.id }, data: { status: "FAILED", errorMessage: msg } });
+      notify(post.userId, {
+        type: "social_post",
+        title: "انتشار پست ناموفق بود",
+        body: msg,
+        link: "/social",
+      }).catch(() => {});
       results.push({ id: post.id, ok: false, error: msg });
     }
   }
