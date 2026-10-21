@@ -1,0 +1,11 @@
+# Chat Starter and guest launch
+
+- Chat Starter starts at 200,000 Toman / 30 days / 100 credits. Catalog defaults are insert-only; admin changes are preserved. `/start`, public banner and payment quote use the same Package record.
+- Successful ZarinPal verification or approved bank payment grants credits and extends `chatPlanExpiry` atomically, once per payment. Existing workspace subscription and account type are preserved. The free chat tier continues independently; credit grants enter the existing personal wallet and are not independently expired.
+- `/chat` allows three successful guest responses when enabled. API quotas and credit reservations remain enforced on the server. Failed responses refund reserved credits.
+- File-only sends work in the existing authenticated workspace chat. Extracted documents and filenames persist in message history. DOCX, selectable-text PDF, TXT, MD, CSV and XLSX are supported; scanned PDF/OCR and arbitrary binary analysis are not.
+- PLAY remains free regardless of a purchase, subscription expiry or a chat-only account. Buying never changes game attempts or scores.
+- Admin can select `MONTHLY_PACKAGE_CHOICE` as a prize. After score review and winner approval, the winner can choose Student, Fitness or Business. The choice is owner-bound, saved once, and visible in admin. Delivery remains an explicit admin action; there is no automatic activation of a different account type. Email notifications are queued on approval and fulfillment, subject to the existing email worker.
+- A single seven-day free launch competition is published once if Tower is enabled. Its sole first-place prize is one month Student, Fitness or Business by winner choice. No cash prize. The public strip advertises the prize only while a matching published competition is active. Re-running configuration preserves admin edits and the original deadline.
+- Release: back up SQLite, apply only `20261021220000_chat_starter_rewards`, generate Prisma client, then run `scripts/configure-chat-launch.cjs`. This enables three guest turns and inserts the starter package, without paid inference or a gateway charge.
+- Tests cover document extraction, guest quota/refund/merge, free competition attempts, and idempotent starter activation. Browser visual QA is unavailable in the current tool session.
