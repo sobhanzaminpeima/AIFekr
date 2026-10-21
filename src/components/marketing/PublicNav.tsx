@@ -3,7 +3,7 @@
 import Link from "@/components/marketing/PublicLink";
 import Image from "next/image";
 import { useRef, useState, useEffect } from "react";
-import { ArrowUpRight, ChevronDown, Menu, X } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Menu, X, Sparkles } from "lucide-react";
 import type { Lang } from "@/lib/i18n/server";
 import { copy, features, solutionCatalog, text, type Copy } from "@/lib/marketing/catalog";
 import { localizedPublicPath, stripPublicLocale } from "@/lib/seo/locales";
@@ -32,7 +32,7 @@ export default function PublicNav({ lang }: { lang: Lang }) {
           <div className="m-mega-grid">{group.links.map(link => <Link href={link.href} key={link.href} onClick={() => { setOpen(null); setMobile(false); }}><span>{text(lang, link.title)} <ArrowUpRight size={15}/></span>{link.desc && <small>{text(lang, link.desc)}</small>}</Link>)}</div>
         </div>}
       </div>)}
-      <Link className="m-nav-chat" href="/chat">{text(lang,["چت رایگان هوش مصنوعی","Free AI Chat","Kostenloser KI-Chat","Ücretsiz AI Sohbet"])}</Link><Link href="/play">{text(lang,["بازی رایگان","Free games","Kostenlose Spiele","Ücretsiz oyunlar"])}</Link><Link href="/pricing">{text(lang, copy.pricing)}</Link>
+      <Link className="m-nav-chat" href="/explore"><Sparkles size={16}/>{text(lang,["چت هوش مصنوعی","AI Chat","KI-Chat","AI Sohbet"])}</Link><Link href="/play">{text(lang,["بازی رایگان","Free games","Kostenlose Spiele","Ücretsiz oyunlar"])}</Link><Link href="/pricing">{text(lang, copy.pricing)}</Link>
       <Link className="m-mobile-login" href="/login">{text(lang, copy.login)}</Link>
     </div>
     <div className="m-nav-actions">
@@ -40,7 +40,7 @@ export default function PublicNav({ lang }: { lang: Lang }) {
         <option value="fa">فارسی</option><option value="en">EN</option><option value="de">DE</option><option value="tr">TR</option>
       </select>
       <Link className="m-desktop-login" href="/login">{text(lang, copy.login)}</Link>
-      <Link className="m-button m-small" href="/register">{text(lang, copy.start)}</Link>
+      <Link className="m-button m-small" href="/explore">{text(lang, ["شروع","Start","Starten","Başla"])}</Link>
       <button className="m-menu-toggle" aria-label={text(lang, copy.menu)} aria-expanded={mobile} onClick={() => { setMobile(!mobile); setOpen(null); }}>{mobile ? <X size={21}/> : <Menu size={21}/>}</button>
     </div>
   </nav></header>;

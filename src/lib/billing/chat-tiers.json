@@ -1,0 +1,5 @@
+[
+ {"planCode":"CHAT_ECO_30","name":"چت اکو","nameEn":"Chat Eco","price":1990000,"credits":100,"sortOrder":10},
+ {"planCode":"CHAT_PLUS_30","name":"چت پلاس","nameEn":"Chat Plus","price":4990000,"credits":300,"sortOrder":11},
+ {"planCode":"CHAT_PRO_30","name":"چت پرو","nameEn":"Chat Pro","price":14990000,"credits":1000,"sortOrder":12}
+]

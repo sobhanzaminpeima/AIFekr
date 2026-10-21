@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 export const policySchema = z
   .object({
     enabled: z.boolean().default(false),
-    guestTurns: z.number().int().min(0).max(10).default(3),
+    guestTurns: z.number().int().min(0).max(10).default(0),
     guestTtlHours: z.number().int().min(1).max(168).default(168),
     registeredFreeDaily: z.number().int().min(0).max(100).default(10),
     creditsPerTurn: z.number().int().min(1).max(100).default(3),

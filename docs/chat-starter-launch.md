@@ -1,5 +1,7 @@
 # Chat Starter and guest launch
 
+> Superseded entry flow (October 22): `/explore` is public and requires sign-in on first send. Guest inference allowance is zero. After authentication, users choose Business, Student, Fitness or AI Chat at `/choose-plan`. `/pricing` and landing use the same published Package records. Chat Eco / Plus / Pro start at 199,000 / 499,000 / 1,499,000 Toman per 30 days with 100 / 300 / 1,000 credits. They use configured, available models; there is no claim of an official ChatGPT subscription, installments, or unimplemented tools. The old 200,000 Toman offer remains available for existing purchase links but is not promoted in the entry catalog.
+
 - Chat Starter starts at 200,000 Toman / 30 days / 100 credits. Catalog defaults are insert-only; admin changes are preserved. `/start`, public banner and payment quote use the same Package record.
 - Successful ZarinPal verification or approved bank payment grants credits and extends `chatPlanExpiry` atomically, once per payment. Existing workspace subscription and account type are preserved. The free chat tier continues independently; credit grants enter the existing personal wallet and are not independently expired.
 - `/chat` allows three successful guest responses when enabled. API quotas and credit reservations remain enforced on the server. Failed responses refund reserved credits.

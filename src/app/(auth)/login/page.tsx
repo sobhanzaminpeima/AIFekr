@@ -72,7 +72,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, code: otp,...(getSafeRedirect()==="/chat"?{entry:"chat"}:{}) }),
+        body: JSON.stringify({ phone, code: otp,...(["/chat","/explore","/choose-plan"].includes(getSafeRedirect()||"")?{entry:"chat"}:{}) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -333,7 +333,7 @@ export default function LoginPage() {
           {/* Register link */}
           <p className="text-center text-sm mt-6" style={{ color: "var(--text-secondary)" }}>
             {t.auth.login.noAccount}{" "}
-            <a href="/register" style={{ color: "var(--primary)" }} className="font-medium">
+            <a href={["/choose-plan","/explore"].includes(getSafeRedirect()||"")?"/register?entry=chat&redirect=%2Fchoose-plan":"/register"} style={{ color: "var(--primary)" }} className="font-medium">
               {t.auth.login.registerLink}
             </a>
           </p>

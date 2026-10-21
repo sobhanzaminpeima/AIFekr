@@ -1,0 +1,1 @@
+ALTER TABLE "User" ADD COLUMN "platformEntry" TEXT NOT NULL DEFAULT '';

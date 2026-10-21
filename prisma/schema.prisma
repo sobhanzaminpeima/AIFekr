@@ -377,6 +377,7 @@ model User {
   /// Standalone AI Chat capability; never removes existing paid entitlements.
   chatOnly                  Boolean   @default(false)
   chatPlanExpiry            DateTime?
+  platformEntry             String @default("")
   /// Referral system
   referralDiscountPercent   Int       @default(0)
   referralCode              String?   @unique

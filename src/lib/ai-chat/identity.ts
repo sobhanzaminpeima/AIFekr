@@ -44,6 +44,8 @@ export async function chatIdentity(req: NextRequest) {
         isBlocked: true,
         chatOnly: true,
         chatPlanExpiry: true,
+        platformEntry:true,
+        plan:true,
         role: true,
       },
     });

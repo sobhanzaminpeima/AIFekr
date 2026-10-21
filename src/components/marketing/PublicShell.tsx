@@ -10,6 +10,7 @@ import CurrencySelector from "@/components/ui/CurrencySelector";
 import { copy, text, features, solutionCatalog } from "@/lib/marketing/catalog";
 import "./public.css";
 import "./chat-launch.css";
+import "./entry-overrides.css";
 
 export default function PublicShell({ lang, children }: { lang: Lang; children: ReactNode }) {
   return <div className="marketing" dir={lang === "fa" ? "rtl" : "ltr"}>

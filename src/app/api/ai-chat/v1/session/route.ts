@@ -45,9 +45,11 @@ export async function POST(req: NextRequest) {
     const response = NextResponse.json(
       {
         authenticated: !!identity.user,
+        modelName:(await prisma.customAiProvider.findUnique({where:{id:policy.modelId},select:{name:true}}))?.name,
         name: identity.user?.name,
         chatOnly: identity.user?.chatOnly,
         chatPlanExpiry: identity.user?.chatPlanExpiry,
+        needsPlanSelection:!!identity.user&&!identity.user.platformEntry&&identity.user.plan==="FREE"&&!await prisma.payment.findFirst({where:{userId:identity.user.id,status:"SUCCESS"},select:{id:true}}),
         remaining: Math.max(
           0,
           (identity.guest ? policy.guestTurns : policy.registeredFreeDaily) -

@@ -26,6 +26,8 @@ import {
 import "./chat-studio.css";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import DiscoveryCard from "./DiscoveryCard";
+import PlatformPreview from "./PlatformPreview";
+import AccessibleDialog from "@/components/ui/AccessibleDialog";
 type Message = {
   id?: string;
   role: "user" | "assistant";
@@ -34,6 +36,8 @@ type Message = {
 };
 type Session = {
   authenticated: boolean;
+  modelName?:string;
+  needsPlanSelection?:boolean;
   name?: string;
   chatOnly?: boolean;
   chatPlanExpiry?:string|null;
@@ -108,6 +112,7 @@ export default function ChatStudio() {
     call("/api/ai-chat/v1/session", {})
       .then(async (s) => {
         setSession(s);
+        if(s.authenticated&&s.needsPlanSelection){window.location.assign("/choose-plan");return;}
         if (s.mergedConversationId)
           await openConversation(s.mergedConversationId);
         else setMessages(s.messages);
@@ -123,8 +128,9 @@ export default function ChatStudio() {
   }, [messages]);
   useEffect(() => () => abort.current?.abort(), []);
   async function send(text = draft) {
-    if (busy || !text.trim() || !session) return;
-    if (!session.authenticated && session.remaining === 0) {
+    if (busy || !text.trim()) return;
+    if (!session?.authenticated) {
+      try{sessionStorage.setItem("aifekr-chat-draft",text);}catch{}
       setAuth(true);
       return;
     }
@@ -297,6 +303,7 @@ export default function ChatStudio() {
           <Plus size={18} />
           {t("گفتگوی جدید", "New chat", "Neuer Chat", "Yeni sohbet")}
         </button>
+        <PlatformPreview authenticated={!!session?.authenticated} onLogin={()=>{try{sessionStorage.setItem("aifekr-chat-draft",draft);}catch{}setAuth(true);}}/>
         {session?.authenticated && (
           <details>
             <summary>
@@ -362,7 +369,7 @@ export default function ChatStudio() {
                   "Ayarlar ve profil",
                 )}
               </Link>
-              <Link href="/start">{t("پکیج شروع چت","Chat Starter package","Chat-Starter-Paket","Chat Starter paketi")}</Link>
+              <Link href="/choose-plan">{t("پکیج‌ها و اعتبار","Packages and credits","Pakete und Credits","Paketler ve krediler")}</Link>
               {session.chatPlanExpiry&&<small>{t("پکیج چت تا","Chat package until","Chat-Paket bis","Sohbet paketi bitişi")} {new Date(session.chatPlanExpiry).toLocaleDateString(lang)}</small>}
               <Link href="/play">{t("مسابقهٔ رایگان","Free competitions","Kostenlose Wettbewerbe","Ücretsiz yarışmalar")}</Link>
               {!session.chatOnly && (
@@ -399,11 +406,12 @@ export default function ChatStudio() {
           >
             <Menu size={20} />
           </button>
-          <strong>AIFekr AI Chat</strong>
+          <strong>AIFekr</strong>
+          <small>{session?.modelName}</small>
           <LanguageSwitcher />
           <span>
             {session
-              ? `${session.remaining} ${t("پیام رایگان باقی مانده", "free messages left", "kostenlose Nachrichten übrig", "ücretsiz mesaj kaldı")}`
+              ? session.authenticated?`${session.remaining} ${t("پیام رایگان باقی مانده", "free messages left", "kostenlose Nachrichten übrig", "ücretsiz mesaj kaldı")}`:t("محیط مهمان","Guest preview","Gastansicht","Misafir görünümü")
               : "…"}
           </span>
           {conversationId && (
@@ -625,7 +633,7 @@ export default function ChatStudio() {
           ) : (
             <button
               type="submit"
-              disabled={!session || !draft.trim()}
+              disabled={!draft.trim()}
               aria-label={t("ارسال", "Send", "Senden", "Gönder")}
             >
               <Send size={20} />
@@ -642,10 +650,10 @@ export default function ChatStudio() {
                   )
                 : `${session.creditsPerTurn} ${t("کردیت برای هر پیام موفق", "credits per successful message", "Credits pro erfolgreicher Nachricht", "başarılı mesaj başına kredi")} · ${session.credits} ${t("موجودی", "balance", "Guthaben", "bakiye")}`
               : t(
-                  "سه پیام مهمان. برای ادامه ثبت‌نام کنید.",
-                  "Three guest messages. Sign up to continue.",
-                  "Drei Gastnachrichten. Zum Fortfahren registrieren.",
-                  "Üç misafir mesajı. Devam etmek için kaydolun.",
+                  "امکانات را ببین؛ برای ارسال پیام وارد شو.",
+                  "Explore first. Sign in when you send a message.",
+                  "Erst entdecken. Zum Senden anmelden.",
+                  "Önce keşfedin. Mesaj göndermek için giriş yapın.",
                 )}{" "}
             ·{" "}
             {t(
@@ -658,6 +666,7 @@ export default function ChatStudio() {
         </form>
       </section>
       {auth && (
+        <AccessibleDialog label={t("ورود یا ثبت‌نام","Sign in or register","Anmelden oder registrieren","Giriş yapın veya kaydolun")} onClose={()=>setAuth(false)}>
         <div className="chat-dialog-backdrop">
           <section
             role="dialog"
@@ -681,13 +690,14 @@ export default function ChatStudio() {
             </h2>
             <p>
               {t(
-                "گفتگو و متن آماده‌ات حفظ می‌شود؛ خرید ماژول لازم نیست.",
-                "Your conversation and draft are preserved. No module purchase required.",
-                "Chat und Entwurf bleiben erhalten. Kein Modulkauf erforderlich.",
-                "Sohbetin ve taslağın korunur. Modül satın almak gerekmez.",
+                "متنت حفظ می‌شود. بعد از ورود، پکیج مناسب یا حساب رایگان را انتخاب کن.",
+                "Your draft is saved. After signing in, choose a package or the free option.",
+                "Ihr Entwurf bleibt erhalten. Nach der Anmeldung ein Paket oder die kostenlose Option wählen.",
+                "Taslağınız kaydedilir. Giriş yaptıktan sonra paket veya ücretsiz seçeneği seçin.",
               )}
             </p>
-            <Link href="/register?entry=chat">
+            <Link href="/api/auth/google?redirect=%2Fchoose-plan">{t("ادامه با گوگل","Continue with Google","Mit Google fortfahren","Google ile devam et")}</Link>
+            <Link href="/register?entry=chat&redirect=%2Fchoose-plan">
               {t(
                 "ساخت حساب رایگان",
                 "Create free account",
@@ -695,11 +705,12 @@ export default function ChatStudio() {
                 "Ücretsiz hesap oluştur",
               )}
             </Link>
-            <Link href="/login?redirect=%2Fchat">
+            <Link href="/login?redirect=%2Fchoose-plan">
               {t("ورود به حساب", "Log in", "Anmelden", "Giriş yap")}
             </Link>
           </section>
         </div>
+        </AccessibleDialog>
       )}
     </div>
   );
