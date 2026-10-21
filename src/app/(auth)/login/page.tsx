@@ -73,7 +73,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, code: otp }),
+        body: JSON.stringify({ phone, code: otp,...(getSafeRedirect()==="/chat"?{entry:"chat"}:{}) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);

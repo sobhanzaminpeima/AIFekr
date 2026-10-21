@@ -33,7 +33,7 @@ export default function PublicNav({ lang }: { lang: Lang }) {
           <div className="m-mega-grid">{group.links.map(link => <Link href={link.href} key={link.href} onClick={() => { setOpen(null); setMobile(false); }}><span>{text(lang, link.title)} <ArrowUpRight size={15}/></span>{link.desc && <small>{text(lang, link.desc)}</small>}</Link>)}</div>
         </div>}
       </div>)}
-      <Link href="/fit">AIFekr FIT</Link><Link href="/industry">{text(lang, copy.industries)}</Link><Link href="/pricing">{text(lang, copy.pricing)}</Link>
+      <Link href="/chat">{text(lang,["چت هوش مصنوعی","AI Chat","KI-Chat","AI Sohbet"])}</Link><Link href="/fit">AIFekr FIT</Link><Link href="/industry">{text(lang, copy.industries)}</Link><Link href="/pricing">{text(lang, copy.pricing)}</Link>
       <Link className="m-mobile-login" href="/login">{text(lang, copy.login)}</Link>
     </div>
     <div className="m-nav-actions">

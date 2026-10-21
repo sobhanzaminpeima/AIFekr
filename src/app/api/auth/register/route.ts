@@ -91,6 +91,7 @@ export async function POST(req: NextRequest) {
       credits: 200,
       plan: "FREE",
       accountType: accountTypeFor(selectedPlan, accountType),
+      ...(bodyForLang.entry==="chat"&&!selectedPlan&&accountTypeFor(selectedPlan,accountType)==="PERSONAL"?{chatOnly:true,onboardingDone:true}:{}),
       referralCode,
       referredBy,
     });

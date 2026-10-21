@@ -66,6 +66,7 @@ function RegisterForm() {
           language: registerLang, selectedPlan: planCode || (accountType==="STUDENT"?STUDENT_PLAN_CODE:undefined), accountType,
           email: form.email || undefined, phone: composedPhone || undefined, password: form.password || undefined,
           industryPackSlug: packSlug || undefined, ref: refCode || undefined, promoCode:promoCode||undefined,
+          ...(params.get("entry")==="chat"?{entry:"chat"}:{}),
         }),
       });
       const data = await res.json();
@@ -75,7 +76,7 @@ function RegisterForm() {
       // navigation's server render -- a client-side route push would still
       // render the old language for a flash. A full reload picks it up cleanly.
       const purchasePlan=planCode||(accountType==="STUDENT"?STUDENT_PLAN_CODE:"");
-      window.location.href = purchasePlan ? `/welcome?plan=${encodeURIComponent(purchasePlan)}&period=${encodeURIComponent(billingPeriod||"monthly")}` : "/welcome";
+      window.location.href = params.get("entry")==="chat"&&!purchasePlan?"/chat":purchasePlan ? `/welcome?plan=${encodeURIComponent(purchasePlan)}&period=${encodeURIComponent(billingPeriod||"monthly")}` : "/welcome";
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t.auth.register.errGeneric);
     } finally {
@@ -223,7 +224,7 @@ function RegisterForm() {
             <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
           </div>
           <a
-            href={`/api/auth/google?${new URLSearchParams({plan:planCode||(accountType==="STUDENT"?STUDENT_PLAN_CODE:""),period:billingPeriod||"monthly",accountType,language:registerLang,ref:refCode,promo:promoCode})}`}
+            href={`/api/auth/google?${new URLSearchParams({plan:planCode||(accountType==="STUDENT"?STUDENT_PLAN_CODE:""),period:billingPeriod||"monthly",accountType,language:registerLang,ref:refCode,promo:promoCode,redirect:params.get("entry")==="chat"?"/chat":""})}`}
             onClick={e=>{if(!agreed){e.preventDefault();toast.error(t.auth.register.errMustAgree);}}}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-medium text-sm transition-all"
             style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}

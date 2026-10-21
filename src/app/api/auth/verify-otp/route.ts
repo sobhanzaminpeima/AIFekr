@@ -7,7 +7,7 @@ import { rateLimit } from "@/lib/utils/rateLimit";
 
 export async function POST(req: NextRequest) {
   try {
-    const { phone, code } = await req.json();
+    const { phone, code,entry } = await req.json();
 
     if (!phone || !code) {
       return NextResponse.json({ error: "اطلاعات ناقص است" }, { status: 400 });
@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
           phone,
           credits: 100,
           lastLoginAt: new Date(),
+          ...(entry==="chat"?{chatOnly:true,onboardingDone:true}:{}),
         },
       });
     } else {

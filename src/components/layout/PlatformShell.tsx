@@ -1,7 +1,7 @@
 
 
 
-import { cookies } from "next/headers";
+import { cookies,headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { verifyToken } from "@/lib/auth/jwt";
 import { prisma } from "@/lib/db/prisma";
@@ -19,6 +19,8 @@ import { chatHistoryWhere } from "@/lib/chat/history";
 import { isStudentWorkspaceEnabled } from "@/lib/student/access";
 import { shouldShowTrialBanner } from "@/lib/subscriptions/trialBanner";
 import DashboardPullToRefresh from "@/components/layout/DashboardPullToRefresh";
+import {standaloneChatOnly} from "@/lib/ai-chat/access";
+import Link from "next/link";
 
 export async function renderPlatformShell(children:React.ReactNode,fitness=false) {
   const cookieStore = await cookies();
@@ -38,10 +40,11 @@ export async function renderPlatformShell(children:React.ReactNode,fitness=false
 
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { id: true, role:true, accountType:true, name: true, credits: true, plan: true, planExpiry: true, isBlocked: true, industryPackId: true, crmPlan: true, crmPlanExpiry: true, onboardingDone: true, trialEndsAt: true, trialLimited: true, activeBusinessId: true },
+    select: { id: true, role:true, accountType:true,chatOnly:true, name: true, credits: true, plan: true, planExpiry: true, isBlocked: true, industryPackId: true, crmPlan: true, crmPlanExpiry: true, onboardingDone: true, trialEndsAt: true, trialLimited: true, activeBusinessId: true },
   });
 
   if (!user || user.isBlocked) redirect("/login");
+  if(standaloneChatOnly(user)){const path=headers().get("x-aifekr-path")?.split("?")[0]||"";if(!["/settings","/profile","/payments","/referral","/credits"].some(p=>path===p||path.startsWith(p+"/")))redirect("/chat");return <div className="min-h-screen"><nav className="border-b p-4"><Link href="/chat">AIFekr AI Chat</Link></nav><main>{children}</main></div>;}
   if (!fitness && user.accountType === "FITNESS" && !["ADMIN", "SUPER_ADMIN"].includes(user.role)) redirect("/fitness");
 
   // Redirect new users to onboarding wizard (welcome is outside this layout group)

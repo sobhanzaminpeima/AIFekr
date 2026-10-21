@@ -20,7 +20,7 @@ import type { Prisma } from "@prisma/client";
 
 /** Accepts either the shared client or an interactive-transaction client. */
 type Db = Prisma.TransactionClient | typeof prisma;
-export type CreditPayer = "DEFAULT" | "PERSONAL" | "VIDEO_PACKAGE";
+export type CreditPayer = "DEFAULT" | "PERSONAL" | "VIDEO_PACKAGE" | "CHAT";
 
 /** Durable jobs use the same guarded debit and UsageLog as synchronous AI actions.
  * The payer snapshot prevents refunding a different wallet after a team change. */
@@ -101,6 +101,7 @@ export async function getAvailableCredits(userId: string, db: Db = prisma,payer:
     db.user.findUnique({where:{id:userId},select:{credits:true,plan:true,planExpiry:true,trialEndsAt:true,fitnessAccessExpiry:true,fitnessProfile:{select:{entitlementExpiry:true}}}}),
     db.teamMember.findUnique({where:{userId},include:{team:{include:{owner:{select:{planExpiry:true}}}}}}),
   ]);
+  if(payer==="CHAT")return user?.credits??0;
   if(!user||(featureAccessExpired(user,teamFeatureExpiry(membership?.team))&&![user.fitnessAccessExpiry,user.fitnessProfile?.entitlementExpiry].some(d=>!!d&&d>new Date())))return 0;
   if(payer==="PERSONAL")return user.credits;
   if(membership){const expiry=teamFeatureExpiry(membership.team);return expiry&&expiry.getTime()<=Date.now()?0:membership.team.credits;}

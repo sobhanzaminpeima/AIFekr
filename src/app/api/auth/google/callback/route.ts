@@ -48,6 +48,7 @@ export async function GET(req:NextRequest) {
         if(referrer&&promo&&referrer.id!==promo.id)return fail("Invitation link and code belong to different people.");
         const name=typeof profile.name==="string"?profile.name:email.split("@")[0];
         user=await createUser({email,name,firstName:typeof profile.given_name==="string"?profile.given_name:undefined,lastName:typeof profile.family_name==="string"?profile.family_name:undefined,avatar:typeof profile.picture==="string"?profile.picture:undefined,googleId:profile.sub,authProvider:"google",credits:200,plan:"FREE",language:context.language||"en",accountType:accountTypeFor(context.selectedPlan,context.accountType),referralCode:await generateUniqueReferralCode(name),referredBy:promo?.id||referrer?.id});
+        if(context.redirect==="/chat"&&!context.selectedPlan&&context.accountType==="PERSONAL")user=await prisma.user.update({where:{id:user.id},data:{chatOnly:true,onboardingDone:true}});
         created=true;
       }
     }
@@ -56,7 +57,7 @@ export async function GET(req:NextRequest) {
     const payload={userId:user.id,role:user.role,plan:user.plan};
     const admin=["ADMIN","SUPER_ADMIN"].includes(user.role);
     const selected=context.selectedPlan?`?plan=${encodeURIComponent(context.selectedPlan)}&period=${context.period}`:"";
-    const dest=admin?"/admin/dashboard":created?`/welcome${selected}`:context.redirect|| (context.selectedPlan?`/plans${selected}`:"/chat");
+    const dest=admin?"/admin/dashboard":created?(user.chatOnly?"/chat":`/welcome${selected}`):context.redirect|| (context.selectedPlan?`/plans${selected}`:"/chat");
     const res=clearOAuth(NextResponse.redirect(`${publicAppUrl()}${dest}`));
     const secure=process.env.NODE_ENV==="production";
     res.cookies.set("token",signToken(payload),{httpOnly:true,secure,sameSite:"lax",maxAge:7*86400,path:"/"});

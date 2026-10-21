@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "./jwt";
 import { mobileIdentity } from "./mobileSessions";
 import { prisma } from "@/lib/db/prisma";
+import {standaloneChatOnly,chatOnlyCoreApi} from "@/lib/ai-chat/access";
 import { featureAccessExpired, isRecoveryApi, teamFeatureExpiry } from "@/lib/subscriptions/access";
 const accessDenials=new WeakMap<NextRequest,boolean>();
 const nativeAccountDenials=new WeakSet<NextRequest>();
@@ -34,6 +35,8 @@ export async function requireAuth(req: NextRequest) {
       trialLimited: true,
       trialEndsAt: true,
       accountType:true,
+      chatOnly:true,
+      industryPackId:true,
       teamMembership:{select:{team:{select:{planExpiry:true,owner:{select:{planExpiry:true}}}}}},
       // User's preferred display currency (see prisma schema for details) --
       // on the shared auth user object so any route can read it without a
@@ -44,6 +47,7 @@ export async function requireAuth(req: NextRequest) {
   });
 
   if (!user || user.isBlocked) return null;
+  if(standaloneChatOnly(user)&&!chatOnlyCoreApi(req.nextUrl.pathname)){nativeAccountDenials.add(req);return null;}
 
   if(user.accountType==="FITNESS"&&!req.nextUrl.pathname.startsWith("/api/fitness")&&!req.nextUrl.pathname.startsWith("/api/mobile/v1/fitness/")&&!isRecoveryApi(req.nextUrl.pathname)&&!req.nextUrl.pathname.startsWith("/api/billing")){if(bearer)nativeAccountDenials.add(req);return null;}
   const expired=featureAccessExpired(user,teamFeatureExpiry(user.teamMembership?.team));

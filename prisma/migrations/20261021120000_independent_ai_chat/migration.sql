@@ -1,0 +1,13 @@
+ALTER TABLE "User" ADD COLUMN "chatOnly" BOOLEAN NOT NULL DEFAULT false;
+CREATE TABLE "AiChatGuest" ("id" TEXT NOT NULL PRIMARY KEY,"ipHash" TEXT NOT NULL,"used" INTEGER NOT NULL DEFAULT 0,"transcript" TEXT NOT NULL DEFAULT '[]',"mergedUserId" TEXT,"mergedConversationId" TEXT,"expiresAt" DATETIME NOT NULL,"createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX "AiChatGuest_ipHash_createdAt_idx" ON "AiChatGuest"("ipHash","createdAt");
+CREATE INDEX "AiChatGuest_expiresAt_idx" ON "AiChatGuest"("expiresAt");
+CREATE TABLE "AiChatQuota" ("id" TEXT NOT NULL PRIMARY KEY,"used" INTEGER NOT NULL DEFAULT 0,"updatedAt" DATETIME NOT NULL);
+CREATE TABLE "AiChatRequest" ("id" TEXT NOT NULL PRIMARY KEY,"ownerKey" TEXT NOT NULL,"userId" TEXT,"guestId" TEXT,"conversationId" TEXT,"status" TEXT NOT NULL DEFAULT 'PENDING',"input" TEXT NOT NULL,"output" TEXT NOT NULL DEFAULT '',"model" TEXT NOT NULL,"credits" INTEGER NOT NULL DEFAULT 0,"reservation" TEXT,"usage" TEXT NOT NULL DEFAULT '{}',"costUsd" REAL NOT NULL DEFAULT 0.05,"feedback" INTEGER,"errorCode" TEXT,"createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,"completedAt" DATETIME);
+CREATE INDEX "AiChatRequest_ownerKey_createdAt_idx" ON "AiChatRequest"("ownerKey","createdAt");
+CREATE INDEX "AiChatRequest_status_createdAt_idx" ON "AiChatRequest"("status","createdAt");
+CREATE TABLE "AiChatDiscoveryPreference" ("ownerKey" TEXT NOT NULL PRIMARY KEY,"disabled" BOOLEAN NOT NULL DEFAULT false,"dismissed" TEXT NOT NULL DEFAULT '[]');
+CREATE TABLE "AiChatDiscoveryEvent" ("id" TEXT NOT NULL PRIMARY KEY,"ownerKey" TEXT NOT NULL,"requestId" TEXT NOT NULL,"moduleId" TEXT NOT NULL,"action" TEXT NOT NULL,"createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX "AiChatDiscoveryEvent_ownerKey_createdAt_idx" ON "AiChatDiscoveryEvent"("ownerKey","createdAt");
+CREATE INDEX "AiChatDiscoveryEvent_action_createdAt_idx" ON "AiChatDiscoveryEvent"("action","createdAt");
+ALTER TABLE "AiChatRequest" ADD COLUMN "assistantMessageId" TEXT;

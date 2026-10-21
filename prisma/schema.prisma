@@ -7,6 +7,61 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model AiChatGuest {
+ id String @id
+ ipHash String
+ used Int @default(0)
+ transcript String @default("[]")
+ mergedUserId String?
+ mergedConversationId String?
+ expiresAt DateTime
+ createdAt DateTime @default(now())
+ @@index([ipHash,createdAt])
+ @@index([expiresAt])
+}
+model AiChatDiscoveryPreference {
+ ownerKey String @id
+ disabled Boolean @default(false)
+ dismissed String @default("[]")
+}
+model AiChatDiscoveryEvent {
+ id String @id
+ ownerKey String
+ requestId String
+ moduleId String
+ action String
+ createdAt DateTime @default(now())
+ @@index([ownerKey,createdAt])
+ @@index([action,createdAt])
+}
+model AiChatQuota {
+ id String @id
+ used Int @default(0)
+ updatedAt DateTime @updatedAt
+}
+model AiChatRequest {
+ id String @id
+ ownerKey String
+ userId String?
+ guestId String?
+ conversationId String?
+ assistantMessageId String?
+ status String @default("PENDING")
+ input String
+ output String @default("")
+ model String
+ credits Int @default(0)
+ reservation String?
+ usage String @default("{}")
+ costUsd Float @default(0.05)
+ feedback Int?
+ errorCode String?
+ createdAt DateTime @default(now())
+ completedAt DateTime?
+ @@index([ownerKey,createdAt])
+ @@index([status,createdAt])
+}
+
 /// Shared, administrator-reviewed course catalog. JSON content is strictly validated.
 model AiCourse {
   id           String   @id @default(cuid())
@@ -319,6 +374,8 @@ model User {
   ceoAutoRunLang            String    @default("fa")
   /// Onboarding wizard completed
   onboardingDone            Boolean   @default(false)
+  /// Standalone AI Chat capability; never removes existing paid entitlements.
+  chatOnly                  Boolean   @default(false)
   /// Referral system
   referralDiscountPercent   Int       @default(0)
   referralCode              String?   @unique
