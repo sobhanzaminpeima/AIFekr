@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
         messages: { orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 500 },
       },
     });
+    if(c){const requests=await prisma.aiChatRequest.findMany({where:{conversationId:c.id,userId:i.user.id,status:"SUCCEEDED",assistantMessageId:{not:null}},select:{id:true,assistantMessageId:true}});const messages=c.messages.map(m=>({...m,requestId:requests.find(r=>r.assistantMessageId===m.id)?.id}));return NextResponse.json({conversation:{...c,messages}},{headers:{"Cache-Control":"no-store"}});}
     return c
       ? NextResponse.json(
           { conversation: c },

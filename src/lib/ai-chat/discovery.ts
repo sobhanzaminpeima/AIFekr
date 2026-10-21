@@ -90,8 +90,8 @@ export function moduleCard(id: string, language: Lang) {
       features: [],
       href: localizedPublicPath("/fit", language),
     };
-  const module = discoveryModules.find((m) => m.id === id),
-    f = module && features.find((f) => f.slug === module.feature);
+  const entry = discoveryModules.find((m) => m.id === id),
+    f = entry && features.find((f) => f.slug === entry.feature);
   return f
     ? {
         id,

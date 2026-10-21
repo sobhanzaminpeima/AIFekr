@@ -21,6 +21,7 @@ import { maxReferenceImages } from "@/lib/constants/imageUploadLimits";
 import { downscaleImage } from "@/lib/image/downscaleImage";
 import OrchestratorActionCard, { type OrchestratorAction } from "@/components/chat/OrchestratorActionCard";
 import { useCreditCosts } from "@/components/ui/CreditCost";
+import type {DocumentAttachment} from "@/lib/chat/documents";
 
 interface PromptBoxData {
   name: string;
@@ -385,6 +386,10 @@ export default function ChatInterface({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef=useRef<HTMLInputElement>(null);
+  const [documents,setDocuments]=useState<DocumentAttachment[]>([]);
+  const [documentBusy,setDocumentBusy]=useState(false);
+  async function attachDocument(e:React.ChangeEvent<HTMLInputElement>){const file=e.target.files?.[0];if(!file)return;if(documents.length>=3){toast.error(tri(lang,"حداکثر ۳ فایل","Up to 3 files","Bis zu 3 Dateien","En fazla 3 dosya"));return;}setDocumentBusy(true);try{const form=new FormData();form.set("file",file);const r=await fetch("/api/chat/attachments",{method:"POST",body:form}),d=await r.json();if(!r.ok)throw Error(d.error);setDocuments(previous=>[...previous,d.attachment]);}catch(error){const code=(error as Error).message;toast.error(code==="NO_SELECTABLE_TEXT"?tri(lang,"متن قابل انتخاب پیدا نشد؛ برای PDF اسکن‌شده از OCR فضای دانشجویی استفاده کنید.","No selectable text. Use Student OCR for scanned PDFs.","Kein auswählbarer Text. Für Scans bitte Student-OCR nutzen.","Seçilebilir metin yok. Taranmış PDF için Öğrenci OCR kullanın."):tri(lang,"خواندن فایل انجام نشد. PDF متنی، DOCX، TXT، CSV یا XLSX تا ۵ مگابایت انتخاب کنید.","Could not read file. Choose a text PDF, DOCX, TXT, CSV or XLSX up to 5 MB.","Datei nicht lesbar. Text-PDF, DOCX, TXT, CSV oder XLSX bis 5 MB wählen.","Dosya okunamadı. En fazla 5 MB metin PDF, DOCX, TXT, CSV veya XLSX seçin."));}finally{setDocumentBusy(false);e.target.value="";}}
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
 
@@ -548,6 +553,7 @@ export default function ChatInterface({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: text,
+          attachments:documents,
           conversationId: currentConvId,
           model: selectedModel,
           systemPrompt,
@@ -1333,11 +1339,13 @@ export default function ChatInterface({
                 )}
               </div>
             ) : !isMedia ? (
-              <button className="flex-shrink-0 mb-1" style={{ color: "var(--text-muted)" }} title={t.chat.attach}>
-                <Paperclip className="w-5 h-5" />
+              <button type="button" disabled={documentBusy||documents.length>=3} onClick={()=>documentInputRef.current?.click()} className="flex-shrink-0 mb-1" style={{ color: "var(--text-muted)" }} title={t.chat.attach} aria-label={t.chat.attach}>
+                {documentBusy?<Loader2 className="w-5 h-5 animate-spin"/>:<Paperclip className="w-5 h-5" />}
               </button>
             ) : null}
             <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleUpload} className="hidden" />
+            <input ref={documentInputRef} type="file" accept=".pdf,.docx,.txt,.csv,.xlsx,.md" onChange={attachDocument} className="hidden"/>
+            {!isMedia&&documents.length>0&&<div className="flex flex-wrap gap-2 text-xs">{documents.map((d,i)=><button type="button" key={d.nonce} onClick={()=>setDocuments(prev=>prev.filter((_,n)=>n!==i))} className="border rounded-lg p-2" title={tri(lang,"حذف فایل","Remove file","Datei entfernen","Dosyayı kaldır")}>{d.name} <X size={12}/></button>)}</div>}
 
             <textarea
               ref={textareaRef}
