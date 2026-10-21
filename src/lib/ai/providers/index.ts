@@ -38,7 +38,8 @@ export class BaseProvider {
     this._lastErrorAt = null;
   }
 
-  recordFailure(_reason: string): void {
+  recordFailure(reason: string): void {
+    void reason;
     this._lastErrorAt = Date.now();
   }
 }

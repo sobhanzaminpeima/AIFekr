@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, afterAll } from "vitest";
 import { prisma } from "@/lib/db/prisma";
 import { bizScope } from "@/lib/accounting/scope";
 

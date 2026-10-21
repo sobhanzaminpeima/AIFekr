@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -91,6 +92,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ musicId: music.id, predictionId, status, credits_used: creditCost });
   } catch (err) {
+    if (err instanceof Error && err.message === "INSUFFICIENT_CREDITS") {
+      return NextResponse.json({ error: "اعتبار کافی نیست" }, { status: 402 });
+    }
     console.error("music generate error:", err);
     return NextResponse.json({ error: "خطا در تولید موزیک" }, { status: 500 });
   }

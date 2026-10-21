@@ -491,6 +491,7 @@ model User {
   ownedStudentGroups       StudentStudyGroup[] @relation("StudentStudyGroupOwner")
   studentGroupMemberships  StudentStudyGroupMember[]
   studentGroupMessages     StudentStudyGroupMessage[]
+  gameSessions             GameSession[]
 
   @@index([industryPackId])
   @@index([activeBusinessId])
@@ -4680,4 +4681,65 @@ model VideoFactoryWebhookEvent {
   providerJobId String
   createdAt DateTime @default(now())
   @@index([createdAt])
+}
+
+// ── PHASE 3: Games / Play module ─────────────────────────────────────────────
+model Game {
+  id          String         @id @default(cuid())
+  slug        String         @unique
+  name        String
+  nameEn      String?
+  description String?
+  type        String         @default("quiz")
+  durationSec Int            @default(120)
+  creditCost  Int            @default(0)
+  isActive    Boolean        @default(true)
+  isFeatured  Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  questions   GameQuestion[]
+  sessions    GameSession[]
+}
+
+model GameQuestion {
+  id            String  @id @default(cuid())
+  gameId        String
+  text          String
+  textEn        String?
+  options       String  // JSON array of {id, text} objects
+  correctOption String  // option id string e.g. "b"
+  points        Int     @default(10)
+  order         Int     @default(0)
+  difficulty    String  @default("medium")
+  game          Game    @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  @@index([gameId])
+}
+
+model GameSession {
+  id          String    @id @default(cuid())
+  userId      String
+  gameId      String
+  score       Int       @default(0)
+  maxScore    Int       @default(0)
+  status      String    @default("active")
+  metadata    String?   // JSON: breakdown, durationMs, auditHash
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game        Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  @@index([gameId, score(sort: Desc)])
+  @@index([userId])
+}
+
+// ── PHASE 4: Module Registry ──────────────────────────────────────────────────
+model ModuleRegistry {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?
+  status      String   @default("enabled")
+  minPlan     String   @default("FREE")
+  isCore      Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

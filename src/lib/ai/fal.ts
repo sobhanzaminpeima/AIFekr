@@ -38,6 +38,7 @@ export async function generateImages(opts: GenerateImageOptions): Promise<string
   const result = await fal.run("fal-ai/flux/schnell", {
     input: {
       prompt: `${opts.prompt}, ${STYLE_PROMPTS[opts.style] || ""}`,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       image_size: (ratioMap[opts.ratio] || "square") as any,
       num_images: opts.count,
       num_inference_steps: 4,

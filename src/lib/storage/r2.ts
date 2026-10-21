@@ -1,7 +1,6 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const isDev = process.env.NODE_ENV === "development";
 const hasR2 = !!(process.env.R2_ACCESS_KEY_ID && process.env.R2_ACCESS_KEY_ID !== "your-access-key");
 
 let s3Client: S3Client | null = null;
@@ -44,7 +43,7 @@ export async function uploadToStorage(
     // image URL — which is how "social posts show no image" and silently
     // broken logos/property photos happened: nothing failed, the wrong thing
     // was simply saved. Outside development the caller must hear about it.
-    if (!isDev) throw new StorageNotConfiguredError();
+    if (process.env.NODE_ENV !== "development") throw new StorageNotConfiguredError();
     console.warn("R2 not configured — returning a placeholder URL (development only)");
     return `https://placehold.co/1024x1024/1a1a1a/ea580c?text=${encodeURIComponent(key.split("/").pop() || "file")}`;
   }

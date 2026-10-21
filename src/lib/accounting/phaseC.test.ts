@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/db/prisma";
 import { parseBankStatementCsv, importBankTransactions, findMatchCandidates, confirmMatch, ignoreTransaction } from "./bankReconciliation";

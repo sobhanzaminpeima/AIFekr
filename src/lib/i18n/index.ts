@@ -28,7 +28,7 @@ export function getLang(): Lang | null {
 
 export function setLang(lang: Lang) {
   document.cookie = `lang=${lang}; path=/; max-age=31536000`;
-  localStorage.setItem("lang", lang);
+  try { localStorage.setItem("lang", lang); } catch { /* Cookie remains the source of truth. */ }
   document.documentElement.lang = lang;
   document.documentElement.dir = lang === "fa" ? "rtl" : "ltr";
   window.location.reload();

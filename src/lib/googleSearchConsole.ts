@@ -67,6 +67,7 @@ export class GscReconnectRequiredError extends Error {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function parseJsonOrThrow(res: Response, label: string): Promise<any> {
   const text = await res.text();
   try {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Shield, Plus, Trash2, UserCog, Clock, ChevronDown } from "lucide-react";
+import { Shield, Plus, Trash2, UserCog, Clock } from "lucide-react";
 import toast from "react-hot-toast";
 import { toJalali } from "@/lib/utils/jalali";
 
