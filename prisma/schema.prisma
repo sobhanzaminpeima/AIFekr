@@ -93,6 +93,7 @@ model User {
   voiceCallLogs       VoiceCallLog[]
   voiceAppointments   VoiceAppointment[]
   voiceKnowledgeBase  VoiceKnowledgeBase[]
+  gameSessions        GameSession[]
 
   @@index([industryPackId])
 }
@@ -1366,4 +1367,59 @@ model VoiceAppointment {
 
   @@index([userId])
   @@index([agentId])
+}
+
+// ─── Games / Play Module ────────────────────────────────────────────────────
+
+model Game {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  nameEn      String?
+  description String?
+  type        String   // "quiz" | "logic" | "memory" | "pattern" | "business"
+  isActive    Boolean  @default(true)
+  isFeatured  Boolean  @default(false)
+  maxPlayers  Int      @default(1)
+  durationSec Int      @default(60)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sessions   GameSession[]
+  questions  GameQuestion[]
+}
+
+model GameSession {
+  id          String    @id @default(cuid())
+  userId      String
+  gameId      String
+  status      String    @default("active") // active | completed | abandoned
+  score       Int       @default(0)
+  maxScore    Int       @default(0)
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  metadata    String?   // JSON: answers, timing, anti-cheat hash
+
+  user  User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game  Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([gameId])
+  @@index([score])
+}
+
+model GameQuestion {
+  id            String  @id @default(cuid())
+  gameId        String
+  text          String
+  textEn        String?
+  options       String  // JSON array of {id, text}
+  correctOption String
+  difficulty    Int     @default(1) // 1-5
+  points        Int     @default(10)
+  order         Int     @default(0)
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId])
 }
