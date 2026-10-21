@@ -22,7 +22,7 @@ export default function LandingHeader({locale}:{locale:UiLocale}) {
   <nav className="lp-desktop-nav" aria-label={s.footerProduct}>{sectionLinks.map((href,i)=><a key={href} href={href}>{s.nav[i]}</a>)}</nav>
   <div className="lp-header-controls">
    <label className="lp-locale"><Globe2 size={16} aria-hidden="true"/><span className="sr-only">{s.language}</span><select value={locale} onChange={e=>changeLocale(e.target.value)}><option value="fa">فارسی</option><option value="en">EN</option><option value="de">DE</option></select></label>
-   <ThemeSwitcher locale={locale} iconOnly className="lp-theme"/>
+   <ThemeSwitcher iconOnly className="lp-theme"/>
    <Link className="lp-login" href="/login">{s.login}</Link>
    <Link className="ui-button lp-header-start" href="/register">{s.start}<Arrow size={16} aria-hidden="true"/></Link>
    <button type="button" className="ui-button ui-button--secondary ui-button--icon lp-menu-toggle" ref={toggle} onClick={()=>setOpen(!open)} aria-label={open?s.closeMenu:s.menu} aria-expanded={open} aria-controls="landing-mobile-nav">{open?<X aria-hidden="true"/>:<Menu aria-hidden="true"/>}</button>

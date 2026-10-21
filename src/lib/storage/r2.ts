@@ -43,7 +43,7 @@ export async function uploadToStorage(
     // image URL — which is how "social posts show no image" and silently
     // broken logos/property photos happened: nothing failed, the wrong thing
     // was simply saved. Outside development the caller must hear about it.
-    if (!isDev) throw new StorageNotConfiguredError();
+    if (process.env.NODE_ENV !== "development") throw new StorageNotConfiguredError();
     console.warn("R2 not configured — returning a placeholder URL (development only)");
     return `https://placehold.co/1024x1024/1a1a1a/ea580c?text=${encodeURIComponent(key.split("/").pop() || "file")}`;
   }

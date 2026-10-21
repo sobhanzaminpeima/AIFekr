@@ -50,6 +50,7 @@ export function confirmMeta(sent: Record<string, string>, returned: unknown): Re
 
 export const wpBase = (siteUrl: string): string => siteUrl.replace(/\/+$/, "");
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const editUrlFor = (siteUrl: string, id: number, type: "posts" | "pages" = "posts"): string =>
   `${wpBase(siteUrl)}/wp-admin/post.php?post=${id}&action=edit`;
 

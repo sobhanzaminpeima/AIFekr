@@ -102,7 +102,8 @@ export async function safeFetch(raw: string, init: RequestInit = {}, maxRedirect
         else signal.addEventListener("abort", () => reject(signal.reason), { once: true });
       }),
     ]);
-    const agent = new Agent({ connect: { lookup: (_host, options, callback) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const agent = new Agent({ connect: { lookup: (_host: any, options: any, callback: any) => {
       const family = typeof options === "object" ? options.family : 0;
       const candidates = addresses.filter(a => !family || a.family === family);
       const chosen = candidates[0];
@@ -140,7 +141,7 @@ export async function safeFetch(raw: string, init: RequestInit = {}, maxRedirect
         chunks.push(next.value);
       }
     }
-    const result = new Response([204, 205, 304].includes(res.status) || init.method === "HEAD" ? null : Buffer.concat(chunks), { status: res.status, statusText: res.statusText, headers: Array.from(res.headers.entries()) });
+    const result = new Response([204, 205, 304].includes(res.status) || init.method === "HEAD" ? null : Buffer.concat(chunks), { status: res.status, statusText: res.statusText, headers: Array.from(res.headers.entries()) as [string, string][] });
     Object.defineProperty(result, "url", { value: res.url });
     return result;
     } finally { await agent.close(); }

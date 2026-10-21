@@ -19,7 +19,7 @@ const P = "runtest";
 const ownerId = `${P}owner1`;
 let pipelineId = "";
 let newStageId = "";
-let wonStageId = "";
+let wonStageId = ""; // eslint-disable-line @typescript-eslint/no-unused-vars
 let dealId = "";
 let conversationId = "";
 
