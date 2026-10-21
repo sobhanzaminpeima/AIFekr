@@ -19,7 +19,7 @@ async function ensureDefaults() {
   const count = await prisma.moduleRegistry.count();
   if (count === 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await prisma.moduleRegistry.createMany({ data: DEFAULT_MODULES as any[], skipDuplicates: true });
+    await prisma.moduleRegistry.createMany({ data: DEFAULT_MODULES as any[] });
   }
 }
 

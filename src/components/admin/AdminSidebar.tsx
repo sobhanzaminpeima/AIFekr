@@ -7,6 +7,7 @@ import {
   Activity, Settings, LogOut, Sparkles, Shield, MessageSquare,
   HelpCircle, Package, UserCog, Database, Cpu, Contact,
   ChevronDown, Factory, Building2, Tag, Clock, Globe, Coins, Rocket, BarChart2, Phone,
+  Gamepad2, Puzzle,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -59,6 +60,13 @@ const navGroups = [
       { icon: Package, label: "مدیریت پکیج", href: "/admin/packages" },
       { icon: CreditCard, label: "اشتراک‌ها", href: "/admin/subscriptions" },
       { icon: DollarSign, label: "مدیریت مالی", href: "/admin/financial" },
+    ],
+  },
+  {
+    label: "ماژول‌ها و بازی‌ها",
+    items: [
+      { icon: Puzzle, label: "ماژول‌های سیستم", href: "/admin/modules" },
+      { icon: Gamepad2, label: "بازی‌ها و پلی‌گراند", href: "/admin/games" },
     ],
   },
   {
