@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import "./globals.css";
 import "@/components/billing/billing.css";
 import { Toaster } from "react-hot-toast";
@@ -75,6 +76,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={lang} dir={dir} data-theme={theme}>
       <body className="antialiased">
+        <Script src="https://www.googletagmanager.com/gtag/js?id=G-PEZ7X47VRX" strategy="afterInteractive" />
+        <Script id="aifekr-google-analytics" strategy="afterInteractive">{`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-PEZ7X47VRX');
+        `}</Script>
         <LangProvider lang={lang}>{children}</LangProvider>
         <Toaster
           position="top-center"
