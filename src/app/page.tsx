@@ -1,4 +1,8 @@
 import Link from "@/components/marketing/PublicLink";
+import {cookies} from "next/headers";
+import {redirect} from "next/navigation";
+import {verifyToken} from "@/lib/auth/jwt";
+import {prisma} from "@/lib/db/prisma";
 import { ArrowUpRight } from "lucide-react";
 import { getServerLang } from "@/lib/i18n/server";
 import { pageMetadata, SITE_NAME, SITE_URL } from "@/lib/seo/site";
@@ -22,6 +26,11 @@ export async function generateMetadata() {
   return meta;
 }
 export default async function HomePage() {
+  const session = verifyToken(cookies().get("token")?.value || "");
+  if (session) {
+    const user = await prisma.user.findUnique({where:{id:session.userId},select:{isBlocked:true}});
+    if (user && !user.isBlocked) redirect("/chat");
+  }
   const lang = await getServerLang();
   const student = await getStudentPackage();
 

@@ -174,7 +174,7 @@ export default function MobileNavShell({
         {!isChatPage && <WorkspaceHeader/>}
         <CommandPalette hideTrigger />
         {!isChatPage && <WorkspaceGuide/>}
-        <div className={isChatPage ? "h-full min-w-0" : "workspace-module-content"}>{children}</div>
+        <div className={isChatPage ? "h-full min-w-0 flex flex-col [&>a]:shrink-0 [&>div]:min-h-0 [&>div]:flex-1" : "workspace-module-content"}>{children}</div>
       </main>
 
       {/* Mobile bottom bar */}

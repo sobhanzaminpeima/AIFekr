@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
  if(!rateLimit(`payment-create:${user.id}`,10,300000).allowed)return bankError(req,"Too many requests",429);
  let body;try{body=await req.json();}catch{return bankError(req,"Invalid request",400);}
  if(!body||typeof body!=="object"||Array.isArray(body))return bankError(req,"Invalid request",400);
- if(body.currency!==undefined&&!["IRR","TRY","EUR"].includes(body.currency))return bankError(req,"Invalid currency",400);
+ if(body.currency!==undefined&&!["IRR","TRY","EUR","USD"].includes(body.currency))return bankError(req,"Invalid currency",400);
  const {plan}=body;
  const period = body.period ?? "monthly";
  if(typeof plan!=="string")return bankError(req,"Invalid plan",400);
@@ -50,7 +50,8 @@ export async function POST(req: NextRequest) {
  const bank=await bankSettings();
  bank.currency=body.currency==="EUR"?"EUR":"TRY";
  if(body.currency === "EUR") { bank.currency="EUR"; bank.iban=bank.euroIban; }
- if(!rial&&(!validIban(bank.iban)||!["TRY","EUR"].includes(bank.currency)))return bankError(req,"Bank account is unavailable",503);
+ if(body.currency === "USD") { bank.currency="USD"; bank.iban=bank.euroIban; }
+ if(!rial&&(!validIban(bank.iban)||!["TRY","EUR","USD"].includes(bank.currency)))return bankError(req,"Bank account is unavailable",503);
  const usd=packageUsdPrice(pkg,rates);
  const promo=tier?{percent:0,code:null}:await referralDiscount(user.id);
  const originalTotal=configured?configured.minor/(configured.currency==="IRT"?1:100)/(configured.currency==="TRY"?rates.usdToTry:configured.currency==="IRT"?rates.usdToToman:1):usd*priceMultiplier*(1-discount);
