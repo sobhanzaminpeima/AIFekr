@@ -72,6 +72,7 @@ function splitReportSections(markdown: string): { title: string; body: string }[
 }
 
 export default function SocialPage() {
+  const [workspaceSection,setWorkspaceSection]=useState("publish");
   const { t, lang } = useTranslation();
   const isFa = lang === "fa";
   const TONES = [
@@ -900,7 +901,6 @@ export default function SocialPage() {
     <div className="min-h-screen p-6" style={{ background: "var(--surface-0)" }}>
       <Script src="https://js.puter.com/v2/" strategy="afterInteractive" onReady={() => setPuterReady(true)} />
       <div className="max-w-4xl mx-auto">
-        <InstagramStudio/>
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "rgba(139,92,246,0.15)" }}>
@@ -912,6 +912,10 @@ export default function SocialPage() {
           </div>
         </div>
 
+        <nav aria-label="Instagram workspace" className="flex gap-2 overflow-x-auto mb-6 pb-2">{[["publish",tri(lang,"حساب و انتشار","Account & publishing","Konto & Veröffentlichung","Hesap ve yayın")],["content",tri(lang,"ساخت محتوا","Content studio","Inhaltsstudio","İçerik stüdyosu")],["analytics",tri(lang,"آمار و رشد","Analytics & growth","Analyse & Wachstum","Analiz ve büyüme")],["messages",tri(lang,"پیام‌ها و اتوماسیون","Inbox & automation","Nachrichten & Automatisierung","Mesajlar ve otomasyon")]].map(([key,label])=><button key={key} onClick={()=>setWorkspaceSection(key)} aria-pressed={workspaceSection===key} className="shrink-0 rounded-xl px-4 py-3 text-sm font-medium" style={{background:workspaceSection===key?"var(--primary)":"var(--surface-1)",color:workspaceSection===key?"white":"var(--text-primary)",border:"1px solid var(--border)"}}>{label}</button>)}</nav>
+        <div hidden={workspaceSection!=="content"} className="space-y-5">
+        <InstagramStudio/>
+        <details className="rounded-2xl border p-4" style={{borderColor:"var(--border)"}}><summary className="cursor-pointer text-sm font-medium">{tri(lang,"تنظیمات برند و تولید پیشرفته","Brand settings & advanced creation","Marke & erweiterte Erstellung","Marka ve gelişmiş oluşturma")}</summary>
         {/* Describe the page once — pre-filled from Business Doctor — and every
             caption, calendar and report below is generated against it. */}
         <BrandProfileCard lang={lang} />
@@ -1072,6 +1076,8 @@ export default function SocialPage() {
           </div>
         )}
 
+        </details></div>
+        <div hidden={workspaceSection!=="publish"}>
         {/* Instagram automation — step wizard */}
         <div ref={igSectionRef} className="rounded-2xl p-6 mt-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <div className="flex items-center justify-between mb-4">
@@ -1676,6 +1682,7 @@ export default function SocialPage() {
           )}
         </div>
 
+        </div><div hidden={workspaceSection!=="analytics"}>
         {/* Page analytics & growth */}
         <div className="rounded-2xl p-6 mt-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
           <div className="flex items-center justify-between mb-4">
@@ -1940,8 +1947,10 @@ export default function SocialPage() {
           )}
         </div>
 
+        </div>
       </div>
-
+      <div hidden={workspaceSection!=="messages"} className="max-w-4xl mx-auto">
+      {!igConnected&&<p className="rounded-2xl border p-6" style={{borderColor:"var(--border)"}}>{tri(lang,"ابتدا از بخش حساب و انتشار، اینستاگرام را متصل کنید.","Connect Instagram in Account & publishing first.","Zuerst Instagram unter Konto verbinden.","Önce Hesap ve yayın bölümünden Instagram bağlayın.")}</p>}
       {/* Native Auto Direct */}
       {igConnected && (
         <div className="rounded-2xl p-6 mt-6" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
@@ -2230,6 +2239,7 @@ export default function SocialPage() {
         </div>
       )}
 
+      </div>
       {/* Gallery picker modal */}
       {showGalleryPicker && (
         <div
