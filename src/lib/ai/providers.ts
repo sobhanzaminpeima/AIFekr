@@ -269,7 +269,7 @@ export async function streamOpenAICompat(
     // DeepSeek, OpenRouter, Cohere — still expects `max_tokens` and would
     // itself 400 on the new name.
     ...(provider.provider === "openai" ? { max_completion_tokens: tokenCap } : { max_tokens: tokenCap }),
-    temperature: provider.structuredJson ? 0.2 : 0.7,
+    ...(/^gpt-5/.test(provider.model)&&provider.provider==="openai"?{reasoning_effort:"minimal"}:{temperature: provider.structuredJson ? 0.2 : 0.7}),
     ...(provider.structuredJson ? {response_format:{type:"json_object"}} : {}),
     // Groq's current free catalog is now exclusively "reasoning" models
     // (openai/gpt-oss-*, qwen3.x) -- unlike the plain instruct model this

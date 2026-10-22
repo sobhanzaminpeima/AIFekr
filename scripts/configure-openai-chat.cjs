@@ -1,0 +1,5 @@
+require('@next/env').loadEnvConfig(process.cwd());const{PrismaClient}=require('@prisma/client'),db=new PrismaClient();
+(async()=>{if(!process.env.OPENAI_API_KEY)throw Error('OPENAI_KEY_MISSING');const r=await fetch('https://api.openai.com/v1/models/gpt-5-mini',{headers:{Authorization:'Bearer '+process.env.OPENAI_API_KEY},signal:AbortSignal.timeout(20000)});if(!r.ok)throw Error('OpenAI model access '+r.status);
+ await db.customAiProvider.upsert({where:{id:'openai-gpt-5-mini'},create:{id:'openai-gpt-5-mini',name:'OpenAI · GPT-5 mini',type:'chat',baseUrl:'https://api.openai.com/v1',apiKey:'env-ref:OPENAI_API_KEY',model:'gpt-5-mini',enabled:true},update:{}});
+ const setting=await db.siteSetting.findUniqueOrThrow({where:{key:'independentAiChat'}}),policy=JSON.parse(setting.value);await db.siteSetting.update({where:{key:setting.key},data:{value:JSON.stringify({...policy,modelId:'openai-gpt-5-mini'})}});console.log('Independent chat uses direct OpenAI GPT-5 mini. No secret printed.');
+})().catch(e=>{console.error(e.message);process.exitCode=1}).finally(()=>db.$disconnect());

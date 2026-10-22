@@ -8,6 +8,7 @@ import {verifyToken} from "@/lib/auth/jwt";
 import {prisma} from "@/lib/db/prisma";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
+  robots:{index:false,follow:false},
   title: "AIFekr AI Chat",
   description:
     "Independent AI chat powered by AI models. Ask questions, write, learn and explore ideas.",

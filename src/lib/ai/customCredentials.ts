@@ -2,6 +2,7 @@ import {prisma} from "@/lib/db/prisma";
 import {decryptSecret} from "@/lib/crypto/secretBox";
 /** A linked custom model reuses the encrypted provider vault; credentials never enter admin responses. */
 export async function resolveCustomApiKey(value:string){
+ if(value==="env-ref:OPENAI_API_KEY"){if(!process.env.OPENAI_API_KEY)throw Error("API_KEY_NOT_CONFIGURED");return process.env.OPENAI_API_KEY;}
  if(value==="cf-ref:platform")return (await (await import("@/lib/cloudflare/workersAi")).workersAiCredentials()).key;
  if(value.startsWith("vf-ref:")){
   const id=value.slice(7);if(!/^[a-z0-9-]{3,80}$/.test(id))throw Error("INVALID_CREDENTIAL_REFERENCE");

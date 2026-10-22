@@ -29,7 +29,7 @@ export async function streamCustomProvider(
     id: `custom:${row.id}`,
     name: row.name,
     model: row.model,
-    provider: "custom",
+    provider: row.baseUrl==="https://api.openai.com/v1"?"openai":"custom",
     baseURL: row.baseUrl,
     apiKey: await resolveCustomApiKey(row.apiKey),
     strengths: [],

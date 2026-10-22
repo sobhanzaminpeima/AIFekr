@@ -436,6 +436,8 @@ The integrated free arcade is available at `/play`; administration is at `/admin
 
 # Chat Starter launch
 
+SEO release (2026-10-22): public canonicals, hreflang and sitemap use the production identity `https://aifekr.com`, independent of a local build URL. Public chat guide: `/ai-chat`. Interactive/account pages are noindex. Keyword map and audit: `docs/seo-audit-20261022.md`; reusable audit prompt: `docs/seo-master-prompt-fa.md`. Direct OpenAI chat uses the approved GPT-5 mini adapter; configuration is explicit via `scripts/configure-openai-chat.cjs` and reuses the server environment key without storing plaintext credentials in model rows.
+
 Current entry flow: **Start → `/explore` public preview → sign in on first send → `/choose-plan`**. Four categories (Business, Student, Fitness, AI Chat) share published package data across landing, pricing and platform. AI Chat starts with a free option, then Eco 199,000 / Plus 499,000 / Pro 1,499,000 Toman per 30 days. These are AIFekr packages using available configured models. Apply `20261021230000_platform_entry`, then run `scripts/configure-platform-entry.cjs` after deployment. It preserves admin price edits and sets guest inference allowance to zero.
 
 The public `/start` offer is managed in Admin → Packages. Initial allocation: 200,000 Toman, 30 days, 100 chat credits. `/chat` supports three guest messages when enabled in Admin → AI Chat. Paid starter access and free PLAY competitions are independent. See [launch, migration and fulfillment notes](docs/chat-starter-launch.md).

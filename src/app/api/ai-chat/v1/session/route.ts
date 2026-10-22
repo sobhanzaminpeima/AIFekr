@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     const response = NextResponse.json(
       {
         authenticated: !!identity.user,
-        modelName:(await prisma.customAiProvider.findUnique({where:{id:policy.modelId},select:{name:true}}))?.name,
+        modelName:policy.modelId==="openai-gpt-5-mini"?"OpenAI · GPT-5 mini":(await prisma.customAiProvider.findUnique({where:{id:policy.modelId},select:{name:true}}))?.name,
         name: identity.user?.name,
         chatOnly: identity.user?.chatOnly,
         chatPlanExpiry: identity.user?.chatPlanExpiry,

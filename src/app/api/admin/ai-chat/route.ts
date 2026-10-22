@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
         _count: { _all: true },
       }),
       prisma.customAiProvider.findMany({
-        where: { type: "chat", id: "cloudflare-llama-70b" },
+        where: { type: "chat", id: {in:["cloudflare-llama-70b","openai-gpt-5-mini"]} },
         select: { id: true, name: true, model: true, enabled: true },
       }),
     ]);
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "ORIGIN_FORBIDDEN" }, { status: 403 });
   try {
     const policy = policySchema.parse(await req.json());
-    if (policy.modelId !== "cloudflare-llama-70b")
+    if (!["cloudflare-llama-70b","openai-gpt-5-mini"].includes(policy.modelId))
       throw Error("MODEL_NOT_APPROVED");
     await prisma.$transaction(async (tx) => {
       await tx.siteSetting.upsert({

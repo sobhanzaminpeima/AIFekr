@@ -1,5 +1,7 @@
 export const dynamic = "force-dynamic";
-export const metadata = { title: "AIFekr FIT — AI fitness coaches & workout workspace", description: "Meet FIKA and FIKO, plan your workouts and log real progress with AIFekr FIT." };
+import {pageMetadata} from "@/lib/seo/site";
+import {searchTargets} from "@/lib/seo/searchTargets";
+export async function generateMetadata(){return pageMetadata(await getServerLang(),"/fit",searchTargets["/fit"].title,searchTargets["/fit"].description);}
 
 import Link from "next/link";
 import { cookies } from "next/headers";

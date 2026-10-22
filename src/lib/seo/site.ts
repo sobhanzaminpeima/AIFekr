@@ -2,18 +2,22 @@ import type { Metadata } from "next";
 import { tri } from "@/lib/i18n/tri";
 import type { Lang } from "@/lib/i18n/server";
 import { localizedPublicPath, PUBLIC_LANGUAGES } from "./locales";
+import {searchTargets} from "./searchTargets";
 
 /**
  * Single source of truth for AiFekr's own public SEO surface (robots.txt,
  * sitemap.xml, canonical URLs, social cards). Found missing/incomplete by
  * running the platform's own SEO audit against aifekr.com.
  */
-export const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://aifekr.com").replace(/\/$/, "");
-export const SITE_NAME = "AiFekr";
+// Public identity must never inherit a local preview/build-server origin.
+export const SITE_URL = "https://aifekr.com";
+export const SITE_NAME = "AIFekr";
 
 /** Pages a search engine should index (static ones; industry packs are added from the database). */
 export const PUBLIC_PATHS: { path: string; priority: number; changeFrequency: "daily" | "weekly" | "monthly" | "yearly" }[] = [
   { path: "/", priority: 1, changeFrequency: "weekly" },
+  { path: "/ai-chat", priority: 0.9, changeFrequency: "monthly" },
+  { path: "/fit", priority: 0.8, changeFrequency: "monthly" },
   { path: "/industry", priority: 0.8, changeFrequency: "weekly" },
   { path: "/ai-team", priority: 0.7, changeFrequency: "monthly" },
   { path: "/about", priority: 0.6, changeFrequency: "monthly" },
@@ -55,6 +59,7 @@ export function publicAlternates(lang: Lang, path: string) {
  * identical title and description from the root layout.)
  */
 export function pageMetadata(lang: Lang, path: string, title: Text4, description: Text4): Metadata {
+  if(searchTargets[path]){title=searchTargets[path].title;description=searchTargets[path].description;}
   const t = tri(lang, title.fa, title.en, title.de, title.tr ?? title.en);
   const d = tri(lang, description.fa, description.en, description.de, description.tr ?? description.en);
   return {

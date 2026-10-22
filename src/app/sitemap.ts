@@ -9,7 +9,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const paths = new Map(PUBLIC_PATHS.map(page => [page.path, page]));
   for (const path of [...features.map(feature => `/features/${feature.slug}`), ...solutionCatalog.map(solution => `/solutions/${solution.slug}`), ...guides.map(guide => `/guides/${guide.slug}`)]) paths.set(path, { path, changeFrequency: "monthly", priority: 0.7 });
   const entries: MetadataRoute.Sitemap = [];
-  for (const page of Array.from(paths.values())) for (const lang of PUBLIC_LANGUAGES) entries.push({ url: absoluteUrl(localizedPublicPath(page.path, lang)), ...(["/", "/pricing"].includes(page.path) || page.path.startsWith("/guides") ? { lastModified: CONTENT_UPDATED_AT } : {}), changeFrequency: page.changeFrequency, priority: page.priority, alternates: { languages: publicAlternates(lang, page.path).languages } });
+  for (const page of Array.from(paths.values())) for (const lang of PUBLIC_LANGUAGES) entries.push({ url: absoluteUrl(localizedPublicPath(page.path, lang)), ...(page.path.startsWith("/guides/") ? { lastModified: CONTENT_UPDATED_AT } : {}), changeFrequency: page.changeFrequency, priority: page.priority, alternates: { languages: publicAlternates(lang, page.path).languages } });
   try {
     const packs = await prisma.industryPack.findMany({ where: { isActive: true }, select: { slug: true } });
     for (const pack of packs) for (const lang of ["fa", "en", "de"] as const) {

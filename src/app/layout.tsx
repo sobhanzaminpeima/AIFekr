@@ -17,7 +17,7 @@ import { SITE_URL, SITE_NAME } from "@/lib/seo/site";
 // shares it instead of re-deriving (and silently regressing) the same fallback.
 
 const TITLE: Record<Lang, string> = {
-  fa: "هوشمند AI — پلتفرم هوش مصنوعی",
+  fa: "AIFekr — پلتفرم هوش مصنوعی فارسی",
   en: "AiFekr — AI Platform",
   de: "AiFekr — KI-Plattform",
   tr: "AiFekr — AI Platform",
@@ -36,7 +36,7 @@ export async function generateMetadata(): Promise<Metadata> {
     // Absolute base so canonical / Open Graph URLs resolve to aifekr.com, and a
     // template so every page that sets only a short title still gets the brand.
     metadataBase: new URL(SITE_URL),
-    title: { default: TITLE[lang], template: "%s | AiFekr" },
+    title: { default: TITLE[lang], template: "%s | AIFekr" },
     description: DESCRIPTION[lang],
     applicationName: SITE_NAME,
     openGraph: { type: "website", siteName: SITE_NAME, title: TITLE[lang], description: DESCRIPTION[lang], locale: ({ fa: "fa_IR", en: "en_US", de: "de_DE", tr: "tr_TR" } as const)[lang] },

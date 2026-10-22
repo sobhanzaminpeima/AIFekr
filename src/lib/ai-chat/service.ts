@@ -160,7 +160,7 @@ export async function settleTurn(
               0.05,
               Math.max(
                 0.000001,
-                (usage.promptTokens * 0.293 + usage.completionTokens * 2.253) /
+                (usage.promptTokens * (r.model==="openai-gpt-5-mini"?0.25:0.293) + usage.completionTokens * (r.model==="openai-gpt-5-mini"?2:2.253)) /
                   1000000,
               ),
             )

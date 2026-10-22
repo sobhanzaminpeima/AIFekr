@@ -14,7 +14,7 @@ export const copy = {
   explore: ["کشف قابلیت‌ها", "Explore the platform", "Plattform entdecken", "Platformu keşfedin"],
   demo: ["دموی نمایشی · بدون مصرف اعتبار", "Illustrative demo · no credits used", "Beispieldemo · kein Creditverbrauch", "Örnek demo · kredi kullanılmaz"],
   eyebrow: ["یک فضای متصل برای فکر، ساخت و رشد", "ONE CONNECTED SPACE TO THINK, CREATE & GROW", "EIN VERNETZTER RAUM FÜR IDEEN, KREATION & WACHSTUM", "DÜŞÜNMEK, ÜRETMEK VE BÜYÜMEK İÇİN TEK ALAN"],
-  hero: ["هوش مصنوعی،\nدر جریان کار شما.", "AI, inside\nyour everyday work.", "KI, mitten in\nIhrem Arbeitsalltag.", "Yapay zekâ,\ngünlük işinizin içinde."],
+  hero: ["چت و ابزارهای هوش مصنوعی،\nبرای کار و یادگیری.", "AI chat and tools\nfor work and learning.", "KI, mitten in\nIhrem Arbeitsalltag.", "Yapay zekâ,\ngünlük işinizin içinde."],
   intro: ["از یک سؤال تا تولید محتوا، مدیریت مشتری و برنامهٔ مطالعه؛ ابزارهای هوش مصنوعی و فضای کاری‌تان را در AIFekr کنار هم داشته باشید.", "From a question to creating content, managing customers and planning your studies. Bring AI tools and your workspaces together in AIFekr.", "Von einer Frage über Inhalte und Kundenmanagement bis zum Lernplan. KI-Tools und Arbeitsbereiche gemeinsam in AIFekr.", "Bir sorudan içerik üretmeye, müşteri yönetimine ve çalışma planına. Yapay zekâ araçları ve çalışma alanları AIFekr'de bir arada."],
   noPromise: ["امکانات و دسترسی‌ها براساس پلن و ماژول فعال شما", "Access depends on your plan and enabled modules", "Zugriff abhängig von Tarif und aktivierten Modulen", "Erişim planınıza ve etkin modüllere bağlıdır"],
   ecosystem: ["ابزارهای جدا، یک جریان متصل.", "Different tools. One connected flow.", "Verschiedene Tools. Ein vernetzter Ablauf.", "Farklı araçlar. Tek bağlantılı akış."],
