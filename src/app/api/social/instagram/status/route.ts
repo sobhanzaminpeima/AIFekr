@@ -5,7 +5,6 @@ import { prisma } from "@/lib/db/prisma";
 import { canAutoPublish } from "@/lib/utils/planGates";
 import { unsubscribeFromWebhooks } from "@/lib/instagram";
 import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
-import { bizScope } from "@/lib/accounting/scope";
 import { instagramWorkspaceScope } from "@/lib/instagram/workspaceScope";
 
 export async function GET(req: NextRequest) {
@@ -48,7 +47,6 @@ export async function DELETE(req: NextRequest) {
   // trigger/reply logs, follower-count history and the auto-publish queue
   // were all tied to whichever account was connected at the time.
   const workspace = instagramWorkspaceScope(businessId);
-  const campaigns = await prisma.instagramCommentCampaign.findMany({ where: { userId: user.id, ...workspace }, select: { id: true } });
   await prisma.$transaction([
     prisma.instagramCommentReplyLog.deleteMany({ where: { userId: user.id, ...workspace } }),
     prisma.instagramCommentCampaign.deleteMany({ where: { userId: user.id, ...workspace } }),
@@ -59,5 +57,7 @@ export async function DELETE(req: NextRequest) {
     prisma.instagramConnection.deleteMany({ where: { userId: user.id, ...workspace } }),
   ]);
 
-  return NextResponse.json({ success: true });
+  const response = NextResponse.json({ success: true });
+  response.cookies.set("ig_oauth_pending", "", {path:"/api/social/instagram",maxAge:0});
+  return response;
 }

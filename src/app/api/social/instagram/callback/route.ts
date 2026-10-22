@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import {requireAuth} from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { exchangeCodeForToken, getLongLivedToken, getInstagramProfile, subscribeToInstagramWebhooks } from "@/lib/instagram";
 import { instagramWorkspaceScope } from "@/lib/instagram/workspaceScope";
@@ -29,7 +30,8 @@ export async function GET(req: NextRequest) {
   const userId = pending?.userId;
   const businessId = pending?.businessId ?? null;
 
-  if (error || !code || !userId || !state || state !== pending?.state) {
+  const currentUser = await requireAuth(req);
+  if (error || !code || !userId || !state || state !== pending?.state || currentUser?.id !== userId) {
     const response = NextResponse.redirect(`${appUrl}/social?instagram=failed`);
     response.cookies.set("ig_oauth_pending", "", { path: "/api/social/instagram", maxAge: 0 });
     return response;
@@ -59,7 +61,6 @@ export async function GET(req: NextRequest) {
     // follower history or auto-publish queue attached to the new one.
     const prev = await prisma.instagramConnection.findFirst({ where: { userId, ...instagramWorkspaceScope(businessId) } });
     if (prev && prev.igUserId !== igUserId) {
-      const camps = await prisma.instagramCommentCampaign.findMany({ where: { userId, ...instagramWorkspaceScope(businessId) }, select: { id: true } });
       await prisma.$transaction([
         prisma.instagramCommentReplyLog.deleteMany({ where: { userId, businessId } }),
         prisma.instagramCommentCampaign.deleteMany({ where: { userId, ...instagramWorkspaceScope(businessId) } }),

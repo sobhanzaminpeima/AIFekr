@@ -134,6 +134,8 @@ export function getOAuthUrl(redirectUri: string, state: string): string {
     redirect_uri: redirectUri,
     scope: scopes,
     response_type: "code",
+    force_authentication: "1",
+    enable_fb_login: "0",
     state,
   });
   return `https://www.instagram.com/oauth/authorize?${params}`;

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Script from "next/script";
+import InstagramStudio from "@/components/social/InstagramStudio";
 import { Share2, Copy, Check, Calendar, Camera, Zap, Loader2, Image as ImageIcon, Upload, Wand2, X, TrendingUp, Users, Heart, MessageCircle, Sparkles, ExternalLink, PenLine, ChevronLeft, Clock, Link2, Printer, Megaphone, Target, CheckCircle2, BarChart3, Activity, Video, Send, Inbox } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
@@ -583,7 +584,7 @@ export default function SocialPage() {
 
   const [disconnectingIg, setDisconnectingIg] = useState(false);
   async function disconnectInstagram() {
-    if (!confirm(tri(lang, "اتصال اینستاگرام قطع بشه؟ کمپین‌ها و تنظیمات باقی می‌مونن.", "Disconnect Instagram? Your campaigns and settings will stay.", "Instagram trennen? Ihre Kampagnen und Einstellungen bleiben erhalten."))) return;
+    if (!confirm(tri(lang, "اتصال قطع شود؟ کمپین‌ها، صف انتشار و داده‌های وابسته به این حساب حذف می‌شوند.", "Disconnect? Campaigns, publishing queue and account-specific data will be deleted.", "Trennen? Kampagnen, Veröffentlichungswarteschlange und Kontodaten werden gelöscht."))) return;
     setDisconnectingIg(true);
     try {
       const r = await fetch("/api/social/instagram/status", { method: "DELETE", credentials: "include" });
@@ -899,6 +900,7 @@ export default function SocialPage() {
     <div className="min-h-screen p-6" style={{ background: "var(--surface-0)" }}>
       <Script src="https://js.puter.com/v2/" strategy="afterInteractive" onReady={() => setPuterReady(true)} />
       <div className="max-w-4xl mx-auto">
+        <InstagramStudio/>
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "rgba(139,92,246,0.15)" }}>
