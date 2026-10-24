@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 import { generateMusic } from "@/lib/ai/replicate";
 import { generateMusicElevenLabs } from "@/lib/ai/elevenlabs";
 import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
-import { getAvailableCredits, chargeAndLog } from "@/lib/utils/teamCredits";
+import { getAvailableCredits, chargeAndLog, refundCredits } from "@/lib/utils/teamCredits";
 import { getLimitsForPlan } from "@/lib/utils/planLimits";
 import { isFeatureEnabled, FEATURE_DISABLED_MESSAGE } from "@/lib/utils/featureToggles";
 import { getCreditCosts } from "@/lib/utils/creditCosts";
@@ -70,14 +70,30 @@ export async function POST(req: NextRequest) {
       });
 
       const key = getStorageKey(user.id, "music", `${music.id}.mp3`);
-      const finalUrl = await uploadToStorage(elevenLabsResult.buffer, key, elevenLabsResult.contentType);
+      let finalUrl: string;
+      try {
+        finalUrl = await uploadToStorage(elevenLabsResult.buffer, key, elevenLabsResult.contentType);
+      } catch (err) {
+        await prisma.generatedMusic.updateMany({ where: { id: music.id, refunded: false }, data: { refunded: true } });
+        await refundCredits(user.id, creditCost);
+        throw err;
+      }
 
       await prisma.generatedMusic.update({ where: { id: music.id }, data: { url: finalUrl } });
 
       return NextResponse.json({ musicId: music.id, status: "succeeded", output: finalUrl, credits_used: creditCost });
     }
 
-    const { predictionId, status } = await generateMusic({ prompt, genre, duration: duration as any });
+    // Credits were charged above; if the job can't even be started, give them back.
+    let started: Awaited<ReturnType<typeof generateMusic>>;
+    try {
+      started = await generateMusic({ prompt, genre, duration: duration as any });
+    } catch (err) {
+      await refundCredits(user.id, creditCost);
+      console.error("music generate start error:", err);
+      return NextResponse.json({ error: "سرویس تولید موزیک در دسترس نیست. اعتبار شما برگشت داده شد." }, { status: 503 });
+    }
+    const { predictionId, status } = started;
 
     const music = await prisma.generatedMusic.create({
       data: {

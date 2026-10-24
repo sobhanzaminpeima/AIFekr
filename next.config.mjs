@@ -26,6 +26,20 @@ const nextConfig = {
     ],
     unoptimized: true,
   },
+  async headers() {
+    const base = [
+      { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+      { key: "Permissions-Policy", value: "camera=(self), microphone=(self), geolocation=(), payment=()" },
+    ];
+    return [
+      // Lead forms (/f/<slug>) are embedded on customers' own sites by
+      // /api/public/leadform/<slug>/embed, so only they may be framed.
+      { source: "/f/:path*", headers: base },
+      { source: "/((?!f/).*)", headers: [...base, { key: "X-Frame-Options", value: "SAMEORIGIN" }, { key: "Content-Security-Policy", value: "frame-ancestors 'self'" }] },
+    ];
+  },
 };
 
 export default nextConfig;

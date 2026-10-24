@@ -88,9 +88,19 @@ export function middleware(req: NextRequest) {
   // Logged-in requests bucket by account (a shared IP — office, campus, carrier-grade
   // NAT — must not throttle every user behind it together); anonymous requests fall
   // back to IP, which is what actually protects auth endpoints from credential stuffing.
-  const identity = unverifiedUserId(req) ?? getClientIp(req.headers);
-  const key = `${rule.prefix}:${identity}`;
-  const result = rateLimit(key, rule.limit, rule.windowMs);
+  // The userId is unverified, so a caller could mint a fresh fake id per
+  // request to get a new bucket every time. Every request therefore also
+  // counts against its IP: at the normal limit when anonymous, and at a
+  // multiple of it for signed-in traffic so a shared office/NAT IP is not
+  // throttled as if it were one user.
+  const ip = getClientIp(req.headers);
+  // Sign-in endpoints never get the signed-in allowance: a forged cookie must
+  // not multiply the brute-force budget for passwords and OTPs.
+  const isAuthRule = rule.prefix.startsWith("/api/auth") || rule.prefix.startsWith("/api/mobile/v1/session");
+  const userId = isAuthRule ? null : unverifiedUserId(req);
+  const ipResult = rateLimit(`${rule.prefix}:ip:${ip}`, userId ? rule.limit * 5 : rule.limit, rule.windowMs);
+  const result = ipResult.allowed && userId ? rateLimit(`${rule.prefix}:${userId}`, rule.limit, rule.windowMs) : ipResult;
+
 
   if (!result.allowed) {
     return NextResponse.json(

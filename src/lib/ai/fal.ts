@@ -26,6 +26,9 @@ export interface GenerateImageOptions {
 
 export async function generateImages(opts: GenerateImageOptions): Promise<string[]> {
   if (!hasFal) {
+    // Stock photos stand in for generated images in local development only;
+    // in production that would bill the user for an image nobody generated.
+    if (process.env.NODE_ENV === "production") throw new Error("FAL image provider is not configured");
     return Array.from({ length: opts.count }, (_, i) =>
       `https://picsum.photos/seed/${Date.now() + i}/1024/1024`
     );
@@ -62,6 +65,9 @@ export async function generateImageFromReference(opts: GenerateImageOptions & { 
   const imageUrl = opts.imageUrls?.[0] ?? opts.imageUrl;
   if (!imageUrl) throw new Error("generateImageFromReference: no reference image provided");
   if (!hasFal) {
+    // Stock photos stand in for generated images in local development only;
+    // in production that would bill the user for an image nobody generated.
+    if (process.env.NODE_ENV === "production") throw new Error("FAL image provider is not configured");
     return Array.from({ length: opts.count }, (_, i) =>
       `https://picsum.photos/seed/${Date.now() + i + 200}/1024/1024`
     );
@@ -83,6 +89,9 @@ export async function generateImageFromReference(opts: GenerateImageOptions & { 
 
 export async function generateImagesHQ(opts: GenerateImageOptions): Promise<string[]> {
   if (!hasFal) {
+    // Stock photos stand in for generated images in local development only;
+    // in production that would bill the user for an image nobody generated.
+    if (process.env.NODE_ENV === "production") throw new Error("FAL image provider is not configured");
     return Array.from({ length: opts.count }, (_, i) =>
       `https://picsum.photos/seed/${Date.now() + i + 100}/1024/1024`
     );

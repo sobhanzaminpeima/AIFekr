@@ -15,7 +15,9 @@ import { uploadToStorage, getStorageKey, StorageNotConfiguredError } from "@/lib
 
 const FREE_USES = 1;
 const COOKIE_NAME = "aifekr_public_1980s_uses";
-const COOKIE_SECRET = process.env.JWT_SECRET || "dev-fallback-do-not-use-in-prod";
+// Same secret the session tokens use; jwt.ts already refuses to start without
+// it, so there is deliberately no hardcoded fallback a visitor could forge with.
+const COOKIE_SECRET = process.env.JWT_SECRET || "";
 const MAX_SIZE_BYTES = 8 * 1024 * 1024; // 8MB
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -29,6 +31,7 @@ function verify(value: string | undefined): number {
 }
 
 export async function POST(req: NextRequest) {
+  if (!COOKIE_SECRET) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
   const uses = verify(req.cookies.get(COOKIE_NAME)?.value);
   if (uses >= FREE_USES) {
     return NextResponse.json({ error: "تعداد رایگان تمام شد", limitReached: true, redirectTo: "/plans" }, { status: 402 });

@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, unauthorizedResponse, forbiddenResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { updateUserAsAdmin, deleteUserAsAdmin, PhoneAlreadyInUseError } from "@/lib/repositories/adminRepository";
+import { updateUserAsAdmin, deleteUserAsAdmin, PhoneAlreadyInUseError, assertAdminMayManage, AdminPermissionError, AdminValidationError } from "@/lib/repositories/adminRepository";
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const admin = await requireAdmin(req);
@@ -51,13 +51,18 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
   }
   try {
+    const before = await assertAdminMayManage(admin, params.id, body);
     const user = await updateUserAsAdmin(params.id, body);
-    await prisma.auditLog.create({data:{actorId:admin.id,action:"account_updated",targetId:params.id,metadata:JSON.stringify({fields:Object.keys(body).filter(k=>!["password","passwordHash"].includes(k))})}});
+    // Role and credit changes record old -> new so they can be reconciled later.
+    const changes = { ...("role" in body && body.role !== before.role ? { role: { from: before.role, to: body.role } } : {}), ...("credits" in body && body.credits !== before.credits ? { credits: { from: before.credits, to: body.credits } } : {}) };
+    await prisma.auditLog.create({data:{actorId:admin.id,action:"account_updated",targetId:params.id,metadata:JSON.stringify({fields:Object.keys(body).filter(k=>!["password","passwordHash"].includes(k)),changes})}});
     return NextResponse.json({ user:{id:user.id} });
   } catch (err) {
     if (err instanceof PhoneAlreadyInUseError) {
       return NextResponse.json({ error: err.message }, { status: 409 });
     }
+    if (err instanceof AdminPermissionError) return NextResponse.json({ error: "Only a super admin can do this", code: err.message }, { status: 403 });
+    if (err instanceof AdminValidationError) return NextResponse.json({ error: "Invalid value", code: err.message }, { status: err.message === "USER_NOT_FOUND" ? 404 : 400 });
     throw err;
   }
 }
@@ -69,6 +74,14 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     return user ? forbiddenResponse() : unauthorizedResponse(req);
   }
 
-  await deleteUserAsAdmin(params.id);
+  try {
+    const before = await assertAdminMayManage(admin, params.id, null);
+    await prisma.auditLog.create({ data: { actorId: admin.id, action: "account_deleted", targetId: params.id, metadata: JSON.stringify({ role: before.role }) } });
+    await deleteUserAsAdmin(params.id);
+  } catch (err) {
+    if (err instanceof AdminPermissionError) return NextResponse.json({ error: "Only a super admin can do this", code: err.message }, { status: 403 });
+    if (err instanceof AdminValidationError) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    throw err;
+  }
   return NextResponse.json({ success: true });
 }

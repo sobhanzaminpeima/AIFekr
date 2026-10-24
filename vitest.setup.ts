@@ -6,3 +6,6 @@
 // points at an isolated, ignored repository-local test database. Never
 // override a DATABASE_URL the environment already set explicitly.
 process.env.DATABASE_URL ||= "file:./vitest.db";
+// Tests sign and verify real JWTs; a fixed, obviously-fake secret keeps them
+// independent of any developer's local .env.
+process.env.JWT_SECRET ||= "vitest-only-jwt-secret-not-for-production";

@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
     email: email || undefined,
     phone: phone || undefined,
     passwordHash: await hashPassword(password),
-    credits: typeof credits === "number" ? credits : 200,
+    credits: Number.isSafeInteger(credits) && credits >= 0 ? credits : 200,
     plan: plan || "FREE",
     accountType:["PERSONAL","STUDENT","BUSINESS"].includes(accountType)?accountType:"PERSONAL",
     referralCode,

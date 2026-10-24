@@ -9,6 +9,16 @@ const replicate = hasReplicate
   ? new Replicate({ auth: process.env.REPLICATE_API_TOKEN })
   : null;
 
+/** Simulated `dev_*` jobs are a local-development convenience only: in
+ * production a missing token must fail loudly instead of handing the user a
+ * placeholder video/track that was billed as if it were real. */
+export class ReplicateNotConfiguredError extends Error {
+  constructor() { super("Replicate is not configured"); this.name = "ReplicateNotConfiguredError"; }
+}
+function assertDevFallbackAllowed() {
+  if (process.env.NODE_ENV === "production") throw new ReplicateNotConfiguredError();
+}
+
 // ─── Video ────────────────────────────────────────────────────────────────────
 
 export interface VideoOptions {
@@ -20,7 +30,7 @@ export interface VideoOptions {
 
 export async function generateVideo(opts: VideoOptions): Promise<{ predictionId: string; status: string }> {
   if (!replicate) {
-    // Return fake prediction in dev
+    assertDevFallbackAllowed();
     return { predictionId: `dev_${Date.now()}`, status: "starting" };
   }
 
@@ -43,6 +53,7 @@ export async function generateVideo(opts: VideoOptions): Promise<{ predictionId:
 /** Image-to-video: animates a user-uploaded reference photo instead of generating purely from text. */
 export async function generateVideoFromReference(opts: VideoOptions & { imageUrl: string }): Promise<{ predictionId: string; status: string }> {
   if (!replicate) {
+    assertDevFallbackAllowed();
     return { predictionId: `dev_${Date.now()}`, status: "starting" };
   }
 
@@ -64,6 +75,7 @@ export async function generateVideoFromReference(opts: VideoOptions & { imageUrl
 
 export async function getPredictionStatus(predictionId: string) {
   if (!replicate || predictionId.startsWith("dev_")) {
+    if (process.env.NODE_ENV === "production") return { status: "failed", output: null, error: "Replicate is not configured" };
     // Simulate completion after a bit
     return { status: "succeeded", output: "https://placehold.co/1280x720/1a1a1a/ea580c?text=Video+Preview" };
   }
@@ -85,6 +97,7 @@ export interface MusicOptions {
 
 export async function generateMusic(opts: MusicOptions): Promise<{ predictionId: string; status: string }> {
   if (!replicate) {
+    assertDevFallbackAllowed();
     return { predictionId: `dev_music_${Date.now()}`, status: "starting" };
   }
 

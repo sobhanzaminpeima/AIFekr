@@ -11,7 +11,7 @@ import path from "path";
 const API_ROOT = path.join(process.cwd(), "src/app/api");
 
 const CALLS_MODEL = /routedStreamChat|routedChat|@\/lib\/ai\/(router|claude|qwen|replicate|fal|openaiImage|elevenlabs|typesafe)|@\/lib\/agents\//;
-const CHARGES = /withToolCredits|reserveToolCredits|chargeAndLog|deductCredits/;
+const CHARGES = /withToolCredits|reserveToolCredits|reserveLoggedCredits|chargeAndLog|deductCredits/;
 
 /** route dir (relative to src/app/api) -> why it is not charged per call */
 const UNBILLED: Record<string, string> = {
@@ -40,6 +40,7 @@ const UNBILLED: Record<string, string> = {
   "crm/viewings/needs-feedback": "query only, no model call",
   "seo/agent-pipeline/audit": "deterministic content audit, no model call",
   "social/content-ideas": "cached 24h per profile; pack ideas are free",
+  "mobile/v1/fitness/coach": "delegates to fitness/coach, which charges the personal wallet after the answer",
 };
 
 function routes(dir: string, out: string[] = []): string[] {

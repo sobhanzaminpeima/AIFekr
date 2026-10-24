@@ -10,6 +10,43 @@ import { prisma } from "@/lib/db/prisma";
 
 const ADMIN_EDITABLE_USER_FIELDS = ["accountType", "name", "firstName", "lastName", "country", "currency", "email", "phone", "plan", "credits", "isBlocked", "planExpiry", "role", "crmPlan", "crmPlanExpiry", "commissionPercentOverride"] as const;
 
+const USER_ROLES = ["USER", "ADMIN", "SUPER_ADMIN"] as const;
+
+/** Thrown when an admin tries an action their own role does not allow. */
+export class AdminPermissionError extends Error {}
+/** Thrown for a field value of the wrong type or range. */
+export class AdminValidationError extends Error {}
+
+type AdminActor = { id: string; role: string };
+
+/**
+ * Privilege rules for editing another account. A plain ADMIN can manage
+ * customers, but changing anyone's role, touching a SUPER_ADMIN account or
+ * deleting an account is SUPER_ADMIN-only — otherwise any admin could promote
+ * themselves and take over the platform.
+ */
+export async function assertAdminMayManage(actor: AdminActor, targetId: string, body: Record<string, unknown> | null) {
+  const target = await prisma.user.findUnique({ where: { id: targetId }, select: { role: true, credits: true } });
+  if (!target) throw new AdminValidationError("USER_NOT_FOUND");
+  const isSuper = actor.role === "SUPER_ADMIN";
+  if (target.role === "SUPER_ADMIN" && !isSuper) throw new AdminPermissionError("SUPER_ADMIN_REQUIRED");
+  if (body === null) {
+    if (!isSuper) throw new AdminPermissionError("SUPER_ADMIN_REQUIRED");
+    if (actor.id === targetId) throw new AdminPermissionError("CANNOT_DELETE_SELF");
+    return target;
+  }
+  if ("role" in body && body.role !== target.role) {
+    if (!isSuper) throw new AdminPermissionError("SUPER_ADMIN_REQUIRED");
+    if (!USER_ROLES.includes(body.role as (typeof USER_ROLES)[number])) throw new AdminValidationError("INVALID_ROLE");
+    if (actor.id === targetId) throw new AdminPermissionError("CANNOT_CHANGE_OWN_ROLE");
+  }
+  if ("credits" in body && (!Number.isSafeInteger(body.credits) || Number(body.credits) < 0)) throw new AdminValidationError("INVALID_CREDITS");
+  if ("isBlocked" in body && typeof body.isBlocked !== "boolean") throw new AdminValidationError("INVALID_BLOCKED");
+  if ("isBlocked" in body && body.isBlocked === true && actor.id === targetId) throw new AdminPermissionError("CANNOT_BLOCK_SELF");
+  if ("commissionPercentOverride" in body && body.commissionPercentOverride !== null && (typeof body.commissionPercentOverride !== "number" || body.commissionPercentOverride < 0 || body.commissionPercentOverride > 100)) throw new AdminValidationError("INVALID_COMMISSION");
+  return target;
+}
+
 export class PhoneAlreadyInUseError extends Error {
   constructor() {
     super("این شماره موبایل قبلاً برای کاربر دیگری ثبت شده است");

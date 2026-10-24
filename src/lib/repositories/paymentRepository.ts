@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import type { Payment, User } from "@prisma/client";
+import type { Payment, Prisma, User } from "@prisma/client";
 import { STUDENT_PLAN_CODE, STUDENT_MONTHLY_CODE, isStudentIntroPlan, STUDENT_OFFER } from "@/lib/plans/studentOffer";
 
 /**
@@ -27,6 +27,16 @@ export function markPaymentAuthority(id: string, authority: string | undefined) 
 
 export function markPaymentFailed(id: string) {
   return prisma.payment.update({ where: { id }, data: { status: "FAILED" } });
+}
+
+// Wallet discount is only deducted on success (see payment/create), and only
+// inside the transaction that claimed the payment, so it can never run twice.
+async function debitWalletDiscount(tx: Prisma.TransactionClient, payment: Payment) {
+  if (payment.walletDiscountToman <= 0) return;
+  await tx.user.update({ where: { id: payment.userId }, data: { walletBalance: { decrement: payment.walletDiscountToman } } });
+  await tx.walletTransaction.create({
+    data: { userId: payment.userId, type: "redeem_at_checkout", amount: -payment.walletDiscountToman, relatedPaymentId: payment.id, note: `استفاده از موجودی ولت برای خرید ${payment.plan}` },
+  });
 }
 
 /**
@@ -57,109 +67,88 @@ export async function activatePlanForPayment(
       await tx.user.update({ where: { id: payment.userId }, data: { plan: payment.plan, accountType: "STUDENT", planExpiry: expiry, credits: { increment: planInfo?.credits || 0 }, trialLimited: false } });
       const education=await tx.industryPack.findUnique({where:{slug:"university"},select:{id:true}});if(!education)throw new Error("STUDENT_INDUSTRY_NOT_CONFIGURED");await tx.user.update({where:{id:payment.userId},data:{industryPackId:education.id}});
       await tx.userModuleOverride.upsert({ where: { userId_moduleKey: { userId: payment.userId, moduleKey: "student.workspace" } }, create: { userId: payment.userId, moduleKey: "student.workspace", enabled: true }, update: { enabled: true } });
+      await debitWalletDiscount(tx, payment);
       return expiry;
     });
   }
 
-  // CRM add-on plans are billed and activated separately from the AI-usage
-  // `plan` field — buying CRM_SOLO/CRM_TEAM must never touch/overwrite a
-  // user's existing AI plan (FREE/ECHO/PLUS/PRO/ALPHA/TEAM).
-  if (payment.plan.startsWith("CRM_")) {
-    const crmPlan = payment.plan === "CRM_TEAM" ? "TEAM" : "SOLO";
+  // Every remaining plan family activates inside ONE transaction that starts
+  // by atomically claiming the PENDING row. A gateway can report the same
+  // payment more than once (Zarinpal answers 101 "already verified" on a
+  // repeated verify; NowPayments re-sends IPNs) and the browser return URL
+  // can be replayed in parallel -- only the request that wins the claim may
+  // grant anything, so credits, plan time and the wallet debit are applied
+  // exactly once.
+  return prisma.$transaction(async tx => {
+    const claimed = await tx.payment.updateMany({ where: { id: payment.id, status: "PENDING" }, data: { status: "SUCCESS", refId, authority } });
+    if (!claimed.count) return expiry;
 
-    if (crmPlan === "TEAM") {
-      const seatLimit = planInfo?.crmSeatLimit || 5;
-      const existingTeam = await prisma.team.findUnique({ where: { ownerId: payment.userId } });
-      if (existingTeam) {
-        await prisma.$transaction([
-          prisma.payment.update({ where: { id: payment.id }, data: { status: "SUCCESS", refId, authority } }),
-          prisma.user.update({ where: { id: payment.userId }, data: { crmPlan, crmPlanExpiry: expiry } }),
-          prisma.team.update({ where: { id: existingTeam.id }, data: { maxSeats: Math.max(existingTeam.maxSeats, seatLimit) } }),
-          prisma.teamMember.upsert({
+    // CRM add-on plans are billed and activated separately from the AI-usage
+    // `plan` field — buying CRM_SOLO/CRM_TEAM must never touch/overwrite a
+    // user's existing AI plan (FREE/ECHO/PLUS/PRO/ALPHA/TEAM).
+    if (payment.plan.startsWith("CRM_")) {
+      const crmPlan = payment.plan === "CRM_TEAM" ? "TEAM" : "SOLO";
+      await tx.user.update({ where: { id: payment.userId }, data: { crmPlan, crmPlanExpiry: expiry } });
+      if (crmPlan === "TEAM") {
+        const seatLimit = planInfo?.crmSeatLimit || 5;
+        const existingTeam = await tx.team.findUnique({ where: { ownerId: payment.userId } });
+        if (existingTeam) {
+          await tx.team.update({ where: { id: existingTeam.id }, data: { maxSeats: Math.max(existingTeam.maxSeats, seatLimit) } });
+          await tx.teamMember.upsert({
             where: { userId: payment.userId },
             update: { crmRole: "OWNER" },
             create: { teamId: existingTeam.id, userId: payment.userId, role: "OWNER", crmRole: "OWNER" },
-          }),
-        ]);
-      } else {
-        await prisma.$transaction([
-          prisma.payment.update({ where: { id: payment.id }, data: { status: "SUCCESS", refId, authority } }),
-          prisma.user.update({ where: { id: payment.userId }, data: { crmPlan, crmPlanExpiry: expiry } }),
-          prisma.team.create({
+          });
+        } else {
+          await tx.team.create({
             data: {
               name: `تیم ${payment.user.name || "من"}`,
               ownerId: payment.userId,
               maxSeats: seatLimit,
               members: { create: { userId: payment.userId, role: "OWNER", crmRole: "OWNER" } },
             },
-          }),
-        ]);
+          });
+        }
+      }
+    // One-off credit top-up — no plan/expiry touched at all, just a straight
+    // credits increment. `planInfo.credits` here is the tier's creditsAmount.
+    } else if (payment.plan.startsWith("CREDITS_")) {
+      await tx.user.update({ where: { id: payment.userId }, data: { credits: { increment: planInfo?.credits || 0 } } });
+    // Voice Agent add-on — must never touch/overwrite the user's AI-usage `plan`.
+    } else if (payment.plan.startsWith("VOICE_")) {
+      await tx.user.update({ where: { id: payment.userId }, data: { voicePlan: "ACTIVE", voicePlanExpiry: expiry } });
+    } else if (payment.plan === "TEAM" || payment.plan.startsWith("TEAM_")) {
+      const seatLimit = planInfo?.teamSeatLimit || 5;
+      const existingTeam = await tx.team.findUnique({ where: { ownerId: payment.userId } });
+      await tx.user.update({ where: { id: payment.userId }, data: { plan: "TEAM", accountType: "BUSINESS", planExpiry: expiry, trialLimited: false } });
+      if (existingTeam) {
+        await tx.team.update({
+          where: { id: existingTeam.id },
+          data: { credits: { increment: planInfo?.credits || 0 }, planExpiry: expiry, maxSeats: Math.max(existingTeam.maxSeats, seatLimit) },
+        });
+      } else {
+        await tx.team.create({
+          data: {
+            name: `تیم ${payment.user.name || "من"}`,
+            ownerId: payment.userId,
+            credits: planInfo?.credits || 0,
+            planExpiry: expiry,
+            maxSeats: seatLimit,
+            members: { create: { userId: payment.userId, role: "OWNER" } },
+          },
+        });
       }
     } else {
-      await prisma.$transaction([
-        prisma.payment.update({ where: { id: payment.id }, data: { status: "SUCCESS", refId, authority } }),
-        prisma.user.update({ where: { id: payment.userId }, data: { crmPlan, crmPlanExpiry: expiry } }),
-      ]);
-    }
-
-    return expiry;
-  }
-
-  // One-off credit top-up — same independent-billing pattern as CRM_*/VOICE_*
-  // above, but simpler: no plan/expiry touched at all, just a straight
-  // credits increment. `planInfo.credits` here is the tier's creditsAmount.
-  if (payment.plan.startsWith("CREDITS_")) {
-    await prisma.$transaction([
-      prisma.payment.update({ where: { id: payment.id }, data: { status: "SUCCESS", refId, authority } }),
-      prisma.user.update({ where: { id: payment.userId }, data: { credits: { increment: planInfo?.credits || 0 } } }),
-    ]);
-    return expiry;
-  }
-
-  // Voice Agent add-on — same independent-billing pattern as CRM_* above:
-  // must never touch/overwrite the user's AI-usage `plan`.
-  if (payment.plan.startsWith("VOICE_")) {
-    await prisma.$transaction([
-      prisma.payment.update({ where: { id: payment.id }, data: { status: "SUCCESS", refId, authority } }),
-      prisma.user.update({ where: { id: payment.userId }, data: { voicePlan: "ACTIVE", voicePlanExpiry: expiry } }),
-    ]);
-    return expiry;
-  }
-
-  if (payment.plan === "TEAM" || payment.plan.startsWith("TEAM_")) {
-    const seatLimit = planInfo?.teamSeatLimit || 5;
-    const existingTeam = await prisma.team.findUnique({ where: { ownerId: payment.userId } });
-    await prisma.$transaction([
-      prisma.payment.update({ where: { id: payment.id }, data: { status: "SUCCESS", refId, authority } }),
-      prisma.user.update({ where: { id: payment.userId }, data: { plan: "TEAM", accountType: "BUSINESS", planExpiry: expiry, trialLimited: false } }),
-      existingTeam
-        ? prisma.team.update({
-            where: { id: existingTeam.id },
-            data: { credits: { increment: planInfo?.credits || 0 }, planExpiry: expiry, maxSeats: Math.max(existingTeam.maxSeats, seatLimit) },
-          })
-        : prisma.team.create({
-            data: {
-              name: `تیم ${payment.user.name || "من"}`,
-              ownerId: payment.userId,
-              credits: planInfo?.credits || 0,
-              planExpiry: expiry,
-              maxSeats: seatLimit,
-              members: { create: { userId: payment.userId, role: "OWNER" } },
-            },
-          }),
-    ]);
-  } else {
-    await Promise.all([
-      prisma.payment.update({ where: { id: payment.id }, data: { status: "SUCCESS", refId, authority } }),
-      prisma.user.update({
+      await tx.user.update({
         where: { id: payment.userId },
         // Clearing trialLimited here is what turns "upgrade your account" for
         // a referral-trial user into "your previous business data is
         // restored" -- see activate-trial/route.ts for where it's first set.
         data: { plan: payment.plan, credits: { increment: planInfo?.credits || 0 }, planExpiry: expiry, trialLimited: false },
-      }),
-    ]);
-  }
+      });
+    }
 
-  return expiry;
+    await debitWalletDiscount(tx, payment);
+    return expiry;
+  });
 }

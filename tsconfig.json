@@ -32,10 +32,7 @@
     "next-env.d.ts",
     "src/**/*.ts",
     "src/**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next-fit-release/types/**/*.ts",
-    ".next-fit-market-release/types/**/*.ts",
-    ".next-fit-platform-release/types/**/*.ts"
+    ".next/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
@@ -50,6 +47,10 @@
     ".next-commerce-release",
     ".next-pricing-release",
     ".next-fit-release",
-    "tmp"
+    "tmp",
+    "tools/video-factory-renderer",
+    "mobile",
+    "third-party",
+    "graphify-out"
   ]
 }

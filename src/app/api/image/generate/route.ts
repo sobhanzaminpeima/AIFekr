@@ -5,6 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { getCreditCosts } from "@/lib/utils/creditCosts";
 import { getAvailableCredits, chargeAndLog } from "@/lib/utils/teamCredits";
+import { assertPublicHttpUrl } from "@/lib/net/safeUrl";
 import { getLimitsForPlan } from "@/lib/utils/planLimits";
 import * as qwen from "@/lib/ai/qwen";
 import * as openaiImage from "@/lib/ai/openaiImage";
@@ -58,6 +59,20 @@ export async function POST(req: NextRequest) {
     const refUrls: string[] = Array.isArray(sourceImageUrls) && sourceImageUrls.length > 0
       ? sourceImageUrls
       : sourceImageUrl ? [sourceImageUrl] : [];
+
+    if (!Number.isInteger(count) || count < 1 || count > 4) {
+      return NextResponse.json({ error: "Invalid image count" }, { status: 400 });
+    }
+    if (refUrls.some(url => typeof url !== "string" || url.length > 2048)) {
+      return NextResponse.json({ error: "Invalid reference image" }, { status: 400 });
+    }
+    // Local development serves uploads from localhost, which the SSRF guard
+    // (correctly) refuses; production references are always public URLs.
+    try {
+      if (process.env.NODE_ENV === "production") await Promise.all(refUrls.map(url => assertPublicHttpUrl(url)));
+    } catch {
+      return NextResponse.json({ error: "Reference image URL is not allowed" }, { status: 400 });
+    }
 
     const maxRefs = maxReferenceImages(user.plan);
     if (refUrls.length > maxRefs) {
@@ -130,7 +145,7 @@ export async function POST(req: NextRequest) {
             const buf = Buffer.from(url.split(",")[1] || "", "base64");
             return await uploadToStorage(buf, key, "image/webp");
           }
-          const res = await fetch(url);
+          const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
           const buf = Buffer.from(await res.arrayBuffer());
           return await uploadToStorage(buf, key, "image/webp");
         } catch {

@@ -25,6 +25,12 @@ export async function GET(req: NextRequest) {
 
   const link = links.find((l) => l.id === linkId);
   if (!link) return NextResponse.redirect(appUrl);
+  // The destination is the campaign owner's own link, but this endpoint lives
+  // on aifekr.com — only plain web URLs may be redirected to, never
+  // javascript:, data: or other schemes, and only while the campaign is live.
+  let target: URL;
+  try { target = new URL(link.url); } catch { return NextResponse.redirect(appUrl); }
+  if (!["http:", "https:"].includes(target.protocol) || !campaign.isActive) return NextResponse.redirect(appUrl);
 
   const updated = links.map((l) => (l.id === linkId ? { ...l, clicks: (l.clicks || 0) + 1 } : l));
   await prisma.instagramCommentCampaign.update({
@@ -32,5 +38,5 @@ export async function GET(req: NextRequest) {
     data: { links: JSON.stringify(updated) },
   }).catch(() => {});
 
-  return NextResponse.redirect(link.url);
+  return NextResponse.redirect(target.toString());
 }

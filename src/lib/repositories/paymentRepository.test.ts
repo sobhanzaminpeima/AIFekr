@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll } from "vitest";
+import { describe, it, expect, afterAll, beforeAll } from "vitest";
 import { prisma } from "@/lib/db/prisma";
 import { createPendingPayment, findPaymentById, activatePlanForPayment } from "./paymentRepository";
 
@@ -6,9 +6,20 @@ import { createPendingPayment, findPaymentById, activatePlanForPayment } from ".
 const USER_ID = `test-payment-period-${Date.now()}`;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// Student activation attaches the "university" industry pack, which the
+// production seed creates; the freshly migrated test DB has no seed data.
+beforeAll(async () => {
+  await prisma.industryPack.upsert({
+    where: { slug: "university" },
+    update: {},
+    create: { slug: "university", name: "دانشگاه", emoji: "🎓", tagline: "", valueProposition: "", targetCustomers: "[]", painPoints: "[]", agents: "[]", outcomes: "[]", kpis: "[]", color: "#ea580c", gradientFrom: "#ea580c", gradientTo: "#ea580c" },
+  });
+});
+
 afterAll(async () => {
-  await prisma.payment.deleteMany({ where: { userId: { in: [USER_ID, `${USER_ID}-race`] } } });
-  await prisma.user.deleteMany({ where: { id: { in: [USER_ID, `${USER_ID}-race`] } } });
+  await prisma.walletTransaction.deleteMany({ where: { userId: { in: [USER_ID, `${USER_ID}-race`, `${USER_ID}-replay`] } } });
+  await prisma.payment.deleteMany({ where: { userId: { in: [USER_ID, `${USER_ID}-race`, `${USER_ID}-replay`] } } });
+  await prisma.user.deleteMany({ where: { id: { in: [USER_ID, `${USER_ID}-race`, `${USER_ID}-replay`] } } });
 });
 
 async function activate(periodMonths: number | undefined) {
@@ -23,6 +34,19 @@ async function activate(periodMonths: number | undefined) {
 }
 
 describe("activatePlanForPayment billing term", () => {
+  it("grants a replayed credit top-up and its wallet debit exactly once", async () => {
+    const userId = `${USER_ID}-replay`;
+    await prisma.user.create({ data: { id: userId, credits: 0, walletBalance: 500 } });
+    const pending = await createPendingPayment({ userId, amount: 1000, plan: "CREDITS_test", gateway: "zarinpal", walletDiscountToman: 200 });
+    const payment = await findPaymentById(pending.id);
+    // Parallel replays of the same gateway callback, e.g. a re-submitted return URL.
+    await Promise.allSettled(Array.from({ length: 5 }, () => activatePlanForPayment(payment!, "replay-ref", `auth-${pending.id}`, { credits: 300, days: 0 })));
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    expect(user.credits).toBe(300);
+    expect(user.walletBalance).toBe(300);
+    expect(await prisma.walletTransaction.count({ where: { relatedPaymentId: pending.id } })).toBe(1);
+    expect((await prisma.payment.findUniqueOrThrow({ where: { id: pending.id } })).status).toBe("SUCCESS");
+  });
   it("grants student credits once, enables the module and gives exactly 60 days", async () => {
     await prisma.user.upsert({ where: { id: USER_ID }, create: { id: USER_ID, credits: 0 }, update: { credits: 0, plan: "FREE" } });
     const pending = await createPendingPayment({ userId: USER_ID, amount: 6272000, plan: "STUDENT_FIRST_TWO_MONTHS", gateway: "zarinpal", periodMonths: 2 });

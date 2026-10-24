@@ -1,0 +1,36 @@
+name: Web platform
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      # Throwaway values: tests and the build never reach real providers.
+      JWT_SECRET: ci-only-jwt-secret-not-for-production
+      DATABASE_URL: file:./vitest.db
+      NODE_OPTIONS: --max-old-space-size=8192
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      # The migration history must be able to rebuild the whole schema from
+      # zero; the test global setup does this, the explicit step makes a
+      # broken migration fail with a clear message.
+      - run: npx prisma generate
+      - run: DATABASE_URL=file:./ci-fresh.db npx prisma migrate deploy
+      - run: DATABASE_URL=file:./ci-fresh.db npx prisma migrate diff --from-url file:./prisma/ci-fresh.db --to-schema-datamodel prisma/schema.prisma --exit-code
+      - run: npx vitest run
+      - run: npx tsc --noEmit -p tsconfig.json
+      # Reported, not blocking, until the Next.js 14 -> 16 upgrade lands: the
+      # remaining critical advisory has no fix inside Next 14.
+      - run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true

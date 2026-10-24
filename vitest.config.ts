@@ -11,6 +11,7 @@ export default defineConfig({
     // this config file only runs in the main process and doesn't propagate
     // env mutations to the workers that actually execute tests.
     setupFiles: ["./vitest.setup.ts"],
+    globalSetup: ["./vitest.global-setup.ts"],
   },
   resolve: {
     alias: {

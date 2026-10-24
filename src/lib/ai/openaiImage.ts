@@ -3,6 +3,7 @@
 // path (same "hasX" + dev-placeholder pattern used there) so this is a
 // swap, not a rewrite of the calling route.
 import sharp from "sharp";
+import { safeFetch } from "@/lib/net/safeUrl";
 
 const hasOpenAIImage = !!(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.length > 10);
 
@@ -76,7 +77,9 @@ async function callOpenAIGenerate(promptText: string, count: number, size: strin
 }
 
 async function fetchAsPng(url: string): Promise<Buffer> {
-  const refRes = await fetch(url);
+  // Reference URLs come from the user, so this fetch must not reach private
+  // or metadata addresses (safeFetch re-checks every redirect hop).
+  const refRes = process.env.NODE_ENV === "production" ? await safeFetch(url) : await fetch(url);
   if (!refRes.ok) throw new Error(`Could not fetch reference image: HTTP ${refRes.status}`);
   const rawBuf = Buffer.from(await refRes.arrayBuffer());
   // `new Blob([buf])` with no explicit type defaults to "" -> serialized as

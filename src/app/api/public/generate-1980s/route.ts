@@ -26,7 +26,9 @@ import { isFeatureEnabled, FEATURE_DISABLED_MESSAGE } from "@/lib/utils/featureT
 
 const FREE_USES = 1;
 const COOKIE_NAME = "aifekr_public_1980s_uses";
-const COOKIE_SECRET = process.env.JWT_SECRET || "dev-fallback-do-not-use-in-prod";
+// Same secret the session tokens use; jwt.ts already refuses to start without
+// it, so there is deliberately no hardcoded fallback a visitor could forge with.
+const COOKIE_SECRET = process.env.JWT_SECRET || "";
 
 // One-per-visitor is not a real cost ceiling by itself -- a link posted
 // somewhere popular still means unbounded total spend against the admin's
@@ -70,6 +72,7 @@ async function getAdminCreditUserId(): Promise<string | null> {
 }
 
 export async function POST(req: NextRequest) {
+  if (!COOKIE_SECRET) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
   if (!(await isFeatureEnabled("image"))) {
     return NextResponse.json({ error: FEATURE_DISABLED_MESSAGE.image }, { status: 503 });
   }

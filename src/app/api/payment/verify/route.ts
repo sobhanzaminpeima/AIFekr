@@ -68,16 +68,8 @@ export async function GET(req: NextRequest) {
         .then((pkg) => (pkg ? { credits: pkg.credits, days: pkg.duration, crmSeatLimit: pkg.crmSeatLimit, teamSeatLimit: pkg.teamSeatLimit } : undefined));
   await activatePlanForPayment(payment, result.refId || "", authority, planInfo);
 
-  // Wallet discount is only actually deducted now, on success — see the
-  // comment in payment/create/route.ts for why it isn't deducted at creation.
-  if (payment.walletDiscountToman > 0) {
-    await prisma.$transaction([
-      prisma.user.update({ where: { id: payment.userId }, data: { walletBalance: { decrement: payment.walletDiscountToman } } }),
-      prisma.walletTransaction.create({
-        data: { userId: payment.userId, type: "redeem_at_checkout", amount: -payment.walletDiscountToman, relatedPaymentId: payment.id, note: `استفاده از موجودی ولت برای خرید ${payment.plan}` },
-      }),
-    ]).catch((err) => logError({ source: "/api/payment/verify (wallet discount)", error: err, userId: payment.userId }));
-  }
+  // Wallet discount is debited inside activatePlanForPayment's claim
+  // transaction, so a replayed callback can never deduct it twice.
 
   // Referral reward — first paid purchase by a referred user grants a credit
   // bonus to the referred user and a wallet commission (% of the purchase,
