@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Script from "next/script";
 import {
-  Image as ImageIcon, Wand2, Download, Loader2, Languages, Upload, X, Sparkles, Gift, Coins,
-  Copy, Check, User, Package, Mountain, Palette, Briefcase, Wand, Camera, Mic, MicOff, Plus,
-  History, PanelRightClose, PanelRightOpen, Maximize2, Minimize2, Send, RotateCcw,
+  Image as ImageIcon, Download, Loader2, Languages, Upload, X, Sparkles, Gift, Coins,
+  Copy, User, Package, Mountain, Palette, Briefcase, Wand, Camera, Mic, MicOff, Plus,
+  History, PanelRightClose, Maximize2, Minimize2, Send, RotateCcw,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { tri, type Lang } from "@/lib/i18n";

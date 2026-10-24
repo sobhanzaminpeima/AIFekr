@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Users, Play, Copy, Check, Crown, Megaphone, DollarSign, Search, Handshake, Package, Scale } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import type { LucideIcon } from "lucide-react";
-import { useTranslation, tri } from "@/lib/i18n";
+import { useTranslation } from "@/lib/i18n";
 import LongRunIndicator from "@/components/ui/LongRunIndicator";
 import CreditCost from "@/components/ui/CreditCost";
 

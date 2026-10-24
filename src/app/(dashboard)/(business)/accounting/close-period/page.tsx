@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { ArrowRight, ArrowLeft, ShieldCheck, Lock, Unlock, Plus, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { tri, type Lang } from "@/lib/i18n";
+import { tri } from "@/lib/i18n";
 import { useAccountingLocale } from "@/lib/accounting/useAccountingLocale";
 
 interface FiscalPeriod {
@@ -32,7 +32,7 @@ interface AuditReport {
 
 
 export default function ClosePeriodPage() {
-  const { lang, dir, fmtNum: fmt, fmtDate, fmtMonth: monthLabel } = useAccountingLocale();
+  const { lang, dir, fmtDate  } = useAccountingLocale();
   const [periods, setPeriods] = useState<FiscalPeriod[]>([]);
   // "no periods yet" and "still fetching" are different answers -- showing the
   // former while the request is in flight reads as a wrong empty state.

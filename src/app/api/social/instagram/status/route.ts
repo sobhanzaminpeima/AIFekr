@@ -48,7 +48,9 @@ export async function DELETE(req: NextRequest) {
   // were all tied to whichever account was connected at the time.
   const workspace = instagramWorkspaceScope(businessId);
   await prisma.$transaction([
-    prisma.instagramCommentReplyLog.deleteMany({ where: { userId: user.id, ...workspace } }),
+    // Reply logs may carry only a campaignId (userId is optional), so they
+    // are matched by the campaigns being removed as well.
+    prisma.instagramCommentReplyLog.deleteMany({ where: { OR: [{ userId: user.id, ...workspace }, { campaignId: { in: campaigns.map((c) => c.id) } }] } }),
     prisma.instagramCommentCampaign.deleteMany({ where: { userId: user.id, ...workspace } }),
     prisma.instagramFollowerSnapshot.deleteMany({ where: { userId: user.id, ...workspace } }),
     prisma.scheduledPost.deleteMany({ where: { userId: user.id, businessId } }),

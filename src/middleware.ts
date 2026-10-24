@@ -28,6 +28,15 @@ const RULES: Array<{ prefix: string; limit: number; windowMs: number }> = [
   { prefix: "/api", limit: 120, windowMs: 60 * 1000 },
 ];
 
+// Shown verbatim by client fetch wrappers, so it follows the visitor's
+// language cookie instead of always being Persian.
+const RATE_LIMIT_MESSAGE: Record<string, string> = {
+  fa: "درخواست‌های شما بیش از حد مجاز است. کمی صبر کنید و دوباره تلاش کنید.",
+  en: "Too many requests. Please wait a moment and try again.",
+  de: "Zu viele Anfragen. Bitte warten Sie einen Moment und versuchen Sie es erneut.",
+  tr: "Çok fazla istek. Lütfen biraz bekleyip tekrar deneyin.",
+};
+
 /**
  * Best-effort userId extraction from the session cookie for rate-limit bucketing only —
  * the JWT signature is NOT verified here (edge middleware avoids the Node crypto cost of
@@ -104,7 +113,7 @@ export function middleware(req: NextRequest) {
 
   if (!result.allowed) {
     return NextResponse.json(
-      { error: "درخواست‌های شما بیش از حد مجاز است. کمی صبر کنید و دوباره تلاش کنید." },
+      { error: RATE_LIMIT_MESSAGE[req.cookies.get("lang")?.value || ""] ?? RATE_LIMIT_MESSAGE.fa, code: "RATE_LIMITED" },
       { status: 429, headers: { "Retry-After": String(result.retryAfterSec) } }
     );
   }

@@ -12,6 +12,9 @@ import { getLimitsForPlan } from "@/lib/utils/planLimits";
 import { isFeatureEnabled, FEATURE_DISABLED_MESSAGE } from "@/lib/utils/featureToggles";
 import { getCreditCosts } from "@/lib/utils/creditCosts";
 
+const MUSIC_DURATIONS = [30, 60, 120];
+type MusicDuration = 30 | 60 | 120;
+
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
@@ -21,8 +24,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { prompt, genre = "pop", duration = 30 } = await req.json();
+    const { prompt, genre = "pop", duration: rawDuration = 30 } = await req.json();
     if (!prompt?.trim()) return NextResponse.json({ error: "توضیحات موزیک الزامی است" }, { status: 400 });
+    // Price tiers are 30/60/120s; any other value used to be billed at a tier
+    // while the provider was asked for the raw (possibly much longer) length.
+    if (!MUSIC_DURATIONS.includes(rawDuration)) return NextResponse.json({ error: "Invalid music duration" }, { status: 400 });
+    const duration = rawDuration as MusicDuration;
 
     const costs = await getCreditCosts();
     const creditCost = duration <= 30 ? costs.music_30s : duration <= 60 ? costs.music_60s : costs.music_120s;
@@ -87,7 +94,7 @@ export async function POST(req: NextRequest) {
     // Credits were charged above; if the job can't even be started, give them back.
     let started: Awaited<ReturnType<typeof generateMusic>>;
     try {
-      started = await generateMusic({ prompt, genre, duration: duration as any });
+      started = await generateMusic({ prompt, genre, duration });
     } catch (err) {
       await refundCredits(user.id, creditCost);
       console.error("music generate start error:", err);

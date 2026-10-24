@@ -8,6 +8,7 @@ import {
   FileText, Lightbulb, Target, Search, PenLine, ClipboardCheck, Globe2, Send, Eye, ExternalLink, Link2,
   Wand2, Image as ImageIcon, ShieldCheck, AlertTriangle, Info,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import ShareButton from "@/components/ui/ShareButton";
 
 declare global {
@@ -28,12 +29,18 @@ import CreditCost from "@/components/ui/CreditCost";
 
 type AgentKey = "ideaFinder" | "strategist" | "researcher" | "writer" | "editor" | "seo" | "publisher" | "critic";
 
-const AGENT_ICONS: Record<AgentKey, any> = {
+const AGENT_ICONS: Record<AgentKey, LucideIcon> = {
   ideaFinder: Lightbulb, strategist: Target, researcher: Search, writer: PenLine,
   editor: ClipboardCheck, seo: Globe2, publisher: Send, critic: Eye,
 };
 const AGENT_ORDER: AgentKey[] = ["ideaFinder", "strategist", "researcher", "writer", "editor", "seo", "publisher", "critic"];
 
+/** One server-sent event from /api/seo/agent-pipeline/run; fields depend on `type`. */
+interface PipelineEvent {
+  type: "runId" | "agentStart" | "agentChunk" | "agentDone" | "publishResult" | "error";
+  id: string; agentKey: AgentKey; attempt: number; text: string; output: string; score?: number;
+  status: string; url: string | null; error: string | null; message: string;
+}
 interface StepState { output: string; status: "idle" | "running" | "done" | "failed"; score?: number; attempt: number; }
 interface Lesson { id: string; agentKey: string; text: string; source: string; createdAt: string; }
 interface Post {
@@ -256,7 +263,7 @@ export default function AgentPipelinePage() {
     }
   }
 
-  function handleEvent(evt: any) {
+  function handleEvent(evt: PipelineEvent) {
     if (evt.type === "runId") {
       setRunId(evt.id);
     } else if (evt.type === "agentStart") {

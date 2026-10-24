@@ -14,7 +14,6 @@ import { createFiscalPeriod, closeFiscalPeriod, reopenFiscalPeriod } from "@/lib
  * calls in its test suite.
  */
 
-const WS = `test-phasee-${Date.now()}`;
 let wsUser: { id: string };
 
 beforeAll(async () => {

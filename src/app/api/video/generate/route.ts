@@ -12,6 +12,9 @@ import { getAvailableCredits, chargeAndLog } from "@/lib/utils/teamCredits";
 import { getLimitsForPlan } from "@/lib/utils/planLimits";
 import { isFeatureEnabled, FEATURE_DISABLED_MESSAGE } from "@/lib/utils/featureToggles";
 
+const VIDEO_DURATIONS = [5, 10, 30];
+type VideoDuration = 5 | 10 | 30;
+
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
@@ -28,8 +31,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { prompt, duration = 5, ratio = "16:9", style = "واقعی", sourceImageUrl, provider = "qwen" } = await req.json();
+    const { prompt, duration: rawDuration = 5, ratio = "16:9", style = "واقعی", sourceImageUrl, provider = "qwen" } = await req.json();
     if (!prompt?.trim()) return NextResponse.json({ error: "توضیحات ویدیو الزامی است" }, { status: 400 });
+    // Price tiers are 5/10/30s; any other value used to be billed at a tier
+    // while the provider was asked for the raw (possibly much longer) length.
+    if (!VIDEO_DURATIONS.includes(rawDuration)) return NextResponse.json({ error: "Invalid video duration" }, { status: 400 });
+    const duration = rawDuration as VideoDuration;
 
     const costs = await getCreditCosts();
     const creditCost = duration <= 5 ? costs.video_5s : duration <= 10 ? costs.video_10s : costs.video_30s;
@@ -59,10 +66,10 @@ export async function POST(req: NextRequest) {
     const { predictionId, status } = isCustomProviderModel(provider)
       ? await startCustomVideoJob(provider.slice("custom:".length), prompt, { duration, ratio, style })
       : sourceImageUrl
-      ? await generateVideoFromReference({ prompt, duration: duration as any, ratio, style, imageUrl: sourceImageUrl })
+      ? await generateVideoFromReference({ prompt, duration, ratio, style, imageUrl: sourceImageUrl })
       : provider === "replicate"
-      ? await generateVideoReplicate({ prompt, duration: duration as any, ratio, style })
-      : await generateVideoQwen({ prompt, duration: duration as any, ratio, style });
+      ? await generateVideoReplicate({ prompt, duration, ratio, style })
+      : await generateVideoQwen({ prompt, duration, ratio, style });
 
     // Charge immediately (the provider job is already running) together with
     // the usage row, so the two can't drift apart. A declined charge means a

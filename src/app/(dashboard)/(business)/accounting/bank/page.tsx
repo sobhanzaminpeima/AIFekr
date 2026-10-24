@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { ArrowRight, ArrowLeft, Plus, Upload, CheckCircle2, XCircle, Landmark } from "lucide-react";
-import { tri, type Lang } from "@/lib/i18n";
+import { ArrowRight, ArrowLeft, Plus, CheckCircle2, XCircle, Landmark } from "lucide-react";
+import { tri } from "@/lib/i18n";
 import { useAccountingLocale } from "@/lib/accounting/useAccountingLocale";
 
 interface BankAccount { id: string; name: string; accountNumber: string | null; currency: string; }
@@ -21,7 +21,7 @@ interface BankTransaction {
 interface MatchCandidate { type: string; id: string; description: string; amount: number; date: string; confidence: number; }
 
 export default function BankPage() {
-  const { lang, dir, fmtNum: fmt, fmtDate, fmtMonth: monthLabel } = useAccountingLocale();
+  const { lang, dir, fmtNum: fmt   } = useAccountingLocale();
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [transactions, setTransactions] = useState<BankTransaction[]>([]);
   const [loading, setLoading] = useState(true);

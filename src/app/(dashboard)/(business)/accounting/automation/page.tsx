@@ -51,7 +51,7 @@ function scheduleStatusLabel(status: ScheduledReport["status"], lang: Lang): str
 }
 
 export default function AccountingAutomationPage() {
-  const { lang, dir, fmtNum: fmt, fmtDate } = useAccountingLocale();
+  const { lang, dir   } = useAccountingLocale();
   const [reports, setReports] = useState<ScheduledReport[]>([]);
   const [tokens, setTokens] = useState<BiToken[]>([]);
   const [loading, setLoading] = useState(true);

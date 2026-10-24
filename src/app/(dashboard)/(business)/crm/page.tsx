@@ -562,7 +562,7 @@ export default function CrmPage() {
   );
 }
 
-function CrmSidebar({ tab, setTab, c, isFa, lang, propertiesEnabled, ownersEnabled, viewingsEnabled, matchViewEnabled, performanceReportEnabled }: { tab: CrmTab; setTab: (t: CrmTab) => void; c: Translations["crm"]; isFa: boolean; lang: Lang; propertiesEnabled: boolean; ownersEnabled: boolean; viewingsEnabled: boolean; matchViewEnabled: boolean; performanceReportEnabled: boolean }) {
+function CrmSidebar({ tab, setTab, c, lang, propertiesEnabled, ownersEnabled, viewingsEnabled, matchViewEnabled, performanceReportEnabled }: { tab: CrmTab; setTab: (t: CrmTab) => void; c: Translations["crm"]; isFa: boolean; lang: Lang; propertiesEnabled: boolean; ownersEnabled: boolean; viewingsEnabled: boolean; matchViewEnabled: boolean; performanceReportEnabled: boolean }) {
   const items: { id: CrmTab; label: string; icon: React.ElementType }[] = [
     { id: "board", label: c.tabs.board, icon: LayoutGrid },
     { id: "contacts", label: c.tabs.contacts, icon: Users },
@@ -680,7 +680,7 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose: () =
   );
 }
 
-function NewDealModal({ isFa, lang, t, pipeline, onClose, onCreated }: { isFa: boolean; lang: Lang; t: Translations["crm"]; pipeline: Pipeline; onClose: () => void; onCreated: () => void }) {
+function NewDealModal({ lang, t, pipeline, onClose, onCreated }: { isFa: boolean; lang: Lang; t: Translations["crm"]; pipeline: Pipeline; onClose: () => void; onCreated: () => void }) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactId, setContactId] = useState("");
   const [title, setTitle] = useState("");
@@ -779,7 +779,7 @@ const LEAD_SOURCE_OPTIONS: { value: string; fa: string; en: string }[] = [
   { value: "other", fa: "سایر", en: "Other" },
 ];
 
-function NewContactModal({ isFa, lang, t, propertiesEnabled, onClose, onCreated }: { isFa: boolean; lang: Lang; t: Translations["crm"]; propertiesEnabled: boolean; onClose: () => void; onCreated: () => void }) {
+function NewContactModal({ lang, t, propertiesEnabled, onClose, onCreated }: { isFa: boolean; lang: Lang; t: Translations["crm"]; propertiesEnabled: boolean; onClose: () => void; onCreated: () => void }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -896,7 +896,7 @@ function NewContactModal({ isFa, lang, t, propertiesEnabled, onClose, onCreated 
   );
 }
 
-function DealDetailModal({ isFa, lang, t, dealId, deal, pipelines, teamMembers, commissionEnabled, onClose, onChanged }: { isFa: boolean; lang: Lang; t: Translations["crm"]; dealId: string; deal: Deal | null; pipelines: Pipeline[]; teamMembers: TeamMember[]; commissionEnabled: boolean; onClose: () => void; onChanged: () => void }) {
+function DealDetailModal({ lang, t, dealId, deal, pipelines, teamMembers, commissionEnabled, onClose, onChanged }: { isFa: boolean; lang: Lang; t: Translations["crm"]; dealId: string; deal: Deal | null; pipelines: Pipeline[]; teamMembers: TeamMember[]; commissionEnabled: boolean; onClose: () => void; onChanged: () => void }) {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [ownerId, setOwnerId] = useState(deal?.ownerId || "");
@@ -1368,7 +1368,7 @@ function ContactDetailModal({ isFa, lang, t, contact, teamMembers, onClose, onCh
 
 interface CrmNoteRow { id: string; content: string; isPinned: boolean; createdAt: string; }
 
-function PinnedNotesSection({ isFa, t, contactId }: { isFa: boolean; t: Translations["crm"]; contactId: string }) {
+function PinnedNotesSection({ t, contactId }: { isFa: boolean; t: Translations["crm"]; contactId: string }) {
   const [notes, setNotes] = useState<CrmNoteRow[]>([]);
   const [newNote, setNewNote] = useState("");
 
@@ -1424,7 +1424,7 @@ function PinnedNotesSection({ isFa, t, contactId }: { isFa: boolean; t: Translat
   );
 }
 
-function DocumentsSection({ isFa, t, contactId }: { isFa: boolean; t: Translations["crm"]; contactId: string }) {
+function DocumentsSection({ t, contactId }: { isFa: boolean; t: Translations["crm"]; contactId: string }) {
   const [documents, setDocuments] = useState<CrmDocument[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -1489,7 +1489,7 @@ function DocumentsSection({ isFa, t, contactId }: { isFa: boolean; t: Translatio
   );
 }
 
-function AutomationPanel({ isFa, t, rules, onChanged }: { isFa: boolean; t: Translations["crm"]; rules: AutomationRule[]; onChanged: () => void }) {
+function AutomationPanel({ t, rules, onChanged }: { isFa: boolean; t: Translations["crm"]; rules: AutomationRule[]; onChanged: () => void }) {
   const [showNew, setShowNew] = useState(false);
   const [name, setName] = useState("");
   const [days, setDays] = useState("3");
@@ -1750,7 +1750,7 @@ interface CalendarItem { id: string; date: string; label: string; type: "task" |
  * with the assigned agent and the visitor, for the whole workspace (an AGENT
  * still sees only their own, enforced server-side by /api/crm/viewings).
  */
-function CalendarPanel({ isFa, lang, t }: { isFa: boolean; lang: Lang; t: Translations["crm"] }) {
+function CalendarPanel({ lang, t }: { isFa: boolean; lang: Lang; t: Translations["crm"] }) {
   const [items, setItems] = useState<CalendarItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -1979,7 +1979,7 @@ const CALL_STATUS_COLOR: Record<string, string> = {
   no_answer: "var(--text-muted)",
 };
 
-function VoiceCallAnalyticsPanel({ isFa, lang, t, onOpenContact }: { isFa: boolean; lang: Lang; t: Translations["crm"]; onOpenContact: (id: string) => void }) {
+function VoiceCallAnalyticsPanel({ lang, t, onOpenContact }: { isFa: boolean; lang: Lang; t: Translations["crm"]; onOpenContact: (id: string) => void }) {
   const [data, setData] = useState<VoiceAnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const tv = t.voiceAnalytics;
@@ -2059,7 +2059,7 @@ function VoiceCallAnalyticsPanel({ isFa, lang, t, onOpenContact }: { isFa: boole
 
       <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
         <p className="text-xs font-semibold px-4 py-3" style={{ color: "var(--text-primary)", background: "var(--surface-1)" }}>{tv.recentCallsTitle}</p>
-        {data.recentCalls.map((call, i) => (
+        {data.recentCalls.map((call) => (
           <div key={call.id} className="flex items-center justify-between px-4 py-3 flex-wrap gap-2"
             style={{ background: "var(--surface-1)", borderTop: "1px solid var(--border)" }}>
             <div className="flex items-center gap-3">
@@ -2279,7 +2279,7 @@ function ProductsPanel({ isFa, lang, t }: { isFa: boolean; lang: Lang; t: Transl
   );
 }
 
-function ProductDetailModal({ isFa, t, product, onClose }: { isFa: boolean; t: Translations["crm"]; product: CrmProduct; onClose: () => void }) {
+function ProductDetailModal({ t, product, onClose }: { isFa: boolean; t: Translations["crm"]; product: CrmProduct; onClose: () => void }) {
   const [contacts, setContacts] = useState<{ id: string; name: string }[] | null>(null);
 
   useEffect(() => {
@@ -2867,7 +2867,7 @@ function ContractPrintModal({ isFa, t, contract, onClose }: { isFa: boolean; t: 
   );
 }
 
-function ContractEditModal({ isFa, t, contract, onClose, onSave }: { isFa: boolean; t: Translations["crm"]; contract: CrmContractRow; onClose: () => void; onSave: (content: string) => void }) {
+function ContractEditModal({ t, contract, onClose, onSave }: { isFa: boolean; t: Translations["crm"]; contract: CrmContractRow; onClose: () => void; onSave: (content: string) => void }) {
   const [content, setContent] = useState(contract.content);
   const [saving, setSaving] = useState(false);
 
@@ -2897,7 +2897,7 @@ function ContractEditModal({ isFa, t, contract, onClose, onSave }: { isFa: boole
   );
 }
 
-function TemplateEditModal({ isFa, t, template, onClose, onSave }: { isFa: boolean; t: Translations["crm"]; template: CrmContractTemplateRow; onClose: () => void; onSave: (name: string, content: string) => void }) {
+function TemplateEditModal({ t, template, onClose, onSave }: { isFa: boolean; t: Translations["crm"]; template: CrmContractTemplateRow; onClose: () => void; onSave: (name: string, content: string) => void }) {
   const [name, setName] = useState(template.name);
   const [content, setContent] = useState(template.content);
   const [saving, setSaving] = useState(false);
@@ -3355,7 +3355,7 @@ function QuickAddOwnerModal({ lang, onClose, onCreated }: { lang: Lang; onClose:
   );
 }
 
-function PropertiesPanel({ isFa, lang, contacts, shortTermCalendarEnabled, propertyDocumentsEnabled, listingCopywriterEnabled, pricingAdvisorEnabled, openPropertyId, onOpenPropertyHandled }: { isFa: boolean; lang: Lang; contacts: Contact[]; shortTermCalendarEnabled: boolean; propertyDocumentsEnabled: boolean; listingCopywriterEnabled: boolean; pricingAdvisorEnabled: boolean; openPropertyId?: string | null; onOpenPropertyHandled?: () => void }) {
+function PropertiesPanel({ lang, contacts, shortTermCalendarEnabled, propertyDocumentsEnabled, listingCopywriterEnabled, pricingAdvisorEnabled, openPropertyId, onOpenPropertyHandled }: { isFa: boolean; lang: Lang; contacts: Contact[]; shortTermCalendarEnabled: boolean; propertyDocumentsEnabled: boolean; listingCopywriterEnabled: boolean; pricingAdvisorEnabled: boolean; openPropertyId?: string | null; onOpenPropertyHandled?: () => void }) {
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -5241,7 +5241,7 @@ function CommissionSplitsByAgent({ lang, agents }: { lang: Lang; agents: Perform
   );
 }
 
-function ProjectDetailModal({ isFa, lang, t, project, onClose, onChanged }: { isFa: boolean; lang: Lang; t: Translations["crm"]; project: CrmProjectRow | null; onClose: () => void; onChanged: () => void }) {
+function ProjectDetailModal({ lang, t, project, onClose, onChanged }: { isFa: boolean; lang: Lang; t: Translations["crm"]; project: CrmProjectRow | null; onClose: () => void; onChanged: () => void }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({

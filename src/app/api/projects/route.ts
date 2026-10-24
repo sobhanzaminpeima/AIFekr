@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   if (!user) return unauthorizedResponse(req);
 
   try {
-    const projects = await (prisma as any).$queryRaw`
+    const projects = await prisma.$queryRaw<Array<Record<string, unknown> & { conversationCount: bigint | number }>>`
       SELECT p.id, p.name, p.description, p.color, p.icon, p.createdAt,
              CAST(COUNT(c.id) AS INTEGER) as conversationCount
       FROM Project p
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
       ORDER BY p.createdAt DESC
     `;
     // Convert any BigInt to Number for JSON serialization
-    const safe = (projects || []).map((p: any) => ({
+    const safe = (projects || []).map((p) => ({
       ...p,
       conversationCount: typeof p.conversationCount === "bigint"
         ? Number(p.conversationCount)
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     const id = randomUUID();
     const now = new Date().toISOString();
 
-    await (prisma as any).$executeRaw`
+    await prisma.$executeRaw`
       INSERT INTO Project (id, userId, name, description, color, icon, createdAt, updatedAt)
       VALUES (${id}, ${user.id}, ${name.trim()}, ${description || null}, ${color}, ${icon}, ${now}, ${now})
     `;

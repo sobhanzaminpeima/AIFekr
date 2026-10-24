@@ -62,7 +62,9 @@ export async function GET(req: NextRequest) {
     const prev = await prisma.instagramConnection.findFirst({ where: { userId, ...instagramWorkspaceScope(businessId) } });
     if (prev && prev.igUserId !== igUserId) {
       await prisma.$transaction([
-        prisma.instagramCommentReplyLog.deleteMany({ where: { userId, businessId } }),
+        // Reply logs may carry only a campaignId (userId is optional), so
+        // they are matched by the campaigns being removed as well.
+        prisma.instagramCommentReplyLog.deleteMany({ where: { OR: [{ userId, businessId }, { campaignId: { in: camps.map((c) => c.id) } }] } }),
         prisma.instagramCommentCampaign.deleteMany({ where: { userId, ...instagramWorkspaceScope(businessId) } }),
         prisma.instagramDirectMessageLog.deleteMany({ where: { userId, businessId } }),
         prisma.instagramFollowerSnapshot.deleteMany({ where: { userId, ...instagramWorkspaceScope(businessId) } }),

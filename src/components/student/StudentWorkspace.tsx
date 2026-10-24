@@ -551,7 +551,6 @@ function Field({ label, value, onChange, required, autoFocus }: { label: string;
 function Modal({ title, onClose, children, error }: { title: string; onClose: () => void; children: React.ReactNode; error?: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const { lang } = useTranslation();
-  const [scannedPdf,setScannedPdf]=useState(false);
   useEffect(() => {
     const element = dialog.current;
     if (element && !element.open) element.showModal();

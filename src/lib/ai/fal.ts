@@ -35,14 +35,13 @@ export async function generateImages(opts: GenerateImageOptions): Promise<string
   }
 
   const ratioMap: Record<string, string> = {
-    "1:1": "square", "16:9": "landscape_16_9", "9:16": "portrait_9_16", "4:3": "landscape_4_3",
+    "1:1": "square", "16:9": "landscape_16_9", "9:16": "portrait_16_9", "4:3": "landscape_4_3",
   };
 
   const result = await fal.run("fal-ai/flux/schnell", {
     input: {
       prompt: `${opts.prompt}, ${STYLE_PROMPTS[opts.style] || ""}`,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      image_size: (ratioMap[opts.ratio] || "square") as any,
+      image_size: (ratioMap[opts.ratio] || "square") as "square" | "landscape_16_9" | "portrait_16_9" | "landscape_4_3",
       num_images: opts.count,
       num_inference_steps: 4,
     },

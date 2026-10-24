@@ -20,19 +20,19 @@ export async function GET(req: NextRequest) {
   try {
     const [recentLogs, totalCount, byFromProvider, byCategory] = await Promise.all([
       // Last 50 individual events
-      (prisma as any).providerFallbackLog.findMany({
+      prisma.providerFallbackLog.findMany({
         where: { createdAt: { gte: since } },
         orderBy: { createdAt: "desc" },
         take: 50,
       }),
 
       // Total fallbacks in window
-      (prisma as any).providerFallbackLog.count({
+      prisma.providerFallbackLog.count({
         where: { createdAt: { gte: since } },
       }),
 
       // Group by fromProvider
-      (prisma as any).$queryRaw`
+      prisma.$queryRaw<{ fromProvider: string; count: bigint | number }[]>`
         SELECT fromProvider, COUNT(*) as count
         FROM ProviderFallbackLog
         WHERE createdAt >= ${since.toISOString()}
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
       `,
 
       // Group by category
-      (prisma as any).$queryRaw`
+      prisma.$queryRaw<{ category: string; count: bigint | number }[]>`
         SELECT category, COUNT(*) as count
         FROM ProviderFallbackLog
         WHERE createdAt >= ${since.toISOString()}
@@ -54,11 +54,11 @@ export async function GET(req: NextRequest) {
       totalCount,
       hours,
       recentLogs,
-      byFromProvider: byFromProvider.map((r: any) => ({
+      byFromProvider: byFromProvider.map((r) => ({
         fromProvider: r.fromProvider,
         count: typeof r.count === "bigint" ? Number(r.count) : r.count,
       })),
-      byCategory: byCategory.map((r: any) => ({
+      byCategory: byCategory.map((r) => ({
         category: r.category,
         count: typeof r.count === "bigint" ? Number(r.count) : r.count,
       })),

@@ -27,7 +27,7 @@ export async function POST(req: NextRequest, { params }: { params: { organizatio
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const membership = await membershipFor(user.id, params.organizationId);
-  if (!membership || membership.status !== "ACTIVE" || !canManageOrganization({ organizationId: params.organizationId, businessId: "", memberId: membership.id, role: membership.role as any, permissions: new Set(), allBusinesses: membership.allBusinesses })) return forbiddenResponse();
+  if (!membership || membership.status !== "ACTIVE" || !canManageOrganization({ organizationId: params.organizationId, businessId: "", memberId: membership.id, role: membership.role as never, permissions: new Set(), allBusinesses: membership.allBusinesses })) return forbiddenResponse();
   const body = await req.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   if (name.length < 2) return NextResponse.json({ error: "Business name is required" }, { status: 400 });

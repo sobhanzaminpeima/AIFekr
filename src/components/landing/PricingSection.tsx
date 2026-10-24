@@ -10,6 +10,7 @@ interface PricingPlan {
   planCode: string;
   name: string;
   nameEn: string;
+  nameDe?: string | null;
   price: number;
   priceUsd: number | null;
   credits: number;
@@ -25,7 +26,7 @@ const container: Variants = { hidden: {}, show: { transition: { staggerChildren:
 const item: Variants     = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.21, 0.47, 0.32, 0.98] } } };
 
 export default function PricingSection({
-  plans, popularLabel, freeLabel, perMonth, startButton, viewAll, viewAllHref, lang, usdToTry,
+  plans, popularLabel, freeLabel, startButton, viewAll, viewAllHref, lang, 
 }: {
   plans: PricingPlan[];
   popularLabel: string;
@@ -93,7 +94,7 @@ export default function PricingSection({
                 {popularLabel}
               </div>
             )}
-            <h3 className="font-bold text-lg mb-1 text-white">{lang === "fa" ? p.name : lang === "de" ? (p as any).nameDe || p.nameEn : p.nameEn}</h3>
+            <h3 className="font-bold text-lg mb-1 text-white">{lang === "fa" ? p.name : lang === "de" ? p.nameDe || p.nameEn : p.nameEn}</h3>
             <div className="mb-4">
               {p.price > 0 || p.priceUsd ? <>
                 <span className="text-3xl font-bold text-white">{totalLabel}</span>

@@ -11,7 +11,6 @@ type Image = { id: string; url: string; prompt: string; style: string; isPublic:
 
 export default function ImageGalleryPage() {
   const { lang } = useTranslation();
-  const isFa = lang === "fa";
   const [images, setImages] = useState<Image[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);

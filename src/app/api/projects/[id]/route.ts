@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const { id } = params;
 
   const conversations = await prisma.conversation.findMany({
-    where: { userId: user.id, projectId: id } as any,
+    where: { userId: user.id, projectId: id },
     orderBy: { updatedAt: "desc" },
     take: 50,
     include: { messages: { take: 1, orderBy: { createdAt: "desc" } } },
@@ -28,7 +28,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { id } = params;
   const now = new Date().toISOString();
 
-  await (prisma as any).$executeRaw`
+  await prisma.$executeRaw`
     UPDATE Project SET name = COALESCE(${name}, name), description = COALESCE(${description}, description),
     color = COALESCE(${color}, color), icon = COALESCE(${icon}, icon), updatedAt = ${now}
     WHERE id = ${id} AND userId = ${user.id}
@@ -43,8 +43,8 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 
   const { id } = params;
   // Remove projectId from conversations
-  await (prisma as any).$executeRaw`UPDATE Conversation SET projectId = NULL WHERE projectId = ${id} AND userId = ${user.id}`;
-  await (prisma as any).$executeRaw`DELETE FROM Project WHERE id = ${id} AND userId = ${user.id}`;
+  await prisma.$executeRaw`UPDATE Conversation SET projectId = NULL WHERE projectId = ${id} AND userId = ${user.id}`;
+  await prisma.$executeRaw`DELETE FROM Project WHERE id = ${id} AND userId = ${user.id}`;
 
   return NextResponse.json({ success: true });
 }

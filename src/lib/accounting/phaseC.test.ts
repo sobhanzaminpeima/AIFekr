@@ -5,9 +5,8 @@ import { parseBankStatementCsv, importBankTransactions, findMatchCandidates, con
 import { getVatReport } from "./tax";
 import { setBudget, getBudgetVsActual, getCashFlowForecast } from "./budget";
 import { postJournalEntry } from "./ledger";
-import { payExpense, createExpense, approveExpense } from "./expenses";
+import { payExpense, createExpense } from "./expenses";
 
-const WS = `test-phasec-${Date.now()}`;
 let wsUser: { id: string };
 let contact: { id: string };
 let bankAccount: { id: string };

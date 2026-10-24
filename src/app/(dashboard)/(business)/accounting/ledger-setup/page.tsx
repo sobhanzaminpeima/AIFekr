@@ -23,7 +23,7 @@ function typeLabel(type: string, lang: Lang): string {
 }
 
 export default function LedgerSetupPage() {
-  const { lang, dir, fmtNum: fmt, fmtDate, fmtMonth: monthLabel } = useAccountingLocale();
+  const { lang, dir, fmtNum: fmt   } = useAccountingLocale();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [budgetRows, setBudgetRows] = useState<BudgetRow[]>([]);
   const [taxRates, setTaxRates] = useState<TaxRate[]>([]);

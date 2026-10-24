@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, ArrowLeft, BookOpen } from "lucide-react";
-import { tri, type Lang } from "@/lib/i18n";
+import { tri } from "@/lib/i18n";
 import { useAccountingLocale } from "@/lib/accounting/useAccountingLocale";
 
 interface AccountEntryLine {
@@ -17,7 +17,7 @@ interface AccountEntryLine {
 interface Account { code: string; name: string; nameEn: string | null; type: string; }
 
 export default function AccountLedgerPage() {
-  const { lang, dir, fmtNum: fmt, fmtDate, fmtMonth: monthLabel } = useAccountingLocale();
+  const { lang, dir, fmtNum: fmt   } = useAccountingLocale();
   const params = useParams();
   const code = params.code as string;
   const [account, setAccount] = useState<Account | null>(null);

@@ -6,7 +6,6 @@ import { createScheduledReport, runDueScheduledReports, approveFirstRun } from "
 import { createApiToken, verifyApiToken, revokeApiToken, getBiExport } from "./biApi";
 import { postJournalEntry } from "./ledger";
 
-const WS = `test-phased-${Date.now()}`;
 let wsUser: { id: string };
 let agentUser: { id: string };
 let commissionRecordId: string;

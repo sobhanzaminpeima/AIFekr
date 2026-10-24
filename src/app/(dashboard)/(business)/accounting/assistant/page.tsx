@@ -19,7 +19,7 @@ function suggestions(lang: Lang) { return [
 ]; }
 
 export default function FinanceAssistantPage() {
-  const { lang, dir, fmtNum: fmt, fmtDate, fmtMonth: monthLabel } = useAccountingLocale();
+  const { lang, dir, fmtNum: fmt   } = useAccountingLocale();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);

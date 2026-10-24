@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Script from "next/script";
 import {
-  Image as ImageIcon, Video, Music, Wand2, Download, Loader2, Languages, Upload, X, Sparkles, Gift, Coins,
-  Copy, Check, User, Package, Mountain, Palette, Briefcase, Wand, Camera, Mic, MicOff, Plus,
+  Image as ImageIcon, Video, Music, Download, Loader2, Languages, Upload, X, Sparkles, Gift, Coins,
+  Copy, User, Package, Mountain, Palette, Briefcase, Wand, Camera, Mic, MicOff, Plus,
   History, PanelRightClose, Maximize2, Minimize2, Send, RotateCcw, Play, Pause, UserSquare2, MessageSquare,
 } from "lucide-react";
 import Link from "next/link";

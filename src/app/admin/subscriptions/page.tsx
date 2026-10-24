@@ -165,7 +165,7 @@ export default async function AdminSubscriptionsPage({
               {industryUsers.length === 0 && (
                 <tr><td colSpan={3} className="px-4 py-12 text-center" style={{ color: "var(--text-muted)" }}>کاربری با بسته صنعتی یافت نشد</td></tr>
               )}
-              {industryUsers.map((u: any, i: number) => (
+              {industryUsers.map((u, i) => (
                 <tr key={u.id} style={{ borderBottom: i < industryUsers.length - 1 ? "1px solid var(--border)" : undefined, background: i % 2 === 0 ? "var(--surface-0)" : "var(--surface-1)" }}>
                   <td className="px-4 py-3">
                     <div style={{ color: "var(--text-primary)" }}>{u.name || "—"}</div>

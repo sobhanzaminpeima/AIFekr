@@ -2,7 +2,7 @@ import {beforeEach,describe,it,expect,vi} from 'vitest';
 import {NextRequest} from 'next/server';
 const m=vi.hoisted(()=>({auth:vi.fn(),access:vi.fn(),find:vi.fn(),profile:vi.fn(),exercises:vi.fn(),usage:vi.fn(),create:vi.fn(),update:vi.fn(),reserve:vi.fn(),refund:vi.fn(),ai:vi.fn()}));
 vi.mock('@/lib/auth/middleware',()=>({requireAuth:m.auth,unauthorizedResponse:()=>new Response(null,{status:401})}));
-vi.mock('@/lib/db/prisma',()=>({prisma:{fitnessProgram:{findUnique:m.find},fitnessProfile:{findUnique:m.profile},fitnessExercise:{findMany:m.exercises},$transaction:async(fn:Function)=>fn({usageLog:{findFirst:m.usage,update:m.update},fitnessProgram:{create:m.create},fitnessProfile:{update:m.update}})}}));
+vi.mock('@/lib/db/prisma',()=>({prisma:{fitnessProgram:{findUnique:m.find},fitnessProfile:{findUnique:m.profile},fitnessExercise:{findMany:m.exercises},$transaction:async(fn:(tx:unknown)=>unknown)=>fn({usageLog:{findFirst:m.usage,update:m.update},fitnessProgram:{create:m.create},fitnessProfile:{update:m.update}})}}));
 vi.mock('@/lib/utils/teamCredits',()=>({reserveLoggedCredits:m.reserve,refundLoggedReservation:m.refund}));
 vi.mock('@/lib/ai/router',()=>({routedStreamChat:m.ai}));
 vi.mock('@/lib/utils/rateLimit',()=>({rateLimit:()=>({allowed:true})}));

@@ -67,8 +67,17 @@ export class GscReconnectRequiredError extends Error {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function parseJsonOrThrow(res: Response, label: string): Promise<any> {
+/** The subset of Google OAuth / Search Console response fields this module reads. */
+interface GoogleJson {
+  /** A string code from the OAuth token endpoint, an object from the Search Console API. */
+  error?: string | { message?: string };
+  error_description?: string;
+  access_token?: string;
+  siteEntry?: { siteUrl: string; permissionLevel: string }[];
+  rows?: GscQueryRow[];
+}
+
+async function parseJsonOrThrow(res: Response, label: string): Promise<GoogleJson> {
   const text = await res.text();
   try {
     return JSON.parse(text);
@@ -100,8 +109,9 @@ export async function getGscAccessToken(refreshToken: string): Promise<string> {
     if (data.error === "invalid_grant") {
       throw new GscReconnectRequiredError(data.error_description || "Refresh token no longer valid");
     }
-    throw new Error(data.error_description || data.error || "Could not refresh the Google token");
+    throw new Error(data.error_description || (typeof data.error === "string" ? data.error : undefined) || "Could not refresh the Google token");
   }
+  if (!data.access_token) throw new Error("Google token refresh returned no access token");
   return data.access_token;
 }
 
@@ -114,10 +124,10 @@ export async function listGscSites(accessToken: string): Promise<GscSite[]> {
   const res = await fetch(`${SC_BASE}/sites`, { headers: { Authorization: `Bearer ${accessToken}` } });
   const data = await parseJsonOrThrow(res, "list sites");
   if (!res.ok) {
-    if (res.status === 401) throw new GscReconnectRequiredError(data.error?.message || "Access token rejected");
-    throw new Error(data.error?.message || "Could not list Search Console sites");
+    if (res.status === 401) throw new GscReconnectRequiredError((typeof data.error === "object" ? data.error.message : undefined) || "Access token rejected");
+    throw new Error((typeof data.error === "object" ? data.error.message : undefined) || "Could not list Search Console sites");
   }
-  return (data.siteEntry || []).map((s: { siteUrl: string; permissionLevel: string }) => ({ siteUrl: s.siteUrl, permissionLevel: s.permissionLevel }));
+  return (data.siteEntry || []).map((s) => ({ siteUrl: s.siteUrl, permissionLevel: s.permissionLevel }));
 }
 
 export interface GscQueryRow {
@@ -147,8 +157,8 @@ export async function querySearchAnalytics(
   });
   const data = await parseJsonOrThrow(res, "search analytics query");
   if (!res.ok) {
-    if (res.status === 401) throw new GscReconnectRequiredError(data.error?.message || "Access token rejected");
-    throw new Error(data.error?.message || "Could not fetch Search Console data");
+    if (res.status === 401) throw new GscReconnectRequiredError((typeof data.error === "object" ? data.error.message : undefined) || "Access token rejected");
+    throw new Error((typeof data.error === "object" ? data.error.message : undefined) || "Could not fetch Search Console data");
   }
   return { rows: data.rows || [] };
 }
