@@ -32,10 +32,19 @@ const nextConfig = {
       { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
       { key: "Permissions-Policy", value: "camera=(self), microphone=(self), geolocation=(), payment=()" },
     ];
+    // Private links shared by token (owner statements, property and lead
+    // pages, shared results): robots.txt stops crawling, but a leaked URL can
+    // still be listed without its content unless the response says noindex.
+    const privateShare = { key: "X-Robots-Tag", value: "noindex, nofollow" };
     return [
+      { source: "/o/:path*", headers: [privateShare] },
+      { source: "/owner/:path*", headers: [privateShare] },
+      { source: "/p/:path*", headers: [privateShare] },
+      { source: "/share/:token((?!1980s).*)", headers: [privateShare] },
+      { source: "/verify-certificate/:path*", headers: [privateShare] },
       // Lead forms (/f/<slug>) are embedded on customers' own sites by
       // /api/public/leadform/<slug>/embed, so only they may be framed.
-      { source: "/f/:path*", headers: base },
+      { source: "/f/:path*", headers: [...base, privateShare] },
       { source: "/((?!f/).*)", headers: [...base, { key: "X-Frame-Options", value: "SAMEORIGIN" }, { key: "Content-Security-Policy", value: "frame-ancestors 'self'" }] },
     ];
   },
