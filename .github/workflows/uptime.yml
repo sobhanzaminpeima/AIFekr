@@ -1,0 +1,31 @@
+name: Production uptime
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # A failed run notifies the repository's watchers by email, which is the
+      # alert. Public pages only -- nothing here needs a secret.
+      - name: Health endpoint reports the database connected
+        run: curl -fsS --max-time 20 https://aifekr.com/api/health | grep -q '"status":"ok"'
+      - name: Key pages render
+        run: |
+          for path in / /pricing /login /en; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://aifekr.com$path")
+            echo "$path -> $code"
+            [ "$code" -lt 400 ] || exit 1
+          done
+      # Report-only until the release that adds these headers is live
+      # (verified missing on 2026-10-24); then remove continue-on-error.
+      - name: Security headers are present
+        continue-on-error: true
+        run: |
+          headers=$(curl -sI --max-time 20 https://aifekr.com/)
+          echo "$headers" | grep -qi '^strict-transport-security' || { echo "missing HSTS"; exit 1; }
+          echo "$headers" | grep -qi '^x-content-type-options' || { echo "missing nosniff"; exit 1; }
