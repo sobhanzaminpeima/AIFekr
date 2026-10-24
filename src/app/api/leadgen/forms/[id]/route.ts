@@ -13,7 +13,7 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
   const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
-  if (user.plan === "FREE") return forbiddenResponse();
+  if (user.plan === "FREE") return forbiddenResponse(req);
 
   const form = await ownForm(user.id, params.id);
   if (!form) return NextResponse.json({ error: "فرم یافت نشد" }, { status: 404 });
@@ -51,7 +51,7 @@ export async function DELETE(req: NextRequest, props: { params: Promise<{ id: st
   const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
-  if (user.plan === "FREE") return forbiddenResponse();
+  if (user.plan === "FREE") return forbiddenResponse(req);
 
   const form = await ownForm(user.id, params.id);
   if (!form) return NextResponse.json({ error: "فرم یافت نشد" }, { status: 404 });

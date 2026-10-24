@@ -37,7 +37,7 @@ const SAMPLE_GAMES = [
 
 export async function POST(req: NextRequest) {
   const admin = await requireAdmin(req);
-  if (!admin) return unauthorizedResponse();
+  if (!admin) return unauthorizedResponse(req);
 
   for (const g of SAMPLE_GAMES) {
     const { questions, ...gameData } = g;

@@ -108,6 +108,8 @@ Expert in: hiring, team building, culture design, performance management, compen
 Language rule: always respond in the SAME language the user just wrote in (Farsi, English, German, Turkish, or any other language) — never default to Farsi or English when the user wrote in a different one.${PROMPT_BOX_INSTRUCTION}${SUGGESTIONS_INSTRUCTION}`,
 };
 
+/** Credits held per user by answers still streaming (single long-lived process, like the rate limiter in src/proxy.ts). */
+const inFlightChatCredits = new Map<string, number>();
 const MAX_AUTO_CREDIT_COST = Math.max(CREDIT_COSTS.chat, ...PROVIDERS.map((p) => p.creditCost));
 
 export async function POST(req: NextRequest) {
@@ -139,8 +141,13 @@ export async function POST(req: NextRequest) {
     const explicitProvider = typeof model === "string" ? PROVIDERS.find((p) => p.model === model) : undefined;
     const expectedCost = isCustomProviderModel(model) ? 3 : explicitProvider?.creditCost ?? MAX_AUTO_CREDIT_COST;
     const [availableCredits,lang] = await Promise.all([getAvailableCredits(user.id),getServerLang()]);
-    if (availableCredits < expectedCost) {
-      return NextResponse.json({ error: "اعتبار کافی ندارید. لطفاً اعتبار خود را شارژ کنید" }, { status: 402 });
+    // Answers are charged after they finish streaming, so parallel requests
+    // (several tabs, a script) could each pass this check against the same
+    // balance and get answers that are never paid for. Credits already held by
+    // this user's in-flight answers count as spent until those answers settle.
+    const heldCredits = inFlightChatCredits.get(user.id) ?? 0;
+    if (availableCredits - heldCredits < expectedCost) {
+      return NextResponse.json({ error: "اعتبار کافی ندارید. لطفاً اعتبار خود را شارژ کنید", code: heldCredits ? "CREDITS_HELD_BY_ACTIVE_ANSWER" : "INSUFFICIENT_CREDITS" }, { status: 402 });
     }
 
 
@@ -243,6 +250,17 @@ export async function POST(req: NextRequest) {
     let promptTokensUsed: number | null = null;
     let completionTokensUsed: number | null = null;
 
+    // Held from here (not at the balance check above) so that none of the
+    // early returns in between can leave credits held; the stream's finally
+    // and cancel both release it.
+    inFlightChatCredits.set(user.id, (inFlightChatCredits.get(user.id) ?? 0) + expectedCost);
+    let creditHoldReleased = false;
+    const releaseCreditHold = () => {
+      if (creditHoldReleased) return;
+      creditHoldReleased = true;
+      const left = (inFlightChatCredits.get(user.id) ?? 0) - expectedCost;
+      if (left > 0) inFlightChatCredits.set(user.id, left); else inFlightChatCredits.delete(user.id);
+    };
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
@@ -386,7 +404,12 @@ export async function POST(req: NextRequest) {
           await logError({ source: "/api/chat (stream)", error: err, userId: user.id, requestId });
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: `خطا در دریافت پاسخ (کد پیگیری: ${requestId})`, requestId })}\n\n`));
           controller.close();
+        } finally {
+          releaseCreditHold();
         }
+      },
+      cancel() {
+        releaseCreditHold();
       },
     });
 

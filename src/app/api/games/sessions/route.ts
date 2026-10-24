@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 // POST /api/games/sessions — start a new game session
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const { gameId } = await req.json();
   const game = await prisma.game.findUnique({

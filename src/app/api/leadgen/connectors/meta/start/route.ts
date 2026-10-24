@@ -8,7 +8,7 @@ import { signState } from "@/lib/leadgen/connectorState";
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
-  if (user.plan === "FREE") return forbiddenResponse();
+  if (user.plan === "FREE") return forbiddenResponse(req);
 
   if (!metaConfigured()) {
     return NextResponse.json({ error: "META_APP_ID / META_APP_SECRET روی سرور تنظیم نشده" }, { status: 500 });

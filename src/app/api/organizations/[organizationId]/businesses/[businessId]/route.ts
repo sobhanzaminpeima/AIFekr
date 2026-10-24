@@ -23,7 +23,7 @@ export async function DELETE(
   if (!result.ok) {
     if (result.reason === "not_found") return NextResponse.json({ error: "Business not found" }, { status: 404 });
     if (result.reason === "last_business") return NextResponse.json({ error: "Cannot delete an organization's only remaining business" }, { status: 400 });
-    return forbiddenResponse();
+    return forbiddenResponse(req);
   }
 
   await prisma.organizationAuditLog.create({ data: { organizationId: params.organizationId, businessId: null, actorId: user.id, action: "business.deleted", targetType: "BusinessWorkspace", targetId: result.deletedBusinessId } }).catch(() => {});

@@ -10,7 +10,7 @@ export async function PATCH(req: NextRequest) {
   const businessId = typeof body?.businessId === "string" ? body.businessId : "";
   if (!businessId) return NextResponse.json({ error: "businessId is required" }, { status: 400 });
   const context = await resolveOrganizationContext(user.id, businessId);
-  if (!context) return forbiddenResponse();
+  if (!context) return forbiddenResponse(req);
   await prisma.user.update({ where: { id: user.id }, data: { activeBusinessId: context.businessId } });
   return NextResponse.json({ activeBusinessId: context.businessId, organizationId: context.organizationId });
 }

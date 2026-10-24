@@ -6,12 +6,12 @@ import { prisma } from "@/lib/db/prisma";
 import { voiceSettings } from "@/lib/voice/settings";
 const keys = ["vapi_private_key","vapi_webhook_secret","vapi_credential_id","vapi_model","vapi_voice_id","vapi_credits_per_minute","vapi_max_duration_seconds"];
 export async function GET(req: NextRequest) {
-  if (!await requireAdmin(req)) return forbiddenResponse();
+  if (!await requireAdmin(req)) return forbiddenResponse(req);
   const s = await voiceSettings();
   return NextResponse.json({ apiKeyConfigured:!!s.apiKey, webhookConfigured:!!s.webhookSecret, credentialId:s.credentialId, model:s.model, voiceId:s.voiceId, creditsPerMinute:s.creditsPerMinute, maxDurationSeconds:s.maxDurationSeconds, webhookUrl:`${process.env.NEXT_PUBLIC_APP_URL || ""}/api/webhooks/vapi` });
 }
 export async function POST(req: NextRequest) {
-  if (!await requireAdmin(req)) return forbiddenResponse();
+  if (!await requireAdmin(req)) return forbiddenResponse(req);
   const body = await req.json().catch(()=>null);
   if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({error:"Invalid configuration"},{status:400});
   for(const [key,value] of Object.entries(body)) {

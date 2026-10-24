@@ -20,8 +20,8 @@ export async function parseJsonResponse<T = any>(res: Response, lang: Lang): Pro
   const contentType = res.headers.get("content-type") || "";
 
   // 401/403 are localized here unconditionally, even when the body IS valid
-  // JSON -- most API routes build their error string via `unauthorizedResponse()`
-  // / `forbiddenResponse()` in src/lib/auth/middleware.ts, which default to
+  // JSON -- most API routes build their error string via `unauthorizedResponse(req)`
+  // / `forbiddenResponse(req)` in src/lib/auth/middleware.ts, which default to
   // Persian for the ~370 call sites that don't pass the caller's language.
   // Overriding on the client, where the real UI language is always known,
   // fixed a real bug: a German- or English-UI user whose access token

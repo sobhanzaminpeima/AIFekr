@@ -10,7 +10,7 @@ import { createHash } from "crypto";
 export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse();
+  if (!user) return unauthorizedResponse(req);
 
   const session = await prisma.gameSession.findUnique({
     where: { id: params.id },

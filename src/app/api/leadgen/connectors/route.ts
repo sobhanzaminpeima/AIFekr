@@ -13,7 +13,7 @@ import { bizScope } from "@/lib/accounting/scope";
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
-  if (user.plan === "FREE") return forbiddenResponse();
+  if (user.plan === "FREE") return forbiddenResponse(req);
 
   const businessId = await activeBusinessIdFor(user.id);
   const sources = await prisma.leadSource.findMany({
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
-  if (user.plan === "FREE") return forbiddenResponse();
+  if (user.plan === "FREE") return forbiddenResponse(req);
 
   const body = await req.json().catch(() => ({}));
   if (body.provider !== "google") {

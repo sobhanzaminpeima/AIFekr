@@ -10,7 +10,7 @@ import { bizScope } from "@/lib/accounting/scope";
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
-  if (user.plan === "FREE") return forbiddenResponse();
+  if (user.plan === "FREE") return forbiddenResponse(req);
 
   const businessId = await activeBusinessIdFor(user.id);
   const [channels, totalLeads, formLeads, avgScoreAgg] = await Promise.all([

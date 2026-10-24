@@ -16,7 +16,7 @@ export function withToolCredits<A extends any[]>(
 ) {
   return async (req: NextRequest, ...rest: A): Promise<Response> => {
     const user = await requireAuth(req);
-    if (!user) return unauthorizedResponse();
+    if (!user) return unauthorizedResponse(req);
     const gate = await reserveToolCredits(user.id, feature);
     if (!gate.ok) return gate.response;
     try {

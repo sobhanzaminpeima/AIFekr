@@ -10,7 +10,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   const admin = await requireAdmin(req);
   if (!admin) {
     const user = await (await import("@/lib/auth/middleware")).requireAuth(req);
-    return user ? forbiddenResponse() : unauthorizedResponse(req);
+    return user ? forbiddenResponse(req) : unauthorizedResponse(req);
   }
 
   const user = await prisma.user.findUnique({
@@ -34,7 +34,7 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
   const admin = await requireAdmin(req);
   if (!admin) {
     const user = await (await import("@/lib/auth/middleware")).requireAuth(req);
-    return user ? forbiddenResponse() : unauthorizedResponse(req);
+    return user ? forbiddenResponse(req) : unauthorizedResponse(req);
   }
 
   const body = await req.json();
@@ -74,7 +74,7 @@ export async function DELETE(req: NextRequest, props: { params: Promise<{ id: st
   const admin = await requireAdmin(req);
   if (!admin) {
     const user = await (await import("@/lib/auth/middleware")).requireAuth(req);
-    return user ? forbiddenResponse() : unauthorizedResponse(req);
+    return user ? forbiddenResponse(req) : unauthorizedResponse(req);
   }
 
   try {

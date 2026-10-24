@@ -25,7 +25,7 @@ async function ensureDefaults() {
 
 export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req);
-  if (!admin) return unauthorizedResponse();
+  if (!admin) return unauthorizedResponse(req);
   await ensureDefaults();
   const modules = await prisma.moduleRegistry.findMany({ orderBy: { sortOrder: "asc" } });
   return NextResponse.json({ modules });
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const admin = await requireAdmin(req);
-  if (!admin) return unauthorizedResponse();
+  if (!admin) return unauthorizedResponse(req);
 
   const { key, status, minPlan } = await req.json();
   if (!key) return NextResponse.json({ error: "key required" }, { status: 400 });

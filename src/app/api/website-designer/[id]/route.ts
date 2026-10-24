@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const site = await prisma.generatedWebsite.findUnique({ where: { id } });
   if (!site) return NextResponse.json({ error: "یافت نشد" }, { status: 404 });
-  if (site.userId !== user.id) return forbiddenResponse();
+  if (site.userId !== user.id) return forbiddenResponse(req);
 
   const download = req.nextUrl.searchParams.get("download") === "1";
   return new NextResponse(site.htmlCode, {

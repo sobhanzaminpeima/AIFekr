@@ -9,7 +9,7 @@ export async function DELETE(req: NextRequest, props: { params: Promise<{ id: st
   const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
-  if (user.plan === "FREE") return forbiddenResponse();
+  if (user.plan === "FREE") return forbiddenResponse(req);
 
   const src = await prisma.leadSource.findFirst({ where: { id: params.id, userId: user.id } });
   if (!src) return NextResponse.json({ error: "یافت نشد" }, { status: 404 });

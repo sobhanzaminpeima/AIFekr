@@ -8,7 +8,7 @@ import { z } from "zod";
 const inputSchema = z.object({ idempotencyKey: z.string().regex(/^[a-zA-Z0-9_-]{16,100}$/), expectedCredits: z.number().int().nonnegative(), regenerate: z.boolean().optional(), confirmRegeneration: z.boolean().optional() });
 export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const admin = await requireAdmin(req);if (!admin) return forbiddenResponse();
+  const admin = await requireAdmin(req);if (!admin) return forbiddenResponse(req);
   if (!admin.featureAccess) return NextResponse.json({ error: "SUBSCRIPTION_EXPIRED", code: "SUBSCRIPTION_EXPIRED", renewUrl: "/pricing" }, { status: 402 });
   const input = inputSchema.safeParse(await req.json().catch(() => null));
   if (!input.success) return NextResponse.json({ error: "INVALID_REQUEST" }, { status: 400 });

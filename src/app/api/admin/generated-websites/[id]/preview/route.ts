@@ -8,7 +8,7 @@ async function checkAdmin(req: NextRequest) {
   if (!admin) {
     const { requireAuth } = await import("@/lib/auth/middleware");
     const user = await requireAuth(req);
-    return user ? forbiddenResponse() : unauthorizedResponse(req);
+    return user ? forbiddenResponse(req) : unauthorizedResponse(req);
   }
   return null;
 }

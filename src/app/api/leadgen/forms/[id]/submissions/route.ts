@@ -8,7 +8,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
-  if (user.plan === "FREE") return forbiddenResponse();
+  if (user.plan === "FREE") return forbiddenResponse(req);
 
   const form = await prisma.leadForm.findFirst({ where: { id: params.id, userId: user.id } });
   if (!form) return NextResponse.json({ error: "فرم یافت نشد" }, { status: 404 });

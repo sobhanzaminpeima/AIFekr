@@ -13,7 +13,7 @@ import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
-  if (user.plan === "FREE") return forbiddenResponse();
+  if (user.plan === "FREE") return forbiddenResponse(req);
 
   const body = await req.json().catch(() => ({}));
   const pageName = typeof body.pageName === "string" ? body.pageName.trim().slice(0, 120) : "";

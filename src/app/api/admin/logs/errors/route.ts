@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin) {
     const user = await requireAuth(req);
-    return user ? forbiddenResponse() : unauthorizedResponse(req);
+    return user ? forbiddenResponse(req) : unauthorizedResponse(req);
   }
 
   const level = req.nextUrl.searchParams.get("level");

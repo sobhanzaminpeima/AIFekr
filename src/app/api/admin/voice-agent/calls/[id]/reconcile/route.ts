@@ -6,7 +6,7 @@ import { getVapiCall } from "@/lib/voice/vapiClient";
 import { voiceSettings } from "@/lib/voice/settings";
 import { POST as processWebhook } from "@/app/api/webhooks/vapi/route";
 export async function POST(req: NextRequest, {params}:{params:Promise<{id:string}>}) {
-  if(!await requireAdmin(req))return forbiddenResponse();
+  if(!await requireAdmin(req))return forbiddenResponse(req);
   const {id}=await params;
   const record=await prisma.voiceCallLog.findUnique({where:{id}});
   if(!record)return NextResponse.json({error:"Call not found"},{status:404});

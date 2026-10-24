@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   const contact = await prisma.crmContact.findUnique({ where: { id: contactId } });
   if (!contact) return NextResponse.json({ error: "مخاطب یافت نشد" }, { status: 404 });
-  if (contact.userId !== user.id) return forbiddenResponse();
+  if (contact.userId !== user.id) return forbiddenResponse(req);
   if (!contact.phone) return NextResponse.json({ error: "این مخاطب شماره تلفن ندارد" }, { status: 400 });
 
   const ok = await sendSMS(contact.phone, message.trim());

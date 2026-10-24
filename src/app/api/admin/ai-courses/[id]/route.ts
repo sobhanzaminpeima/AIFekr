@@ -12,7 +12,7 @@ import {courseError} from "@/lib/courses/http";
 const academyMetadata=z.object({difficulty:z.enum(["BEGINNER","INTERMEDIATE","ADVANCED"]).optional(),durationMinutes:z.number().int().min(5).max(60000).optional(),topic:z.string().max(200).optional(),prerequisites:z.string().max(3000).optional(),skills:z.array(z.string().min(1).max(100)).max(40).optional(),coverUrl:z.string().url().refine(s=>s.startsWith("https://")).nullable().optional(),configuration:courseConfiguration.optional(),majorIds:z.array(z.string().max(100)).max(30).optional()});
 export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const admin = await requireAdmin(req);if (!admin) return forbiddenResponse();
+  const admin = await requireAdmin(req);if (!admin) return forbiddenResponse(req);
   await reconcileCourseJobs();
   const course = await prisma.aiCourse.findUnique({ where: { id: params.id }, include: { publishedVersion:{select:{version:true}},majors:true,jobs: { orderBy: { createdAt: "desc" }, take: 10 } } });
   const requestKey = req.nextUrl.searchParams.get("requestKey");
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
 }
 export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const admin = await requireAdmin(req);if (!admin) return forbiddenResponse();
+  const admin = await requireAdmin(req);if (!admin) return forbiddenResponse(req);
   const body = await req.json().catch(() => null);
   if (!body || !Number.isSafeInteger(body.version)) return NextResponse.json({ error: "INVALID_REQUEST" }, { status: 400 });
   const course = await prisma.aiCourse.findUnique({ where: { id: params.id } });

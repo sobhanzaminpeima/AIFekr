@@ -76,9 +76,13 @@ export function unauthorizedResponse(input: Lang | NextRequest = "fa") {
   const cookieLang=typeof input!=="string"?input.cookies.get("lang")?.value:undefined;
   const lang:Lang=typeof input==="string"?input:["fa","en","de","tr"].includes(cookieLang||"")?cookieLang as Lang:"fa";
   if(typeof input!=="string"&&accessDenials.has(input))return NextResponse.json({error:tri(lang,"اشتراک شما منقضی شده است. برای استفاده از امکانات، پکیج را تمدید کنید.","Your subscription has expired. Renew to use platform features.","Ihr Abonnement ist abgelaufen. Bitte verlängern.","Aboneliğiniz sona erdi. Özellikleri kullanmak için yenileyin."),code:"SUBSCRIPTION_EXPIRED",renewUrl:"/pricing"},{status:402});
-  return NextResponse.json({ error: tri(lang, "احراز هویت الزامی است", "Authentication required", "Authentifizierung erforderlich") }, { status: 401 });
+  return NextResponse.json({ error: tri(lang, "احراز هویت الزامی است", "Authentication required", "Authentifizierung erforderlich", "Kimlik doğrulama gerekli") }, { status: 401 });
 }
 
-export function forbiddenResponse(lang: Lang = "fa") {
-  return NextResponse.json({ error: tri(lang, "دسترسی غیرمجاز", "Access denied", "Zugriff verweigert") }, { status: 403 });
+// Accepts the request (like unauthorizedResponse) so the message follows the
+// visitor's language cookie instead of always being Persian.
+export function forbiddenResponse(input: Lang | NextRequest = "fa") {
+  const cookieLang = typeof input !== "string" ? input.cookies.get("lang")?.value : undefined;
+  const lang: Lang = typeof input === "string" ? input : ["fa", "en", "de", "tr"].includes(cookieLang || "") ? cookieLang as Lang : "fa";
+  return NextResponse.json({ error: tri(lang, "دسترسی غیرمجاز", "Access denied", "Zugriff verweigert", "Erişim reddedildi"), code: "FORBIDDEN" }, { status: 403 });
 }
