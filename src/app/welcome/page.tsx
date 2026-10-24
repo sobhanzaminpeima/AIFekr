@@ -14,6 +14,8 @@ import type { Lang } from "@/lib/i18n";
 
 const BUSINESS_TYPES: { id: string; emoji: string; label: Record<Lang, string> }[] = [
   { id: "student", emoji: "🎓", label: { fa: "دانشجو / یادگیرنده", en: "Student / learner", de: "Studierende / Lernende", tr: "Öğrenci / öğrenen" } },
+  { id: "real_estate", emoji: "🏠", label: { fa: "املاک / مشاور املاک", en: "Real estate / property", de: "Immobilien / Makler", tr: "Emlak / gayrimenkul" } },
+  { id: "fitness", emoji: "💪", label: { fa: "ورزش / فیتنس", en: "Fitness / sport", de: "Fitness / Sport", tr: "Fitness / spor" } },
   { id: "retail", emoji: "🛍️", label: { fa: "فروشگاه / خرده‌فروشی", en: "Shop / retail", de: "Laden / Einzelhandel", tr: "Mağaza / perakende" } },
   { id: "services", emoji: "💼", label: { fa: "خدمات / مشاوره", en: "Services / consulting", de: "Dienstleistung / Beratung", tr: "Hizmet / danışmanlık" } },
   { id: "restaurant", emoji: "☕", label: { fa: "رستوران / کافه", en: "Restaurant / café", de: "Restaurant / Café", tr: "Restoran / kafe" } },

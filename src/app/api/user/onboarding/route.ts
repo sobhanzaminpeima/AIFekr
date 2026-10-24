@@ -24,6 +24,20 @@ export async function POST(req: NextRequest) {
   if(auth.accountType==="FITNESS")return NextResponse.json({redirect:"/fitness"});
   // Return recommended tool based on answers
   let redirect = "/chat";
+  if (businessType === "real_estate" && !selectedPlan) {
+    // Real estate is the industry pack behind the CRM's property, owner and
+    // viewing modules. A pack can only be switched on with an active CRM plan
+    // (same rule as POST /api/packs/[slug]); without one the user lands on the
+    // pack page that explains it and leads to purchase.
+    const crmActive = !!auth.crmPlan && auth.crmPlan !== "NONE" && (!auth.crmPlanExpiry || auth.crmPlanExpiry.getTime() > Date.now());
+    const pack = crmActive ? await prisma.industryPack.findFirst({ where: { slug: "real-estate", isActive: true }, select: { id: true } }) : null;
+    if (pack) {
+      await prisma.user.update({ where: { id: auth.id }, data: { industryPackId: pack.id } });
+      return NextResponse.json({ redirect: "/crm" });
+    }
+    return NextResponse.json({ redirect: "/industry/real-estate" });
+  }
+  if (businessType === "fitness" && !selectedPlan) return NextResponse.json({ redirect: "/fit" });
   if (businessType === "student" || goal === "study") redirect = "/student";
   else if (goal === "content") redirect = "/seo/agent-pipeline";
   else if (goal === "analysis") redirect = "/business-doctor";

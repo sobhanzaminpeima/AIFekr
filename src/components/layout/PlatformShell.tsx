@@ -41,7 +41,7 @@ export async function renderPlatformShell(children:React.ReactNode,fitness=false
 
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { id: true, role:true, accountType:true,chatOnly:true, name: true, credits: true, plan: true, planExpiry: true, isBlocked: true, industryPackId: true, crmPlan: true, crmPlanExpiry: true, onboardingDone: true, trialEndsAt: true, trialLimited: true, activeBusinessId: true },
+    select: { id: true, role:true, accountType:true,chatOnly:true, name: true, credits: true, plan: true, planExpiry: true, isBlocked: true, industryPackId: true, crmPlan: true, crmPlanExpiry: true, onboardingDone: true, trialEndsAt: true, trialLimited: true, activeBusinessId: true, fitnessProfile: { select: { userId: true } } },
   });
 
   if (!user || user.isBlocked) redirect("/login");
@@ -62,6 +62,10 @@ export async function renderPlatformShell(children:React.ReactNode,fitness=false
   const teamExpiry=teamFeatureExpiry(teamMembership?.team);
   const expired=!fitness && featureAccessExpired(user,teamExpiry);
   const expiresAt=(user.plan==="FREE"&&teamExpiry?teamExpiry:user.planExpiry||(user.plan==="FREE"?user.trialEndsAt:null))?.toISOString();
+  // AIFekr FIT is a consumer product: offer it to people who use it or to
+  // personal accounts, not as the second item in every business owner's menu.
+  const crmActive = !!user.crmPlan && user.crmPlan !== "NONE" && (!user.crmPlanExpiry || user.crmPlanExpiry > new Date());
+  const showFitness = fitness || !!user.fitnessProfile || (user.accountType !== "BUSINESS" && !user.industryPackId && !crmActive);
   const displayCredits = fitness ? user.credits : teamMembership?.team.credits ?? user.credits;
   const pendingPaymentCount = await prisma.payment.count({ where: { userId: user.id, status: "PENDING" } });
   const studentWorkspaceEnabled = await isStudentWorkspaceEnabled(user);
@@ -88,7 +92,7 @@ export async function renderPlatformShell(children:React.ReactNode,fitness=false
         lang={lang}
         sidebar={
           <Sidebar
-            user={{ ...user, credits: displayCredits, studentWorkspaceEnabled, pendingPaymentCount }}
+            user={{ ...user, credits: displayCredits, studentWorkspaceEnabled, pendingPaymentCount, showFitness }}
             conversations={conversations.map((c) => ({ ...c, updatedAt: c.updatedAt.toISOString() }))}
           />
         }

@@ -20,7 +20,7 @@ import { toJalali } from "@/lib/utils/jalali";
 interface SystemStatus {
   process: { uptimeSeconds: number; memoryRssMb: number; heapUsedMb: number; nodeVersion: string };
   database: { ok: boolean; latencyMs: number | null; error: string | null };
-  integrations: { key: string; name: string; configured: boolean }[];
+  integrations: { key: string; name: string; configured: boolean; required?: boolean; test?: string; missing?: string[]; mode?: "sandbox" | "live" }[];
   recentErrors: { id: string; level: string; source: string; message: string; createdAt: string }[];
   checkedAt: string;
 }
@@ -106,14 +106,22 @@ export default function SystemPage() {
                 </span>
               </div>
               {status.integrations.map((i) => (
-                <div key={i.key} className="flex items-center justify-between py-2" style={{ borderBottom: "1px solid var(--border)" }}>
-                  <div className="flex items-center gap-2">
-                    {i.configured ? <CheckCircle className="w-4 h-4" style={{ color: "#10b981" }} /> : <MinusCircle className="w-4 h-4" style={{ color: "var(--text-muted)" }} />}
-                    <span className="text-sm" style={{ color: "var(--text-primary)" }}>{i.name}</span>
+                <div key={i.key} className="py-2" style={{ borderBottom: "1px solid var(--border)" }}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {i.configured ? <CheckCircle className="w-4 h-4" style={{ color: "#10b981" }} /> : <MinusCircle className="w-4 h-4" style={{ color: i.required ? "#ef4444" : "var(--text-muted)" }} />}
+                      <span className="text-sm" style={{ color: "var(--text-primary)" }}>{i.name}</span>
+                      {i.required && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>ضروری</span>}
+                      {i.mode && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: i.mode === "sandbox" ? "#f59e0b20" : "#10b98120", color: i.mode === "sandbox" ? "#f59e0b" : "#10b981" }}>{i.mode === "sandbox" ? "حالت تست (sandbox)" : "حالت واقعی"}</span>}
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-xs" style={{ background: i.configured ? "#10b98120" : i.required ? "#ef444420" : "var(--surface-2)", color: i.configured ? "#10b981" : i.required ? "#ef4444" : "var(--text-muted)" }}>
+                      {i.configured ? "پیکربندی شده" : "پیکربندی نشده"}
+                    </span>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-xs" style={{ background: i.configured ? "#10b98120" : "var(--surface-2)", color: i.configured ? "#10b981" : "var(--text-muted)" }}>
-                    {i.configured ? "پیکربندی شده" : "پیکربندی نشده"}
-                  </span>
+                  {!i.configured && !!i.missing?.length && (
+                    <p className="text-[11px] mt-1" style={{ color: "var(--text-muted)" }}>متغیرهای لازم روی سرور: <span dir="ltr" className="font-mono">{i.missing.join(", ")}</span></p>
+                  )}
+                  {i.test && <p className="text-[11px] mt-1" style={{ color: "var(--text-muted)" }} dir="ltr">Test: {i.test}</p>}
                 </div>
               ))}
             </div>
