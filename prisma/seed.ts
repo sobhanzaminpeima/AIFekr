@@ -2,6 +2,11 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+// Creates fixed-phone admin accounts for local development; never against production.
+if (process.env.NODE_ENV === "production" || /prod\.db/.test(process.env.DATABASE_URL || "")) {
+  throw new Error("prisma/seed.ts creates development test accounts and must not run against production.");
+}
+
 async function main() {
   console.log("🌱 Seeding database...");
 

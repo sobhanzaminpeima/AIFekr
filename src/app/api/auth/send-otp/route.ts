@@ -1,17 +1,21 @@
 export const dynamic = "force-dynamic";
 
+import { randomInt } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { sendOTP } from "@/lib/sms/smsir";
 import { rateLimit, getClientIp } from "@/lib/utils/rateLimit";
 
-// شماره‌های تست — همیشه کد 1234
+// Fixed-code test phones exist for local development only. In production
+// they used to receive "1234" too -- and prisma/seed.ts gives 09000000000 the
+// SUPER_ADMIN role, so anyone could sign in as a super admin on any database
+// that was ever seeded. Never honour them outside development/test.
 const TEST_PHONES = ["09000000000", "09000000001", "09000000002"];
-
 function generateOtp(phone: string): string {
-  if (TEST_PHONES.includes(phone)) return "1234";
+  const fixedCodesAllowed = process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
+  if (fixedCodesAllowed && TEST_PHONES.includes(phone)) return "1234";
   if (process.env.NODE_ENV === "development") return "1234";
-  return Math.floor(1000 + Math.random() * 9000).toString();
+  return randomInt(1000, 10000).toString();
 }
 
 export async function POST(req: NextRequest) {
