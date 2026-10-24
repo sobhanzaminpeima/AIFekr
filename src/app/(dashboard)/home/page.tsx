@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   AlertTriangle, AlertCircle, Info, CheckCircle2, ArrowUpRight, Sparkles,
   Briefcase, Users, Receipt, CalendarDays, Wallet, TrendingUp,
@@ -89,6 +90,10 @@ export default function HomePage() {
   const [data, setData] = useState<HomeSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [attempt, setAttempt] = useState(0);
+  // Set by src/proxy.ts when an admin has switched the requested module off.
+  const searchParams = useSearchParams();
+  const unavailableModule = searchParams.get("moduleUnavailable");
+  const underMaintenance = searchParams.get("status") === "maintenance";
 
   useEffect(() => {
     setLoading(true);
@@ -138,6 +143,14 @@ export default function HomePage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6" dir={dir}>
+      {unavailableModule && (
+        <div role="status" className="flex items-start gap-2 rounded-xl px-4 py-3 text-sm" style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+          <Info className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "var(--primary)" }} />
+          <span>{underMaintenance
+            ? tri(lang, "این بخش موقتاً در حال به‌روزرسانی است. کمی بعد دوباره امتحان کنید.", "This section is being updated. Please try again shortly.", "Dieser Bereich wird gerade aktualisiert. Bitte versuchen Sie es gleich noch einmal.", "Bu bölüm güncelleniyor. Lütfen birazdan tekrar deneyin.")
+            : tri(lang, "این بخش در حال حاضر در دسترس نیست.", "This section is currently unavailable.", "Dieser Bereich ist derzeit nicht verfügbar.", "Bu bölüm şu anda kullanılamıyor.")}</span>
+        </div>
+      )}
       <div>
         <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
           {tri(lang, "اتاق فرمان", "Command centre", "Kommandozentrale", "Komuta merkezi")}

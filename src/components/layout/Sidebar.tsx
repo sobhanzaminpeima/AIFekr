@@ -23,6 +23,7 @@ import { OPEN_CONVERSATION_EVENT } from "@/components/chat/ChatInterface";
 import OrganizationSwitcher from "@/components/organization/OrganizationSwitcher";
 import { CHAT_HISTORY_UPDATED_EVENT, type ChatHistoryItem } from "@/lib/chat/history";
 import { useLiveCredits } from "@/lib/credits/live";
+import { moduleKeyForPath } from "@/lib/modules/moduleRoutes";
 
 // A history click used to be a plain <Link href="/chat/[id]"> -- since the
 // dashboard layout is force-dynamic, every one of those was a full Next.js
@@ -162,6 +163,15 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
     return () => window.removeEventListener(OPEN_CONVERSATION_EVENT, onOpenConversation);
   }, []);
   const { t, lang } = useTranslation();
+  // Modules an admin switched off in /admin/modules disappear from the menu
+  // (the proxy also blocks their pages and APIs).
+  const [blockedModules, setBlockedModules] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/modules/status").then((r) => (r.ok ? r.json() : null)).then((d) => { if (alive && d?.blocked) setBlockedModules(d.blocked); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  const isAvailable = (href: string) => { const key = moduleKeyForPath(href); return !key || !blockedModules[key]; };
   const [toolsOpen, setToolsOpen] = useState(false);
   const [assistantsOpen, setAssistantsOpen] = useState(false);
   // Design Director phase 2 — the eleven business destinations are grouped into
@@ -353,7 +363,8 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
               <ChevronLeft className="w-3.5 h-3.5 flex-shrink-0 opacity-50 rtl:rotate-0 ltr:rotate-180" style={{ color: "#c084fc" }} />
             </Link>
             {DEPARTMENTS.map((dept) => {
-              const items = dept.items(t);
+              const items = dept.items(t).filter((i) => isAvailable(i.href));
+              if (!items.length) return null;
               const hasCurrent = items.some((i) => isActive(i.href));
               // Explicit open/closed wins; otherwise the department containing
               // the current page is the one that is open.

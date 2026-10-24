@@ -67,6 +67,11 @@ export default function AdminModulesPage() {
         </button>
       </div>
 
+      <p style={{ fontSize: 13, color: "#9a9a9a", marginBottom: 20, lineHeight: 1.8 }}>
+        «غیرفعال» یا «نگهداری» بخش را از منوی کاربران حذف می‌کند و صفحه‌ها و APIهای آن را می‌بندد (حداکثر ۳۰ ثانیه تا اعمال). ماژول‌های اصلی (چت، تصویر) قابل غیرفعال‌سازی نیستند.
+        دسترسی بر اساس پلن از طریق <a href="/admin/packages" style={{ color: "#FF6B00" }}>پکیج‌ها</a> و <a href="/admin/module-access" style={{ color: "#FF6B00" }}>دسترسی ماژول‌ها</a> تنظیم می‌شود.
+      </p>
+
       {error && (
         <div style={{ background: "#3d1a1a", border: "1px solid #c53030", borderRadius: 8, padding: "10px 14px", marginBottom: 16, color: "#fc8181", display: "flex", gap: 8 }}>
           <AlertCircle size={16} /> {error}
@@ -88,7 +93,7 @@ export default function AdminModulesPage() {
                     {" "}{STATUS_LABELS[m.status] || m.status}
                   </span>
                 </div>
-                <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>کلید: {m.key} | حداقل پلن: {m.minPlan}</div>
+                <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>کلید: {m.key}</div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <select
                     value={m.status}
@@ -99,15 +104,6 @@ export default function AdminModulesPage() {
                     <option value="disabled">غیرفعال</option>
                     <option value="maintenance">نگهداری</option>
                     <option value="beta">بتا</option>
-                  </select>
-                  <select
-                    value={m.minPlan}
-                    disabled={!!saving}
-                    onChange={e => updateModule(m.key, { minPlan: e.target.value })}
-                    style={{ padding: "4px 8px", background: "#1e2022", border: "1px solid #252729", borderRadius: 6, color: "#e0e0e0", fontSize: 12 }}>
-                    {["FREE", "BASIC", "PRO", "BUSINESS", "TEAM", "AGENCY"].map(p => (
-                      <option key={p} value={p}>{p}</option>
-                    ))}
                   </select>
                 </div>
               </div>

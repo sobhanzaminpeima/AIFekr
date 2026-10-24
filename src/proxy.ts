@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/utils/rateLimit";
 import { isPublicRoute, stripPublicLocale } from "@/lib/seo/locales";
+import { moduleKeyForPath } from "@/lib/modules/moduleRoutes";
+import { blockedModules } from "@/lib/modules/moduleStatus";
 
 // Path-prefix -> { limit, windowMs }. First match wins (checked in order).
 // Auth endpoints get the tightest limits (brute-force/OTP-spam protection);
@@ -56,7 +58,7 @@ function unverifiedUserId(req: NextRequest): string | null {
   }
 }
 
-export function proxy(req: NextRequest) {
+function routeRequest(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (!pathname.startsWith("/api/")) {
     const localized = stripPublicLocale(pathname);
@@ -119,6 +121,30 @@ export function proxy(req: NextRequest) {
   }
 
   return NextResponse.next();
+}
+
+/**
+ * Admin "Modules" switch: a module set to disabled/maintenance in
+ * /admin/modules is taken away from users -- its API answers 503 and its
+ * pages send the visitor to /home with an explanation. Admin pages and APIs
+ * are never blocked, so an admin can always switch it back on.
+ */
+export async function proxy(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  const key = pathname.startsWith("/admin") || pathname.startsWith("/api/admin") ? null : moduleKeyForPath(pathname);
+  if (key) {
+    const status = (await blockedModules())[key];
+    if (status) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: status === "maintenance" ? "This section is under maintenance." : "This section is currently unavailable.", code: status === "maintenance" ? "MODULE_MAINTENANCE" : "MODULE_DISABLED", module: key }, { status: 503 });
+      }
+      const target = req.nextUrl.clone();
+      target.pathname = "/home";
+      target.search = `?moduleUnavailable=${encodeURIComponent(key)}&status=${status}`;
+      return NextResponse.redirect(target, 307);
+    }
+  }
+  return routeRequest(req);
 }
 
 export const config = {
