@@ -66,6 +66,11 @@ export default function SessionWatchdog({ lang }: { lang: Lang }) {
         window.dispatchEvent(new Event("aifekr:subscription-expired"));
         return res;
       }
+      // Still signed in: the 401 came from an endpoint this account type may
+      // not use (e.g. a FITNESS account and the shared sidebar's projects or
+      // organizations calls). Treating that as an expired session sent every
+      // new fitness user straight back to the login page.
+      if (session?.user) return res;
 
       handled = true;
       toast.error(

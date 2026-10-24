@@ -45,7 +45,7 @@ function openConversationClick(pathname: string, id: string) {
 interface Project { id: string; name: string; color: string; icon: string; conversationCount: number; }
 
 interface SidebarProps {
-  user?: { name?: string | null; credits: number; plan: string; industryPackId?: string | null; crmPlan?: string | null; crmPlanExpiry?: string | Date | null; studentWorkspaceEnabled?: boolean; pendingPaymentCount?: number; showFitness?: boolean } | null;
+  user?: { name?: string | null; credits: number; plan: string; industryPackId?: string | null; crmPlan?: string | null; crmPlanExpiry?: string | Date | null; studentWorkspaceEnabled?: boolean; pendingPaymentCount?: number; showFitness?: boolean; accountType?: string | null } | null;
   conversations?: { id: string; title?: string | null; updatedAt: string; projectId?: string | null }[];
   onNewChat?: () => void;
 }
@@ -193,6 +193,10 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
   const crmPlanActive = !!user?.crmPlan && user.crmPlan !== "NONE" && (!user.crmPlanExpiry || new Date(user.crmPlanExpiry).getTime() > Date.now());
   const hasPack = !!user?.industryPackId;
   const hasBusinessAccess = hasPack || crmPlanActive;
+  // Students get the university pack, which made the whole business menu
+  // (and its upsell) appear for them; it is noise unless they run a CRM.
+  const fitnessOnly = user?.accountType === "FITNESS";
+  const hideBusiness = (user?.accountType === "STUDENT" && !crmPlanActive) || fitnessOnly;
 
   useEffect(() => { loadProjects(); }, []);
 
@@ -313,17 +317,20 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
       <OrganizationSwitcher />
 
       {/* New chat */}
-      <div className="p-3">
+      {!fitnessOnly && <div className="p-3">
         <button onClick={() => { onNewChat?.(); router.push("/chat"); router.refresh(); }} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium"
           style={{ background: "var(--primary)", color: "white" }}>
           <Plus className="w-4 h-4" />
           {tri(lang, "گفتگوی جدید", "New Chat", "Neuer Chat", "Yeni Sohbet")}
         </button>
-      </div>
+      </div>}
 
       <nav className="flex-1 overflow-y-auto px-2 space-y-0.5 pb-2">
         <NavItem icon={LayoutDashboard} label={tri(lang, "خانه", "Home", "Startseite", "Ana Sayfa")} href="/home" active={isActive("/home")} />
         {(user?.showFitness ?? true) && <NavItem icon={Dumbbell} label={lang==="fa"?"فیتنس آی‌فکر":"AIFekr FIT"} href="/fitness" active={isActive("/fitness")} />}
+        {/* FITNESS accounts may only use AIFekr FIT; everything else in this
+            menu answered 401 for them. */}
+        {!fitnessOnly && <>
         <NavItem icon={MessageSquare} label={t.nav.chat} href="/chat" active={isActive("/chat")} />
         {user?.studentWorkspaceEnabled !== false && <NavItem icon={GraduationCap} label={t.nav.studentWorkspace} href="/student" active={isActive("/student")} />}
 
@@ -331,7 +338,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         {!!user?.pendingPaymentCount && <NavItem icon={CreditCard} label={`${tri(lang, "پرداخت‌ها و فعال‌سازی", "Payments & activation", "Zahlungen und Aktivierung", "Ödemeler ve etkinleştirme")}${user?.pendingPaymentCount ? ` (${user.pendingPaymentCount.toLocaleString(lang)})` : ""}`} href={pathname.startsWith("/fitness")?"/fitness/payments":"/payments"} active={isActive("/payments")||isActive("/fitness/payments")} />}
 
         {/* ── BUSINESS SECTION ─────────────────── */}
-        {hasBusinessAccess ? (
+        {hideBusiness ? null : hasBusinessAccess ? (
           <>
             <NavSection label={tri(lang, "کسب‌وکار من", "My Business", "Mein Unternehmen", "İşletmem")} />
             {/* Business Doctor is the front door of the whole platform — it is
@@ -665,6 +672,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             ))}
           </>
         )}
+        </>}
       </nav>
 
       {/* Bottom — was five stacked full-width rows (credits, an optional
@@ -687,13 +695,13 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
               {planNames[user.plan]}
             </span>
           </Link>
-          {!hasPack && (
+          {!hasPack && !fitnessOnly && (
             <Link href="/industry" className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium"
               style={{ background: "rgba(234,88,12,0.15)", color: "var(--primary)", border: "1px solid rgba(234,88,12,0.3)" }}>
               <Crown className="w-4 h-4 flex-shrink-0" />{tri(lang, "بسته‌های کسب‌وکار", "Business Plans", "Business-Pakete", "İşletme Planları")}
             </Link>
           )}
-          {user.plan === "FREE" && !hasPack && (
+          {user.plan === "FREE" && !hasPack && !fitnessOnly && (
             <Link href="/plans" className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium"
               style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
               <Crown className="w-4 h-4 flex-shrink-0" />{t.nav.upgrade}

@@ -375,6 +375,8 @@ export default function ChatInterface({
   const [mode, setMode] = useState<"credits" | "puter">("credits");
   const [puterReady, setPuterReady] = useState(false);
   const [sourceImages, setSourceImages] = useState<string[]>([]);
+  // Starter suggestions follow the user's industry pack when they have one.
+  const [industrySlug, setIndustrySlug] = useState<string | null>(null);
   const [userPlan, setUserPlan] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [translating, setTranslating] = useState(false);
@@ -412,7 +414,7 @@ export default function ChatInterface({
   useEffect(() => {
     fetch("/api/user/profile", { credentials: "include" })
       .then((r) => r.json())
-      .then((data) => setUserPlan(data?.user?.plan ?? null))
+      .then((data) => { setUserPlan(data?.user?.plan ?? null); setIndustrySlug(data?.user?.industryPack?.slug ?? null); })
       .catch(() => {});
   }, []);
 
@@ -968,6 +970,11 @@ export default function ChatInterface({
     ["Explain the key concepts with examples", "Ask me three practice questions from my notes", "Suggest a revision plan for this course"],
     ["Erkläre die wichtigsten Konzepte mit Beispielen", "Stelle drei Übungsfragen aus meinen Unterlagen", "Schlage einen Lernplan für diesen Kurs vor"],
     ["Temel kavramları örneklerle açıkla", "Notlarımdan üç alıştırma sorusu sor", "Bu ders için tekrar planı öner"])
+    : industrySlug === "real-estate" ? tri(lang,
+      ["برای ملکم یک آگهی جذاب برای دیوار و اینستاگرام بنویس", "یک پیام پیگیری مودبانه برای مشتری‌ای که بازدید رفته بنویس", "قیمت مناسب آپارتمان ۱۲۰ متری را چطور تعیین کنم؟", "برنامهٔ هفتگی پیگیری لیدهایم را بچین"],
+      ["Write an appealing listing for my property", "Write a polite follow-up to a client after a viewing", "How should I price a 120 m² apartment?", "Plan my weekly lead follow-ups"],
+      ["Schreibe ein ansprechendes Exposé für meine Immobilie", "Schreibe eine höfliche Nachricht nach einer Besichtigung", "Wie bepreise ich eine 120-m²-Wohnung?", "Plane meine wöchentlichen Lead-Nachfassungen"],
+      ["Mülküm için çekici bir ilan yaz", "Görüntülemeden sonra müşteriye kibar bir takip mesajı yaz", "120 m² bir daireyi nasıl fiyatlandırmalıyım?", "Haftalık müşteri takip planımı hazırla"])
     : tri(lang, STARTER_PROMPTS_FA, STARTER_PROMPTS_EN, STARTER_PROMPTS_DE);
 
   const pill = { background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" } as const;
@@ -1006,12 +1013,15 @@ export default function ChatInterface({
         <div className="flex-1 min-w-0" />
 
         <Link
+          aria-label={tri(lang, "افزایش اعتبار", "Add Credits", "Guthaben aufladen", "Kredi Ekle")}
           href="/plans"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap flex-shrink-0"
           style={{ background: "var(--primary)", color: "white" }}
         >
           <Zap className="w-3.5 h-3.5" />
-          {tri(lang, "افزایش اعتبار", "Add Credits", "Guthaben aufladen", "Kredi Ekle")}
+          {/* Label only on wide screens: on medium widths it pushed the
+              title and the model picker out of the header. */}
+          <span className="hidden xl:inline">{tri(lang, "افزایش اعتبار", "Add Credits", "Guthaben aufladen", "Kredi Ekle")}</span>
         </Link>
 
         <button
@@ -1089,7 +1099,7 @@ export default function ChatInterface({
             value={selectedModel}
             aria-label={tri(lang, "مدل هوش مصنوعی", "AI model", "KI-Modell", "Yapay zekâ modeli")}
             onChange={(e) => setSelectedModel(e.target.value)}
-            className="px-2.5 py-1.5 rounded-xl text-xs outline-none flex-shrink-0 max-w-[9rem]"
+            className="px-2.5 py-1.5 rounded-xl text-xs outline-none min-w-[5.5rem] max-w-[9rem] flex-shrink"
             style={pill}
           >
             {MODEL_IDS.map((m) => <option key={m.id} value={m.id}>{t.chat.models[m.key]}{chatBaseCost != null ? ` · ${chatBaseCost}+` : ""}</option>)}
@@ -1097,12 +1107,12 @@ export default function ChatInterface({
           </select>
         )}
         {mediaType === "image" && mode === "credits" && imageProviders.length > 0 && (
-          <select aria-label={tri(lang, "مدل ساخت تصویر", "Image model", "Bildmodell", "Görsel modeli")} value={imageProvider} onChange={(e) => setImageProvider(e.target.value)} className="px-2.5 py-1.5 rounded-xl text-xs outline-none flex-shrink-0 max-w-[9rem]" style={pill}>
+          <select aria-label={tri(lang, "مدل ساخت تصویر", "Image model", "Bildmodell", "Görsel modeli")} value={imageProvider} onChange={(e) => setImageProvider(e.target.value)} className="px-2.5 py-1.5 rounded-xl text-xs outline-none min-w-[5.5rem] max-w-[9rem] flex-shrink" style={pill}>
             {imageProviders.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         )}
         {mediaType === "video" && videoProviders.length > 0 && (
-          <select aria-label={tri(lang, "مدل ساخت ویدیو", "Video model", "Videomodell", "Video modeli")} value={videoProvider} onChange={(e) => setVideoProvider(e.target.value)} className="px-2.5 py-1.5 rounded-xl text-xs outline-none flex-shrink-0 max-w-[9rem]" style={pill}>
+          <select aria-label={tri(lang, "مدل ساخت ویدیو", "Video model", "Videomodell", "Video modeli")} value={videoProvider} onChange={(e) => setVideoProvider(e.target.value)} className="px-2.5 py-1.5 rounded-xl text-xs outline-none min-w-[5.5rem] max-w-[9rem] flex-shrink" style={pill}>
             {videoProviders.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         )}

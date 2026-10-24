@@ -43,6 +43,8 @@ export const destinations = [
   ["/startup/contact", "مشاوره استارتاپ", "Startup consultation", "Startup-Beratung", "Girişim danışmanlığı"],
   ["/image/generate", "ساخت تصویر", "Generate image", "Bild erstellen", "Görsel oluştur"],
   ["/video/generate", "ساخت ویدیو", "Generate video", "Video erstellen", "Video oluştur"],
+  ["/fitness", "فیتنس آی‌فکر", "AIFekr FIT", "AIFekr FIT", "AIFekr FIT"],
+  ["/video-factory", "کارخانه ویدیو", "Video factory", "Videofabrik", "Video fabrikası"],
   ["/music/generate", "ساخت موسیقی", "Generate music", "Musik erstellen", "Müzik oluştur"],
   ["/image/gallery", "ساخته‌های من", "My creations", "Meine Werke", "Eserlerim"],
   ["/gallery", "گالری", "Gallery", "Galerie", "Galeri"],
