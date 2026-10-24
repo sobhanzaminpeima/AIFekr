@@ -24,6 +24,7 @@ import OrganizationSwitcher from "@/components/organization/OrganizationSwitcher
 import { CHAT_HISTORY_UPDATED_EVENT, type ChatHistoryItem } from "@/lib/chat/history";
 import { useLiveCredits } from "@/lib/credits/live";
 import { moduleKeyForPath } from "@/lib/modules/moduleRoutes";
+import { sharedGetJson } from "@/lib/net/sharedGet";
 
 // A history click used to be a plain <Link href="/chat/[id]"> -- since the
 // dashboard layout is force-dynamic, every one of those was a full Next.js
@@ -168,7 +169,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
   const [blockedModules, setBlockedModules] = useState<Record<string, string>>({});
   useEffect(() => {
     let alive = true;
-    fetch("/api/modules/status").then((r) => (r.ok ? r.json() : null)).then((d) => { if (alive && d?.blocked) setBlockedModules(d.blocked); }).catch(() => {});
+    sharedGetJson<{ blocked?: Record<string, string> }>("/api/modules/status", { maxAgeMs: 30000 }).then((d) => { if (alive && d?.blocked) setBlockedModules(d.blocked); });
     return () => { alive = false; };
   }, []);
   const isAvailable = (href: string) => { const key = moduleKeyForPath(href); return !key || !blockedModules[key]; };
@@ -216,7 +217,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ conversationId: convId }),
       });
-      loadProjects();
+      loadProjects(true);
       router.refresh();
     } catch {}
   }
@@ -229,7 +230,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ conversationId: convId }),
       });
-      loadProjects();
+      loadProjects(true);
       router.refresh();
     } catch {}
   }
@@ -239,17 +240,17 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
     if (!confirm(tri(lang, "این گفتگو برای همیشه حذف بشه؟ این عمل قابل بازگشت نیست.", "Delete this chat permanently? This can't be undone.", "Diesen Chat dauerhaft löschen? Das kann nicht rückgängig gemacht werden.", "Bu sohbet kalıcı olarak silinsin mi? Bu işlem geri alınamaz."))) return;
     try {
       await fetch(`/api/chat/history/${convId}`, { method: "DELETE" });
-      loadProjects();
+      loadProjects(true);
       if (pathname === `/chat/${convId}`) router.push("/chat");
       router.refresh();
     } catch {}
   }
 
-  async function loadProjects() {
-    try {
-      const res = await fetch("/api/projects");
-      if (res.ok) { const d = await res.json(); setProjects(d.projects || []); }
-    } catch {}
+  // `fresh` after a create/rename/delete; the initial load is shared with the
+  // other mounted copy of this sidebar (desktop rail + mobile drawer).
+  async function loadProjects(fresh = false) {
+    const d = await sharedGetJson<{ projects?: Project[] }>("/api/projects", { fresh });
+    if (d) setProjects(d.projects || []);
   }
 
   async function createProject() {
@@ -260,7 +261,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newProjectName, color: newProjectColor }),
       });
-      if (res.ok) { setCreatingProject(false); setNewProjectName(""); loadProjects(); }
+      if (res.ok) { setCreatingProject(false); setNewProjectName(""); loadProjects(true); }
     } catch {}
   }
 
@@ -543,7 +544,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
                       </button>
                       <button onClick={() => {
                         const newName = prompt(tri(lang, "نام جدید:", "New name:", "Neuer Name:", "Yeni ad:"), project.name);
-                        if (newName) fetch(`/api/projects/${project.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newName }) }).then(loadProjects);
+                        if (newName) fetch(`/api/projects/${project.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newName }) }).then(() => loadProjects(true));
                         setProjectMenuOpen(null);
                       }} className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-white/5" style={{ color: "var(--text-secondary)" }}>
                         <Settings className="w-3 h-3" />

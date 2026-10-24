@@ -1,6 +1,7 @@
 "use client";
 
 import { Building2, Check, ChevronDown, Loader2, Plus, Trash2 } from "lucide-react";
+import { sharedGetJson } from "@/lib/net/sharedGet";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { tri, useTranslation } from "@/lib/i18n";
@@ -23,8 +24,7 @@ export default function OrganizationSwitcher() {
   const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch("/api/organizations", { credentials: "include" })
-      .then((response) => response.ok ? response.json() : null)
+    sharedGetJson<{ organizations?: never[]; activeBusinessId?: string | null }>("/api/organizations")
       .then((data) => { if (data) { setGroups(data.organizations || []); setActiveBusinessId(data.activeBusinessId || null); } })
       .catch(() => {});
   }, []);

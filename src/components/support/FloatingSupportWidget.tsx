@@ -322,7 +322,7 @@ export default function FloatingSupportWidget({ lang }: { lang: Lang }) {
           onClick={() => setIsOpen(true)}
           aria-label={copy.launcherLabel}
           title={copy.launcherLabel}
-          className={`fixed z-[200] w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 ${mobileDrawerOpen ? "hidden" : ""} ${hasMounted ? "aifekr-support-launcher-in" : ""}`}
+          className={`aifekr-support-launcher fixed z-[200] w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 ${mobileDrawerOpen ? "hidden" : ""} ${hasMounted ? "aifekr-support-launcher-in" : ""}`}
           style={{
             bottom: "max(24px, calc(env(safe-area-inset-bottom) + 24px))",
             [dir === "rtl" ? "left" : "right"]: 16,

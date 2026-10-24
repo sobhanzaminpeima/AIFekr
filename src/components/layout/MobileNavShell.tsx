@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, MessageSquare, Sparkles, GalleryHorizontal, User, Search } from "lucide-react";
+import { Menu, X, MessageSquare, Sparkles, GalleryHorizontal, User, Search, LayoutDashboard } from "lucide-react";
 import CommandPalette, { OPEN_COMMAND_PALETTE_EVENT } from "@/components/ui/CommandPalette";
 import NotificationBell from "@/components/layout/NotificationBell";
 import WorkspaceHeader from "./WorkspaceHeader";
@@ -66,15 +66,20 @@ export default function MobileNavShell({
   const dir = lang === "fa" ? "rtl" : "ltr";
 
   const LABELS = {
-    fa: { chat: "چت", agents: "ایجنت‌ها", gallery: "ساخته‌های من", settings: "تنظیمات" },
-    en: { chat: "Chat", agents: "Agents", gallery: "My creations", settings: "Settings" },
-    de: { chat: "Chat", agents: "Agenten", gallery: "Meine Werke", settings: "Einstellungen" },
-    tr: { chat: "Sohbet", agents: "Ajanlar", gallery: "Eserlerim", settings: "Ayarlar" },
+    fa: { home: "خانه", chat: "چت", agents: "ایجنت‌ها", gallery: "ساخته‌های من", settings: "تنظیمات" },
+    en: { home: "Home", chat: "Chat", agents: "Agents", gallery: "My creations", settings: "Settings" },
+    de: { home: "Start", chat: "Chat", agents: "Agenten", gallery: "Meine Werke", settings: "Einstellungen" },
+    tr: { home: "Ana sayfa", chat: "Sohbet", agents: "Ajanlar", gallery: "Eserlerim", settings: "Ayarlar" },
   }[lang];
 
+  // Home is the command centre that links every department -- without it the
+  // business tools were only reachable through the menu drawer on a phone.
+  // "Agents" used to open /industry (the industry-pack catalogue), not the
+  // user's agents page that the label promises.
   const bottomItems = [
+    { icon: LayoutDashboard, label: LABELS.home, href: "/home" },
     { icon: MessageSquare, label: LABELS.chat, href: "/chat" },
-    { icon: Sparkles, label: LABELS.agents, href: "/industry" },
+    { icon: Sparkles, label: LABELS.agents, href: "/agents" },
     // Image/video/music generation is a tab on the chat composer now, so
     // this slot points at the results instead of a second composer.
     { icon: GalleryHorizontal, label: LABELS.gallery, href: "/image/gallery" },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { sharedGetJson } from "@/lib/net/sharedGet";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
@@ -47,9 +48,9 @@ export default function NotificationBell({ iconOnly = true, dropUp = true }: { i
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/notifications", { credentials: "include" });
-      if (!res.ok) return;
-      const data = await res.json();
+      // Shared across the bells mounted at once (sidebar copies + mobile header).
+      const data = await sharedGetJson<{ notifications?: never[]; unreadCount?: number }>("/api/notifications", { maxAgeMs: 4000 });
+      if (!data) return;
       setItems(data.notifications || []);
       setUnreadCount(data.unreadCount || 0);
     } catch {

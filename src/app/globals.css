@@ -73,6 +73,15 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Standard scrollbar colours for every element. Components that set
+   scrollbar-width (CRM tabs, accounting nav, ...) make Chromium ignore the
+   ::-webkit-scrollbar rules below and fall back to a bright default track,
+   which showed as a white bar under dark tab rows. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
+}
+
 ::-webkit-scrollbar {
   width: 4px;
   height: 4px;
@@ -218,3 +227,9 @@ code {
 .platform-shell .commerce-card{padding:20px;border:1px solid var(--border);border-radius:20px;background:var(--surface-1);display:grid;gap:14px;min-width:0}
 .platform-shell .commerce-card input,.platform-shell .commerce-card textarea{min-height:44px}
 .platform-shell nav button[aria-pressed=true]{border-color:var(--primary);color:var(--primary)}
+
+/* On phones the dashboard has a 56px bottom tab bar; the help launcher sat on
+   top of its last tab (Settings), making it hard to tap. */
+@media (max-width: 767px) {
+  .aifekr-support-launcher { bottom: calc(68px + env(safe-area-inset-bottom)) !important; }
+}
