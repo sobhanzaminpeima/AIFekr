@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
  * link or loaded inside the embed iframe. Trilingual (fa/en/de) via the
  * visitor's own language cookie, falling back to the form's Persian copy.
  */
-export default async function PublicLeadFormPage({ params }: { params: { slug: string } }) {
+export default async function PublicLeadFormPage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const lang = await getServerLang();
   const form = await prisma.leadForm.findUnique({ where: { slug: params.slug } });
   if (!form || !form.isActive) notFound();

@@ -15,13 +15,15 @@ async function context(req:NextRequest,id:string){
  const quiz=await prisma.studentQuiz.findFirst({where:{id,course:{userId:user.id}}});if(!quiz)return {error:reply({error:'Quiz not found'},404)};
  return {user,quiz,key:`quiz_draft_${id}`,hash:createHash('sha256').update(quiz.questions).digest('hex')};
 }
-export async function GET(req:NextRequest,{params}:{params:{id:string}}){
+export async function GET(req:NextRequest, props:{params: Promise<{id:string}>}) {
+ const params = await props.params;
  const ctx=await context(req,params.id);if(ctx.error)return ctx.error;
  const row=await prisma.mobileRequest.findUnique({where:{userId_requestKey:{userId:ctx.user!.id,requestKey:ctx.key!}}});
  if(row&&row.inputHash!==ctx.hash)return reply({error:'Quiz changed; saved answers require review'},409);
  return reply({draft:row?.responseJson?JSON.parse(row.responseJson):null,quizHash:ctx.hash});
 }
-export async function POST(req:NextRequest,{params}:{params:{id:string}}){
+export async function POST(req:NextRequest, props:{params: Promise<{id:string}>}) {
+ const params = await props.params;
  const ctx=await context(req,params.id);if(ctx.error)return ctx.error;
  const user=ctx.user!,quiz=ctx.quiz!,key=ctx.key!,hash=ctx.hash!;
  let body:{revision:number;answers:(number|null)[]};let questions:{options:string[]}[];

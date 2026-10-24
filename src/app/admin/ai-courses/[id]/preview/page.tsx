@@ -8,8 +8,12 @@ import {getServerLang} from "@/lib/i18n/server";
 import {tri} from "@/lib/i18n/tri";
 import LearningBlocks from "@/components/courses/LearningBlocks";
 export const dynamic="force-dynamic";
-export default async function Preview({params,searchParams}:{params:{id:string};searchParams:{lesson?:string}}){
- const token=cookies().get("token")?.value,payload=token?verifyToken(token):null;
+export default async function Preview(
+ props:{params: Promise<{id:string}>;searchParams: Promise<{lesson?:string}>}
+) {
+ const searchParams = await props.searchParams;
+ const params = await props.params;
+ const token=(await cookies()).get("token")?.value,payload=token?verifyToken(token):null;
  if(!payload)redirect("/login");
  const admin=await prisma.user.findUnique({where:{id:payload.userId},select:{role:true,isBlocked:true}});
  if(!admin||admin.isBlocked)redirect("/login");

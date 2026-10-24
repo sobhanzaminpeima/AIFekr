@@ -11,7 +11,8 @@ async function membershipFor(userId: string, organizationId: string) {
   return prisma.organizationMember.findUnique({ where: { organizationId_userId: { organizationId, userId } } });
 }
 
-export async function GET(req: NextRequest, { params }: { params: { organizationId: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ organizationId: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const membership = await membershipFor(user.id, params.organizationId);
@@ -23,7 +24,8 @@ export async function GET(req: NextRequest, { params }: { params: { organization
   return NextResponse.json({ businesses });
 }
 
-export async function POST(req: NextRequest, { params }: { params: { organizationId: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ organizationId: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const membership = await membershipFor(user.id, params.organizationId);

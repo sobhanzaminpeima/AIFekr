@@ -7,23 +7,23 @@ import { studentWorkspaceDisabledResponse } from "@/lib/student/access";
 import { verify } from "jsonwebtoken";
 import { createHash } from "node:crypto";
 
-export async function GET(req: NextRequest, context: { params: { id: string } }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
-  const quiz = await prisma.studentQuiz.findFirst({ where: { id: context.params.id, course: { userId: user.id } } });
+  const quiz = await prisma.studentQuiz.findFirst({ where: { id: (await context.params).id, course: { userId: user.id } } });
   if (!quiz) return NextResponse.json({ error: "آزمون پیدا نشد" }, { status: 404 });
   const questions = JSON.parse(quiz.questions) as { question: string; topic: string; explanation: string; options: string[]; correctIndex: number }[];
   return NextResponse.json({ quiz: { ...quiz, questions: questions.map((question) => ({ question: question.question, topic: question.topic, explanation: question.explanation, options: question.options })) } });
 }
 
-export async function POST(req: NextRequest, context: { params: { id: string } }) {
+export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
-  const quiz = await prisma.studentQuiz.findFirst({ where: { id: context.params.id, course: { userId: user.id } } });
+  const quiz = await prisma.studentQuiz.findFirst({ where: { id: (await context.params).id, course: { userId: user.id } } });
   if (!quiz) return NextResponse.json({ error: "آزمون پیدا نشد" }, { status: 404 });
   if (quiz.timeLimitSeconds) {
     const previousAttempt = await prisma.studentQuizAttempt.findFirst({ where: { userId: user.id, quizId: quiz.id }, select: { id: true } });

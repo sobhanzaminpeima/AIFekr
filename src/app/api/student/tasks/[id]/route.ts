@@ -5,7 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { studentWorkspaceDisabledResponse } from "@/lib/student/access";
 
-export async function PATCH(req: NextRequest, context: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
@@ -38,18 +38,18 @@ export async function PATCH(req: NextRequest, context: { params: { id: string } 
     data.completedAt = body.completed ? new Date() : null;
   }
   if (Object.keys(data).length === 0) return NextResponse.json({ error: "تغییری برای ذخیره ارسال نشده است" }, { status: 400 });
-  const result = await prisma.studentTask.updateMany({ where: { id: context.params.id, userId: user.id }, data });
+  const result = await prisma.studentTask.updateMany({ where: { id: (await context.params).id, userId: user.id }, data });
   if (result.count === 0) return NextResponse.json({ error: "کار پیدا نشد" }, { status: 404 });
-  const task = await prisma.studentTask.findFirst({ where: { id: context.params.id, userId: user.id }, include: { course: { select: { id: true, name: true, color: true } } } });
+  const task = await prisma.studentTask.findFirst({ where: { id: (await context.params).id, userId: user.id }, include: { course: { select: { id: true, name: true, color: true } } } });
   return NextResponse.json({ task });
 }
 
-export async function DELETE(req: NextRequest, context: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
-  const deleted = await prisma.studentTask.deleteMany({ where: { id: context.params.id, userId: user.id } });
+  const deleted = await prisma.studentTask.deleteMany({ where: { id: (await context.params).id, userId: user.id } });
   if (!deleted.count) return NextResponse.json({ error: "کار پیدا نشد" }, { status: 404 });
   return NextResponse.json({ success: true });
 }

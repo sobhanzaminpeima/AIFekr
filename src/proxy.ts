@@ -56,7 +56,7 @@ function unverifiedUserId(req: NextRequest): string | null {
   }
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (!pathname.startsWith("/api/")) {
     const localized = stripPublicLocale(pathname);

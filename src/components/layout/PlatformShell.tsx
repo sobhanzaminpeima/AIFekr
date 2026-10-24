@@ -25,7 +25,7 @@ import Link from "next/link";
 export async function renderPlatformShell(children:React.ReactNode,fitness=false) {
   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;
-  const loginPath=headers().get("x-aifekr-path")?.split("?")[0]==="/play"?"/register?entry=chat&redirect=%2Fplay":"/login";
+  const loginPath=(await headers()).get("x-aifekr-path")?.split("?")[0]==="/play"?"/register?entry=chat&redirect=%2Fplay":"/login";
 
   if (!token) redirect(loginPath);
   const payload = verifyToken(token);
@@ -45,8 +45,8 @@ export async function renderPlatformShell(children:React.ReactNode,fitness=false
   });
 
   if (!user || user.isBlocked) redirect("/login");
-  if(headers().get("x-aifekr-path")?.split("?")[0]==="/play")return <div className="min-h-screen"><nav className="border-b p-4 flex gap-5"><Link href="/">AIFekr</Link><Link href="/chat">AI Chat</Link></nav><main>{children}</main></div>;
-  if(standaloneChatOnly(user)){const path=headers().get("x-aifekr-path")?.split("?")[0]||"";if(!["/play","/settings","/profile","/payments","/referral","/credits"].some(p=>path===p||path.startsWith(p+"/")))redirect("/chat");return <div className="min-h-screen"><nav className="border-b p-4"><Link href="/chat">AIFekr AI Chat</Link></nav><main>{children}</main></div>;}
+  if((await headers()).get("x-aifekr-path")?.split("?")[0]==="/play")return <div className="min-h-screen"><nav className="border-b p-4 flex gap-5"><Link href="/">AIFekr</Link><Link href="/chat">AI Chat</Link></nav><main>{children}</main></div>;
+  if(standaloneChatOnly(user)){const path=(await headers()).get("x-aifekr-path")?.split("?")[0]||"";if(!["/play","/settings","/profile","/payments","/referral","/credits"].some(p=>path===p||path.startsWith(p+"/")))redirect("/chat");return <div className="min-h-screen"><nav className="border-b p-4"><Link href="/chat">AIFekr AI Chat</Link></nav><main>{children}</main></div>;}
   if (!fitness && user.accountType === "FITNESS" && !["ADMIN", "SUPER_ADMIN"].includes(user.role)) redirect("/fitness");
 
   // Redirect new users to onboarding wizard (welcome is outside this layout group)

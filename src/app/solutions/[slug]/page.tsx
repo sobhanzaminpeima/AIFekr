@@ -10,14 +10,16 @@ import { FeatureCards, FinalCTA, Workflow } from "@/components/marketing/Section
 import JsonLd from "@/components/seo/JsonLd";
 import { solutionDetails } from "@/lib/marketing/solutionDetails";
 export const dynamic = "force-dynamic";
-export async function generateMetadata({ params }: { params: { slug: string } }) {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const solution = solutionCatalog.find(s => s.slug === params.slug);
   if (!solution) return {};
   const lang = await getServerLang();
   const description = solutionDetails[solution.slug].description;
   return pageMetadata(lang, `/solutions/${solution.slug}`, { fa: solution.title[0], en: solution.title[1], de: solution.title[2], tr: solution.title[3] }, { fa: description[0], en: description[1], de: description[2], tr: description[3] });
 }
-export default async function SolutionPage({ params }: { params: { slug: string } }) {
+export default async function SolutionPage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const solution = solutionCatalog.find(s => s.slug === params.slug);
   if (!solution) notFound();
   const lang = await getServerLang();

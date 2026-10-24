@@ -10,8 +10,12 @@ const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.enum(["pause", "resume", "cancel", "approve"]) }).strict(),
   z.object({ action: z.literal("edit"), expectedVersion: z.number().int().min(0), manifest: z.unknown(),configuration:z.unknown().optional() }).strict(),
 ]);
-export function GET(req: NextRequest, { params }: { params: { id: string } }) { return factoryRoute(req, false, async userId => NextResponse.json({ project: await getProject(userId, params.id) }, { headers: { "Cache-Control": "no-store" } })); }
-export function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  return factoryRoute(req, false, async userId => NextResponse.json({ project: await getProject(userId, params.id) }, { headers: { "Cache-Control": "no-store" } }));
+}
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return factoryRoute(req, false, async userId => {
     const input = actionSchema.parse(await boundedJson(req));
     if (input.action === "estimate") return NextResponse.json({ estimate: await estimateProject(userId, params.id) });

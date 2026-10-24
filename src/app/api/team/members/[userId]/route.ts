@@ -10,7 +10,8 @@ import { removeTeamSeatAndResetPlan } from "@/lib/repositories/userRepository";
  * only remove themselves (i.e. leave the team). The owner cannot be removed
  * this way — they'd need to transfer ownership or delete the team.
  */
-export async function DELETE(req: NextRequest, { params }: { params: { userId: string } }) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ userId: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
 

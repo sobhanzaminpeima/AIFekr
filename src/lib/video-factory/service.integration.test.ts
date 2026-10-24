@@ -100,17 +100,17 @@ describe("Video Factory isolated durable workflow", () => {
   });
   it("accepts the actual local Host origin while rejecting cross-site writes",async()=>{
     const p=await project(),body={action:"configuration",expectedVersion:0,configuration:config};
-    const local=request(`/api/video-factory/projects/${p.id}`,userId,body);local.headers.set("host","127.0.0.1:3147");local.headers.set("origin","http://127.0.0.1:3147");expect((await projectAction(local,{params:{id:p.id}})).status).toBe(200);
-    const cross=request(`/api/video-factory/projects/${p.id}`,userId,{...body,expectedVersion:1});cross.headers.set("host","127.0.0.1:3147");cross.headers.set("origin","https://untrusted.invalid");expect((await projectAction(cross,{params:{id:p.id}})).status).toBe(403);
+    const local=request(`/api/video-factory/projects/${p.id}`,userId,body);local.headers.set("host","127.0.0.1:3147");local.headers.set("origin","http://127.0.0.1:3147");expect((await projectAction(local,{params:Promise.resolve({id:p.id})})).status).toBe(200);
+    const cross=request(`/api/video-factory/projects/${p.id}`,userId,{...body,expectedVersion:1});cross.headers.set("host","127.0.0.1:3147");cross.headers.set("origin","https://untrusted.invalid");expect((await projectAction(cross,{params:Promise.resolve({id:p.id})})).status).toBe(403);
   });
   it("isolates project reads, action routes and admin access", async () => {
     const p = await project();
     await expect(getProject(otherId, p.id)).rejects.toThrow("PROJECT_NOT_FOUND");
-    expect((await projectDetail(request(`/api/video-factory/projects/${p.id}`), { params: { id: p.id } })).status).toBe(401);
-    expect((await projectDetail(request(`/api/video-factory/projects/${p.id}`, otherId), { params: { id: p.id } })).status).toBe(404);
+    expect((await projectDetail(request(`/api/video-factory/projects/${p.id}`), { params: Promise.resolve({ id: p.id }) })).status).toBe(401);
+    expect((await projectDetail(request(`/api/video-factory/projects/${p.id}`, otherId), { params: Promise.resolve({ id: p.id }) })).status).toBe(404);
     expect((await adminGet(request("/api/admin/video-factory", userId))).status).toBe(401);
     expect((await adminEconomics(request("/api/admin/video-factory/economics",userId,{action:"REPRICE_DRAFTS"}))).status).toBe(401);
-    expect((await projectAction(request(`/api/video-factory/projects/${p.id}`, userId, { action: "estimate" }), { params: { id: p.id } })).status).toBe(200);
+    expect((await projectAction(request(`/api/video-factory/projects/${p.id}`, userId, { action: "estimate" }), { params: Promise.resolve({ id: p.id }) })).status).toBe(200);
   });
   it("reserves once on replay and refunds cancellation exactly once", async () => {
     const p = await project(), before = await prisma.user.findUniqueOrThrow({ where: { id: userId } });

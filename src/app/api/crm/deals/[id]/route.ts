@@ -15,7 +15,8 @@ const EDITABLE_FIELDS = ["title", "value", "probability", "expectedCloseDate", "
 // additional module gate, not new access-control logic.
 const COMMISSION_FIELDS = ["commissionRate", "commissionAmount", "commissionPaymentStatus"] as const;
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
@@ -47,7 +48,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   return NextResponse.json({ deal });
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);

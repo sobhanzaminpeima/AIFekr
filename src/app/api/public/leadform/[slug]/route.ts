@@ -10,7 +10,8 @@ import { submitLeadForm, hashIp } from "@/lib/leadgen/repository";
 // Public, unauthenticated. GET returns the form's render config; POST accepts
 // one submission. Both are per-IP rate-limited; POST also has a honeypot.
 
-export async function GET(_req: NextRequest, { params }: { params: { slug: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const form = await prisma.leadForm.findUnique({ where: { slug: params.slug } });
   if (!form || !form.isActive) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
@@ -30,7 +31,8 @@ export async function GET(_req: NextRequest, { params }: { params: { slug: strin
   });
 }
 
-export async function POST(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const ip = getClientIp(req.headers);
   const rl = rateLimit(`leadform:${params.slug}:${ip}`, 5, 60_000);
   if (!rl.allowed) {

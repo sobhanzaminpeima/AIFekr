@@ -4,7 +4,8 @@ import {prisma} from "@/lib/db/prisma";
 import {notifyReceipt} from "@/lib/payment/bank";
 import {rateLimit} from "@/lib/utils/rateLimit";
 export const dynamic="force-dynamic";
-export async function POST(req:NextRequest,{params}:{params:{id:string}}){
+export async function POST(req:NextRequest, props:{params: Promise<{id:string}>}) {
+ const params = await props.params;
  const admin=await requireAdmin(req);if(!admin)return forbiddenResponse();
  if(!rateLimit(`receipt-notify:${admin.id}`,5,300000).allowed)return NextResponse.json({error:"کمی صبر کنید."},{status:429});
  const payment=await prisma.payment.findUnique({where:{id:params.id},select:{userId:true,receiptAt:true,gateway:true}});

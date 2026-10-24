@@ -4,7 +4,8 @@ import { prisma } from "@/lib/db/prisma";
 import { verifyPayment } from "@/lib/payment/zarinpal";
 import { settleVerifiedPayment } from "@/lib/payment/reviewBankPayment";
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const admin = await requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "دسترسی غیرمجاز" }, { status: 403 });
   const payment = await prisma.payment.findUnique({ where: { id: params.id } });

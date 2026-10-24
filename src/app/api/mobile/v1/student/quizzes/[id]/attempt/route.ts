@@ -14,7 +14,8 @@ const bodySchema=z.discriminatedUnion('action',[
  z.object({action:z.literal('submit'),requestKey:z.string().regex(/^quiz_[a-zA-Z0-9_-]{8,100}$/),answers:z.array(z.number().int().min(0).max(3).nullable()).max(100)}).strict(),
 ]);
 const reply=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:{'Cache-Control':'no-store'}});
-export async function POST(req:NextRequest,{params}:{params:{id:string}}){
+export async function POST(req:NextRequest, props:{params: Promise<{id:string}>}) {
+ const params = await props.params;
  if(process.env.MOBILE_API_ENABLED!=='true')return reply({error:'Mobile API disabled'},503);
  const user=await requireAuth(req);if(!user)return unauthorizedResponse(req);
  if(!rateLimit(`native-quiz:${user.id}`,60,60000).allowed)return reply({error:'Too many requests'},429);
@@ -25,7 +26,7 @@ export async function POST(req:NextRequest,{params}:{params:{id:string}}){
  const startKey=`quiz_start_${quiz.id}`;
  const startRow=await prisma.mobileRequest.findUnique({where:{userId_requestKey:{userId:user.id,requestKey:startKey}}});
  if(body.action==='start'){
-  if(quiz.timeLimitSeconds&&await prisma.studentQuizAttempt.findFirst({where:{userId:user.id,quizId:quiz.id},select:{id:true}}))return reply({error:'Quiz already submitted'},409);
+  if(quiz.timeLimitSeconds&&(await prisma.studentQuizAttempt.findFirst({where:{userId:user.id,quizId:quiz.id},select:{id:true}})))return reply({error:'Quiz already submitted'},409);
   if(startRow?.responseJson){const saved=JSON.parse(startRow.responseJson);if(saved.expiresAt&&Date.parse(saved.expiresAt)<=Date.now())return reply({error:'Quiz time expired'},410);return reply({...saved,serverNow:new Date().toISOString()});}
   const startedAt=new Date();const payload={quiz:{id:quiz.id,title:quiz.title,questions},expiresAt:quiz.timeLimitSeconds?new Date(startedAt.getTime()+quiz.timeLimitSeconds*1000).toISOString():null,attemptToken:quiz.timeLimitSeconds?sign({kind:'student_quiz',quizId:quiz.id,userId:user.id},process.env.JWT_SECRET!,{algorithm:'HS256',expiresIn:quiz.timeLimitSeconds+3600}):null};
   if(quiz.timeLimitSeconds){try{await prisma.mobileRequest.create({data:{userId:user.id,requestKey:startKey,inputHash:createHash('sha256').update(quiz.questions).digest('hex'),status:'COMPLETED',responseJson:JSON.stringify(payload)}});}catch{const raced=await prisma.mobileRequest.findUnique({where:{userId_requestKey:{userId:user.id,requestKey:startKey}}});return raced?.responseJson?reply({...JSON.parse(raced.responseJson),serverNow:new Date().toISOString()}):reply({error:'Start unavailable'},409);}}
@@ -55,7 +56,7 @@ export async function POST(req:NextRequest,{params}:{params:{id:string}}){
  if(quiz.timeLimitSeconds&&(!started||Date.parse(started.expiresAt)<=Date.now()))return reply({error:'Quiz start missing or time expired'},410);
  let claim:string;try{claim=(await prisma.mobileRequest.create({data:{userId:user.id,requestKey:key,inputHash:hash,status:'RUNNING'}})).id;}catch{return reply({error:'Already submitted'},409);}
  try{
-  const response=await gradeQuiz(new NextRequest(req.url,{method:'POST',headers:req.headers,body:JSON.stringify({answers:body.answers,attemptToken:started?.attemptToken,nativeRequestId:claim})}),{params});
+  const response=await gradeQuiz(new NextRequest(req.url,{method:'POST',headers:req.headers,body:JSON.stringify({answers:body.answers,attemptToken:started?.attemptToken,nativeRequestId:claim})}),{params:Promise.resolve(params)});
   const result=await response.json();await prisma.mobileRequest.update({where:{id:claim},data:{status:response.ok?'COMPLETED':'FAILED',responseJson:response.ok?JSON.stringify(result):null}});return reply(result,response.status);
  }catch{await prisma.mobileRequest.updateMany({where:{id:claim,status:'RUNNING'},data:{status:'UNKNOWN'}});return reply({error:'Outcome uncertain; inspect attempt history'},503);}
 }

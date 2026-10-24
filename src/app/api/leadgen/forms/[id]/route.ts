@@ -9,7 +9,8 @@ async function ownForm(userId: string, id: string) {
   return prisma.leadForm.findFirst({ where: { id, userId } });
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   if (user.plan === "FREE") return forbiddenResponse();
@@ -46,7 +47,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   if (user.plan === "FREE") return forbiddenResponse();

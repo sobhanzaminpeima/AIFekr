@@ -9,7 +9,8 @@ import { prisma } from "@/lib/db/prisma";
  * for that one statement and its property's name, never any other property,
  * any other statement, or anything about the agency's own workspace.
  */
-export async function GET(_req: NextRequest, { params }: { params: { token: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const statement = await prisma.accountingOwnerStatement.findFirst({
     where: { shareToken: params.token, status: "sent" },
     select: {

@@ -20,7 +20,8 @@ export const dynamic = "force-dynamic";
 // /login). Title includes both the pack name and "AiFekr" so the page can
 // rank for the pack's own keywords ("هوش مصنوعی برای رستوران") and for
 // brand-name searches.
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const pack = await prisma.industryPack.findUnique({ where: { slug: params.slug } });
   if (!pack?.isActive) notFound();
   const lang = await getServerLang();
@@ -64,7 +65,8 @@ const strings = {
   },
 };
 
-export default async function PackDetailPage({ params }: { params: { slug: string } }) {
+export default async function PackDetailPage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const pack = await prisma.industryPack.findUnique({ where: { slug: params.slug } });
   if (!pack?.isActive) notFound();
 

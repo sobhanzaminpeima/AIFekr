@@ -15,7 +15,7 @@ function isLang(v: string | undefined): v is Lang {
 
 export async function getServerLang(): Promise<Lang> {
   try {
-    const publicLang = headers().get("x-public-lang") ?? undefined;
+    const publicLang = (await headers()).get("x-public-lang") ?? undefined;
     if (isLang(publicLang)) return publicLang;
     const cookieStore = await cookies();
     const lang = cookieStore.get("lang")?.value;

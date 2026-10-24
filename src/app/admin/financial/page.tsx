@@ -6,7 +6,10 @@ import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 import BankReview from "./BankReview";
 import Link from "next/link";
-export default async function Financial({searchParams}:{searchParams:{page?:string;status?:string;userId?:string}}){
+export default async function Financial(
+ props:{searchParams: Promise<{page?:string;status?:string;userId?:string}>}
+) {
+ const searchParams = await props.searchParams;
  const lang=await getServerLang();const t=(a:string,b:string,c:string,d:string)=>tri(lang,a,b,c,d);
  const page=Math.max(1,Math.min(10000,Number(searchParams.page)||1));const status=["PENDING","SUCCESS","REJECTED","FAILED"].includes(searchParams.status||"")?searchParams.status:undefined;
  const where={...(status?{status}:{}),...(searchParams.userId?{userId:searchParams.userId}:{})};

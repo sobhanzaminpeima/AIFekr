@@ -5,14 +5,17 @@ import { isStudentIntroPlan } from "@/lib/plans/studentOffer";
 import { BUSINESS_PACKAGES } from "@/lib/plans/business";
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Check, Copy, CreditCard, ShieldCheck, UploadCloud, FileText, Clock3, CircleCheck, CircleX, RefreshCw, Loader2 } from "lucide-react";
 import { useTranslation, tri } from "@/lib/i18n";
 import { readBankDetails, formatIban, receiptFileError } from "@/lib/payment/presentation";
 
 type Payment = { id: string; plan: string; status: string; periodMonths: number; transferCurrency: string; transferMinor: number; bankSnapshot: string; receiptAt: string | null; reviewNote: string | null; entitlementSnapshot: string };
 
-export default function CheckoutView({ params }: { params: { id: string } }) {
+// Rendered by the /checkout/[id] pages as a client component; since Next 15
+// route params reach client pages as a Promise, so the id comes from the hook.
+export default function CheckoutView() {
+  const params = useParams<{ id: string }>();
   const { lang } = useTranslation();
   const router = useRouter();
   const previousStatus = useRef<string | null>(null);
@@ -28,7 +31,7 @@ export default function CheckoutView({ params }: { params: { id: string } }) {
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [preview, setPreview] = useState("");
   const [copied, setCopied] = useState("");
-  const copyTimer = useRef<ReturnType<typeof setTimeout>>();
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const t = useCallback((fa: string, en: string, de: string, tr: string) => tri(lang, fa, en, de, tr), [lang]);
 
   const load = useCallback(async (background = false) => {

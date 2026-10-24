@@ -5,20 +5,20 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { studentWorkspaceDisabledResponse } from "@/lib/student/access";
 
-export async function GET(req: NextRequest, context: { params: { id: string } }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
   const course = await prisma.studentCourse.findFirst({
-    where: { id: context.params.id, userId: user.id },
+    where: { id: (await context.params).id, userId: user.id },
     select: { id: true, name: true },
   });
   if (!course) return NextResponse.json({ error: "درس پیدا نشد" }, { status: 404 });
   return NextResponse.json({ course });
 }
 
-export async function PATCH(req: NextRequest, context: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
@@ -41,18 +41,18 @@ export async function PATCH(req: NextRequest, context: { params: { id: string } 
     data.color = body.color;
   }
   if (!Object.keys(data).length) return NextResponse.json({ error: "تغییری برای ذخیره ارسال نشده است" }, { status: 400 });
-  const updated = await prisma.studentCourse.updateMany({ where: { id: context.params.id, userId: user.id }, data });
+  const updated = await prisma.studentCourse.updateMany({ where: { id: (await context.params).id, userId: user.id }, data });
   if (!updated.count) return NextResponse.json({ error: "درس پیدا نشد" }, { status: 404 });
-  const course = await prisma.studentCourse.findFirst({ where: { id: context.params.id, userId: user.id }, include: { _count: { select: { materials: true, notes: true, flashcards: true, exams: true, quizzes: true } }, exams: { where: { examAt: { gte: new Date() } }, orderBy: { examAt: "asc" }, take: 1 } } });
+  const course = await prisma.studentCourse.findFirst({ where: { id: (await context.params).id, userId: user.id }, include: { _count: { select: { materials: true, notes: true, flashcards: true, exams: true, quizzes: true } }, exams: { where: { examAt: { gte: new Date() } }, orderBy: { examAt: "asc" }, take: 1 } } });
   return NextResponse.json({ course });
 }
 
-export async function DELETE(req: NextRequest, context: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
   if (unavailable) return unavailable;
-  const deleted = await prisma.studentCourse.deleteMany({ where: { id: context.params.id, userId: user.id } });
+  const deleted = await prisma.studentCourse.deleteMany({ where: { id: (await context.params).id, userId: user.id } });
   if (!deleted.count) return NextResponse.json({ error: "درس پیدا نشد" }, { status: 404 });
   return NextResponse.json({ success: true });
 }

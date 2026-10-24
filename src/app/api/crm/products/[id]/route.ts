@@ -8,7 +8,8 @@ import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
 /** Product detail + the contacts who've had this product on an invoice — lets the UI answer "who bought this?" from a click. */
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
@@ -28,7 +29,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   return NextResponse.json({ product, contacts: Array.from(contactsMap.values()) });
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
@@ -61,7 +63,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 /** Soft-delete only (isActive: false) — a hard delete would break the history of any invoice/deal that already references this product. */
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);

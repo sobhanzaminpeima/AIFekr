@@ -19,7 +19,8 @@ import { tri } from "@/lib/i18n/tri";
  * re-crawled now (defaults to the homepage; any page of the site may be chosen),
  * so the advice reflects the live page, not last week's snapshot.
  */
-async function handlePost(req: NextRequest, { params }: { params: { id: string } }) {
+async function handlePost(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const lang = await getServerLang();

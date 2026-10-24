@@ -12,7 +12,8 @@ import { tri } from "@/lib/i18n/tri";
  * ۵۲۰۰)"-style citations the Finance AI Agent puts in its answers, so a
  * cited number can actually be traced back to its source journal lines.
  */
-export async function GET(req: NextRequest, { params }: { params: { code: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ code: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);

@@ -15,7 +15,8 @@ async function checkAdmin(req: NextRequest) {
 
 // Full module catalog merged with this customer's current overrides
 // (enabled/disabled/none — "none" means the pack-level default applies).
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const admin = await checkAdmin(req);
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -46,7 +47,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 // Set or clear a per-customer override. enabled: true/false sets an override;
 // enabled: null removes it so the pack-level default applies again.
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const admin = await checkAdmin(req);
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

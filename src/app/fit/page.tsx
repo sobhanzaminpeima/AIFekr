@@ -23,7 +23,7 @@ export default async function Page() {
   const lang = await getServerLang();
   const c = fitCopy[lang];
   const p = publicCopy[lang];
-  const token = cookies().get("token")?.value;
+  const token = (await cookies()).get("token")?.value;
   const auth = token ? verifyToken(token) : null;
   const account = auth ? await prisma.user.findUnique({ where: { id: auth.userId }, select: { isBlocked: true } }) : null;
   const isLoggedIn = Boolean(account && !account.isBlocked);

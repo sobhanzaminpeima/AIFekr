@@ -7,7 +7,8 @@ import {legacyQuestions,publicQuestion} from "@/lib/courses/assessment";
 import {courseLessons} from "@/lib/courses/content";
 import {courseError} from "@/lib/courses/http";
 export const dynamic="force-dynamic";
-export async function GET(req:NextRequest,{params}:{params:{id:string}}){
+export async function GET(req:NextRequest, props:{params: Promise<{id:string}>}) {
+ const params = await props.params;
  const user=await requireAuth(req);if(!user)return unauthorizedResponse(req);const denied=await studentWorkspaceDisabledResponse(user);if(denied)return denied;
  try{const {content,version}=await learningVersion(user.id,params.id),id=req.nextUrl.searchParams.get("lesson"),lesson=id==="final"?{id:"final",title:content.finalProject.title,content:content.finalProject.instructions,activity:content.finalProject.rubric.join("\n"),quiz:content.finalAssessment||[],assessmentQuestions:content.finalAssessmentQuestions,assessmentSettings:content.finalAssessmentSettings}:courseLessons(content).find(x=>x.id===id);
  if(!lesson)return NextResponse.json({error:"LESSON_NOT_FOUND"},{status:404});const questions=lesson.assessmentQuestions||legacyQuestions(lesson.quiz),selected=lesson.assessmentSettings&&questions.length?selectAssessment({userId:user.id,versionId:version.id,lessonId:lesson.id},questions.length,lesson.assessmentSettings):null;

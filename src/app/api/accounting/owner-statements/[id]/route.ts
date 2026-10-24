@@ -8,7 +8,8 @@ import { approveOwnerStatement, sendOwnerStatement, reopenOwnerStatement } from 
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
@@ -24,7 +25,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 /** { action: "approve" } posts the ledger entry. { action: "send" } emails the owner (statement must already be approved). */
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);

@@ -1,2 +1,2 @@
 "use client";
-export {default} from "@/components/billing/CheckoutView";
+export { default } from "@/components/billing/CheckoutView";

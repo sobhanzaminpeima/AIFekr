@@ -11,7 +11,8 @@ import { publicAppUrl } from "@/lib/utils/publicAppUrl";
 
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const unavailable = await studentWorkspaceDisabledResponse(user);
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   let added = false;
   if (invitee) {
-    if (invitee.isBlocked || !await isStudentWorkspaceEnabled({ id: invitee.id })) return NextResponse.json({ error: "این حساب در حال حاضر به فضای دانشجویی دسترسی ندارد" }, { status: 409 });
+    if (invitee.isBlocked || !(await isStudentWorkspaceEnabled({ id: invitee.id }))) return NextResponse.json({ error: "این حساب در حال حاضر به فضای دانشجویی دسترسی ندارد" }, { status: 409 });
     const existing = await prisma.studentStudyGroupMember.findUnique({ where: { groupId_userId: { groupId: group.id, userId: invitee.id } }, select: { id: true } });
     if (existing) return NextResponse.json({ success: true, added: false, alreadyMember: true, emailSent: false, message: "این دانشجو از قبل عضو گروه است" });
     await prisma.studentStudyGroupMember.create({ data: { groupId: group.id, userId: invitee.id } });

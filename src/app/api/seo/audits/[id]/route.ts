@@ -7,7 +7,8 @@ import { parseSnapshot } from "@/lib/seo/siteAuditService";
 import { diffAudits } from "@/lib/seo/siteAuditCore";
 
 /** One saved audit in full, with what changed since the audit before it. */
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
 

@@ -13,7 +13,8 @@ async function ownedSite(userId: string, id: string) {
 }
 
 /** The site's blog-automation plan (defaults when none is saved yet), whether WordPress is connected, and the posts it produced. */
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const site = await ownedSite(user.id, params.id);
@@ -40,7 +41,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 /** Saves the plan. Turning it on schedules the first post for the next scheduler tick. */
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const site = await ownedSite(user.id, params.id);

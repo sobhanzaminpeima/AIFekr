@@ -7,7 +7,8 @@ import { resolveCrmWorkspace, hasCrmAccess, dealAgentFilter, businessFilter } fr
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
@@ -30,7 +31,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ dealProduct });
 }
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);

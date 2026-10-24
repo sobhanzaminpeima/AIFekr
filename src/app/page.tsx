@@ -26,7 +26,7 @@ export async function generateMetadata() {
   return meta;
 }
 export default async function HomePage() {
-  const session = verifyToken(cookies().get("token")?.value || "");
+  const session = verifyToken((await cookies()).get("token")?.value || "");
   if (session) {
     const user = await prisma.user.findUnique({where:{id:session.userId},select:{isBlocked:true}});
     if (user && !user.isBlocked) redirect("/chat");

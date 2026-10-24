@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { MapPin, Loader2, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { tri } from "@/lib/i18n/tri";
@@ -19,7 +19,8 @@ const LISTING_LABEL_FA: Record<string, string> = { buy: "خرید", sell: "فر�
 const LISTING_LABEL_EN: Record<string, string> = { buy: "For purchase", sell: "For sale", rent: "For rent", short_term_rent: "Short-term rental" };
 const LISTING_LABEL_DE: Record<string, string> = { buy: "Zum Kauf", sell: "Zum Verkauf", rent: "Zur Miete", short_term_rent: "Kurzzeitmiete" };
 
-export default function PublicPropertyPage({ params }: { params: { id: string } }) {
+export default function PublicPropertyPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const { lang } = useTranslation();
   const dir = lang === "fa" ? "rtl" : "ltr";
   const [property, setProperty] = useState<PublicProperty | null>(null);

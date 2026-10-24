@@ -9,7 +9,8 @@ import { prisma } from "@/lib/db/prisma";
  * It injects a floating button that opens /f/<slug> in an overlay iframe.
  * UTM params present on the host page are forwarded to the form.
  */
-export async function GET(_req: NextRequest, { params }: { params: { slug: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const form = await prisma.leadForm.findUnique({ where: { slug: params.slug }, select: { slug: true, isActive: true, accentColor: true, submitLabel: true } });
   if (!form || !form.isActive) {
     return new NextResponse("/* lead form not found */", { status: 404, headers: { "Content-Type": "application/javascript" } });

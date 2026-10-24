@@ -15,16 +15,16 @@ beforeAll(async () => {
 });
 afterAll(async () => { await prisma.studentCourse.deleteMany({where:{userId:owner}}); await prisma.user.deleteMany({where:{id:{in:[owner,stranger]}}}); });
 describe("student exam edits and deletion",()=>{
- it("rejects unauthenticated mutation",async()=>{ expect((await DELETE(request(null,"DELETE"),{params:{id:examId}})).status).toBe(401); });
+ it("rejects unauthenticated mutation",async()=>{ expect((await DELETE(request(null,"DELETE"),{params:Promise.resolve({id:examId})})).status).toBe(401); });
  it("hides other students' exams from edit and delete",async()=>{
- expect((await PATCH(request(stranger,"PATCH",{title:"Stolen",examAt:"2026-12-01T10:00:00Z"}),{params:{id:examId}})).status).toBe(404);
- expect((await DELETE(request(stranger,"DELETE"),{params:{id:examId}})).status).toBe(404);
+ expect((await PATCH(request(stranger,"PATCH",{title:"Stolen",examAt:"2026-12-01T10:00:00Z"}),{params:Promise.resolve({id:examId})})).status).toBe(404);
+ expect((await DELETE(request(stranger,"DELETE"),{params:Promise.resolve({id:examId})})).status).toBe(404);
  expect((await prisma.studentExam.findUniqueOrThrow({where:{id:examId}})).title).toBe("Midterm");
  });
- it("rejects invalid dates and nonstring titles",async()=>{ for (const body of [{title:123,examAt:"2026-12-01"},{title:"Test",examAt:"invalid"}]) expect((await PATCH(request(owner,"PATCH",body),{params:{id:examId}})).status).toBe(400); });
+ it("rejects invalid dates and nonstring titles",async()=>{ for (const body of [{title:123,examAt:"2026-12-01"},{title:"Test",examAt:"invalid"}]) expect((await PATCH(request(owner,"PATCH",body),{params:Promise.resolve({id:examId})})).status).toBe(400); });
  it("updates the owner's exam and removes it",async()=>{
- expect((await PATCH(request(owner,"PATCH",{title:"Final",examAt:"2026-12-01T10:00:00Z"}),{params:{id:examId}})).status).toBe(200);
+ expect((await PATCH(request(owner,"PATCH",{title:"Final",examAt:"2026-12-01T10:00:00Z"}),{params:Promise.resolve({id:examId})})).status).toBe(200);
  const row=await prisma.studentExam.findUniqueOrThrow({where:{id:examId}}); expect(row.title).toBe("Final"); expect(row.examAt.toISOString()).toBe("2026-12-01T10:00:00.000Z");
- expect((await DELETE(request(owner,"DELETE"),{params:{id:examId}})).status).toBe(200); expect(await prisma.studentExam.findUnique({where:{id:examId}})).toBeNull();
+ expect((await DELETE(request(owner,"DELETE"),{params:Promise.resolve({id:examId})})).status).toBe(200); expect(await prisma.studentExam.findUnique({where:{id:examId}})).toBeNull();
  });
 });

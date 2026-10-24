@@ -14,7 +14,8 @@ async function checkAdmin(req: NextRequest) {
 // Returns the full module catalog for this pack's industry, each merged
 // with its current IndustryModuleFlag.enabled state (defaulting to false
 // when no flag row exists yet — same fail-safe-hidden default as moduleAccess.ts).
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await checkAdmin(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -36,7 +37,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 // Upsert a single module's pack-level flag. Independent upsert keyed by
 // (industryPackId, moduleKey) — naturally atomic, no read-modify-write race
 // if two admins edit concurrently (last write wins per key).
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await checkAdmin(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

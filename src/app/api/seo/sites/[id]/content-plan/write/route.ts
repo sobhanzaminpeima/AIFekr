@@ -15,7 +15,8 @@ import { STALE_RUN_MS } from "@/lib/seo/contentPlanCore";
  * background (it takes minutes); the plan card polls for the result. Works even if
  * automation is switched off: it only creates the plan record as a disabled holder.
  */
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const lang = await getServerLang();
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (topic.length > 300) return NextResponse.json({ error: tri(lang, "موضوع خیلی بلند است (حداکثر ۳۰۰ حرف).", "The topic is too long (300 characters max).", "Das Thema ist zu lang (max. 300 Zeichen).") }, { status: 400 });
   const mode = isMode(b.mode) ? b.mode : undefined;
 
-  const plan = site.contentPlan ?? await prisma.seoContentPlan.create({ data: { siteId: site.id, userId: user.id, enabled: false, lang } });
+  const plan = site.contentPlan ?? (await prisma.seoContentPlan.create({ data: { siteId: site.id, userId: user.id, enabled: false, lang } }));
   if (plan.runningSince && Date.now() - plan.runningSince.getTime() < STALE_RUN_MS) {
     return NextResponse.json({ error: tri(lang, "همین حالا یک مقاله در حال نوشتن است.", "An article is already being written.", "Es wird bereits ein Artikel geschrieben."), code: "RUNNING" }, { status: 409 });
   }

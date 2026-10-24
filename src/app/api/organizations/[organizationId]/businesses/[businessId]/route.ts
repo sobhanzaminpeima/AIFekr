@@ -3,7 +3,11 @@ import { requireAuth, unauthorizedResponse, forbiddenResponse } from "@/lib/auth
 import { prisma } from "@/lib/db/prisma";
 import { deleteBusinessCompletely } from "@/lib/organization/deleteBusiness";
 
-export async function DELETE(req: NextRequest, { params }: { params: { organizationId: string; businessId: string } }) {
+export async function DELETE(
+  req: NextRequest,
+  props: { params: Promise<{ organizationId: string; businessId: string }> }
+) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
 

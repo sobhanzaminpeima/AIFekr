@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default async function Page() {
   const policy = await chatPolicy();
   if (!policy.enabled) return renderPlatformShell(<ChatInterface />);
-  const token=cookies().get("token")?.value,payload=token?verifyToken(token):null;
+  const token=(await cookies()).get("token")?.value,payload=token?verifyToken(token):null;
   if(payload){const user=await prisma.user.findUnique({where:{id:payload.userId},select:{chatOnly:true,isBlocked:true}});if(user&&!user.chatOnly&&!user.isBlocked)return renderPlatformShell(<ChatInterface/>);}
   return <ChatStudio />;
 }

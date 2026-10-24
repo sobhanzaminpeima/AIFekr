@@ -10,8 +10,9 @@ import {snapshotPublished,courseConfiguration} from "@/lib/courses/academy";
 import {z} from "zod";
 import {courseError} from "@/lib/courses/http";
 const academyMetadata=z.object({difficulty:z.enum(["BEGINNER","INTERMEDIATE","ADVANCED"]).optional(),durationMinutes:z.number().int().min(5).max(60000).optional(),topic:z.string().max(200).optional(),prerequisites:z.string().max(3000).optional(),skills:z.array(z.string().min(1).max(100)).max(40).optional(),coverUrl:z.string().url().refine(s=>s.startsWith("https://")).nullable().optional(),configuration:courseConfiguration.optional(),majorIds:z.array(z.string().max(100)).max(30).optional()});
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  const admin = await requireAdmin(req); if (!admin) return forbiddenResponse();
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  const admin = await requireAdmin(req);if (!admin) return forbiddenResponse();
   await reconcileCourseJobs();
   const course = await prisma.aiCourse.findUnique({ where: { id: params.id }, include: { publishedVersion:{select:{version:true}},majors:true,jobs: { orderBy: { createdAt: "desc" }, take: 10 } } });
   const requestKey = req.nextUrl.searchParams.get("requestKey");
@@ -20,8 +21,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const total=course?.blueprint?JSON.parse(course.blueprint).chapters.reduce((n:number,c:{lessons:string[]})=>n+c.lessons.length,0):0;
   return course ? NextResponse.json({ course:{...course,jobs:course.jobs.map(({checkpoint,...job})=>({...job,generatedLessons:Object.keys(JSON.parse(checkpoint)).filter(k=>/^\d+:\d+$/.test(k)).length,totalLessons:total}))}, actorId: admin.id, requestStatus: request?.status || null }, { headers: { "Cache-Control": "private, no-store" } }) : NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
 }
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const admin = await requireAdmin(req); if (!admin) return forbiddenResponse();
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  const admin = await requireAdmin(req);if (!admin) return forbiddenResponse();
   const body = await req.json().catch(() => null);
   if (!body || !Number.isSafeInteger(body.version)) return NextResponse.json({ error: "INVALID_REQUEST" }, { status: 400 });
   const course = await prisma.aiCourse.findUnique({ where: { id: params.id } });
@@ -41,7 +43,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const {skills,configuration,majorIds,...extra}=metadata.data;
     await preserveRevision(tx,course,admin.id,"MANUAL_EDIT");
 if(course.status==="PUBLISHED")await snapshotPublished(tx,course);
-    if(majorIds && await tx.academicMajor.count({where:{id:{in:majorIds},status:"ACTIVE"}})!==new Set(majorIds).size)throw new Error("INVALID_MAJOR");
+    if(majorIds && (await tx.academicMajor.count({where:{id:{in:majorIds},status:"ACTIVE"}}))!==new Set(majorIds).size)throw new Error("INVALID_MAJOR");
     const changed=await tx.aiCourse.updateMany({where:{id:course.id,version:body.version,activeJobId:null},data:{...brief.data,...extra,version:{increment:1},...(skills?{skills:JSON.stringify(skills)}:{}),...(configuration?{configuration:JSON.stringify(configuration)}:{}),...(parsed?.success?{content:JSON.stringify(parsed.data)}:{}),status,...(["UNPUBLISHED","ARCHIVED"].includes(status)?{publishedVersionId:null}:{}),publishedAt:status==="PUBLISHED"?new Date():null}});
     if(!changed.count)return changed;
     if(majorIds){await tx.aiCourseMajor.deleteMany({where:{courseId:course.id}});for(const majorId of Array.from(new Set(majorIds)))await tx.aiCourseMajor.create({data:{courseId:course.id,majorId}});}

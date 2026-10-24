@@ -5,7 +5,8 @@ import { requireAdmin, unauthorizedResponse, forbiddenResponse } from "@/lib/aut
 import { prisma } from "@/lib/db/prisma";
 import { updateUserAsAdmin, deleteUserAsAdmin, PhoneAlreadyInUseError, assertAdminMayManage, AdminPermissionError, AdminValidationError } from "@/lib/repositories/adminRepository";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const admin = await requireAdmin(req);
   if (!admin) {
     const user = await (await import("@/lib/auth/middleware")).requireAuth(req);
@@ -28,7 +29,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   return NextResponse.json({ user:safeUser,history:events });
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const admin = await requireAdmin(req);
   if (!admin) {
     const user = await (await import("@/lib/auth/middleware")).requireAuth(req);
@@ -67,7 +69,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const admin = await requireAdmin(req);
   if (!admin) {
     const user = await (await import("@/lib/auth/middleware")).requireAuth(req);

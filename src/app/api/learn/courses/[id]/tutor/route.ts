@@ -14,7 +14,8 @@ import {z} from "zod";
 export const dynamic="force-dynamic";
 const feature="student.academy-tutor";
 export async function GET(req:NextRequest){const user=await requireAuth(req);if(!user)return unauthorizedResponse(req);const denied=await studentWorkspaceDisabledResponse(user);if(denied)return denied;return NextResponse.json({cost:(await getCreditCosts())[toolCostKey(feature)]});}
-export async function POST(req:NextRequest,{params}:{params:{id:string}}){
+export async function POST(req:NextRequest, props:{params: Promise<{id:string}>}) {
+ const params = await props.params;
  const user=await requireAuth(req);if(!user)return unauthorizedResponse(req);const denied=await studentWorkspaceDisabledResponse(user);if(denied)return denied;
  if(!rateLimit(`academy-tutor:${user.id}`,12,60000).allowed)return NextResponse.json({error:"RATE_LIMIT"},{status:429});
  const input=z.object({lessonId:z.string().regex(/^\d+:\d+$/),prompt:z.string().trim().min(2).max(3000),expectedCredits:z.number().int().min(0)}).strict().safeParse(await req.json().catch(()=>null));if(!input.success)return NextResponse.json({error:"INVALID_REQUEST"},{status:400});

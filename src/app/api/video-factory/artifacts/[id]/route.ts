@@ -8,7 +8,8 @@ import { stat } from "node:fs/promises";
 import { Readable } from "node:stream";
 import {verifyDownload} from "@/lib/video-factory/secureLinks";
 export const dynamic = "force-dynamic";
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const serve=async(userId:string)=>{
     const artifact = await prisma.videoFactoryArtifact.findFirst({ where: { id: params.id, job: { userId, status: "DELIVERED" } } });
     if (!artifact) throw new FactoryError("ARTIFACT_NOT_FOUND", 404);

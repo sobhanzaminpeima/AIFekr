@@ -1,5 +1,8 @@
 import StudentTutorChat from "@/components/student/StudentTutorChat";
 
-export default function StudentChatPage({ searchParams }: { searchParams: { courseId?: string; conversationId?: string } }) {
+export default async function StudentChatPage(
+  props: { searchParams: Promise<{ courseId?: string; conversationId?: string }> }
+) {
+  const searchParams = await props.searchParams;
   return <StudentTutorChat courseId={searchParams.courseId} conversationId={searchParams.conversationId} />;
 }

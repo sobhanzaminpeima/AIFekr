@@ -13,7 +13,8 @@ async function checkModuleAccess(userId: string, role: string, workspaceUserId: 
   return isModuleEnabled({ id: userId, role, industryPackId: owner?.industryPackId ?? null }, "crm.shortTermCalendar");
 }
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);
@@ -35,7 +36,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   return NextResponse.json({ bookings, bookingLink: property.bookingLink });
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const ws = await resolveCrmWorkspace(user.id);

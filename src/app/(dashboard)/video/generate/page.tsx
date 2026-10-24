@@ -42,7 +42,7 @@ export default function VideoGeneratePage() {
   const [videoId, setVideoId] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval>>();
+  const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const [sourceImageUrl, setSourceImageUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);

@@ -11,13 +11,15 @@ import { FinalCTA, FeatureCards, GuideLinks } from "@/components/marketing/Secti
 import JsonLd from "@/components/seo/JsonLd";
 
 export const dynamic = "force-dynamic";
-export async function generateMetadata({ params }: { params: { slug: string } }) {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const f = features.find(f => f.slug === params.slug);
   if (!f) return {};
   const lang = await getServerLang();
   return pageMetadata(lang, `/features/${f.slug}`, { fa: f.title[0], en: f.title[1], de: f.title[2], tr: f.title[3] }, { fa: f.desc[0], en: f.desc[1], de: f.desc[2], tr: f.desc[3] });
 }
-export default async function FeaturePage({ params }: { params: { slug: string } }) {
+export default async function FeaturePage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const f = features.find(f => f.slug === params.slug);
   if (!f) notFound();
   const lang = await getServerLang();

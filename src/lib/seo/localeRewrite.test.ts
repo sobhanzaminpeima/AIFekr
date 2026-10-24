@@ -1,5 +1,5 @@
 import {expect,it} from "vitest";
 import {NextRequest} from "next/server";
-import {middleware} from "../../middleware";
+import {proxy as middleware} from "../../proxy";
 it("preserves translated landing language across the internal HTTP proxy request",()=>{for(const lang of ["en","de","tr"]){const response=middleware(new NextRequest(`https://localhost:3000/${lang}`,{headers:{host:"aifekr.com","x-forwarded-proto":"https"}}));const target=response.headers.get("x-middleware-rewrite")!;expect(target).toBe(`http://localhost:3000/?__public_locale=${lang}`);expect(response.headers.get("x-middleware-request-x-public-lang")).toBe(lang);const proxied=middleware(new NextRequest(target));expect(proxied.headers.get("x-middleware-request-x-public-lang")).toBe(lang);}});
 it("keeps external public HTTPS origins and Persian redirect behavior",()=>{expect(middleware(new NextRequest("https://aifekr.com/en")).headers.get("x-middleware-rewrite")).toBe("https://aifekr.com/");expect(middleware(new NextRequest("https://aifekr.com/fa")).status).toBe(308);});

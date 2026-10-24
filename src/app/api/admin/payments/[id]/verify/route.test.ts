@@ -6,7 +6,7 @@ vi.mock("@/lib/db/prisma", () => ({ prisma: { payment: { findUnique: m.find }, a
 vi.mock("@/lib/payment/zarinpal", () => ({ verifyPayment: m.verify }));
 vi.mock("@/lib/payment/reviewBankPayment", () => ({ settleVerifiedPayment: m.settle }));
 import { POST } from "./route";
-const run = () => POST(new NextRequest("http://localhost/api/admin/payments/p/verify", { method: "POST" }), { params: { id: "p" } });
+const run = () => POST(new NextRequest("http://localhost/api/admin/payments/p/verify", { method: "POST" }), { params: Promise.resolve({ id: "p" }) });
 beforeEach(() => {
   vi.resetAllMocks(); m.admin.mockResolvedValue({ id: "admin" });
   m.find.mockResolvedValue({ id: "p", gateway: "zarinpal", authority: "A", amount: 1000, status: "PENDING", entitlementSnapshot: '{"credits":100,"days":90}' });

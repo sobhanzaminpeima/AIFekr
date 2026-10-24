@@ -53,19 +53,19 @@ describe("student study groups", () => {
     groupId = group.id; inviteCode = group.inviteCode;
     expect(inviteCode).toHaveLength(32);
 
-    expect((await getMessages(req(outsiderId, `/api/student/groups/${groupId}/messages`), { params: { id: groupId } })).status).toBe(404);
+    expect((await getMessages(req(outsiderId, `/api/student/groups/${groupId}/messages`), { params: Promise.resolve({ id: groupId }) })).status).toBe(404);
     expect((await joinGroup(req(memberId, "/api/student/groups/join", "POST", { inviteCode }))).status).toBe(200);
-    const posted = await sendMessage(req(memberId, `/api/student/groups/${groupId}/messages`, "POST", { content: "Review chapter 2" }), { params: { id: groupId } });
+    const posted = await sendMessage(req(memberId, `/api/student/groups/${groupId}/messages`, "POST", { content: "Review chapter 2" }), { params: Promise.resolve({ id: groupId }) });
     expect(posted.status).toBe(201);
-    const messages = await getMessages(req(memberId, `/api/student/groups/${groupId}/messages`), { params: { id: groupId } });
+    const messages = await getMessages(req(memberId, `/api/student/groups/${groupId}/messages`), { params: Promise.resolve({ id: groupId }) });
     expect((await messages.json()).messages[0].content).toBe("Review chapter 2");
-    expect((await getMessages(req(outsiderId, `/api/student/groups/${groupId}/messages`), { params: { id: groupId } })).status).toBe(404);
+    expect((await getMessages(req(outsiderId, `/api/student/groups/${groupId}/messages`), { params: Promise.resolve({ id: groupId }) })).status).toBe(404);
   });
 
   it("adds a registered student by email and sends in-app and email notifications", async () => {
     const created = await createGroup(req(ownerId, "/api/student/groups", "POST", { name: "Research group" }));
     const group = (await created.json()).group;
-    const response = await inviteByEmail(req(ownerId, `/api/student/groups/${group.id}/invite`, "POST", { email: `${inviteeId}@example.test` }), { params: { id: group.id } });
+    const response = await inviteByEmail(req(ownerId, `/api/student/groups/${group.id}/invite`, "POST", { email: `${inviteeId}@example.test` }), { params: Promise.resolve({ id: group.id }) });
     expect(response.status).toBe(200);
     expect((await response.json()).added).toBe(true);
     expect(await prisma.studentStudyGroupMember.findUnique({ where: { groupId_userId: { groupId: group.id, userId: inviteeId } } })).not.toBeNull();

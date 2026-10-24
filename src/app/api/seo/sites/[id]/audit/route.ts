@@ -13,7 +13,8 @@ import { tri } from "@/lib/i18n/tri";
 const MANUAL_COOLDOWN_MS = 2 * 60 * 1000;
 
 /** Runs an audit now and saves it (with the change since the previous audit). */
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const lang = await getServerLang();

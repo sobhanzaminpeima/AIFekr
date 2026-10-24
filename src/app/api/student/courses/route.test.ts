@@ -32,12 +32,12 @@ describe("POST /api/student/courses", () => {
     const otherUserId = `${userId}-other`;
     await prisma.user.create({ data: { id: otherUserId, email: `${otherUserId}@example.test`, accountType: "STUDENT", plan: "STUDENT_MONTHLY", planExpiry: new Date(Date.now() + 86400000) } });
     try {
-      const own = await getCourseDetail(new NextRequest(`https://aifekr.test/api/student/courses/${course.id}`, { headers: { Cookie: `token=${token}` } }), { params: { id: course.id } });
+      const own = await getCourseDetail(new NextRequest(`https://aifekr.test/api/student/courses/${course.id}`, { headers: { Cookie: `token=${token}` } }), { params: Promise.resolve({ id: course.id }) });
       expect(own.status).toBe(200);
       expect((await own.json()).course).toEqual({ id: course.id, name: "Biology" });
 
       const foreignCourse = await prisma.studentCourse.create({ data: { userId: otherUserId, name: "Private course" } });
-      const foreign = await getCourseDetail(new NextRequest(`https://aifekr.test/api/student/courses/${foreignCourse.id}`, { headers: { Cookie: `token=${token}` } }), { params: { id: foreignCourse.id } });
+      const foreign = await getCourseDetail(new NextRequest(`https://aifekr.test/api/student/courses/${foreignCourse.id}`, { headers: { Cookie: `token=${token}` } }), { params: Promise.resolve({ id: foreignCourse.id }) });
       expect(foreign.status).toBe(404);
       await prisma.studentCourse.deleteMany({ where: { userId: otherUserId } });
     } finally {

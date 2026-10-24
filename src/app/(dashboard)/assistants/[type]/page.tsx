@@ -72,7 +72,11 @@ const FALLBACK = {
   promptDe: "Du bist ein intelligenter Assistent. Antworte immer auf Deutsch.",
 };
 
-export default function AssistantPage({ params, searchParams }: { params: { type: string }; searchParams?: { lang?: string } }) {
+export default async function AssistantPage(
+  props: { params: Promise<{ type: string }>; searchParams?: Promise<{ lang?: string }> }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   // Try to read lang from cookie on the server side approximation; fall back to "fa"
   const lang = (searchParams?.lang as "fa" | "en" | "de" | "tr") || "fa";
   const config = ASSISTANT_CONFIGS[params.type] || FALLBACK;

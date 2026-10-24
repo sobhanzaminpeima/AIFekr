@@ -8,7 +8,8 @@ import { prisma } from "@/lib/db/prisma";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 
-export default async function PublicStudentProfilePage({ params }: { params: { slug: string } }) {
+export default async function PublicStudentProfilePage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const lang = await getServerLang();
   const user = await prisma.user.findFirst({ where: { studentPublicSlug: params.slug.toLowerCase(), studentProfilePublic: true }, select: { name: true, avatar: true, studentPublicSlug: true } });
   if (!user) notFound();

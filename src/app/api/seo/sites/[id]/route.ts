@@ -12,7 +12,8 @@ async function ownedSite(userId: string, id: string) {
 }
 
 /** Rename, or change the automatic re-audit schedule. */
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const site = await ownedSite(user.id, params.id);
@@ -38,7 +39,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 /** Stops tracking. Retain sites with billed research as archived history. */
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   const site = await ownedSite(user.id, params.id);

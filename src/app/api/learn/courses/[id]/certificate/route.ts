@@ -5,7 +5,8 @@ import {studentWorkspaceDisabledResponse} from "@/lib/student/access";
 import {prisma} from "@/lib/db/prisma";
 import {legacyCertificate} from "@/lib/courses/legacyCertificate";
 import {certificatePdf} from "@/lib/courses/certificatePdf";
-export async function GET(req:NextRequest,{params}:{params:{id:string}}){
+export async function GET(req:NextRequest, props:{params: Promise<{id:string}>}) {
+ const params = await props.params;
  const user=await requireAuth(req);if(!user)return unauthorizedResponse(req);const denied=await studentWorkspaceDisabledResponse(user);if(denied)return denied;
  const admin=user.role==="ADMIN"||user.role==="SUPER_ADMIN";
  const certificateId=req.nextUrl.searchParams.get("certificate");

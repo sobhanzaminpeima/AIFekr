@@ -5,7 +5,8 @@ import { requireAuth, unauthorizedResponse, forbiddenResponse } from "@/lib/auth
 import { prisma } from "@/lib/db/prisma";
 import { metaUnsubscribePageLeadgen } from "@/lib/leadgen/meta";
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
   if (user.plan === "FREE") return forbiddenResponse();
