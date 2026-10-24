@@ -55,6 +55,10 @@ export async function POST(req: NextRequest) {
  const usd=packageUsdPrice(pkg,rates);
  const promo=tier?{percent:0,code:null}:await referralDiscount(user.id);
  const originalTotal=configured?configured.minor/(configured.currency==="IRT"?1:100)/(configured.currency==="TRY"?rates.usdToTry:configured.currency==="IRT"?rates.usdToToman:1):usd*priceMultiplier*(1-discount);
+ // Prices in other currencies are converted with the stored FX rates; if the
+ // rate sync has not run (or failed) the total is NaN and applyPromo threw,
+ // which surfaced to the customer as a bare 500 at checkout.
+ if(!Number.isFinite(originalTotal)||originalTotal<0)return bankError(req,"Prices are being updated. Please try again in a few minutes.",503);
  const total=applyPromo(originalTotal,promo.percent);
  let amount=tier&&rial?tier.priceToman:Math.round(total*rates.usdToToman);
  const currency=rial?"IRR":bank.currency;
