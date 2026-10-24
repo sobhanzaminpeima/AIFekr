@@ -1,7 +1,7 @@
 import { beforeAll, afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { mkdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, existsSync } from "node:fs";
 import Database from "better-sqlite3";
 vi.hoisted(() => {
   process.env.VIDEO_FACTORY_SALES_APPROVED="true";
@@ -243,7 +243,10 @@ describe("Video Factory isolated durable workflow", () => {
     const transport=vi.fn<typeof fetch>().mockResolvedValue(new Response(null,{status:204}));vi.stubGlobal("fetch",transport);
     expect((await revokeVoiceConsent(userId,consent.id,true)).remoteDeleted).toBe(1);expect((await revokeVoiceConsent(userId,consent.id,true)).remoteDeleted).toBe(0);expect(transport).toHaveBeenCalledTimes(1);expect(transport.mock.calls[0][1]?.method).toBe("DELETE");
   });
-  it("blocks delivery on semantic errors after actual frame extraction and settles the authorized budget",async()=>{
+  // Extracts real frames, so it needs an ffmpeg binary: the configured one or
+  // the local tools bundle that setup-video-factory-local.cjs installs.
+  const hasFfmpeg=!!process.env.VIDEO_FACTORY_FFMPEG||existsSync(path.resolve("tmp/video-factory/tools/node_modules/ffmpeg-static/ffmpeg.exe"));
+  it.skipIf(!hasFfmpeg)("blocks delivery on semantic errors after actual frame extraction and settles the authorized budget",async()=>{
     const oldFfmpeg=process.env.VIDEO_FACTORY_FFMPEG,oldFfprobe=process.env.VIDEO_FACTORY_FFPROBE;
     process.env.VIDEO_FACTORY_FFMPEG=oldFfmpeg||path.resolve("tmp/video-factory/tools/node_modules/ffmpeg-static/ffmpeg.exe");process.env.VIDEO_FACTORY_FFPROBE=oldFfprobe||path.resolve("tmp/video-factory/tools/node_modules/ffprobe-static/bin/win32/x64/ffprobe.exe");
     try{

@@ -47,6 +47,7 @@ export async function DELETE(req: NextRequest) {
   // trigger/reply logs, follower-count history and the auto-publish queue
   // were all tied to whichever account was connected at the time.
   const workspace = instagramWorkspaceScope(businessId);
+  const campaigns = await prisma.instagramCommentCampaign.findMany({ where: { userId: user.id, ...workspace }, select: { id: true } });
   await prisma.$transaction([
     // Reply logs may carry only a campaignId (userId is optional), so they
     // are matched by the campaigns being removed as well.

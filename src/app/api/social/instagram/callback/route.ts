@@ -61,6 +61,7 @@ export async function GET(req: NextRequest) {
     // follower history or auto-publish queue attached to the new one.
     const prev = await prisma.instagramConnection.findFirst({ where: { userId, ...instagramWorkspaceScope(businessId) } });
     if (prev && prev.igUserId !== igUserId) {
+      const camps = await prisma.instagramCommentCampaign.findMany({ where: { userId, ...instagramWorkspaceScope(businessId) }, select: { id: true } });
       await prisma.$transaction([
         // Reply logs may carry only a campaignId (userId is optional), so
         // they are matched by the campaigns being removed as well.

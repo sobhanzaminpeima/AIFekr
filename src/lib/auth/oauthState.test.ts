@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect } from "vitest";
 
 // Ensure JWT_SECRET is set before importing the module
 process.env.JWT_SECRET = "test-secret-for-oauth-state-tests";
