@@ -1,5 +1,6 @@
 "use client";
 
+import { compactAmount } from "@/lib/utils/compactAmount";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -391,7 +392,7 @@ export default function CrmPage() {
                     <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>{stageDeals.length}</span>
                   </div>
                   {stageTotal > 0 && (
-                    <p className="text-[10px] px-1" style={{ color: "var(--text-muted)" }}>{fmtMoney(stageTotal)} {c.board.currency}</p>
+                    <p className="text-[10px] px-1" style={{ color: "var(--text-muted)" }}>{compactAmount(stageTotal, lang)} {c.board.currency}</p>
                   )}
                   <div className="space-y-2 min-h-[40px] overflow-y-auto flex-1 -mx-1 px-1" style={{ scrollbarWidth: "thin" }}>
                     {stageDeals.map((deal) => (
@@ -403,7 +404,7 @@ export default function CrmPage() {
                         style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
                         <p className="text-xs font-medium mb-1" style={{ color: "var(--text-primary)" }}>{deal.title}</p>
                         <p className="text-[11px]" style={{ color: "var(--text-secondary)" }}>{deal.contact?.name}</p>
-                        {deal.value > 0 && <p className="text-[11px] mt-1" style={{ color: "var(--primary)" }}>{fmtMoney(deal.value)}</p>}
+                        {deal.value > 0 && <p className="text-[11px] mt-1" style={{ color: "var(--primary)" }}>{compactAmount(deal.value, lang)}</p>}
                       </div>
                     ))}
                   </div>

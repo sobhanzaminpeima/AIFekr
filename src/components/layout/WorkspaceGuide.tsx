@@ -14,7 +14,7 @@ export default function WorkspaceGuide() {
   // Full-height conversation tools already have their own contextual controls.
   if (!guide || path === "/ceo") return null;
   return <details className="workspace-guide" key={path}>
-    <summary><Compass size={16} aria-hidden/><span>{tri(lang, "راهنمای شروع و ابزارهای مرتبط", "Getting started & related tools", "Einstieg und passende Tools", "Başlangıç ve ilgili araçlar")}</span></summary>
+    <summary><Compass size={16} aria-hidden/><span>{tri(lang, "راهنمای این بخش", "Guide for this page", "Hilfe zu dieser Seite", "Bu sayfa için rehber")}</span></summary>
     <div><p>{text(lang, guide.purpose)}</p><nav aria-label={tri(lang, "ابزارهای مرتبط", "Related tools", "Passende Tools", "İlgili araçlar")}>{guide.links.map(href => { const destination = findDestination(href); return <Link href={href} key={href}>{destination ? destinationLabel(destination, lang) : href}<ArrowUpRight size={14}/></Link>; })}</nav></div>
   </details>;
 }

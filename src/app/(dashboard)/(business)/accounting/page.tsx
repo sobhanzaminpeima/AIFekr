@@ -68,6 +68,22 @@ export default function AccountingDashboardPage() {
         <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>{tri(lang, "وضعیت مالی کسب‌وکار شما در یک نگاه", "Your business finances at a glance", "Ihre Geschäftsfinanzen auf einen Blick")}</p>
       </div>
 
+      {/* A brand-new ledger showed six cards of "۰" -- the Persian zero is a
+          dot, so the page read as six coloured dots. Say where to start. */}
+      {[data.cashBalance, data.monthRevenue, data.monthExpense, data.receivablesOutstanding, data.payablesOutstanding].every((v) => v === 0) && (
+        <div className="rounded-2xl p-5 flex flex-col md:flex-row md:items-center gap-4 justify-between" style={{ background: "linear-gradient(120deg, rgba(255,107,0,0.10), var(--surface-1))", border: "1px solid rgba(255,107,0,0.25)" }}>
+          <div>
+            <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "دفاتر هنوز خالی است", "Your books are still empty", "Ihre Bücher sind noch leer")}</h2>
+            <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, "با ثبت اولین هزینه یا صدور یک فاکتور، این داشبورد خودکار پر می‌شود.", "Record a first expense or issue an invoice and this dashboard fills in by itself.", "Erfassen Sie eine erste Ausgabe oder stellen Sie eine Rechnung, dann füllt sich das Dashboard selbst.")}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/accounting/expenses" className="px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "var(--primary)" }}>{tri(lang, "ثبت هزینه", "Record an expense", "Ausgabe erfassen")}</Link>
+            <Link href="/crm?tab=invoices" className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>{tri(lang, "صدور فاکتور", "Issue an invoice", "Rechnung stellen")}</Link>
+            <Link href="/accounting/ledger-setup" className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>{tri(lang, "تنظیم حساب‌ها", "Set up accounts", "Konten einrichten")}</Link>
+          </div>
+        </div>
+      )}
+
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <KpiCard icon={<Wallet className="w-4 h-4" />} label={tri(lang, "موجودی نقدی", "Cash balance", "Kassenbestand")} value={fmt(data.cashBalance)} />
@@ -297,7 +313,7 @@ function KpiCard({ icon, label, value, tone }: { icon: React.ReactNode; label: s
           bidi context -- without it, a long thousands-grouped number
           embedded in an RTL paragraph can have its comma-separated groups
           visually reordered by the browser's bidi algorithm. */}
-      <div className="text-base font-bold" dir="ltr" style={{ color, textAlign: "start" }}>{value}</div>
+      <div className="text-lg font-bold tabular-nums" dir="ltr" style={{ color, textAlign: "start" }}>{value}</div>
     </div>
   );
 }

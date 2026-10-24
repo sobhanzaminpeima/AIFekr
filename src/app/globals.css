@@ -231,5 +231,12 @@ code {
 /* On phones the dashboard has a 56px bottom tab bar; the help launcher sat on
    top of its last tab (Settings), making it hard to tap. */
 @media (max-width: 767px) {
-  .aifekr-support-launcher { bottom: calc(68px + env(safe-area-inset-bottom)) !important; }
+  .aifekr-support-launcher { bottom: calc(68px + env(safe-area-inset-bottom)) !important; width: 46px !important; height: 46px !important; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
 }
+
+/* The page guide took a full-width row at the top of every module. Closed,
+   it is now a compact pill; opened, it expands to the full panel. */
+.workspace-guide:not([open]){width:fit-content;max-width:calc(100% - 32px);border-radius:999px;background:transparent}
+.workspace-guide:not([open]) summary{min-height:34px;padding:6px 12px;font-size:12px}
+.workspace-guide:not([open]) summary:after{content:none}
+.workspace-guide summary:hover{color:var(--text-primary)}

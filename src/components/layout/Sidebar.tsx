@@ -327,7 +327,8 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         <NavItem icon={MessageSquare} label={t.nav.chat} href="/chat" active={isActive("/chat")} />
         {user?.studentWorkspaceEnabled !== false && <NavItem icon={GraduationCap} label={t.nav.studentWorkspace} href="/student" active={isActive("/student")} />}
 
-        <NavItem icon={CreditCard} label={`${tri(lang, "پرداخت‌ها و فعال‌سازی", "Payments & activation", "Zahlungen und Aktivierung", "Ödemeler ve etkinleştirme")}${user?.pendingPaymentCount ? ` (${user.pendingPaymentCount.toLocaleString(lang)})` : ""}`} href={pathname.startsWith("/fitness")?"/fitness/payments":"/payments"} active={isActive("/payments")||isActive("/fitness/payments")} />
+        {/* Shown in the menu only while a payment needs the user; otherwise it is an icon in the footer. */}
+        {!!user?.pendingPaymentCount && <NavItem icon={CreditCard} label={`${tri(lang, "پرداخت‌ها و فعال‌سازی", "Payments & activation", "Zahlungen und Aktivierung", "Ödemeler ve etkinleştirme")}${user?.pendingPaymentCount ? ` (${user.pendingPaymentCount.toLocaleString(lang)})` : ""}`} href={pathname.startsWith("/fitness")?"/fitness/payments":"/payments"} active={isActive("/payments")||isActive("/fitness/payments")} />}
 
         {/* ── BUSINESS SECTION ─────────────────── */}
         {hasBusinessAccess ? (
@@ -698,13 +699,6 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
               <Crown className="w-4 h-4 flex-shrink-0" />{t.nav.upgrade}
             </Link>
           )}
-          {/* A slim inline link, not a full padded button — inviting a friend
-              is a nice-to-have next to the account bar above, not a
-              destination that deserves the same visual weight as it. */}
-          <Link href="/referral" className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:brightness-110"
-            style={{ background: "rgba(16,185,129,0.1)", color: "#10b981" }}>
-            <Gift className="w-3.5 h-3.5" />{tri(lang, "دعوت کن، اعتبار بگیر", "Invite & Earn", "Einladen & verdienen", "Davet Et, Kredi Kazan")}
-          </Link>
           {/* JARVIS link temporarily disabled on the site per request — SSO route itself untouched. */}
           <div className="flex items-center gap-1">
             <NotificationBell iconOnly />
@@ -712,6 +706,20 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             <ThemeSwitcher iconOnly />
             <CurrencySelector iconOnly />
             <span className="flex-1" />
+            {/* Invite and payments as icons: full-width rows here pushed the
+                menu itself out of view on small screens. */}
+            <Link href="/referral" title={tri(lang, "دعوت کن، اعتبار بگیر", "Invite & Earn", "Einladen & verdienen", "Davet Et, Kredi Kazan")} aria-label={tri(lang, "دعوت کن، اعتبار بگیر", "Invite & Earn", "Einladen & verdienen", "Davet Et, Kredi Kazan")}
+              className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:brightness-110"
+              style={{ color: "#10b981", background: "rgba(16,185,129,0.1)" }}>
+              <Gift className="w-3.5 h-3.5" />
+            </Link>
+            {!user.pendingPaymentCount && (
+              <Link href={pathname.startsWith("/fitness") ? "/fitness/payments" : "/payments"} title={tri(lang, "پرداخت‌ها و فعال‌سازی", "Payments & activation", "Zahlungen und Aktivierung", "Ödemeler ve etkinleştirme")} aria-label={tri(lang, "پرداخت‌ها و فعال‌سازی", "Payments & activation", "Zahlungen und Aktivierung", "Ödemeler ve etkinleştirme")}
+                className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:brightness-110"
+                style={{ color: "var(--text-secondary)", background: "var(--surface-2)" }}>
+                <CreditCard className="w-3.5 h-3.5" />
+              </Link>
+            )}
             <Link href="/settings" title={t.nav.settings} aria-label={t.nav.settings}
               className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:brightness-110"
               style={{ color: "var(--text-secondary)", background: "var(--surface-2)" }}>

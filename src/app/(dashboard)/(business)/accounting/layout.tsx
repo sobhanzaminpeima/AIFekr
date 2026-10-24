@@ -12,7 +12,7 @@ import AccountingNav from "@/components/accounting/AccountingNav";
  */
 export default function AccountingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-col md:flex-row gap-4 md:gap-6 p-4 md:p-6">
+    <div className="flex flex-col xl:flex-row gap-4 xl:gap-6 p-4 md:p-6">
       <AccountingNav />
       <div className="flex-1 min-w-0">{children}</div>
     </div>

@@ -47,9 +47,11 @@ export default function AccountingNav() {
     <nav
       aria-label={tri(lang, "بخش‌های حسابداری", "Accounting sections", "Buchhaltungsbereiche")}
       // Mobile: horizontal, scrolls inside itself rather than widening the
-      // page. Desktop (md+): a vertical sticky sidebar, full labels, no
+      // page. Wide screens (xl+): a vertical sticky sidebar -- from md it was
+      // squeezed between the main menu and the content, leaving cards a few
+      // words wide, full labels, no
       // scrolling needed to see every section.
-      className="flex md:flex-col gap-1.5 md:gap-1 overflow-x-auto md:overflow-visible pb-1 md:pb-0 -mx-1 px-1 md:mx-0 md:px-0 md:w-56 md:flex-shrink-0 md:sticky md:top-20 md:self-start"
+      className="flex xl:flex-col gap-1.5 xl:gap-1 overflow-x-auto xl:overflow-visible pb-1 xl:pb-0 -mx-1 px-1 xl:mx-0 xl:px-0 xl:w-56 xl:flex-shrink-0 xl:sticky xl:top-20 xl:self-start"
       style={{ scrollbarWidth: "thin" }}
     >
       {links.map(({ href, icon: Icon, label }) => {
@@ -59,7 +61,7 @@ export default function AccountingNav() {
             key={href}
             href={href}
             aria-current={active ? "page" : undefined}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs md:text-sm font-medium whitespace-nowrap flex-shrink-0 md:flex-shrink md:w-full transition-colors"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs md:text-sm font-medium whitespace-nowrap flex-shrink-0 xl:flex-shrink xl:w-full transition-colors"
             style={{
               background: active ? "var(--primary)" : "var(--surface-2)",
               color: active ? "#fff" : "var(--text-secondary)",

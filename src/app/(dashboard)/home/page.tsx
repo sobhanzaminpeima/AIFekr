@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useTranslation, tri, type Lang } from "@/lib/i18n";
 import { formatNumber } from "@/lib/utils/jalali";
+import { compactAmount } from "@/lib/utils/compactAmount";
 import { TEAMMATES, teammateInitial, departmentOf, type TeammateKey } from "@/lib/team/identity";
 import WorkspaceError from "@/components/layout/WorkspaceError";
 
@@ -123,15 +124,7 @@ export default function HomePage() {
    * screen edge on a 390px viewport (QA 2026-09-15, U09). Shortened above a
    * million; the exact figure stays available via `title` on the element.
    */
-  const compact = (n: number): string => {
-    const v = Math.round(n);
-    if (Math.abs(v) < 1_000_000) return formatNumber(v, lang);
-    const billions = v / 1_000_000_000;
-    if (Math.abs(billions) >= 1) {
-      return `${formatNumber(Math.round(billions * 10) / 10, lang)} ${tri(lang, "میلیارد", "B", "Mrd.", "B")}`;
-    }
-    return `${formatNumber(Math.round(v / 100_000) / 10, lang)} ${tri(lang, "میلیون", "M", "Mio.", "M")}`;
-  };
+  const compact = (n: number): string => compactAmount(n, lang);
   const statMeta: Record<StatKey, { icon: React.ElementType; label: string; value: string; exact?: string; href: string; alarm?: boolean }> = {
     activeDeals: { icon: Briefcase, label: tri(lang, "معاملهٔ باز", "Open deals", "Offene Deals", "Açık anlaşmalar"), value: nf(data.stats.activeDeals), href: "/crm" },
     pipelineValue: { icon: TrendingUp, label: tri(lang, "ارزش پایپلاین", "Pipeline value", "Pipeline-Wert", "Satış hattı değeri"), value: compact(data.stats.pipelineValue), exact: nf(data.stats.pipelineValue), href: "/crm" },
@@ -152,63 +145,23 @@ export default function HomePage() {
         </div>
       )}
       <div>
-        <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          {tri(lang, "اتاق فرمان", "Command centre", "Kommandozentrale", "Komuta merkezi")}
-        </h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
+            {tri(lang, "اتاق فرمان", "Command centre", "Kommandozentrale", "Komuta merkezi")}
+          </h1>
+          {/* Which pack is active: confirmation that a purchase enabled
+              something, as a compact chip instead of a full-width banner. */}
+          {data.industryPack && (
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium" style={{ background: "rgba(255,107,0,0.12)", color: "var(--primary)", border: "1px solid rgba(255,107,0,0.25)" }}>
+              <span aria-hidden="true">{data.industryPack.emoji}</span>
+              {data.studentWorkspace.enabled ? tri(lang, "دانشجویی فعال", "Student workspace active", "Lernbereich aktiv", "Öğrenci alanı etkin") : tri(lang, `${data.industryPack.name} فعال`, `${data.industryPack.nameEn || data.industryPack.name} active`, `${data.industryPack.nameEn || data.industryPack.name} aktiv`, `${data.industryPack.nameEn || data.industryPack.name} etkin`)}
+            </span>
+          )}
+        </div>
         <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
           {tri(lang, "وضعیت کسب‌وکار شما و کارهایی که امروز نیاز به توجه دارند", "Where your business stands, and what needs you today", "Wie Ihr Geschäft steht und was heute Ihre Aufmerksamkeit braucht", "İşletmenizin durumu ve bugün sizi bekleyenler")}
         </p>
       </div>
-
-      {/* Which pack is active, spelled out -- a customer who just bought
-          "real estate" had no confirmation anywhere on this page that the
-          purchase actually enabled anything, beyond modules quietly
-          appearing in the sidebar. */}
-      {data.industryPack && (
-        <div className="flex items-center gap-2.5 rounded-xl px-4 py-2.5" style={{ background: "rgba(234,88,12,0.1)", border: "1px solid rgba(234,88,12,0.25)" }}>
-          <span className="text-lg flex-shrink-0" aria-hidden="true">{data.industryPack.emoji}</span>
-          <p className="text-sm" style={{ color: "var(--text-primary)" }}>
-            {data.studentWorkspace.enabled ? tri(lang,"ایجنت دانشجویی در صنعت دانشگاه / مدرسه فعال است","Your Student Agent is active in University / School","Ihr Studierenden-Agent ist in Universität / Schule aktiv","Öğrenci ajanınız Üniversite / Okul sektöründe etkin") : tri(lang, `ماژول‌های ${data.industryPack.name} برای شما فعال است`, `Your ${data.industryPack.nameEn || data.industryPack.name} modules are active`, `Ihre ${data.industryPack.nameEn || data.industryPack.name}-Module sind aktiv`, `${data.industryPack.nameEn || data.industryPack.name} modülleriniz aktif`)}
-          </p>
-        </div>
-      )}
-
-      {data.businessAccess && <Link href="/seo/intelligence" className="block rounded-2xl p-5" style={{background:"linear-gradient(120deg,rgba(249,115,22,.13),rgba(34,197,94,.06))",border:"1px solid rgba(249,115,22,.25)"}}><div className="flex items-center justify-between gap-3"><div><span className="text-xs text-orange-400">{tri(lang,"ایجنت سئو","SEO Agent","SEO-Agent","SEO ajanı")}</span><h2 className="font-semibold mt-1">SEO Intelligence</h2><p className="text-sm mt-2" style={{color:"var(--text-secondary)"}}>{tri(lang,"فرصت‌های رشد سایتت را با داده‌های واقعی کلمات کلیدی، رتبه و بک‌لینک پیدا کن.","Find growth opportunities with real keyword, ranking and backlink data.","Finde Wachstumschancen mit echten Keyword-, Ranking- und Backlink-Daten.","Gerçek anahtar kelime, sıralama ve geri bağlantı verileriyle büyüme fırsatlarını bulun.")}</p><span className="inline-block mt-3 text-sm text-orange-400">{tri(lang,"شروع بررسی سایت","Explore your website","Website untersuchen","Sitenizi inceleyin")}</span></div><TrendingUp size={26} className="shrink-0 text-orange-400"/></div></Link>}
-      {data.fitnessWorkspace?.enabled&&<Link href="/fitness" className="block rounded-2xl border border-orange-500/30 p-5"><h2>AIFekr FIT</h2><p>{tri(lang,"ایجنت ورزش شما فعال است؛ برنامه، مربی و گزارش پیشرفت","Your Fitness Agent is active · programs, coach and progress reports","Ihr Fitness-Agent ist aktiv · Programme und Fortschritt","Fitness ajanınız etkin · programlar, eğitmen ve ilerleme")}</p></Link>}
-      {data.studentWorkspace.enabled && (
-        <Link href="/student" className="block rounded-2xl p-5 transition-colors" style={{ background: "linear-gradient(120deg,rgba(249,115,22,.13),rgba(99,102,241,.1))", border: "1px solid rgba(249,115,22,.25)" }}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3"><span className="w-10 h-10 rounded-xl grid place-items-center" style={{ background: "rgba(249,115,22,.14)", color: "#f97316" }}><Sparkles className="w-5 h-5"/></span><div><h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "ایجنت دانشجویی شما فعال است", "Your Student Agent is active", "Ihr Studierenden-Agent ist aktiv", "Öğrenci ajanınız etkin")}</h2><p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, `${data.studentWorkspace.courseCount} درس · ${data.studentWorkspace.pendingTaskCount} کار باز · ${data.studentWorkspace.upcomingExamCount} امتحان پیش‌رو`, `${data.studentWorkspace.courseCount} courses · ${data.studentWorkspace.pendingTaskCount} open tasks · ${data.studentWorkspace.upcomingExamCount} upcoming exams`, `${data.studentWorkspace.courseCount} Kurse · ${data.studentWorkspace.pendingTaskCount} offene Aufgaben · ${data.studentWorkspace.upcomingExamCount} Prüfungen`, `${data.studentWorkspace.courseCount} ders · ${data.studentWorkspace.pendingTaskCount} açık görev · ${data.studentWorkspace.upcomingExamCount} yaklaşan sınav`)}</p></div></div>
-            <span className="text-sm font-semibold" style={{ color: "#f97316" }}>{tri(lang, "ورود به فضای دانشجویی ←", "Open Student Workspace →", "Lernbereich öffnen →", "Öğrenci alanını aç →")}</span>
-          </div>
-        </Link>
-      )}
-
-      {/* Industry start actions. QA 2026-09-15 found a small agency faced every
-          general module at once, making the first session long; it suggested a
-          start page built around the industry's three core daily jobs. Shown
-          only for packs with a defined set — nothing is hidden for anyone. */}
-      {data.industryPack?.slug === "real-estate" && (
-        <section>
-          <h2 className="text-xs font-semibold mb-2.5 px-1" style={{ color: "var(--text-muted)" }}>
-            {tri(lang, "سه کار اصلی روزانه", "Your three core daily jobs", "Ihre drei Kernaufgaben am Tag", "Günlük üç temel işiniz")}
-          </h2>
-          <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-            {[
-              { href: "/crm?tab=properties", icon: Briefcase, label: tri(lang, "ثبت یا به‌روزرسانی ملک", "Add or update a property", "Immobilie anlegen oder aktualisieren", "Bir mülk ekle veya güncelle") },
-              { href: "/crm?tab=viewings", icon: CalendarDays, label: tri(lang, "زمان‌بندی بازدید", "Schedule a viewing", "Besichtigung planen", "Bir görüntüleme planla") },
-              { href: "/accounting/owner-statements", icon: Wallet, label: tri(lang, "صورت‌حساب مالک", "Owner statement", "Eigentümerabrechnung", "Mal sahibi ekstresi") },
-            ].map((a) => (
-              <Link key={a.href} href={a.href}
-                className="rounded-xl p-3.5 flex items-center gap-2.5 transition-colors"
-                style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-                <a.icon className="w-4 h-4 flex-shrink-0" style={{ color: "var(--primary)" }} />
-                <span className="text-sm" style={{ color: "var(--text-primary)" }}>{a.label}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
 
       {data.isEmptyWorkspace && data.teamActivity.length === 0 ? (
         <div className="rounded-2xl p-8 text-center" style={{ background: "var(--surface-1)", border: "1px dashed var(--border)" }}>
@@ -350,6 +303,47 @@ export default function HomePage() {
 
         </>
       )}
+
+      {/* Quick actions come after the figures and what needs attention:
+          status first, then the day's work. Industry start actions. QA 2026-09-15 found a small agency faced every
+          general module at once, making the first session long; it suggested a
+          start page built around the industry's three core daily jobs. Shown
+          only for packs with a defined set — nothing is hidden for anyone. */}
+      {data.industryPack?.slug === "real-estate" && (
+        <section>
+          <h2 className="text-xs font-semibold mb-2.5 px-1" style={{ color: "var(--text-muted)" }}>
+            {tri(lang, "سه کار اصلی روزانه", "Your three core daily jobs", "Ihre drei Kernaufgaben am Tag", "Günlük üç temel işiniz")}
+          </h2>
+          <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+            {[
+              { href: "/crm?tab=properties", icon: Briefcase, label: tri(lang, "ثبت یا به‌روزرسانی ملک", "Add or update a property", "Immobilie anlegen oder aktualisieren", "Bir mülk ekle veya güncelle") },
+              { href: "/crm?tab=viewings", icon: CalendarDays, label: tri(lang, "زمان‌بندی بازدید", "Schedule a viewing", "Besichtigung planen", "Bir görüntüleme planla") },
+              { href: "/accounting/owner-statements", icon: Wallet, label: tri(lang, "صورت‌حساب مالک", "Owner statement", "Eigentümerabrechnung", "Mal sahibi ekstresi") },
+            ].map((a) => (
+              <Link key={a.href} href={a.href}
+                className="rounded-xl p-3.5 flex items-center gap-2.5 transition-colors"
+                style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+                <a.icon className="w-4 h-4 flex-shrink-0" style={{ color: "var(--primary)" }} />
+                <span className="text-sm" style={{ color: "var(--text-primary)" }}>{a.label}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Workspaces and discovery last -- they used to fill the first screen
+          and pushed the business figures below the fold. */}
+      {data.businessAccess && <Link href="/seo/intelligence" className="block rounded-2xl p-5" style={{background:"linear-gradient(120deg,rgba(249,115,22,.13),rgba(34,197,94,.06))",border:"1px solid rgba(249,115,22,.25)"}}><div className="flex items-center justify-between gap-3"><div><span className="text-xs text-orange-400">{tri(lang,"ایجنت سئو","SEO Agent","SEO-Agent","SEO ajanı")}</span><h2 className="font-semibold mt-1">SEO Intelligence</h2><p className="text-sm mt-2" style={{color:"var(--text-secondary)"}}>{tri(lang,"فرصت‌های رشد سایتت را با داده‌های واقعی کلمات کلیدی، رتبه و بک‌لینک پیدا کن.","Find growth opportunities with real keyword, ranking and backlink data.","Finde Wachstumschancen mit echten Keyword-, Ranking- und Backlink-Daten.","Gerçek anahtar kelime, sıralama ve geri bağlantı verileriyle büyüme fırsatlarını bulun.")}</p><span className="inline-block mt-3 text-sm text-orange-400">{tri(lang,"شروع بررسی سایت","Explore your website","Website untersuchen","Sitenizi inceleyin")}</span></div><TrendingUp size={26} className="shrink-0 text-orange-400"/></div></Link>}
+      {data.fitnessWorkspace?.enabled&&<Link href="/fitness" className="block rounded-2xl border border-orange-500/30 p-5"><h2>AIFekr FIT</h2><p>{tri(lang,"ایجنت ورزش شما فعال است؛ برنامه، مربی و گزارش پیشرفت","Your Fitness Agent is active · programs, coach and progress reports","Ihr Fitness-Agent ist aktiv · Programme und Fortschritt","Fitness ajanınız etkin · programlar, eğitmen ve ilerleme")}</p></Link>}
+      {data.studentWorkspace.enabled && (
+        <Link href="/student" className="block rounded-2xl p-5 transition-colors" style={{ background: "linear-gradient(120deg,rgba(249,115,22,.13),rgba(99,102,241,.1))", border: "1px solid rgba(249,115,22,.25)" }}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3"><span className="w-10 h-10 rounded-xl grid place-items-center" style={{ background: "rgba(249,115,22,.14)", color: "#f97316" }}><Sparkles className="w-5 h-5"/></span><div><h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>{tri(lang, "ایجنت دانشجویی شما فعال است", "Your Student Agent is active", "Ihr Studierenden-Agent ist aktiv", "Öğrenci ajanınız etkin")}</h2><p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{tri(lang, `${data.studentWorkspace.courseCount} درس · ${data.studentWorkspace.pendingTaskCount} کار باز · ${data.studentWorkspace.upcomingExamCount} امتحان پیش‌رو`, `${data.studentWorkspace.courseCount} courses · ${data.studentWorkspace.pendingTaskCount} open tasks · ${data.studentWorkspace.upcomingExamCount} upcoming exams`, `${data.studentWorkspace.courseCount} Kurse · ${data.studentWorkspace.pendingTaskCount} offene Aufgaben · ${data.studentWorkspace.upcomingExamCount} Prüfungen`, `${data.studentWorkspace.courseCount} ders · ${data.studentWorkspace.pendingTaskCount} açık görev · ${data.studentWorkspace.upcomingExamCount} yaklaşan sınav`)}</p></div></div>
+            <span className="text-sm font-semibold" style={{ color: "#f97316" }}>{tri(lang, "ورود به فضای دانشجویی ←", "Open Student Workspace →", "Lernbereich öffnen →", "Öğrenci alanını aç →")}</span>
+          </div>
+        </Link>
+      )}
+
     </div>
   );
 }
