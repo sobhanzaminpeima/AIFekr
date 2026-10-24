@@ -1,4 +1,6 @@
 export const dynamic = "force-dynamic";
+import JsonLd from "@/components/seo/JsonLd";
+import { absoluteUrl, SITE_URL } from "@/lib/seo/site";
 import {pageMetadata} from "@/lib/seo/site";
 import {searchTargets} from "@/lib/seo/searchTargets";
 export async function generateMetadata(){return pageMetadata(await getServerLang(),"/fit",searchTargets["/fit"].title,searchTargets["/fit"].description);}
@@ -31,6 +33,7 @@ export default async function Page() {
   const coachHref = isLoggedIn ? "/fitness" : "/login?redirect=/fitness";
 
   return <main className="fit-page fit-landing" dir={rtl ? "rtl" : "ltr"}>
+    <JsonLd data={{ "@context": "https://schema.org", "@type": "SoftwareApplication", name: "AIFekr FIT", description: searchTargets["/fit"].description[lang === "fa" ? "fa" : lang === "de" ? "de" : lang === "tr" ? "tr" : "en"], applicationCategory: "HealthApplication", operatingSystem: "Web", url: absoluteUrl("/fit"), publisher: { "@type": "Organization", name: "AIFekr", url: SITE_URL } }}/>
     <header className="fit-landing-header">
       <Link href="/" className="fit-brand" aria-label="AIFekr home"><span className="fit-brand-mark">AI</span><span>AIFekr <b>FIT</b></span></Link>
       <nav className="fit-landing-nav" aria-label="AIFekr FIT">

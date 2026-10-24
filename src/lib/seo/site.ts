@@ -63,7 +63,9 @@ export function pageMetadata(lang: Lang, path: string, title: Text4, description
   const t = tri(lang, title.fa, title.en, title.de, title.tr ?? title.en);
   const d = tri(lang, description.fa, description.en, description.de, description.tr ?? description.en);
   return {
-    title: t,
+    // Titles that already carry the brand skip the layout's "%s | AIFekr"
+    // template, which produced "... | AIFekr | AIFekr".
+    title: /AIFekr/.test(t) ? { absolute: t } : t,
     description: d,
     alternates: publicAlternates(lang, path),
     openGraph: { type: "website", url: absoluteUrl(localizedPublicPath(path, lang)), siteName: SITE_NAME, title: t, description: d, locale: ({ fa: "fa_IR", en: "en_US", de: "de_DE", tr: "tr_TR" } as const)[lang], images: [{ url: absoluteUrl("/opengraph-image"), width: 1200, height: 630, alt: "AIFekr — AI workspace" }] },

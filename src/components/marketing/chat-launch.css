@@ -2,3 +2,9 @@
 
 /* WCAG 2.2 target size: the strip links rendered 22px tall on phones. */
 .marketing .m-launch-strip a{display:inline-flex;align-items:center;min-height:28px}
+
+/* "See all modules" toggle under the landing feature grid. */
+.marketing .m-more-features{margin-top:22px}
+.marketing .m-more-features>summary{display:flex;width:fit-content;margin:0 auto;align-items:center;gap:8px;min-height:44px;padding:10px 20px;border:1px solid var(--m-border,rgba(255,255,255,.14));border-radius:999px;cursor:pointer;list-style:none;font-weight:600;color:#ff8a3d}
+.marketing .m-more-features>summary::-webkit-details-marker{display:none}
+.marketing .m-more-features[open]>summary{margin-bottom:22px}

@@ -240,3 +240,18 @@ code {
 .workspace-guide:not([open]) summary{min-height:34px;padding:6px 12px;font-size:12px}
 .workspace-guide:not([open]) summary:after{content:none}
 .workspace-guide summary:hover{color:var(--text-primary)}
+
+/* FIT workspace header: brand on one side, every action as the same pill on
+   the other. The actions used three different styles and the progress
+   report button sat outside the header on its own line. */
+.fit-workspace .fit-head{justify-content:space-between;align-items:center;row-gap:12px}
+.fit-workspace .fit-head-actions{display:flex;flex-wrap:wrap;gap:8px}
+.fit-workspace .fit-head-actions>:is(a,button){display:inline-flex;align-items:center;min-height:40px;padding:8px 14px;border:1px solid var(--border);border-radius:999px;background:var(--surface-1);color:var(--text-primary);font-size:13px;font-weight:600;text-decoration:none}
+.fit-workspace .fit-head-actions>:is(a,button):hover{border-color:var(--primary);color:var(--primary)}
+
+/* Native file inputs showed the browser's own "Choose File / No file chosen"
+   (always in the browser language) on themed pages; the button now matches
+   the design and the untranslatable status text is hidden. */
+.fit-workspace input[type=file]{color:transparent;max-width:100%}
+.fit-workspace input[type=file]::file-selector-button{margin-inline-end:0;padding:9px 16px;border:1px solid var(--border);border-radius:999px;background:var(--surface-2);color:var(--text-primary);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.fit-workspace input[type=file]:hover::file-selector-button{border-color:var(--primary);color:var(--primary)}

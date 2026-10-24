@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowUpRight, Check } from "lucide-react";
 import { getServerLang } from "@/lib/i18n/server";
 import { copy, features, text } from "@/lib/marketing/catalog";
-import { pageMetadata, pageJsonLd } from "@/lib/seo/site";
+import { pageMetadata, pageJsonLd, absoluteUrl, SITE_URL } from "@/lib/seo/site";
 import PublicShell from "@/components/marketing/PublicShell";
 import Ecosystem from "@/components/marketing/Ecosystem";
 import FeaturePreview from "@/components/marketing/FeaturePreview";
@@ -23,7 +23,7 @@ export default async function FeaturePage(props: { params: Promise<{ slug: strin
   const f = features.find(f => f.slug === params.slug);
   if (!f) notFound();
   const lang = await getServerLang();
-  return <PublicShell lang={lang}><JsonLd data={pageJsonLd(lang, `/features/${f.slug}`, "WebPage", text(lang, f.title))}/>
+  return <PublicShell lang={lang}><JsonLd data={pageJsonLd(lang, `/features/${f.slug}`, "WebPage", text(lang, f.title))}/><JsonLd data={{ "@context": "https://schema.org", "@type": "SoftwareApplication", name: `AIFekr ${text(lang, f.title)}`, description: text(lang, f.desc), applicationCategory: "BusinessApplication", operatingSystem: "Web", inLanguage: ["fa", "en", "de", "tr"], url: absoluteUrl(`/features/${f.slug}`), publisher: { "@type": "Organization", name: "AIFekr", url: SITE_URL } }}/>
     <section className="m-detail-hero"><div className="m-container"><span className="m-eyebrow">AIFekr / {text(lang, copy.product)}</span><h1>{text(lang, f.title)}</h1><p>{text(lang, f.desc)}</p><div className="m-actions"><Link className="m-button" href="/register">{text(lang, copy.start)}<ArrowUpRight size={18}/></Link><Link className="m-button m-secondary" href={f.route}>{text(lang, ["ورود به ابزار", "Open the workspace", "Arbeitsbereich öffnen", "Çalışma alanını açın"])}</Link></div></div></section>
     <section className="m-container m-section m-detail-grid"><div><span className="m-eyebrow">{text(lang, copy.product)}</span><h2 className="m-section-title">{text(lang, copy.modules)}</h2><ul className="m-detail-list">{f.items.map(item => <li key={item[1]}><Check size={20}/>{text(lang, item)}</li>)}</ul></div><aside className="m-notice"><h2>{text(lang, copy.requirements)}</h2><p>{text(lang, f.requirement)}</p><Link className="m-text-link" href="/pricing">{text(lang, copy.pricing)}<ArrowUpRight size={16}/></Link></aside></section>
     <section className="m-container m-section"><FeaturePreview lang={lang} slug={f.slug}/></section>
