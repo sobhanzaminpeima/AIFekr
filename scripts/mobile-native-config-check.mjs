@@ -1,0 +1,36 @@
+import {spawnSync} from 'node:child_process';
+import {resolve} from 'node:path';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const cwd=resolve('mobile');
+const result=spawnSync(process.execPath,[resolve(cwd,'node_modules/expo/bin/cli'),'config','--type','introspect','--json'],{cwd,encoding:'utf8',maxBuffer:10*1024*1024,env:{...process.env,EAS_BUILD_PROFILE:'production',EXPO_PUBLIC_API_URL:process.env.EXPO_PUBLIC_API_URL||'https://native-config-check.invalid'}});
+assert.equal(result.status,0,'Expo native config introspection failed');
+const config=JSON.parse(result.stdout);
+assert.equal(config.android.package,'com.aifekr.app');
+assert.equal(config.ios.bundleIdentifier,'com.aifekr.app');
+assert.equal(config.android.googleServicesFile,'./google-services.json');
+assert.equal(config.ios.googleServicesFile,'./GoogleService-Info.plist');
+const firebase=JSON.parse(readFileSync(resolve(cwd,'google-services.json'),'utf8').replace(/^\uFEFF/,''));
+assert.ok(firebase.client.some(client=>client.client_info?.android_client_info?.package_name===config.android.package),'Firebase Android package mismatch');
+const firebaseIos=readFileSync(resolve(cwd,'GoogleService-Info.plist'),'utf8');
+assert.ok(/<key>BUNDLE_ID<\/key>\s*<string>com\.aifekr\.app<\/string>/.test(firebaseIos),'Firebase iOS bundle mismatch');
+const plist=config._internal.modResults.ios.infoPlist;
+assert.ok(plist.NSFaceIDUsageDescription?.includes('device lock'));
+assert.ok(plist.NSMicrophoneUsageDescription);
+assert.ok(plist.NSCameraUsageDescription);
+assert.equal(plist.NSAppTransportSecurity?.NSAllowsArbitraryLoads,false);
+assert.ok(!plist.UIBackgroundModes?.includes('audio'),'Background audio was not authorized');
+assert.ok(plist.NSHealthShareUsageDescription?.includes('step'));
+assert.ok(!plist.NSHealthUpdateUsageDescription,'Health writes were not authorized');
+const entitlements=config._internal.modResults.ios.entitlements;
+assert.equal(entitlements['com.apple.developer.healthkit'],true);
+assert.ok(!entitlements['com.apple.developer.healthkit.background-delivery'],'Background health delivery was not authorized');
+const permissions=config._internal.modResults.android.manifest.manifest['uses-permission'];
+assert.equal(config._internal.modResults.android.gradleProperties.find(entry=>entry.key==='android.minSdkVersion')?.value,'26','Health Connect requires Android API 26');
+assert.ok(permissions.some(entry=>entry.$['android:name']==='android.permission.health.READ_STEPS'));
+assert.ok(!permissions.some(entry=>entry.$['android:name']?.startsWith('android.permission.health.WRITE_')));
+for(const permission of ['READ_EXTERNAL_STORAGE','WRITE_EXTERNAL_STORAGE','READ_MEDIA_IMAGES','READ_MEDIA_VIDEO','READ_MEDIA_AUDIO']) {
+  const matches=permissions.filter(entry=>entry.$['android:name']===`android.permission.${permission}`);
+  assert.ok(matches.every(entry=>entry.$['tools:node']==='remove'),`Broad storage permission ${permission} enabled`);
+}
+console.log(JSON.stringify({profile:'production',faceIdDescription:true,microphoneDescription:true,arbitraryHttpLoads:false,backgroundAudio:false,broadStoragePermissions:false,projectConfigured:Boolean(config.ios?.bundleIdentifier&&config.android?.package&&config.extra?.eas?.projectId),signingVerified:false}));

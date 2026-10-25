@@ -1,0 +1,1 @@
+export function safePhoneNumber(raw:string){const normalized=raw.replace(/[۰-۹٠-٩]/g,char=>String('۰۱۲۳۴۵۶۷۸۹'.includes(char)?'۰۱۲۳۴۵۶۷۸۹'.indexOf(char):'٠١٢٣٤٥٦٧٨٩'.indexOf(char))).replace(/[\s().-]/g,'');return /^\+?[0-9]{5,18}$/.test(normalized)?normalized:null;}

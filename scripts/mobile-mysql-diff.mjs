@@ -1,0 +1,12 @@
+import {mkdtemp,readFile,writeFile,mkdir} from 'node:fs/promises';
+import {resolve,join} from 'node:path';
+import {spawnSync} from 'node:child_process';
+const root=resolve('.');await mkdir(join(root,'tmp'),{recursive:true});const folder=await mkdtemp(join(root,'tmp','mobile-mysql-diff-'));
+const source=await readFile(join(root,'prisma/schema.prisma'),'utf8');
+const current=source.replace(/provider\s*=\s*"sqlite"/,'provider = "mysql"').replace(/model MobileRequest \{[\s\S]*?\n\}/,m=>m.replace(/responseJson\s+String\?/,'responseJson String? @db.LongText'));
+const previous=current.replace(/^\s*mobileSessions MobileSession\[\]\s*$/m,'').replace(/^\s*mobileRequests MobileRequest\[\]\s*$/m,'').replace(/model MobileSession \{[\s\S]*?\n\}/,'').replace(/model MobileRequest \{[\s\S]*?\n\}/,'').replace(/model MobileStorePurchase \{[\s\S]*?\n\}/,'');
+const before=join(folder,'before.prisma'),after=join(folder,'after.prisma');await writeFile(before,previous);await writeFile(after,current);
+const result=spawnSync(process.execPath,[join(root,'node_modules/prisma/build/index.js'),'migrate','diff','--from-schema-datamodel',before,'--to-schema-datamodel',after,'--script'],{env:{...process.env,DATABASE_URL:'mysql://schema_only:schema_only@127.0.0.1:3306/schema_only'},encoding:'utf8'});
+if(result.status!==0)throw new Error(result.stderr);
+if(/DROP TABLE|DROP COLUMN|DELETE FROM|TRUNCATE/i.test(result.stdout))throw new Error('Unexpected destructive migration');
+const output=join(root,'docs/mobile/10-mobile-mysql-additive.sql');await writeFile(output,result.stdout);console.log(`Generated provider-specific additive SQL without connecting to a database: ${output}`);

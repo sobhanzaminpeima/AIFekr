@@ -1,0 +1,14 @@
+import {useEffect,useRef,useState} from 'react';
+import {AppState,Pressable,Text,View} from 'react-native';
+import * as Speech from 'expo-speech';
+import type {Locale} from '../i18n';
+import {speechChunks} from '../speechText';
+const copy={fa:{play:'خواندن پاسخ',stop:'توقف صدا',missing:'صدای فارسی روی دستگاه موجود نیست. آن را در تنظیمات سیستم نصب کنید.',error:'پخش صدا انجام نشد.',notice:'پخش با صدای سیستم دستگاه؛ در آیفون حالت بی‌صدا ممکن است مانع پخش شود.'},en:{play:'Read answer aloud',stop:'Stop speaking',missing:'No English voice is available. Install one in system settings.',error:'Speech playback failed.',notice:'Uses a system voice; iPhone silent mode may prevent playback.'},tr:{play:'Yanıtı sesli oku',stop:'Sesi durdur',missing:'Cihazda Türkçe ses bulunamadı. Sistem ayarlarından yükleyin.',error:'Ses oynatılamadı.',notice:'Sistem sesi kullanılır; iPhone sessiz modu oynatmayı engelleyebilir.'}};
+export function SpeechControl({text,locale,color}:{text:string;locale:Locale;color:string}){
+ const [speaking,setSpeaking]=useState(false),[error,setError]=useState('');const generation=useRef({value:0}),mounted=useRef(true);const t=copy[locale];
+ useEffect(()=>{const counter=generation.current;mounted.current=true;const listener=AppState.addEventListener('change',state=>{if(state!=='active'){generation.current.value++;void Speech.stop();if(mounted.current)setSpeaking(false);}});return()=>{mounted.current=false;counter.value++;listener.remove();void Speech.stop();};},[]);
+ async function play(){const current=++generation.current.value;setError('');setSpeaking(true);try{await Speech.stop();const voices=await Speech.getAvailableVoicesAsync();if(current!==generation.current.value||!mounted.current)return;const voice=voices.find(v=>v.language.toLowerCase().split(/[-_]/)[0]===locale);if(!voice){setError(t.missing);setSpeaking(false);return;}const chunks=speechChunks(text,Speech.maxSpeechInputLength);if(!chunks.length){setSpeaking(false);return;}const next=(i:number)=>{if(current!==generation.current.value||!mounted.current)return;if(i===chunks.length){setSpeaking(false);return;}Speech.speak(chunks[i],{voice:voice.identifier,language:voice.language,onDone:()=>next(i+1),onStopped:()=>{if(mounted.current&&current===generation.current.value)setSpeaking(false);},onError:()=>{if(mounted.current&&current===generation.current.value){setError(t.error);setSpeaking(false);}}});};next(0);}catch{if(mounted.current&&current===generation.current.value){setError(t.error);setSpeaking(false);}}}
+ async function stop(){generation.current.value++;await Speech.stop();if(mounted.current)setSpeaking(false);}
+ return <View style={{gap:8}}><Pressable accessibilityRole="button" onPress={()=>void(speaking?stop():play())} style={{minHeight:48,justifyContent:'center'}}><Text style={{color}}>{speaking?t.stop:t.play}</Text></Pressable><Text style={{color,fontSize:12}}>{error||t.notice}</Text></View>;
+}
+

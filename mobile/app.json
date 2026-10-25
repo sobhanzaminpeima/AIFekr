@@ -1,0 +1,99 @@
+{
+  "expo": {
+    "name": "AIFekr",
+    "slug": "aifekr",
+    "version": "1.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.aifekr.app",
+      "googleServicesFile": "./GoogleService-Info.plist"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.health.READ_STEPS"
+      ],
+      "package": "com.aifekr.app",
+      "versionCode": 2,
+      "googleServicesFile": "./google-services.json"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "scheme": "aifekr",
+    "plugins": [
+      "expo-router",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Use Face ID to unlock AIFekr when you enable device lock."
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false,
+          "microphonePermission": "Allow AIFekr to record a voice message only when you start recording."
+        }
+      ],
+      "expo-video",
+      "expo-sharing",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Use Face ID to unlock AIFekr when you enable device lock."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "microphonePermission": "Allow AIFekr to record a voice message only when you start recording.",
+          "photosPermission": "Choose a photo only when you select a reference image.",
+          "cameraPermission": "Allow AIFekr to take a photo only when you tap the camera button."
+        }
+      ],
+      "expo-notifications",
+      "@react-native-community/datetimepicker",
+      "react-native-health-connect",
+      "expo-iap",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ],
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "background": false,
+          "NSHealthShareUsageDescription": "Read today's step total only when you request it in AIFekr FIT. Steps stay on this device and are not sent to AI.",
+          "NSHealthUpdateUsageDescription": false
+        }
+      ]
+    ],
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ac16be93-5a37-495a-a6af-e93e83592f40"
+      }
+    },
+    "owner": "aifekrs-team"
+  }
+}

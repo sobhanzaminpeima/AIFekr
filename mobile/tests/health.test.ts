@@ -1,0 +1,12 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+import {readTodaySteps} from '../src/health';
+const m=vi.hoisted(()=>({platform:{OS:'ios'},available:vi.fn(),authorize:vi.fn(),statistics:vi.fn(),initialize:vi.fn(),permissions:vi.fn(),aggregate:vi.fn()}));
+vi.mock('react-native',()=>({Platform:m.platform}));
+vi.mock('@kingstinct/react-native-healthkit',()=>({isHealthDataAvailable:m.available,requestAuthorization:m.authorize,queryStatisticsForQuantity:m.statistics}));
+vi.mock('react-native-health-connect',()=>({initialize:m.initialize,requestPermission:m.permissions,aggregateRecord:m.aggregate}));
+beforeEach(()=>{vi.resetAllMocks();m.platform.OS='ios';m.available.mockResolvedValue(true);m.statistics.mockResolvedValue({sumQuantity:{quantity:123}});m.initialize.mockResolvedValue(true);m.permissions.mockResolvedValue([{accessType:'read',recordType:'Steps'}]);m.aggregate.mockResolvedValue({COUNT_TOTAL:456});});
+it('requests only read access to iOS steps and uses aggregated local-day data',async()=>{const reading=await readTodaySteps();expect(reading.steps).toBe(123);expect(m.authorize).toHaveBeenCalledWith({toRead:['HKQuantityTypeIdentifierStepCount']});const options=m.statistics.mock.calls[0][2];expect(options.filter.date.startDate.getHours()).toBe(0);expect(m.aggregate).not.toHaveBeenCalled();});
+it('does not report missing Apple data as a measured zero',async()=>{m.statistics.mockResolvedValue({});expect((await readTodaySteps()).steps).toBeNull();});
+it('requires Android step permission before querying aggregate',async()=>{m.platform.OS='android';m.permissions.mockResolvedValue([]);await expect(readTodaySteps()).rejects.toThrow('permission');expect(m.aggregate).not.toHaveBeenCalled();});
+it('uses Health Connect aggregates and rejects invalid provider totals',async()=>{m.platform.OS='android';expect((await readTodaySteps()).steps).toBe(456);expect(m.aggregate.mock.calls[0][0].recordType).toBe('Steps');m.aggregate.mockResolvedValue({COUNT_TOTAL:-1});await expect(readTodaySteps()).rejects.toThrow('Invalid');});
+it('reports unavailable platforms without requesting health access',async()=>{m.available.mockResolvedValue(false);await expect(readTodaySteps()).rejects.toThrow('unavailable');expect(m.authorize).not.toHaveBeenCalled();m.platform.OS='web';await expect(readTodaySteps()).rejects.toThrow('development build');});

@@ -1,0 +1,9 @@
+{
+  "cli": { "version": ">= 16.0.0", "appVersionSource": "local" },
+  "build": {
+    "development": { "developmentClient": true, "distribution": "internal", "environment": "development" },
+    "preview": { "distribution": "internal", "environment": "preview", "env": { "EXPO_PUBLIC_API_URL": "https://aifekr.com" }, "android": { "buildType": "apk" } },
+    "ios-simulator": { "developmentClient": true, "distribution": "internal", "ios": { "simulator": true }, "environment": "development" },
+    "production": { "environment": "production", "env": { "EXPO_PUBLIC_API_URL": "https://aifekr.com" }, "autoIncrement": true }
+  }
+}

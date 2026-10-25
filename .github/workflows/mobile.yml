@@ -1,0 +1,38 @@
+name: Mobile foundation
+on:
+  pull_request:
+    paths: ['mobile/**', 'src/app/api/mobile/**', 'src/app/api/student/**', 'src/lib/student/**', 'src/app/api/fitness/**', 'src/lib/fitness/**', 'src/app/api/cron/mobile-media/**', 'src/app/api/cron/mobile-push/**', 'src/lib/notifications/**', 'src/lib/mobile/**', 'src/lib/repositories/crmInvoiceRepository.ts', 'src/lib/utils/teamCredits.ts', 'src/lib/auth/**', 'src/lib/ai/mobileChatQuote.ts', 'src/lib/subscriptions/access.ts', 'src/app/api/chat/route.ts', 'prisma/**', 'scripts/mobile-*', '.github/workflows/mobile.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            mobile/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+        env:
+          DATABASE_URL: file:./mobile-ci.db
+      - run: npm ci
+        working-directory: mobile
+      - run: npx vitest run src/lib/mobile src/app/api/mobile/v1/session/route.test.ts src/app/api/mobile/v1/chat/route.test.ts src/lib/auth/mobileSessions.integration.test.ts src/lib/auth/jwt.test.ts src/lib/subscriptions/access.test.ts
+      - run: node scripts/mobile-mysql-diff.mjs
+      - run: node scripts/mobile-native-config-check.mjs
+      - run: node scripts/mobile-http-smoke.mjs
+      - run: npx vitest run --config mobile/vitest.config.mts
+      - run: npm run typecheck
+        working-directory: mobile
+      - run: npm run lint
+        working-directory: mobile
+      - run: npx expo export --platform android --platform ios
+        working-directory: mobile
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: mobile

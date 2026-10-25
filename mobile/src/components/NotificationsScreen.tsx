@@ -1,0 +1,14 @@
+import {useEffect,useState} from 'react';
+import {ActivityIndicator,Pressable,Text,View} from 'react-native';
+import {z} from 'zod';
+import {request} from '../api';
+import type {Locale} from '../i18n';
+import {PushSettings} from './PushSettings';
+const schema=z.object({unreadCount:z.number(),notifications:z.array(z.object({id:z.string(),title:z.string(),body:z.string().nullable(),isRead:z.boolean(),createdAt:z.string()}))});
+const copy={fa:{title:'اعلان‌ها',read:'خوانده شد',all:'خواندن همه',empty:'اعلانی وجود ندارد.',retry:'تلاش مجدد'},en:{title:'Notifications',read:'Mark read',all:'Mark all read',empty:'No notifications.',retry:'Retry'},tr:{title:'Bildirimler',read:'Okundu işaretle',all:'Tümünü okundu işaretle',empty:'Bildirim yok.',retry:'Tekrar dene'}};
+export function NotificationsScreen({locale,color,surface,onError}:{locale:Locale;color:string;surface:string;onError:(err:unknown)=>void}){
+ const [data,setData]=useState<z.infer<typeof schema>|null>(null),[busy,setBusy]=useState(false),[revision,setRevision]=useState(0);const t=copy[locale];
+ useEffect(()=>{let active=true;request('/api/notifications',locale).then(raw=>{if(active)setData(schema.parse(raw));}).catch(err=>{if(active)onError(err);});return()=>{active=false;};},[locale,revision,onError]);
+ async function mark(id?:string){setBusy(true);try{await request('/api/notifications',locale,{method:'PATCH',body:JSON.stringify(id?{id}:{all:true})});setRevision(v=>v+1);}catch(err){onError(err);}finally{setBusy(false);}}
+ return <View style={{gap:12}}><PushSettings locale={locale} color={color} onError={onError}/><Text accessibilityRole="header" style={{color,fontSize:20,fontWeight:'600'}}>{t.title}{data?` · ${data.unreadCount}`:''}</Text>{!data?<><ActivityIndicator color="#FF6B00"/><Pressable accessibilityRole="button" onPress={()=>setRevision(v=>v+1)} style={{minHeight:48,justifyContent:'center'}}><Text style={{color}}>{t.retry}</Text></Pressable></>:null}{data?.unreadCount?<Pressable disabled={busy} accessibilityRole="button" onPress={()=>void mark()} style={{minHeight:48,justifyContent:'center'}}><Text style={{color}}>{t.all}</Text></Pressable>:null}{data?.notifications.length===0?<Text style={{color}}>{t.empty}</Text>:null}{data?.notifications.map(n=><View key={n.id} style={{padding:16,borderRadius:16,backgroundColor:surface,borderWidth:1,borderColor:n.isRead?'#75685A':'#FF6B00',gap:8}}><Text style={{color,fontWeight:'600',textAlign:locale==='fa'?'right':'left'}}>{n.title}</Text>{n.body?<Text style={{color,textAlign:locale==='fa'?'right':'left'}}>{n.body}</Text>:null}<Text style={{color}}>{new Intl.DateTimeFormat(locale,{dateStyle:'short'}).format(new Date(n.createdAt))}</Text>{!n.isRead?<Pressable disabled={busy} accessibilityRole="button" onPress={()=>void mark(n.id)} style={{minHeight:48,justifyContent:'center'}}><Text style={{color}}>{t.read}</Text></Pressable>:null}</View>)}</View>;
+}

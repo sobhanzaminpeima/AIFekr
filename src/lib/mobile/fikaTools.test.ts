@@ -1,0 +1,16 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+import {NextRequest} from 'next/server';
+const m=vi.hoisted(()=>({auth:vi.fn(),context:vi.fn(),org:vi.fn(),permission:vi.fn(),access:vi.fn(),recent:vi.fn(),due:vi.fn(),rate:vi.fn()}));
+vi.mock('@/lib/auth/middleware',()=>({requireAuth:m.auth,unauthorizedResponse:()=>new Response(null,{status:401})}));
+vi.mock('@/lib/orchestrator/isolation',()=>({buildWorkspaceContext:m.context,contextHasCrmAccess:m.access}));
+vi.mock('@/lib/organization/context',()=>({resolveOrganizationContext:m.org,hasOrganizationPermission:m.permission}));
+vi.mock('@/lib/orchestrator/tools/crm',()=>({crmRecentContacts:{run:m.recent},crmFollowUpsDue:{run:m.due}}));
+vi.mock('@/lib/i18n/server',()=>({getServerLang:async()=>'fa'}));
+vi.mock('@/lib/utils/rateLimit',()=>({rateLimit:m.rate}));
+import {GET} from '@/app/api/mobile/v1/fika/tools/route';
+const req=(tool='recentContacts')=>new NextRequest(`https://localhost/api/mobile/v1/fika/tools?tool=${tool}`);
+beforeEach(()=>{vi.resetAllMocks();process.env.MOBILE_API_ENABLED='true';m.auth.mockResolvedValue({id:'agent',plan:'PRO'});m.context.mockResolvedValue({workspaceUserId:'owner',businessId:'business',isAgentRestricted:true});m.org.mockResolvedValue(null);m.access.mockReturnValue(true);m.rate.mockReturnValue({allowed:true});m.recent.mockResolvedValue({data:{contacts:[]},empty:true});m.due.mockResolvedValue({data:{tasks:[]},empty:true});});
+it('requires enabled API and authentication',async()=>{process.env.MOBILE_API_ENABLED='false';expect((await GET(req())).status).toBe(503);process.env.MOBILE_API_ENABLED='true';m.auth.mockResolvedValue(null);expect((await GET(req())).status).toBe(401);expect(m.recent).not.toHaveBeenCalled();});
+it('rejects arbitrary tools and missing permission or entitlement',async()=>{expect((await GET(req('crm.delete'))).status).toBe(400);m.org.mockResolvedValue({});m.permission.mockReturnValue(false);expect((await GET(req())).status).toBe(403);m.org.mockResolvedValue(null);m.access.mockReturnValue(false);expect((await GET(req())).status).toBe(402);expect(m.recent).not.toHaveBeenCalled();});
+it('passes verified restricted workspace to shared read tools without AI charging',async()=>{const response=await GET(req());expect(response.status).toBe(200);expect(response.headers.get('Cache-Control')).toBe('no-store');expect(m.recent).toHaveBeenCalledWith({days:1},await m.context.mock.results[0].value);expect((await response.json()).credits).toBe(0);await GET(req('followUpsDue'));expect(m.due).toHaveBeenCalledWith({},await m.context.mock.results[0].value);});
+it('rate limits before accessing workspace records',async()=>{m.rate.mockReturnValue({allowed:false});expect((await GET(req())).status).toBe(429);expect(m.context).not.toHaveBeenCalled();});

@@ -1,0 +1,18 @@
+import {useEffect,useState} from 'react';
+import {Alert,Pressable,Text,View} from 'react-native';
+import {randomUUID} from 'expo-crypto';
+import {z} from 'zod';
+import {request} from '../api';
+import type {Locale} from '../i18n';
+import type {Palette} from '../design';
+const schema=z.object({canManage:z.boolean(),members:z.array(z.object({userId:z.string(),name:z.string(),isOwner:z.boolean(),isSelf:z.boolean()}))});
+const copy={fa:{transfer:'انتقال مدیریت',transferHint:'مدیریت به این عضو منتقل می‌شود و دسترسی مدیریتی شما پایان می‌یابد:',members:'اعضای گروه',rotate:'تغییر کد دعوت',rotateHint:'کد قبلی دیگر برای عضویت معتبر نخواهد بود.',remove:'حذف از گروه',leave:'خروج از گروه',cancel:'لغو',confirm:'تأیید تغییر',owner:'مدیر',unknown:'نتیجه مشخص نیست؛ وضعیت گروه را دریافت و بررسی کنید.'},en:{transfer:'Transfer ownership',transferHint:'This member becomes owner and your owner controls end:',members:'Group members',rotate:'Rotate invite code',rotateHint:'The previous code will no longer allow joining.',remove:'Remove member',leave:'Leave group',cancel:'Cancel',confirm:'Confirm change',owner:'Owner',unknown:'Outcome uncertain; refresh and inspect group state.'},tr:{transfer:'Sahipliği devret',transferHint:'Bu üye sahip olur ve sahip yetkileriniz sona erer:',members:'Grup üyeleri',rotate:'Davet kodunu değiştir',rotateHint:'Önceki kod artık katılım için geçerli olmayacak.',remove:'Üyeyi çıkar',leave:'Gruptan ayrıl',cancel:'İptal',confirm:'Değişikliği onayla',owner:'Sahip',unknown:'Sonuç belirsiz; grup durumunu yenileyip inceleyin.'}};
+export function GroupControls({groupId,locale,palette:c,onChanged,onError}:{groupId:string;locale:Locale;palette:Palette;onChanged:()=>void;onError:(e:unknown)=>void}){
+ const t=copy[locale];const [data,setData]=useState<z.infer<typeof schema>|null>(null),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
+ useEffect(()=>{let active=true;request(`/api/mobile/v1/student/groups/${encodeURIComponent(groupId)}/manage`,locale).then(raw=>{if(active)setData(schema.parse(raw));}).catch(e=>{if(active)onError(e);});return()=>{active=false;};},[groupId,locale,onError]);
+ async function act(action:'rotate'|'remove'|'leave'|'transfer',userId?:string){if(busy)return;setBusy(true);try{await request(`/api/mobile/v1/student/groups/${encodeURIComponent(groupId)}/manage`,locale,{method:'POST',body:JSON.stringify({action,userId,requestKey:`group_manage_${randomUUID()}`})});onChanged();}catch(e){setNotice(t.unknown);onError(e);}finally{setBusy(false);}}
+ const button=(label:string,preview:string,action:'rotate'|'remove'|'leave'|'transfer',userId?:string)=><Pressable accessibilityRole="button" disabled={busy||Boolean(notice)} onPress={()=>Alert.alert(t.confirm,preview,[{text:t.cancel,style:'cancel'},{text:label,style:action==='remove'||action==='leave'?'destructive':'default',onPress:()=>void act(action,userId)}])} style={{minHeight:48,padding:12}}><Text style={{color:c.accent}}>{label}</Text></Pressable>;
+ return <View style={{gap:8}}><Text accessibilityRole="header" style={{color:c.text,fontWeight:'700'}}>{t.members}</Text>{notice?<Text accessibilityRole="alert" style={{color:c.text}}>{notice}</Text>:null}{data?.canManage?button(t.rotate,t.rotateHint,'rotate'):null}{data?.members.map(member=><View key={member.userId} style={{padding:12,borderRadius:16,backgroundColor:c.surface,gap:8}}><Text style={{color:c.text}}>{member.name}{member.isOwner?` · ${t.owner}`:''}</Text>{data.canManage&&!member.isOwner?<>{button(t.remove,member.name,'remove',member.userId)}{button(t.transfer,t.transferHint+' '+member.name,'transfer',member.userId)}</>:member.isSelf&&!member.isOwner?button(t.leave,member.name,'leave'):null}</View>)}</View>;
+}
+
+
