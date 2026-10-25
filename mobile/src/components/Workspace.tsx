@@ -6,15 +6,12 @@ import { ApiError, contacts, hasSession, logout, profile, request } from '../api
 import { Locale, strings } from '../i18n';
 import { router, useLocalSearchParams } from 'expo-router';
 import { WorkspacePicker } from './WorkspacePicker';
-import { DeviceSessions } from './DeviceSessions';
 import { ChatScreen } from './ChatScreen';
 import { StudioScreen } from './StudioScreen';
-import { NotificationsScreen } from './NotificationsScreen';
 import { WorkResources } from './WorkResources';
 import { ContactEditor } from './ContactEditor';
 import { ContactDetail } from './ContactDetail';
 import { FitnessScreen } from './FitnessScreen';
-import { DeviceLockSettings } from './DeviceLock';
 import {readPreferences,updatePreferences,type Purpose} from '../preferences';
 import {fonts,palettes} from '../design';
 import {Onboarding} from './Onboarding';
@@ -22,10 +19,9 @@ import {ThemeProvider} from '../ui/theme';
 import {Icon,tap,type IconName} from '../ui/kit';
 import {HomeScreen} from './HomeScreen';
 import {StudentScreen} from './StudentScreen';
-import {AccountPanel} from './AccountPanel';
+import {ProfileScreen} from './ProfileScreen';
 import {GlobalSearch} from './GlobalSearch';
 import {OfflineSync} from './OfflineSync';
-import {OfflineLibrary} from './OfflineLibrary';
 
 type Tab = 'home' | 'fika' | 'create' | 'work' | 'you';
 const tabIcons:Record<Tab,[IconName,IconName]>={home:['home-outline','home'],fika:['sparkles-outline','sparkles'],create:['color-wand-outline','color-wand'],work:['briefcase-outline','briefcase'],you:['person-outline','person']};
@@ -62,15 +58,15 @@ export default function App() {
   },[t.error]);
   useEffect(() => { hasSession().then(setSigned).catch(() => setError(t.error)).finally(() => setReady(true)); }, [t.error]);
   useEffect(() => {
-    if (!signed || (tab !== 'home' && tab !== 'work')) return;
+    if (!signed || (tab !== 'home' && tab !== 'work' && tab !== 'you')) return;
     if(tab==='work'&&(showStudent||showFitness||accountType==='FITNESS'))return;
     let active = true;
     // Clear the previous authorized response before fetching a new account/locale/tab.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setBusy(true); setError(''); setAccount(null); setPeople([]);
-    request(tab === 'home' ? '/api/user/profile' : '/api/crm/contacts',locale).then(data => {
+    request(tab === 'work' ? '/api/crm/contacts' : '/api/user/profile',locale).then(data => {
       if (!active || AppState.currentState !== 'active') return;
-      if (tab === 'home') {const dataProfile=profile.parse(data).user;setAccount(dataProfile);setAccountType(dataProfile.accountType||'PERSONAL');} else setPeople(contacts.parse(data).contacts);
+      if (tab !== 'work') {const dataProfile=profile.parse(data).user;setAccount(dataProfile);setAccountType(dataProfile.accountType||'PERSONAL');} else setPeople(contacts.parse(data).contacts);
     }).catch(err => {
       if (!active) return;
       if (err instanceof ApiError && err.status === 401) { setSigned(false); setAccount(null); setPeople([]); setError(t.expired); }
@@ -90,7 +86,7 @@ export default function App() {
     <StatusBar style={dark?'light':'dark'} />
     <KeyboardAvoidingView style={s.root} behavior={Platform.OS==='ios'?'padding':undefined}>
       {signed&&tab!=='fika'?<View style={[s.header,{flexDirection:rtl?'row-reverse':'row'}]}><Text accessibilityRole="header" style={[s.brand,{color:c.text}]}>AI<Text style={{color:c.accent}}>Fekr</Text></Text></View>:null}
-      {signed&&tab==='you'?<View style={s.languages}>{(['fa','en','tr'] as Locale[]).map(l=><React.Fragment key={l}>{button({fa:'فارسی',en:'English',tr:'Türkçe'}[l],()=>changeLocale(l),locale===l)}</React.Fragment>)}</View>:null}
+      
       {error&&signed ? <View style={s.notice}><Text accessibilityRole="alert" style={{color:dark?'#FFB89C':'#9C2700'}}>{error}</Text>{signed && button(t.retry,()=>setRevision(v=>v+1))}</View>:null}
       {!ready || !prefsReady || (busy&&signed) ? <ActivityIndicator accessibilityLabel={t.loading} color="#FF6B00" style={{margin:16}}/>:null}
       {ready && prefsReady && !signed ? <Onboarding locale={locale} onLocale={changeLocale} introSeen={introSeen} onSignedIn={()=>{setError('');setSigned(true);setTab('home');void loadPrefs();}}/>:ready && signed ? <View style={s.root}>
@@ -98,10 +94,10 @@ export default function App() {
         tab==='fika'?<ChatScreen key={chat.nonce} locale={locale} onError={handleError} initialPrompt={chat.prompt} initialConversation={chat.conversation} openVoice={chat.voice}/>:
         tab==='create'?<StudioScreen locale={locale} color={c.text} surface={c.surface} onError={handleError}/>:
         <ScrollView contentContainerStyle={s.content}>
-          {tab!=='home'?<Text accessibilityRole="header" style={[s.title,tx]}>{t[tab]}</Text>:null}
+          {tab!=='home'&&tab!=='you'?<Text accessibilityRole="header" style={[s.title,tx]}>{t[tab]}</Text>:null}
           
           {tab==='home'?<HomeScreen locale={locale} account={account} purpose={purpose} fitnessOnly={accountType==='FITNESS'} onAsk={prompt=>openChat(prompt?{prompt}:{voice:true})} onOpenChat={id=>openChat({conversation:id})} onOpen={target=>{if(target==='fika'){openChat({});return;}setSelectedContact(null);setShowFitness(target==='fitness');setShowStudent(target==='student');setTab(target==='fitness'||target==='student'?'work':target);}}/>:null}{tab==='home'&&accountType!=='FITNESS'?<GlobalSearch key={locale+revision} locale={locale} color={c.text} surface={c.surface} onError={handleError} onContact={id=>{setSelectedContact(id);setShowStudent(false);setShowFitness(false);setTab('work');}}/>:null}
-          {tab==='you'?<><OfflineLibrary locale={locale} color={c.text} onError={handleError} onCourse={id=>{setShowStudent(true);setShowFitness(false);router.setParams({tab:'work',courseId:id});}}/><AccountPanel locale={locale} palette={c} onError={handleError}/><Text style={[s.subtitle,tx]}>{t.theme}</Text>{(['dark','light','system'] as const).map(m=><React.Fragment key={m}>{button(t[m],()=>{setMode(m);void updatePreferences({mode:m}).catch(handleError);},mode===m)}</React.Fragment>)}<DeviceLockSettings locale={locale} color={c.text}/><NotificationsScreen locale={locale} color={c.text} surface={c.surface} onError={handleError}/><DeviceSessions locale={locale} color={c.text} onError={handleError}/>{button(t.logout,()=>void leave())}</>:null}
+          {tab==='you'?<ProfileScreen locale={locale} account={account} mode={mode} onMode={m=>{setMode(m);void updatePreferences({mode:m}).catch(handleError);}} onLocale={changeLocale} onLogout={()=>void leave()} onCourse={id=>{setShowStudent(true);setShowFitness(false);router.setParams({tab:'work',courseId:id});}} onError={handleError}/>:null}
         </ScrollView>}
         <View accessibilityRole="tablist" style={[s.nav,{backgroundColor:c.surface,borderColor:c.border,flexDirection:rtl?'row-reverse':'row'}]}>{(['home','fika','create','work','you'] as Tab[]).map(item=><Pressable key={item} accessibilityRole="tab" accessibilityState={{selected:tab===item}} onPress={()=>{tap();if(item==='fika'&&tab!=='fika')openChat({});else setTab(item);}} style={s.tab}><Icon name={tabIcons[item][tab===item?1:0]} size={24} color={tab===item?c.accent:c.faint}/><Text style={{color:tab===item?c.accent:c.faint,fontSize:11,fontFamily:fonts.medium,marginTop:2}}>{t[item]}</Text></Pressable>)}</View>
       <OfflineSync locale={locale}/></View>:null}

@@ -1,5 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
-import {KeyboardAvoidingView,Platform,Pressable,ScrollView,StyleSheet,TextInput,View} from 'react-native';
+import {ImageBackground,KeyboardAvoidingView,Platform,Pressable,ScrollView,StyleSheet,TextInput,View} from 'react-native';
+import {LinearGradient} from 'expo-linear-gradient';
+import {BrandMark,fikaImages} from '../ui/brand';
 import {ApiError,apiConfigurationError,request,requestOtp,signIn,verifyOtp} from '../api';
 import type {Locale} from '../i18n';
 import {purposes,updatePreferences,type Purpose} from '../preferences';
@@ -8,9 +10,9 @@ import {AppText,Banner,Button,Chip,Field,Icon,IconButton,Row,success,type IconNa
 import {numberFormat,useTheme} from '../ui/theme';
 
 const copy={
- fa:{skip:'رد شدن',next:'بعدی',start:'شروع کنیم',slides:[['sparkles-outline','فیکا؛ دستیاری که کار را انجام می‌دهد','بپرس، بنویس، بساز؛ و اگر کاری لازم بود، با تأیید تو انجامش بده.'],['wifi-outline','بدون فیلترشکن','همه‌چیز از طریق aifekr.com؛ هوش مصنوعی روز دنیا، از داخل ایران.'],['wallet-outline','هزینه همیشه معلوم','قبل از هر پیام می‌بینی چقدر اعتبار مصرف می‌شود. بدون هزینهٔ پنهان.']],phoneTitle:'ورود یا ثبت‌نام',phoneHint:'شمارهٔ موبایلت را وارد کن؛ کد تأیید پیامک می‌شود.',phone:'شمارهٔ موبایل',cont:'ادامه',email:'ورود با ایمیل و رمز',codeTitle:'کد تأیید',codeHint:(p:string)=>`کد ارسال‌شده به ${p} را وارد کن.`,resendIn:(s:string)=>`ارسال دوباره تا ${s} ثانیه`,resend:'ارسال دوباره کد',change:'تغییر شماره',profileTitle:'خوش آمدی!',profileHint:'چه صدایت کنیم؟ و بیشتر برای چه کاری آمده‌ای؟',name:'نام',purpose:{personal:'استفادهٔ شخصی',student:'درس و دانشگاه',business:'کسب‌وکار',fitness:'تمرین و سلامتی',realestate:'املاک'},done:'ورود به AIFekr',emailTitle:'ورود با ایمیل',password:'رمز عبور',login:'ورود',back:'بازگشت',invalidPhone:'شمارهٔ موبایل معتبر نیست؛ مثل ۰۹۱۲۳۴۵۶۷۸۹.',error:'ارتباط برقرار نشد. دوباره تلاش کنید.',gift:'بدون فیلترشکن کار می‌کند'},
- en:{skip:'Skip',next:'Next',start:"Let's start",slides:[['sparkles-outline','FIKA gets things done','Ask, write and create. When something needs doing, FIKA does it after you approve.'],['wifi-outline','Works without a VPN','Everything goes through aifekr.com: frontier AI, reachable from Iran.'],['wallet-outline','Cost is always visible','See how many credits a message uses before you send it. No hidden charges.']],phoneTitle:'Sign in or sign up',phoneHint:'Enter your mobile number and we will text you a code.',phone:'Mobile number',cont:'Continue',email:'Sign in with email and password',codeTitle:'Verification code',codeHint:(p:string)=>`Enter the code sent to ${p}.`,resendIn:(s:string)=>`Resend in ${s}s`,resend:'Resend code',change:'Change number',profileTitle:'Welcome!',profileHint:'What should we call you, and what brings you here?',name:'Name',purpose:{personal:'Personal use',student:'Study',business:'Business',fitness:'Fitness',realestate:'Real estate'},done:'Enter AIFekr',emailTitle:'Sign in with email',password:'Password',login:'Sign in',back:'Back',invalidPhone:'Enter a valid Iranian mobile number, like 09123456789.',error:'Could not connect. Try again.',gift:'Works without a VPN'},
- tr:{skip:'Geç',next:'İleri',start:'Başlayalım',slides:[['sparkles-outline','FIKA işi halleder','Sor, yaz, üret. Bir işlem gerekiyorsa onayınla yapar.'],['wifi-outline','VPN gerekmez','Her şey aifekr.com üzerinden çalışır.'],['wallet-outline','Maliyet her zaman görünür','Göndermeden önce bir mesajın kaç kredi kullanacağını görürsün.']],phoneTitle:'Giriş veya kayıt',phoneHint:'Cep numaranı gir, kodu SMS ile gönderelim.',phone:'Cep numarası',cont:'Devam',email:'E-posta ve şifre ile giriş',codeTitle:'Doğrulama kodu',codeHint:(p:string)=>`${p} numarasına gönderilen kodu gir.`,resendIn:(s:string)=>`${s} sn sonra tekrar gönder`,resend:'Kodu tekrar gönder',change:'Numarayı değiştir',profileTitle:'Hoş geldin!',profileHint:'Sana nasıl hitap edelim, en çok ne için kullanacaksın?',name:'Ad',purpose:{personal:'Kişisel',student:'Eğitim',business:'İş',fitness:'Fitness',realestate:'Emlak'},done:"AIFekr'e gir",emailTitle:'E-posta ile giriş',password:'Şifre',login:'Giriş yap',back:'Geri',invalidPhone:'Geçerli bir İran cep numarası gir.',error:'Bağlantı kurulamadı. Tekrar dene.',gift:'VPN gerekmez'},
+ fa:{skip:'رد شدن',next:'بعدی',start:'شروع کنیم',slides:[['sparkles-outline','سلام، من فیکا هستم','دستیار هوشمند AIFekr. می‌پرسی، می‌نویسم و می‌سازم؛ و هر کاری را فقط با تأیید تو انجام می‌دهم.'],['wifi-outline','بدون فیلترشکن','همه‌چیز از طریق aifekr.com؛ هوش مصنوعی روز دنیا، از داخل ایران.'],['wallet-outline','هزینه همیشه معلوم','قبل از هر پیام می‌بینی چقدر اعتبار مصرف می‌شود. بدون هزینهٔ پنهان.']],phoneTitle:'ورود یا ثبت‌نام',phoneHint:'شمارهٔ موبایلت را وارد کن؛ کد تأیید پیامک می‌شود.',phone:'شمارهٔ موبایل',cont:'ادامه',email:'ورود با ایمیل و رمز',codeTitle:'کد تأیید',codeHint:(p:string)=>`کد ارسال‌شده به ${p} را وارد کن.`,resendIn:(s:string)=>`ارسال دوباره تا ${s} ثانیه`,resend:'ارسال دوباره کد',change:'تغییر شماره',profileTitle:'خوش آمدی!',profileHint:'چه صدایت کنیم؟ و بیشتر برای چه کاری آمده‌ای؟',name:'نام',purpose:{personal:'استفادهٔ شخصی',student:'درس و دانشگاه',business:'کسب‌وکار',fitness:'تمرین و سلامتی',realestate:'املاک'},done:'ورود به AIFekr',emailTitle:'ورود با ایمیل',password:'رمز عبور',login:'ورود',back:'بازگشت',invalidPhone:'شمارهٔ موبایل معتبر نیست؛ مثل ۰۹۱۲۳۴۵۶۷۸۹.',error:'ارتباط برقرار نشد. دوباره تلاش کنید.',gift:'بدون فیلترشکن کار می‌کند'},
+ en:{skip:'Skip',next:'Next',start:"Let's start",slides:[['sparkles-outline',"Hi, I'm FIKA",'Your AIFekr assistant. Ask, write and create; I only act on your data after you approve.'],['wifi-outline','Works without a VPN','Everything goes through aifekr.com: frontier AI, reachable from Iran.'],['wallet-outline','Cost is always visible','See how many credits a message uses before you send it. No hidden charges.']],phoneTitle:'Sign in or sign up',phoneHint:'Enter your mobile number and we will text you a code.',phone:'Mobile number',cont:'Continue',email:'Sign in with email and password',codeTitle:'Verification code',codeHint:(p:string)=>`Enter the code sent to ${p}.`,resendIn:(s:string)=>`Resend in ${s}s`,resend:'Resend code',change:'Change number',profileTitle:'Welcome!',profileHint:'What should we call you, and what brings you here?',name:'Name',purpose:{personal:'Personal use',student:'Study',business:'Business',fitness:'Fitness',realestate:'Real estate'},done:'Enter AIFekr',emailTitle:'Sign in with email',password:'Password',login:'Sign in',back:'Back',invalidPhone:'Enter a valid Iranian mobile number, like 09123456789.',error:'Could not connect. Try again.',gift:'Works without a VPN'},
+ tr:{skip:'Geç',next:'İleri',start:'Başlayalım',slides:[['sparkles-outline','Merhaba, ben FIKA','AIFekr asistanın. Sor, yaz, üret; verilerinde yalnızca onayınla işlem yaparım.'],['wifi-outline','VPN gerekmez','Her şey aifekr.com üzerinden çalışır.'],['wallet-outline','Maliyet her zaman görünür','Göndermeden önce bir mesajın kaç kredi kullanacağını görürsün.']],phoneTitle:'Giriş veya kayıt',phoneHint:'Cep numaranı gir, kodu SMS ile gönderelim.',phone:'Cep numarası',cont:'Devam',email:'E-posta ve şifre ile giriş',codeTitle:'Doğrulama kodu',codeHint:(p:string)=>`${p} numarasına gönderilen kodu gir.`,resendIn:(s:string)=>`${s} sn sonra tekrar gönder`,resend:'Kodu tekrar gönder',change:'Numarayı değiştir',profileTitle:'Hoş geldin!',profileHint:'Sana nasıl hitap edelim, en çok ne için kullanacaksın?',name:'Ad',purpose:{personal:'Kişisel',student:'Eğitim',business:'İş',fitness:'Fitness',realestate:'Emlak'},done:"AIFekr'e gir",emailTitle:'E-posta ile giriş',password:'Şifre',login:'Giriş yap',back:'Geri',invalidPhone:'Geçerli bir İran cep numarası gir.',error:'Bağlantı kurulamadı. Tekrar dene.',gift:'VPN gerekmez'},
 } as const;
 const purposeIcons:Record<Purpose,IconName>={personal:'person-outline',student:'school-outline',business:'briefcase-outline',fitness:'barbell-outline',realestate:'home-outline'};
 const CODE_LENGTH=4;
@@ -52,23 +54,28 @@ export function Onboarding({locale,onLocale,introSeen,onSignedIn}:{locale:Locale
  const finishIntro=()=>{void updatePreferences({introSeen:true}).catch(()=>{});setStep('phone');};
 
  const languages=<Row gap={space.sm}>{(['fa','en','tr'] as Locale[]).map(l=><Chip key={l} label={{fa:'فارسی',en:'English',tr:'Türkçe'}[l]} tone={l===locale?'soft':'raised'} onPress={()=>onLocale(l)}/>)}</Row>;
- const brand=<AppText variant="title" weight="bold" align="center">AI<AppText variant="title" weight="bold" tone="accent">Fekr</AppText></AppText>;
 
  let body;
  if(step==='intro'){
   const [icon,title,detail]=t.slides[slide];const last=slide===t.slides.length-1;
+  return <View style={{flex:1,backgroundColor:c.bg}}>
+   <ImageBackground source={fikaImages.hero} resizeMode="cover" style={s.heroImage} imageStyle={{opacity:.92}}>
+    <LinearGradient pointerEvents="none" colors={['rgba(23,25,29,.55)','rgba(23,25,29,0)','rgba(23,25,29,.55)',c.bg]} locations={[0,.22,.72,.97]} style={StyleSheet.absoluteFill}/>
+    <View style={s.heroTop}><Row justify="space-between"><BrandMark size={22}/><Pressable accessibilityRole="button" onPress={finishIntro} hitSlop={10}><AppText variant="caption" weight="medium">{t.skip}</AppText></Pressable></Row>{languages}</View>
+   </ImageBackground>
+   <View style={s.heroBody}>
+    <Row gap={space.sm}><View style={[s.heroIcon,{backgroundColor:c.soft}]}><Icon name={icon as IconName} size={20} color={c.accent}/></View><Row gap={6}>{t.slides.map((_,i)=><View key={i} style={[s.dot,{backgroundColor:i===slide?c.accent:c.border,width:i===slide?22:8}]}/>)}</Row></Row>
+    <AppText variant="display" weight="bold">{title}</AppText>
+    <AppText tone="muted">{detail}</AppText>
+    <Button label={last?t.start:t.next} icon={last?undefined:'arrow-forward'} onPress={()=>last?finishIntro():setSlide(slide+1)} style={{marginTop:space.md}}/>
+   </View>
+  </View>;
+ }
+ if(step==='phone'){
   body=<>
-   <Row justify="space-between">{brand}<Pressable accessibilityRole="button" onPress={finishIntro} hitSlop={10}><AppText variant="caption" tone="muted">{t.skip}</AppText></Pressable></Row>
-   {languages}
-   <View style={s.hero}><View style={[s.heroIcon,{backgroundColor:c.soft}]}><Icon name={icon as IconName} size={44} color={c.accent}/></View>
-    <AppText variant="display" weight="bold" align="center">{title}</AppText><AppText tone="muted" align="center">{detail}</AppText></View>
-   <Row gap={6} justify="center">{t.slides.map((_,i)=><View key={i} style={[s.dot,{backgroundColor:i===slide?c.accent:c.border,width:i===slide?22:8}]}/>)}</Row>
-   <Button label={last?t.start:t.next} icon={last?undefined:'arrow-forward'} onPress={()=>last?finishIntro():setSlide(slide+1)}/>
-  </>;
- }else if(step==='phone'){
-  body=<>
-   <Row justify="space-between">{brand}{languages}</Row>
-   <View style={{gap:space.sm,marginTop:space.xxl}}><AppText variant="display" weight="bold" accessibilityRole="header">{t.phoneTitle}</AppText><AppText tone="muted">{t.phoneHint}</AppText></View>
+   <Row justify="flex-end">{languages}</Row>
+   <View style={s.logo}><BrandMark size={36} halo/></View>
+   <View style={{gap:space.sm}}><AppText variant="display" weight="bold" accessibilityRole="header">{t.phoneTitle}</AppText><AppText tone="muted">{t.phoneHint}</AppText></View>
    <Field large accessibilityLabel={t.phone} placeholder="0912 345 6789" value={phone} onChangeText={setPhone} keyboardType="phone-pad" textContentType="telephoneNumber" autoComplete="tel" maxLength={16} editable={!busy} onSubmitEditing={()=>void sendCode()} style={{textAlign:'left',writingDirection:'ltr',letterSpacing:1}}/>
    <Button label={t.cont} busy={busy} onPress={()=>void sendCode()}/>
    <Pressable accessibilityRole="button" onPress={()=>{setError('');setStep('email');}} style={{alignSelf:'center',padding:space.sm}}><AppText variant="caption" tone="muted">{t.email}</AppText></Pressable>
@@ -116,8 +123,11 @@ export function Onboarding({locale,onLocale,introSeen,onSignedIn}:{locale:Locale
 }
 const s=StyleSheet.create({
  page:{flexGrow:1,padding:space.xl,gap:space.lg},
- hero:{flex:1,minHeight:320,alignItems:'center',justifyContent:'center',gap:space.lg,paddingHorizontal:space.md},
- heroIcon:{width:96,height:96,borderRadius:32,alignItems:'center',justifyContent:'center',marginBottom:space.md},
+ heroImage:{flex:1.25,minHeight:380,justifyContent:'flex-start'},
+ heroTop:{padding:space.xl,gap:space.md},
+ heroBody:{padding:space.xl,paddingTop:0,gap:space.md},
+ heroIcon:{width:40,height:40,borderRadius:14,alignItems:'center',justifyContent:'center'},
+ logo:{alignItems:'center',paddingVertical:space.xxl},
  dot:{height:8,borderRadius:4},
  // Digits always read left to right, even in the Persian UI.
  codeRow:{flexDirection:'row',justifyContent:'center',gap:space.md,marginVertical:space.lg},

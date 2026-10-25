@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
-import {ActivityIndicator,AppState,StyleSheet,View} from 'react-native';
+import {ActivityIndicator,AppState,Pressable,StyleSheet,View} from 'react-native';
+import {LinearGradient} from 'expo-linear-gradient';
 import {RecordingPresets,useAudioRecorder,useAudioRecorderState,requestRecordingPermissionsAsync,setAudioModeAsync} from 'expo-audio';
 import {File} from 'expo-file-system';
 import {appendNativeFile} from '../nativeUpload';
@@ -7,7 +8,7 @@ import {z} from 'zod';
 import {authorizedFetch,request,ApiError} from '../api';
 import type {Locale} from '../i18n';
 import {radius,space} from '../design';
-import {AppText,Button,Icon,Row} from '../ui/kit';
+import {AppText,Button,Icon,Row,tap} from '../ui/kit';
 import {numberFormat,useTheme} from '../ui/theme';
 
 export const transcriptionQuoteSchema=z.object({available:z.boolean(),credits:z.number().int().nonnegative(),maxBytes:z.number().positive()});
@@ -39,7 +40,11 @@ export function VoiceInput({locale,onTranscript,onError,disabled,quote:given}:{l
    <View style={{flex:1,gap:2}}><AppText weight="bold">{capturing?`${t.recording} · ${numberFormat(locale,seconds)}″`:uri?t.ready:t.title}</AppText><AppText variant="caption" tone="muted">{capturing?t.limit:uri?t.consent:t.hint}</AppText></View>
   </Row>
   {capturing?<View style={[s.track,{backgroundColor:c.surface}]}><View accessibilityLabel={t.recording} style={[s.level,{width:`${level}%`,backgroundColor:c.accent}]}/></View>:null}
-  {busy?<ActivityIndicator color={c.accent}/>:capturing?<Button label={t.finish} icon="stop" onPress={()=>void finish()}/>:uri?<Row gap={space.sm}><Button style={{flex:1}} label={t.upload(numberFormat(locale,quote.credits))} icon="text-outline" onPress={()=>void upload()}/><Button label={t.discard} variant="ghost" onPress={discard}/></Row>:<Button label={t.record} icon="mic" variant="secondary" disabled={disabled} onPress={()=>void start()}/>}
+  {busy?<ActivityIndicator color={c.accent}/>:(capturing||!uri)?<View style={s.micWrap}>
+   <LinearGradient pointerEvents="none" colors={[`rgba(255,107,0,${capturing?.55:.3})`,'rgba(255,107,0,0)']} style={[s.micHalo,{transform:[{scale:capturing?1+level/250:1}]}]}/>
+   <Pressable accessibilityRole="button" accessibilityLabel={capturing?t.finish:t.record} disabled={disabled} onPress={()=>{tap();void(capturing?finish():start());}} style={({pressed})=>[s.mic,{backgroundColor:c.accent,opacity:disabled?.5:pressed?.85:1}]}><Icon name={capturing?'stop':'mic'} size={34} color={c.onAccent}/></Pressable>
+   <AppText variant="caption" tone="muted" align="center">{capturing?t.finish:t.record}</AppText>
+  </View>:uri?<Row gap={space.sm}><Button style={{flex:1}} label={t.upload(numberFormat(locale,quote.credits))} icon="text-outline" onPress={()=>void upload()}/><Button label={t.discard} variant="ghost" onPress={discard}/></Row>:null}
   {requestKey&&!busy?<Button label={t.check} variant="ghost" icon="refresh" onPress={()=>void check()}/>:null}
   {error?<AppText variant="caption" tone="danger" accessibilityRole="alert">{error}</AppText>:null}
  </View>;
@@ -49,4 +54,7 @@ const s=StyleSheet.create({
  icon:{width:40,height:40,borderRadius:14,alignItems:'center',justifyContent:'center'},
  track:{height:6,borderRadius:3,overflow:'hidden'},
  level:{height:6,borderRadius:3},
+ micWrap:{alignItems:'center',justifyContent:'center',paddingVertical:space.lg,gap:space.md},
+ micHalo:{position:'absolute',top:-10,width:170,height:170,borderRadius:85},
+ mic:{width:88,height:88,borderRadius:44,alignItems:'center',justifyContent:'center'},
 });

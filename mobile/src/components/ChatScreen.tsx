@@ -1,5 +1,7 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
-import {ActivityIndicator,AppState,FlatList,KeyboardAvoidingView,Platform,Pressable,Share,StyleSheet,TextInput,View} from 'react-native';
+import {ActivityIndicator,AppState,FlatList,Image,KeyboardAvoidingView,Platform,Pressable,Share,StyleSheet,TextInput,View} from 'react-native';
+import {LinearGradient} from 'expo-linear-gradient';
+import {FikaAvatar,fikaImages} from '../ui/brand';
 import {z} from 'zod';
 import {ApiError,authorizedFetch,request,readDraft,saveDraft} from '../api';
 import type {Locale} from '../i18n';
@@ -17,9 +19,9 @@ const quoteSchema=z.object({maxCredits:z.number().int().nonnegative()});
 const listSchema=z.object({conversations:z.array(z.object({id:z.string(),title:z.string()}))});
 const historySchema=z.object({messages:z.array(z.object({role:z.enum(['user','assistant']),content:z.string()}))});
 const labels={
- fa:{title:'فیکا',send:'ارسال',new:'گفت‌وگوی جدید',history:'گفت‌وگوها',noHistory:'هنوز گفت‌وگویی نیست.',placeholder:'پیام به فیکا…',cost:(n:string)=>`حداکثر ${n} اعتبار`,confirmTitle:'هزینهٔ این پیام',confirmBody:(n:string)=>`این پیام حداکثر ${n} اعتبار مصرف می‌کند؛ مقدار دقیق به مدلی بستگی دارد که پاسخ می‌دهد.`,remember:'در این نشست دوباره نپرس',cancel:'لغو',stop:'توقف',stopped:'دریافت متوقف شد. پردازش سرور ممکن است ادامه یابد و هزینه داشته باشد؛ پیش از ارسال دوباره، وضعیت را بررسی کنید.',error:'چت ناموفق بود؛ وضعیت درخواست را بررسی کنید.',incomplete:'پاسخ کامل دریافت نشد.',check:'بررسی وضعیت',tools:'ابزارها و اقدام‌ها',voice:'ورودی صوتی',share:'اشتراک',retry:'دوباره بپرس',thinking:'فیکا در حال فکر کردن…',hello:'امروز چه کاری برایت انجام دهم؟',starters:['خلاصهٔ این متن را بنویس','برای کسب‌وکارم ایده بده','یک ایمیل رسمی بنویس']},
- en:{title:'FIKA',send:'Send',new:'New chat',history:'Chats',noHistory:'No chats yet.',placeholder:'Message FIKA…',cost:(n:string)=>`Up to ${n} credits`,confirmTitle:'Cost of this message',confirmBody:(n:string)=>`This message uses at most ${n} credits; the exact amount depends on the model that answers.`,remember:"Don't ask again this session",cancel:'Cancel',stop:'Stop',stopped:'Receiving stopped. Server processing may continue and incur a charge; check status before resending.',error:'Chat failed; check request status.',incomplete:'The complete response was not received.',check:'Check status',tools:'Tools and actions',voice:'Voice input',share:'Share',retry:'Ask again',thinking:'FIKA is thinking…',hello:'What can I do for you today?',starters:['Summarize this text','Ideas for my business','Write a formal email']},
- tr:{title:'FIKA',send:'Gönder',new:'Yeni sohbet',history:'Sohbetler',noHistory:'Henüz sohbet yok.',placeholder:'FIKA’ya yaz…',cost:(n:string)=>`En fazla ${n} kredi`,confirmTitle:'Bu mesajın maliyeti',confirmBody:(n:string)=>`Bu mesaj en fazla ${n} kredi kullanır; kesin miktar yanıtlayan modele bağlıdır.`,remember:'Bu oturumda tekrar sorma',cancel:'İptal',stop:'Durdur',stopped:'Alım durdu. Sunucu işlemi devam edip ücretlendirebilir; yeniden göndermeden önce durumu kontrol edin.',error:'Sohbet başarısız; istek durumunu kontrol edin.',incomplete:'Yanıtın tamamı alınamadı.',check:'Durumu kontrol et',tools:'Araçlar ve işlemler',voice:'Sesli giriş',share:'Paylaş',retry:'Tekrar sor',thinking:'FIKA düşünüyor…',hello:'Bugün senin için ne yapabilirim?',starters:['Bu metni özetle','İşim için fikirler','Resmi bir e-posta yaz']},
+ fa:{title:'فیکا',subtitle:'دستیار هوشمند تو',send:'ارسال',new:'گفت‌وگوی جدید',history:'گفت‌وگوها',noHistory:'هنوز گفت‌وگویی نیست.',placeholder:'پیام به فیکا…',cost:(n:string)=>`حداکثر ${n} اعتبار`,confirmTitle:'هزینهٔ این پیام',confirmBody:(n:string)=>`این پیام حداکثر ${n} اعتبار مصرف می‌کند؛ مقدار دقیق به مدلی بستگی دارد که پاسخ می‌دهد.`,remember:'در این نشست دوباره نپرس',cancel:'لغو',stop:'توقف',stopped:'دریافت متوقف شد. پردازش سرور ممکن است ادامه یابد و هزینه داشته باشد؛ پیش از ارسال دوباره، وضعیت را بررسی کنید.',error:'چت ناموفق بود؛ وضعیت درخواست را بررسی کنید.',incomplete:'پاسخ کامل دریافت نشد.',check:'بررسی وضعیت',tools:'ابزارها و اقدام‌ها',voice:'ورودی صوتی',share:'اشتراک',retry:'دوباره بپرس',thinking:'فیکا در حال فکر کردن…',hello:'امروز چه کاری برایت انجام دهم؟',starters:['خلاصهٔ این متن را بنویس','برای کسب‌وکارم ایده بده','یک ایمیل رسمی بنویس']},
+ en:{title:'FIKA',subtitle:'Your AI assistant',send:'Send',new:'New chat',history:'Chats',noHistory:'No chats yet.',placeholder:'Message FIKA…',cost:(n:string)=>`Up to ${n} credits`,confirmTitle:'Cost of this message',confirmBody:(n:string)=>`This message uses at most ${n} credits; the exact amount depends on the model that answers.`,remember:"Don't ask again this session",cancel:'Cancel',stop:'Stop',stopped:'Receiving stopped. Server processing may continue and incur a charge; check status before resending.',error:'Chat failed; check request status.',incomplete:'The complete response was not received.',check:'Check status',tools:'Tools and actions',voice:'Voice input',share:'Share',retry:'Ask again',thinking:'FIKA is thinking…',hello:'What can I do for you today?',starters:['Summarize this text','Ideas for my business','Write a formal email']},
+ tr:{title:'FIKA',subtitle:'Yapay zekâ asistanın',send:'Gönder',new:'Yeni sohbet',history:'Sohbetler',noHistory:'Henüz sohbet yok.',placeholder:'FIKA’ya yaz…',cost:(n:string)=>`En fazla ${n} kredi`,confirmTitle:'Bu mesajın maliyeti',confirmBody:(n:string)=>`Bu mesaj en fazla ${n} kredi kullanır; kesin miktar yanıtlayan modele bağlıdır.`,remember:'Bu oturumda tekrar sorma',cancel:'İptal',stop:'Durdur',stopped:'Alım durdu. Sunucu işlemi devam edip ücretlendirebilir; yeniden göndermeden önce durumu kontrol edin.',error:'Sohbet başarısız; istek durumunu kontrol edin.',incomplete:'Yanıtın tamamı alınamadı.',check:'Durumu kontrol et',tools:'Araçlar ve işlemler',voice:'Sesli giriş',share:'Paylaş',retry:'Tekrar sor',thinking:'FIKA düşünüyor…',hello:'Bugün senin için ne yapabilirim?',starters:['Bu metni özetle','İşim için fikirler','Resmi bir e-posta yaz']},
 } as const;
 type Message={role:'user'|'assistant';content:string};
 
@@ -80,7 +82,7 @@ export function ChatScreen({locale,onError,initialPrompt,initialConversation,ope
   const mine=item.role==='user',last=index===messages.length-1,streaming=busy&&last&&!mine;
   if(mine)return <View style={[s.userBubble,{backgroundColor:c.soft,alignSelf:rtl?'flex-start':'flex-end'}]}><AppText selectable style={{color:c.text}}>{item.content}</AppText></View>;
   return <View style={s.answer}>
-   <Row gap={space.sm}><View style={[s.avatar,{backgroundColor:c.accent}]}><Icon name="sparkles" size={14} color={c.onAccent}/></View><AppText variant="caption" weight="medium" tone="muted">{t.title}</AppText></Row>
+   <Row gap={space.sm}><FikaAvatar size={26} ring={false} mood={streaming?'thinking':'neutral'}/><AppText variant="caption" weight="medium" tone="muted">{t.title}</AppText></Row>
    {item.content?<Markdown text={displayChatText(item.content)}/>:<Row gap={space.sm}><ActivityIndicator size="small" color={c.accent}/><AppText variant="caption" tone="muted">{t.thinking}</AppText></Row>}
    {!streaming&&item.content?<Row gap={space.xs}>
     <SpeechControl text={item.content} locale={locale} color={c.muted}/>
@@ -92,15 +94,15 @@ export function ChatScreen({locale,onError,initialPrompt,initialConversation,ope
 
  return <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined} keyboardVerticalOffset={80}>
   <Row justify="space-between" style={s.header}>
-   <Row gap={space.xs}><IconButton icon="time-outline" label={t.history} onPress={()=>{setShowHistory(true);void loadList().catch(()=>{});}}/><AppText variant="title" weight="bold" accessibilityRole="header">{t.title}</AppText></Row>
+   <Row gap={space.sm}><IconButton icon="time-outline" label={t.history} onPress={()=>{setShowHistory(true);void loadList().catch(()=>{});}}/><FikaAvatar size={36} mood="smile"/><View><AppText weight="bold" accessibilityRole="header">{t.title}</AppText><AppText variant="tiny" tone="muted">{t.subtitle}</AppText></View></Row>
    <Row gap={space.xs}><IconButton icon="briefcase-outline" label={t.tools} onPress={()=>setShowTools(true)}/><IconButton icon="create-outline" label={t.new} onPress={reset} disabled={busy}/></Row>
   </Row>
   <FlatList ref={list} data={messages} keyExtractor={(_,i)=>String(i)} renderItem={renderItem} contentContainerStyle={s.list} keyboardShouldPersistTaps="handled"
    onContentSizeChange={()=>list.current?.scrollToEnd({animated:true})}
    ListEmptyComponent={<View style={s.empty}>
-    <View style={[s.emptyIcon,{backgroundColor:c.soft}]}><Icon name="sparkles-outline" size={34} color={c.accent}/></View>
+    <View style={s.portrait}><LinearGradient pointerEvents="none" colors={['rgba(255,107,0,.28)','rgba(255,107,0,0)']} locations={[0,.8]} start={{x:.5,y:.15}} end={{x:.5,y:1}} style={s.halo}/><Image accessibilityIgnoresInvertColors source={fikaImages.hero} resizeMode="cover" style={[s.portraitImage,{borderColor:c.accent}]}/></View>
     <AppText variant="title" weight="bold" align="center">{t.hello}</AppText>
-    <View style={{flexDirection:rtl?'row-reverse':'row',flexWrap:'wrap',gap:space.sm,justifyContent:'center'}}>{t.starters.map(p=><Chip key={p} tone="raised" label={p} onPress={()=>setDraft(p)}/>)}</View>
+    <View style={{alignSelf:'stretch',gap:space.sm}}>{t.starters.map((p,i)=><Pressable key={p} accessibilityRole="button" onPress={()=>setDraft(p)} style={({pressed})=>[s.starter,{backgroundColor:pressed?c.raised:c.surface,flexDirection:rtl?'row-reverse':'row'}]}><Icon name={(['document-text-outline','bulb-outline','mail-outline'] as const)[i%3]} size={18} color={c.accent}/><AppText style={{flex:1}}>{p}</AppText></Pressable>)}</View>
    </View>}
    ListFooterComponent={error?<View style={{gap:space.sm}}><Banner text={error} action={lastKey&&!busy?{label:t.check,onPress:()=>void check()}:undefined}/></View>:null}/>
   <View style={[s.composer,{backgroundColor:c.surface,borderColor:c.border}]}>
@@ -134,7 +136,10 @@ const s=StyleSheet.create({
  answer:{gap:space.sm},
  avatar:{width:24,height:24,borderRadius:8,alignItems:'center',justifyContent:'center'},
  empty:{flex:1,alignItems:'center',justifyContent:'center',gap:space.lg,paddingVertical:space.xxl},
- emptyIcon:{width:72,height:72,borderRadius:24,alignItems:'center',justifyContent:'center'},
+ portrait:{width:150,height:150,alignItems:'center',justifyContent:'center'},
+ halo:{position:'absolute',top:-30,width:260,height:200,borderRadius:130},
+ portraitImage:{width:132,height:132,borderRadius:66,borderWidth:3},
+ starter:{alignItems:'center',gap:space.md,borderRadius:radius.md,paddingHorizontal:space.lg,paddingVertical:space.md},
  composer:{margin:space.md,borderRadius:radius.lg,borderWidth:1,padding:space.sm,gap:space.xs},
  historyRow:{borderRadius:radius.md,padding:space.md},
 });
