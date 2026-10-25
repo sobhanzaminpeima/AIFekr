@@ -1,18 +1,23 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 import { request } from '../api';
 import type { Locale } from '../i18n';
+import {radius,space} from '../design';
+import {AppText,Banner,Icon,Sheet,tap} from '../ui/kit';
+import {useTheme} from '../ui/theme';
 
 const inventory = z.object({activeBusinessId:z.string().nullable(),organizations:z.array(z.object({organization:z.object({name:z.string()}),businesses:z.array(z.object({id:z.string(),name:z.string()}))}))});
 const copy = {
-  fa:{title:'فضای کاری',confirm:'تغییر فضای کاری',body:'این انتخاب فضای کاری حساب شما در وب را هم تغییر می‌دهد.',cancel:'لغو',apply:'تغییر',retry:'دریافت فضاهای کاری',error:'دریافت فضاهای کاری ناموفق بود.'},
-  en:{title:'Workspace',confirm:'Switch workspace',body:'This also changes your account’s active workspace on the web.',cancel:'Cancel',apply:'Switch',retry:'Load workspaces',error:'Could not load workspaces.'},
-  tr:{title:'Çalışma alanı',confirm:'Çalışma alanını değiştir',body:'Bu seçim web hesabınızdaki etkin çalışma alanını da değiştirir.',cancel:'İptal',apply:'Değiştir',retry:'Çalışma alanlarını yükle',error:'Çalışma alanları yüklenemedi.'},
+  fa:{title:'فضای کاری',choose:'انتخاب فضای کاری',body:'این انتخاب، فضای کاری فعال حساب شما در وب را هم تغییر می‌دهد.',retry:'دریافت دوباره',none:'فضای کاری انتخاب نشده'},
+  en:{title:'Workspace',choose:'Choose workspace',body:'This also changes your account’s active workspace on the web.',retry:'Retry',none:'No workspace selected'},
+  tr:{title:'Çalışma alanı',choose:'Çalışma alanı seç',body:'Bu seçim web hesabınızdaki etkin çalışma alanını da değiştirir.',retry:'Tekrar dene',none:'Çalışma alanı seçilmedi'},
 };
-export function WorkspacePicker({locale,onChange,onError,textColor,surface}:{locale:Locale;onChange:()=>void;onError:(error:unknown)=>void;textColor:string;surface:string}) {
+/** Current workspace as a compact row; switching happens in a sheet that states the web-wide effect first. */
+export function WorkspacePicker({locale,onChange,onError}:{locale:Locale;onChange:()=>void;onError:(error:unknown)=>void}) {
+  const {c,rtl}=useTheme();
   const [items,setItems] = useState<{id:string;name:string}[]>([]); const [selected,setSelected] = useState<string|null>(null);
-  const [busy,setBusy] = useState(false); const [failed,setFailed] = useState(false); const [revision,setRevision] = useState(0);
+  const [busy,setBusy] = useState(false); const [failed,setFailed] = useState(false); const [revision,setRevision] = useState(0); const [open,setOpen]=useState(false);
   const t = copy[locale];
   useEffect(()=>{
     let active=true;
@@ -26,13 +31,27 @@ export function WorkspacePicker({locale,onChange,onError,textColor,surface}:{loc
     return()=>{active=false;};
   },[locale,revision,onError]);
   function choose(id:string) {
-    Alert.alert(t.confirm,t.body,[{text:t.cancel,style:'cancel'},{text:t.apply,onPress:()=>{
-      setBusy(true);
-      request('/api/organizations/context',locale,{method:'PATCH',body:JSON.stringify({businessId:id})}).then(()=>{setSelected(id);onChange();}).catch(onError).finally(()=>setBusy(false));
-    }}]);
+    setBusy(true);
+    request('/api/organizations/context',locale,{method:'PATCH',body:JSON.stringify({businessId:id})}).then(()=>{setSelected(id);setOpen(false);onChange();}).catch(onError).finally(()=>setBusy(false));
   }
-  return <View style={{gap:8,marginBottom:16}}><Text accessibilityRole="header" style={{color:textColor,fontSize:18,fontWeight:'600',textAlign:locale==='fa'?'right':'left'}}>{t.title}</Text>
-    {failed?<Pressable accessibilityRole="button" onPress={()=>setRevision(v=>v+1)} style={{minHeight:48,justifyContent:'center'}}><Text style={{color:textColor}}>{t.retry}</Text></Pressable>:null}
-    {items.map(item=><Pressable key={item.id} accessibilityRole="button" accessibilityState={{selected:selected===item.id,disabled:busy}} disabled={busy||selected===item.id} onPress={()=>choose(item.id)} style={{minHeight:48,borderWidth:1,borderRadius:16,padding:12,justifyContent:'center',backgroundColor:surface,borderColor:selected===item.id?'#FF6B00':'#75685A'}}><Text style={{color:textColor,textAlign:locale==='fa'?'right':'left'}}>{item.name}</Text></Pressable>)}
-  </View>;
+  if(!items.length&&!failed)return null;
+  const current=items.find(i=>i.id===selected)?.name??t.none;
+  return <>
+    <Pressable accessibilityRole="button" accessibilityLabel={`${t.title}: ${current}`} onPress={()=>{tap();if(failed)setRevision(v=>v+1);else setOpen(true);}} style={({pressed})=>[s.row,{backgroundColor:c.surface,flexDirection:rtl?'row-reverse':'row',opacity:pressed?.85:1}]}>
+      <View style={[s.icon,{backgroundColor:c.soft}]}><Icon name="business-outline" size={18} color={c.accent}/></View>
+      <View style={{flex:1}}><AppText variant="tiny" tone="muted">{t.title}</AppText><AppText weight="medium" numberOfLines={1}>{failed?t.retry:current}</AppText></View>
+      <Icon name={failed?'refresh':'chevron-down'} size={18} color={c.faint}/>
+    </Pressable>
+    <Sheet visible={open} onClose={()=>setOpen(false)} title={t.choose}>
+      <Banner tone="info" text={t.body}/>
+      {items.map(item=><Pressable key={item.id} accessibilityRole="radio" accessibilityState={{checked:selected===item.id,disabled:busy}} disabled={busy||selected===item.id} onPress={()=>choose(item.id)} style={[s.option,{backgroundColor:selected===item.id?c.soft:c.raised,flexDirection:rtl?'row-reverse':'row'}]}>
+        <Icon name={selected===item.id?'radio-button-on':'radio-button-off'} size={18} color={c.accent}/><AppText style={{flex:1}}>{item.name}</AppText>
+      </Pressable>)}
+    </Sheet>
+  </>;
 }
+const s=StyleSheet.create({
+  row:{alignItems:'center',gap:space.md,borderRadius:radius.lg,padding:space.md},
+  icon:{width:36,height:36,borderRadius:12,alignItems:'center',justifyContent:'center'},
+  option:{alignItems:'center',gap:space.md,borderRadius:radius.md,padding:space.md},
+});

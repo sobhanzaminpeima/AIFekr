@@ -2,7 +2,7 @@
   "expo": {
     "name": "AIFekr",
     "slug": "aifekr",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -23,7 +23,7 @@
         "android.permission.health.READ_STEPS"
       ],
       "package": "com.aifekr.app",
-      "versionCode": 3,
+      "versionCode": 4,
       "googleServicesFile": "./google-services.json"
     },
     "web": {

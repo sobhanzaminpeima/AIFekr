@@ -1,16 +1,40 @@
 import {useEffect,useRef,useState} from 'react';
-import {Alert,Pressable,Text,TextInput,View} from 'react-native';
+import {StyleSheet,View} from 'react-native';
 import {randomUUID} from 'expo-crypto';
 import {z} from 'zod';
 import {request} from '../api';
 import type {Locale} from '../i18n';
+import {radius,space} from '../design';
+import {AppText,Banner,Button,Field,Row,Sheet} from '../ui/kit';
+import {Labeled,Options} from '../ui/forms';
+import {useTheme} from '../ui/theme';
+
 const catalog=z.object({pipelines:z.array(z.object({id:z.string(),name:z.string(),stages:z.array(z.object({id:z.string(),name:z.string(),isWon:z.boolean(),isLost:z.boolean()}))}))});
 type Deal={id:string;title:string;pipelineId:string;stageId:string};
-const copy={fa:{title:'فرصت و مسیر فروش',name:'عنوان فرصت جدید',create:'ثبت فرصت',hint:'فرصت جدید با مبلغ صفر ثبت می‌شود.',empty:'پایپلاین دارای مرحله در این فضای کار ثبت نشده است.',move:'تغییر مرحله',preview:'تغییر مرحله ممکن است پیش‌نویس فاکتور و پیگیری داخلی ایجاد کند.',cancel:'لغو',confirm:'تأیید تغییر'},en:{title:'Opportunity and sales pipeline',name:'New opportunity title',create:'Create opportunity',hint:'New opportunities are recorded with zero monetary value.',empty:'No pipeline with stages exists in this workspace.',move:'Move stage',preview:'Moving a stage may create a draft invoice and internal follow-up tasks.',cancel:'Cancel',confirm:'Confirm change'},tr:{title:'Fırsat ve satış hattı',name:'Yeni fırsat başlığı',create:'Fırsat oluştur',hint:'Yeni fırsatlar sıfır parasal değerle kaydedilir.',empty:'Bu alanda aşamalı satış hattı yok.',move:'Aşamayı değiştir',preview:'Aşama değişikliği taslak fatura ve dahili takip görevleri oluşturabilir.',cancel:'İptal',confirm:'Değişikliği onayla'}};
-export function DealComposer({contactId,deals,locale,color,onChanged,onError}:{contactId:string;deals:Deal[];locale:Locale;color:string;onChanged:()=>void;onError:(e:unknown)=>void}){
- const t=copy[locale],keys=useRef(new Map<string,string>());const [pipelines,setPipelines]=useState<z.infer<typeof catalog>['pipelines']>([]),[stage,setStage]=useState<{pipelineId:string;stageId:string}|null>(null),[title,setTitle]=useState(''),[busy,setBusy]=useState(false);
- useEffect(()=>{let active=true;request('/api/mobile/v1/crm/catalog',locale).then(raw=>{if(active)setPipelines(catalog.parse(raw).pipelines);}).catch(e=>{if(active)onError(e);});return()=>{active=false;};},[locale,onError]);
- async function mutate(action:'deal.create'|'deal.move',data:unknown,id?:string){if(busy)return;setBusy(true);try{const hash=JSON.stringify({action,data,id,contactId});let key=keys.current.get(hash);if(!key){key=`crm_${randomUUID()}`;keys.current.set(hash,key);}await request('/api/mobile/v1/crm',locale,{method:'POST',body:JSON.stringify({action,data,...(id?{id}:{}),requestKey:key})});keys.current.delete(hash);setTitle('');onChanged();}catch(e){onError(e);}finally{setBusy(false);}}
- return <View style={{gap:12}}><Text accessibilityRole="header" style={{color,fontSize:20,fontWeight:'700'}}>{t.title}</Text><Text style={{color}}>{t.hint}</Text><TextInput accessibilityLabel={t.name} placeholder={t.name} placeholderTextColor={color} value={title} onChangeText={setTitle} maxLength={200} editable={!busy} style={{color,minHeight:52,padding:14,borderWidth:1,borderColor:'#75685A',borderRadius:16}}/>{pipelines.map(p=><View key={p.id} style={{gap:8}}><Text style={{color,fontWeight:'700'}}>{p.name}</Text><View style={{gap:8,flexDirection:locale==='fa'?'row-reverse':'row',flexWrap:'wrap'}}>{p.stages.filter(s=>!s.isWon&&!s.isLost).map(s=><Pressable key={s.id} accessibilityRole="radio" accessibilityState={{selected:stage?.stageId===s.id}} disabled={busy} onPress={()=>setStage({pipelineId:p.id,stageId:s.id})} style={{minHeight:48,padding:12,borderWidth:1,borderColor:stage?.stageId===s.id?'#FF6B00':'#75685A',borderRadius:16}}><Text style={{color}}>{s.name}</Text></Pressable>)}</View></View>)}{!pipelines.some(p=>p.stages.length)?<Text style={{color}}>{t.empty}</Text>:null}<Pressable accessibilityRole="button" disabled={busy||!stage||!title.trim()} onPress={()=>Alert.alert(t.create,title,[{text:t.cancel,style:'cancel'},{text:t.create,onPress:()=>void mutate('deal.create',{title,contactId,...stage})}])} style={{minHeight:48,padding:12}}><Text style={{color}}>{t.create}</Text></Pressable>{deals.map(deal=><View key={deal.id} style={{gap:8}}><Text style={{color,fontWeight:'700'}}>{deal.title}</Text>{pipelines.find(p=>p.id===deal.pipelineId)?.stages.map(s=><Pressable key={s.id} accessibilityRole="button" disabled={busy||s.id===deal.stageId} onPress={()=>Alert.alert(t.move,`${deal.title}\n${s.name}\n\n${t.preview}`,[{text:t.cancel,style:'cancel'},{text:t.confirm,onPress:()=>void mutate('deal.move',{stageId:s.id},deal.id)}])} style={{minHeight:48,padding:12,borderWidth:1,borderColor:s.id===deal.stageId?'#FF6B00':'#75685A',borderRadius:16}}><Text style={{color}}>{s.name}</Text></Pressable>)}</View>)}</View>;
-}
+const copy={fa:{add:'فرصت جدید',title:'فرصت فروش جدید',name:'عنوان فرصت',stage:'مرحله',create:'ثبت فرصت',cancel:'انصراف',hint:'فرصت جدید با مبلغ صفر ثبت می‌شود.',empty:'هنوز پایپلاینی با مرحله در این فضای کاری تعریف نشده.',moveTo:'انتقال به مرحله',preview:'تغییر مرحله ممکن است پیش‌نویس فاکتور و پیگیری داخلی بسازد.',confirm:'تأیید انتقال'},en:{add:'New opportunity',title:'New sales opportunity',name:'Opportunity title',stage:'Stage',create:'Create opportunity',cancel:'Cancel',hint:'New opportunities are recorded with zero value.',empty:'No pipeline with stages exists in this workspace yet.',moveTo:'Move to stage',preview:'Moving a stage may create a draft invoice and internal follow-ups.',confirm:'Confirm move'},tr:{add:'Yeni fırsat',title:'Yeni satış fırsatı',name:'Fırsat başlığı',stage:'Aşama',create:'Fırsat oluştur',cancel:'Vazgeç',hint:'Yeni fırsatlar sıfır değerle kaydedilir.',empty:'Bu alanda henüz aşamalı satış hattı yok.',moveTo:'Aşamaya taşı',preview:'Aşama değişikliği taslak fatura ve dahili takip oluşturabilir.',confirm:'Taşımayı onayla'}};
 
+/** Stage chips for each deal (move asks inline first) and a sheet to open a new opportunity. */
+export function DealComposer({contactId,deals,locale,onChanged,onError}:{contactId:string;deals:Deal[];locale:Locale;color?:string;onChanged:()=>void;onError:(e:unknown)=>void}){
+ const {c}=useTheme();const t=copy[locale],keys=useRef(new Map<string,string>());
+ const [pipelines,setPipelines]=useState<z.infer<typeof catalog>['pipelines']>([]),[stage,setStage]=useState<{pipelineId:string;stageId:string}|null>(null),[title,setTitle]=useState(''),[busy,setBusy]=useState(false),[open,setOpen]=useState(false),[move,setMove]=useState<{deal:Deal;stageId:string;name:string}|null>(null);
+ useEffect(()=>{let active=true;request('/api/mobile/v1/crm/catalog',locale).then(raw=>{if(active)setPipelines(catalog.parse(raw).pipelines);}).catch(e=>{if(active)onError(e);});return()=>{active=false;};},[locale,onError]);
+ async function mutate(action:'deal.create'|'deal.move',data:unknown,id?:string){if(busy)return;setBusy(true);try{const hash=JSON.stringify({action,data,id,contactId});let key=keys.current.get(hash);if(!key){key=`crm_${randomUUID()}`;keys.current.set(hash,key);}await request('/api/mobile/v1/crm',locale,{method:'POST',body:JSON.stringify({action,data,...(id?{id}:{}),requestKey:key})});keys.current.delete(hash);setTitle('');setOpen(false);setMove(null);onChanged();}catch(e){onError(e);}finally{setBusy(false);}}
+ const usable=pipelines.filter(p=>p.stages.length);
+ return <View style={{gap:space.md}}>
+  {deals.map(deal=>{const stages=pipelines.find(p=>p.id===deal.pipelineId)?.stages??[];if(!stages.length)return null;return <View key={deal.id} style={{gap:space.sm}}>
+   <AppText variant="caption" weight="bold" tone="muted">{t.moveTo} · {deal.title}</AppText>
+   <Options scroll value={move?.deal.id===deal.id?move.stageId:deal.stageId} disabled={busy} onChange={id=>{if(id!==deal.stageId)setMove({deal,stageId:id,name:stages.find(s=>s.id===id)?.name??''});else setMove(null);}} options={stages.map(s=>({value:s.id,label:s.name}))}/>
+   {move?.deal.id===deal.id?<View style={[s.confirm,{backgroundColor:c.soft}]}><AppText variant="caption" tone="softText">{t.preview}</AppText><Row gap={space.sm}><Button style={{flex:1}} label={`${t.confirm}: ${move.name}`} icon="checkmark" busy={busy} onPress={()=>void mutate('deal.move',{stageId:move.stageId},deal.id)}/><Button label={t.cancel} variant="ghost" onPress={()=>setMove(null)}/></Row></View>:null}
+  </View>;})}
+  <Button label={t.add} icon="add" variant="ghost" disabled={!usable.length} onPress={()=>{setTitle('');setStage(null);setOpen(true);}}/>
+  {!usable.length?<AppText variant="caption" tone="muted">{t.empty}</AppText>:null}
+  <Sheet visible={open} onClose={()=>setOpen(false)} title={t.title}>
+   <Labeled label={t.name}><Field accessibilityLabel={t.name} value={title} onChangeText={setTitle} maxLength={200} editable={!busy}/></Labeled>
+   {usable.map(p=><Labeled key={p.id} label={`${t.stage} · ${p.name}`}><Options value={stage?.pipelineId===p.id?stage.stageId:null} disabled={busy} onChange={id=>setStage({pipelineId:p.id,stageId:id})} options={p.stages.filter(x=>!x.isWon&&!x.isLost).map(x=>({value:x.id,label:x.name}))}/></Labeled>)}
+   <Banner tone="info" text={t.hint}/>
+   <Button label={t.create} icon="checkmark" busy={busy} disabled={!stage||!title.trim()} onPress={()=>void mutate('deal.create',{title,contactId,...stage})}/>
+   <Button label={t.cancel} variant="ghost" onPress={()=>setOpen(false)}/>
+  </Sheet>
+ </View>;
+}
+const s=StyleSheet.create({confirm:{borderRadius:radius.md,padding:space.md,gap:space.sm}});
