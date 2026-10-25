@@ -31,9 +31,10 @@ function main() {
   if (!backup || !fs.existsSync(backup)) throw new Error('Usage: verify-db-backup.cjs <backup.db> [source.db]');
   const copy = snapshot(backup);
   if (copy.integrity !== 'ok') throw new Error(`Backup failed integrity_check: ${copy.integrity}`);
-  if (copy.foreignKeyErrors) throw new Error(`Backup has ${copy.foreignKeyErrors} foreign-key errors`);
-  if (source) {
-    const live = snapshot(source);
+  const live = source ? snapshot(source) : null;
+  // Orphan rows already present in the source are not a backup defect.
+  if (copy.foreignKeyErrors > (live ? live.foreignKeyErrors : 0)) throw new Error(`Backup has ${copy.foreignKeyErrors} foreign-key errors`);
+  if (live) {
     const same = JSON.stringify(live.counts) === JSON.stringify(copy.counts) && live.credits === copy.credits;
     if (!same) throw new Error(`Backup does not match source: backup=${JSON.stringify(copy)} source=${JSON.stringify(live)}`);
   }

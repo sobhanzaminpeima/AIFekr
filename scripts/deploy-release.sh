@@ -32,6 +32,9 @@ RENAMED=(
   "20260816_add_voice_agent_business_type:20260816_add_voice_agent_module_business_type"
   "20260826_invite_card_image:20260826_invite_to_aifekr_card_image"
 )
+# Applied on production but no longer in the repository: the column it added
+# (User.passwordHash) is created by a later migration, so it is expected.
+ALLOWED_EXTRA=(20260630112748_add_password_hash)
 ADDED=(
   20260918_0_create_crm_analysis_run
   20260920_0_create_lead_form_tables
@@ -40,7 +43,7 @@ ADDED=(
   20261024000000_reconcile_schema_drift
 )
 
-for command in git node npm pm2 curl python3 sqlite3; do
+for command in git node npm pm2 curl python3; do
   command -v "$command" >/dev/null || { echo "Missing required command: $command" >&2; exit 1; }
 done
 test -s "$DB" || { echo "Production database not found: $DB" >&2; exit 1; }
@@ -70,7 +73,7 @@ git clone --quiet --filter=blob:none --no-checkout "$SOURCE" "$WORK" 2>/dev/null
 git -C "$WORK" -c advice.detachedHead=false checkout --quiet --detach "$TARGET_COMMIT"
 
 # Read-only inspection: what is live vs. what this release would change.
-MODE="$MODE" DB_PATH="$DB" RELEASE="$WORK" RENAMED="${RENAMED[*]}" ADDED="${ADDED[*]}" python3 - <<'PY'
+MODE="$MODE" DB_PATH="$DB" RELEASE="$WORK" RENAMED="${RENAMED[*]}" ADDED="${ADDED[*]}" ALLOWED="${ALLOWED_EXTRA[*]}" python3 - <<'PY'
 import os, pathlib, sqlite3, json
 c = sqlite3.connect(f"file:{os.environ['DB_PATH']}?mode=ro", uri=True)
 applied = {r[0] for r in c.execute("select migration_name from _prisma_migrations where finished_at is not null and rolled_back_at is null")}
@@ -79,7 +82,7 @@ renamed = [pair.split(":") for pair in os.environ["RENAMED"].split()]
 added = os.environ["ADDED"].split()
 handled = {new for _, new in renamed} | set(added)
 report = {
-    "appliedOnServerNotInRelease": sorted(applied - set(local) - {old for old, _ in renamed}),
+    "appliedOnServerNotInRelease": sorted(applied - set(local) - {old for old, _ in renamed} - set(os.environ["ALLOWED"].split())),
     "pendingRealMigrations": [m for m in local if m not in applied and m not in handled],
     "renamedStatus": {new: ("renamed already" if new in applied else "old name applied" if old in applied else "neither applied") for old, new in renamed},
     "historyRepairsPending": [m for m in added if m not in applied],
@@ -90,8 +93,11 @@ report = {
 print(json.dumps(report, indent=2))
 # A migration that is live but missing from the release means production runs
 # code this commit doesn't contain; deploying it would remove that feature.
-if os.environ["MODE"] == "deploy" and (report["appliedOnServerNotInRelease"] or report["foreignKeyErrors"]):
-    raise SystemExit("Release is missing live migrations or the database has FK errors; deployment stopped.")
+# Pre-existing orphan rows (history of users deleted long ago) are recorded
+# as a baseline; the deploy only fails if a migration adds new ones.
+open("/tmp/aifekr-fk-baseline", "w").write(str(report["foreignKeyErrors"]))
+if os.environ["MODE"] == "deploy" and report["appliedOnServerNotInRelease"]:
+    raise SystemExit("Release is missing live migrations; deployment stopped.")
 PY
 
 if [[ "$MODE" == check ]]; then
@@ -109,23 +115,60 @@ npm ci
 DATABASE_URL="file:${DB}" npx prisma generate
 NODE_OPTIONS="--max-old-space-size=3072" NEXT_BUILD_CPUS=1 NEXT_DIST_DIR="$DIST_DIR" npm run build
 
+# Turbopack loads server-external packages through hashed aliases such as
+# <dist>/node_modules/@prisma/client-<16 hex> -> node_modules/@prisma/client.
+# A build made on Windows (used when the server lacks the RAM to build, then
+# uploaded with tar) carries those as junctions to Windows paths or not at
+# all, and every page then fails with "Failed to load external module".
+# Recreate them as relative links into this release's node_modules.
+relink_externals() {
+  local dist="$1" names alias pkg
+  names="$(cd "$dist" && { find node_modules -mindepth 1 -maxdepth 2 2>/dev/null; grep -rhoE '"(@[a-z0-9._-]+/)?[a-z0-9._-]+-[0-9a-f]{16}"' server --include=*.js 2>/dev/null | tr -d '"' | sed 's|^|node_modules/|'; } | grep -E -- '-[0-9a-f]{16}$' | sort -u)"
+  for alias in $names; do
+    pkg="${alias#node_modules/}"; pkg="${pkg%-*}"
+    test -f "node_modules/$pkg/package.json" || { echo "External package missing from node_modules: $pkg" >&2; return 1; }
+    mkdir -p "$(dirname "$dist/$alias")"
+    rm -rf "${dist:?}/$alias"
+    ln -s "$(realpath --relative-to="$(dirname "$dist/$alias")" "node_modules/$pkg")" "$dist/$alias"
+  done
+}
+relink_externals "$DIST_DIR"
+
 mkdir -p "$BACKUPS"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 BACKUP="$BACKUPS/pre-${SHORT}-${STAMP}.db"
 DATABASE_URL="file:${DB}" node "$NEW/scripts/backup-deployment-db.cjs" "$BACKUP"
 node "$NEW/scripts/verify-db-backup.cjs" "$BACKUP" "$DB"
 
-# History repair inside one SQLite transaction; nothing in the schema changes.
-for pair in "${RENAMED[@]}"; do
-  old="${pair%%:*}"; new="${pair##*:}"
-  sqlite3 "$DB" "begin; update _prisma_migrations set migration_name='$new' where migration_name='$old' and not exists (select 1 from _prisma_migrations where migration_name='$new'); commit;"
-done
-for name in "${ADDED[@]}"; do
-  if ! sqlite3 "$DB" "select 1 from _prisma_migrations where migration_name='$name' and finished_at is not null" | grep -q 1; then
-    DATABASE_URL="file:${DB}" npx prisma migrate resolve --applied "$name"
-  fi
-done
+# History repair: rename the two re-ordered migrations and record the
+# db-push catch-up migrations as applied. Nothing in the schema changes.
+repair_history() {
+  local target="$1"
+  RENAMED="${RENAMED[*]}" TARGET="$target" python3 - <<'PY'
+import os, sqlite3
+c = sqlite3.connect(os.environ["TARGET"])
+with c:
+    for pair in os.environ["RENAMED"].split():
+        old, new = pair.split(":")
+        c.execute("update _prisma_migrations set migration_name=? where migration_name=? and not exists (select 1 from _prisma_migrations where migration_name=?)", (new, old, new))
+PY
+  for name in "${ADDED[@]}"; do
+    DATABASE_URL="file:${target}" npx prisma migrate resolve --applied "$name" >/dev/null 2>&1 || true
+  done
+}
 
+# Dry run on a copy first: a migration that fails here never touches production.
+TRIAL="/tmp/aifekr-trial-${SHORT}.db"
+cp "$BACKUP" "$TRIAL"
+repair_history "$TRIAL"
+DATABASE_URL="file:${TRIAL}" npx prisma migrate deploy
+DATABASE_URL="file:${TRIAL}" npx prisma migrate diff --from-url "file:${TRIAL}" --to-schema-datamodel prisma/schema.prisma --exit-code >/tmp/aifekr-trial-drift.sql || { echo "Trial migration left schema drift; production untouched. See /tmp/aifekr-trial-drift.sql" >&2; exit 1; }
+fk_count() { DB_FILE="$1" python3 -c 'import os,sqlite3;print(len(sqlite3.connect("file:"+os.environ["DB_FILE"]+"?mode=ro",uri=True).execute("pragma foreign_key_check").fetchall()))'; }
+if [ "$(fk_count "$TRIAL")" -gt "$(cat /tmp/aifekr-fk-baseline)" ]; then echo "Trial migration added foreign-key errors; production untouched." >&2; exit 1; fi
+rm -f "$TRIAL"
+echo "Trial migration on a copy succeeded: zero drift, no new foreign-key errors."
+
+repair_history "$DB"
 DATABASE_URL="file:${DB}" npx prisma migrate deploy
 if ! DATABASE_URL="file:${DB}" npx prisma migrate diff --from-url "file:${DB}" --to-schema-datamodel prisma/schema.prisma --exit-code >/tmp/aifekr-drift.sql; then
   echo "Schema drift between production and this release; NOT switching. Diff: /tmp/aifekr-drift.sql  Backup: $BACKUP" >&2
