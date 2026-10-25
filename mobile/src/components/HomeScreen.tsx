@@ -1,10 +1,68 @@
-import {Pressable,StyleSheet,Text,View} from 'react-native';
-import type {Palette} from '../design';
+import {useEffect,useState} from 'react';
+import {Pressable,StyleSheet,TextInput,View} from 'react-native';
+import {z} from 'zod';
+import {request} from '../api';
 import type {Locale} from '../i18n';
-const copy={fa:{greeting:'خوش آمدید',headline:'از فکر تا انجام.',intro:'گفتگو، ساختن و مدیریت روز شما در یک فضای کار.',balance:'اعتبار در دسترس',plan:'طرح حساب',shortcuts:'امروز چه کاری انجام می‌دهید؟',fika:'با فیکا فکر کنید',fikaDetail:'گفتگو، پیام صوتی و اقدام‌های قابل بررسی',create:'ایده را بسازید',createDetail:'تصویر، ویدیو و موسیقی با هزینهٔ شفاف',work:'فضای کسب‌وکار',workDetail:'مخاطبان، پیگیری‌ها، املاک و فاکتورها',student:'فضای مطالعه',studentDetail:'درس‌ها، جزوه‌ها، فلش‌کارت و زمان مطالعه',fitness:'برنامهٔ تمرین',fitnessDetail:'تمرین‌های منتشرشده و ثبت واقعی ست‌ها',account:'حساب و امنیت',accountDetail:'اعلان‌ها، دستگاه‌ها و تنظیمات شخصی'},en:{greeting:'Welcome back',headline:'From thought to done.',intro:'Think, create and manage your day in one workspace.',balance:'Available credits',plan:'Account plan',shortcuts:'What will you do today?',fika:'Think with FIKA',fikaDetail:'Conversation, voice and reviewable actions',create:'Make your idea',createDetail:'Images, video and music with clear costs',work:'Business workspace',workDetail:'Contacts, follow-ups, properties and invoices',student:'Study workspace',studentDetail:'Courses, materials, flashcards and study time',fitness:'Your training',fitnessDetail:'Published programs and actual set tracking',account:'Account and security',accountDetail:'Notifications, devices and preferences'},tr:{greeting:'Tekrar hoş geldiniz',headline:'Fikirden sonuca.',intro:'Düşünün, üretin ve gününüzü tek bir alanda yönetin.',balance:'Kullanılabilir kredi',plan:'Hesap planı',shortcuts:'Bugün ne yapacaksınız?',fika:'FIKA ile düşünün',fikaDetail:'Sohbet, ses ve incelenebilir işlemler',create:'Fikrinizi üretin',createDetail:'Şeffaf maliyetlerle görsel, video ve müzik',work:'İş alanı',workDetail:'Kişiler, takip, emlak ve faturalar',student:'Çalışma alanı',studentDetail:'Dersler, materyaller, kartlar ve çalışma süresi',fitness:'Antrenmanınız',fitnessDetail:'Yayınlanan programlar ve gerçek set kaydı',account:'Hesap ve güvenlik',accountDetail:'Bildirimler, cihazlar ve tercihler'}};
-export function HomeScreen({locale,palette:c,account,onOpen}:{locale:Locale;palette:Palette;account:{name:string;plan:string;displayCredits:number}|null;onOpen:(target:'fika'|'create'|'work'|'student'|'fitness'|'you')=>void}){
- const t=copy[locale],align=locale==='fa'?'right' as const:'left' as const;
- const cards=[['fika','✦',t.fika,t.fikaDetail],['create','＋',t.create,t.createDetail],['work','▦',t.work,t.workDetail],['student','▤',t.student,t.studentDetail],['fitness','◉',t.fitness,t.fitnessDetail],['you','◎',t.account,t.accountDetail]] as const;
- return <View style={{gap:24}}><View style={{gap:8}}><Text style={{color:c.muted,textAlign:align}}>{t.greeting}{account?`، ${account.name}`:''}</Text><Text accessibilityRole="header" style={{fontSize:36,lineHeight:46,fontWeight:'800',color:c.text,textAlign:align}}>{t.headline}</Text><Text style={{fontSize:16,lineHeight:26,color:c.muted,textAlign:align}}>{t.intro}</Text></View>{account?<View style={[s.wallet,{backgroundColor:c.soft,borderColor:c.accent}]}><Text style={{color:c.text,textAlign:align}}>{t.balance}</Text><Text style={{fontSize:44,fontWeight:'800',color:c.text,textAlign:align}}>{new Intl.NumberFormat(locale).format(account.displayCredits)}</Text><Text style={{color:c.muted,textAlign:align}}>{t.plan} · {account.plan}</Text></View>:null}<Text accessibilityRole="header" style={{fontSize:20,fontWeight:'700',color:c.text,textAlign:align}}>{t.shortcuts}</Text><View style={s.grid}>{cards.map(([target,symbol,title,detail])=><Pressable key={target} accessibilityRole="button" onPress={()=>onOpen(target)} style={({pressed})=>[s.card,{backgroundColor:c.surface,borderColor:c.border,opacity:pressed?.75:1}]}><View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[s.symbol,{backgroundColor:c.soft}]}><Text style={{fontSize:26,color:c.accent}}>{symbol}</Text></View><Text style={{fontSize:18,fontWeight:'700',color:c.text,textAlign:align}}>{title}</Text><Text style={{fontSize:14,lineHeight:22,color:c.muted,textAlign:align}}>{detail}</Text></Pressable>)}</View></View>;
+import type {Purpose} from '../preferences';
+import {fonts,radius,space,type} from '../design';
+import {AppText,Card,Chip,Icon,IconButton,Row,type IconName} from '../ui/kit';
+import {numberFormat,useTheme} from '../ui/theme';
+
+export type HomeTarget='fika'|'create'|'work'|'student'|'fitness'|'you';
+const copy={
+ fa:{hello:'سلام',ask:'از فیکا بپرس یا کاری بسپار…',credits:'اعتبار',recent:'گفت‌وگوهای اخیر',all:'همه',hub:'فضاهای کار',empty:'هنوز گفت‌وگویی نداری. اولین سؤالت را بپرس.',send:'ارسال',voice:'ورودی صوتی',camera:'دوربین',
+  prompts:{personal:['یک برنامهٔ هفتگی برایم بچین','این متن را روان‌تر کن','ایدهٔ هدیه برای تولد'],student:['این مبحث را ساده توضیح بده','از این فصل کوییز بساز','برنامهٔ مطالعهٔ امتحان بچین'],business:['پیگیری لیدهای امروز','کپشن اینستاگرام برای محصول','متن پیامک تخفیف'],fitness:['برنامهٔ تمرین ۳ روزه','گرم‌کردن قبل از دویدن','تمرین در خانه بدون وسیله'],realestate:['متن آگهی آپارتمان','پاسخ به مشتری مردد','چک‌لیست بازدید ملک']},
+  modules:{fika:['فیکا','گفت‌وگو و اقدام'],create:['استودیو','تصویر، ویدیو، موسیقی'],work:['کسب‌وکار','مشتریان و پیگیری'],student:['دانشجو','درس و کوییز'],fitness:['FIT','تمرین و مربی'],you:['حساب','اعتبار و امنیت']}},
+ en:{hello:'Hi',ask:'Ask FIKA or hand it a task…',credits:'credits',recent:'Recent chats',all:'All',hub:'Workspaces',empty:'No chats yet. Ask your first question.',send:'Send',voice:'Voice input',camera:'Camera',
+  prompts:{personal:['Plan my week','Make this text clearer','Birthday gift ideas'],student:['Explain this topic simply','Quiz me on this chapter','Plan my exam study'],business:["Follow up today's leads",'Instagram caption for a product','Discount SMS copy'],fitness:['3-day workout plan','Warm-up before running','No-equipment home workout'],realestate:['Apartment listing copy','Reply to a hesitant buyer','Property viewing checklist']},
+  modules:{fika:['FIKA','Chat and actions'],create:['Studio','Image, video, music'],work:['Business','Clients and follow-ups'],student:['Student','Courses and quizzes'],fitness:['FIT','Training and coach'],you:['Account','Credits and security']}},
+ tr:{hello:'Merhaba',ask:'FIKA’ya sor veya bir iş ver…',credits:'kredi',recent:'Son sohbetler',all:'Tümü',hub:'Çalışma alanları',empty:'Henüz sohbet yok. İlk sorunu sor.',send:'Gönder',voice:'Sesli giriş',camera:'Kamera',
+  prompts:{personal:['Haftamı planla','Bu metni akıcı yap','Doğum günü hediye fikirleri'],student:['Bu konuyu basitçe anlat','Bu bölümden test hazırla','Sınav çalışma planı'],business:['Bugünkü adayları takip et','Ürün için Instagram metni','İndirim SMS metni'],fitness:['3 günlük antrenman planı','Koşu öncesi ısınma','Ekipmansız ev antrenmanı'],realestate:['Daire ilan metni','Kararsız müşteriye yanıt','Ev gezme kontrol listesi']},
+  modules:{fika:['FIKA','Sohbet ve işlemler'],create:['Stüdyo','Görsel, video, müzik'],work:['İş','Müşteriler ve takip'],student:['Öğrenci','Dersler ve testler'],fitness:['FIT','Antrenman ve koç'],you:['Hesap','Kredi ve güvenlik']}},
+} as const;
+const moduleIcons:Record<HomeTarget,IconName>={fika:'sparkles-outline',create:'color-wand-outline',work:'briefcase-outline',student:'school-outline',fitness:'barbell-outline',you:'person-circle-outline'};
+const listSchema=z.object({conversations:z.array(z.object({id:z.string(),title:z.string()}))});
+
+export function HomeScreen({locale,account,purpose,onAsk,onOpen,onOpenChat,fitnessOnly}:{locale:Locale;account:{name:string;plan:string;displayCredits:number}|null;purpose?:Purpose;onAsk:(prompt:string)=>void;onOpen:(target:HomeTarget)=>void;onOpenChat:(id:string)=>void;fitnessOnly?:boolean}){
+ const {c,rtl}=useTheme();const t=copy[locale];
+ const [draft,setDraft]=useState('');const [recent,setRecent]=useState<{id:string;title:string}[]>([]);
+ useEffect(()=>{let active=true;request('/api/mobile/v1/conversations',locale).then(raw=>{if(active)setRecent(listSchema.parse(raw).conversations.slice(0,4));}).catch(()=>{});return()=>{active=false;};},[locale]);
+ const submit=()=>{const value=draft.trim();if(!value)return;setDraft('');onAsk(value);};
+ const first=account?.name?.split(' ')[0];
+ const modules:HomeTarget[]=fitnessOnly?['fitness','you']:['fika','create','work','student','fitness','you'];
+ return <View style={{gap:space.xl}}>
+  <Row justify="space-between">
+   <AppText variant="display" weight="bold" accessibilityRole="header">{t.hello}{first?`، ${first}`:''}</AppText>
+   {account?<Chip icon="flash-outline" label={`${numberFormat(locale,account.displayCredits)} ${t.credits}`} onPress={()=>onOpen('you')}/>:null}
+  </Row>
+  {!fitnessOnly?<View style={[s.composer,{backgroundColor:c.surface}]}>
+   <TextInput accessibilityLabel={t.ask} placeholder={t.ask} placeholderTextColor={c.faint} value={draft} onChangeText={setDraft} multiline maxLength={12000} onSubmitEditing={submit}
+    style={[type.body,{fontFamily:fonts.regular,color:c.text,minHeight:56,textAlign:rtl?'right':'left',writingDirection:rtl?'rtl':'ltr'}]}/>
+   <Row justify="space-between">
+    <Row gap={2}><IconButton icon="camera-outline" label={t.camera} onPress={()=>onOpen('create')}/><IconButton icon="mic-outline" label={t.voice} onPress={()=>onAsk('')}/></Row>
+    <IconButton icon="arrow-up" tone="accent" label={t.send} disabled={!draft.trim()} onPress={submit}/>
+   </Row>
+  </View>:null}
+  {!fitnessOnly?<View style={{flexDirection:rtl?'row-reverse':'row',flexWrap:'wrap',gap:space.sm}}>{t.prompts[purpose??'personal'].map(p=><Chip key={p} tone="raised" label={p} onPress={()=>onAsk(p)}/>)}</View>:null}
+  {!fitnessOnly?<View style={{gap:space.sm}}>
+   <Row justify="space-between"><AppText variant="title" weight="bold">{t.recent}</AppText>{recent.length?<Pressable accessibilityRole="button" onPress={()=>onOpen('fika')} hitSlop={8}><AppText variant="caption" tone="accent">{t.all}</AppText></Pressable>:null}</Row>
+   {recent.length?recent.map(item=><Card key={item.id} onPress={()=>onOpenChat(item.id)} accessibilityLabel={item.title} style={s.recent}>
+    <Row gap={space.md}><Icon name="chatbubble-ellipses-outline" size={18} color={c.muted}/><AppText numberOfLines={1} style={{flex:1}}>{item.title}</AppText><Icon name="chevron-forward" size={16} color={c.faint} mirror/></Row>
+   </Card>):<AppText tone="muted" variant="caption">{t.empty}</AppText>}
+  </View>:null}
+  <View style={{gap:space.sm}}>
+   <AppText variant="title" weight="bold">{t.hub}</AppText>
+   <View style={[s.grid,{flexDirection:rtl?'row-reverse':'row'}]}>{modules.map(target=><Card key={target} onPress={()=>onOpen(target)} accessibilityLabel={t.modules[target][0]} style={s.module}>
+    <View style={[s.moduleIcon,{backgroundColor:c.soft}]}><Icon name={moduleIcons[target]} size={22} color={c.accent}/></View>
+    <AppText weight="bold">{t.modules[target][0]}</AppText><AppText variant="caption" tone="muted">{t.modules[target][1]}</AppText>
+   </Card>)}</View>
+  </View>
+ </View>;
 }
-const s=StyleSheet.create({wallet:{borderWidth:1,borderRadius:28,padding:24,gap:8},grid:{flexDirection:'row',flexWrap:'wrap',gap:12},card:{flexGrow:1,flexBasis:'45%',borderWidth:1,borderRadius:24,padding:18,gap:12,minHeight:166},symbol:{width:48,height:48,borderRadius:16,alignItems:'center',justifyContent:'center'}});
+const s=StyleSheet.create({
+ composer:{borderRadius:radius.lg,padding:space.md,gap:space.sm},
+ recent:{paddingVertical:space.md},
+ grid:{flexWrap:'wrap',gap:space.md},
+ module:{flexGrow:1,flexBasis:'30%',minWidth:140,minHeight:128},
+ moduleIcon:{width:42,height:42,borderRadius:14,alignItems:'center',justifyContent:'center',marginBottom:space.xs},
+});

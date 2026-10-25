@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, AppState, FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useColorScheme, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { ApiError, apiConfigurationError, contacts, hasSession, logout, profile, request, signIn } from '../api';
+import { ApiError, contacts, hasSession, logout, profile, request } from '../api';
 import { Locale, strings } from '../i18n';
 import { router, useLocalSearchParams } from 'expo-router';
 import { WorkspacePicker } from './WorkspacePicker';
@@ -15,8 +15,11 @@ import { ContactEditor } from './ContactEditor';
 import { ContactDetail } from './ContactDetail';
 import { FitnessScreen } from './FitnessScreen';
 import { DeviceLockSettings } from './DeviceLock';
-import {readPreferences,updatePreferences} from '../preferences';
-import {palettes,tabSymbols} from '../design';
+import {readPreferences,updatePreferences,type Purpose} from '../preferences';
+import {fonts,palettes} from '../design';
+import {Onboarding} from './Onboarding';
+import {ThemeProvider} from '../ui/theme';
+import {Icon,tap,type IconName} from '../ui/kit';
 import {HomeScreen} from './HomeScreen';
 import {StudentScreen} from './StudentScreen';
 import {AccountPanel} from './AccountPanel';
@@ -25,12 +28,16 @@ import {OfflineSync} from './OfflineSync';
 import {OfflineLibrary} from './OfflineLibrary';
 
 type Tab = 'home' | 'fika' | 'create' | 'work' | 'you';
+const tabIcons:Record<Tab,[IconName,IconName]>={home:['home-outline','home'],fika:['sparkles-outline','sparkles'],create:['color-wand-outline','color-wand'],work:['briefcase-outline','briefcase'],you:['person-outline','person']};
+type ChatIntent={prompt?:string;conversation?:string;voice?:boolean;nonce:number};
 type Account = {name:string; plan:string; displayCredits:number};
 type Contact = {id:string; name:string; email?:string|null; phone?:string|null};
 export default function App() {
   const [locale,setLocale] = useState<Locale>('fa');
   const [mode,setMode] = useState<'dark'|'light'|'system'>('system');
-  useEffect(()=>{let active=true;readPreferences().then(p=>{if(active){setLocale(p.locale);setMode(p.mode);}}).catch(()=>{});return()=>{active=false;};},[]);
+  const [introSeen,setIntroSeen]=useState(true);const [purpose,setPurpose]=useState<Purpose|undefined>();const [prefsReady,setPrefsReady]=useState(false);const [chat,setChat]=useState<ChatIntent>({nonce:0});
+  const loadPrefs=useCallback(()=>readPreferences().then(p=>{setLocale(p.locale);setMode(p.mode);setIntroSeen(p.introSeen);setPurpose(p.purpose);}).catch(()=>{}).finally(()=>setPrefsReady(true)),[]);
+  useEffect(()=>{void loadPrefs();},[loadPrefs]);
   const system = useColorScheme(); const dark = mode === 'dark' || (mode === 'system' && system !== 'light');
   const c = dark ? palettes.dark : palettes.light;
   const t = strings[locale]; const rtl = locale === 'fa';
@@ -38,7 +45,7 @@ export default function App() {
   const params = useLocalSearchParams<{tab?:string;courseId?:string}>();
   const tab:Tab = ['home','fika','create','work','you'].includes(params.tab || '') ? params.tab as Tab : 'home';
   const setTab = (value:Tab) => router.setParams({tab:value});
-  const [contactQuery,setContactQuery]=useState('');const [email,setEmail] = useState(''); const [password,setPassword] = useState('');
+  const [contactQuery,setContactQuery]=useState('');
   const [account,setAccount] = useState<Account|null>(null); const [people,setPeople] = useState<Contact[]>([]);const [selectedContact,setSelectedContact]=useState<string|null>(null);
   const [busy,setBusy] = useState(false); const [error,setError] = useState(''); const [revision,setRevision] = useState(0);const [accountType,setAccountType]=useState('PERSONAL');const [showFitness,setShowFitness]=useState(false);const [showStudent,setShowStudent]=useState(false);
   const tx = {color:c.text,textAlign:rtl?'right' as const:'left' as const};
@@ -72,43 +79,33 @@ export default function App() {
     return () => { active = false; };
   }, [signed,tab,locale,revision,t.error,t.expired,showFitness,showStudent,accountType]);
   const button = (label:string,action:()=>void,selected=false) => <Pressable accessibilityRole="button" accessibilityState={{disabled:busy,selected}} disabled={busy} onPress={action} style={[s.button,{backgroundColor:selected?'#FF6B00':c.surface,borderColor:c.border}]}><Text style={{color:selected?'#171719':c.text,fontWeight:'600'}}>{label}</Text></Pressable>;
-  async function enter() {
-    if (busy) return; setBusy(true); setError('');
-    try { await signIn(email,password,locale); setPassword(''); setSigned(true); setTab('home'); }
-    catch (err) { setError(err instanceof ApiError ? err.message : t.error); }
-    finally { setBusy(false); }
-  }
   async function leave() {
     setBusy(true); setError('');
-    try { const result=await logout(locale); setSigned(false); setAccount(null); setPeople([]); setPassword('');setAccountType('PERSONAL');setShowFitness(false);setShowStudent(false);setSelectedContact(null);if(!result.revoked||result.localCleared===false)setError(t.error); }
+    try { const result=await logout(locale); setSigned(false); setAccount(null); setPeople([]);setAccountType('PERSONAL');setShowFitness(false);setShowStudent(false);setSelectedContact(null);if(!result.revoked||result.localCleared===false)setError(t.error); }
     catch { setError(t.error); } finally { setBusy(false); }
   }
-  return <SafeAreaProvider><SafeAreaView style={[s.root,{backgroundColor:c.bg}]}>
+  const openChat=(intent:Omit<ChatIntent,'nonce'>)=>{setChat(v=>({...intent,nonce:v.nonce+1}));setTab('fika');};
+  const changeLocale=(l:Locale)=>{setLocale(l);void updatePreferences({locale:l}).catch(handleError);if(signed)void request('/api/user/profile',l,{method:'PATCH',body:JSON.stringify({language:l})}).catch(handleError);};
+  return <ThemeProvider value={{c,dark,locale,rtl}}><SafeAreaProvider><SafeAreaView style={[s.root,{backgroundColor:c.bg}]}>
     <StatusBar style={dark?'light':'dark'} />
     <KeyboardAvoidingView style={s.root} behavior={Platform.OS==='ios'?'padding':undefined}>
-      <View style={[s.header,{flexDirection:rtl?'row-reverse':'row'}]}><Text accessibilityRole="header" style={[s.brand,{color:c.text}]}>AI<Text style={{color:'#FF6B00'}}>Fekr</Text></Text><Text style={{color:c.muted}}>NEO</Text></View>
-      {(!signed||tab==='you')?<View style={s.languages}>{(['fa','en','tr'] as Locale[]).map(l=><React.Fragment key={l}>{button({fa:'فارسی',en:'English',tr:'Türkçe'}[l],()=>{setLocale(l);void updatePreferences({locale:l}).catch(handleError);if(signed)void request('/api/user/profile',l,{method:'PATCH',body:JSON.stringify({language:l})}).catch(handleError);},locale===l)}</React.Fragment>)}</View>:null}
-      {error ? <View style={s.notice}><Text accessibilityRole="alert" style={{color:dark?'#FFB89C':'#9C2700'}}>{error}</Text>{signed && button(t.retry,()=>setRevision(v=>v+1))}</View>:null}
-      {!ready || busy ? <ActivityIndicator accessibilityLabel={t.loading} color="#FF6B00" style={{margin:16}}/>:null}
-      {ready && !signed ? <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
-        {apiConfigurationError(locale)?<Text accessibilityRole="alert" style={{color:dark?'#FFB89C':'#9C2700',textAlign:rtl?'right':'left'}}>{apiConfigurationError(locale)}</Text>:null}
-        <Text accessibilityRole="header" style={[s.title,tx]}>{t.welcome}</Text><Text style={[s.caption,tx]}>{t.pending}</Text>
-        <Text style={tx}>{t.email}</Text><TextInput accessibilityLabel={t.email} value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" editable={!busy} style={[s.input,{color:c.text,backgroundColor:c.surface,borderColor:c.border}]}/>
-        <Text style={tx}>{t.password}</Text><TextInput accessibilityLabel={t.password} value={password} onChangeText={setPassword} secureTextEntry autoComplete="current-password" editable={!busy} style={[s.input,{color:c.text,backgroundColor:c.surface,borderColor:c.border}]} onSubmitEditing={()=>void enter()}/>
-        {button(t.login,()=>void enter(),true)}
-      </ScrollView>:ready && signed ? <View style={s.root}>
+      {signed&&tab!=='fika'?<View style={[s.header,{flexDirection:rtl?'row-reverse':'row'}]}><Text accessibilityRole="header" style={[s.brand,{color:c.text}]}>AI<Text style={{color:c.accent}}>Fekr</Text></Text></View>:null}
+      {signed&&tab==='you'?<View style={s.languages}>{(['fa','en','tr'] as Locale[]).map(l=><React.Fragment key={l}>{button({fa:'فارسی',en:'English',tr:'Türkçe'}[l],()=>changeLocale(l),locale===l)}</React.Fragment>)}</View>:null}
+      {error&&signed ? <View style={s.notice}><Text accessibilityRole="alert" style={{color:dark?'#FFB89C':'#9C2700'}}>{error}</Text>{signed && button(t.retry,()=>setRevision(v=>v+1))}</View>:null}
+      {!ready || !prefsReady || (busy&&signed) ? <ActivityIndicator accessibilityLabel={t.loading} color="#FF6B00" style={{margin:16}}/>:null}
+      {ready && prefsReady && !signed ? <Onboarding locale={locale} onLocale={changeLocale} introSeen={introSeen} onSignedIn={()=>{setError('');setSigned(true);setTab('home');void loadPrefs();}}/>:ready && signed ? <View style={s.root}>
         {tab==='work'&&showStudent?<StudentScreen initialCourseId={params.courseId} locale={locale} palette={c} onError={handleError} onClose={()=>{setShowStudent(false);setTab('home');}}/>:tab==='work'&&(showFitness||accountType==='FITNESS')?<FitnessScreen locale={locale} color={c.text} surface={c.surface} onError={handleError} onClose={()=>{setShowFitness(false);setTab('home');}}/>:tab==='work'&&selectedContact?<ContactDetail id={selectedContact} locale={locale} color={c.text} surface={c.surface} onError={handleError} onClose={()=>{setSelectedContact(null);setRevision(v=>v+1);}} workspaceRevision={revision}/>:tab === 'work' ? <FlatList data={people.filter(person=>[person.name,person.email,person.phone].some(value=>value?.toLocaleLowerCase(locale).includes(contactQuery.trim().toLocaleLowerCase(locale))))} keyExtractor={item=>item.id} contentContainerStyle={s.content} ListHeaderComponent={<><WorkspacePicker locale={locale} textColor={c.text} surface={c.surface} onChange={()=>{setPeople([]);setAccount(null);setContactQuery('');setRevision(v=>v+1);}} onError={handleError}/><Pressable accessibilityRole="button" onPress={()=>setShowFitness(true)} style={{minHeight:48,justifyContent:"center"}}><Text style={{color:c.text}}>AIFekr FIT</Text></Pressable><ContactEditor locale={locale} color={c.text} onError={handleError} onSaved={()=>setRevision(v=>v+1)}/><WorkResources locale={locale} color={c.text} surface={c.surface} onError={handleError} workspaceRevision={revision}/><Text accessibilityRole="header" style={[s.title,tx]}>{t.contacts}</Text><TextInput accessibilityLabel={t.searchContacts} placeholder={t.searchContacts} placeholderTextColor={c.muted} value={contactQuery} onChangeText={setContactQuery} maxLength={100} style={[s.input,{color:c.text,borderColor:c.border,textAlign:rtl?'right':'left'}]}/></>} ListEmptyComponent={!busy&&!error?<Text style={tx}>{t.empty}</Text>:null} renderItem={({item})=><Pressable accessibilityRole="button" onPress={()=>setSelectedContact(item.id)} style={[s.card,{backgroundColor:c.surface,borderColor:c.border}]}><Text style={[s.subtitle,tx]}>{item.name}</Text><Text style={tx}>{item.email || item.phone || ''}</Text></Pressable>}/>:
-        tab==='fika'?<ChatScreen locale={locale} color={c.text} surface={c.surface} onError={handleError}/>:
+        tab==='fika'?<ChatScreen key={chat.nonce} locale={locale} onError={handleError} initialPrompt={chat.prompt} initialConversation={chat.conversation} openVoice={chat.voice}/>:
         tab==='create'?<StudioScreen locale={locale} color={c.text} surface={c.surface} onError={handleError}/>:
         <ScrollView contentContainerStyle={s.content}>
-          <Text accessibilityRole="header" style={[s.title,tx]}>{t[tab]}</Text>
-          {tab==='home'&&accountType!=='FITNESS'?<GlobalSearch key={locale+revision} locale={locale} color={c.text} surface={c.surface} onError={handleError} onContact={id=>{setSelectedContact(id);setShowStudent(false);setShowFitness(false);setTab('work');}}/>:null}
-          {tab==='home'?<HomeScreen locale={locale} palette={c} account={account} onOpen={target=>{setSelectedContact(null);setShowFitness(target==='fitness');setShowStudent(target==='student');setTab(target==='fitness'||target==='student'?'work':target);}}/>:null}
+          {tab!=='home'?<Text accessibilityRole="header" style={[s.title,tx]}>{t[tab]}</Text>:null}
+          
+          {tab==='home'?<HomeScreen locale={locale} account={account} purpose={purpose} fitnessOnly={accountType==='FITNESS'} onAsk={prompt=>openChat(prompt?{prompt}:{voice:true})} onOpenChat={id=>openChat({conversation:id})} onOpen={target=>{if(target==='fika'){openChat({});return;}setSelectedContact(null);setShowFitness(target==='fitness');setShowStudent(target==='student');setTab(target==='fitness'||target==='student'?'work':target);}}/>:null}{tab==='home'&&accountType!=='FITNESS'?<GlobalSearch key={locale+revision} locale={locale} color={c.text} surface={c.surface} onError={handleError} onContact={id=>{setSelectedContact(id);setShowStudent(false);setShowFitness(false);setTab('work');}}/>:null}
           {tab==='you'?<><OfflineLibrary locale={locale} color={c.text} onError={handleError} onCourse={id=>{setShowStudent(true);setShowFitness(false);router.setParams({tab:'work',courseId:id});}}/><AccountPanel locale={locale} palette={c} onError={handleError}/><Text style={[s.subtitle,tx]}>{t.theme}</Text>{(['dark','light','system'] as const).map(m=><React.Fragment key={m}>{button(t[m],()=>{setMode(m);void updatePreferences({mode:m}).catch(handleError);},mode===m)}</React.Fragment>)}<DeviceLockSettings locale={locale} color={c.text}/><NotificationsScreen locale={locale} color={c.text} surface={c.surface} onError={handleError}/><DeviceSessions locale={locale} color={c.text} onError={handleError}/>{button(t.logout,()=>void leave())}</>:null}
         </ScrollView>}
-        <View accessibilityRole="tablist" style={[s.nav,{backgroundColor:c.surface,borderColor:c.border,flexDirection:rtl?'row-reverse':'row'}]}>{(['home','fika','create','work','you'] as Tab[]).map(item=><Pressable key={item} accessibilityRole="tab" accessibilityState={{selected:tab===item}} onPress={()=>setTab(item)} style={s.tab}><Text accessibilityElementsHidden importantForAccessibility="no" style={{color:tab===item?c.accent:c.muted,fontSize:25,marginBottom:4}}>{tabSymbols[item]}</Text><Text style={{color:tab===item?c.accent:c.muted,fontSize:12,fontWeight:'600'}}>{t[item]}</Text></Pressable>)}</View>
+        <View accessibilityRole="tablist" style={[s.nav,{backgroundColor:c.surface,borderColor:c.border,flexDirection:rtl?'row-reverse':'row'}]}>{(['home','fika','create','work','you'] as Tab[]).map(item=><Pressable key={item} accessibilityRole="tab" accessibilityState={{selected:tab===item}} onPress={()=>{tap();if(item==='fika'&&tab!=='fika')openChat({});else setTab(item);}} style={s.tab}><Icon name={tabIcons[item][tab===item?1:0]} size={24} color={tab===item?c.accent:c.faint}/><Text style={{color:tab===item?c.accent:c.faint,fontSize:11,fontFamily:fonts.medium,marginTop:2}}>{t[item]}</Text></Pressable>)}</View>
       <OfflineSync locale={locale}/></View>:null}
     </KeyboardAvoidingView>
-  </SafeAreaView></SafeAreaProvider>;
+  </SafeAreaView></SafeAreaProvider></ThemeProvider>;
 }
-const s = StyleSheet.create({root:{flex:1},header:{padding:24,alignItems:'center',justifyContent:'space-between'},brand:{fontSize:28,fontWeight:'800'},languages:{flexDirection:'row',paddingHorizontal:16,gap:8},content:{padding:24,gap:16},title:{fontSize:30,fontWeight:'700',marginBottom:8},subtitle:{fontSize:20,fontWeight:'600'},caption:{fontSize:15,lineHeight:24},input:{minHeight:52,borderWidth:1,borderRadius:16,padding:16},button:{minHeight:48,borderWidth:1,borderRadius:16,paddingHorizontal:16,paddingVertical:12,alignItems:'center',justifyContent:'center'},card:{borderWidth:1,borderRadius:24,padding:24,gap:12,marginBottom:12},balance:{fontSize:42,fontWeight:'700'},notice:{padding:16,gap:8},nav:{borderTopWidth:1,padding:8},tab:{flex:1,minHeight:52,alignItems:'center',justifyContent:'center'}});
+const s = StyleSheet.create({root:{flex:1},header:{paddingHorizontal:24,paddingTop:12,paddingBottom:4,alignItems:'center',justifyContent:'space-between'},brand:{fontSize:22,fontFamily:fonts.bold},languages:{flexDirection:'row',paddingHorizontal:16,gap:8},content:{padding:24,gap:16},title:{fontSize:30,fontWeight:'700',marginBottom:8},subtitle:{fontSize:20,fontWeight:'600'},caption:{fontSize:15,lineHeight:24},input:{minHeight:52,borderWidth:1,borderRadius:16,padding:16},button:{minHeight:48,borderWidth:1,borderRadius:16,paddingHorizontal:16,paddingVertical:12,alignItems:'center',justifyContent:'center'},card:{borderWidth:1,borderRadius:24,padding:24,gap:12,marginBottom:12},balance:{fontSize:42,fontWeight:'700'},notice:{padding:16,gap:8},nav:{borderTopWidth:1,paddingVertical:6,paddingHorizontal:8},tab:{flex:1,minHeight:52,alignItems:'center',justifyContent:'center'}});

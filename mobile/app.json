@@ -86,7 +86,8 @@
     ],
     "platforms": [
       "ios",
-      "android"
+      "android",
+      "web"
     ],
     "extra": {
       "router": {},

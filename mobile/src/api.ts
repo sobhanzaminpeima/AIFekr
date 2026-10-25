@@ -97,6 +97,17 @@ export async function signIn(email:string, password:string, locale:Locale) {
   const normalizedEmail=email.trim();if(!z.email().safeParse(normalizedEmail).success||!password)throw new ApiError(400,{fa:'ایمیل معتبر و رمز عبور را وارد کنید.',en:'Enter a valid email and password.',tr:'Geçerli e-posta ve şifre girin.'}[locale]);
   const started=++epoch;await saveSession(await request('/api/mobile/v1/session',locale,{method:'POST',body:JSON.stringify({email:normalizedEmail,password})},false),started);
 }
+/** Phone sign-in / sign-up: the server sends an SMS code through the same gateway as the web. */
+export async function requestOtp(phone:string,locale:Locale){
+  const raw=await request('/api/mobile/v1/session/otp',locale,{method:'POST',body:JSON.stringify({phone})},false);
+  return z.object({phone:z.string(),resendAfterSec:z.number().int().positive(),devCode:z.string().optional()}).parse(raw);
+}
+/** Verifies the code and stores a native session; `needsProfile` means a brand-new account without a name. */
+export async function verifyOtp(phone:string,code:string,locale:Locale){
+  const started=++epoch;const raw=await request('/api/mobile/v1/session/otp/verify',locale,{method:'POST',body:JSON.stringify({phone,code})},false);
+  await saveSession(raw,started);
+  return z.object({needsProfile:z.boolean().default(false)}).parse(raw).needsProfile;
+}
 export const hasSession = async () => {await SecureStore.deleteItemAsync('aifekr.access.v1');return !!(await readSession());};
 export async function logout(locale:Locale='en') {
   const current=await readSession();let cleanupFailed=false;try{await clearSession();}catch{cleanupFailed=true;}
