@@ -12,12 +12,25 @@ beforeEach(() => { m.send.mockResolvedValue(true); m.create.mockResolvedValue({}
 afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); });
 
 describe("POST /api/auth/send-otp", () => {
-  it("never issues the fixed 1234 code to the seeded test phones in production", async () => {
+  it("refuses the seeded test phones in production and never echoes a code", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    for (let i = 0; i < 20; i++) await send("09000000000");
-    const codes = m.create.mock.calls.map(([arg]) => arg.data.code);
-    expect(codes.length).toBe(20);
-    expect(codes.every((code: string) => /^\d{4}$/.test(code))).toBe(true);
-    expect(codes.filter((code: string) => code === "1234").length).toBeLessThan(3);
+    const res = await send("09000000000");
+    expect(res.status).toBe(400);
+    expect(JSON.stringify(await res.json())).not.toMatch(/dev_code|\d{4}/);
+    expect(m.create).not.toHaveBeenCalled();
+    expect(m.send).not.toHaveBeenCalled();
+  });
+
+  it("sends a random code by SMS to real phones in production without returning it", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const codes: string[] = [];
+    for (let i = 0; i < 20; i++) {
+      const res = await send("09123456789");
+      expect(await res.json()).toEqual({ success: true });
+    }
+    for (const [arg] of m.create.mock.calls) codes.push(arg.data.code);
+    expect(codes.every(code => /^\d{4}$/.test(code))).toBe(true);
+    expect(codes.filter(code => code === "1234").length).toBeLessThan(3);
+    expect(m.send).toHaveBeenCalledTimes(20);
   });
 });
