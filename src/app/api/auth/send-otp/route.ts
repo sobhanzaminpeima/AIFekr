@@ -47,12 +47,18 @@ export async function POST(req: NextRequest) {
     const code = generateOtp(phone);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
+    // Echoing the code is for local development and tests only. Returning it
+    // for the test phones in production handed anyone the real OTP of a
+    // possibly-admin account, so outside dev/test those phones are refused.
+    const fixedCodesAllowed = process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
+    const isTest = TEST_PHONES.includes(phone);
+    if (isTest && !fixedCodesAllowed) {
+      return NextResponse.json({ error: "شماره موبایل معتبر نیست" }, { status: 400 });
+    }
+
     await prisma.otpCode.create({ data: { phone, code, expiresAt } });
 
-    const isTest = TEST_PHONES.includes(phone);
-    const isDev = process.env.NODE_ENV === "development";
-
-    if (isTest || isDev) {
+    if (fixedCodesAllowed) {
       console.log(`OTP for ${phone}: ${code}`);
       return NextResponse.json({ success: true, dev_code: code });
     }
