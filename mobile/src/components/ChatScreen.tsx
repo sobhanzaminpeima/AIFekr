@@ -9,7 +9,7 @@ import {AppText,Banner,Button,Chip,Icon,IconButton,Row,Sheet,success} from '../u
 import {Markdown} from '../ui/Markdown';
 import {numberFormat,useTheme} from '../ui/theme';
 import {SpeechControl} from './SpeechControl';
-import {VoiceInput} from './VoiceInput';
+import {VoiceInput,transcriptionQuoteSchema} from './VoiceInput';
 import {ActionCenter} from './ActionCenter';
 import {FikaBusinessTools} from './FikaBusinessTools';
 
@@ -33,6 +33,9 @@ export function ChatScreen({locale,onError,initialPrompt,initialConversation,ope
  useEffect(()=>{const timer=setTimeout(()=>{const owner=draftOwner.current;if(owner)void saveDraft(draft,owner).catch(onError);},800);return()=>clearTimeout(timer);},[draft,onError]);
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;abort.current?.abort();};},[]);
  useEffect(()=>{const listener=AppState.addEventListener('change',state=>{if(state!=='active')abort.current?.abort();});return()=>listener.remove();},[]);
+ // Voice is offered only when the server has a transcription service; a failed check just hides it.
+ const [voice,setVoice]=useState<z.infer<typeof transcriptionQuoteSchema>|null>(null);
+ useEffect(()=>{let active=true;request('/api/mobile/v1/transcribe',locale).then(raw=>{if(active)setVoice(transcriptionQuoteSchema.parse(raw));}).catch(()=>{});return()=>{active=false;};},[locale]);
  const loadList=useCallback(()=>request('/api/mobile/v1/conversations',locale).then(raw=>{if(mounted.current)setConversations(listSchema.parse(raw).conversations);}),[locale]);
  useEffect(()=>{let active=true;Promise.all([request('/api/mobile/v1/chat/quote',locale),loadList()]).then(([q])=>{if(active)setQuote(quoteSchema.parse(q).maxCredits);}).catch(err=>{if(active)onError(err);});return()=>{active=false;};},[locale,onError,loadList]);
 
@@ -104,7 +107,7 @@ export function ChatScreen({locale,onError,initialPrompt,initialConversation,ope
    <TextInput accessibilityLabel={t.placeholder} placeholder={t.placeholder} placeholderTextColor={c.faint} value={draft} onChangeText={setDraft} multiline maxLength={12000} editable={!busy}
     style={[type.body,{fontFamily:fonts.regular,color:c.text,maxHeight:140,minHeight:44,textAlign:rtl?'right':'left',writingDirection:rtl?'rtl':'ltr'}]}/>
    <Row justify="space-between">
-    <Row gap={space.xs}><IconButton icon="mic-outline" label={t.voice} onPress={()=>setShowTools(true)} disabled={busy}/><Chip icon="flash-outline" label={costLabel}/></Row>
+    <Row gap={space.xs}>{voice?.available?<IconButton icon="mic-outline" label={t.voice} onPress={()=>setShowTools(true)} disabled={busy}/>:null}<Chip icon="flash-outline" label={costLabel}/></Row>
     {busy?<IconButton icon="stop" tone="raised" label={t.stop} onPress={()=>abort.current?.abort()}/>:<IconButton icon="arrow-up" tone="accent" label={t.send} disabled={quote===null||!draft.trim()} onPress={()=>submit()}/>}
    </Row>
   </View>
@@ -118,9 +121,9 @@ export function ChatScreen({locale,onError,initialPrompt,initialConversation,ope
    {conversations.length?conversations.map(item=><Pressable key={item.id} accessibilityRole="button" onPress={()=>void open(item.id)} style={[s.historyRow,{backgroundColor:item.id===conversationId?c.soft:c.raised}]}><AppText numberOfLines={1}>{item.title}</AppText></Pressable>):<AppText tone="muted">{t.noHistory}</AppText>}
   </Sheet>
   <Sheet visible={showTools} onClose={()=>setShowTools(false)} title={t.tools}>
-   <VoiceInput locale={locale} color={c.text} onTranscript={text=>{setDraft(text);setShowTools(false);}} onError={onError} disabled={busy}/>
-   <FikaBusinessTools locale={locale} color={c.text} onError={onError}/>
-   <ActionCenter locale={locale} color={c.text} onError={onError}/>
+   <VoiceInput locale={locale} quote={voice} onTranscript={text=>{setDraft(text);setShowTools(false);}} onError={onError} disabled={busy}/>
+   <FikaBusinessTools locale={locale} onError={onError}/>
+   <ActionCenter locale={locale} onError={onError}/>
   </Sheet>
  </KeyboardAvoidingView>;
 }
