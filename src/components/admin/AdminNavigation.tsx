@@ -303,6 +303,7 @@ export const adminGroups: Group[] = [
     icon: Gamepad2,
     items: [
       item("fitness", "فیتنس آی‌فکر", "AIFekr FIT", "AIFekr FIT", "AIFekr FIT"),
+      item("fitness/users", "کاربران فیتنس", "Fitness members", "Fitness-Mitglieder", "Fitness üyeleri"),
       item(
         "fitness/marketplace",
         "مربیان و سفارش‌ها",

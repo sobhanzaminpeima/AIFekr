@@ -21,6 +21,7 @@ import { shouldShowTrialBanner } from "@/lib/subscriptions/trialBanner";
 import DashboardPullToRefresh from "@/components/layout/DashboardPullToRefresh";
 import {standaloneChatOnly} from "@/lib/ai-chat/access";
 import Link from "next/link";
+import {shouldShowFitness} from "@/lib/fitness/navigation";
 
 export async function renderPlatformShell(children:React.ReactNode,fitness=false) {
   const cookieStore = await cookies();
@@ -41,7 +42,7 @@ export async function renderPlatformShell(children:React.ReactNode,fitness=false
 
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { id: true, role:true, accountType:true,chatOnly:true, name: true, credits: true, plan: true, planExpiry: true, isBlocked: true, industryPackId: true, crmPlan: true, crmPlanExpiry: true, onboardingDone: true, trialEndsAt: true, trialLimited: true, activeBusinessId: true, fitnessProfile: { select: { userId: true } } },
+    select: { id: true, role:true, fitnessAccessExpiry:true,accountType:true,chatOnly:true, name: true, credits: true, plan: true, planExpiry: true, isBlocked: true, industryPackId: true, crmPlan: true, crmPlanExpiry: true, onboardingDone: true, trialEndsAt: true, trialLimited: true, activeBusinessId: true, fitnessProfile: { select: { userId: true } } },
   });
 
   if (!user || user.isBlocked) redirect("/login");
@@ -65,7 +66,7 @@ export async function renderPlatformShell(children:React.ReactNode,fitness=false
   // AIFekr FIT is a consumer product: offer it to people who use it or to
   // personal accounts, not as the second item in every business owner's menu.
   const crmActive = !!user.crmPlan && user.crmPlan !== "NONE" && (!user.crmPlanExpiry || user.crmPlanExpiry > new Date());
-  const showFitness = fitness || !!user.fitnessProfile || (user.accountType !== "BUSINESS" && !user.industryPackId && !crmActive);
+  const showFitness = shouldShowFitness({fitness,role:user.role,fitnessAccessExpiry:user.fitnessAccessExpiry,hasProfile:!!user.fitnessProfile,accountType:user.accountType,industryPackId:user.industryPackId,crmActive});
   const displayCredits = fitness ? user.credits : teamMembership?.team.credits ?? user.credits;
   const pendingPaymentCount = await prisma.payment.count({ where: { userId: user.id, status: "PENDING" } });
   const studentWorkspaceEnabled = await isStudentWorkspaceEnabled(user);

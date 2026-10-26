@@ -1,10 +1,13 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState,useRef } from "react";
+import GeneratePanel from "./GeneratePanel";
+import GenerationProgress from "./GenerationProgress";
 import Link from "next/link";
 import { useTranslation, tri } from "@/lib/i18n";
 import { graphemes, estimatedSeconds, splitProject, creditsFor, type VoicePolicy } from "@/lib/voice-studio/domain";
 import type { SpeechCatalog } from "@/lib/voice-studio/provider";
 import "./voice-studio.css";
+import "./studio-layout.css";
 import {voiceErrorMessage} from "@/lib/voice-studio/errors";
 type Project = {
     id: string;
@@ -26,6 +29,7 @@ type Generation = {
     errorCode: string | null;
     waveform: string | null;
     createdAt: string;
+    providerStartedAt?:string|null;
 };
 type Preset = {
     id: string;
@@ -48,24 +52,35 @@ type Data = {
 };
 export default function VoiceStudio() {
     const { lang } = useTranslation(), t = (fa: string, en: string, de: string, tr: string) => tri(lang, fa, en, de, tr);
-    const [data, setData] = useState<Data | null>(null), [id, setId] = useState(""), [name, setName] = useState(""), [text, setText] = useState(""), [language, setLanguage] = useState("fa"), [modelId, setModel] = useState(""), [voiceId, setVoice] = useState(""), [search, setSearch] = useState(""), [voiceSearch, setVoiceSearch] = useState(""), [styleFilter, setStyleFilter] = useState(""), [segment, setSegment] = useState(0), [generations, setGenerations] = useState<Generation[]>([]), [busy, setBusy] = useState(false), [error, setError] = useState(""), [message, setMessage] = useState(""), [offline, setOffline] = useState(false), [showArchived, setArchived] = useState(false), [statusFilter, setStatusFilter] = useState(""), [settings, setSettings] = useState<{
+    const [data, setData] = useState<Data | null>(null), [id, setId] = useState(""), [name, setName] = useState(""), [text, setText] = useState(""), [language, setLanguage] = useState<string>(lang), [modelId, setModel] = useState(""), [voiceId, setVoice] = useState(""), [search, setSearch] = useState(""), [voiceSearch, setVoiceSearch] = useState(""), [styleFilter, setStyleFilter] = useState(""), [segment, setSegment] = useState(0), [generations, setGenerations] = useState<Generation[]>([]), [busy, setBusy] = useState(false), [error, setError] = useState(""), [message, setMessage] = useState(""), [offline, setOffline] = useState(false), [showArchived, setArchived] = useState(false), [statusFilter, setStatusFilter] = useState(""), [settings, setSettings] = useState<{
         stability?: number;
         style?: number;
         use_speaker_boost?: boolean;
     }>({}), [audioVersion, setAudioVersion] = useState(0);
     const errorText = (code: string) => { const known: Record<string, string> = { INSUFFICIENT_CREDITS: t("کردیت کافی نیست؛ کیف پول را شارژ کنید.", "Insufficient credits. Top up your wallet.", "Nicht genügend Credits. Guthaben aufladen.", "Yetersiz kredi. Bakiyenizi yükleyin."), VOICE_STUDIO_DISABLED: t("تولید صدا هنوز توسط مدیر فعال نشده است. متن شما قابل ذخیره است.", "Generation is not enabled by the admin yet. You can save your text.", "Generierung noch nicht freigeschaltet. Text kann gespeichert werden.", "Üretim yönetici tarafından açılmadı. Metninizi kaydedebilirsiniz."), CATALOG_NOT_VERIFIED: t("اتصال و فهرست صداها نیازمند بررسی مدیر است.", "The admin must verify connectivity and the voice catalog.", "Der Administrator muss Verbindung und Stimmen prüfen.", "Yönetici bağlantı ve ses listesini doğrulamalıdır.") }; if(voiceErrorMessage(code,lang)!==code)return voiceErrorMessage(code,lang);return known[code] || `${t("عملیات انجام نشد", "Action failed", "Aktion fehlgeschlagen", "İşlem başarısız")}: ${code}`; };
+    const initialProject=useRef(false);
+    const preferredLanguage=`${lang}`;
+    const wasPending=useRef(false);
+    const [submitting,setSubmitting]=useState(false);
+    const pending=generations.some(g=>g.status==="QUEUED"||g.status==="RUNNING");
+    const progressJob=generations.find(g=>g.status==="QUEUED"||g.status==="RUNNING")||generations[0];
     async function post(body: unknown) { const r = await fetch("/api/voice-studio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); const d = await r.json(); if (!r.ok)
         throw Error(d.code || "REQUEST_FAILED"); return d; }
     const load = useCallback(async () => { const r = await fetch("/api/voice-studio", { cache: "no-store" }); const d = await r.json(); if (!r.ok)
-        throw Error(d.code || "AUTH_REQUIRED"); setData(d); return d as Data; }, []);
+        throw Error(d.code || "AUTH_REQUIRED"); setData(d);
+        const approved=(d as Data).catalog?.models.filter(m=>d.policy.allowedModels.includes(m.id)&&m.languages.some(l=>l.id===preferredLanguage))||[];
+        const recommended=approved.find(m=>/turbo|flash|conversational/i.test(m.id))||approved.find(m=>m.id==="eleven_v3")||approved[0];
+        if(recommended)setModel(current=>current||recommended.id);
+        if(!initialProject.current){initialProject.current=true;const query=new URLSearchParams(location.search).get("project");const project=d.projects.find((p:Project)=>p.id===query);if(project){setId(project.id);setName(project.name);setText(project.text);setLanguage(project.language);}}
+        return d as Data; }, [preferredLanguage]);
     const history = useCallback(async () => { if (!id)
         return; const r = await fetch(`/api/voice-studio?project=${encodeURIComponent(id)}`, { cache: "no-store" }); const d = await r.json(); if (r.ok)
         setGenerations(d.generations); }, [id]);
     useEffect(() => { const timer=setTimeout(()=>void load().catch(() => setError("LOAD_FAILED")),0);return()=>clearTimeout(timer); }, [load]);
+    useEffect(()=>{if(wasPending.current&&!pending)void load().catch(()=>{});wasPending.current=pending;},[pending,load]);
     useEffect(() => { const initial=setTimeout(()=>void history(),0); const timer = setInterval(() => { if (document.visibilityState === "visible") {
         void history();
-        void load().catch(() => { });
-    } }, 5000); return () => {clearTimeout(initial);clearInterval(timer);}; }, [history, load]);
+    } }, pending?1000:12000); return () => {clearTimeout(initial);clearInterval(timer);}; }, [history,pending]);
     useEffect(() => { const update = () => setOffline(!navigator.onLine); update(); addEventListener("online", update); addEventListener("offline", update); return () => { removeEventListener("online", update); removeEventListener("offline", update); }; }, []);
     useEffect(() => { try {
         if (text)
@@ -90,6 +105,7 @@ export default function VoiceStudio() {
     } }
     async function save(extra: Record<string, unknown> = {}) { const d = await post({ action: "save", ...(id ? { id } : {}), name: name.trim() || t("پروژهٔ صوتی", "Voice project", "Sprachprojekt", "Ses projesi"), text, language, ...extra }); setId(d.project.id); await load(); setMessage(t("پروژه ذخیره شد", "Project saved", "Projekt gespeichert", "Proje kaydedildi")); return d.project as Project; }
     async function generateSelected(){
+        setSubmitting(true);try{
         const project=await save();
         const fingerprint=JSON.stringify({projectId:project.id,text,segment,voiceId,modelId,settings});
         const storageKey=`aifekr-voice-request:${project.id}`;
@@ -97,12 +113,15 @@ export default function VoiceStudio() {
         try{pending=JSON.parse(sessionStorage.getItem(storageKey)||"null");}catch{}
         if(!pending||pending.fingerprint!==fingerprint)pending={fingerprint,key:crypto.randomUUID()};
         sessionStorage.setItem(storageKey,JSON.stringify(pending));
-        await post({action:"generate",projectId:project.id,segmentIndex:segment,voiceId,modelId,idempotencyKey:pending.key,settings});
+        const queued=await post({action:"generate",projectId:project.id,segmentIndex:segment,voiceId,modelId,idempotencyKey:pending.key,settings});
+        setGenerations(current=>[queued.generation,...current.filter(g=>g.id!==queued.generation.id)]);
+        requestAnimationFrame(()=>document.getElementById("voice-generation-progress")?.scrollIntoView({block:"nearest",behavior:"auto"}));
         sessionStorage.removeItem(storageKey);
         await load();
         const response=await fetch(`/api/voice-studio?project=${encodeURIComponent(project.id)}`,{cache:"no-store"});
         if(response.ok)setGenerations((await response.json()).generations);
         setMessage(t("در صف تولید قرار گرفت","Queued for generation","Zur Generierung eingereiht","Üretim kuyruğuna alındı"));
+        }finally{setSubmitting(false);}
     }
     function statusName(status:string){return ({READY:t("آماده","Ready","Bereit","Hazır"),QUEUED:t("در صف","Queued","In Warteschlange","Kuyrukta"),RUNNING:t("در حال تولید","Generating","Wird generiert","Üretiliyor"),REVIEW:t("نیازمند بررسی","Needs review","Prüfung erforderlich","İnceleme gerekli"),FAILED:t("ناموفق","Failed","Fehlgeschlagen","Başarısız"),CANCELLED:t("لغوشده","Cancelled","Abgebrochen","İptal edildi")} as Record<string,string>)[status]||status;}
     const model = data?.catalog?.models.find(m => m.id === modelId), voice = data?.catalog?.voices.find(v => v.id === voiceId);
@@ -135,6 +154,8 @@ export default function VoiceStudio() {
  <div className="vs-row">{id && <><button disabled={busy} onClick={() => void act(async () => { await save({ duplicate: true, name: name + " · copy" }); })}>{t("ساخت نسخه", "Duplicate", "Duplizieren", "Çoğalt")}</button><button disabled={busy} onClick={() => void act(async () => { await save({ archive: !data.projects.find(p => p.id === id)?.archivedAt }); })}>{t("آرشیو / بازگردانی", "Archive / restore", "Archiv / wiederherstellen", "Arşivle / geri al")}</button><button disabled={busy} onClick={() => { if (confirm(t("پروژه حذف شود؟", "Delete this project?", "Projekt löschen?", "Proje silinsin mi?")))
         void act(async () => { await post({ action: "deleteProject", id }); fresh(); await load(); }); }}>{t("حذف", "Delete", "Löschen", "Sil")}</button></>}</div></section>
  <aside className="vs-panel"><h2>{t("انتخاب صدا", "Choose a voice", "Stimme auswählen", "Ses seç")}</h2><label>{t("جستجوی صدا و سبک", "Search voice & style", "Stimme und Stil suchen", "Ses ve stil ara")}<input value={voiceSearch} onChange={e => setVoiceSearch(e.target.value)}/></label><label>{t("فیلتر صدا", "Voice filter", "Stimmenfilter", "Ses filtresi")}<select value={styleFilter} onChange={e => setStyleFilter(e.target.value)}><option value="">{t("همه", "All", "Alle", "Tümü")}</option>{[...new Set(data.catalog?.voices.map(v => v.labels.gender).filter(Boolean))].map(g => <option key={g}>{g}</option>)}</select></label><div className="vs-voices">{voices.map(v => <article key={v.id} className={voiceId === v.id ? "vs-selected" : ""}><button aria-pressed={voiceId === v.id} onClick={() => setVoice(v.id)}>{v.name}</button><small>{[v.labels.accent, v.labels.description].filter(Boolean).join(" · ")}</small>{v.preview && <audio controls preload="none" src={v.preview} aria-label={v.name}/>}</article>)}</div>{!voices.length && <p className="vs-muted">{t("صدای تأییدشده‌ای در این فیلتر نیست.", "No verified voices match this filter.", "Keine bestätigte Stimme für diesen Filter.", "Bu filtrede doğrulanmış ses yok.")}</p>}</aside></div>
- <section className="vs-action vs-panel"><div><strong>{voice?.name || t("صدا را انتخاب کنید", "Select a voice", "Stimme wählen", "Bir ses seçin")}</strong><p>{t("پروژه به بخش‌های مستقل تقسیم می‌شود؛ هیچ متنی حذف یا کوتاه نمی‌شود.", "Projects are split into separate outputs. Text is never silently truncated.", "Projekte werden aufgeteilt. Kein Text wird still gekürzt.", "Projeler ayrı çıktılara bölünür. Metin sessizce kesilmez.")}</p>{segments.length > 0 && <label>{t("بخش موردنظر", "Selected segment", "Gewählter Abschnitt", "Seçilen bölüm")}<select value={segment} onChange={e => setSegment(Number(e.target.value))}>{segments.map((s, i) => <option key={i} value={i}>{i + 1} / {segments.length} · ≈{Math.ceil(estimatedSeconds(s, language))} s</option>)}</select></label>}{splitError && <p role="alert">{errorText(splitError)}</p>}<p>{t("مدت تقریبی", "Approximate duration", "Ungefähre Dauer", "Yaklaşık süre")}: ≈{Math.ceil(estimate)} s · {t("کردیت تخمینی", "Estimated credits", "Geschätzte Credits", "Tahmini kredi")}: {creditsFor(estimate, data.policy)}</p><p>{t("رزرو حداکثری این بخش", "Maximum reservation for this segment", "Maximale Reservierung pro Abschnitt", "Bu bölüm için azami rezervasyon")}: <strong>{reserved}</strong> · {t("تسویه با مدت واقعی؛ باقیمانده برمی‌گردد.", "Settled on actual duration; unused credits are returned.", "Abrechnung nach Ist-Dauer, Rest wird erstattet.", "Gerçek süreye göre hesaplanır; kalan iade edilir.")}</p><small>{t("برآورد زمان تضمین نیست. خروجی بیشتر از سقف مجاز تحویل نمی‌شود و کردیت AIFekr کامل برمی‌گردد.", "Duration is an estimate. Over-limit outputs are not delivered and receive a full AIFekr refund.", "Dauer nur geschätzt. Zu lange Ausgaben werden nicht geliefert; volle Credit-Erstattung.", "Süre tahminidir. Sınırı aşan çıktı teslim edilmez ve AIFekr kredisi tamamen iade edilir.")}</small></div><button className="vs-primary" disabled={busy || offline || !data.policy.enabled || !selected || !voiceId || !model || !model.languages.some(l => l.id === language) || graphemes(text) > data.policy.maxCharacters || data.credits < reserved} onClick={() => void act(generateSelected)}>{busy ? "…" : t("تولید بخش انتخاب‌شده", "Generate selected segment", "Abschnitt generieren", "Seçili bölümü üret")}</button></section>
+ {splitError&&<p role="alert" className="vs-error">{errorText(splitError)}</p>}
+ <GeneratePanel voice={voice?.name} segments={segments} segment={segment} onSegment={setSegment} estimate={estimate} estimatedCredits={creditsFor(estimate,data.policy)} reserved={reserved} interval={data.policy.billingInterval} rate={data.policy.creditsPerInterval} disabled={busy||offline||!data.policy.enabled||!selected||!voiceId||!model||!model.languages.some(l=>l.id===language)||graphemes(text)>data.policy.maxCharacters||data.credits<reserved} busy={busy} pending={pending} onGenerate={()=>void act(generateSelected)}/>
+ <GenerationProgress job={progressJob} submitting={submitting}/>
  <section className="vs-panel"><div className="vs-row"><h2>{t("کتابخانهٔ صوتی این پروژه", "Project audio library", "Audiobibliothek des Projekts", "Proje ses kitaplığı")}</h2><select aria-label="Generation status" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option value="">{t("همهٔ وضعیت‌ها", "All statuses", "Alle Status", "Tüm durumlar")}</option>{["READY", "QUEUED", "RUNNING", "REVIEW", "FAILED", "CANCELLED"].map(s => <option key={s} value={s}>{statusName(s)}</option>)}</select></div>{!generations.length && <p className="vs-muted">{t("یک پروژه انتخاب کنید؛ صداهای ذخیره‌شده اینجا نمایش داده می‌شوند.", "Select a project to see saved audio.", "Projekt wählen, um gespeicherte Audios zu sehen.", "Kaydedilmiş sesler için proje seçin.")}</p>}{generations.filter(g => !statusFilter || g.status === statusFilter).map(g => <article key={g.id} className="vs-generation"><div className="vs-row"><strong>{g.segmentIndex + 1} · {g.modelId}</strong><span role="status">{statusName(g.status)}</span></div><p>{g.durationMs ? `${(g.durationMs / 1000).toFixed(1)} s · ` : ""}{g.chargedCredits} {t("کردیت مصرفی", "credits charged", "verbrauchte Credits", "harcanan kredi")} · {g.refundedCredits} {t("برگشت", "refunded", "erstattet", "iade")}</p>{g.status === "REVIEW" && <p>{t("نتیجهٔ ارائه‌دهنده نامشخص است؛ رزرو تا بررسی مدیر نگه داشته می‌شود. دوباره تولید نکنید.", "Provider outcome is uncertain. Credits are held for admin review. Do not regenerate yet.", "Unklarer Anbieterstatus. Credits bleiben bis zur Prüfung reserviert. Noch nicht erneut generieren.", "Sağlayıcı sonucu belirsiz. Kredi yönetici incelemesine kadar tutulur. Yeniden üretmeyin.")}</p>}{g.errorCode && <p className="vs-muted">{g.errorCode}</p>}{g.status === "READY" && <><svg className="vs-wave" viewBox="0 0 400 48" role="img" aria-label={t("شکل موج واقعی صدا", "Actual audio waveform", "Echte Audiowellenform", "Gerçek ses dalgası")}>{(JSON.parse(g.waveform || "[]") as number[]).map((v, i) => <rect key={i} x={i * 5} y={24 - Math.max(1, v * 23)} width="3" height={Math.max(2, v * 46)} rx="1"/>)}</svg><audio key={audioVersion} controls preload="none" src={`/api/voice-studio?audio=${g.id}&v=${audioVersion}`}/><div className="vs-row"><a href={`/api/voice-studio?audio=${g.id}&download=1`}>MP3 ↓</a><button onClick={() => setAudioVersion(v => v + 1)}>{t("تازه‌سازی لینک پخش", "Refresh playback link", "Wiedergabelink erneuern", "Oynatma bağlantısını yenile")}</button><button onClick={() => void act(async () => { await post({ action: "deleteAudio", id: g.id }); await history(); })}>{t("حذف فایل", "Delete audio", "Audio löschen", "Sesi sil")}</button></div></>}{g.status === "QUEUED" && <button disabled={busy} onClick={() => void act(async () => { await post({ action: "cancel", id: g.id }); await history(); await load(); })}>{t("لغو و بازگشت رزرو", "Cancel and release credits", "Abbrechen und Credits freigeben", "İptal et ve krediyi iade et")}</button>}</article>)}</section></div>;
 }

@@ -1,0 +1,13 @@
+import {it,expect,vi,beforeAll,afterAll} from "vitest";
+import {NextRequest} from "next/server";
+import {prisma} from "@/lib/db/prisma";
+const auth=vi.hoisted(()=>({admin:true}));
+vi.mock("@/lib/auth/middleware",()=>({requireAdmin:async()=>auth.admin?{id:"fitness-admin-test"}:null,unauthorizedResponse:()=>new Response(null,{status:401})}));
+import {PUT} from "./route";
+const userId="fitness-access-"+crypto.randomUUID();
+beforeAll(()=>prisma.user.create({data:{id:userId,accountType:"BUSINESS"}}));
+afterAll(async()=>{await prisma.auditLog.deleteMany({where:{targetId:userId}});await prisma.user.delete({where:{id:userId}});});
+const request=(enabled:boolean,origin="http://localhost")=>new NextRequest("http://localhost/api/admin/users/"+userId+"/fitness",{method:"PUT",headers:{origin},body:JSON.stringify({enabled,days:30})});
+it("grants fitness without a reason or fabricated health profile and records an audit",async()=>{const response=await PUT(request(true),{params:Promise.resolve({id:userId})});expect(response.status).toBe(200);const user=await prisma.user.findUniqueOrThrow({where:{id:userId},include:{fitnessProfile:true}});expect(user.fitnessAccessExpiry!.getTime()).toBeGreaterThan(Date.now());expect(user.fitnessProfile).toBeNull();expect(await prisma.auditLog.count({where:{targetId:userId,action:"fitness_admin_access_changed"}})).toBe(1);});
+it("rejects non-admin and cross-origin writes",async()=>{auth.admin=false;expect((await PUT(request(true),{params:Promise.resolve({id:userId})})).status).toBe(401);auth.admin=true;expect((await PUT(request(true,"https://attacker.example"),{params:Promise.resolve({id:userId})})).status).toBe(403);});
+it("can deactivate the manually granted access",async()=>{expect((await PUT(request(false),{params:Promise.resolve({id:userId})})).status).toBe(200);expect((await prisma.user.findUniqueOrThrow({where:{id:userId}})).fitnessAccessExpiry).toBeNull();});

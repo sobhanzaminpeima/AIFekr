@@ -53,8 +53,7 @@ cp -p "$backup" "$trial"
 DATABASE_URL="file:$trial" node node_modules/prisma/build/index.js migrate deploy
 DATABASE_URL="file:$trial" node node_modules/prisma/build/index.js migrate diff --from-url "file:$trial" --to-schema-datamodel prisma/schema.prisma --exit-code
 DATABASE_URL="file:$trial" node node_modules/prisma/build/index.js generate
-# Explicitly pin OFF before any queue worker is installed.
-node -e "require('@next/env').loadEnvConfig(process.cwd());const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{const r=await p.siteSetting.findUnique({where:{key:'voiceStudioSettings'}});if(r&&JSON.parse(r.value).enabled)throw Error('VOICE_ALREADY_ENABLED_ABORT');})().finally(()=>p.\$disconnect())"
+# Preserve the operator's existing activation policy. A deployment never toggles paid generation.
 DATABASE_URL=file:/var/www/ai-platform/prisma/prisma/prod.db node node_modules/prisma/build/index.js migrate deploy
 NEXT_DIST_DIR="$dist" pm2 start npm --name aifekr-voice-preview --cwd "$new" -- start -- -H 127.0.0.1 -p 3046 >/dev/null
 healthy(){ for i in $(seq 1 30); do if curl -fsS "http://127.0.0.1:$1/api/health" | grep -q '"status":"ok"'; then return 0; fi; sleep 1; done; return 1; }
@@ -70,4 +69,4 @@ pm2 delete aifekr-voice-preview >/dev/null
 printf '%s\n' "$commit" > RELEASE_COMMIT
 pm2 save >/dev/null
 trap - ERR
-echo VOICE_RELEASE_OK_GENERATION_DISABLED
+echo VOICE_RELEASE_OK

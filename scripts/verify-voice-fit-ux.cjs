@@ -1,0 +1,8 @@
+require('@next/env').loadEnvConfig(process.cwd());
+const {PrismaClient}=require('@prisma/client'),jwt=require('jsonwebtoken');const db=new PrismaClient();
+(async()=>{const admin=await db.user.findFirst({where:{role:'SUPER_ADMIN',isBlocked:false},select:{id:true,role:true,plan:true}});if(!admin)throw Error();const headers={cookie:`token=${jwt.sign({userId:admin.id,role:admin.role,plan:admin.plan},process.env.JWT_SECRET,{expiresIn:120})}`};
+ for(const path of ['/voice-studio','/admin/fitness/users','/api/admin/fitness/users']){const r=await fetch('http://127.0.0.1:3000'+path,{headers,signal:AbortSignal.timeout(20000)});if(path==='/voice-studio'){const html=await r.text();console.log({path,http:r.status,compactGeneratePanel:html.includes('vs-generate-panel'),oldFloatingPanel:html.includes('class="vs-action ')});}else{await r.body?.cancel();console.log({path,http:r.status});}}
+ const active=await db.user.findFirst({where:{isBlocked:false,accountType:'BUSINESS',fitnessAccessExpiry:{gt:new Date()}},select:{id:true,role:true,plan:true}});
+ if(active){const token=jwt.sign({userId:active.id,role:active.role,plan:active.plan},process.env.JWT_SECRET,{expiresIn:120});const page=await fetch('http://127.0.0.1:3000/home',{headers:{cookie:`token=${token}`},signal:AbortSignal.timeout(20000)});const html=await page.text();console.log({existingActivatedBusinessAccount:true,fitnessNavigation:html.includes('href="/fitness"')});}else console.log({activatedBusinessNavigation:'COVERED_BY_ISOLATED_TEST_NO_CUSTOMER_ACCOUNT_CHANGED'});
+ console.log({running:await db.voiceStudioGeneration.count({where:{status:'RUNNING'}})});
+})().catch(()=>{console.log({verification:'FAILED'});process.exitCode=1;}).finally(()=>db.$disconnect());
