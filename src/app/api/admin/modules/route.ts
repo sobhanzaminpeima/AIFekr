@@ -21,6 +21,8 @@ async function ensureDefaults() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await prisma.moduleRegistry.createMany({ data: DEFAULT_MODULES as any[] });
   }
+  // Add the new module without resetting any existing administrator choices.
+  await prisma.moduleRegistry.upsert({where:{key:"voice-studio"},create:{key:"voice-studio",name:"AI Voice Studio",minPlan:"FREE",status:"beta",isCore:false,sortOrder:90},update:{}});
 }
 
 export async function GET(req: NextRequest) {

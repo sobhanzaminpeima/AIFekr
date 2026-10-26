@@ -46,6 +46,7 @@ export const destinations = [
   ["/fitness", "فیتنس آی‌فکر", "AIFekr FIT", "AIFekr FIT", "AIFekr FIT"],
   ["/video-factory", "کارخانه ویدیو", "Video factory", "Videofabrik", "Video fabrikası"],
   ["/music/generate", "ساخت موسیقی", "Generate music", "Musik erstellen", "Müzik oluştur"],
+  ["/voice-studio", "استودیوی صدا", "Voice Studio", "Sprachstudio", "Ses Stüdyosu"],
   ["/image/gallery", "ساخته‌های من", "My creations", "Meine Werke", "Eserlerim"],
   ["/gallery", "گالری", "Gallery", "Galerie", "Galeri"],
   ["/industry", "بسته‌های کسب‌وکار", "Business packs", "Branchenpakete", "İşletme paketleri"],

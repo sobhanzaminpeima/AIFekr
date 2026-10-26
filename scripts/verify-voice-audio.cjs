@@ -1,0 +1,2 @@
+const {execFileSync}=require('node:child_process');
+(async()=>{const {inspectAudio}=require('/tmp/voice-audio-check.cjs');const bytes=execFileSync('ffmpeg',['-v','error','-f','lavfi','-i','sine=frequency=440:duration=1','-f','mp3','pipe:1'],{timeout:20000,maxBuffer:1000000});const result=await inspectAudio(bytes);console.log({actualAudioValidation:true,durationMs:result.durationMs,waveformPoints:result.waveform.length,syntheticFixture:true});})().catch(()=>{console.log({actualAudioValidation:false});process.exitCode=1;});

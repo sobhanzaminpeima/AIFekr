@@ -40,6 +40,7 @@ export const MODULE_PLANS: Record<string, string> = {
   image: "FREE",
   video: "PRO",
   music: "PRO",
+  "voice-studio": "FREE", // Availability and funded jobs are controlled by Voice Studio policy.
   crm: "FREE",     // CRM has its own crmPlan add-on gate
   seo: "PRO",
   social: "PRO",

@@ -1,0 +1,54 @@
+# AI Voice Studio — implementation and release record
+
+Date: 2026-10-26. Baseline: main `641a202`. Feature flag defaults to OFF.
+
+## Architecture and changes
+
+Two additive Prisma models persist projects and generation jobs. Owner and active business scope are resolved by the existing organization service. The existing credit wallet, team pool, UsageLog, AuditLog, notifications, encrypted settings, module registry and R2 client are reused. There is no additional wallet or payment system.
+
+User route `/voice-studio` is in the Create sidebar group. Admin route `/admin/voice-studio` is in the AI administration group. Existing navigation remains in place. `voice-agent` remains independent. Private routes are excluded from search indexing.
+
+Core implementation: `src/lib/voice-studio/{domain,config,provider,service,worker,audio,request}.ts`; UI: `src/components/voice-studio`; APIs: `/api/voice-studio`, `/api/admin/voice-studio`, `/api/cron/voice-studio`; shared additions: `teamCredits.ts`, `storage/r2.ts`; worker: `scripts/voice-studio-worker.cjs`.
+
+## Contracts
+
+Authenticated GET `/api/voice-studio` returns public policy, verified model/voice catalog, available credits, presets and latest 100 projects. `?project=ID` returns latest 100 owned generations. `?audio=ID&download=1` authorizes ownership and redirects to a 60-second signed private URL without charging again.
+
+Same-origin authenticated POST supports `save`, `generate`, `cancel`, `deleteProject`, `deleteAudio`, `savePreset`, `deletePreset`. Generate requires a UUID idempotency key and approved model/voice, supported language, current catalog, available plan, private storage and full reservation balance. The server independently segments stored project text. Payloads are bounded even without Content-Length. Cross-user/business IDs fail closed.
+
+Admin GET returns sanitized readiness, policy, latest 100 jobs and totals. Admin POST supports read-only `test`, versioned `settings`, and audited `reconcileNoOutput` with explicit confirmation and written evidence. Cron POST requires the shared cron secret. No user-facing request triggers a paid retry.
+
+## Credits and duration
+
+Default: 45 AIFekr credits per started 30 seconds. Alternate 20-second intervals are independently versioned. Each output reserves the full 60-second ceiling: 90 credits by default, 135 for the alternate interval. Actual ffprobe duration determines final charge. Unused reservation is returned atomically; the original reservation ledger entry is immutable. Download, refresh and polling cost no additional credits.
+
+Projects allow up to 20,000 graphemes, with an additional bounded request size. Unicode segmentation preserves the full text. Estimated short segments are independent outputs, not silent truncation. Actual output over 60 seconds is not delivered and receives a full AIFekr refund. Provider costs already incurred remain visible to the operator.
+
+Known provider rejection/preflight failure refunds once. Network ambiguity, lost provider response or post-provider storage failure enters REVIEW and retains reservation until audited reconciliation. Paid POST is never automatically retried. A worker interrupted after dispatch enters REVIEW. Deterministic storage keys are persisted before upload for recovery.
+
+Provider cost estimates are nullable, versioned and admin-managed with source/date. Unknown cost is not represented as zero. A successful future smoke test must debit an explicitly selected authorized AIFekr account through the same reservation/settlement path; it has not yet happened.
+
+## Verified evidence
+
+- Fresh isolated SQLite database: full existing migration chain plus `20261026160000_voice_studio` applied successfully. No production data was used for tests.
+- 35 focused tests passed: Unicode boundaries/segmentation, pricing, concurrent wallet requests, idempotency, immutable ledger, cancellation, tenant isolation, presets, signed access contract, worker success, overlong output, quota/rejection refunds, ambiguous/storage failure without a second paid call, adapter versioned endpoint routing, bounded JSON, authenticated routes, admin role enforcement and CSRF boundaries.
+- TypeScript passed before final UI/adapter refinements; final rerun is recorded separately below.
+- Final production build passed using the migrated isolated database. Initial empty-DB build warnings were resolved by using the migrated database.
+- Scoped lint passed with zero errors and warnings. Production ffmpeg/ffprobe validation of a synthetic MP3 passed: 1,045 ms, 80 waveform points. This is a media pipeline test, not an ElevenLabs generation.
+- Persian RTL and English LTR were rendered in the local visual fixture using the real component at a narrow viewport. This is fixture verification, not authenticated production end-to-end testing. Desktop-width and real provider playback remain pending.
+- Existing production public R2 bucket: signed and public GET both returned 200. It was unsuitable for private audio. A separate default-private bucket was created and probed: signed GET 200, unsigned GET 400. `R2_PRIVATE_BUCKET_NAME` was configured in production `.env.local`; no existing bucket exposure settings were changed. Temporary probe objects were deleted.
+- Production ElevenLabs `/v1/models`: 403. Existing relay ElevenLabs route: 404. Local key: voices 200, models and subscription 401 `missing_permissions`, including the first recheck after the user reported permission updates. No paid synthesis has been dispatched; USD 1 budget remains unused.
+
+## Rollout and rollback
+
+Keep generation disabled until current catalog discovery, quota access, direct server connectivity, verified provider tariff and a real end-to-end output all pass. Do not enable merely because an API key is present. Secrets stay in environment/encrypted settings, never in source, browser or logs.
+
+Before production migration: create a SQLite backup via the backup API; run migrations against a copy; verify schema and baseline record counts; then apply additive migration. Build locally rather than on the 2 GB VPS. Give the new release its own generated Linux Prisma client. Start a preview on another port and check public pages and protected routes before switching PM2. Preserve `/var/www/aifekr-release-641a202` and existing Video Factory worker. Rollback switches PM2 back; the additive tables may remain. Never drop customer data to reverse this release.
+
+Run worker with existing Node and PM2, `scripts/voice-studio-worker.cjs`, `APP_URL` targeting the local application and the existing CRON_SECRET. Default OFF policy prevents dispatch. Worker recovery never retries an uncertain paid generation.
+
+## Remaining scope and limitations
+
+Provider/network permissions are genuine activation blockers. Final paid generation, production audio playback, private CORS/range behavior and real account credit settlement are unverified. Cross-module imports (Video Factory/social/student/business) are deliberately not advertised or enabled until a receiving asset contract and end-to-end tests exist. Existing silent Video Factory restrictions remain intact. Library currently returns latest 100 records; pagination, bulk export and richer project-level reporting are follow-ups. No claim of full production readiness or zero bugs is made.
+
+Official references: https://elevenlabs.io/docs/api-reference/voices/search ; https://elevenlabs.io/docs/api-reference/text-to-speech/convert ; https://elevenlabs.io/pricing/api ; https://developers.cloudflare.com/r2/buckets/public-buckets/ ; https://developers.cloudflare.com/r2/api/s3/api/ .

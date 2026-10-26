@@ -4734,6 +4734,67 @@ model GameSession {
 }
 
 // ── PHASE 4: Module Registry ──────────────────────────────────────────────────
+model VoiceStudioProject {
+  id String @id @default(cuid())
+  userId String
+  businessId String?
+  name String
+  text String @default("")
+  language String @default("fa")
+  archivedAt DateTime?
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  generations VoiceStudioGeneration[]
+  @@index([userId, businessId, updatedAt])
+}
+
+model VoiceStudioGeneration {
+  id String @id @default(cuid())
+  userId String
+  businessId String?
+  projectId String
+  project VoiceStudioProject @relation(fields:[projectId],references:[id],onDelete:Restrict)
+  idempotencyKey String
+  inputHash String
+  text String
+  graphemes Int
+  providerCharacters Int
+  billedCharacters Int?
+  segmentIndex Int
+  language String
+  voiceId String
+  modelId String
+  voiceSettings String @default("{}")
+  status String @default("QUEUED")
+  pricingSnapshot String
+  estimatedSeconds Float
+  reservedCredits Int
+  chargedCredits Int @default(0)
+  refundedCredits Int @default(0)
+  usageLogId String
+  payerTeamId String?
+  mirroredAi Int @default(0)
+  providerRequestId String?
+  providerStartedAt DateTime?
+  providerCostUsd Float?
+  durationMs Int?
+  storageKey String?
+  bytes Int?
+  waveform String?
+  errorCode String?
+  attempts Int @default(0)
+  startedAt DateTime?
+  completedAt DateTime?
+  expiresAt DateTime?
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([userId,idempotencyKey])
+  @@index([status,createdAt])
+  @@index([userId,businessId,projectId])
+}
+
 model ModuleRegistry {
   id          String   @id @default(cuid())
   key         String   @unique

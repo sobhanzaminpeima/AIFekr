@@ -9,7 +9,7 @@ import {
   ChevronDown, ChevronLeft, Settings, LogOut, Wallet, Crown, CreditCard,
   Briefcase, TrendingUp, ShoppingCart, Calculator, Salad,
   GraduationCap, Stethoscope, Languages, ChefHat, Dumbbell, Plane, Code2,
-  Plus, History, HeartPulse, Search, Share2, Globe, Factory, Users,
+  Plus, History, HeartPulse, Search, Share2, Globe, Factory, Users, Mic,
   FolderOpen, Folder, FolderPlus, X, Check, MoreHorizontal, Trash2, ArrowLeft, Zap, Rocket, Gift, Sparkles, FlaskConical, Phone, Handshake, Magnet,
 } from "lucide-react";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
@@ -451,6 +451,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             reachable at its own old URL (/image/generate etc.). */}
         <NavItem icon={GalleryHorizontal} label={t.nav.gallery} href="/image/gallery" active={isActive("/image/gallery")} />
         <NavItem icon={GalleryHorizontal} label={tri(lang, "کارخانه ویدیو", "Video Factory", "Video Factory", "Video Fabrikası")} href="/video-factory" active={isActive("/video-factory")} />
+        <NavItem icon={Mic} label={tri(lang,"استودیوی صدا","Voice Studio","Sprachstudio","Ses Stüdyosu")} href="/voice-studio" active={isActive("/voice-studio")} />
         <NavItem icon={Gamepad2} label={tri(lang,"بازی‌های آی‌فکر","AIFekr PLAY","AIFekr PLAY","AIFekr PLAY")} href="/play" active={isActive("/play")} />
         <NavItem icon={Rocket} label={t.nav.startupBuilder} href="/startup/builder" active={isActive("/startup")} />
 

@@ -12,6 +12,7 @@ export const MODULE_ROUTE_PREFIXES: Record<string, string[]> = {
   image: ["/image", "/api/image"],
   video: ["/video", "/api/video", "/video-factory", "/api/video-factory"],
   music: ["/music", "/api/music"],
+  "voice-studio": ["/voice-studio", "/api/voice-studio"],
   crm: ["/crm", "/api/crm"],
   seo: ["/seo", "/api/seo"],
   social: ["/social", "/api/social"],

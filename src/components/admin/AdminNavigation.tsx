@@ -220,6 +220,7 @@ export const adminGroups: Group[] = [
         "Video Factory",
         "Video Fabrikası",
       ),
+      item("voice-studio", "استودیوی صدا", "Voice Studio", "Sprachstudio", "Ses Stüdyosu"),
       item(
         "voice-agent",
         "ایجنت صوتی",

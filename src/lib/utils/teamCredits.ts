@@ -49,6 +49,16 @@ export async function refundLoggedReservation(tx: Prisma.TransactionClient, rese
   await tx.usageLog.create({ data: { userId: reservation.userId, type: usageType, credits: -reservation.credits, requestId: `${reservation.usageLogId}:refund`, metadata: JSON.stringify({ ...metadata, status: "REFUNDED", originalTransactionId: reservation.usageLogId, creditDelta: reservation.credits }) } });
 }
 
+/** Append-only release for durable jobs; the caller claims the job state in this transaction. */
+export async function releaseLoggedCredits(tx: Prisma.TransactionClient, reservation: {userId:string;payerTeamId:string|null;mirroredAi:number;usageLogId:string}, amount:number, requestId:string, metadata:Record<string,unknown>) {
+  if(!Number.isSafeInteger(amount)||amount<0)throw new Error("Invalid credit release");
+  if(!amount)return;
+  const data={credits:{increment:amount},aiCredits:{increment:Math.min(amount,reservation.mirroredAi)}};
+  if(reservation.payerTeamId)await tx.team.update({where:{id:reservation.payerTeamId},data});
+  else await tx.user.update({where:{id:reservation.userId},data});
+  await tx.usageLog.create({data:{userId:reservation.userId,type:"voice_studio_refund",credits:-amount,requestId,metadata:JSON.stringify({...metadata,originalTransactionId:reservation.usageLogId,payerTeamId:reservation.payerTeamId})}});
+}
+
 /**
  * Phase 2 of the monetization overhaul: `credits` is being split into three
  * wallets (aiCredits / mediaCredits / voiceMinutes) per the user's explicit

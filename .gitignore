@@ -100,3 +100,7 @@ tsc-errors.txt
 !/docs/fit-pricing-release.md
 
 /private-uploads/
+/.next-voice-release/
+/voice-*.log
+/output/voice-preview/
+/output/voice-audio-check.cjs

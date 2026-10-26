@@ -35,6 +35,7 @@ export const PUBLIC_PATHS: { path: string; priority: number; changeFrequency: "d
  * crawlers from wasting budget and stops private URL patterns being probed.
  */
 export const PRIVATE_PREFIXES = [
+  "/voice-studio",
   "/api/", "/admin", "/owner", "/share/", "/p/", "/f/", "/o/", "/welcome",
   "/home", "/chat", "/create", "/image", "/video", "/music", "/gallery", "/agents", "/assistants", "/tools", "/credits", "/plans", "/referral", "/settings", "/organization", "/startup",
   "/student", "/login", "/register", "/checkout", "/accounting", "/business-doctor", "/ceo", "/crm", "/lead-gen", "/meeting", "/sales", "/seo", "/social", "/voice-agent", "/website-designer",

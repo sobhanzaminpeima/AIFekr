@@ -98,6 +98,20 @@ export async function deleteFromStorage(key: string): Promise<void> {
   );
 }
 
+/** Private media bypasses public URL construction and never returns a development placeholder. */
+// A public bucket does not become private merely by issuing signed links.
+// Private assets must use a separate bucket with public access disabled.
+export function privateStorageConfigured(){return !!getClient()&&!!process.env.R2_ACCOUNT_ID&&!!process.env.R2_PRIVATE_BUCKET_NAME&&process.env.R2_PRIVATE_BUCKET_NAME!==process.env.R2_BUCKET_NAME&&!!process.env.R2_SECRET_ACCESS_KEY;}
+export async function uploadPrivateObject(buffer:Buffer,key:string,contentType:string){
+  const client=getClient();if(!client||!privateStorageConfigured())throw new StorageNotConfiguredError();
+  await client.send(new PutObjectCommand({Bucket:process.env.R2_PRIVATE_BUCKET_NAME!,Key:key,Body:buffer,ContentType:contentType,CacheControl:"private, no-store"}));
+}
+export async function signedPrivateObject(key:string,downloadName?:string){
+  const client=getClient();if(!client||!privateStorageConfigured())throw new StorageNotConfiguredError();
+  return getSignedUrl(client,new GetObjectCommand({Bucket:process.env.R2_PRIVATE_BUCKET_NAME!,Key:key,...(downloadName?{ResponseContentDisposition:`attachment; filename="${downloadName.replace(/[^a-zA-Z0-9_.-]/g,"_")}"`}:{})}),{expiresIn:60});
+}
+export async function deletePrivateObject(key:string){const client=getClient();if(!client||!privateStorageConfigured())throw new StorageNotConfiguredError();await client.send(new DeleteObjectCommand({Bucket:process.env.R2_PRIVATE_BUCKET_NAME!,Key:key}));}
+
 export function getStorageKey(userId: string, type: "image" | "video" | "music" | "reference" | "document" | "invite-card", filename: string) {
   return `${type}s/${userId}/${Date.now()}-${filename}`;
 }
