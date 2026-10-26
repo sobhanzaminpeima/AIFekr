@@ -32,7 +32,7 @@ Provider cost estimates are nullable, versioned and admin-managed with source/da
 
 - Fresh isolated SQLite database: full existing migration chain plus `20261026160000_voice_studio` applied successfully. No production data was used for tests.
 - 35 focused tests passed: Unicode boundaries/segmentation, pricing, concurrent wallet requests, idempotency, immutable ledger, cancellation, tenant isolation, presets, signed access contract, worker success, overlong output, quota/rejection refunds, ambiguous/storage failure without a second paid call, adapter versioned endpoint routing, bounded JSON, authenticated routes, admin role enforcement and CSRF boundaries.
-- TypeScript passed before final UI/adapter refinements; final rerun is recorded separately below.
+- Final TypeScript check passed after the UI/adapter refinements. Combined focused and existing wallet/auth regression run: 71 tests passed in 9 files.
 - Final production build passed using the migrated isolated database. Initial empty-DB build warnings were resolved by using the migrated database.
 - Scoped lint passed with zero errors and warnings. Production ffmpeg/ffprobe validation of a synthetic MP3 passed: 1,045 ms, 80 waveform points. This is a media pipeline test, not an ElevenLabs generation.
 - Persian RTL and English LTR were rendered in the local visual fixture using the real component at a narrow viewport. This is fixture verification, not authenticated production end-to-end testing. Desktop-width and real provider playback remain pending.
@@ -50,5 +50,13 @@ Run worker with existing Node and PM2, `scripts/voice-studio-worker.cjs`, `APP_U
 ## Remaining scope and limitations
 
 Provider/network permissions are genuine activation blockers. Final paid generation, production audio playback, private CORS/range behavior and real account credit settlement are unverified. Cross-module imports (Video Factory/social/student/business) are deliberately not advertised or enabled until a receiving asset contract and end-to-end tests exist. Existing silent Video Factory restrictions remain intact. Library currently returns latest 100 records; pagination, bulk export and richer project-level reporting are follow-ups. No claim of full production readiness or zero bugs is made.
+
+## Production result
+
+Code commit `adc2bfe` deployed at `/var/www/aifekr-voice-adc2bfe`. Consistent backup: `/var/www/aifekr-maintenance/backups/pre-voice-adc2bfe.db`. Trial migration applied successfully and schema diff returned no differences before the additive production migration. The new release has its own generated Prisma client. PM2 `ai-platform` and `aifekr-voice-studio-worker` are online; worker heartbeat confirmed. Existing Video Factory worker remains online.
+
+Public external checks: `/`, `/en`, `/de`, `/tr` → 200; both Voice Studio APIs without authentication → 401. Read-only authenticated checks: `/voice-studio`, `/admin/voice-studio`, `/api/voice-studio`, `/api/admin/voice-studio` → 200. Admin readiness confirms privateStorage=true, configured=true, workerHeartbeat=true. Policy remains enabled=false and catalog is not yet verified. No paid synthesis or customer credit deduction occurred.
+
+GitHub: https://github.com/sobhanzaminpeima/AIFekr/pull/3 (draft). Changes are pushed on `codex/voice-studio`; main has not been merged. Draft state records the unresolved provider activation and cross-module acceptance scope.
 
 Official references: https://elevenlabs.io/docs/api-reference/voices/search ; https://elevenlabs.io/docs/api-reference/text-to-speech/convert ; https://elevenlabs.io/pricing/api ; https://developers.cloudflare.com/r2/buckets/public-buckets/ ; https://developers.cloudflare.com/r2/api/s3/api/ .

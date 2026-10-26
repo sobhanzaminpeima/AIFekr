@@ -104,3 +104,5 @@ tsc-errors.txt
 /voice-*.log
 /output/voice-preview/
 /output/voice-audio-check.cjs
+/output/aifekr-voice-*.tar.gz
+/output/voice-pr.md
