@@ -60,3 +60,13 @@ Public external checks: `/`, `/en`, `/de`, `/tr` → 200; both Voice Studio APIs
 GitHub: https://github.com/sobhanzaminpeima/AIFekr/pull/3 (draft). Changes are pushed on `codex/voice-studio`; main has not been merged. Draft state records the unresolved provider activation and cross-module acceptance scope.
 
 Official references: https://elevenlabs.io/docs/api-reference/voices/search ; https://elevenlabs.io/docs/api-reference/text-to-speech/convert ; https://elevenlabs.io/pricing/api ; https://developers.cloudflare.com/r2/buckets/public-buckets/ ; https://developers.cloudflare.com/r2/api/s3/api/ .
+
+## Activation and unpaid-order follow-up
+
+The existing platform CONNECT tunnel reaches ElevenLabs successfully (TLS verified end to end): voices 200. Exact remaining key scope errors: `models_read` and `user_read`. Voice transport now uses this existing tunnel instead of the absent ElevenLabs reverse-proxy route. No external proxy service or new credential is introduced.
+
+Fixed activation with a submitted key: discover against that key, validate available models, then atomically store policy + encrypted key + verified catalog. Previously activation checked the old catalog then deleted it when saving the new key. The admin can test a submitted key before saving it; changing the global module visibility now links to the separate generation setup. Provider errors are translated with concrete missing permissions.
+
+Admin financial history now offers cancellation with a required reason and an existing payment continuation link. Cancellation preserves the payment and audit records, releases promotion/fitness reservations atomically, never grants credits, and refuses completed payments or receipts awaiting review. Existing Zarinpal authorities are verified before cancellation; already-paid transactions settle instead, while uncertain provider results block cancellation. Saved continuation URLs are restricted to the official checkout host. Cancelled orders are filterable. No real customer order was cancelled during verification.
+
+Follow-up validation: 57 tests across 10 files, TypeScript, scoped lint and production build passed. Tests cover activation/new credential ordering, failed preflight without enabling, atomic cancellation, receipt protection, terminal statuses, gateway uncertainty and paid-order settlement. API-key permission changes themselves remain controlled by ElevenLabs, not the AIFekr database.

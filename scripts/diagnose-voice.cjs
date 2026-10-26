@@ -1,0 +1,8 @@
+require('@next/env').loadEnvConfig(process.cwd());
+const {ProxyAgent}=require('undici');
+const proxy=process.env.ELEVENLABS_PROXY_URL||process.env.INSTAGRAM_MEDIA_PROXY_URL;
+const dispatcher=proxy?new ProxyAgent(proxy):undefined;
+console.log({existingTunnel:!!proxy});
+const {PrismaClient}=require('@prisma/client'),crypto=require('node:crypto');
+async function credential(){const db=new PrismaClient();try{const row=await db.siteSetting.findUnique({where:{key:'voiceStudioSecret'}});if(!row)return process.env.ELEVENLABS_API_KEY;if(!row.value.startsWith('enc:v1:'))return row.value;const [iv,tag,data]=row.value.slice(7).split(':');const key=crypto.createHash('sha256').update('secretbox:'+(process.env.TOKEN_ENCRYPTION_KEY||process.env.JWT_SECRET)).digest();const decipher=crypto.createDecipheriv('aes-256-gcm',key,Buffer.from(iv,'base64url'));decipher.setAuthTag(Buffer.from(tag,'base64url'));return Buffer.concat([decipher.update(Buffer.from(data,'base64url')),decipher.final()]).toString('utf8');}finally{await db.$disconnect();}}
+(async()=>{const key=await credential();for(const endpoint of ['/v1/models','/v2/voices?page_size=100','/v1/user/subscription']){try{const response=await fetch('https://api.elevenlabs.io'+endpoint,{dispatcher,headers:{'xi-api-key':key},signal:AbortSignal.timeout(15000)});const body=await response.json().catch(()=>null);const status=body?.detail?.status;const permission=body?.detail?.message?.match(/permission\s+([a-z_]+)/i)?.[1];console.log({endpoint:endpoint.split('?')[0],http:response.status,code:typeof status==='string'&&/^[a-z_]{1,80}$/.test(status)?status:null,permission});}catch{console.log({endpoint,error:'NETWORK_FAILED'});}}})();

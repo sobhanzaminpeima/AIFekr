@@ -123,5 +123,5 @@ export async function verifyPayment(req: VerifyRequest): Promise<VerifyResult> {
     return { ok: true, refId: String(data.data.ref_id), cardPan: data.data.card_pan };
   }
 
-  return { ok: false, error: data.errors?.message || "تأیید پرداخت ناموفق", code: data.data?.code };
+  return { ok: false, error: data.errors?.message || "تأیید پرداخت ناموفق", code: data.errors?.code ?? data.data?.code };
 }

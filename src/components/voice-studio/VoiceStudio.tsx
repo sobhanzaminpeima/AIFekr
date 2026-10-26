@@ -5,6 +5,7 @@ import { useTranslation, tri } from "@/lib/i18n";
 import { graphemes, estimatedSeconds, splitProject, creditsFor, type VoicePolicy } from "@/lib/voice-studio/domain";
 import type { SpeechCatalog } from "@/lib/voice-studio/provider";
 import "./voice-studio.css";
+import {voiceErrorMessage} from "@/lib/voice-studio/errors";
 type Project = {
     id: string;
     name: string;
@@ -52,7 +53,7 @@ export default function VoiceStudio() {
         style?: number;
         use_speaker_boost?: boolean;
     }>({}), [audioVersion, setAudioVersion] = useState(0);
-    const errorText = (code: string) => { const known: Record<string, string> = { INSUFFICIENT_CREDITS: t("کردیت کافی نیست؛ کیف پول را شارژ کنید.", "Insufficient credits. Top up your wallet.", "Nicht genügend Credits. Guthaben aufladen.", "Yetersiz kredi. Bakiyenizi yükleyin."), VOICE_STUDIO_DISABLED: t("تولید صدا هنوز توسط مدیر فعال نشده است. متن شما قابل ذخیره است.", "Generation is not enabled by the admin yet. You can save your text.", "Generierung noch nicht freigeschaltet. Text kann gespeichert werden.", "Üretim yönetici tarafından açılmadı. Metninizi kaydedebilirsiniz."), CATALOG_NOT_VERIFIED: t("اتصال و فهرست صداها نیازمند بررسی مدیر است.", "The admin must verify connectivity and the voice catalog.", "Der Administrator muss Verbindung und Stimmen prüfen.", "Yönetici bağlantı ve ses listesini doğrulamalıdır.") }; return known[code] || `${t("عملیات انجام نشد", "Action failed", "Aktion fehlgeschlagen", "İşlem başarısız")}: ${code}`; };
+    const errorText = (code: string) => { const known: Record<string, string> = { INSUFFICIENT_CREDITS: t("کردیت کافی نیست؛ کیف پول را شارژ کنید.", "Insufficient credits. Top up your wallet.", "Nicht genügend Credits. Guthaben aufladen.", "Yetersiz kredi. Bakiyenizi yükleyin."), VOICE_STUDIO_DISABLED: t("تولید صدا هنوز توسط مدیر فعال نشده است. متن شما قابل ذخیره است.", "Generation is not enabled by the admin yet. You can save your text.", "Generierung noch nicht freigeschaltet. Text kann gespeichert werden.", "Üretim yönetici tarafından açılmadı. Metninizi kaydedebilirsiniz."), CATALOG_NOT_VERIFIED: t("اتصال و فهرست صداها نیازمند بررسی مدیر است.", "The admin must verify connectivity and the voice catalog.", "Der Administrator muss Verbindung und Stimmen prüfen.", "Yönetici bağlantı ve ses listesini doğrulamalıdır.") }; if(voiceErrorMessage(code,lang)!==code)return voiceErrorMessage(code,lang);return known[code] || `${t("عملیات انجام نشد", "Action failed", "Aktion fehlgeschlagen", "İşlem başarısız")}: ${code}`; };
     async function post(body: unknown) { const r = await fetch("/api/voice-studio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); const d = await r.json(); if (!r.ok)
         throw Error(d.code || "REQUEST_FAILED"); return d; }
     const load = useCallback(async () => { const r = await fetch("/api/voice-studio", { cache: "no-store" }); const d = await r.json(); if (!r.ok)

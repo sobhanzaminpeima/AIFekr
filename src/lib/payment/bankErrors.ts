@@ -1,6 +1,12 @@
 import { NextRequest,NextResponse } from "next/server";
 import { tri } from "@/lib/i18n/tri";
 const messages:Record<string,[string,string,string,string]>={
+ "ORDER_NOT_FOUND":["سفارش پیدا نشد.","Order not found.","Bestellung nicht gefunden.","Sipariş bulunamadı."],
+ "ORDER_NOT_UNPAID":["فقط سفارش در انتظار پرداخت قابل ادامه یا لغو است.","Only pending unpaid orders can be continued or cancelled.","Nur offene unbezahlte Bestellungen können fortgesetzt oder storniert werden.","Yalnızca bekleyen ödenmemiş siparişler sürdürülebilir veya iptal edilebilir."],
+ "RECEIPT_REQUIRES_REVIEW":["رسید دارد؛ ابتدا رسید را تأیید یا رد کنید.","A receipt exists; approve or reject it first.","Beleg vorhanden; zuerst prüfen.","Dekont var; önce onaylayın veya reddedin."],
+ "PAYMENT_LINK_UNAVAILABLE":["لینک درگاه این سفارش موجود نیست؛ کاربر باید از بخش پکیج‌ها سفارش جدید بسازد.","No saved checkout link. The customer should create a new order from Plans.","Kein Zahlungslink gespeichert. Neue Bestellung über Tarife erstellen.","Kayıtlı ödeme bağlantısı yok. Planlardan yeni sipariş oluşturun."],
+ "GATEWAY_CHECK_REQUIRED":["وضعیت وجه در زرین‌پال مشخص نشد؛ لغو انجام نشد. ابتدا از درگاه استعلام بگیرید.","Gateway payment status is uncertain; cancellation was not performed. Recheck the gateway first.","Zahlungsstatus unklar; keine Stornierung. Zuerst beim Anbieter prüfen.","Ödeme durumu belirsiz; iptal yapılmadı. Önce sağlayıcıdan sorgulayın."],
+ "ORDER_CHANGED":["وضعیت سفارش تغییر کرد؛ صفحه را به‌روز کنید.","Order changed; refresh the page.","Bestellung geändert; Seite aktualisieren.","Sipariş değişti; sayfayı yenileyin."],
  "Payment gateway unavailable":["درگاه زرین‌پال در دسترس نیست؛ دوباره تلاش کنید.","Zarinpal unavailable; please retry.","Zarinpal nicht verfügbar; erneut versuchen.","Zarinpal kullanılamıyor; tekrar deneyin."],
  "Payment is processing":["درخواست پرداخت در حال پردازش است؛ کمی صبر کنید.","Payment is processing; please wait.","Zahlung wird verarbeitet; bitte warten.","Ödeme işleniyor; lütfen bekleyin."],
  "Invalid currency":["ارز پرداخت باید ریال، لیر یا یورو باشد.","Choose IRR, TRY or EUR for payment.","IRR, TRY oder EUR wählen.","Ödeme için IRR, TRY veya EUR seçin."],

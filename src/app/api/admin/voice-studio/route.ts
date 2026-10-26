@@ -8,6 +8,8 @@ import { refreshSpeechCatalog, speechCatalog } from "@/lib/voice-studio/provider
 import { privateStorageConfigured } from "@/lib/storage/r2";
 import { finishGeneration } from "@/lib/voice-studio/service";
 import { rateLimit } from "@/lib/utils/rateLimit";
+import {boundedJson} from "@/lib/voice-studio/request";
+import type {SpeechCatalog} from "@/lib/voice-studio/provider";
 export const dynamic = "force-dynamic";
 async function admin(req: NextRequest) { const user = await requireAuth(req); return user && ["ADMIN", "SUPER_ADMIN"].includes(user.role) ? user : null; }
 export async function GET(req: NextRequest) { if (!await admin(req))
@@ -20,23 +22,25 @@ export async function POST(req: NextRequest) { const user = await admin(req); if
     return unauthorizedResponse(req); if (req.headers.get("origin") !== (process.env.NODE_ENV === "production" ? "https://aifekr.com" : req.nextUrl.origin))
     return NextResponse.json({ code: "INVALID_ORIGIN" }, { status: 403 }); if (!rateLimit(`admin-voice:${user.id}`, 20, 60000).allowed)
     return NextResponse.json({ code: "RATE_LIMIT" }, { status: 429 }); try {
-    const body = await req.json();
+    const body = await boundedJson(req,50000);
     if (body.action === "test") {
-        const result = await refreshSpeechCatalog();
+        const input=z.object({action:z.literal("test"),secret:z.string().min(10).max(2000).optional()}).strict().parse(body);
+        const result = await refreshSpeechCatalog({secret:input.secret,persist:!input.secret});
         await prisma.auditLog.create({ data: { actorId: user.id, action: "voice_studio.connectivity_test", metadata: JSON.stringify({ success: true, modelCount: result.models.length, voiceCount: result.voices.length }) } });
         return NextResponse.json(result);
     }
     if (body.action === "settings") {
         const input = z.object({ action: z.literal("settings"), settings: settingsSchema, secret: z.string().min(10).max(2000).optional() }).strict().parse(body);
+        let catalog:SpeechCatalog|undefined;
         if (input.settings.enabled) {
             if (!privateStorageConfigured())
                 throw new VoiceError("PRIVATE_STORAGE_REQUIRED", 503);
-            await voiceCredentials();
-            const catalog = await speechCatalog();
-            if (!input.settings.allowedModels.length || input.settings.allowedModels.some(id => !catalog.models.some(m => m.id === id)))
+            catalog = await refreshSpeechCatalog({secret:input.secret,persist:false});
+            if(!input.settings.allowedModels.length){const preferred=catalog.models.find(m=>m.languages.some(l=>l.id==="fa"))||catalog.models[0];input.settings.allowedModels=[preferred.id];}
+            if (input.settings.allowedModels.some(id => !catalog!.models.some(m => m.id === id)))
                 throw new VoiceError("APPROVED_MODEL_REQUIRED", 400);
         }
-        return NextResponse.json({ settings: await saveVoiceSettings(user.id, input.settings, input.secret) });
+        return NextResponse.json({ settings: await saveVoiceSettings(user.id, input.settings, input.secret,catalog) });
     }
     const input = z.object({ action: z.literal("reconcileNoOutput"), id: z.string().max(100), confirmed: z.literal(true), note: z.string().trim().min(20).max(1000) }).strict().parse(body);
     const row = await prisma.voiceStudioGeneration.findUniqueOrThrow({ where: { id: input.id } });

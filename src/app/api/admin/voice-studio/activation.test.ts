@@ -1,0 +1,11 @@
+import {it,expect,vi} from "vitest";
+import {NextRequest} from "next/server";
+import {defaults} from "@/lib/voice-studio/domain";
+const state=vi.hoisted(()=>({catalog:{models:[{id:"verified-model",languages:[{id:"fa"}]}],voices:[{id:"voice"}],fetchedAt:new Date().toISOString()},save:vi.fn(async(_actor,value)=>value),discover:vi.fn()}));
+vi.mock("@/lib/auth/middleware",()=>({requireAuth:async()=>({id:"admin",role:"SUPER_ADMIN"}),unauthorizedResponse:()=>new Response(null,{status:401})}));
+vi.mock("@/lib/storage/r2",()=>({privateStorageConfigured:()=>true}));
+vi.mock("@/lib/voice-studio/config",()=>({voicePolicy:async()=>defaults,voiceCredentials:vi.fn(),saveVoiceSettings:state.save}));
+vi.mock("@/lib/voice-studio/provider",()=>({speechCatalog:vi.fn(),refreshSpeechCatalog:state.discover}));
+import {POST} from "./route";
+it("validates the submitted key and saves the verified catalog with activation atomically",async()=>{state.discover.mockResolvedValue(state.catalog);const response=await POST(new NextRequest("http://localhost/api/admin/voice-studio",{method:"POST",headers:{origin:"http://localhost"},body:JSON.stringify({action:"settings",settings:{...defaults,enabled:true},secret:"new-test-key-not-real"})}));expect(response.status).toBe(200);expect(state.discover).toHaveBeenCalledWith({secret:"new-test-key-not-real",persist:false});expect(state.save).toHaveBeenCalledWith("admin",expect.objectContaining({enabled:true,allowedModels:["verified-model"]}),"new-test-key-not-real",state.catalog);});
+it("does not save enabled state when connection verification fails",async()=>{state.save.mockClear();state.discover.mockRejectedValue(Error("unavailable"));const response=await POST(new NextRequest("http://localhost/api/admin/voice-studio",{method:"POST",headers:{origin:"http://localhost"},body:JSON.stringify({action:"settings",settings:{...defaults,enabled:true}})}));expect(response.status).toBe(503);expect(state.save).not.toHaveBeenCalled();});

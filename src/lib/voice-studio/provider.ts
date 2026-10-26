@@ -2,6 +2,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { voiceCredentials } from "./config";
 import { VoiceError } from "./domain";
+import {voiceTransport} from "./transport";
 export class SpeechFailure extends VoiceError {
     constructor(code: string, public confirmedNoOutput: boolean, status = 502) { super(code, status); }
 }
@@ -29,11 +30,12 @@ export type SpeechCatalog = {
 };
 const modelSchema = z.array(z.object({ model_id: z.string(), name: z.string(), can_do_text_to_speech: z.boolean(), languages: z.array(z.object({ language_id: z.string(), name: z.string() })).default([]), max_characters_request_free_user: z.number().optional(), max_characters_request_subscribed_user: z.number().optional(), maximum_text_length_per_request: z.number().optional(), can_use_style: z.boolean().optional(), can_use_speaker_boost: z.boolean().optional() }));
 export function providerEndpoint(base: string, path: string) { return path.startsWith("/v2/") ? base.replace(/\/v1$/, "") + path : base + path; }
-async function readOnly(path: string) { const { base, key } = await voiceCredentials(); for (let attempt = 0; attempt < 2; attempt++) {
+async function readOnly(path: string,secret?:string) { const { base, key } = await voiceCredentials(secret); for (let attempt = 0; attempt < 2; attempt++) {
     try {
-        const r = await fetch(providerEndpoint(base, path), { headers: { "xi-api-key": key }, signal: AbortSignal.timeout(12000), redirect: "error", cache: "no-store" });
+        const r = await fetch(providerEndpoint(base, path), { ...voiceTransport(),headers: { "xi-api-key": key }, signal: AbortSignal.timeout(12000), redirect: "error", cache: "no-store" });
         if (!r.ok) {
-            await r.body?.cancel();
+            const error=await r.json().catch(()=>null);
+            if(error?.detail?.status==="missing_permissions"){const permission=error.detail.message?.match(/permission\s+([a-z_]+)/i)?.[1];if(["models_read","user_read","voices_read"].includes(permission))throw new VoiceError(`ELEVENLABS_PERMISSION_${permission.toUpperCase()}`,503);}
             if (r.status >= 500 && attempt === 0) {
                 await new Promise(r => setTimeout(r, 300 + Math.random() * 300));
                 continue;
@@ -47,12 +49,13 @@ async function readOnly(path: string) { const { base, key } = await voiceCredent
             throw new VoiceError(e instanceof VoiceError ? e.code : "ELEVENLABS_UNREACHABLE", 503);
     }
 } throw new VoiceError("ELEVENLABS_UNREACHABLE", 503); }
-export async function refreshSpeechCatalog() {
-    const [raw, voiceData, subscription] = await Promise.all([readOnly("/models"), readOnly("/v2/voices?page_size=100"), readOnly("/user/subscription")]);
+export async function refreshSpeechCatalog(options:{secret?:string;persist?:boolean}={}) {
+    const [raw, voiceData, subscription] = await Promise.all([readOnly("/models",options.secret), readOnly("/v2/voices?page_size=100&category=premade",options.secret), readOnly("/user/subscription",options.secret)]);
     const models = modelSchema.parse(raw).filter(m => m.can_do_text_to_speech).map(m => ({ id: m.model_id, name: m.name, languages: m.languages.map(l => ({ id: l.language_id, name: l.name })), maxCharacters: Math.min(...[m.maximum_text_length_per_request, m.max_characters_request_free_user, m.max_characters_request_subscribed_user].filter((x): x is number => !!x && x > 0)), style: !!m.can_use_style, speakerBoost: !!m.can_use_speaker_boost })).filter(m => Number.isFinite(m.maxCharacters));
     const voices: SpeechVoice[] = z.object({ voices: z.array(z.object({ voice_id: z.string(), name: z.string(), category: z.string().optional(), preview_url: z.string().nullable().optional(), labels: z.record(z.string(), z.string()).optional() })) }).parse(voiceData).voices.filter(v => v.category === "premade").map(v => ({ id: v.voice_id, name: v.name, preview: v.preview_url?.startsWith("https://") ? v.preview_url : null, labels: v.labels || {} }));
     const catalog: SpeechCatalog = { models, voices, fetchedAt: new Date().toISOString() };
-    await prisma.siteSetting.upsert({ where: { key: "voiceStudioCatalog" }, create: { key: "voiceStudioCatalog", value: JSON.stringify(catalog) }, update: { value: JSON.stringify(catalog) } });
+    if(!models.length||!voices.length)throw new VoiceError("NO_SUPPORTED_VOICES_OR_MODELS",503);
+    if(options.persist!==false)await prisma.siteSetting.upsert({ where: { key: "voiceStudioCatalog" }, create: { key: "voiceStudioCatalog", value: JSON.stringify(catalog) }, update: { value: JSON.stringify(catalog) } });
     return { ...catalog, quota: { used: subscription.character_count ?? null, limit: subscription.character_limit ?? null } };
 }
 export async function speechCatalog(): Promise<SpeechCatalog> { const row = await prisma.siteSetting.findUnique({ where: { key: "voiceStudioCatalog" } }); if (!row)
@@ -72,7 +75,7 @@ export async function synthesize(input: {
     const { base, key } = await voiceCredentials();
     let response: Response;
     try {
-        response = await fetch(`${base}/text-to-speech/${encodeURIComponent(input.voiceId)}?output_format=mp3_44100_128`, { method: "POST", headers: { "xi-api-key": key, "Content-Type": "application/json" }, body: JSON.stringify({ text: input.text, model_id: input.modelId, language_code: input.language, voice_settings: input.settings }), signal: AbortSignal.timeout(65000), redirect: "error" });
+        response = await fetch(`${base}/text-to-speech/${encodeURIComponent(input.voiceId)}?output_format=mp3_44100_128`, { ...voiceTransport(),method: "POST", headers: { "xi-api-key": key, "Content-Type": "application/json" }, body: JSON.stringify({ text: input.text, model_id: input.modelId, language_code: input.language, voice_settings: input.settings }), signal: AbortSignal.timeout(65000), redirect: "error" });
     }
     catch {
         throw new SpeechFailure("PROVIDER_OUTCOME_UNKNOWN", false);

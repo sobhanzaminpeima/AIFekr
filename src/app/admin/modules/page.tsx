@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Puzzle, CheckCircle, XCircle, AlertCircle, RefreshCw } from "lucide-react";
 
 interface Module {
@@ -94,6 +95,7 @@ export default function AdminModulesPage() {
                   </span>
                 </div>
                 <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>کلید: {m.key}</div>
+                {m.key==="voice-studio"&&<p style={{fontSize:12,lineHeight:1.8,marginBottom:10}}>فعال بودن ماژول فقط دسترسی را باز می‌کند. <Link href="/admin/voice-studio" style={{color:"#FF6B00"}}>تنظیم اتصال و فعال‌سازی تولید صدا</Link></p>}
                 <div style={{ display: "flex", gap: 8 }}>
                   <select
                     value={m.status}

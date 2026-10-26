@@ -3,14 +3,19 @@
 set -Eeuo pipefail
 commit=${1:?commit required}
 [[ "$commit" =~ ^[a-f0-9]{7,40}$ ]]
-old=/var/www/aifekr-release-641a202
+old=${2:-/var/www/aifekr-release-641a202}
+expected=${3:-641a202}
+old_dist=${4:-.next-production-641a202}
+[[ "$old" =~ ^/var/www/aifekr-[a-zA-Z0-9-]+$ ]]
 new=/var/www/aifekr-voice-$commit
 dist=.next-voice-release
 backup=/var/www/aifekr-maintenance/backups/pre-voice-$commit.db
 trial=/var/www/aifekr-maintenance/backups/trial-voice-$commit.db
 exec 9>/var/lock/aifekr-production-deploy.lock
 flock -n 9
-test "$(cat "$old/RELEASE_COMMIT")" = 641a202
+test "$(cat "$old/RELEASE_COMMIT")" = "$expected"
+active=$(pm2 jlist | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).find(p=>p.name==='ai-platform').pm2_env.pm_cwd))")
+test "$active" = "$old"
 test ! -e "$new"
 test -s /tmp/aifekr-voice-source.tar.gz
 test -s /tmp/aifekr-voice-build.tar.gz
@@ -56,7 +61,6 @@ healthy(){ for i in $(seq 1 30); do if curl -fsS "http://127.0.0.1:$1/api/health
 healthy 3046
 for path in / /en /tr /de /login /pricing; do curl -fsS "http://127.0.0.1:3046$path" >/dev/null; done
 test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3046/api/voice-studio)" = 401
-old_dist=.next-production-641a202
 rollback(){ pm2 delete ai-platform >/dev/null 2>&1 || true; NEXT_DIST_DIR="$old_dist" pm2 start npm --name ai-platform --cwd "$old" -- start -- -H 127.0.0.1 -p 3000 >/dev/null; pm2 save >/dev/null; }
 trap rollback ERR
 pm2 delete ai-platform >/dev/null
