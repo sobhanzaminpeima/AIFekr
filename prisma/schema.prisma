@@ -292,6 +292,11 @@ model User {
   billingQuotes BillingQuote[]
 
   referralCodeAliases ReferralCodeAlias[]
+  growthProfile  GrowthProfile?
+  growthEvents   GrowthEvent[]
+  growthTouches  GrowthTouch[]
+  growthMessages GrowthMessage[]
+  growthNotes    GrowthNote[]
   @@index([signupNotifiedAt, createdAt])
   id                        String    @id @default(cuid())
   email                     String?   @unique
@@ -4806,4 +4811,138 @@ model ModuleRegistry {
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+/// ---- Customer Growth Engine (AIFekr's own users; never tenant CRM data) ----
+
+/// One row per user: acquisition links, onboarding answers and communication consent.
+/// Lifecycle stage, scores and segments are computed from authoritative tables on read.
+model GrowthProfile {
+  userId                String    @id
+  firstTouchId          String?
+  lastTouchId           String?
+  /// "utm" | "referrer" | "direct" | "unknown" -- never inferred beyond the evidence.
+  attributionConfidence String    @default("unknown")
+  /// Module the visitor was sent to by the campaign or signup redirect, if any.
+  intendedModule        String?
+  objective             String?
+  persona               String?
+  intent                String?
+  /// "not_started" | "in_progress" | "completed" | "skipped" | "contextual"
+  onboardingState       String    @default("not_started")
+  onboardingStep        Int       @default(0)
+  onboardingCompletedAt DateTime?
+  /// Explicit opt-in only; registration alone is not marketing consent.
+  marketingConsent      Boolean   @default(false)
+  consentAt             DateTime?
+  consentSource         String?
+  /// Stops every lifecycle message (in-app and email) when set.
+  unsubscribedAt        DateTime?
+  assignedAdminId       String?
+  /// "none" | "open" | "contacted" | "resolved"
+  followUpStatus        String    @default("none")
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([onboardingState])
+  @@index([followUpStatus])
+}
+
+/// Behavioural events that no authoritative table records (views, onboarding steps,
+/// first-value markers). Money and credit events are read from Payment/UsageLog instead.
+model GrowthEvent {
+  id             String   @id @default(cuid())
+  userId         String?
+  /// First-party anonymous id (cookie) for pre-signup events; linked at signup.
+  anonId         String?
+  name           String
+  moduleId       String?
+  touchId        String?
+  /// Small JSON object; never prompts, generated content, tokens or payment data.
+  metadata       String   @default("{}")
+  schemaVersion  Int      @default(1)
+  /// "server" | "client"
+  source         String   @default("server")
+  idempotencyKey String?  @unique
+  createdAt      DateTime @default(now())
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+  @@index([name, createdAt])
+  @@index([anonId])
+}
+
+/// One attribution touch: a landing with campaign or referrer evidence.
+model GrowthTouch {
+  id           String   @id @default(cuid())
+  anonId       String
+  userId       String?
+  campaignId   String?
+  utmSource    String?
+  utmMedium    String?
+  utmCampaign  String?
+  utmContent   String?
+  utmTerm      String?
+  referrerHost String?
+  landingPath  String
+  targetModule String?
+  createdAt    DateTime @default(now())
+  user     User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaign GrowthCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  @@index([anonId, createdAt])
+  @@index([userId, createdAt])
+  @@index([campaignId, createdAt])
+  @@index([utmCampaign])
+}
+
+/// Admin-defined acquisition campaign; utmCampaign is the join key to touches.
+model GrowthCampaign {
+  id              String   @id @default(cuid())
+  name            String
+  utmCampaign     String   @unique
+  utmSource       String
+  utmMedium       String
+  targetModule    String?
+  landingPath     String
+  /// "draft" | "active" | "paused" | "ended"
+  status          String   @default("draft")
+  startsAt        DateTime?
+  endsAt          DateTime?
+  /// Advertising spend in Toman entered by an admin; null = unknown (no CAC shown).
+  spendToman      Int?
+  recommendedPlan String?
+  notes           String   @default("")
+  createdById     String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  touches GrowthTouch[]
+  @@index([status])
+}
+
+/// Every lifecycle message decision (sent, suppressed or failed); the unique key
+/// makes a rule step fire at most once per user.
+model GrowthMessage {
+  id             String   @id @default(cuid())
+  userId         String
+  ruleKey        String
+  /// "in_app" | "email"
+  channel        String
+  /// "sent" | "suppressed" | "failed"
+  status         String
+  reason         String?
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+  @@index([ruleKey, createdAt])
+}
+
+/// Internal admin note on a customer (never visible to the customer).
+model GrowthNote {
+  id        String   @id @default(cuid())
+  userId    String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
 }

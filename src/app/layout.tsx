@@ -5,6 +5,7 @@ import "@/components/billing/billing.css";
 import { Toaster } from "react-hot-toast";
 import { cookies } from "next/headers";
 import { LangProvider } from "@/lib/i18n/LangProvider";
+import GrowthTracker from "@/components/growth/GrowthTracker";
 import { getServerLang, type Lang } from "@/lib/i18n/server";
 import { SITE_URL, SITE_NAME } from "@/lib/seo/site";
 
@@ -94,6 +95,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           gtag('config', 'G-PEZ7X47VRX');
         `}</Script>
         <LangProvider lang={lang}>{children}</LangProvider>
+        <GrowthTracker />
         <Toaster
           position="top-center"
           toastOptions={{

@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { tri } from "@/lib/i18n/tri";
 import type { Lang } from "@/lib/i18n";
+import SmartOnboarding, { type OnboardingData } from "@/components/growth/SmartOnboarding";
 
 // Onboarding is the very first screen a new account sees, and it was
 // Persian-only with a hardcoded dir="rtl" — an English or German signup was
@@ -40,7 +41,7 @@ const EXPERIENCES: { id: string; label: Record<Lang, string> }[] = [
   { id: "pro", label: { fa: "حرفه‌ای — به طور منظم از AI استفاده می‌کنم", en: "Experienced — I use AI regularly", de: "Erfahren — ich nutze KI regelmäßig", tr: "Deneyimliyim — düzenli kullanıyorum" } },
 ];
 
-export default function WelcomePage() {
+function LegacyWelcome() {
   const router = useRouter();
   const { lang } = useTranslation();
   const rtl = lang === "fa";
@@ -173,4 +174,21 @@ export default function WelcomePage() {
       </p>
     </div>
   );
+}
+
+/**
+ * Smart onboarding (growth flag) for personal and business signups without a
+ * pre-selected plan; plan purchases, student and fitness accounts keep the
+ * established wizard and its checkout routing.
+ */
+export default function WelcomePage() {
+  const [mode, setMode] = useState<"loading" | "legacy" | OnboardingData>("loading");
+  useEffect(() => {
+    const planChosen = !!new URLSearchParams(location.search).get("plan");
+    (planChosen ? Promise.resolve(null) : fetch("/api/growth/onboarding", { cache: "no-store" }).then(r => r.ok ? r.json() : null))
+      .then((d: (OnboardingData & { accountType?: string }) | null) => setMode(d?.enabled && !["STUDENT", "FITNESS"].includes(d.accountType || "") ? d : "legacy"))
+      .catch(() => setMode("legacy"));
+  }, []);
+  if (mode === "loading") return <main className="min-h-screen" style={{ background: "var(--surface-0)" }} aria-busy="true"/>;
+  return mode === "legacy" ? <LegacyWelcome/> : <SmartOnboarding initial={mode}/>;
 }

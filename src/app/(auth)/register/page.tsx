@@ -34,6 +34,7 @@ function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [packName, setPackName] = useState("");
   const [agreed, setAgreed] = useState(false);
+  const [marketingConsent, setMarketingConsent] = useState(false);
 
   useEffect(() => {
     if (packSlug) {
@@ -66,7 +67,8 @@ function RegisterForm() {
           language: registerLang, selectedPlan: planCode || (accountType==="STUDENT"?STUDENT_PLAN_CODE:undefined), accountType,
           email: form.email || undefined, phone: composedPhone || undefined, password: form.password || undefined,
           industryPackSlug: packSlug || undefined, ref: refCode || undefined, promoCode:promoCode||undefined,
-          ...(params.get("entry")==="chat"?{entry:"chat"}:{}),
+          ...(params.get("entry")==="chat"?{entry:"chat"}:{redirect:params.get("redirect")||undefined}),
+          marketingConsent,
         }),
       });
       const data = await res.json();
@@ -76,6 +78,8 @@ function RegisterForm() {
       // navigation's server render -- a client-side route push would still
       // render the old language for a flash. A full reload picks it up cleanly.
       const purchasePlan=planCode||(accountType==="STUDENT"?STUDENT_PLAN_CODE:"");
+      // A module campaign signup returns the module page (validated server-side) instead of the general welcome wizard.
+      if (typeof data.redirect === "string" && data.redirect.startsWith("/") && !data.redirect.startsWith("//")) { window.location.assign(data.redirect); return; }
       window.location.href = params.get("entry")==="chat"&&!purchasePlan?(["/start","/play","/explore","/choose-plan"].includes(params.get("redirect")||"")?params.get("redirect")!:"/chat"):purchasePlan ? `/welcome?plan=${encodeURIComponent(purchasePlan)}&period=${encodeURIComponent(billingPeriod||"monthly")}` : "/welcome";
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t.auth.register.errGeneric);
@@ -211,6 +215,14 @@ function RegisterForm() {
                 {" "}{t.auth.register.agreeSuffix}
               </span>
             </label>
+            {/* Optional and unchecked by default: registration alone is not consent to marketing messages. */}
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input type="checkbox" checked={marketingConsent} onChange={e => setMarketingConsent(e.target.checked)}
+                className="w-4 h-4 mt-0.5 accent-orange-500 flex-shrink-0" />
+              <span className="text-xs leading-5" style={{ color: "var(--text-secondary)" }}>
+                {tri(lang, "راهنماها و پیشنهادهای مفید AIFekr را برایم ایمیل کنید (اختیاری، هر زمان قابل لغو).", "Email me useful AIFekr guides and offers (optional, unsubscribe anytime).", "Senden Sie mir hilfreiche AIFekr-Tipps und Angebote per E-Mail (optional, jederzeit abbestellbar).", "Bana faydalı AIFekr rehberleri ve teklifleri e-postayla gönder (isteğe bağlı, istediğiniz zaman iptal).")}
+              </span>
+            </label>
             <button type="submit" disabled={loading || !agreed}
               className="w-full py-3 rounded-xl font-semibold text-white transition-all disabled:opacity-50"
               style={{ background: "var(--primary)" }}>
@@ -224,7 +236,7 @@ function RegisterForm() {
             <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
           </div>
           <a
-            href={`/api/auth/google?${new URLSearchParams({plan:planCode||(accountType==="STUDENT"?STUDENT_PLAN_CODE:""),period:billingPeriod||"monthly",accountType,language:registerLang,ref:refCode,promo:promoCode,redirect:params.get("entry")==="chat"?(["/choose-plan","/explore"].includes(params.get("redirect")||"")?params.get("redirect")!:"/chat"):""})}`}
+            href={`/api/auth/google?${new URLSearchParams({plan:planCode||(accountType==="STUDENT"?STUDENT_PLAN_CODE:""),period:billingPeriod||"monthly",accountType,language:registerLang,ref:refCode,promo:promoCode,redirect:params.get("entry")==="chat"?(["/choose-plan","/explore"].includes(params.get("redirect")||"")?params.get("redirect")!:"/chat"):(params.get("redirect")||"")})}`}
             onClick={e=>{if(!agreed){e.preventDefault();toast.error(t.auth.register.errMustAgree);}}}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-medium text-sm transition-all"
             style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}

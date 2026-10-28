@@ -2,7 +2,9 @@ import { z } from "zod";
 export class VoiceError extends Error {
     constructor(public code: string, public status = 409) { super(code); }
 }
-export const settingsSchema = z.object({ enabled: z.boolean().default(false), version: z.number().int().positive().default(1), creditsPerInterval: z.number().int().min(1).max(10000).default(45), billingInterval: z.union([z.literal(20), z.literal(30)]).default(30), maxCharacters: z.number().int().min(100).max(20000).default(20000), maxDurationSeconds: z.number().int().min(10).max(60).default(60), maxConcurrent: z.number().int().min(1).max(4).default(1), maxPendingPerUser: z.number().int().min(1).max(10).default(3), dailyJobs: z.number().int().min(1).max(1000).default(30), retentionDays: z.number().int().min(1).max(365).default(30), allowedPlans: z.array(z.string().max(30)).max(20).default(["PRO", "BUSINESS", "TEAM", "AGENCY"]), allowedModels: z.array(z.string().max(100)).max(30).default([]), allowedVoices: z.array(z.string().max(100)).max(300).default([]), modelUsdPer1k: z.record(z.string(), z.number().nonnegative().max(100)).default({}), priceSource: z.string().max(500).default(""), priceVerifiedAt: z.string().datetime().nullable().default(null), creditUsd: z.number().nonnegative().max(100).nullable().default(null) }).strict();
+export const settingsSchema = z.object({ enabled: z.boolean().default(false), version: z.number().int().positive().default(1), creditsPerInterval: z.number().int().min(1).max(10000).default(45), billingInterval: z.union([z.literal(20), z.literal(30)]).default(30), maxCharacters: z.number().int().min(100).max(20000).default(20000), maxDurationSeconds: z.number().int().min(10).max(60).default(60), maxConcurrent: z.number().int().min(1).max(4).default(1), maxPendingPerUser: z.number().int().min(1).max(10).default(3), dailyJobs: z.number().int().min(1).max(1000).default(30), retentionDays: z.number().int().min(1).max(365).default(30), allowedPlans: z.array(z.string().max(30)).max(20).default(["PRO", "BUSINESS", "TEAM", "AGENCY"]), allowedModels: z.array(z.string().max(100)).max(30).default([]), allowedVoices: z.array(z.string().max(100)).max(300).default([]), modelUsdPer1k: z.record(z.string(), z.number().nonnegative().max(100)).default({}), priceSource: z.string().max(500).default(""), priceVerifiedAt: z.string().datetime().nullable().default(null), creditUsd: z.number().nonnegative().max(100).nullable().default(null),
+    /** Short sample generations for accounts outside allowedPlans, paid from their own credits through the normal ledger. 0 = off. */
+    trialGenerations: z.number().int().min(0).max(3).default(0), trialMaxSeconds: z.number().int().min(10).max(60).default(30) }).strict();
 export type VoicePolicy = z.infer<typeof settingsSchema>;
 export const defaults = settingsSchema.parse({});
 export function graphemes(text: string) { return [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text)].length; }
@@ -33,3 +35,12 @@ export function splitProject(text: string, language: string, maxSeconds: number,
 }
 export function projectText(text: string, max: number) { if (text.includes("\0") || graphemes(text) > max)
     throw new VoiceError("PROJECT_TEXT_TOO_LONG", 400); return text; }
+
+/** Trial samples left for an account outside allowedPlans; failed/cancelled samples are refunded and do not count. */
+export function trialRemaining(planOk: boolean, policy: Pick<VoicePolicy, "trialGenerations">, used: number) {
+    return planOk ? 0 : Math.max(0, policy.trialGenerations - used);
+}
+/** The policy one request runs under: a trial sample is capped at trialMaxSeconds for splitting, reservation and final validation. */
+export function effectivePolicy(policy: VoicePolicy, trial: boolean): VoicePolicy {
+    return trial ? { ...policy, maxDurationSeconds: Math.min(policy.maxDurationSeconds, policy.trialMaxSeconds) } : policy;
+}

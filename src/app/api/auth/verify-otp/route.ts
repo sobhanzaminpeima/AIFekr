@@ -4,10 +4,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { signToken, signRefreshToken } from "@/lib/auth/jwt";
 import { rateLimit } from "@/lib/utils/rateLimit";
+import { onAccountCreated } from "@/lib/growth/signup";
+import { ANON_COOKIE } from "@/lib/growth/attribution";
 
 export async function POST(req: NextRequest) {
   try {
-    const { phone, code,entry } = await req.json();
+    const { phone, code,entry,redirect: requestedRedirect } = await req.json();
 
     if (!phone || !code) {
       return NextResponse.json({ error: "اطلاعات ناقص است" }, { status: 400 });
@@ -42,6 +44,7 @@ export async function POST(req: NextRequest) {
 
     // Find or create user
     let user = await prisma.user.findUnique({ where: { phone } });
+    let redirect: string | null = null;
 
     if (!user) {
       user = await prisma.user.create({
@@ -52,6 +55,7 @@ export async function POST(req: NextRequest) {
           ...(entry==="chat"?{chatOnly:true,onboardingDone:true}:{}),
         },
       });
+      if (!user.chatOnly) redirect = await onAccountCreated(user.id, req.cookies.get(ANON_COOKIE)?.value, requestedRedirect);
     } else {
       await prisma.user.update({
         where: { id: user.id },
@@ -63,7 +67,7 @@ export async function POST(req: NextRequest) {
     const token = signToken(payload);
     const refreshToken = signRefreshToken(payload);
 
-    const response = NextResponse.json({ success: true, user: { id: user.id, name: user.name, role: user.role, plan: user.plan } });
+    const response = NextResponse.json({ success: true, redirect, user: { id: user.id, name: user.name, role: user.role, plan: user.plan } });
 
     const secure = process.env.NODE_ENV === "production";
 

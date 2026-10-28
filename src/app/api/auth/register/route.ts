@@ -11,6 +11,8 @@ import { tri } from "@/lib/i18n/tri";
 
 import { accountTypeFor } from "@/lib/auth/accountAudience";
 import { registrationPhone, COUNTRIES } from "@/lib/constants/countries";
+import { onAccountCreated } from "@/lib/growth/signup";
+import { ANON_COOKIE } from "@/lib/growth/attribution";
 
 const VALID_LANGS = new Set(["fa", "en", "de", "tr"]);
 
@@ -96,12 +98,15 @@ export async function POST(req: NextRequest) {
       referredBy,
     });
 
+    // Links campaign attribution and, for a module campaign, returns the module page to open instead of /welcome.
+    const redirect = user.chatOnly ? null : await onAccountCreated(user.id, req.cookies.get(ANON_COOKIE)?.value, bodyForLang.redirect, { selectedPlan, marketingConsent: bodyForLang.marketingConsent === true });
+
     const payload = { userId: user.id, role: user.role, plan: user.plan };
     const token = signToken(payload);
     const refreshToken = signRefreshToken(payload);
 
     const secure = process.env.NODE_ENV === "production";
-    const response = NextResponse.json({ success: true, user: { id: user.id, name: user.name, role: user.role } });
+    const response = NextResponse.json({ success: true, redirect, user: { id: user.id, name: user.name, role: user.role } });
 
     response.cookies.set("token", token, { httpOnly: true, secure, sameSite: "lax", maxAge: 7 * 24 * 60 * 60 });
     response.cookies.set("refresh_token", refreshToken, { httpOnly: true, secure, sameSite: "lax", maxAge: 30 * 24 * 60 * 60 });

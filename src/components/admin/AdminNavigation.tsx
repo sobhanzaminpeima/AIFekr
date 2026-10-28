@@ -58,6 +58,13 @@ export const adminGroups: Group[] = [
     items: [
       item("users", "کاربران", "Users", "Benutzer", "Kullanıcılar"),
       item(
+        "customer-growth",
+        "رشد مشتری و کمپین‌ها",
+        "Customer growth & campaigns",
+        "Kundenwachstum und Kampagnen",
+        "Müşteri büyümesi ve kampanyalar",
+      ),
+      item(
         "admins",
         "مدیران سیستم",
         "Administrators",

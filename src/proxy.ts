@@ -27,6 +27,7 @@ const RULES: Array<{ prefix: string; limit: number; windowMs: number }> = [
   { prefix: "/api/website-designer/generate", limit: 10, windowMs: 60 * 1000 },
   { prefix: "/api/startup/generate", limit: 10, windowMs: 60 * 1000 },
   { prefix: "/api/payment", limit: 20, windowMs: 60 * 1000 },
+  { prefix: "/api/growth", limit: 40, windowMs: 60 * 1000 },
   { prefix: "/api", limit: 120, windowMs: 60 * 1000 },
 ];
 

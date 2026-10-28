@@ -7,7 +7,8 @@ import { getAvailableCredits, reserveLoggedCredits, releaseLoggedCredits } from 
 import { privateStorageConfigured, signedPrivateObject } from "@/lib/storage/r2";
 import { voicePolicy } from "./config";
 import { speechCatalog, voiceSettingsSchema } from "./provider";
-import { VoiceError, creditsFor, graphemes, splitProject, estimatedSeconds, projectText, type VoicePolicy } from "./domain";
+import { VoiceError, creditsFor, graphemes, splitProject, estimatedSeconds, projectText, trialRemaining, effectivePolicy, type VoicePolicy } from "./domain";
+import { trackEvent } from "@/lib/growth/events";
 export async function voiceScope(userId: string) { const context = await resolveOrganizationContext(userId); return { userId, businessId: context?.businessId ?? null }; }
 export type VoicePreset = {
     id: string;
@@ -29,15 +30,20 @@ export async function ownedGeneration(userId: string, id: string) { const row = 
 export function planAllowed(user: { role: string; plan: string; planExpiry: Date | null }, policy: Pick<VoicePolicy, "allowedPlans">) {
     return ["ADMIN", "SUPER_ADMIN"].includes(user.role) || policy.allowedPlans.includes(effectivePlan(user as Parameters<typeof effectivePlan>[0]));
 }
+const TRIAL_COUNTED = ["QUEUED", "RUNNING", "REVIEW", "READY", "DELETED"];
+async function trialSamplesUsed(db: Pick<typeof prisma, "voiceStudioGeneration">, userId: string) {
+    return db.voiceStudioGeneration.count({ where: { userId, status: { in: TRIAL_COUNTED } } });
+}
 export async function bootstrap(userId: string) { const policy = await voicePolicy();
     // Tell the screen up front whether this account may generate, so it can explain instead of failing on click.
     const account = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { role: true, plan: true, planExpiry: true } });
-    const access = { planAllowed: planAllowed(account, policy), storageReady: privateStorageConfigured() }; let catalog = null, catalogError: string | null = null; try {
+    const planOk = planAllowed(account, policy), trialLeft = trialRemaining(planOk, policy, planOk ? 0 : await trialSamplesUsed(prisma, userId));
+    const access = { planAllowed: planOk, trialRemaining: trialLeft, trialMaxSeconds: policy.trialMaxSeconds, storageReady: privateStorageConfigured() }; let catalog = null, catalogError: string | null = null; try {
     catalog = await speechCatalog();
 }
 catch (e) {
     catalogError = e instanceof VoiceError ? e.code : "CATALOG_UNAVAILABLE";
-} return { access, policy: { enabled: policy.enabled, version: policy.version, maxCharacters: policy.maxCharacters, maxDurationSeconds: policy.maxDurationSeconds, creditsPerInterval: policy.creditsPerInterval, billingInterval: policy.billingInterval, allowedModels: policy.allowedModels, allowedVoices: policy.allowedVoices }, catalog, catalogError, presets: await presetsFor(userId), credits: await getAvailableCredits(userId), projects: await prisma.voiceStudioProject.findMany({ where: { ...await voiceScope(userId), deletedAt: null }, orderBy: { updatedAt: "desc" }, take: 100 }) }; }
+} return { access, policy: { enabled: policy.enabled, version: policy.version, maxCharacters: policy.maxCharacters, maxDurationSeconds: effectivePolicy(policy, trialLeft > 0).maxDurationSeconds, creditsPerInterval: policy.creditsPerInterval, billingInterval: policy.billingInterval, allowedModels: policy.allowedModels, allowedVoices: policy.allowedVoices }, catalog, catalogError, presets: await presetsFor(userId), credits: await getAvailableCredits(userId), projects: await prisma.voiceStudioProject.findMany({ where: { ...await voiceScope(userId), deletedAt: null }, orderBy: { updatedAt: "desc" }, take: 100 }) }; }
 export async function saveProject(userId: string, input: {
     id?: string;
     name: string;
@@ -62,15 +68,18 @@ export type GenerationInput = {
     settings?: unknown;
 };
 export async function enqueueSpeech(userId: string, input: GenerationInput) {
-    const policy = await voicePolicy();
+    const basePolicy = await voicePolicy();
     const blocked = await prisma.moduleRegistry.findUnique({ where: { key: "voice-studio" } });
-    if (!policy.enabled || blocked && ["disabled", "maintenance"].includes(blocked.status))
+    if (!basePolicy.enabled || blocked && ["disabled", "maintenance"].includes(blocked.status))
         throw new VoiceError("VOICE_STUDIO_DISABLED", 503);
     if (!privateStorageConfigured())
         throw new VoiceError("PRIVATE_STORAGE_REQUIRED", 503);
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { role: true, plan: true, planExpiry: true } });
-    if (!planAllowed(user, policy))
+    const planOk = planAllowed(user, basePolicy);
+    // Outside allowedPlans only a configured trial sample is possible; it is re-checked inside the transaction.
+    if (!planOk && trialRemaining(false, basePolicy, await trialSamplesUsed(prisma, userId)) < 1)
         throw new VoiceError("PLAN_REQUIRED", 403);
+    const policy = effectivePolicy(basePolicy, !planOk);
     const project = await ownedProject(userId, input.projectId);
     if (project.archivedAt)
         throw new VoiceError("PROJECT_ARCHIVED");
@@ -101,11 +110,13 @@ export async function enqueueSpeech(userId: string, input: GenerationInput) {
             throw new VoiceError("PROJECT_NOT_FOUND", 404);
         if (currentProject.updatedAt.getTime() !== project.updatedAt.getTime())
             throw new VoiceError("PROJECT_CHANGED_RETRY");
+        if (!planOk && trialRemaining(false, basePolicy, await trialSamplesUsed(tx, userId)) < 1)
+            throw new VoiceError("PLAN_REQUIRED", 403);
         if (await tx.voiceStudioGeneration.count({ where: { userId, status: { in: ["QUEUED", "RUNNING", "REVIEW"] } } }) >= policy.maxPendingPerUser)
             throw new VoiceError("TOO_MANY_PENDING_JOBS", 429);
         if (await tx.voiceStudioGeneration.count({ where: { userId, createdAt: { gte: new Date(Date.now() - 86400000) } } }) >= policy.dailyJobs)
             throw new VoiceError("DAILY_QUOTA_REACHED", 429);
-        const reservation = await reserveLoggedCredits(tx, userId, reserved, { type: "voice_studio", provider: "elevenlabs", model: model.id, requestId: `voice:${id}:reserve`, metadata: { generationId: id, pricingVersion: policy.version, kind: "RESERVATION" } });
+        const reservation = await reserveLoggedCredits(tx, userId, reserved, { type: "voice_studio", provider: "elevenlabs", model: model.id, requestId: `voice:${id}:reserve`, metadata: { generationId: id, pricingVersion: policy.version, kind: "RESERVATION", trial: !planOk } });
         if (!reservation)
             throw new VoiceError("INSUFFICIENT_CREDITS", 402);
         return tx.voiceStudioGeneration.create({ data: { id, userId, businessId: project.businessId, projectId: project.id, idempotencyKey: input.idempotencyKey, inputHash, text, graphemes: graphemes(text), providerCharacters: Array.from(text).length, segmentIndex: input.segmentIndex, language: project.language, voiceId: voice.id, modelId: model.id, voiceSettings: JSON.stringify(settings), pricingSnapshot: JSON.stringify(policy), estimatedSeconds: estimatedSeconds(text, project.language), reservedCredits: reserved, ...reservation } });
@@ -121,10 +132,12 @@ export async function finishGeneration(id: string, status: "READY" | "FAILED" | 
     adminActor?: string;
     note?: string;
 } = {}) {
-    return prisma.$transaction(async (tx) => {
+    let settled = false;
+    const result = await prisma.$transaction(async (tx) => {
         const row = await tx.voiceStudioGeneration.findUniqueOrThrow({ where: { id } });
         if (!["RUNNING", "QUEUED", "REVIEW"].includes(row.status))
             return row;
+        settled = true;
         const policy = JSON.parse(row.pricingSnapshot) as VoicePolicy;
         if (status === "READY" && (!details.storageKey || !details.durationMs || details.durationMs > policy.maxDurationSeconds * 1000))
             throw new VoiceError("INVALID_FINAL_AUDIO");
@@ -140,6 +153,23 @@ export async function finishGeneration(id: string, status: "READY" | "FAILED" | 
             await tx.auditLog.create({ data: { actorId: details.adminActor, action: "voice_studio.reconciled", targetId: id, metadata: JSON.stringify({ status, note: details.note }) } });
         return tx.voiceStudioGeneration.findUniqueOrThrow({ where: { id } });
     });
+    if (settled && status !== "CANCELLED")
+        await recordVoiceOutcome(result.userId, id, status);
+    return result;
+}
+/** Growth events from the authoritative final state (after commit), never from the Generate click. */
+async function recordVoiceOutcome(userId: string, id: string, status: "READY" | "FAILED") {
+    if (status === "FAILED") {
+        await trackEvent({ name: "ai_generation_failed", userId, moduleId: "voice-studio", idempotencyKey: `voice:${id}:failed` });
+        return;
+    }
+    await trackEvent({ name: "ai_generation_succeeded", userId, moduleId: "voice-studio", idempotencyKey: `voice:${id}:ready` });
+    const ready = await prisma.voiceStudioGeneration.count({ where: { userId, status: { in: ["READY", "DELETED"] }, storageKey: { not: null } } });
+    if (ready === 1) {
+        await trackEvent({ name: "first_voice_generated", userId, moduleId: "voice-studio", idempotencyKey: `voice:first:${userId}` });
+        await trackEvent({ name: "first_value_achieved", userId, moduleId: "voice-studio", idempotencyKey: `fv:voice-studio:${userId}` });
+    } else if (ready === 2)
+        await trackEvent({ name: "second_voice_generated", userId, moduleId: "voice-studio", idempotencyKey: `voice:second:${userId}` });
 }
 export async function cancelGeneration(userId: string, id: string) { const row = await ownedGeneration(userId, id); if (row.status === "CANCELLED")
     return row; if (row.status !== "QUEUED")

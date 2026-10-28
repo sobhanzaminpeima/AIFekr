@@ -3,6 +3,7 @@
 
 import { cookies,headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { safeInternalPath } from "@/lib/growth/attribution";
 import { verifyToken } from "@/lib/auth/jwt";
 import { prisma } from "@/lib/db/prisma";
 import PendingPaymentNotice from "@/components/billing/PendingPaymentNotice";
@@ -26,7 +27,10 @@ import {shouldShowFitness} from "@/lib/fitness/navigation";
 export async function renderPlatformShell(children:React.ReactNode,fitness=false) {
   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;
-  const loginPath=(await headers()).get("x-aifekr-path")?.split("?")[0]==="/play"?"/register?entry=chat&redirect=%2Fplay":"/login";
+  const requestedPath=(await headers()).get("x-aifekr-path")||"";
+  // Keep where the visitor was going (e.g. a Voice Studio ad) through sign-in/sign-up; login validates it again.
+  const returnTo=safeInternalPath(requestedPath);
+  const loginPath=requestedPath.split("?")[0]==="/play"?"/register?entry=chat&redirect=%2Fplay":returnTo?`/login?redirect=${encodeURIComponent(returnTo)}`:"/login";
 
   if (!token) redirect(loginPath);
   const payload = verifyToken(token);
