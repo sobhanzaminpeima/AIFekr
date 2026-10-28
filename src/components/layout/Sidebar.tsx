@@ -1,6 +1,6 @@
 "use client";
 
-import WorkspaceSwitcher, { QuickTiles, WorkspaceGroups, useWorkspace } from "./WorkspaceNav";
+import { QuickTiles, WorkspaceChips, WorkspaceGroups, useWorkspace } from "./WorkspaceNav";
 import { workspaceById } from "@/lib/navigation/workspaces";
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -179,7 +179,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
   const activeWorkspace = workspaceById(workspace?.active);
   // Long lists (history, every tool, assistants, tools) open as an overlay panel inside
   // the sidebar instead of stretching the menu; following any link inside closes it.
-  const [panel, setPanel] = useState<null | "history" | "all" | "assistants" | "tools">(null);
+  const [panel, setPanel] = useState<null | "history" | "all" | "assistants">(null);
   // Design Director phase 2 — the eleven business destinations are grouped into
   // four departments. A department opens when the page you are on lives inside
   // it, so you always see where you are without hunting; the rest stay closed
@@ -331,7 +331,6 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
       </div>}
 
       <nav className="flex-1 overflow-y-auto px-2 space-y-0.5 pb-2">
-        {!fitnessOnly && <WorkspaceSwitcher />}
         {!fitnessOnly && <QuickTiles isActive={isActive} isAvailable={isAvailable} />}
         <NavItem icon={LayoutDashboard} label={tri(lang, "خانه", "Home", "Startseite", "Ana Sayfa")} href="/home" active={isActive("/home")} />
         {(user?.showFitness ?? true) && <NavItem icon={Dumbbell} label={lang==="fa"?"فیتنس آی‌فکر":"AIFekr FIT"} href="/fitness" active={isActive("/fitness")} />}
@@ -340,19 +339,18 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         {!fitnessOnly && <>
         {!!user?.pendingPaymentCount && <NavItem icon={CreditCard} label={`${tri(lang, "پرداخت‌ها و فعال‌سازی", "Payments & activation", "Zahlungen und Aktivierung", "Ödemeler ve etkinleştirme")}${user?.pendingPaymentCount ? ` (${user.pendingPaymentCount.toLocaleString(lang)})` : ""}`} href={pathname.startsWith("/fitness")?"/fitness/payments":"/payments"} active={isActive("/payments")||isActive("/fitness/payments")} />}
           <button className="sb-row" onClick={() => setPanel("history")} aria-haspopup="dialog"><History className="w-4 h-4 flex-shrink-0" /><span className="flex-1 truncate text-start">{t.nav.history}</span>{historyItems.length > 0 && <span className="sb-count">{historyItems.length.toLocaleString(lang)}</span>}<ChevronLeft className="w-4 h-4 flex-shrink-0 opacity-60 ltr:rotate-180" /></button>
-          <button className="sb-row" onClick={() => setPanel("all")} aria-haspopup="dialog"><LayoutGrid className="w-4 h-4 flex-shrink-0" /><span className="flex-1 truncate text-start">{activeWorkspace ? tri(lang, `ابزارهای ${activeWorkspace.name[0]}`, `${activeWorkspace.name[1]} tools`, `${activeWorkspace.name[1]} tools`, `${activeWorkspace.name[1]} tools`) : tri(lang, "همهٔ ابزارها", "All tools", "Alle Werkzeuge", "Tüm araçlar")}</span><ChevronLeft className="w-4 h-4 flex-shrink-0 opacity-60 ltr:rotate-180" /></button>
+          <button className="sb-row" onClick={() => setPanel("all")} aria-haspopup="dialog"><LayoutGrid className="w-4 h-4 flex-shrink-0" /><span className="flex-1 truncate text-start">{tri(lang, "ابزارها", "Tools", "Werkzeuge", "Araçlar")}</span>{activeWorkspace && <span className="sb-count">{activeWorkspace.name[lang === "fa" ? 0 : 1]}</span>}<ChevronLeft className="w-4 h-4 flex-shrink-0 opacity-60 ltr:rotate-180" /></button>
           <button className="sb-row" onClick={() => setPanel("assistants")} aria-haspopup="dialog"><Sparkles className="w-4 h-4 flex-shrink-0" /><span className="flex-1 truncate text-start">{t.nav.assistants}</span><ChevronLeft className="w-4 h-4 flex-shrink-0 opacity-60 ltr:rotate-180" /></button>
-          <button className="sb-row" onClick={() => setPanel("tools")} aria-haspopup="dialog"><Briefcase className="w-4 h-4 flex-shrink-0" /><span className="flex-1 truncate text-start">{t.nav.tools}</span><ChevronLeft className="w-4 h-4 flex-shrink-0 opacity-60 ltr:rotate-180" /></button>
         </>}
       </nav>
 
       {panel && (
         <div className="sb-panel" role="dialog" aria-modal="false"
-          aria-label={panel === "history" ? t.nav.history : panel === "assistants" ? t.nav.assistants : panel === "tools" ? t.nav.tools : tri(lang, "همهٔ ابزارها", "All tools", "Alle Werkzeuge", "Tüm araçlar")}
+          aria-label={panel === "history" ? t.nav.history : panel === "assistants" ? t.nav.assistants : tri(lang, "ابزارها", "Tools", "Werkzeuge", "Araçlar")}
           onKeyDown={(e) => { if (e.key === "Escape") setPanel(null); }}
           onClick={(e) => { if ((e.target as HTMLElement).closest("a")) setPanel(null); }}>
           <div className="sb-panel-head">
-            <strong>{panel === "history" ? t.nav.history : panel === "assistants" ? t.nav.assistants : panel === "tools" ? t.nav.tools : activeWorkspace ? tri(lang, `ابزارهای ${activeWorkspace.name[0]}`, `${activeWorkspace.name[1]} tools`, `${activeWorkspace.name[1]} tools`, `${activeWorkspace.name[1]} tools`) : tri(lang, "همهٔ ابزارها", "All tools", "Alle Werkzeuge", "Tüm araçlar")}</strong>
+            <strong>{panel === "history" ? t.nav.history : panel === "assistants" ? t.nav.assistants : tri(lang, "ابزارها", "Tools", "Werkzeuge", "Araçlar")}</strong>
             <button autoFocus onClick={() => setPanel(null)} aria-label={tri(lang, "بستن", "Close", "Schließen", "Kapat")}><X className="w-4 h-4" /></button>
           </div>
           <div className="sb-panel-body space-y-0.5">
@@ -553,6 +551,8 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             {historyItems.length === 0 && projects.length === 0 && <p className="px-3 py-6 text-xs text-center" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز گفتگویی ثبت نشده است", "No conversations yet", "Noch keine Unterhaltungen", "Henüz sohbet yok")}</p>}
             </>}
             {panel === "all" && <>
+              {/* Which tools to show first. Presentation only: never access, plan or credits. */}
+              <WorkspaceChips />
               <WorkspaceGroups isActive={isActive} isAvailable={isAvailable} />
               {activeWorkspace && <NavSection label={tri(lang, "همهٔ ابزارها", "All tools", "Alle Werkzeuge", "Tüm araçlar")} />}
         <NavItem icon={MessageSquare} label={t.nav.chat} href="/chat" active={isActive("/chat")} />
@@ -681,9 +681,10 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             for. They used to outrank it: Tools and Assistants were above
             "My Business", so the eleven modules that are the product were
             the last thing in the list. */}
+              <NavSection label={t.nav.tools} />
+              {tools.map((tool) => <NavItem key={tool.href} icon={tool.icon} label={tool.label} href={tool.href} active={isActive(tool.href)} />)}
             </>}
             {panel === "assistants" && assistants.map((a) => <NavItem key={a.href} icon={a.icon} label={a.label} href={a.href} active={isActive(a.href)} />)}
-            {panel === "tools" && tools.map((tool) => <NavItem key={tool.href} icon={tool.icon} label={tool.label} href={tool.href} active={isActive(tool.href)} />)}
           </div>
           <button className="sb-panel-close" onClick={() => setPanel(null)}><X className="w-3.5 h-3.5" />{tri(lang, "بستن", "Close", "Schließen", "Kapat")}</button>
         </div>

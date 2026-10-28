@@ -57,6 +57,15 @@ const ICONS: Record<string, LucideIcon> = {
 };
 export const iconFor = (href: string): LucideIcon => ICONS[href] ?? Sparkles;
 
+/** One- or two-word labels for the 2×2 tiles; full names stay in the panels and search. */
+const SHORT: Record<string, [string, string]> = {
+  "/image/generate": ["تصویر", "Image"], "/video/generate": ["ویدیو", "Video"], "/voice-studio": ["صداگذاری", "Voice"], "/music/generate": ["موزیک", "Music"],
+  "/video-factory": ["کارخانه ویدیو", "Video Factory"], "/crm": ["مشتریان", "Customers"], "/social": ["شبکه‌های اجتماعی", "Social"], "/lead-gen": ["جذب مشتری", "Leads"],
+  "/business-doctor": ["تحلیل کسب‌وکار", "Business check"], "/student?view=courses&tool=upload": ["آپلود جزوه", "Upload notes"],
+  "/student?view=courses&tool=practice": ["آزمون", "Quiz"], "/student?view=courses&tool=review": ["فلش‌کارت", "Flashcards"], "/student?view=planner": ["برنامهٔ مطالعه", "Study plan"],
+  "/fitness": ["فیت", "FIT"], "/assistants/fitness-coach": ["مربی", "Coach"], "/tools/healthy-diet": ["تغذیه", "Nutrition"], "/chat": ["گفتگو", "Chat"],
+};
+
 /** One-line workspace switcher (opens a small list); never changes access. */
 export default function WorkspaceSwitcher() {
   const { lang } = useTranslation(), fa = lang === "fa";
@@ -97,7 +106,7 @@ export function QuickTiles({ isActive, isAvailable }: { isActive: (href: string)
   const tiles = (workspaceById(state?.active)?.tiles ?? DEFAULT_TILES).filter(isAvailable).slice(0, 4);
   return <div className="sb-tiles">{tiles.map(href => {
     const Icon = iconFor(href);
-    return <Link key={href} href={href} className="sb-tile" aria-current={!href.includes("?") && isActive(href) ? "page" : undefined}><Icon className="w-4 h-4"/><span>{destinationName(href, lang)}</span></Link>;
+    return <Link key={href} href={href} className="sb-tile" title={destinationName(href, lang)} aria-current={!href.includes("?") && isActive(href) ? "page" : undefined}><Icon className="w-5 h-5"/><span>{SHORT[href]?.[lang === "fa" ? 0 : 1] ?? destinationName(href, lang)}</span></Link>;
   })}</div>;
 }
 
@@ -114,4 +123,16 @@ export function WorkspaceGroups({ isActive, isAvailable }: { isActive: (href: st
       {items.map(href => { const Icon = iconFor(href); return <Link key={href} href={href} className="ws-link" aria-current={!href.includes("?") && isActive(href) ? "page" : undefined}><Icon className="w-4 h-4"/>{destinationName(href, lang)}</Link>; })}
     </div>;
   })}</div>;
+}
+
+/** Workspace choice as chips at the top of the tools panel (replaces the big switcher row). */
+export function WorkspaceChips() {
+  const { lang } = useTranslation(), fa = lang === "fa";
+  const state = useWorkspace();
+  if (!state?.enabled) return null;
+  return <div className="ws-chips" role="group" aria-label={tri(lang, "نمایش برای", "Show tools for", "Werkzeuge für", "Araçlar")}>
+    <span className="ws-chips-label">{tri(lang, "نمایش برای:", "Show tools for:", "Werkzeuge für:", "Araçlar:")}</span>
+    <button aria-pressed={!state.active} onClick={() => void chooseWorkspace(state, null)}>{tri(lang, "همه", "All", "Alle", "Tümü")}</button>
+    {WORKSPACES.map(w => <button key={w.id} aria-pressed={state.active === w.id} onClick={() => void chooseWorkspace(state, w.id)}>{w.name[fa ? 0 : 1]}</button>)}
+  </div>;
 }
