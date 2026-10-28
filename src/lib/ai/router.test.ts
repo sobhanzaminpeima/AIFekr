@@ -3,7 +3,7 @@ const mocks=vi.hoisted(()=>({stream:vi.fn(),available:vi.fn()}));
 const providers=vi.hoisted(()=>[{id:"one",name:"One",model:"model-one",provider:"groq",apiKey:"test",baseURL:"https://invalid.test",strengths:[],maxTokens:100,creditCost:1},{id:"two",name:"Two",model:"model-two",provider:"groq",apiKey:"test",baseURL:"https://invalid.test",strengths:[],maxTokens:100,creditCost:1}]);
 vi.mock("./providers",()=>({PROVIDERS:providers,getAvailableProviders:mocks.available,streamProvider:mocks.stream}));
 vi.mock("./providerConfig",()=>({refreshDisabledProviders:async()=>{},getDisabledProviders:()=>new Set()}));
-import {routedStreamChat,detectQueryType} from "./router";
+import {routedStreamChat,detectQueryType,isPersistentProviderError} from "./router";
 beforeEach(()=>{vi.useFakeTimers();vi.clearAllMocks();mocks.available.mockReturnValue(providers)});
 afterEach(()=>vi.useRealTimers());
 describe("low-latency chat routing",()=>{
@@ -22,4 +22,20 @@ describe("low-latency chat routing",()=>{
   await routedStreamChat([{role:"user",content:"Test"}],"Test",()=>{},()=>{},"model-one",fallback);expect(fallback).toHaveBeenCalledWith({from:providers[0],partial:true});
  });
  it("identifies short Persian and international greetings as fast queries",()=>{for(const s of ["سلام","hello","hallo","merhaba"])expect(detectQueryType(s)).toBe("fast")});
+ it("recognises failures that repeat until an operator acts",()=>{
+  expect(isPersistentProviderError(new Error("Gemini error 429: You exceeded your current quota, please check your plan and billing details"))).toBe(true);
+  expect(isPersistentProviderError(new Error("OpenAI error 400: Unsupported value: 'reasoning_effort' does not support 'minimal'"))).toBe(true);
+  expect(isPersistentProviderError(new Error("Groq error 401: invalid api key"))).toBe(true);
+  expect(isPersistentProviderError(new Error("One error 429: rate limit"))).toBe(false);
+  expect(isPersistentProviderError(new Error("One error 503: overloaded"))).toBe(false);
+ });
+ it("skips a provider with an exhausted quota on the next message",async()=>{
+  mocks.stream.mockRejectedValueOnce(new Error("One error 429: You exceeded your current quota")).mockResolvedValueOnce(null);
+  expect((await routedStreamChat([{role:"user",content:"Hi"}],"Test",()=>{},()=>{},"model-one")).id).toBe("two");
+  mocks.stream.mockClear();mocks.stream.mockResolvedValueOnce(null);
+  expect((await routedStreamChat([{role:"user",content:"Hi"}],"Test",()=>{},()=>{},"model-one")).id).toBe("two");
+  expect(mocks.stream).toHaveBeenCalledTimes(1);
+  await vi.advanceTimersByTimeAsync(10*60_000+1);mocks.stream.mockClear();mocks.stream.mockResolvedValueOnce(null);
+  expect((await routedStreamChat([{role:"user",content:"Hi"}],"Test",()=>{},()=>{},"model-one")).id).toBe("one");
+ });
 });

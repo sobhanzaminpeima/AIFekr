@@ -86,6 +86,35 @@ function isRetryableRateLimitError(error: Error): boolean {
 }
 
 /**
+ * Failures that will repeat on every request until an operator acts:
+ * exhausted quota/billing, a rejected key, or a request the provider refuses
+ * as invalid for this model. Gemini's exhausted quota made every chat try it
+ * first and wait for the error (1,121 times in production) before falling
+ * back. Transient 429s, timeouts and 5xx are not included.
+ */
+export function isPersistentProviderError(error: Error): boolean {
+  const message = error.message.toLowerCase();
+  if (/(exceeded your current quota|check your plan and billing|billing details|insufficient quota|insufficient_quota|quota.*exceeded)/.test(message)) return true;
+  if (/error (401|403)\b/.test(message)) return true;
+  return /error 400\b/.test(message) && /(unsupported (value|parameter)|model.*(not found|does not exist|not supported))/.test(message);
+}
+
+const COOLDOWN_MS = 10 * 60_000;
+const coolingUntil = new Map<string, number>();
+/** Skip a provider for a while after a persistent failure; it is tried again automatically afterwards. */
+function coolDown(provider: Provider, error: Error) {
+  if (!isPersistentProviderError(error)) return;
+  coolingUntil.set(provider.id, Date.now() + COOLDOWN_MS);
+  console.warn(`[Router] ${provider.name} paused for ${COOLDOWN_MS / 60_000} min after a persistent error`);
+}
+const isCooling = (p: Provider) => (coolingUntil.get(p.id) ?? 0) > Date.now();
+/** Enabled providers minus those cooling down; if every one is cooling, all of them (never leave chat with nothing). */
+function usableProviders(): Provider[] {
+  const enabled = getEnabledProviders(), ready = enabled.filter(p => !isCooling(p));
+  return ready.length ? ready : enabled;
+}
+
+/**
  * Exported (not just used internally) so callers that need a *restricted*
  * subset of providers -- e.g. the floating support assistant, which must
  * only ever pick from free-tier providers and never fall through to a paid
@@ -134,7 +163,7 @@ const ROUTING_TABLE: Record<QueryType, string[]> = {
 
 // ─── Pick best available provider for a query ────────────────────────────────
 export function selectProvider(message: string, userPreferredModel?: string): Provider {
-  const available = getEnabledProviders();
+  const available = usableProviders();
   const availableIds = new Set(available.map((p) => p.id));
 
   // If user explicitly picked a specific claude model, respect it
@@ -192,6 +221,7 @@ export async function routedStreamChat(
     const error = err instanceof Error ? err : new Error(String(err));
     const partial = (error as Error & { partial?: boolean }).partial ?? false;
     console.warn(`[Router] ${primary.name} failed:`, error.message);
+    coolDown(primary, error);
     onFallback?.({ from: primary, partial });
 
     // Prefer an available fallback immediately; only a sole provider gets
@@ -217,7 +247,7 @@ export async function routedStreamChat(
   }
 
   // Fallback chain — try all other enabled providers
-  const available = getEnabledProviders().filter((p) => p.id !== primary.id);
+  const available = usableProviders().filter((p) => p.id !== primary.id);
   for (const fallback of available) {
     try {
       console.log(`[Router] Falling back to ${fallback.name}`);
@@ -229,6 +259,7 @@ export async function routedStreamChat(
       const error = err instanceof Error ? err : new Error(String(err));
       const partial = (error as Error & { partial?: boolean }).partial ?? false;
       console.warn(`[Router] ${fallback.name} also failed:`, error.message);
+      coolDown(fallback, error);
       onFallback?.({ from: fallback, partial });
     }
   }

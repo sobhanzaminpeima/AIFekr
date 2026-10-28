@@ -230,6 +230,17 @@ export function getAvailableProviders(): Provider[] {
   return PROVIDERS.filter((p) => p.apiKey.length > 10);
 }
 
+/**
+ * The original GPT-5 family (gpt-5, gpt-5-mini, gpt-5-nano, dated snapshots)
+ * accepts "minimal"; GPT-5.x point releases (e.g. the configured
+ * gpt-5.4-nano) reject it with "Supported values are: 'none', 'low', ..." --
+ * a 400 on every chat, which turned this provider into a dead link in the
+ * fallback chain (production log, 2026-10-28). Both mean "answer directly".
+ */
+export function gpt5ReasoningEffort(model: string): "minimal" | "none" {
+  return /^gpt-5(-mini|-nano)?(-\d{4}-\d{2}-\d{2})?$/.test(model) ? "minimal" : "none";
+}
+
 // ─── OpenAI-compatible streaming (for non-Anthropic providers) ──────────────
 export async function streamOpenAICompat(
   provider: Provider,
@@ -269,7 +280,7 @@ export async function streamOpenAICompat(
     // DeepSeek, OpenRouter, Cohere — still expects `max_tokens` and would
     // itself 400 on the new name.
     ...(provider.provider === "openai" ? { max_completion_tokens: tokenCap } : { max_tokens: tokenCap }),
-    ...(/^gpt-5/.test(provider.model)&&provider.provider==="openai"?{reasoning_effort:"minimal"}:{temperature: provider.structuredJson ? 0.2 : 0.7}),
+    ...(/^gpt-5/.test(provider.model)&&provider.provider==="openai"?{reasoning_effort:gpt5ReasoningEffort(provider.model)}:{temperature: provider.structuredJson ? 0.2 : 0.7}),
     ...(provider.structuredJson ? {response_format:{type:"json_object"}} : {}),
     // Groq's current free catalog is now exclusively "reasoning" models
     // (openai/gpt-oss-*, qwen3.x) -- unlike the plain instruct model this
