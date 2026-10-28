@@ -25,12 +25,19 @@ export async function ownedProject(userId: string, id: string) { const row = awa
     throw new VoiceError("PROJECT_NOT_FOUND", 404); return row; }
 export async function ownedGeneration(userId: string, id: string) { const row = await prisma.voiceStudioGeneration.findFirst({ where: { id, ...await voiceScope(userId), deletedAt: null, project: { deletedAt: null } } }); if (!row)
     throw new VoiceError("AUDIO_NOT_FOUND", 404); return row; }
-export async function bootstrap(userId: string) { const policy = await voicePolicy(); let catalog = null, catalogError: string | null = null; try {
+/** One rule for both the screen and enqueueSpeech: admins always, others only on an allowed plan. */
+export function planAllowed(user: { role: string; plan: string; planExpiry: Date | null }, policy: Pick<VoicePolicy, "allowedPlans">) {
+    return ["ADMIN", "SUPER_ADMIN"].includes(user.role) || policy.allowedPlans.includes(effectivePlan(user as Parameters<typeof effectivePlan>[0]));
+}
+export async function bootstrap(userId: string) { const policy = await voicePolicy();
+    // Tell the screen up front whether this account may generate, so it can explain instead of failing on click.
+    const account = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { role: true, plan: true, planExpiry: true } });
+    const access = { planAllowed: planAllowed(account, policy), storageReady: privateStorageConfigured() }; let catalog = null, catalogError: string | null = null; try {
     catalog = await speechCatalog();
 }
 catch (e) {
     catalogError = e instanceof VoiceError ? e.code : "CATALOG_UNAVAILABLE";
-} return { policy: { enabled: policy.enabled, version: policy.version, maxCharacters: policy.maxCharacters, maxDurationSeconds: policy.maxDurationSeconds, creditsPerInterval: policy.creditsPerInterval, billingInterval: policy.billingInterval, allowedModels: policy.allowedModels, allowedVoices: policy.allowedVoices }, catalog, catalogError, presets: await presetsFor(userId), credits: await getAvailableCredits(userId), projects: await prisma.voiceStudioProject.findMany({ where: { ...await voiceScope(userId), deletedAt: null }, orderBy: { updatedAt: "desc" }, take: 100 }) }; }
+} return { access, policy: { enabled: policy.enabled, version: policy.version, maxCharacters: policy.maxCharacters, maxDurationSeconds: policy.maxDurationSeconds, creditsPerInterval: policy.creditsPerInterval, billingInterval: policy.billingInterval, allowedModels: policy.allowedModels, allowedVoices: policy.allowedVoices }, catalog, catalogError, presets: await presetsFor(userId), credits: await getAvailableCredits(userId), projects: await prisma.voiceStudioProject.findMany({ where: { ...await voiceScope(userId), deletedAt: null }, orderBy: { updatedAt: "desc" }, take: 100 }) }; }
 export async function saveProject(userId: string, input: {
     id?: string;
     name: string;
@@ -62,7 +69,7 @@ export async function enqueueSpeech(userId: string, input: GenerationInput) {
     if (!privateStorageConfigured())
         throw new VoiceError("PRIVATE_STORAGE_REQUIRED", 503);
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { role: true, plan: true, planExpiry: true } });
-    if (!["ADMIN", "SUPER_ADMIN"].includes(user.role) && !policy.allowedPlans.includes(effectivePlan(user)))
+    if (!planAllowed(user, policy))
         throw new VoiceError("PLAN_REQUIRED", 403);
     const project = await ownedProject(userId, input.projectId);
     if (project.archivedAt)
