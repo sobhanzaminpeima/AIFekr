@@ -25,6 +25,14 @@ describe.runIf(process.env.RUN_REFERRAL_INTEGRATION==="1")("personal referral co
   await prisma.$transaction(tx=>changeReferralCode(tx,first,`old${suffix}`));
   expect(await findUserByReferralCode(`sobhan${suffix}`)).toEqual({id:first});
  });
+ it("lets an admin move another user's former code, never their current one",async()=>{
+  await expect(prisma.$transaction(tx=>changeReferralCode(tx,second,`old${suffix}`,{releaseFormerCode:true}))).rejects.toThrow("CODE_UNAVAILABLE");
+  await expect(prisma.$transaction(tx=>changeReferralCode(tx,second,`sobhan${suffix}`))).rejects.toMatchObject({formerOwnerId:first});
+  const moved=await prisma.$transaction(tx=>changeReferralCode(tx,second,`sobhan${suffix}`,{releaseFormerCode:true}));
+  expect(moved.releasedFrom).toBe(first);
+  expect(await resolvePromo(`sobhan${suffix}`)).toMatchObject({id:second});
+  expect(await findUserByReferralCode(`old${suffix}`)).toEqual({id:first});
+ });
  it("does not accept unsafe or too-short codes",async()=>{
   await expect(prisma.$transaction(tx=>changeReferralCode(tx,first,"x"))).rejects.toThrow("INVALID_CODE");
   await expect(prisma.$transaction(tx=>changeReferralCode(tx,first,"<sobhan>"))).rejects.toThrow("INVALID_CODE");
