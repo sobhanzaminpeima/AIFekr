@@ -611,7 +611,7 @@ export default function SocialPage() {
     const params = new URLSearchParams(window.location.search);
     const status = params.get("instagram");
     if (status === "connected") toast.success(t.social.igConnected);
-    if (status === "failed") toast.error(t.common.error);
+    if (status === "failed") toast.error(instagramFailureMessage(params.get("reason"), lang), { duration: 12000 });
     if (status === "no-ig-account") toast.error(t.common.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadIgStatus]);
@@ -2292,4 +2292,22 @@ export default function SocialPage() {
       )}
     </div>
   );
+}
+
+/** User-facing explanation for /social?instagram=failed&reason=… (see the OAuth callback). */
+function instagramFailureMessage(reason: string | null, lang: string): string {
+  const m: Record<string, [string, string]> = {
+    denied: ["اجازهٔ دسترسی در اینستاگرام داده نشد. دوباره «اتصال» را بزنید و دسترسی‌ها را تأیید کنید.", "Access was not granted on Instagram. Press Connect again and approve the permissions."],
+    session_expired: ["زمان اتصال تمام شد یا در مرورگر دیگری باز شد. از همین صفحه دوباره «اتصال» را بزنید.", "The connection timed out or was opened in another browser. Press Connect again from this page."],
+    state_mismatch: ["درخواست اتصال معتبر نبود. دوباره از همین صفحه تلاش کنید.", "The connection request was not valid. Try again from this page."],
+    account_mismatch: ["حساب AIFekr شما در میانهٔ اتصال عوض شد. وارد همان حساب شوید و دوباره تلاش کنید.", "Your AIFekr account changed during the connection. Sign in to the same account and try again."],
+    missing_code: ["اینستاگرام کد اتصال را برنگرداند. دوباره تلاش کنید.", "Instagram did not return a connection code. Try again."],
+    token_exchange: ["اینستاگرام اتصال را تأیید نکرد. چند دقیقه بعد دوباره تلاش کنید؛ اگر تکرار شد به پشتیبانی خبر دهید.", "Instagram did not confirm the connection. Try again in a few minutes; contact support if it repeats."],
+    long_lived_token: ["اینستاگرام دسترسی را ثبت نکرد. اگر اپ AIFekr هنوز در حالت آزمایشی است، ابتدا دعوت «Tester» را در اینستاگرام (Settings › Apps and websites › Tester invites) بپذیرید و سپس دوباره وصل شوید.", "Instagram did not issue lasting access. If the AIFekr app is still in test mode, first accept the Tester invite in Instagram (Settings › Apps and websites › Tester invites), then connect again."],
+    profile: ["پروفایل اینستاگرام خوانده نشد. مطمئن شوید حساب Business یا Creator است و دعوت Tester پذیرفته شده، سپس دوباره وصل شوید.", "Could not read the Instagram profile. Make sure it is a Business or Creator account and the Tester invite is accepted, then connect again."],
+    already_connected: ["این حساب اینستاگرام قبلاً به حساب یا فضای کاری دیگری در AIFekr وصل است. ابتدا از آن‌جا قطع کنید.", "This Instagram account is already connected to another AIFekr account or workspace. Disconnect it there first."],
+    save_failed: ["ذخیرهٔ اتصال انجام نشد. دوباره تلاش کنید یا به پشتیبانی خبر دهید.", "Saving the connection failed. Try again or contact support."],
+  };
+  const pick = m[reason ?? ""] ?? ["اتصال اینستاگرام انجام نشد. دوباره تلاش کنید.", "Instagram connection failed. Please try again."];
+  return lang === "fa" ? pick[0] : pick[1];
 }

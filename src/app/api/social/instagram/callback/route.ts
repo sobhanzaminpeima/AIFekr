@@ -3,9 +3,19 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import {requireAuth} from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { exchangeCodeForToken, getLongLivedToken, getInstagramProfile, subscribeToInstagramWebhooks } from "@/lib/instagram";
+import { exchangeCodeForToken, getLongLivedToken, getInstagramProfile, subscribeToInstagramWebhooks, InstagramApiError } from "@/lib/instagram";
 import { instagramWorkspaceScope } from "@/lib/instagram/workspaceScope";
 import { getInstagramRedirectUri, resolveInstagramAppUrl } from "@/lib/instagram/urls";
+
+/** Why a connection failed; shown to the user and logged. Never contains a token, code, state or secret. */
+type FailReason = "denied" | "session_expired" | "state_mismatch" | "account_mismatch" | "missing_code" | "token_exchange" | "long_lived_token" | "profile" | "already_connected" | "save_failed";
+
+function failed(appUrl: string, reason: FailReason, detail: Record<string, unknown> = {}) {
+  console.error("[instagram-oauth]", JSON.stringify({ reason, ...detail }));
+  const response = NextResponse.redirect(`${appUrl}/social?instagram=failed&reason=${reason}`);
+  response.cookies.set("ig_oauth_pending", "", { path: "/api/social/instagram", maxAge: 0 });
+  return response;
+}
 
 export async function GET(req: NextRequest) {
   const appUrl = resolveInstagramAppUrl(process.env.NEXT_PUBLIC_APP_URL, process.env.NODE_ENV === "production");
@@ -31,11 +41,12 @@ export async function GET(req: NextRequest) {
   const businessId = pending?.businessId ?? null;
 
   const currentUser = await requireAuth(req);
-  if (error || !code || !userId || !state || state !== pending?.state || currentUser?.id !== userId) {
-    const response = NextResponse.redirect(`${appUrl}/social?instagram=failed`);
-    response.cookies.set("ig_oauth_pending", "", { path: "/api/social/instagram", maxAge: 0 });
-    return response;
-  }
+  // Each pre-check fails with its own reason (previously one silent branch).
+  if (error) return failed(appUrl, "denied", { metaError: error.slice(0, 40), metaReason: searchParams.get("error_reason")?.slice(0, 40) ?? null });
+  if (!pending || !userId) return failed(appUrl, "session_expired", { cookie: req.cookies.has("ig_oauth_pending") });
+  if (!state || state !== pending.state) return failed(appUrl, "state_mismatch");
+  if (currentUser?.id !== userId) return failed(appUrl, "account_mismatch", { signedIn: !!currentUser });
+  if (!code) return failed(appUrl, "missing_code");
 
   try {
     const redirectUri = getInstagramRedirectUri();
@@ -52,9 +63,7 @@ export async function GET(req: NextRequest) {
       where: { igUserId, NOT: { userId, businessId } },
       select: { id: true },
     });
-    if (sameInstagramElsewhere) {
-      throw new Error("این حساب اینستاگرام قبلاً به فضای کاری دیگری متصل شده است");
-    }
+    if (sameInstagramElsewhere) return failed(appUrl, "already_connected", { userId });
 
     // Switching to a different IG account (without an explicit disconnect
     // first) must not leave the previous account's campaigns, trigger logs,
@@ -97,9 +106,7 @@ export async function GET(req: NextRequest) {
     response.cookies.set("ig_oauth_pending", "", { path: "/api/social/instagram", maxAge: 0 });
     return response;
   } catch (e) {
-    console.error("Instagram OAuth callback error:", e);
-    const response = NextResponse.redirect(`${appUrl}/social?instagram=failed`);
-    response.cookies.set("ig_oauth_pending", "", { path: "/api/social/instagram", maxAge: 0 });
-    return response;
+    if (e instanceof InstagramApiError) return failed(appUrl, e.stage, { userId, message: e.message.slice(0, 160), ...e.meta });
+    return failed(appUrl, "save_failed", { userId, message: e instanceof Error ? e.message.slice(0, 160) : "unknown" });
   }
 }

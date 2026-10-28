@@ -141,6 +141,21 @@ export function getOAuthUrl(redirectUri: string, state: string): string {
   return `https://www.instagram.com/oauth/authorize?${params}`;
 }
 
+/**
+ * A Meta API failure with only non-secret diagnostics (stage, Meta error
+ * type/code/subcode, trace id) so OAuth problems can be logged and explained
+ * without ever printing a token, code, state or secret.
+ */
+export class InstagramApiError extends Error {
+  constructor(readonly stage: "token_exchange" | "long_lived_token" | "profile", message: string, readonly meta: { status: number; type?: string; code?: number; subcode?: number; traceId?: string }) {
+    super(message);
+    this.name = "InstagramApiError";
+  }
+}
+type MetaErrorBody = { error_message?: string; error_type?: string; code?: number; error?: { message?: string; type?: string; code?: number; error_subcode?: number; fbtrace_id?: string } };
+const metaError = (stage: InstagramApiError["stage"], status: number, data: MetaErrorBody, fallback: string) =>
+  new InstagramApiError(stage, data.error_message || data.error?.message || fallback, { status, type: data.error?.type || data.error_type, code: data.error?.code ?? data.code, subcode: data.error?.error_subcode, traceId: data.error?.fbtrace_id });
+
 export interface ShortLivedTokenResult {
   token: string;
   igUserId: string;
@@ -156,8 +171,8 @@ export async function exchangeCodeForToken(code: string, redirectUri: string): P
     code,
   });
   const res = await fetch(`${IG_API_HOST}/oauth/access_token`, { method: "POST", body: form });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error_message || data.error?.message || "خطا در دریافت توکن از اینستاگرام");
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.access_token) throw metaError("token_exchange", res.status, data, "خطا در دریافت توکن از اینستاگرام");
   return { token: data.access_token as string, igUserId: String(data.user_id) };
 }
 
@@ -167,9 +182,16 @@ export async function getLongLivedToken(shortLivedToken: string): Promise<{ toke
     client_secret: process.env.INSTAGRAM_APP_SECRET || "",
     access_token: shortLivedToken,
   });
-  const res = await fetch(`${IG_OAUTH_HOST}/access_token?${params}`);
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error_message || data.error?.message || "خطا در تبدیل توکن");
+  let res = await fetch(`${IG_OAUTH_HOST}/access_token?${params}`);
+  let data = await res.json().catch(() => ({}));
+  // Meta intermittently answers the documented unversioned endpoint with
+  // "Unsupported request - method type: get" (code 100) for some accounts;
+  // the versioned path is the same API and is tried once before giving up.
+  if (!res.ok && data.error?.code === 100) {
+    res = await fetch(`${IG_GRAPH_BASE}/access_token?${params}`);
+    data = await res.json().catch(() => ({}));
+  }
+  if (!res.ok || !data.access_token) throw metaError("long_lived_token", res.status, data, "خطا در تبدیل توکن");
   return { token: data.access_token, expiresIn: data.expires_in };
 }
 
@@ -190,10 +212,8 @@ export async function getInstagramUsername(igUserId: string, accessToken: string
  */
 export async function getInstagramProfile(accessToken: string): Promise<{ userId: string; username?: string; accountType?: string }> {
   const res = await fetch(`${IG_GRAPH_BASE}/me?fields=user_id,username,account_type&access_token=${accessToken}`);
-  const data = await res.json();
-  if (!res.ok || !data.user_id) {
-    throw new Error(data.error?.message || "خطا در دریافت پروفایل اینستاگرام");
-  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.user_id) throw metaError("profile", res.status, data, "خطا در دریافت پروفایل اینستاگرام");
   return { userId: String(data.user_id), username: data.username, accountType: data.account_type };
 }
 
