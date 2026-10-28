@@ -1,4 +1,4 @@
-# Voice Studio UX and fitness access — 2026-10-26
+# Voice Studio UX and fitness access — 2026-10-28
 
 The oversized sticky generation panel was replaced with a compact in-flow summary and clear Generate button. Detailed reservation/pricing text is collapsed; single-segment text no longer needs a redundant segment selector. Voice cards and headings use a restrained type scale and theme colors. Mobile layout stacks controls without obscuring the editor.
 
@@ -11,3 +11,5 @@ The platform shell now selects `fitnessAccessExpiry` and includes active manual 
 Validation: 73 tests across 11 files passed, including phase rendering, manual-access navigation, expired-platform/active-fitness separation, no-reason activation, audit creation, deactivation and authorization/CSRF. TypeScript and scoped lint passed; production build passed. No new schema migration or paid API test is needed. Visual browser verification was unavailable because local browser use is disabled in Work settings; this limitation is not treated as a passed visual test.
 
 Release uses the existing prebuilt/backup/trial-migration/preview/rollback workflow, preserving the operator's active Voice Studio settings. Existing running provider work must be allowed to finish before switching the worker. No customer fitness entitlement is changed by deployment verification.
+
+Production rollout: code `49954a8` is active at `/var/www/aifekr-voice-49954a8`; artifact SHA-256 matched before deployment, backup and trial schema validation succeeded. Both fitness management endpoints return 200 for an administrator. An existing manually activated business account changed from missing fitness navigation before rollout to visible navigation afterward, without changing its entitlement. Voice catalog refreshed successfully (9 models, 21 voices), generation remains enabled, private storage is configured and the updated worker heartbeat is present. No paid synthesis was performed for this rollout. The initial server HTML is a loading shell; absence of the client generation panel in that HTML is not a visual test result.
