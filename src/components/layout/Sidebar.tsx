@@ -1,7 +1,5 @@
 "use client";
 
-import { QuickTiles, WorkspaceChips, WorkspaceGroups, useWorkspace } from "./WorkspaceNav";
-import { workspaceById } from "@/lib/navigation/workspaces";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -11,7 +9,7 @@ import {
   ChevronDown, ChevronLeft, Settings, LogOut, Wallet, Crown, CreditCard,
   Briefcase, TrendingUp, ShoppingCart, Calculator, Salad,
   GraduationCap, Stethoscope, Languages, ChefHat, Dumbbell, Plane, Code2,
-  Plus, History, HeartPulse, LayoutGrid, Search, Share2, Globe, Factory, Users, Mic,
+  Plus, History, HeartPulse, Search, Share2, Globe, Factory, Users, Mic,
   FolderOpen, Folder, FolderPlus, X, Check, MoreHorizontal, Trash2, ArrowLeft, Zap, Rocket, Gift, Sparkles, FlaskConical, Phone, Handshake, Magnet,
 } from "lucide-react";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
@@ -175,11 +173,8 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
     return () => { alive = false; };
   }, []);
   const isAvailable = (href: string) => { const key = moduleKeyForPath(href); return !key || !blockedModules[key]; };
-  const workspace = useWorkspace();
-  const activeWorkspace = workspaceById(workspace?.active);
-  // Long lists (history, every tool, assistants, tools) open as an overlay panel inside
-  // the sidebar instead of stretching the menu; following any link inside closes it.
-  const [panel, setPanel] = useState<null | "history" | "all" | "assistants">(null);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [assistantsOpen, setAssistantsOpen] = useState(false);
   // Design Director phase 2 — the eleven business destinations are grouped into
   // four departments. A department opens when the page you are on lives inside
   // it, so you always see where you are without hunting; the rest stay closed
@@ -311,7 +306,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
   const getProjectConvs = (pid: string) => historyItems.filter((c) => c.projectId === pid);
 
   return (
-    <aside className="platform-sidebar relative flex flex-col h-full w-[260px] flex-shrink-0"
+    <aside className="platform-sidebar flex flex-col h-full w-[260px] flex-shrink-0"
       style={{ background: "var(--surface-1)", borderLeft: lang === "fa" ? "1px solid var(--border)" : "none", borderRight: lang === "fa" ? "none" : "1px solid var(--border)" }}>
 
       {/* Logo */}
@@ -331,30 +326,160 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
       </div>}
 
       <nav className="flex-1 overflow-y-auto px-2 space-y-0.5 pb-2">
-        {!fitnessOnly && <QuickTiles isActive={isActive} isAvailable={isAvailable} />}
         <NavItem icon={LayoutDashboard} label={tri(lang, "خانه", "Home", "Startseite", "Ana Sayfa")} href="/home" active={isActive("/home")} />
         {(user?.showFitness ?? true) && <NavItem icon={Dumbbell} label={lang==="fa"?"فیتنس آی‌فکر":"AIFekr FIT"} href="/fitness" active={isActive("/fitness")} />}
         {/* FITNESS accounts may only use AIFekr FIT; everything else in this
             menu answered 401 for them. */}
         {!fitnessOnly && <>
-        {!!user?.pendingPaymentCount && <NavItem icon={CreditCard} label={`${tri(lang, "پرداخت‌ها و فعال‌سازی", "Payments & activation", "Zahlungen und Aktivierung", "Ödemeler ve etkinleştirme")}${user?.pendingPaymentCount ? ` (${user.pendingPaymentCount.toLocaleString(lang)})` : ""}`} href={pathname.startsWith("/fitness")?"/fitness/payments":"/payments"} active={isActive("/payments")||isActive("/fitness/payments")} />}
-          <button className="sb-row" onClick={() => setPanel("history")} aria-haspopup="dialog"><History className="w-4 h-4 flex-shrink-0" /><span className="flex-1 truncate text-start">{t.nav.history}</span>{historyItems.length > 0 && <span className="sb-count">{historyItems.length.toLocaleString(lang)}</span>}<ChevronLeft className="w-4 h-4 flex-shrink-0 opacity-60 ltr:rotate-180" /></button>
-          <button className="sb-row" onClick={() => setPanel("all")} aria-haspopup="dialog"><LayoutGrid className="w-4 h-4 flex-shrink-0" /><span className="flex-1 truncate text-start">{tri(lang, "ابزارها", "Tools", "Werkzeuge", "Araçlar")}</span>{activeWorkspace && <span className="sb-count">{activeWorkspace.name[lang === "fa" ? 0 : 1]}</span>}<ChevronLeft className="w-4 h-4 flex-shrink-0 opacity-60 ltr:rotate-180" /></button>
-          <button className="sb-row" onClick={() => setPanel("assistants")} aria-haspopup="dialog"><Sparkles className="w-4 h-4 flex-shrink-0" /><span className="flex-1 truncate text-start">{t.nav.assistants}</span><ChevronLeft className="w-4 h-4 flex-shrink-0 opacity-60 ltr:rotate-180" /></button>
-        </>}
-      </nav>
+        <NavItem icon={MessageSquare} label={t.nav.chat} href="/chat" active={isActive("/chat")} />
+        {user?.studentWorkspaceEnabled !== false && <NavItem icon={GraduationCap} label={t.nav.studentWorkspace} href="/student" active={isActive("/student")} />}
 
-      {panel && (
-        <div className="sb-panel" role="dialog" aria-modal="false"
-          aria-label={panel === "history" ? t.nav.history : panel === "assistants" ? t.nav.assistants : tri(lang, "ابزارها", "Tools", "Werkzeuge", "Araçlar")}
-          onKeyDown={(e) => { if (e.key === "Escape") setPanel(null); }}
-          onClick={(e) => { if ((e.target as HTMLElement).closest("a")) setPanel(null); }}>
-          <div className="sb-panel-head">
-            <strong>{panel === "history" ? t.nav.history : panel === "assistants" ? t.nav.assistants : tri(lang, "ابزارها", "Tools", "Werkzeuge", "Araçlar")}</strong>
-            <button autoFocus onClick={() => setPanel(null)} aria-label={tri(lang, "بستن", "Close", "Schließen", "Kapat")}><X className="w-4 h-4" /></button>
-          </div>
-          <div className="sb-panel-body space-y-0.5">
-            {panel === "history" && <>
+        {/* Shown in the menu only while a payment needs the user; otherwise it is an icon in the footer. */}
+        {!!user?.pendingPaymentCount && <NavItem icon={CreditCard} label={`${tri(lang, "پرداخت‌ها و فعال‌سازی", "Payments & activation", "Zahlungen und Aktivierung", "Ödemeler ve etkinleştirme")}${user?.pendingPaymentCount ? ` (${user.pendingPaymentCount.toLocaleString(lang)})` : ""}`} href={pathname.startsWith("/fitness")?"/fitness/payments":"/payments"} active={isActive("/payments")||isActive("/fitness/payments")} />}
+
+        {/* ── BUSINESS SECTION ─────────────────── */}
+        {hideBusiness ? null : hasBusinessAccess ? (
+          <>
+            <NavSection label={tri(lang, "کسب‌وکار من", "My Business", "Mein Unternehmen", "İşletmem")} />
+            {/* Business Doctor is the front door of the whole platform — it is
+                what turns a stranger into a customer with a profile — and it
+                was buried three clicks deep inside a collapsed "Strategy"
+                department, rendered at the same weight as every other link.
+                One spotlight card, the only card-shaped thing in the nav, so
+                it reads as the starting point rather than the eleventh option. */}
+            <Link
+              href="/business-doctor"
+              aria-current={isActive("/business-doctor") ? "page" : undefined}
+              className="group relative flex items-center gap-2.5 mx-1 mb-1.5 px-2.5 py-2.5 rounded-xl transition-all overflow-hidden"
+              style={{
+                background: isActive("/business-doctor")
+                  ? "linear-gradient(135deg, rgba(168,85,247,0.28), rgba(234,88,12,0.18))"
+                  : "linear-gradient(135deg, rgba(168,85,247,0.14), rgba(234,88,12,0.08))",
+                border: "1px solid rgba(168,85,247,0.32)",
+              }}
+            >
+              <span className="w-8 h-8 rounded-lg grid place-items-center flex-shrink-0" style={{ background: "rgba(168,85,247,0.22)" }}>
+                <HeartPulse className="w-4 h-4" style={{ color: "#c084fc" }} />
+              </span>
+              <span className="min-w-0 flex-1 leading-tight">
+                <span className="block text-[13px] font-semibold truncate" style={{ color: "var(--text-primary)" }}>
+                  {t.nav.businessDoctor}
+                </span>
+                <span className="block text-[10.5px] truncate mt-0.5" style={{ color: "var(--text-muted)" }}>
+                  {tri(lang, "تحلیل رایگان کسب‌وکار", "Free business check-up", "Gratis Business-Check", "Ücretsiz işletme kontrolü")}
+                </span>
+              </span>
+              <ChevronLeft className="w-3.5 h-3.5 flex-shrink-0 opacity-50 rtl:rotate-0 ltr:rotate-180" style={{ color: "#c084fc" }} />
+            </Link>
+            {DEPARTMENTS.map((dept) => {
+              const items = dept.items(t).filter((i) => isAvailable(i.href));
+              if (!items.length) return null;
+              const hasCurrent = items.some((i) => isActive(i.href));
+              // Explicit open/closed wins; otherwise the department containing
+              // the current page is the one that is open.
+              const open = openDept === null ? hasCurrent : openDept === dept.key;
+              return (
+                <div key={dept.key}>
+                  <button
+                    onClick={() => setOpenDept(open ? "" : dept.key)}
+                    aria-expanded={open}
+                    title={dept.label(lang)}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-[13px] font-semibold transition-colors hover:bg-white/[0.05]"
+                    style={{ color: hasCurrent ? "var(--text-primary)" : "var(--text-secondary)" }}
+                  >
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      {/* A tinted tile rather than a bare icon: it gives the
+                          department a consistent mark that the home page reuses
+                          on the same team's activity rows. */}
+                      <span
+                        className="w-6 h-6 rounded-lg grid place-items-center flex-shrink-0 transition-colors"
+                        style={{ background: open || hasCurrent ? dept.tint : "var(--surface-2)" }}
+                      >
+                        <dept.icon className="w-3.5 h-3.5" style={{ color: dept.color }} />
+                      </span>
+                      <span className="truncate">{dept.label(lang)}</span>
+                    </span>
+                    <span className="flex items-center gap-1.5 flex-shrink-0">
+                      {/* A closed department is one line; the count is what
+                          stops it reading as a dead end. */}
+                      {!open && (
+                        <span className="text-[10px] tabular-nums px-1.5 py-0.5 rounded-full" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
+                          {items.length}
+                        </span>
+                      )}
+                      <ChevronDown
+                        className="w-3.5 h-3.5 transition-transform"
+                        style={{ transform: open ? "none" : "rotate(-90deg)", color: "var(--text-muted)" }}
+                      />
+                    </span>
+                  </button>
+                  {open && (
+                    /* A guide line down the group ties the children to their
+                       heading, so an open department reads as one block. */
+                    <div
+                      className="space-y-0.5 ms-[23px] ps-2"
+                      style={{ borderInlineStart: `1px solid ${dept.tint}` }}
+                    >
+                      {items.map((i) => (
+                        <div key={i.href}><NavItem icon={i.icon} label={i.label} href={i.href} active={isActive(i.href)} accent={dept.color} small />{i.href === "/seo" && <Link href="/seo/intelligence" aria-current={pathname === "/seo/intelligence" ? "page" : undefined} className="ms-4 my-1 block rounded-xl p-2 text-xs" style={{background:"rgba(249,115,22,.1)",border:"1px solid rgba(249,115,22,.25)",color:"var(--text-primary)"}}><strong className="block text-orange-400">SEO Intelligence</strong><span className="block mt-1">{tri(lang,"داده‌های واقعی، رتبه و بک‌لینک","Real data, rankings and backlinks","Echte Daten, Rankings und Backlinks","Gerçek veriler, sıralama ve geri bağlantılar")}</span></Link>}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </>
+        ) : (
+          /* No pack - show CTA */
+          <Link href="/industry"
+            className="flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium transition-all mx-1 mb-1"
+            style={{ background: "linear-gradient(135deg, rgba(234,88,12,0.15), rgba(249,115,22,0.1))", border: "1px solid rgba(234,88,12,0.3)", color: "#ea580c" }}>
+            <Zap className="w-4 h-4 flex-shrink-0" />
+            <div className="text-right leading-tight">
+              <div className="font-semibold text-xs">{tri(lang, "رشد کسب‌وکارت", "Grow Your Business", "Ihr Geschäft ausbauen", "İşletmenizi Büyütün")}</div>
+              <div className="text-xs opacity-70 mt-0.5">{tri(lang, "بسته‌های ایجنت AI", "AI Agent Packs", "KI-Agenten-Pakete", "Yapay Zeka Ajan Paketleri")}</div>
+            </div>
+            <ArrowLeft className="w-3.5 h-3.5 flex-shrink-0 mr-auto" />
+          </Link>
+        )}
+
+        <NavSection label={tri(lang, "ساخت محتوا", "Create", "Erstellen", "Oluştur")} />
+        <NavItem icon={Sparkles} label={tri(lang, "ایجنت‌های من", "My Agents", "Meine Agenten", "Ajanlarım")} href="/agents" active={isActive("/agents")} />
+        {/* Image/video/music have no sidebar entry at all any more: they are
+            tabs on the main chat composer, so a separate "studio" link would
+            just be a second door to the same room. Each tool is still
+            reachable at its own old URL (/image/generate etc.). */}
+        <NavItem icon={GalleryHorizontal} label={t.nav.gallery} href="/image/gallery" active={isActive("/image/gallery")} />
+        <NavItem icon={GalleryHorizontal} label={tri(lang, "کارخانه ویدیو", "Video Factory", "Video Factory", "Video Fabrikası")} href="/video-factory" active={isActive("/video-factory")} />
+        <NavItem icon={Mic} label={tri(lang,"استودیوی صدا","Voice Studio","Sprachstudio","Ses Stüdyosu")} href="/voice-studio" active={isActive("/voice-studio")} />
+        <NavItem icon={Gamepad2} label={tri(lang,"بازی‌های آی‌فکر","AIFekr PLAY","AIFekr PLAY","AIFekr PLAY")} href="/play" active={isActive("/play")} />
+        <NavItem icon={Rocket} label={t.nav.startupBuilder} href="/startup/builder" active={isActive("/startup")} />
+
+        {!hasPack && <Link href="/seo/intelligence" className="block mx-2 my-2 rounded-xl p-3" style={{background:"rgba(249,115,22,.1)",border:"1px solid rgba(249,115,22,.25)"}}><strong className="block text-xs text-orange-400">SEO Intelligence</strong><span className="block text-[11px] mt-1">{tri(lang,"داده‌های واقعی، رتبه و بک‌لینک","Real data, rankings and backlinks","Echte Daten, Rankings und Backlinks","Gerçek veriler, sıralama ve geri bağlantılar")}</span></Link>}
+        {/* Generic AI toys sit BELOW the business the customer is paying
+            for. They used to outrank it: Tools and Assistants were above
+            "My Business", so the eleven modules that are the product were
+            the last thing in the list. */}
+        <NavSection label={tri(lang, "بیشتر", "More", "Mehr", "Daha Fazla")} />
+        {/* Tools */}
+        <button onClick={() => setToolsOpen(!toolsOpen)} aria-expanded={toolsOpen}
+          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-white/[0.05]"
+          style={{ color: "var(--text-secondary)" }}>
+          <span className="flex items-center gap-2 min-w-0"><Briefcase className="w-4 h-4 flex-shrink-0" /><span className="truncate">{t.nav.tools}</span></span>
+          {toolsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </button>
+        {toolsOpen && <div className="pr-4 space-y-0.5">{tools.map((t) => <NavItem key={t.href} icon={t.icon} label={t.label} href={t.href} active={isActive(t.href)} small />)}</div>}
+
+        {/* Assistants */}
+        <button onClick={() => setAssistantsOpen(!assistantsOpen)} aria-expanded={assistantsOpen}
+          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-white/[0.05]"
+          style={{ color: "var(--text-secondary)" }}>
+          <span className="flex items-center gap-2 min-w-0"><GraduationCap className="w-4 h-4 flex-shrink-0" /><span className="truncate">{t.nav.assistants}</span></span>
+          {assistantsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </button>
+        {assistantsOpen && <div className="pr-4 space-y-0.5">{assistants.map((a) => <NavItem key={a.href} icon={a.icon} label={a.label} href={a.href} active={isActive(a.href)} small />)}</div>}
+
+        {/* ── PROJECTS ─────────────────────── */}
         <div style={{ borderTop: "1px solid var(--border)", margin: "6px 0" }} />
         <div className="flex items-center justify-between px-3 py-1.5">
           <button onClick={() => setProjectsOpen(!projectsOpen)} aria-expanded={projectsOpen}
@@ -497,7 +622,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
               <History className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} />
               <span className="text-xs" style={{ color: "var(--text-muted)" }}>{t.nav.history}</span>
             </div>
-            {freeConvs.slice(0, 40).map((c) => (
+            {freeConvs.slice(0, 8).map((c) => (
               <div key={c.id} className="relative flex items-center group" data-dropdown-root>
                 <Link href={`/chat/${c.id}`} onClick={openConversationClick(pathname, c.id)}
                   className="flex-1 flex items-center px-3 py-1.5 rounded-lg text-xs truncate min-w-0"
@@ -548,147 +673,8 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             ))}
           </>
         )}
-            {historyItems.length === 0 && projects.length === 0 && <p className="px-3 py-6 text-xs text-center" style={{ color: "var(--text-muted)" }}>{tri(lang, "هنوز گفتگویی ثبت نشده است", "No conversations yet", "Noch keine Unterhaltungen", "Henüz sohbet yok")}</p>}
-            </>}
-            {panel === "all" && <>
-              {/* Which tools to show first. Presentation only: never access, plan or credits. */}
-              <WorkspaceChips />
-              <WorkspaceGroups isActive={isActive} isAvailable={isAvailable} />
-              {activeWorkspace && <NavSection label={tri(lang, "همهٔ ابزارها", "All tools", "Alle Werkzeuge", "Tüm araçlar")} />}
-        <NavItem icon={MessageSquare} label={t.nav.chat} href="/chat" active={isActive("/chat")} />
-        {user?.studentWorkspaceEnabled !== false && <NavItem icon={GraduationCap} label={t.nav.studentWorkspace} href="/student" active={isActive("/student")} />}
-
-        {/* ── BUSINESS SECTION ─────────────────── */}
-        {hideBusiness ? null : hasBusinessAccess ? (
-          <>
-            <NavSection label={tri(lang, "کسب‌وکار من", "My Business", "Mein Unternehmen", "İşletmem")} />
-            {/* Business Doctor is the front door of the whole platform — it is
-                what turns a stranger into a customer with a profile — and it
-                was buried three clicks deep inside a collapsed "Strategy"
-                department, rendered at the same weight as every other link.
-                One spotlight card, the only card-shaped thing in the nav, so
-                it reads as the starting point rather than the eleventh option. */}
-            <Link
-              href="/business-doctor"
-              aria-current={isActive("/business-doctor") ? "page" : undefined}
-              className="group relative flex items-center gap-2.5 mx-1 mb-1.5 px-2.5 py-2.5 rounded-xl transition-all overflow-hidden"
-              style={{
-                background: isActive("/business-doctor")
-                  ? "linear-gradient(135deg, rgba(168,85,247,0.28), rgba(234,88,12,0.18))"
-                  : "linear-gradient(135deg, rgba(168,85,247,0.14), rgba(234,88,12,0.08))",
-                border: "1px solid rgba(168,85,247,0.32)",
-              }}
-            >
-              <span className="w-8 h-8 rounded-lg grid place-items-center flex-shrink-0" style={{ background: "rgba(168,85,247,0.22)" }}>
-                <HeartPulse className="w-4 h-4" style={{ color: "#c084fc" }} />
-              </span>
-              <span className="min-w-0 flex-1 leading-tight">
-                <span className="block text-[13px] font-semibold truncate" style={{ color: "var(--text-primary)" }}>
-                  {t.nav.businessDoctor}
-                </span>
-                <span className="block text-[10.5px] truncate mt-0.5" style={{ color: "var(--text-muted)" }}>
-                  {tri(lang, "تحلیل رایگان کسب‌وکار", "Free business check-up", "Gratis Business-Check", "Ücretsiz işletme kontrolü")}
-                </span>
-              </span>
-              <ChevronLeft className="w-3.5 h-3.5 flex-shrink-0 opacity-50 rtl:rotate-0 ltr:rotate-180" style={{ color: "#c084fc" }} />
-            </Link>
-            {DEPARTMENTS.map((dept) => {
-              const items = dept.items(t).filter((i) => isAvailable(i.href));
-              if (!items.length) return null;
-              const hasCurrent = items.some((i) => isActive(i.href));
-              // Explicit open/closed wins; otherwise the department containing
-              // the current page is the one that is open.
-              const open = openDept === null ? hasCurrent : openDept === dept.key;
-              return (
-                <div key={dept.key}>
-                  <button
-                    onClick={() => setOpenDept(open ? "" : dept.key)}
-                    aria-expanded={open}
-                    title={dept.label(lang)}
-                    className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-[13px] font-semibold transition-colors hover:bg-white/[0.05]"
-                    style={{ color: hasCurrent ? "var(--text-primary)" : "var(--text-secondary)" }}
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      {/* A tinted tile rather than a bare icon: it gives the
-                          department a consistent mark that the home page reuses
-                          on the same team's activity rows. */}
-                      <span
-                        className="w-6 h-6 rounded-lg grid place-items-center flex-shrink-0 transition-colors"
-                        style={{ background: open || hasCurrent ? dept.tint : "var(--surface-2)" }}
-                      >
-                        <dept.icon className="w-3.5 h-3.5" style={{ color: dept.color }} />
-                      </span>
-                      <span className="truncate">{dept.label(lang)}</span>
-                    </span>
-                    <span className="flex items-center gap-1.5 flex-shrink-0">
-                      {/* A closed department is one line; the count is what
-                          stops it reading as a dead end. */}
-                      {!open && (
-                        <span className="text-[10px] tabular-nums px-1.5 py-0.5 rounded-full" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
-                          {items.length}
-                        </span>
-                      )}
-                      <ChevronDown
-                        className="w-3.5 h-3.5 transition-transform"
-                        style={{ transform: open ? "none" : "rotate(-90deg)", color: "var(--text-muted)" }}
-                      />
-                    </span>
-                  </button>
-                  {open && (
-                    /* A guide line down the group ties the children to their
-                       heading, so an open department reads as one block. */
-                    <div
-                      className="space-y-0.5 ms-[23px] ps-2"
-                      style={{ borderInlineStart: `1px solid ${dept.tint}` }}
-                    >
-                      {items.map((i) => (
-                        <div key={i.href}><NavItem icon={i.icon} label={i.label} href={i.href} active={isActive(i.href)} accent={dept.color} small />{i.href === "/seo" && <Link href="/seo/intelligence" aria-current={pathname === "/seo/intelligence" ? "page" : undefined} className="ms-4 my-1 block rounded-xl p-2 text-xs" style={{background:"rgba(249,115,22,.1)",border:"1px solid rgba(249,115,22,.25)",color:"var(--text-primary)"}}><strong className="block text-orange-400">SEO Intelligence</strong><span className="block mt-1">{tri(lang,"داده‌های واقعی، رتبه و بک‌لینک","Real data, rankings and backlinks","Echte Daten, Rankings und Backlinks","Gerçek veriler, sıralama ve geri bağlantılar")}</span></Link>}</div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </>
-        ) : (
-          /* No pack - show CTA */
-          <Link href="/industry"
-            className="flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium transition-all mx-1 mb-1"
-            style={{ background: "linear-gradient(135deg, rgba(234,88,12,0.15), rgba(249,115,22,0.1))", border: "1px solid rgba(234,88,12,0.3)", color: "#ea580c" }}>
-            <Zap className="w-4 h-4 flex-shrink-0" />
-            <div className="text-right leading-tight">
-              <div className="font-semibold text-xs">{tri(lang, "رشد کسب‌وکارت", "Grow Your Business", "Ihr Geschäft ausbauen", "İşletmenizi Büyütün")}</div>
-              <div className="text-xs opacity-70 mt-0.5">{tri(lang, "بسته‌های ایجنت AI", "AI Agent Packs", "KI-Agenten-Pakete", "Yapay Zeka Ajan Paketleri")}</div>
-            </div>
-            <ArrowLeft className="w-3.5 h-3.5 flex-shrink-0 mr-auto" />
-          </Link>
-        )}
-
-        <NavSection label={tri(lang, "ساخت محتوا", "Create", "Erstellen", "Oluştur")} />
-        <NavItem icon={Sparkles} label={tri(lang, "ایجنت‌های من", "My Agents", "Meine Agenten", "Ajanlarım")} href="/agents" active={isActive("/agents")} />
-        {/* Image/video/music have no sidebar entry at all any more: they are
-            tabs on the main chat composer, so a separate "studio" link would
-            just be a second door to the same room. Each tool is still
-            reachable at its own old URL (/image/generate etc.). */}
-        <NavItem icon={GalleryHorizontal} label={t.nav.gallery} href="/image/gallery" active={isActive("/image/gallery")} />
-        <NavItem icon={GalleryHorizontal} label={tri(lang, "کارخانه ویدیو", "Video Factory", "Video Factory", "Video Fabrikası")} href="/video-factory" active={isActive("/video-factory")} />
-        <NavItem icon={Mic} label={tri(lang,"استودیوی صدا","Voice Studio","Sprachstudio","Ses Stüdyosu")} href="/voice-studio" active={isActive("/voice-studio")} />
-        <NavItem icon={Gamepad2} label={tri(lang,"بازی‌های آی‌فکر","AIFekr PLAY","AIFekr PLAY","AIFekr PLAY")} href="/play" active={isActive("/play")} />
-        <NavItem icon={Rocket} label={t.nav.startupBuilder} href="/startup/builder" active={isActive("/startup")} />
-
-        {!hasPack && <Link href="/seo/intelligence" className="block mx-2 my-2 rounded-xl p-3" style={{background:"rgba(249,115,22,.1)",border:"1px solid rgba(249,115,22,.25)"}}><strong className="block text-xs text-orange-400">SEO Intelligence</strong><span className="block text-[11px] mt-1">{tri(lang,"داده‌های واقعی، رتبه و بک‌لینک","Real data, rankings and backlinks","Echte Daten, Rankings und Backlinks","Gerçek veriler, sıralama ve geri bağlantılar")}</span></Link>}
-        {/* Generic AI toys sit BELOW the business the customer is paying
-            for. They used to outrank it: Tools and Assistants were above
-            "My Business", so the eleven modules that are the product were
-            the last thing in the list. */}
-              <NavSection label={t.nav.tools} />
-              {tools.map((tool) => <NavItem key={tool.href} icon={tool.icon} label={tool.label} href={tool.href} active={isActive(tool.href)} />)}
-            </>}
-            {panel === "assistants" && assistants.map((a) => <NavItem key={a.href} icon={a.icon} label={a.label} href={a.href} active={isActive(a.href)} />)}
-          </div>
-          <button className="sb-panel-close" onClick={() => setPanel(null)}><X className="w-3.5 h-3.5" />{tri(lang, "بستن", "Close", "Schließen", "Kapat")}</button>
-        </div>
-      )}
+        </>}
+      </nav>
 
       {/* Bottom — was five stacked full-width rows (credits, an optional
           upgrade nudge, invite, an icon row, then a SECOND row for just
