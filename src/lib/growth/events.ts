@@ -12,7 +12,7 @@ import { moduleForPath } from "./attribution";
 export const CLIENT_EVENTS = new Set([
   "landing_viewed", "signup_started", "pricing_page_viewed", "plan_selected", "module_viewed",
   "onboarding_started", "onboarding_step_completed", "onboarding_skipped",
-  "voice_played", "voice_project_reopened", "upgrade_prompt_viewed", "upgrade_prompt_clicked", "demo_requested",
+  "voice_played", "voice_project_reopened", "feature_search_used", "workspace_switched", "upgrade_prompt_viewed", "upgrade_prompt_clicked", "demo_requested",
 ]);
 
 export type TrackInput = {

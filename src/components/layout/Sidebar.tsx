@@ -1,5 +1,6 @@
 "use client";
 
+import WorkspaceNav, { useWorkspace } from "./WorkspaceNav";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -174,6 +175,9 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
   }, []);
   const isAvailable = (href: string) => { const key = moduleKeyForPath(href); return !key || !blockedModules[key]; };
   const [toolsOpen, setToolsOpen] = useState(false);
+  const workspace = useWorkspace();
+  const [allTools, setAllTools] = useState(false);
+  const classicMenu = !workspace?.active || allTools;
   const [assistantsOpen, setAssistantsOpen] = useState(false);
   // Design Director phase 2 — the eleven business destinations are grouped into
   // four departments. A department opens when the page you are on lives inside
@@ -326,6 +330,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
       </div>}
 
       <nav className="flex-1 overflow-y-auto px-2 space-y-0.5 pb-2">
+        {!fitnessOnly && <WorkspaceNav isActive={isActive} isAvailable={isAvailable} showAll={allTools} onToggleAll={() => setAllTools(v => !v)} />}
         <NavItem icon={LayoutDashboard} label={tri(lang, "خانه", "Home", "Startseite", "Ana Sayfa")} href="/home" active={isActive("/home")} />
         {(user?.showFitness ?? true) && <NavItem icon={Dumbbell} label={lang==="fa"?"فیتنس آی‌فکر":"AIFekr FIT"} href="/fitness" active={isActive("/fitness")} />}
         {/* FITNESS accounts may only use AIFekr FIT; everything else in this
@@ -337,6 +342,8 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
         {/* Shown in the menu only while a payment needs the user; otherwise it is an icon in the footer. */}
         {!!user?.pendingPaymentCount && <NavItem icon={CreditCard} label={`${tri(lang, "پرداخت‌ها و فعال‌سازی", "Payments & activation", "Zahlungen und Aktivierung", "Ödemeler ve etkinleştirme")}${user?.pendingPaymentCount ? ` (${user.pendingPaymentCount.toLocaleString(lang)})` : ""}`} href={pathname.startsWith("/fitness")?"/fitness/payments":"/payments"} active={isActive("/payments")||isActive("/fitness/payments")} />}
 
+        {/* With a workspace chosen, the full menu below waits behind "All tools" in WorkspaceNav. */}
+        {classicMenu && <>
         {/* ── BUSINESS SECTION ─────────────────── */}
         {hideBusiness ? null : hasBusinessAccess ? (
           <>
@@ -478,6 +485,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
           {assistantsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
         {assistantsOpen && <div className="pr-4 space-y-0.5">{assistants.map((a) => <NavItem key={a.href} icon={a.icon} label={a.label} href={a.href} active={isActive(a.href)} small />)}</div>}
+        </>}
 
         {/* ── PROJECTS ─────────────────────── */}
         <div style={{ borderTop: "1px solid var(--border)", margin: "6px 0" }} />

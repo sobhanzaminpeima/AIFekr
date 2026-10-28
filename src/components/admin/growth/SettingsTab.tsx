@@ -12,6 +12,7 @@ const FLAG_LABELS: Record<keyof GrowthSettings["flags"], [string, string, string
   lifecycle_automation_enabled: ["اتوماسیون چرخهٔ عمر", "Lifecycle automation", "اجرای زمان‌بندی‌شدهٔ قواعد (فقط مدیر ارشد)", "Scheduled rule runs (super admin only)"],
   automated_communications_enabled: ["ارسال خودکار پیام", "Automated communications", "بدون این سوییچ هیچ پیامی ارسال نمی‌شود (فقط مدیر ارشد)", "Without this nothing is sent (super admin only)"],
   ai_customer_insights_enabled: ["خلاصهٔ هوش مصنوعی", "AI insights", "هنوز پیاده نشده؛ خلاصه‌ها قاعده‌محورند", "Not implemented yet; summaries are rule-based"],
+  adaptive_workspaces_enabled: ["فضاهای کاری تطبیقی", "Adaptive workspaces", "انتخاب فضای کار، منو و خانهٔ شخصی؛ خاموش = منوی کلاسیک", "Workspace switcher, personal sidebar and home; off = classic menu"],
 };
 const TH: Record<keyof GrowthSettings["thresholds"], [string, string]> = {
   newUserDays: ["روزهای «کاربر جدید»", "New-user days"], inactiveDays: ["روزهای عدم‌فعالیت", "Inactive after (days)"], lowCredits: ["آستانهٔ کردیت کم", "Low-credit threshold"],

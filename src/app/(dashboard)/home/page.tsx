@@ -12,6 +12,8 @@ import { formatNumber } from "@/lib/utils/jalali";
 import { compactAmount } from "@/lib/utils/compactAmount";
 import { TEAMMATES, teammateInitial, departmentOf, type TeammateKey } from "@/lib/team/identity";
 import WorkspaceError from "@/components/layout/WorkspaceError";
+import WorkspaceHome from "@/components/layout/WorkspaceHome";
+import { useWorkspace } from "@/components/layout/WorkspaceNav";
 
 /**
  * The dashboard home, built as all three phase-1 directions at once rather than
@@ -93,6 +95,9 @@ export default function HomePage() {
   const [attempt, setAttempt] = useState(0);
   // Set by src/proxy.ts when an admin has switched the requested module off.
   const searchParams = useSearchParams();
+  const workspace = useWorkspace();
+  // Business status board only for business-type workspaces (or the classic view).
+  const showBusinessBoard = !workspace?.active || workspace.active === "business" || workspace.active === "real_estate";
   const unavailableModule = searchParams.get("moduleUnavailable");
   const underMaintenance = searchParams.get("status") === "maintenance";
 
@@ -144,6 +149,8 @@ export default function HomePage() {
             : tri(lang, "این بخش در حال حاضر در دسترس نیست.", "This section is currently unavailable.", "Dieser Bereich ist derzeit nicht verfügbar.", "Bu bölüm şu anda kullanılamıyor.")}</span>
         </div>
       )}
+      <WorkspaceHome/>
+      {showBusinessBoard && <>
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
@@ -330,6 +337,8 @@ export default function HomePage() {
           </div>
         </section>
       )}
+
+      </>}
 
       {/* Workspaces and discovery last -- they used to fill the first screen
           and pushed the business figures below the fold. */}

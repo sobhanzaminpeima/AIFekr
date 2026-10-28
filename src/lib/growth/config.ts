@@ -13,6 +13,8 @@ const flags = z.object({
   lifecycle_automation_enabled: z.boolean().default(false),
   automated_communications_enabled: z.boolean().default(false),
   ai_customer_insights_enabled: z.boolean().default(false),
+  /** Workspace switcher, workspace-first sidebar and home. Off = classic navigation for everyone. */
+  adaptive_workspaces_enabled: z.boolean().default(true),
 });
 
 const weights = z.object({

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { useTranslation, tri } from "@/lib/i18n";
 import { destinations, destinationLabel } from "@/lib/navigation/destinations";
+import { searchDestinations } from "@/lib/navigation/workspaces";
+import { growthEvent } from "@/components/growth/GrowthTracker";
 
 // Custom event name pages can dispatch to open the palette from their own
 // header (e.g. a compact icon button next to page-specific controls)
@@ -54,9 +56,11 @@ export default function CommandPalette({ hideTrigger = false }: { hideTrigger?: 
     };
   }, []);
 
-  const filtered = ITEMS.filter((i) => i.search.toLowerCase().includes(query.toLowerCase()));
+  // Goal search ("make a Reel", "quiz from my PDF"): names + fa/en synonyms, real routes only, no AI call.
+  const filtered = query.trim() ? searchDestinations(query, lang, 10) : ITEMS;
 
   function go(href: string) {
+    if (query.trim()) growthEvent("feature_search_used", { metadata: { found: filtered.length, picked: href.slice(0, 60) } });
     setOpen(false);
     setQuery("");
     router.push(href);
@@ -109,7 +113,7 @@ export default function CommandPalette({ hideTrigger = false }: { hideTrigger?: 
                   }
                   if (e.key === "Enter" && filtered[selected]) { e.preventDefault(); go(filtered[selected].href); }
                 }}
-                placeholder={tri(lang, "کجا می‌خواهید بروید؟", "Where do you want to go?", "Wohin möchten Sie gehen?", "Nereye gitmek istiyorsunuz?")}
+                placeholder={tri(lang, "چه کاری می‌خواهید انجام دهید؟ مثلاً «ساخت ریلز» یا «آزمون از جزوه»", "What do you want to do? e.g. “make a Reel” or “quiz from my PDF”", "Was möchten Sie tun? z. B. „Reel erstellen“", "Ne yapmak istiyorsunuz? örn. “Reel yap”")}
                 className="flex-1 bg-transparent text-sm outline-none"
                 style={{ color: "var(--text-primary)" }}
               />

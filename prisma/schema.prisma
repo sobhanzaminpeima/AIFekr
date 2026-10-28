@@ -4841,6 +4841,10 @@ model GrowthProfile {
   assignedAdminId       String?
   /// "none" | "open" | "contacted" | "resolved"
   followUpStatus        String    @default("none")
+  /// Adaptive workspaces the user picked (comma-separated WorkspaceId); presentation only, never access.
+  workspaces            String    @default("")
+  /// Workspace shown in the sidebar/home; null = classic full navigation.
+  activeWorkspace       String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
