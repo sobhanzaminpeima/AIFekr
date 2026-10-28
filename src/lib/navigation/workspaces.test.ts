@@ -8,6 +8,8 @@ describe("workspace registry", () => {
   it("only references real destinations", () => {
     for (const w of WORKSPACES) {
       expect(routes.has(w.start.href)).toBe(true);
+      expect(w.tiles).toHaveLength(4);
+      for (const h of w.tiles) expect(routes.has(h), `${w.id} tile: ${h}`).toBe(true);
       for (const g of w.groups) for (const h of g.hrefs) expect(routes.has(h), `${w.id}: ${h}`).toBe(true);
     }
     for (const h of Object.keys(SEARCH_KEYWORDS)) expect(routes.has(h), h).toBe(true);

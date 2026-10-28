@@ -1,10 +1,14 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, LayoutGrid } from "lucide-react";
+import {
+  Check, ChevronDown, LayoutGrid, Image as ImageIcon, Video, Mic, Music, Clapperboard, Briefcase, Share2, Magnet, HeartPulse,
+  Upload, ClipboardCheck, Layers, CalendarDays, Dumbbell, Salad, MessageSquare, Search, Globe, Bot, Calculator, Users, Phone, Handshake, Factory,
+  GraduationCap, BookOpen, Sparkles, type LucideIcon,
+} from "lucide-react";
 import { tri, useTranslation } from "@/lib/i18n";
 import { destinations, destinationLabel } from "@/lib/navigation/destinations";
-import { WORKSPACES, workspaceById, type WorkspaceId } from "@/lib/navigation/workspaces";
+import { DEFAULT_TILES, WORKSPACES, workspaceById, type WorkspaceId } from "@/lib/navigation/workspaces";
 import { growthEvent } from "@/components/growth/GrowthTracker";
 import "./workspace-nav.css";
 
@@ -40,14 +44,21 @@ export async function chooseWorkspace(current: WorkspaceState, active: Workspace
   await fetch("/api/user/workspaces", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ active, workspaces }) }).catch(() => {});
 }
 
-const label = (href: string, lang: "fa" | "en" | "de" | "tr") => { const d = destinations.find(x => x[0] === href); return d ? destinationLabel(d, lang) : href; };
+type Lang4 = "fa" | "en" | "de" | "tr";
+export const destinationName = (href: string, lang: Lang4) => { const d = destinations.find(x => x[0] === href); return d ? destinationLabel(d, lang) : href; };
 
-/**
- * Workspace switcher + workspace-first menu at the top of the sidebar. With no
- * workspace chosen the classic menu below is unchanged. Visibility here is
- * never a permission: pages and APIs keep their own checks.
- */
-export default function WorkspaceNav({ isActive, isAvailable, showAll, onToggleAll }: { isActive: (href: string) => boolean; isAvailable: (href: string) => boolean; showAll: boolean; onToggleAll: () => void }) {
+const ICONS: Record<string, LucideIcon> = {
+  "/image/generate": ImageIcon, "/video/generate": Video, "/voice-studio": Mic, "/music/generate": Music, "/video-factory": Clapperboard,
+  "/crm": Briefcase, "/social": Share2, "/lead-gen": Magnet, "/business-doctor": HeartPulse, "/seo": Search, "/website-designer": Globe,
+  "/agents": Bot, "/accounting": Calculator, "/meeting": Users, "/voice-agent": Phone, "/sales": Handshake, "/industry": Factory,
+  "/student": GraduationCap, "/student?view=courses&tool=upload": Upload, "/student?view=courses&tool=practice": ClipboardCheck,
+  "/student?view=courses&tool=review": Layers, "/student?view=planner": CalendarDays, "/learn": BookOpen,
+  "/fitness": Dumbbell, "/assistants/fitness-coach": Dumbbell, "/tools/healthy-diet": Salad, "/chat": MessageSquare,
+};
+export const iconFor = (href: string): LucideIcon => ICONS[href] ?? Sparkles;
+
+/** One-line workspace switcher (opens a small list); never changes access. */
+export default function WorkspaceSwitcher() {
   const { lang } = useTranslation(), fa = lang === "fa";
   const t = (a: string, b: string) => tri(lang, a, b, b, b);
   const state = useWorkspace();
@@ -63,31 +74,44 @@ export default function WorkspaceNav({ isActive, isAvailable, showAll, onToggleA
   if (!state?.enabled) return null;
   const ws = workspaceById(state.active);
   const pick = (id: WorkspaceId | null) => { setOpen(false); void chooseWorkspace(state, id); };
-  const ordered = [...WORKSPACES].sort((a, b) => Number(state.workspaces.includes(b.id)) - Number(state.workspaces.includes(a.id)));
   return <div className="ws-nav" ref={rootRef}>
     <button className="ws-switch" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(!open)}>
       <LayoutGrid className="w-4 h-4 flex-shrink-0" style={{ color: "var(--primary)" }}/>
-      <span className="ws-switch-text"><small>{t("فضای کار", "Workspace")}</small><strong>{ws ? ws.name[fa ? 0 : 1] : t("همهٔ ابزارها", "All tools")}</strong></span>
+      <span className="ws-switch-text"><small>{t("فضای کار", "Workspace")}</small><strong>{ws ? ws.name[fa ? 0 : 1] : t("انتخاب نشده", "Not chosen")}</strong></span>
       <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: "var(--text-muted)" }}/>
     </button>
     {open && <div className="ws-menu" role="listbox" aria-label={t("انتخاب فضای کار", "Choose a workspace")}>
-      {ordered.map(w => <button key={w.id} role="option" aria-selected={state.active === w.id} onClick={() => pick(w.id)}>
+      {WORKSPACES.map(w => <button key={w.id} role="option" aria-selected={state.active === w.id} onClick={() => pick(w.id)}>
         <span><strong>{w.name[fa ? 0 : 1]}</strong><small>{w.tagline[fa ? 0 : 1]}</small></span>{state.active === w.id && <Check className="w-4 h-4"/>}
       </button>)}
-      <button role="option" aria-selected={!state.active} onClick={() => pick(null)}><span><strong>{t("همهٔ ابزارها (منوی کامل)", "All tools (full menu)")}</strong><small>{t("منوی کلاسیک بدون فیلتر", "The classic, unfiltered menu")}</small></span>{!state.active && <Check className="w-4 h-4"/>}</button>
-      <p className="ws-note">{t("فضای کار فقط ترتیب منو را عوض می‌کند؛ پلن، کردیت و دسترسی شما تغییری نمی‌کند.", "A workspace only changes what the menu shows first; your plan, credits and access stay the same.")}</p>
-    </div>}
-    {!ws && state.suggested && <button className="ws-suggest" onClick={() => pick(state.suggested)}>{t(`منوی ساده‌تر برای «${workspaceById(state.suggested)!.name[0]}»`, `Simpler menu for “${workspaceById(state.suggested)!.name[1]}”`)}</button>}
-    {ws && <div className="ws-groups">
-      {ws.groups.map(g => {
-        const items = g.hrefs.filter(isAvailable);
-        if (!items.length) return null;
-        return <div key={g.title[1]}>
-          <p className="ws-group-title">{g.title[fa ? 0 : 1]}</p>
-          {items.map(href => <Link key={href} href={href} className="ws-link" aria-current={isActive(href.split("?")[0]) && !href.includes("?") ? "page" : undefined}>{label(href, lang)}</Link>)}
-        </div>;
-      })}
-      <button className="ws-all" aria-expanded={showAll} onClick={onToggleAll}>{showAll ? t("بستن همهٔ ابزارها", "Hide all tools") : t("همهٔ ابزارها", "All tools")}<ChevronDown className="w-3.5 h-3.5" style={{ transform: showAll ? "none" : "rotate(-90deg)" }}/></button>
+      <button role="option" aria-selected={!state.active} onClick={() => pick(null)}><span><strong>{t("بدون فضای کار", "No workspace")}</strong><small>{t("همهٔ ابزارها با هم", "Everything together")}</small></span>{!state.active && <Check className="w-4 h-4"/>}</button>
+      <p className="ws-note">{t("فقط ترتیب منو عوض می‌شود؛ پلن، کردیت و دسترسی همان می‌ماند.", "Only the menu order changes; plan, credits and access stay the same.")}</p>
     </div>}
   </div>;
+}
+
+/** 2×2 grid of the four most useful tools for the chosen workspace (or the creation tools by default). */
+export function QuickTiles({ isActive, isAvailable }: { isActive: (href: string) => boolean; isAvailable: (href: string) => boolean }) {
+  const { lang } = useTranslation();
+  const state = useWorkspace();
+  const tiles = (workspaceById(state?.active)?.tiles ?? DEFAULT_TILES).filter(isAvailable).slice(0, 4);
+  return <div className="sb-tiles">{tiles.map(href => {
+    const Icon = iconFor(href);
+    return <Link key={href} href={href} className="sb-tile" aria-current={!href.includes("?") && isActive(href) ? "page" : undefined}><Icon className="w-4 h-4"/><span>{destinationName(href, lang)}</span></Link>;
+  })}</div>;
+}
+
+/** The chosen workspace's groups, shown inside the "tools" panel above the full list. */
+export function WorkspaceGroups({ isActive, isAvailable }: { isActive: (href: string) => boolean; isAvailable: (href: string) => boolean }) {
+  const { lang } = useTranslation(), fa = lang === "fa";
+  const ws = workspaceById(useWorkspace()?.active);
+  if (!ws) return null;
+  return <div className="ws-groups">{ws.groups.map(g => {
+    const items = g.hrefs.filter(isAvailable);
+    if (!items.length) return null;
+    return <div key={g.title[1]}>
+      <p className="ws-group-title">{g.title[fa ? 0 : 1]}</p>
+      {items.map(href => { const Icon = iconFor(href); return <Link key={href} href={href} className="ws-link" aria-current={!href.includes("?") && isActive(href) ? "page" : undefined}><Icon className="w-4 h-4"/>{destinationName(href, lang)}</Link>; })}
+    </div>;
+  })}</div>;
 }

@@ -9,10 +9,10 @@ import { destinations } from "./destinations";
 export type WorkspaceId = "business" | "real_estate" | "creator" | "student" | "fitness" | "general";
 type Copy = [fa: string, en: string];
 export type WorkspaceGroup = { title: Copy; hrefs: string[] };
-export type Workspace = { id: WorkspaceId; name: Copy; tagline: Copy; groups: WorkspaceGroup[]; start: { href: string; label: Copy } };
+export type Workspace = { id: WorkspaceId; name: Copy; tagline: Copy; groups: WorkspaceGroup[]; start: { href: string; label: Copy }; /** Four quick tiles at the top of the sidebar. */ tiles: string[] };
 
 export const WORKSPACES: Workspace[] = [
-  { id: "business", name: ["کسب‌وکار", "Business"], tagline: ["مشتری بیشتر، فروش بیشتر، کار کمتر", "More customers, more sales, less busywork"],
+  { id: "business", tiles: ["/crm", "/social", "/lead-gen", "/business-doctor"], name: ["کسب‌وکار", "Business"], tagline: ["مشتری بیشتر، فروش بیشتر، کار کمتر", "More customers, more sales, less busywork"],
     start: { href: "/crm", label: ["اولین مشتری را ثبت کنید", "Add your first customer"] },
     groups: [
       { title: ["رشد کسب‌وکار", "Grow my business"], hrefs: ["/lead-gen", "/social", "/seo", "/website-designer"] },
@@ -21,33 +21,33 @@ export const WORKSPACES: Workspace[] = [
       { title: ["ساخت محتوا", "Create content"], hrefs: ["/image/generate", "/video-factory", "/voice-studio"] },
       { title: ["تحلیل کسب‌وکار", "Analyze my business"], hrefs: ["/business-doctor", "/accounting", "/meeting"] },
     ] },
-  { id: "real_estate", name: ["املاک", "Real estate"], tagline: ["ملک، مشتری و بازاریابی در یک جا", "Properties, clients and marketing in one place"],
+  { id: "real_estate", tiles: ["/crm", "/lead-gen", "/social", "/video-factory"], name: ["املاک", "Real estate"], tagline: ["ملک، مشتری و بازاریابی در یک جا", "Properties, clients and marketing in one place"],
     start: { href: "/crm", label: ["اولین ملک یا مشتری را ثبت کنید", "Add your first property or client"] },
     groups: [
       { title: ["املاک و مشتریان", "Properties & clients"], hrefs: ["/crm", "/lead-gen", "/industry"] },
       { title: ["بازاریابی ملک", "Property marketing"], hrefs: ["/social", "/video-factory", "/image/generate", "/voice-studio"] },
       { title: ["مالی", "Finance"], hrefs: ["/accounting/owner-statements", "/accounting"] },
     ] },
-  { id: "creator", name: ["تولید محتوا", "Creator"], tagline: ["تصویر، ویدیو، صدا و انتشار", "Images, video, voice and publishing"],
+  { id: "creator", tiles: ["/image/generate", "/video/generate", "/voice-studio", "/music/generate"], name: ["تولید محتوا", "Creator"], tagline: ["تصویر، ویدیو، صدا و انتشار", "Images, video, voice and publishing"],
     start: { href: "/image/generate", label: ["اولین تصویر را بسازید", "Create your first image"] },
     groups: [
       { title: ["ساختن", "Create"], hrefs: ["/image/generate", "/video/generate", "/video-factory", "/voice-studio", "/music/generate"] },
       { title: ["انتشار و رشد", "Publish & grow"], hrefs: ["/social", "/seo/agent-pipeline"] },
       { title: ["آرشیو", "Library"], hrefs: ["/image/gallery"] },
     ] },
-  { id: "student", name: ["دانشجو", "Student"], tagline: ["خلاصه، آزمون، فلش‌کارت و برنامهٔ مطالعه", "Summaries, quizzes, flashcards and study plans"],
+  { id: "student", tiles: ["/student?view=courses&tool=upload", "/student?view=courses&tool=practice", "/student?view=courses&tool=review", "/student?view=planner"], name: ["دانشجو", "Student"], tagline: ["خلاصه، آزمون، فلش‌کارت و برنامهٔ مطالعه", "Summaries, quizzes, flashcards and study plans"],
     start: { href: "/student?view=courses&tool=upload", label: ["اولین جزوه را بارگذاری کنید", "Upload your first notes"] },
     groups: [
       { title: ["مطالعه", "Study"], hrefs: ["/student", "/student?view=courses&tool=upload", "/student?view=courses&tool=practice", "/student?view=courses&tool=review", "/student/chat"] },
       { title: ["برنامه و پیشرفت", "Plan & progress"], hrefs: ["/student?view=planner", "/student?view=reports", "/student?view=groups"] },
       { title: ["یادگیری بیشتر", "Learn more"], hrefs: ["/learn", "/assistants/teacher", "/tools/math"] },
     ] },
-  { id: "fitness", name: ["تناسب اندام", "Fitness"], tagline: ["برنامهٔ تمرین، تغذیه و پیشرفت", "Workouts, nutrition and progress"],
+  { id: "fitness", tiles: ["/fitness", "/assistants/fitness-coach", "/tools/healthy-diet", "/chat"], name: ["تناسب اندام", "Fitness"], tagline: ["برنامهٔ تمرین، تغذیه و پیشرفت", "Workouts, nutrition and progress"],
     start: { href: "/fitness", label: ["برنامهٔ تمرینی خود را بسازید", "Build your workout plan"] },
     groups: [
       { title: ["فیت", "FIT"], hrefs: ["/fitness", "/assistants/fitness-coach", "/tools/healthy-diet"] },
     ] },
-  { id: "general", name: ["همه‌کاره", "General AI"], tagline: ["گفتگو و ابزارهای روزمره", "Chat and everyday tools"],
+  { id: "general", tiles: ["/image/generate", "/video/generate", "/voice-studio", "/music/generate"], name: ["همه‌کاره", "General AI"], tagline: ["گفتگو و ابزارهای روزمره", "Chat and everyday tools"],
     start: { href: "/chat", label: ["یک سؤال بپرسید", "Ask a question"] },
     groups: [
       { title: ["گفتگو و دستیارها", "Chat & assistants"], hrefs: ["/chat", "/agents", "/assistants/translator", "/assistants/teacher", "/assistants/code-expert"] },
@@ -55,6 +55,9 @@ export const WORKSPACES: Workspace[] = [
       { title: ["ابزارها", "Tools"], hrefs: ["/tools/business-ideas", "/tools/math", "/tools/healthy-diet", "/assistants/travel-agent"] },
     ] },
 ];
+
+/** Tiles when no workspace is chosen: the creation tools most users come for. */
+export const DEFAULT_TILES = ["/image/generate", "/video/generate", "/voice-studio", "/music/generate"];
 
 export const WORKSPACE_IDS = WORKSPACES.map(w => w.id);
 export const workspaceById = (id: string | null | undefined) => WORKSPACES.find(w => w.id === id) ?? null;

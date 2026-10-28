@@ -1,0 +1,5 @@
+/* Chat top-bar quick modes: hidden on phones (the composer tabs cover it there). */
+.chat-quick{display:none}
+@media (min-width:640px){.chat-quick{display:flex}}
+.chat-quick button:hover,.chat-quick a:hover{color:var(--text-primary)}
+.chat-quick :is(button,a):focus-visible{outline:3px solid #ff6b00;outline-offset:1px}

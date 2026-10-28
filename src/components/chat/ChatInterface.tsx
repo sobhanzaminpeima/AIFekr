@@ -13,6 +13,7 @@ import {
   Play, Pause, Upload, X, Languages, UserSquare2, Coins, Gift, Database,
 } from "lucide-react";
 import Link from "next/link";
+import "./chat-quick.css";
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
 import { useTranslation, tri, type Lang } from "@/lib/i18n";
@@ -1011,6 +1012,23 @@ export default function ChatInterface({
         )}
 
         <div className="flex-1 min-w-0" />
+
+        {/* Quick modes, one pill like a toolbar: the same four modes as the
+            composer tabs, plus Voice Studio, reachable without opening the menu. */}
+        <div role="group" aria-label={tri(lang, "حالت ساخت", "Create mode", "Modus", "Mod")} className="chat-quick items-center gap-0.5 p-1 rounded-2xl flex-shrink-0" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+          {MEDIA_TABS.map((tab) => (
+            <button key={tab.id} onClick={() => setMediaType(tab.id)} aria-pressed={mediaType === tab.id}
+              title={tri(lang, tab.fa, tab.en, tab.de, tab.en)} aria-label={tri(lang, tab.fa, tab.en, tab.de, tab.en)}
+              className="w-8 h-8 grid place-items-center rounded-xl transition-colors"
+              style={mediaType === tab.id ? { background: "rgba(255,107,0,0.14)", color: "var(--primary)" } : { color: "var(--text-secondary)" }}>
+              <tab.icon className="w-4 h-4" />
+            </button>
+          ))}
+          <Link href="/voice-studio" title={tri(lang, "استودیوی صدا", "Voice Studio", "Sprachstudio", "Ses Stüdyosu")} aria-label={tri(lang, "استودیوی صدا", "Voice Studio", "Sprachstudio", "Ses Stüdyosu")}
+            className="w-8 h-8 grid place-items-center rounded-xl" style={{ color: "var(--text-secondary)" }}>
+            <Volume2 className="w-4 h-4" />
+          </Link>
+        </div>
 
         <Link
           aria-label={tri(lang, "افزایش اعتبار", "Add Credits", "Guthaben aufladen", "Kredi Ekle")}
