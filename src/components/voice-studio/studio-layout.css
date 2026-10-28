@@ -1,7 +1,79 @@
-.vs-shell{max-width:1400px;font-size:14px;line-height:1.7}.vs-header{margin-bottom:24px}.vs-header h1{font-size:clamp(22px,2.5vw,30px)}.vs-panel{border-radius:20px;padding:20px}.vs-shell h2{font-size:16px}.vs-shell label{font-size:12px}.vs-shell button,.vs-shell a{font-size:12px;transition:border-color .15s,background .15s}.vs-shell button:hover:not(:disabled){border-color:#ff6b00}.vs-shell .vs-primary{color:#fff}.vs-editor{min-height:310px;font-size:14px!important}.vs-voices article{padding:12px}.vs-voices article button{width:100%;text-align:start;justify-content:start;line-height:1.5}.vs-voices article small{color:var(--text-secondary);margin-top:5px}.vs-balance{display:flex;align-items:center;gap:10px;padding:12px 16px;font-size:20px}.vs-balance small{font-size:11px}
-.vs-generate-panel{display:grid;grid-template-columns:minmax(160px,1fr) auto auto;align-items:center;gap:16px;padding:18px 20px;position:static!important;box-shadow:none}.vs-generate-summary{display:flex;align-items:center;gap:12px}.vs-generate-summary h2{font-size:14px}.vs-generate-summary p{margin:2px 0;color:var(--text-secondary);font-size:11px;overflow-wrap:anywhere}.vs-icon{display:grid;place-items:center;background:#ff6b0015;color:#ff6b00;width:44px;height:44px;border-radius:13px;flex-shrink:0}.vs-price-summary{display:flex;flex-direction:column;gap:2px;font-size:12px}.vs-price-summary span{color:var(--text-secondary)}.vs-generate-panel>label{grid-column:1/-1;margin:0}.vs-generate-panel>.vs-primary{display:flex;gap:8px}.vs-cost-details{grid-column:1/-1;border-top:1px solid var(--border);padding:8px 0 0!important;font-size:12px;color:var(--text-secondary)}.vs-cost-details summary{display:flex;align-items:center;justify-content:space-between;min-height:30px;font-size:11px}.vs-cost-details p{margin:8px 0 0}
-.vs-progress{padding:18px 22px;margin:18px 0;border:1px solid #ff6b0050;border-radius:18px;background:linear-gradient(120deg,#ff6b0008,transparent)}.vs-progress-title{display:flex;align-items:center;gap:10px;color:#ff6b00}.vs-progress .vs-muted{display:flex;align-items:center;gap:5px}.vs-progress-ready{border-color:#22c55e50}.vs-progress-ready .vs-progress-title{color:#22c55e}.vs-steps{list-style:none;padding:0;display:flex;justify-content:space-between;gap:12px;margin:18px 0 0}.vs-steps li{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text-secondary);opacity:.55}.vs-steps li span{display:grid;place-items:center;width:23px;height:23px;flex-shrink:0;border:1px solid var(--border);border-radius:50%}.vs-steps .is-current{opacity:1;color:var(--text-primary)}.vs-steps .is-current span{border-color:#ff6b00;background:#ff6b0015;color:#ff6b00}.vs-spin{animation:vs-spin 1s linear infinite}@keyframes vs-spin{to{transform:rotate(360deg)}}
-.vs-generation [role=status]{background:var(--surface-0);border-radius:20px;padding:3px 12px;font-size:11px}.vs-generation p{font-size:12px}
-@media(max-width:1100px){.vs-generate-panel{grid-template-columns:minmax(140px,1fr) auto}.vs-generate-panel>.vs-primary{grid-column:1/-1;width:100%}}
-@media(max-width:640px){.vs-balance{width:100%;justify-content:space-between;font-size:18px}.vs-generate-panel{grid-template-columns:1fr;gap:12px}.vs-price-summary{flex-direction:row;justify-content:space-between}.vs-steps{display:grid;grid-template-columns:1fr 1fr;gap:10px}.vs-progress{padding:16px}.vs-editor{min-height:230px}.vs-panel{padding:16px}.vs-shell button,.vs-shell a{min-height:44px}}
-@media(prefers-reduced-motion:reduce){.vs-shell *{transition:none!important}.vs-spin{animation:none}}
+/* User studio: step flow (text → voice → generate) with a sticky generate column. Base tokens come from voice-studio.css. */
+.vs-app{--vs-accent:#ff6b00;--vs-accent-soft:rgba(255,107,0,.1);max-width:1320px;font-size:14px;line-height:1.75}
+.vs-app h2{font-size:15px;font-weight:700;margin:0}
+.vs-app label{font-size:12px}
+.vs-app button,.vs-app a{font-size:13px;min-height:40px;transition:border-color .15s,background .15s,color .15s}
+.vs-app button:hover:not(:disabled),.vs-app a:hover{border-color:var(--vs-accent)}
+.vs-top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.vs-top h1{margin:2px 0}.vs-top p{margin:0;color:var(--text-secondary)}
+.vs-wallet{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 14px;border:1px solid var(--border);border-radius:999px;background:var(--surface-1)}
+.vs-wallet svg{color:var(--vs-accent)}.vs-wallet strong{font-size:16px}.vs-wallet span{color:var(--text-secondary);font-size:12px}
+.vs-app .vs-wallet a{min-height:32px;border-radius:999px;padding:4px 14px;background:var(--vs-accent-soft);border-color:transparent;color:var(--vs-accent);font-weight:700}
+.vs-toast{margin:8px 0;color:#22c55e;font-size:13px}
+.vs-projectbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;margin-bottom:16px;border:1px solid var(--border);border-radius:16px;background:var(--surface-1)}
+.vs-projectbar>svg{color:var(--text-secondary);flex-shrink:0}
+.vs-app .vs-projectbar select{width:auto;min-width:180px;max-width:340px;padding:8px 10px;border-radius:10px}
+.vs-app .vs-projectbar .vs-check{margin:0;font-weight:500;color:var(--text-secondary)}
+.vs-spacer{flex:1}
+.vs-menu{position:relative;padding:0!important}
+.vs-menu summary{list-style:none;display:grid;place-items:center;width:40px;height:40px;border:1px solid var(--border);border-radius:11px;background:var(--surface-0)}
+.vs-menu summary::-webkit-details-marker{display:none}
+.vs-menu>div{position:absolute;inset-inline-end:0;top:46px;z-index:20;display:grid;gap:4px;min-width:200px;padding:6px;border:1px solid var(--border);border-radius:14px;background:var(--surface-1);box-shadow:0 12px 32px rgba(0,0,0,.25)}
+.vs-app .vs-menu>div button{justify-content:flex-start;border-color:transparent;background:transparent}
+.vs-app .vs-danger{color:#ef6a6a}.vs-app .vs-danger:hover:not(:disabled){border-color:#ef6a6a}
+.vs-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:18px;align-items:start}
+.vs-main,.vs-side{display:grid;gap:16px;min-width:0}
+.vs-side{position:sticky;top:16px}
+.vs-card{border:1px solid var(--border);background:var(--surface-1);border-radius:20px;padding:18px;min-width:0}
+.vs-card-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.vs-card-head>div{flex:1;min-width:0}.vs-card-head p{margin:0;font-size:12px;color:var(--text-secondary);overflow-wrap:anywhere}
+.vs-step{display:grid;place-items:center;width:30px;height:30px;flex-shrink:0;border-radius:50%;background:var(--vs-accent-soft);color:var(--vs-accent);font-weight:800;font-size:14px}
+.vs-accent{color:var(--vs-accent);flex-shrink:0}
+.vs-app .vs-compact{width:auto;padding:7px 10px;border-radius:10px;font-size:12px}
+.vs-app .vs-name{margin-bottom:10px;font-weight:600}
+.vs-app .vs-editor{min-height:260px;font-size:15px!important;line-height:2.1!important;resize:vertical}
+.vs-editor-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--text-secondary)}
+.vs-over{color:#ef6a6a;font-weight:700}
+.vs-app .vs-link{min-height:32px;padding:4px 8px;border-color:transparent;background:transparent;color:var(--text-secondary)}
+.vs-voice-tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.vs-app .vs-search{position:relative;flex:1;min-width:200px;margin:0;display:block}
+.vs-search svg{position:absolute;inset-inline-start:12px;top:50%;transform:translateY(-50%);color:var(--text-secondary)}
+.vs-app .vs-search input:not([type=checkbox]){padding-inline-start:38px}
+.vs-chips{display:flex;gap:6px;flex-wrap:wrap}
+.vs-app .vs-chips button{min-height:36px;border-radius:999px;padding:4px 14px}
+.vs-voice-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;max-height:380px;overflow:auto;padding:2px}
+.vs-voice{display:flex;align-items:center;gap:6px;padding:6px;border:1px solid var(--border);border-radius:14px;background:var(--surface-0);transition:border-color .15s,background .15s}
+.vs-voice.vs-selected{border-color:var(--vs-accent)!important;background:var(--vs-accent-soft)!important}
+.vs-app .vs-voice-pick{flex:1;min-width:0;justify-content:flex-start;gap:10px;padding:4px;border:0;background:transparent!important;text-align:start}
+.vs-avatar{display:grid;place-items:center;width:36px;height:36px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,#ff6b00,#ff9f4a);color:#17191d;font-weight:800}
+.vs-voice-text{display:grid;min-width:0;line-height:1.4}
+.vs-voice-text strong,.vs-voice-text small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vs-voice-text small{font-size:11px;color:var(--text-secondary)}
+.vs-tick{color:var(--vs-accent);flex-shrink:0}
+.vs-app .vs-play{width:36px;height:36px;min-height:36px;padding:0;flex-shrink:0;border-radius:50%}
+.vs-settings{margin-top:12px;border-top:1px solid var(--border);padding:12px 0 0!important}
+.vs-settings summary{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px}
+.vs-settings summary .vs-muted{margin-inline-start:auto;font-weight:400;font-size:12px}
+.vs-start{justify-content:flex-start}
+.vs-generate{border-color:rgba(255,107,0,.35)}
+.vs-summary{display:grid;gap:0;margin:0 0 14px;border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.vs-summary>div{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;font-size:13px}
+.vs-summary>div+div{border-top:1px solid var(--border)}
+.vs-summary dt{color:var(--text-secondary)}.vs-summary dd{margin:0;text-align:end;overflow-wrap:anywhere}
+.vs-app .vs-primary{width:100%;min-height:52px;font-size:15px;border-radius:14px;background:var(--vs-accent);border-color:var(--vs-accent);color:#17191d;font-weight:800}
+.vs-app .vs-primary:hover:not(:disabled){background:#ff7d22}
+.vs-blocked{display:flex;gap:8px;align-items:flex-start;margin:10px 0 0;font-size:12px;color:var(--text-secondary)}
+.vs-blocked svg{flex-shrink:0;margin-top:4px;color:var(--vs-accent)}
+.vs-cost-details{margin-top:12px;border-top:1px solid var(--border);padding:8px 0 0!important;font-size:12px;color:var(--text-secondary)}
+.vs-cost-details summary{display:flex;align-items:center;justify-content:space-between;min-height:30px;font-size:12px}
+.vs-cost-details p{margin:8px 0 0}
+.vs-library .vs-generation{padding:12px 0;margin:0;border-top:1px solid var(--border)}
+.vs-library .vs-generation p{font-size:12px;margin:4px 0}
+.vs-empty{font-size:13px;margin:0}
+.vs-pill{border-radius:999px;padding:2px 10px;font-size:11px;background:var(--surface-0);border:1px solid var(--border)}
+.vs-pill-ready{color:#22c55e;border-color:rgba(34,197,94,.4)}.vs-pill-failed,.vs-pill-cancelled{color:#ef6a6a;border-color:rgba(239,106,106,.4)}.vs-pill-queued,.vs-pill-running{color:var(--vs-accent);border-color:rgba(255,107,0,.4)}
+.vs-library .vs-row a,.vs-library .vs-row button{min-height:36px;padding:6px 10px}
+.vs-progress{padding:16px 18px;border:1px solid #ff6b0050;border-radius:18px;background:linear-gradient(120deg,#ff6b0010,transparent)}.vs-progress-title{display:flex;align-items:center;gap:10px;color:#ff6b00}.vs-progress .vs-muted{display:flex;align-items:center;gap:5px;font-size:12px}.vs-progress-ready{border-color:#22c55e50}.vs-progress-ready .vs-progress-title{color:#22c55e}.vs-steps{list-style:none;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0 0}.vs-steps li{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text-secondary);opacity:.55}.vs-steps li span{display:grid;place-items:center;width:23px;height:23px;flex-shrink:0;border:1px solid var(--border);border-radius:50%}.vs-steps .is-current{opacity:1;color:var(--text-primary)}.vs-steps .is-current span{border-color:#ff6b00;background:#ff6b0015;color:#ff6b00}.vs-spin{animation:vs-spin 1s linear infinite}@keyframes vs-spin{to{transform:rotate(360deg)}}
+@media(max-width:1024px){.vs-layout{grid-template-columns:minmax(0,1fr)}.vs-side{position:static}}
+@media(max-width:640px){.vs-app{padding:14px}.vs-card{padding:14px;border-radius:16px}.vs-wallet{width:100%;justify-content:space-between}.vs-app .vs-projectbar select{flex:1 1 calc(100% - 34px);min-width:0;max-width:none}.vs-spacer{display:none}.vs-voice-grid{grid-template-columns:1fr;max-height:320px}.vs-app .vs-editor{min-height:200px}.vs-app button,.vs-app a{min-height:44px}.vs-app .vs-play{width:44px;height:44px}}
+@media(prefers-reduced-motion:reduce){.vs-app *{transition:none!important}.vs-spin{animation:none}}
