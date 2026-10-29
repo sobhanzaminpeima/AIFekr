@@ -11,6 +11,9 @@ function failure(e: unknown) { return NextResponse.json({ code: e instanceof Voi
 export async function GET(req: NextRequest) { const user = await requireAuth(req); if (!user)
     return unauthorizedResponse(req); try {
     const id = req.nextUrl.searchParams.get("audio");
+    // The native app fetches with redirects disabled, so it asks for the signed link as JSON.
+    if (id && req.nextUrl.searchParams.get("format") === "json")
+        return NextResponse.json({ url: await audioUrl(user.id, id, req.nextUrl.searchParams.get("download") === "1") }, { headers: { "Cache-Control": "private, no-store" } });
     if (id)
         return NextResponse.redirect(await audioUrl(user.id, id, req.nextUrl.searchParams.get("download") === "1"), { headers: { "Cache-Control": "private, no-store" } });
     const projectId = req.nextUrl.searchParams.get("project");
@@ -27,8 +30,9 @@ export async function POST(req: NextRequest) {
     const user = await requireAuth(req);
     if (!user)
         return unauthorizedResponse(req);
-    const origin = req.headers.get("origin");
-    if (origin !== (process.env.NODE_ENV === "production" ? "https://aifekr.com" : req.nextUrl.origin))
+    // Origin guards cookie sessions against CSRF; the native app sends a bearer token and no cookie.
+    const origin = req.headers.get("origin"), nativeApp = !req.cookies.get("token") && /^Bearer \S+$/i.test(req.headers.get("authorization") || "");
+    if (!nativeApp && origin !==(process.env.NODE_ENV === "production" ? "https://aifekr.com" : req.nextUrl.origin))
         return NextResponse.json({ code: "INVALID_ORIGIN" }, { status: 403 });
     if (Number(req.headers.get("content-length")) > 1000000)
         return NextResponse.json({ code: "PAYLOAD_TOO_LARGE" }, { status: 413 });
