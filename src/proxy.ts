@@ -144,12 +144,21 @@ async function routeToV2(req: NextRequest): Promise<NextResponse | null> {
     if (!origin) return new NextResponse(null, { status: 404 });
     return NextResponse.rewrite(new URL((pathname.slice(V2_ASSET_PREFIX.length) || "/") + search, origin));
   }
-  if (!origin || pathname.startsWith("/api/") || !v2Handles(stripPublicLocale(pathname).path)) return null;
+  if (!origin || pathname.startsWith("/api/")) return null;
+  const localized = stripPublicLocale(pathname);
+  if (!v2Handles(localized.path)) return null;
+  // Left to the classic routes: /fa/... redirects to the unprefixed URL, and
+  // the landing page sends signed-in visitors to /chat.
+  if (pathname !== localized.path && localized.lang === "fa") return null;
+  if (localized.path === "/" && req.cookies.get("token")) return null;
   const theme = resolveTheme(await siteUiTheme(), req.cookies.get(UI_PREVIEW_COOKIE)?.value);
   if (theme !== "v2" || !(await v2Available())) return null;
+  const target = new URL(localized.path + search, origin);
+  // Public pages take their language from the URL, as in the classic design.
+  if (isPublicRoute(localized.path)) target.searchParams.set("__lang", localized.lang);
   const headers = new Headers(req.headers);
   headers.set("x-aifekr-path", pathname + search);
-  return NextResponse.rewrite(new URL(pathname + search, origin), { request: { headers } });
+  return NextResponse.rewrite(target, { request: { headers } });
 }
 
 export async function proxy(req: NextRequest) {

@@ -5,8 +5,7 @@ import { guides } from "@/lib/marketing/guides";
 import { text, type Copy } from "@/lib/marketing/catalog";
 import { pageJsonLd, pageMetadata } from "@/lib/seo/site";
 import JsonLd from "@/components/seo/JsonLd";
-const title: Copy = ["راهنمای کاربردی هوش مصنوعی برای کار و مطالعه", "Practical AI guides for work and study", "Praktische KI-Leitfäden für Arbeit und Studium", "İş ve öğrenim için uygulamalı yapay zekâ rehberleri"];
-const description: Copy = ["راهنماهای AIFekr برای پیگیری مشتری، تولید محتوای سئو و برنامه‌ریزی مطالعه؛ با مراحل روشن، نمونهٔ کاربرد و محدودیت‌های واقعی ابزارها.", "AIFekr guides for customer follow-up, SEO content and study planning, with practical steps and real tool limitations.", "AIFekr-Leitfäden für Kundennachverfolgung, SEO-Inhalte und Lernplanung mit praktischen Schritten und tatsächlichen Grenzen.", "Müşteri takibi, SEO içeriği ve çalışma planı için pratik adımlar ve gerçek araç sınırlamaları içeren AIFekr rehberleri."];
+import { GUIDES_TITLE as title, GUIDES_DESCRIPTION as description } from "@/lib/seo/publicSeo";
 const four = (copy: Copy) => ({ fa: copy[0], en: copy[1], de: copy[2], tr: copy[3] });
 export async function generateMetadata() { return pageMetadata(await getServerLang(), "/guides", four(title), four(description)); }
 export default async function GuidesPage() {

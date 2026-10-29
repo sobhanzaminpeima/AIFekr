@@ -18,7 +18,9 @@ export const UI_PREVIEW_COOKIE = "aifekr_ui_preview";
 export const V2_ASSET_PREFIX = "/_v2";
 
 /** Pages rebuilt in v2 and connected to the real backend. An entry matches the path itself and everything under it. */
-export const V2_ROUTES: readonly string[] = [];
+// Phase 1: landing and public pages. Privacy, terms, security, industry and
+// the other public pages stay classic until they are rebuilt.
+export const V2_ROUTES: readonly string[] = ["/", "/pricing", "/about", "/contact", "/guides", "/features", "/solutions"];
 
 export function isUiTheme(value: unknown): value is UiTheme {
   return value === "classic" || value === "v2";

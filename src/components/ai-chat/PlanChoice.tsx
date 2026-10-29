@@ -5,7 +5,8 @@ import {useTranslation,tri} from "@/lib/i18n";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import StarterCheckout from "@/components/marketing/StarterCheckout";
 import "./platform-entry.css";
-export type EntryPlan={code:string;name:string;category:string;minor:number;currency:string;credits:number;days:number;featured:boolean;features:string[]};
+import type {EntryPlan} from "@/lib/marketing/entryPlans";
+export type {EntryPlan};
 export default function PlanChoice({plans,authenticated,initialGroup,embedded=false}:{plans:EntryPlan[];authenticated:boolean;initialGroup:string;embedded?:boolean}){
  const {lang}=useTranslation(),t=(fa:string,en:string,de:string,tr:string)=>tri(lang,fa,en,de,tr),[group,setGroup]=useState(["CHAT","BUSINESS","STUDENT","FITNESS"].includes(initialGroup)?initialGroup:"CHAT"),[busy,setBusy]=useState(false),[error,setError]=useState("");
  const groups={CHAT:t("چت هوش مصنوعی","AI Chat","KI-Chat","AI Sohbet"),BUSINESS:t("بیزنس","Business","Business","İşletme"),STUDENT:t("دانشجویی","Student","Studium","Öğrenci"),FITNESS:t("فیتنس","Fitness","Fitness","Fitness")};

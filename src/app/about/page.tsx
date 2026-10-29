@@ -6,6 +6,7 @@ import { getServerLang } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 import { pageMetadata, pageJsonLd } from "@/lib/seo/site";
 import JsonLd from "@/components/seo/JsonLd";
+import { ABOUT_DESCRIPTION, ABOUT_TITLE } from "@/lib/seo/publicSeo";
 import { copy, text } from "@/lib/marketing/catalog";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +47,7 @@ async function getSettings(lang: string) {
 
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getServerLang();
-  const meta = pageMetadata(lang, "/about", { fa: "درباره AIFekr؛ هوش مصنوعی برای کار و یادگیری", en: "About AIFekr: AI for work and learning", de: "Über AIFekr: KI für Arbeit und Lernen", tr: "AIFekr hakkında: iş ve öğrenim için yapay zekâ" }, { fa: "با AIFekr آشنا شوید: فضای یکپارچهٔ گفتگو، محتوا، CRM و مطالعه؛ با اعتبار مشخص، کنترل کاربر و بررسی خروجی‌های هوش مصنوعی.", en: "Meet AIFekr: a shared workspace for AI chat, content, CRM and learning, with clear credits, user control and review of AI output.", de: "AIFekr kennenlernen: ein gemeinsamer Bereich für KI-Chat, Inhalte, CRM und Lernen mit klaren Credits, Nutzerkontrolle und Prüfung der KI-Ausgaben.", tr: "AIFekr'i tanıyın: belirli krediler, kullanıcı kontrolü ve yapay zekâ çıktılarının incelenmesiyle sohbet, içerik, CRM ve öğrenim alanı." });
+  const meta = pageMetadata(lang, "/about", ABOUT_TITLE, ABOUT_DESCRIPTION);
   return meta;
 }
 

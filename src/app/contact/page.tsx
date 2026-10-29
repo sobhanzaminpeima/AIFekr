@@ -1,5 +1,4 @@
 import PublicShell from "@/components/marketing/PublicShell";
-import { prisma } from "@/lib/db/prisma";
 import { Mail, Phone, MapPin, MessageCircle } from "lucide-react";
 import { getServerLang } from "@/lib/i18n/server";
 // tri must come from "@/lib/i18n/tri", NOT "@/lib/i18n": the index is a
@@ -9,61 +8,21 @@ import { tri } from "@/lib/i18n/tri";
 import type { Metadata } from "next";
 import { pageMetadata, pageJsonLd } from "@/lib/seo/site";
 import JsonLd from "@/components/seo/JsonLd";
+import { getContactSettings } from "@/lib/marketing/contact";
+import { CONTACT_DESCRIPTION, CONTACT_TITLE } from "@/lib/seo/publicSeo";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULTS = {
-  contact_email: "support@aifekr.com",
-  contact_phone: "+905391016485",
-  contact_address: "Cyprus",
-  contact_telegram: "",
-};
-
-const DEFAULTS_DE = {
-  contact_email: "support@aifekr.com",
-  contact_phone: "+905391016485",
-  contact_address: "Cyprus",
-  contact_telegram: "",
-};
-
-const DEFAULTS_EN = {
-  contact_email: "support@aifekr.com",
-  contact_phone: "+905391016485",
-  contact_address: "Cyprus",
-  contact_telegram: "",
-};
-
-async function getSettings(lang: string) {
-  const defaults = lang === "de" ? DEFAULTS_DE : lang === "fa" ? DEFAULTS : DEFAULTS_EN;
-  try {
-    const rows = await prisma.siteSetting.findMany({
-      where: { key: { in: ["contact_email", "contact_phone", "contact_address", "contact_telegram"] } },
-    });
-    const map: Record<string, string> = {};
-    for (const r of rows) map[r.key] = r.value;
-    // The address field from the DB is Persian-authored, so only apply DB overrides in Persian mode.
-    return {
-      ...defaults,
-      ...map,
-      contact_email: "support@aifekr.com",
-      contact_phone: "+905391016485",
-      contact_address: "Cyprus",
-    };
-  } catch {
-    return defaults;
-  }
-}
-
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getServerLang();
-  const meta = pageMetadata(lang, "/contact", {"fa":"تماس با ما — پشتیبانی و همکاری","en":"Contact Us — Support & Partnerships","de":"Kontakt — Support & Partnerschaften","tr":"İletişim — Destek ve İş Birliği"}, {"fa":"با تیم AiFekr در ارتباط باشید: پشتیبانی، همکاری و سؤال درباره بسته‌های هوش مصنوعی صنعتی.","en":"Get in touch with the AiFekr team: support, partnerships and questions about our industry AI packs.","de":"Kontaktieren Sie das AiFekr-Team: Support, Partnerschaften und Fragen zu unseren Branchen-KI-Paketen.","tr":"AiFekr ekibiyle iletişime geçin: destek, iş birliği ve sektörel yapay zekâ paketleri hakkında sorular."});
+  const meta = pageMetadata(lang, "/contact", CONTACT_TITLE, CONTACT_DESCRIPTION);
   return meta;
 }
 
 export default async function ContactPage() {
   const lang = await getServerLang();
   const isFa = lang === "fa";
-  const s = await getSettings(lang);
+  const s = await getContactSettings(lang);
 
   const cards = [
     { icon: Mail, label: lang === "tr" ? "E-posta" : lang === "de" ? "E-Mail" : isFa ? "ایمیل" : "Email", value: s.contact_email, href: `mailto:${s.contact_email}` },

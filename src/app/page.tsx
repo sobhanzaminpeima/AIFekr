@@ -5,7 +5,6 @@ import {verifyToken} from "@/lib/auth/jwt";
 import {prisma} from "@/lib/db/prisma";
 import { ArrowUpRight } from "lucide-react";
 import { getServerLang } from "@/lib/i18n/server";
-import { pageMetadata, SITE_NAME, SITE_URL } from "@/lib/seo/site";
 import { copy, text, features } from "@/lib/marketing/catalog";
 
 // The modules most visitors come for; the others sit behind "see all".
@@ -15,16 +14,14 @@ import PublicShell from "@/components/marketing/PublicShell";
 import Ecosystem from "@/components/marketing/Ecosystem";
 import EntryPlans from "@/components/ai-chat/EntryPlans";
 
-import { FeatureCards, SolutionCards, IndustryLinks, CreditExplanation, FAQ, FinalCTA, Workflow, faqItems, GuideLinks } from "@/components/marketing/Sections";
+import { FeatureCards, SolutionCards, IndustryLinks, CreditExplanation, FAQ, FinalCTA, Workflow, GuideLinks } from "@/components/marketing/Sections";
 import JsonLd from "@/components/seo/JsonLd";
+import { homeJsonLd, homeMetadata } from "@/lib/seo/publicSeo";
 import ChatLaunch from "@/components/marketing/ChatLaunch";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
-  const lang = await getServerLang();
-  const meta = pageMetadata(lang, "/", { fa: "AIFekr | هوش مصنوعی کسب‌وکار، CRM و ابزارهای دانشجویی", en: "AIFekr | Business AI, CRM and Student Tools", de: "AIFekr | Business-KI, CRM und Lernwerkzeuge", tr: "AIFekr | İşletme Yapay Zekâsı, CRM ve Öğrenci Araçları" }, { fa: copy.intro[0], en: copy.intro[1], de: copy.intro[2], tr: copy.intro[3] });
-  if (typeof meta.title === "string") meta.title = { absolute: meta.title };
-  return meta;
+  return homeMetadata(await getServerLang());
 }
 export default async function HomePage() {
   const session = verifyToken((await cookies()).get("token")?.value || "");
@@ -35,7 +32,7 @@ export default async function HomePage() {
   const lang = await getServerLang();
 
   return <PublicShell lang={lang}>
-    <JsonLd data={[{ "@context": "https://schema.org", "@type": "Organization", name: SITE_NAME, alternateName: ["ای آی فکر", "آی‌فکر"], url: SITE_URL, logo: `${SITE_URL}/icon-512.png` }, { "@context": "https://schema.org", "@type": "WebSite", name: SITE_NAME, url: SITE_URL, inLanguage: lang }, { "@context": "https://schema.org", "@type": "SoftwareApplication", name: SITE_NAME, applicationCategory: "BusinessApplication", operatingSystem: "Web", description: text(lang, copy.intro) }, { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: faqItems.map(f => ({ "@type": "Question", name: text(lang, f.q), acceptedAnswer: { "@type": "Answer", text: text(lang, f.a) } })) }]} />
+    <JsonLd data={homeJsonLd(lang)} />
     <section className="m-hero"><div className="m-container"><span className="m-eyebrow">{text(lang, copy.eyebrow)}</span><h1>{text(lang, copy.hero).split("\n")[0]}<br/><em>{text(lang, copy.hero).split("\n")[1]}</em></h1><p>{text(lang, copy.intro)}</p><div className="m-actions"><Link className="m-button" href="/explore">{text(lang, copy.start)}<ArrowUpRight size={18}/></Link><Link className="m-button m-secondary" href="#platform">{text(lang, copy.explore)}</Link></div><p className="m-caption">{text(lang, copy.noPromise)}</p><Ecosystem lang={lang} compact/></div></section>
     <ChatLaunch lang={lang}/>
     <section className="m-container m-section"><Workflow lang={lang}/></section>

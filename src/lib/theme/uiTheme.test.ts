@@ -14,9 +14,9 @@ describe("ui theme routing", () => {
     expect(v2Handles("/", ["/"])).toBe(true);
     expect(v2Handles("/chat", ["/"])).toBe(false);
   });
-  it("sends nothing to v2 while no route is ready", () => {
-    expect(v2Handles("/")).toBe(false);
-    expect(v2Handles("/home")).toBe(false);
+  it("sends only the rebuilt public pages to v2", () => {
+    for (const path of ["/", "/pricing", "/about", "/contact", "/guides", "/guides/x", "/features/crm", "/solutions/business"]) expect(v2Handles(path)).toBe(true);
+    for (const path of ["/home", "/chat", "/privacy", "/terms", "/security", "/industry", "/admin", "/login", "/pricing-old"]) expect(v2Handles(path)).toBe(false);
   });
   it("lets a valid preview cookie override the site theme", () => {
     expect(resolveTheme("classic", "v2")).toBe("v2");
