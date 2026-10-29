@@ -3,7 +3,7 @@ import { rateLimit, getClientIp } from "@/lib/utils/rateLimit";
 import { isPublicRoute, stripPublicLocale } from "@/lib/seo/locales";
 import { moduleKeyForPath } from "@/lib/modules/moduleRoutes";
 import { blockedModules } from "@/lib/modules/moduleStatus";
-import { UI_PREVIEW_COOKIE, V2_ASSET_PREFIX, resolveTheme, siteUiTheme, v2Available, v2Handles, v2Origin } from "@/lib/theme/uiTheme";
+import { UI_PREVIEW_COOKIE, V2_ASSET_PREFIX, pageLang, resolveTheme, siteUiTheme, v2Available, v2Handles, v2Origin } from "@/lib/theme/uiTheme";
 
 // Path-prefix -> { limit, windowMs }. First match wins (checked in order).
 // Auth endpoints get the tightest limits (brute-force/OTP-spam protection);
@@ -154,8 +154,9 @@ async function routeToV2(req: NextRequest): Promise<NextResponse | null> {
   const theme = resolveTheme(await siteUiTheme(), req.cookies.get(UI_PREVIEW_COOKIE)?.value);
   if (theme !== "v2" || !(await v2Available())) return null;
   const target = new URL(localized.path + search, origin);
-  // Public pages take their language from the URL, as in the classic design.
-  if (isPublicRoute(localized.path)) target.searchParams.set("__lang", localized.lang);
+  // Public pages take their language from the URL, as in the classic design;
+  // the others from the lang cookie or the site's default language.
+  target.searchParams.set("__lang", isPublicRoute(localized.path) ? localized.lang : await pageLang(req.cookies.get("lang")?.value));
   const headers = new Headers(req.headers);
   headers.set("x-aifekr-path", pathname + search);
   return NextResponse.rewrite(target, { request: { headers } });

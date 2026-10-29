@@ -73,7 +73,11 @@ export function publicSeo(lang: Lang, path: string): PublicSeo | null {
  * layout's "%s | AIFekr" template. metadataBase is sent as a string.
  */
 export function standaloneMetadata(lang: Lang, page: Metadata): Record<string, unknown> {
-  const root = siteRootMetadata(lang);
+  const base = siteRootMetadata(lang);
+  // The classic root's app/opengraph-image file gives Open Graph and Twitter
+  // their image wherever a page does not set its own.
+  const image = { url: "/opengraph-image", type: "image/png", width: 1200, height: 630, alt: "AiFekr — AI agents for your business" };
+  const root = { ...base, openGraph: { ...base.openGraph, images: [image] }, twitter: { ...base.twitter, images: [image] } };
   const title = typeof page.title === "string" ? { absolute: `${page.title} | AIFekr` } : page.title ?? root.title;
   return { ...root, ...page, title, metadataBase: SITE_URL };
 }

@@ -20,7 +20,8 @@ export const V2_ASSET_PREFIX = "/_v2";
 /** Pages rebuilt in v2 and connected to the real backend. An entry matches the path itself and everything under it. */
 // Phase 1: landing and public pages. Privacy, terms, security, industry and
 // the other public pages stay classic until they are rebuilt.
-export const V2_ROUTES: readonly string[] = ["/", "/pricing", "/about", "/contact", "/guides", "/features", "/solutions"];
+// Phase 2: sign-in and sign-up.
+export const V2_ROUTES: readonly string[] = ["/", "/pricing", "/about", "/contact", "/guides", "/features", "/solutions", "/login", "/register"];
 
 export function isUiTheme(value: unknown): value is UiTheme {
   return value === "classic" || value === "v2";
@@ -61,6 +62,27 @@ export async function siteUiTheme(): Promise<UiTheme> {
     themeCache = { at: Date.now(), theme: themeCache?.theme ?? "classic" };
   }
   return themeCache.theme;
+}
+
+const LANGS = ["fa", "en", "de", "tr"] as const;
+type Lang = (typeof LANGS)[number];
+let langCache: { at: number; lang: Lang } | null = null;
+
+/**
+ * Language of a page without one in its URL, decided like getServerLang():
+ * the visitor's lang cookie, else the admin's default_language setting.
+ */
+export async function pageLang(cookieLang: string | undefined): Promise<Lang> {
+  if (LANGS.includes(cookieLang as Lang)) return cookieLang as Lang;
+  if (!langCache || Date.now() - langCache.at >= TTL_MS) {
+    try {
+      const row = await prisma.siteSetting.findUnique({ where: { key: "default_language" } });
+      langCache = { at: Date.now(), lang: LANGS.includes(row?.value as Lang) ? (row!.value as Lang) : "fa" };
+    } catch {
+      langCache = { at: Date.now(), lang: langCache?.lang ?? "fa" };
+    }
+  }
+  return langCache.lang;
 }
 
 export function forgetSiteUiTheme() {

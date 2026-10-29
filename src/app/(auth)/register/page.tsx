@@ -7,8 +7,9 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import {STUDENT_PLAN_CODE} from "@/lib/plans/studentOffer";
 import { accountTypeFor } from "@/lib/auth/accountAudience";
-import { useTranslation, tri } from "@/lib/i18n";
+import { useTranslation } from "@/lib/i18n";
 import { COUNTRIES, dialCodeFor, registrationPhone } from "@/lib/constants/countries";
+import { registerExtraCopy } from "@/lib/auth/authCopy";
 
 const LANG_OPTIONS: { code: "fa" | "en" | "de" | "tr"; label: string }[] = [
   { code: "fa", label: "فارسی" },
@@ -21,6 +22,7 @@ function RegisterForm() {
   const params = useSearchParams();
   const { t, lang } = useTranslation();
   const isFa = lang === "fa";
+  const extra = registerExtraCopy(lang);
   const packSlug = params.get("pack") || "";
   const [promoCode,setPromoCode]=useState(params.get("promo")||params.get("ref")||"");
   const refCode = params.get("ref") || "";
@@ -55,7 +57,7 @@ function RegisterForm() {
 
     let composedPhone: string;
     try { composedPhone = registrationPhone(form.phone, form.country); }
-    catch { return toast.error(tri(lang, "شماره موبایل معتبر وارد کنید", "Enter a valid phone number", "Gültige Telefonnummer eingeben", "Geçerli telefon numarası girin")); }
+    catch { return toast.error(extra.phoneInvalid); }
 
     setLoading(true);
     try {
@@ -112,14 +114,14 @@ function RegisterForm() {
 
         <div className="glass rounded-2xl p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
-                  <label className="block text-sm">{tri(lang,"کد دعوت / Promo (اختیاری)","Invitation / promo code (optional)","Einladungs- / Promo-Code (optional)","Davet / promosyon kodu (isteğe bağlı)")}<input value={promoCode} onChange={e=>setPromoCode(e.target.value)} maxLength={30} dir="ltr" className="block w-full rounded-xl p-3 mt-2 border" style={{background:"var(--surface-2)",borderColor:"var(--border)"}}/><span className="block text-xs mt-2 opacity-70">{tri(lang,"کد و لینک رفرال یکسان‌اند؛ تخفیف فعال برای اولین خرید در پرداخت نمایش داده می‌شود.","Code and referral link share the same attribution. Any active welcome discount appears at checkout.","Code und Empfehlungslink nutzen dieselbe Zuordnung. Ein aktiver Willkommensrabatt erscheint beim Kauf.","Kod ve referans bağlantısı aynı davet sahibine bağlanır. Etkin ilk satın alma indirimi ödeme adımında gösterilir.")}</span></label>
+                  <label className="block text-sm">{extra.promoLabel}<input value={promoCode} onChange={e=>setPromoCode(e.target.value)} maxLength={30} dir="ltr" className="block w-full rounded-xl p-3 mt-2 border" style={{background:"var(--surface-2)",borderColor:"var(--border)"}}/><span className="block text-xs mt-2 opacity-70">{extra.promoHint}</span></label>
 
             <label className="block text-sm" style={{color:"var(--text-secondary)"}}>
-              {tri(lang,"نوع حساب","Account type","Kontotyp","Hesap türü")}
-              <select aria-label={tri(lang,"نوع حساب","Account type","Kontotyp","Hesap türü")} value={accountType} disabled={/^(STUDENT_|TEAM_|CRM_)/.test(planCode)} onChange={e=>setAccountType(accountTypeFor(null,e.target.value))} className="mt-2 w-full rounded-xl p-3" style={{background:"var(--surface-2)",color:"var(--text-primary)"}}>
-                <option value="FITNESS">AIFekr FIT</option><option value="PERSONAL">{tri(lang,"شخصی","Personal","Privat","Kişisel")}</option>
-                <option value="STUDENT">{tri(lang,"دانشجو","Student","Studierende","Öğrenci")}</option>
-                <option value="BUSINESS">{tri(lang,"کسب‌وکار","Business","Unternehmen","İşletme")}</option>
+              {extra.accountType}
+              <select aria-label={extra.accountType} value={accountType} disabled={/^(STUDENT_|TEAM_|CRM_)/.test(planCode)} onChange={e=>setAccountType(accountTypeFor(null,e.target.value))} className="mt-2 w-full rounded-xl p-3" style={{background:"var(--surface-2)",color:"var(--text-primary)"}}>
+                <option value="FITNESS">{extra.accountTypes.FITNESS}</option><option value="PERSONAL">{extra.accountTypes.PERSONAL}</option>
+                <option value="STUDENT">{extra.accountTypes.STUDENT}</option>
+                <option value="BUSINESS">{extra.accountTypes.BUSINESS}</option>
               </select>
             </label>
             <div className="grid grid-cols-2 gap-3">
@@ -220,7 +222,7 @@ function RegisterForm() {
               <input type="checkbox" checked={marketingConsent} onChange={e => setMarketingConsent(e.target.checked)}
                 className="w-4 h-4 mt-0.5 accent-orange-500 flex-shrink-0" />
               <span className="text-xs leading-5" style={{ color: "var(--text-secondary)" }}>
-                {tri(lang, "راهنماها و پیشنهادهای مفید AIFekr را برایم ایمیل کنید (اختیاری، هر زمان قابل لغو).", "Email me useful AIFekr guides and offers (optional, unsubscribe anytime).", "Senden Sie mir hilfreiche AIFekr-Tipps und Angebote per E-Mail (optional, jederzeit abbestellbar).", "Bana faydalı AIFekr rehberleri ve teklifleri e-postayla gönder (isteğe bağlı, istediğiniz zaman iptal).")}
+                {extra.marketingConsent}
               </span>
             </label>
             <button type="submit" disabled={loading || !agreed}

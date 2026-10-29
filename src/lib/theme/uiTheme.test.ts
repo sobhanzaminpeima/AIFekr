@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveTheme, v2Handles } from "./uiTheme";
+import { pageLang, resolveTheme, v2Handles } from "./uiTheme";
 
 describe("ui theme routing", () => {
   it("matches a ready route and the pages under it, never a lookalike", () => {
@@ -14,9 +14,13 @@ describe("ui theme routing", () => {
     expect(v2Handles("/", ["/"])).toBe(true);
     expect(v2Handles("/chat", ["/"])).toBe(false);
   });
-  it("sends only the rebuilt public pages to v2", () => {
-    for (const path of ["/", "/pricing", "/about", "/contact", "/guides", "/guides/x", "/features/crm", "/solutions/business"]) expect(v2Handles(path)).toBe(true);
-    for (const path of ["/home", "/chat", "/privacy", "/terms", "/security", "/industry", "/admin", "/login", "/pricing-old"]) expect(v2Handles(path)).toBe(false);
+  it("sends only the rebuilt pages to v2", () => {
+    for (const path of ["/", "/pricing", "/about", "/contact", "/guides", "/guides/x", "/features/crm", "/solutions/business", "/login", "/register"]) expect(v2Handles(path)).toBe(true);
+    for (const path of ["/home", "/chat", "/privacy", "/terms", "/security", "/industry", "/admin", "/pricing-old", "/login-old", "/welcome"]) expect(v2Handles(path)).toBe(false);
+  });
+  it("decides a page language like getServerLang: a valid lang cookie first", async () => {
+    expect(await pageLang("de")).toBe("de");
+    expect(await pageLang("tr")).toBe("tr");
   });
   it("lets a valid preview cookie override the site theme", () => {
     expect(resolveTheme("classic", "v2")).toBe("v2");
