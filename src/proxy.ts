@@ -3,6 +3,7 @@ import { rateLimit, getClientIp } from "@/lib/utils/rateLimit";
 import { isPublicRoute, stripPublicLocale } from "@/lib/seo/locales";
 import { moduleKeyForPath } from "@/lib/modules/moduleRoutes";
 import { blockedModules } from "@/lib/modules/moduleStatus";
+import { UI_PREVIEW_COOKIE, V2_ASSET_PREFIX, resolveTheme, siteUiTheme, v2Available, v2Handles, v2Origin } from "@/lib/theme/uiTheme";
 
 // Path-prefix -> { limit, windowMs }. First match wins (checked in order).
 // Auth endpoints get the tightest limits (brute-force/OTP-spam protection);
@@ -130,6 +131,27 @@ function routeRequest(req: NextRequest) {
  * pages send the visitor to /home with an explanation. Admin pages and APIs
  * are never blocked, so an admin can always switch it back on.
  */
+/**
+ * New-design pages are served by a separate app (see lib/theme/uiTheme). Its
+ * assets live under /_v2; a page goes there only when the visitor's theme is
+ * v2, the page is listed as ready and the app is healthy -- otherwise null and
+ * the classic page renders as usual.
+ */
+async function routeToV2(req: NextRequest): Promise<NextResponse | null> {
+  const { pathname, search } = req.nextUrl;
+  const origin = v2Origin();
+  if (pathname === V2_ASSET_PREFIX || pathname.startsWith(V2_ASSET_PREFIX + "/")) {
+    if (!origin) return new NextResponse(null, { status: 404 });
+    return NextResponse.rewrite(new URL((pathname.slice(V2_ASSET_PREFIX.length) || "/") + search, origin));
+  }
+  if (!origin || pathname.startsWith("/api/") || !v2Handles(stripPublicLocale(pathname).path)) return null;
+  const theme = resolveTheme(await siteUiTheme(), req.cookies.get(UI_PREVIEW_COOKIE)?.value);
+  if (theme !== "v2" || !(await v2Available())) return null;
+  const headers = new Headers(req.headers);
+  headers.set("x-aifekr-path", pathname + search);
+  return NextResponse.rewrite(new URL(pathname + search, origin), { request: { headers } });
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const key = pathname.startsWith("/admin") || pathname.startsWith("/api/admin") ? null : moduleKeyForPath(pathname);
@@ -145,9 +167,9 @@ export async function proxy(req: NextRequest) {
       return NextResponse.redirect(target, 307);
     }
   }
-  return routeRequest(req);
+  return (await routeToV2(req)) ?? routeRequest(req);
 }
 
 export const config = {
-  matcher: ["/api/:path*", "/((?!api|_next|.*\\..*).*)"],
+  matcher: ["/api/:path*", "/_v2/:path*", "/((?!api|_next|_v2|.*\\..*).*)"],
 };

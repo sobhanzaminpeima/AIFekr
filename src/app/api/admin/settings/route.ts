@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 
 import { validIban } from "@/lib/payment/bank";
+import { UI_THEME_SETTING } from "@/lib/theme/uiTheme";
 
 // Settings that decide where customer money goes or how much is paid out.
 // Only a SUPER_ADMIN may change them; every change is audited.
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
 
   const settings = await prisma.siteSetting.findMany();
   const map: Record<string, string> = {};
-  for (const s of settings) if (!["seoIntelligenceProvider","cloudflarePlatformConfig"].includes(s.key) && !s.key.startsWith("telnyx_") && !["vapi_private_key","vapi_webhook_secret"].includes(s.key)) map[s.key] = s.value;
+  for (const s of settings) if (!["seoIntelligenceProvider","cloudflarePlatformConfig",UI_THEME_SETTING].includes(s.key) && !s.key.startsWith("telnyx_") && !["vapi_private_key","vapi_webhook_secret"].includes(s.key)) map[s.key] = s.value;
   return NextResponse.json({ settings: map });
 }
 
@@ -40,6 +41,8 @@ export async function POST(req: NextRequest) {
     if (settings[key] !== undefined && !validIban(String(settings[key]))) return NextResponse.json({error:"Invalid IBAN"},{status:400});
   }
   if (Object.hasOwn(settings, "seoIntelligenceProvider")) return NextResponse.json({ error: "Use the dedicated SEO provider settings endpoint" }, { status: 400 });
+  // The settings page posts back every key it loaded; the theme has its own audited endpoint.
+  if (Object.hasOwn(settings, UI_THEME_SETTING)) return NextResponse.json({ error: "Use the dedicated theme settings endpoint" }, { status: 400 });
   if (Object.hasOwn(settings, "cloudflarePlatformConfig")) return NextResponse.json({ error: "Use the dedicated Cloudflare settings endpoint" }, { status: 400 });
   if(Object.keys(settings).some(key=>key.startsWith("telnyx_")||["vapi_private_key","vapi_webhook_secret"].includes(key)))return NextResponse.json({error:"Use dedicated voice provider settings"},{status:400});
   if (settings.creditCosts !== undefined) {

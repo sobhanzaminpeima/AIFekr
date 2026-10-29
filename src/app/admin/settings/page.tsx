@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { Settings, Save, Globe, Bell, Shield, Palette, DollarSign, FileText, RefreshCw, ToggleRight } from "lucide-react";
 import toast from "react-hot-toast";
 import { PAYMENT_ACCOUNTS } from "@/lib/payment/accounts";
+import UiThemeSettings from "@/components/admin/UiThemeSettings";
 
 const SECTIONS = [
   {
@@ -56,6 +57,8 @@ const SECTIONS = [
       { key: "stripe_key", label: "Stripe Public Key", type: "text", default: "" },
     ],
   },
+  // Own endpoint and controls (UiThemeSettings); not part of the shared form.
+  { id: "theme", label: "تم و طراحی", icon: Palette, fields: [] },
   {
     id: "appearance", label: "ظاهر و برندینگ", icon: Palette,
     fields: [
@@ -177,11 +180,11 @@ export default function AdminSettingsPage() {
           <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>تنظیمات سایت</h1>
           <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>پیکربندی پلتفرم AiFekr</p>
         </div>
-        <button onClick={handleSave} disabled={saving || loading}
+        {activeSection !== "theme" && <button onClick={handleSave} disabled={saving || loading}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50"
           style={{ background: "var(--primary)" }}>
           <Save className="w-4 h-4" />{saving ? "در حال ذخیره..." : "ذخیره تنظیمات"}
-        </button>
+        </button>}
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 md:gap-6">
@@ -223,6 +226,7 @@ export default function AdminSettingsPage() {
                   با غیرفعال کردن هرکدام، ساخت جدید از همون بخش برای همه کاربران بلافاصله (بعد از «ذخیره تنظیمات») مسدود می‌شود و پیام «موقتاً غیرفعال است» به کاربر نمایش داده می‌شود. محتوای قبلاً ساخته‌شده حذف نمی‌شود.
                 </p>
               )}
+              {section.id === "theme" && <UiThemeSettings />}
               {section.fields.map(f => (
                 <div key={f.key}>
                   <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{f.label}</label>
