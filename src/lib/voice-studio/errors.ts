@@ -1,7 +1,7 @@
 import {tri} from "@/lib/i18n/tri";
 import type {Lang} from "@/lib/i18n";
-export function voiceErrorMessage(code:string,lang:Lang){
- const messages:Record<string,[string,string,string,string]>={
+/** Every voice error code's message in fa, en, de and tr (also sent to the new design). */
+export const VOICE_ERRORS:Record<string,[string,string,string,string]>={
  ELEVENLABS_PERMISSION_MODELS_READ:["کلید ElevenLabs مجوز Models → Read ندارد. این مجوز را در حساب ElevenLabs برای همان کلید فعال کنید.","The ElevenLabs key needs Models → Read in ElevenLabs key settings.","Der ElevenLabs-Schlüssel benötigt Models → Read.","ElevenLabs anahtarı Models → Read iznine ihtiyaç duyuyor."],
  ELEVENLABS_PERMISSION_USER_READ:["کلید ElevenLabs مجوز User → Read برای بررسی سهمیه ندارد. این مجوز باید در حساب ElevenLabs فعال شود.","The ElevenLabs key needs User → Read to check available quota.","Der ElevenLabs-Schlüssel benötigt User → Read zur Kontingentprüfung.","Kota kontrolü için ElevenLabs anahtarında User → Read izni gerekiyor."],
  ELEVENLABS_HTTP_403:["ElevenLabs اتصال این مسیر را رد کرده است؛ تنظیمات شبکه و مجوز IP را بررسی کنید.","ElevenLabs rejected this connection. Check the network and IP permissions.","ElevenLabs hat die Verbindung abgelehnt. Netzwerk und IP prüfen.","ElevenLabs bağlantıyı reddetti. Ağı ve IP izinlerini kontrol edin."],
@@ -43,6 +43,7 @@ export function voiceErrorMessage(code:string,lang:Lang){
  VOICE_STUDIO_UNAVAILABLE:["استودیوی صدا موقتاً در دسترس نیست.", "Voice Studio is temporarily unavailable.", "Das Sprachstudio ist vorübergehend nicht verfügbar.", "Ses Stüdyosu geçici olarak kullanılamıyor."],
  LOAD_FAILED:["استودیو بارگذاری نشد؛ صفحه را تازه کنید.", "The studio couldn't load; refresh the page.", "Studio konnte nicht geladen werden.", "Stüdyo yüklenemedi; sayfayı yenileyin."],
  REQUEST_FAILED:["درخواست انجام نشد؛ دوباره تلاش کنید.", "The request failed; please try again.", "Anfrage fehlgeschlagen.", "İstek başarısız; tekrar deneyin."],
- };
- return messages[code]?tri(lang,...messages[code]):code;
+};
+export function voiceErrorMessage(code:string,lang:Lang){
+ return VOICE_ERRORS[code]?tri(lang,...VOICE_ERRORS[code]):code;
 }

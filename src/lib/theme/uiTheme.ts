@@ -24,14 +24,14 @@ export const V2_ASSET_PREFIX = "/_v2";
 // /chat/<id>). App pages use their own frame (/api/app/shell).
 export const V2_ROUTES: readonly string[] = ["/", "/pricing", "/about", "/contact", "/guides", "/features", "/solutions", "/login", "/register", "/home", "/chat",
   // Phase 3: creative studio, galleries, video and music studios.
-  "/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate"];
+  "/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate", "/voice-studio"];
 
 export function isUiTheme(value: unknown): value is UiTheme {
   return value === "classic" || value === "v2";
 }
 
 /** App pages match only themselves: /home/anything is not a page the new design has. */
-const EXACT_ROUTES = new Set(["/", "/home", "/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate"]);
+const EXACT_ROUTES = new Set(["/", "/home", "/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate", "/voice-studio"]);
 
 export function v2Handles(path: string, routes: readonly string[] = V2_ROUTES) {
   const clean = path.split("?")[0].replace(/\/+$/, "") || "/";

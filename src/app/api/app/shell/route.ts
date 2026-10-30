@@ -8,6 +8,7 @@ import { standaloneMetadata } from "@/lib/seo/publicSeo";
 import { chatCopy } from "@/lib/chat/chatCopy";
 import { createCopy } from "@/lib/chat/createCopy";
 import { characterCopy } from "@/lib/image/characterCopy";
+import { voiceCopy } from "@/lib/voice-studio/voiceCopy";
 import { prisma } from "@/lib/db/prisma";
 import en from "@/lib/i18n/en";
 import fa from "@/lib/i18n/fa";
@@ -54,6 +55,8 @@ export async function GET(req: NextRequest) {
     conversations: data.conversations.map((c) => ({ ...c, updatedAt: c.updatedAt.toISOString() })),
     copy,
     model: sidebarModel(lang),
+    // Only on the voice studio: the classic studio's wording and error messages.
+    voice: bare === "/voice-studio" ? voiceCopy(lang) : null,
     chat: chatPage ? { ...chatCopy(lang), ...(bare === "/music/generate" ? { musicGenres: MUSIC_PAGE_GENRES[lang] } : {}), industrySlug: pack?.slug ?? null, create: createCopy(lang), characters: bare === "/image/generate" ? characterCopy(lang) : null } : null,
   }, noStore);
 }
