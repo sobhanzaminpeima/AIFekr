@@ -58,9 +58,23 @@ export async function refreshSpeechCatalog(options:{secret?:string;persist?:bool
     if(options.persist!==false)await prisma.siteSetting.upsert({ where: { key: "voiceStudioCatalog" }, create: { key: "voiceStudioCatalog", value: JSON.stringify(catalog) }, update: { value: JSON.stringify(catalog) } });
     return { ...catalog, quota: { used: subscription.character_count ?? null, limit: subscription.character_limit ?? null } };
 }
+const CATALOG_TTL = 86400000, RETRY_AFTER_FAILURE = 600000;
+let refreshing: Promise<SpeechCatalog> | null = null, lastRefreshFailure = 0;
+/** One refresh at a time with the stored key (read-only calls); after a failure, wait before trying again so pages stay fast. */
+async function renewCatalog() {
+    if (Date.now() - lastRefreshFailure < RETRY_AFTER_FAILURE) throw new VoiceError("CATALOG_EXPIRED", 503);
+    refreshing ??= refreshSpeechCatalog().catch((e) => { lastRefreshFailure = Date.now(); throw e; }).finally(() => { refreshing = null; });
+    return refreshing;
+}
+/** The verified catalog. A day-old catalog is re-read from ElevenLabs instead of blocking every account until an admin runs the connection test. */
 export async function speechCatalog(): Promise<SpeechCatalog> { const row = await prisma.siteSetting.findUnique({ where: { key: "voiceStudioCatalog" } }); if (!row)
-    throw new VoiceError("CATALOG_NOT_VERIFIED", 503); const parsed = JSON.parse(row.value) as SpeechCatalog; if (Date.now() - Date.parse(parsed.fetchedAt) > 86400000)
-    throw new VoiceError("CATALOG_EXPIRED", 503); return parsed; }
+    throw new VoiceError("CATALOG_NOT_VERIFIED", 503); const parsed = JSON.parse(row.value) as SpeechCatalog; if (Date.now() - Date.parse(parsed.fetchedAt) <= CATALOG_TTL)
+    return parsed; try { return await renewCatalog(); } catch { throw new VoiceError("CATALOG_EXPIRED", 503); } }
+/** Worker tick: renew a verified catalog before it expires. Never throws; the next tick or page load retries. */
+export async function keepCatalogFresh(maxAgeMs = CATALOG_TTL - 4 * 3600000) { try {
+    const row = await prisma.siteSetting.findUnique({ where: { key: "voiceStudioCatalog" } });
+    if (row && Date.now() - Date.parse((JSON.parse(row.value) as SpeechCatalog).fetchedAt) > maxAgeMs) await renewCatalog();
+} catch { /* reported to users as CATALOG_EXPIRED only once it actually expires */ } }
 export async function assertSpeechQuota(characters: number) { const quota = await readOnly("/user/subscription"); if (typeof quota.character_limit !== "number" || typeof quota.character_count !== "number")
     throw new VoiceError("QUOTA_UNAVAILABLE", 503); if (quota.character_limit - quota.character_count < characters)
     throw new VoiceError("PROVIDER_QUOTA_EXCEEDED", 429); }

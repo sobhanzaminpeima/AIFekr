@@ -2,12 +2,13 @@ import { prisma } from "@/lib/db/prisma";
 import { deletePrivateObject, uploadPrivateObject, privateStorageConfigured } from "@/lib/storage/r2";
 import { voicePolicy } from "./config";
 import { finishGeneration } from "./service";
-import { SpeechFailure, synthesize, voiceSettingsSchema, assertSpeechQuota } from "./provider";
+import { SpeechFailure, synthesize, voiceSettingsSchema, assertSpeechQuota, keepCatalogFresh } from "./provider";
 import { inspectAudio } from "./audio";
 import { VoiceError, type VoicePolicy } from "./domain";
 import { notify } from "@/lib/notifications/create";
 export async function processVoiceTick() {
     const policy = await voicePolicy();
+    if (policy.enabled) await keepCatalogFresh();
     await prisma.voiceStudioGeneration.updateMany({ where: { status: "RUNNING", startedAt: { lt: new Date(Date.now() - 300000) } }, data: { status: "REVIEW", errorCode: "WORKER_INTERRUPTED_REVIEW_REQUIRED" } });
     // Object deletion is retryable and unbilled. Revoke access before removing bytes.
     const expired = await prisma.voiceStudioGeneration.findMany({ where: { status: "READY", expiresAt: { lte: new Date() } }, take: 10 });
