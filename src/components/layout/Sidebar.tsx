@@ -25,6 +25,7 @@ import { CHAT_HISTORY_UPDATED_EVENT, type ChatHistoryItem } from "@/lib/chat/his
 import { useLiveCredits } from "@/lib/credits/live";
 import { moduleKeyForPath } from "@/lib/modules/moduleRoutes";
 import { sharedGetJson } from "@/lib/net/sharedGet";
+import { sidebarAccess } from "@/lib/layout/sidebarAccess";
 
 // A history click used to be a plain <Link href="/chat/[id]"> -- since the
 // dashboard layout is force-dynamic, every one of those was a full Next.js
@@ -190,13 +191,8 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
   const [convMenuOpen, setConvMenuOpen] = useState<string | null>(null);
 
   const router = useRouter();
-  const crmPlanActive = !!user?.crmPlan && user.crmPlan !== "NONE" && (!user.crmPlanExpiry || new Date(user.crmPlanExpiry).getTime() > Date.now());
-  const hasPack = !!user?.industryPackId;
-  const hasBusinessAccess = hasPack || crmPlanActive;
-  // Students get the university pack, which made the whole business menu
-  // (and its upsell) appear for them; it is noise unless they run a CRM.
-  const fitnessOnly = user?.accountType === "FITNESS";
-  const hideBusiness = (user?.accountType === "STUDENT" && !crmPlanActive) || fitnessOnly;
+  // Shared with the new design's frame (lib/layout/sidebarAccess).
+  const { hasPack, hasBusinessAccess, fitnessOnly, hideBusiness } = sidebarAccess(user);
 
   useEffect(() => { loadProjects(); }, []);
 
