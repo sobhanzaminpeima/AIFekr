@@ -3,16 +3,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({
-  promo:vi.fn(), findPending: vi.fn(), create: vi.fn(), auth: vi.fn(), findPackage: vi.fn(), membership:vi.fn(), memberCount:vi.fn(), gateway:vi.fn(),fx:vi.fn(), update:vi.fn(), updateMany:vi.fn(),
+  promo:vi.fn(), findPending: vi.fn(), create: vi.fn(), auth: vi.fn(), findPackage: vi.fn(), membership:vi.fn(), memberCount:vi.fn(), gateway:vi.fn(),fx:vi.fn(), update:vi.fn(), updateMany:vi.fn(), stale:vi.fn(), closeStale:vi.fn(),
 }));
 vi.mock("@/lib/payment/zarinpal",()=>({createPayment:mocks.gateway}));
+vi.mock("@/lib/payment/adminLifecycle",()=>({closeAbandonedGatewayOrder:mocks.closeStale}));
 vi.mock("@/lib/auth/middleware", () => ({ requireAuth: mocks.auth, unauthorizedResponse: () => new Response(null, { status: 401 }) }));
 vi.mock("@/lib/utils/rateLimit", () => ({ rateLimit: () => ({ allowed: true }) }));
 vi.mock("@/lib/utils/currency", () => ({ getFxRates:mocks.fx }));
 vi.mock("@/lib/payment/bank", () => ({ bankSettings: async () => ({ iban: "TR210001009010583132105001", euroIban: "TR910001009010583132105002", holder: "Test", currency: "EUR" }), validIban: () => true }));
 vi.mock("@/lib/payment/bankErrors", () => ({ bankError: (_req: unknown, error: string, status: number) => Response.json({ error }, { status }) }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: {
-  payment:{update:mocks.update,updateMany:mocks.updateMany},
+  payment:{update:mocks.update,updateMany:mocks.updateMany,findMany:mocks.stale},
   package: { findUnique: mocks.findPackage },
   teamMember:{findUnique:mocks.membership,count:mocks.memberCount},
   $transaction: (fn: (tx: unknown) => unknown) => fn({ payment: { findFirst: mocks.findPending, create: mocks.create } }),
@@ -28,7 +29,7 @@ beforeEach(() => {
   mocks.auth.mockResolvedValue({ id: "buyer", role: "USER", accountType: "STUDENT" });
   mocks.findPackage.mockResolvedValue({ isActive: true, priceUsd: 8000, price: 80000, credits: 1000, duration: 30, teamSeatLimit:3,crmSeatLimit:3 });
   mocks.membership.mockResolvedValue(null);mocks.memberCount.mockResolvedValue(0);
-  mocks.findPending.mockResolvedValue(null);
+  mocks.findPending.mockResolvedValue(null);mocks.stale.mockResolvedValue([]);
   mocks.gateway.mockResolvedValue({ok:true,authority:"A-test",paymentUrl:"https://www.zarinpal.com/pg/StartPay/A-test"});
   mocks.create.mockResolvedValue({ id: "new-payment" });
 });
@@ -166,3 +167,10 @@ describe("currency routing",()=>{
 it("applies the server promo to EUR without reducing included features",async()=>{mocks.promo.mockResolvedValue({percent:10,code:"influencer"});expect((await POST(request("STUDENT_FIRST_THREE_MONTHS","monthly","EUR"))).status).toBe(200);const data=mocks.create.mock.calls[0][0].data;expect(data.transferMinor).toBe(6480);expect(data.promoPercent).toBe(10);expect(data.originalAmount).toBe(8000);expect(JSON.parse(data.entitlementSnapshot)).toMatchObject({days:90,credits:1000});});
 it("applies the server promo to rial gateway requests",async()=>{mocks.promo.mockResolvedValue({percent:10,code:"influencer"});expect((await POST(request("STUDENT_FIRST_THREE_MONTHS","monthly","IRR"))).status).toBe(200);expect(mocks.gateway.mock.calls[0][0].amount).toBe(7200);});
 it("prevents multiple pending welcome-discount orders",async()=>{mocks.promo.mockResolvedValue({percent:10,code:"influencer"});mocks.findPending.mockResolvedValueOnce(null).mockResolvedValueOnce({id:"other-promo-order"});expect((await POST(request("STUDENT_FIRST_THREE_MONTHS","monthly","EUR"))).status).toBe(409);expect(mocks.create).not.toHaveBeenCalled();});
+
+it("closes an expired unpaid Zarinpal order instead of reopening its dead link", async () => {
+  mocks.stale.mockResolvedValue([{ id: "old-payment", authority: "A-old" }]);
+  expect((await POST(request("STUDENT_FIRST_THREE_MONTHS", "monthly", "IRR"))).status).toBe(200);
+  expect(mocks.closeStale).toHaveBeenCalledWith("old-payment", "A-old");
+  expect(mocks.stale.mock.calls[0][0].where).toMatchObject({ userId: "buyer", status: "PENDING", gateway: "zarinpal" });
+});

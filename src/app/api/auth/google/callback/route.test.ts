@@ -9,7 +9,7 @@ vi.mock("@/lib/auth/jwt",()=>({signToken:()=>"test-token",signRefreshToken:()=>"
 import {GET} from "./route";
 function request(extra="",state="same"){
  const req=new NextRequest(`https://aifekr.com/api/auth/google/callback?code=code&state=${state}${extra}`);
- req.cookies.set("google_oauth_state","same");req.cookies.set("google_oauth_context",JSON.stringify({selectedPlan:"STUDENT_QUARTERLY",language:"tr",accountType:"STUDENT",ref:"sobhan",promoCode:"sobhan",period:"monthly"}));return req;
+ req.cookies.set("lang","en");req.cookies.set("google_oauth_state","same");req.cookies.set("google_oauth_context",JSON.stringify({selectedPlan:"STUDENT_QUARTERLY",language:"tr",accountType:"STUDENT",ref:"sobhan",promoCode:"sobhan",period:"monthly"}));return req;
 }
 beforeEach(()=>{vi.clearAllMocks();process.env.APP_URL="https://aifekr.com";process.env.GOOGLE_CLIENT_ID="client";process.env.GOOGLE_CLIENT_SECRET="secret";vi.stubGlobal("fetch",m.fetch);m.fetch.mockResolvedValueOnce({ok:true,json:async()=>({access_token:"access"})}).mockResolvedValueOnce({ok:true,json:async()=>({sub:"google-id",email:"NEW@EXAMPLE.COM",email_verified:true,name:"New Name"})});m.find.mockResolvedValue(null);m.ref.mockResolvedValue({id:"referrer"});m.promo.mockResolvedValue({id:"referrer"});m.create.mockResolvedValue({id:"new",role:"USER",plan:"FREE",language:"tr"});});
 describe("Google login and registration",()=>{
@@ -34,4 +34,5 @@ describe("Google login and registration",()=>{
   const r=await GET(request());expect(m.create).not.toHaveBeenCalled();expect(r.cookies.get("token")).toBeDefined();
  });
  it("handles consent cancellation and clears short-lived cookies",async()=>{const r=await GET(request("&error=access_denied"));expect(r.headers.get("location")).toContain("cancelled");expect(m.fetch).not.toHaveBeenCalled();expect(r.cookies.get("google_oauth_context")?.value).toBe("");});
+ it("sends the reason in the visitor's language",async()=>{const req=request("&error=access_denied");req.cookies.set("lang","fa");const r=await GET(req);expect(decodeURIComponent(r.headers.get("location")!)).toContain("ورود با گوگل لغو شد");});
 });

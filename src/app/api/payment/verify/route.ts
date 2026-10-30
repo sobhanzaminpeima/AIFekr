@@ -12,6 +12,7 @@ import { REFERRAL_BONUS_CREDITS } from "@/lib/utils/credits";
 import { findPaymentById, activatePlanForPayment } from "@/lib/repositories/paymentRepository";
 import { grantReferralReward } from "@/lib/utils/referralWallet";
 import { logError } from "@/lib/logging/errorLog";
+import { closeAbandonedGatewayOrder } from "@/lib/payment/adminLifecycle";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -31,6 +32,8 @@ export async function GET(req: NextRequest) {
   };
 
   if (status !== "OK" || !authority || !paymentId) {
+    // Cancelled or failed at the gateway: close the order so buying again gets a fresh link.
+    if (authority && paymentId) await closeAbandonedGatewayOrder(paymentId, authority);
     return NextResponse.redirect(await failureRedirect());
   }
 

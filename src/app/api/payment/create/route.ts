@@ -16,6 +16,7 @@ import { isStudentIntroPlan } from "@/lib/plans/studentOffer";
 import { priceForPeriod } from "@/lib/billing/plans";
 import { packageUsdPrice } from "@/lib/plans/packagePricing";
 import { rateLimit } from "@/lib/utils/rateLimit";
+import { closeAbandonedGatewayOrder } from "@/lib/payment/adminLifecycle";
 /** A module the buyer upgraded from; payment/verify sends them back there (see resultPath). */
 const MODULE_RETURN_PATHS: unknown[] = GROWTH_MODULES.flatMap(m => [m.paths[0], moduleEntry(m)]);
 export async function POST(req: NextRequest) {
@@ -71,6 +72,9 @@ export async function POST(req: NextRequest) {
  let quote=null;let quoteSnapshot:{credits:number;days:number;category?:string;mediaCredits?:number;voiceMinutes?:number;entitlements?:unknown;originalAmountToman?:number;promo?:{percent:number;code:string|null};base:{months:number};teamSeatLimit:number|null;crmSeatLimit:number|null;bonus?:{id:string;days:number;credits:number}|null}|null=null;
  if(body.quoteId){quote=await prisma.billingQuote.findFirst({where:{id:body.quoteId,userId:user.id,planCode:plan,period}});if(!quote||quote.expiresAt<=new Date()||quote.paymentId)return bankError(req,"QUOTE_EXPIRED",409);const expectedCurrency=rial?"IRT":bank.currency;if(quote.currency!==expectedCurrency)return bankError(req,"QUOTE_CURRENCY_MISMATCH",400);amount=quote.amountToman;minor=rial?0:quote.amountMinor;quoteSnapshot=JSON.parse(quote.snapshot);if(quoteSnapshot){days=quoteSnapshot.days;months=quoteSnapshot.base.months;}}
  if(!Number.isSafeInteger(amount)||amount<=0||amount>2147483647||!Number.isSafeInteger(minor)||minor>2147483647||(!rial&&minor<=0))return bankError(req,"Package price unavailable",400);
+ // A Zarinpal link lives 15 minutes: an older unpaid order for the same package is closed
+ // (after asking Zarinpal) instead of sending the buyer back to its dead link.
+ if(rial)for(const stale of await prisma.payment.findMany({where:{userId:user.id,plan,status:"PENDING",gateway:"zarinpal",authority:{not:null},createdAt:{lt:new Date(Date.now()-15*60000)}},select:{id:true,authority:true}}))await closeAbandonedGatewayOrder(stale.id,stale.authority!);
  try {
  const payment=await prisma.$transaction(async tx=>{
   if(quote){const claimed=await tx.billingQuote.updateMany({where:{id:quote.id,paymentId:null,expiresAt:{gt:new Date()}},data:{paymentId:`reserved-${quote.id}`}});if(!claimed.count)throw Error("QUOTE_ALREADY_USED");}

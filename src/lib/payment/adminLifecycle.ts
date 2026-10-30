@@ -4,10 +4,22 @@ import {savedGatewayUrl} from "./tracking";
 import {verifyPayment} from "./zarinpal";
 import {settleVerifiedPayment} from "./reviewBankPayment";
 export class PaymentLifecycleError extends Error{constructor(public code:string,public status=409){super(code);}}
+/**
+ * Closes an unpaid Zarinpal order the buyer abandoned (returned with NOK, or
+ * a link past its 15-minute life): Zarinpal is asked first, so a payment that
+ * did go through is settled instead. Without this the order stayed PENDING and
+ * buying again reopened its dead gateway link.
+ */
+export async function closeAbandonedGatewayOrder(id:string,authority:string){
+ const p=await prisma.payment.findUnique({where:{id},select:{status:true,gateway:true,authority:true}});
+ if(!p||p.status!=="PENDING"||p.gateway!=="zarinpal"||p.authority!==authority)return null;
+ try{return (await manageUnpaidOrder(id,"system:zarinpal-return","cancel","Not completed at the gateway")).status;}catch{return null;}
+}
 export async function manageUnpaidOrder(id:string,actorId:string,action:"cancel"|"continue",note:string){
  if(action==="cancel"){
   const existing=await prisma.payment.findUnique({where:{id}});
-  if(existing?.status==="PENDING"&&existing.gateway==="zarinpal"&&existing.authority){
+  // A simulated (local) payment was never paid; only a real authority is checked with Zarinpal.
+  if(existing?.status==="PENDING"&&existing.gateway==="zarinpal"&&existing.authority&&!(process.env.NODE_ENV!=="production"&&existing.authority.startsWith("DEV_"))){
    let result;try{result=await verifyPayment({authority:existing.authority,amount:existing.amount});}catch{throw new PaymentLifecycleError("GATEWAY_CHECK_REQUIRED",503);}
    if(result.ok&&result.refId){await settleVerifiedPayment(id,existing.authority,result.refId);await prisma.auditLog.create({data:{actorId,action:"payment_gateway_verified_before_cancellation",targetId:id}});return {status:"SUCCESS",url:null};}
    if(![-51,-54].includes(result.code??0))throw new PaymentLifecycleError("GATEWAY_CHECK_REQUIRED",503);
