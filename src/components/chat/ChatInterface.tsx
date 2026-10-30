@@ -23,6 +23,7 @@ import { downscaleImage } from "@/lib/image/downscaleImage";
 import OrchestratorActionCard, { type OrchestratorAction } from "@/components/chat/OrchestratorActionCard";
 import { useCreditCosts } from "@/components/ui/CreditCost";
 import type {DocumentAttachment} from "@/lib/chat/documents";
+import { EXPERT_MODES_DATA, MEDIA_TABS_DATA, RATIOS, RATIO_LABEL, IMAGE_STYLES, IMAGE_STYLE_LABEL, VIDEO_RATIOS, VIDEO_STYLES, VIDEO_DURATIONS, MUSIC_GENRES, MUSIC_DURATIONS, IMAGE_CATEGORIES, REFERENCE_REQUIRED_CATEGORIES, STARTER_PROMPTS_FA, STARTER_PROMPTS_EN, STARTER_PROMPTS_DE, STARTER_PROMPTS_REAL_ESTATE, DATA_SOURCE_NAMES, type MediaType } from "@/lib/chat/chatOptions";
 
 interface PromptBoxData {
   name: string;
@@ -68,12 +69,7 @@ interface Message {
  * phrase so the line stays a quiet footnote instead of a list.
  */
 function dataSourceLabel(capabilityKeys: string[], lang: Lang): string {
-  const names: Record<string, [string, string, string]> = {
-    crm: ["CRM شما", "your CRM", "Ihrem CRM"],
-    accounting: ["حسابداری شما", "your accounting", "Ihrer Buchhaltung"],
-    social: ["شبکه‌های اجتماعی شما", "your social media", "Ihren Social-Media-Daten"],
-    ceo: ["داده‌های کل کسب‌وکار شما", "your whole-business data", "Ihren gesamten Unternehmensdaten"],
-  };
+  const names = DATA_SOURCE_NAMES;
 
   const labels = capabilityKeys
     .map((k) => names[k])
@@ -90,16 +86,9 @@ function dataSourceLabel(capabilityKeys: string[], lang: Lang): string {
   return tri(lang, `بر اساس ${joined}`, `Based on ${joined}`, `Basierend auf ${joined}`, `${joined} temel alınarak`);
 }
 
-const EXPERT_MODES = [
-  { id: "default",   labelFa: "دستیار هوشمند",     labelEn: "Smart Assistant", labelDe: "Intelligenter Assistent", icon: Sparkles,     color: "#ea580c" },
-  { id: "business",  labelFa: "دکتر کسب‌وکار",     labelEn: "Business Doctor", labelDe: "Geschäftsberater", icon: Briefcase,    color: "#3b82f6" },
-  { id: "marketing", labelFa: "بازاریابی",          labelEn: "Marketing",       labelDe: "Marketing", icon: TrendingUp,   color: "#10b981" },
-  { id: "financial", labelFa: "مالی و سرمایه",      labelEn: "Financial",       labelDe: "Finanzen", icon: DollarSign,   color: "#f59e0b" },
-  { id: "sales",     labelFa: "فروش",               labelEn: "Sales",           labelDe: "Vertrieb", icon: ShoppingCart, color: "#8b5cf6" },
-  { id: "startup",   labelFa: "استارتاپ",           labelEn: "Startup",         labelDe: "Startup", icon: Rocket,       color: "#ef4444" },
-  { id: "legal",     labelFa: "حقوقی",              labelEn: "Legal",           labelDe: "Recht", icon: Scale,        color: "#06b6d4" },
-  { id: "hr",        labelFa: "منابع انسانی",       labelEn: "HR & People",     labelDe: "HR & Personal", icon: Users,        color: "#d97706" },
-];
+
+const EXPERT_ICONS: Record<string, typeof Sparkles> = { default: Sparkles, business: Briefcase, marketing: TrendingUp, financial: DollarSign, sales: ShoppingCart, startup: Rocket, legal: Scale, hr: Users };
+const EXPERT_MODES = EXPERT_MODES_DATA.map((m) => ({ ...m, icon: EXPERT_ICONS[m.id] }));
 
 const MODEL_IDS = [
   { id: "auto", key: "auto" as const, plan: "FREE" },
@@ -119,62 +108,21 @@ interface ChatProvider {
 // duplicating what this component already does. They are tabs on this
 // composer now: one thread, one history, one set of controls.
 
-type MediaType = "chat" | "image" | "video" | "music";
 
 /** Fired by Sidebar's history list to switch conversations without a full
  *  Next.js navigation -- see the listener in ChatInterface for why. */
+const MEDIA_TAB_ICONS: Record<MediaType, typeof ImageIcon> = { chat: MessageSquare, image: ImageIcon, video: Video, music: Music };
+const MEDIA_TABS = MEDIA_TABS_DATA.map((tab) => ({ ...tab, icon: MEDIA_TAB_ICONS[tab.id] }));
+
 export const OPEN_CONVERSATION_EVENT = "aifekr:open-conversation";
 
-const MEDIA_TABS: { id: MediaType; icon: typeof ImageIcon; fa: string; en: string; de: string }[] = [
-  { id: "chat",  icon: MessageSquare, fa: "همه",   en: "All",   de: "Alle" },
-  { id: "image", icon: ImageIcon,     fa: "عکس",   en: "Image", de: "Bild" },
-  { id: "video", icon: Video,         fa: "ویدیو", en: "Video", de: "Video" },
-  { id: "music", icon: Music,         fa: "موزیک", en: "Music", de: "Musik" },
-];
 
-const RATIOS = ["1:1", "16:9", "9:16", "4:3"];
-const RATIO_LABEL: Record<string, Record<Lang, string>> = {
-  "1:1":  { fa: "مربع", en: "Square", de: "Quadrat", tr: "Square" },
-  "16:9": { fa: "افقی", en: "Landscape", de: "Querformat", tr: "Landscape" },
-  "9:16": { fa: "عمودی", en: "Portrait", de: "Hochformat", tr: "Portrait" },
-  "4:3":  { fa: "کلاسیک", en: "Classic", de: "Klassisch", tr: "Classic" },
-};
-const IMAGE_STYLES = ["realistic", "anime", "painting", "minimal", "fantasy", "3d"];
-const IMAGE_STYLE_LABEL: Record<string, Record<Lang, string>> = {
-  realistic: { fa: "واقعی", en: "Realistic", de: "Realistisch", tr: "Realistic" },
-  anime: { fa: "انیمه", en: "Anime", de: "Anime", tr: "Anime" },
-  painting: { fa: "نقاشی", en: "Painting", de: "Gemälde", tr: "Painting" },
-  minimal: { fa: "مینیمال", en: "Minimal", de: "Minimalistisch", tr: "Minimal" },
-  fantasy: { fa: "فانتزی", en: "Fantasy", de: "Fantasy", tr: "Fantasy" },
-  "3d": { fa: "سه‌بعدی", en: "3D", de: "3D", tr: "3D" },
-};
 
-const VIDEO_RATIOS = ["16:9", "9:16", "1:1"];
-const VIDEO_STYLES = [
-  { value: "واقعی", fa: "واقعی", en: "Realistic", de: "Realistisch" },
-  { value: "انیمیشن", fa: "انیمیشن", en: "Animation", de: "Animation" },
-  { value: "سینمایی", fa: "سینمایی", en: "Cinematic", de: "Filmisch" },
-  { value: "کارتونی", fa: "کارتونی", en: "Cartoon", de: "Cartoon" },
-];
-const VIDEO_DURATIONS = [{ value: 5, credits: 20 }, { value: 10, credits: 35 }, { value: 30, credits: 80 }];
-const MUSIC_GENRES = ["پاپ", "کلاسیک", "الکترونیک", "سنتی ایرانی", "آرامش‌بخش", "راک", "جاز", "هیپ‌هاپ"];
-const MUSIC_DURATIONS = [{ value: 30, credits: 10 }, { value: 60, credits: 18 }, { value: 120, credits: 30 }];
 
 interface PromptTemplate {
   id: string; title: string; titleEn: string | null; titleDe?: string | null; content: string; contentEn: string | null; contentDe?: string | null; category: string; thumbnailUrl: string | null;
   guideFa: string | null; guideEn: string | null; guideDe?: string | null;
 }
-const IMAGE_CATEGORIES = [
-  { id: "all", fa: "همه", en: "All", de: "Alle" },
-  { id: "portrait", fa: "پرتره", en: "Portrait", de: "Porträt" },
-  { id: "product", fa: "محصول", en: "Product", de: "Produkt" },
-  { id: "landscape", fa: "منظره و طبیعت", en: "Landscape", de: "Landschaft" },
-  { id: "art", fa: "هنری و نقاشی", en: "Art", de: "Kunst" },
-  { id: "corporate", fa: "کسب‌وکار", en: "Corporate", de: "Unternehmen" },
-  { id: "fantasy", fa: "فانتزی و سینمایی", en: "Fantasy", de: "Fantasie" },
-  { id: "1980s", fa: "دهه ۸۰ میلادی", en: "1980s", de: "1980er" },
-];
-const REFERENCE_REQUIRED_CATEGORIES = new Set(["1980s"]);
 
 declare global {
   interface Window {
@@ -959,34 +907,12 @@ export default function ChatInterface({
     window.speechSynthesis.speak(utterance);
   }, [speakingId, lang]);
 
-  const STARTER_PROMPTS_FA = [
-    "یک ایمیل رسمی برای من بنویس",
-    "این متن رو خلاصه کن",
-    "برای سفرم به یک شهر جدید برنامه بریز",
-    "چطور برای استارتاپم یک مدل کسب‌وکار بسازم؟",
-  ];
-  const STARTER_PROMPTS_EN = [
-    "Write a formal email for me",
-    "Summarize this text",
-    "Plan a trip to a new city",
-    "How do I build a business model for my startup?",
-  ];
-  const STARTER_PROMPTS_DE = [
-    "Schreiben Sie ein formelles E-Mail für mich",
-    "Fassen Sie diesen Text zusammen",
-    "Planen Sie eine Reise in eine neue Stadt",
-    "Wie erstelle ich ein Geschäftsmodell für mein Startup?",
-  ];
   const starterPrompts = studentTutor ? tri(lang,
     ["مفاهیم مهم این درس را با مثال توضیح بده", "از جزوهٔ من سه سؤال تمرینی بپرس", "برای مرور این درس یک برنامه پیشنهاد بده"],
     ["Explain the key concepts with examples", "Ask me three practice questions from my notes", "Suggest a revision plan for this course"],
     ["Erkläre die wichtigsten Konzepte mit Beispielen", "Stelle drei Übungsfragen aus meinen Unterlagen", "Schlage einen Lernplan für diesen Kurs vor"],
     ["Temel kavramları örneklerle açıkla", "Notlarımdan üç alıştırma sorusu sor", "Bu ders için tekrar planı öner"])
-    : industrySlug === "real-estate" ? tri(lang,
-      ["برای ملکم یک آگهی جذاب برای دیوار و اینستاگرام بنویس", "یک پیام پیگیری مودبانه برای مشتری‌ای که بازدید رفته بنویس", "قیمت مناسب آپارتمان ۱۲۰ متری را چطور تعیین کنم؟", "برنامهٔ هفتگی پیگیری لیدهایم را بچین"],
-      ["Write an appealing listing for my property", "Write a polite follow-up to a client after a viewing", "How should I price a 120 m² apartment?", "Plan my weekly lead follow-ups"],
-      ["Schreibe ein ansprechendes Exposé für meine Immobilie", "Schreibe eine höfliche Nachricht nach einer Besichtigung", "Wie bepreise ich eine 120-m²-Wohnung?", "Plane meine wöchentlichen Lead-Nachfassungen"],
-      ["Mülküm için çekici bir ilan yaz", "Görüntülemeden sonra müşteriye kibar bir takip mesajı yaz", "120 m² bir daireyi nasıl fiyatlandırmalıyım?", "Haftalık müşteri takip planımı hazırla"])
+    : industrySlug === "real-estate" ? tri(lang, ...STARTER_PROMPTS_REAL_ESTATE)
     : tri(lang, STARTER_PROMPTS_FA, STARTER_PROMPTS_EN, STARTER_PROMPTS_DE);
 
   const pill = { background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" } as const;

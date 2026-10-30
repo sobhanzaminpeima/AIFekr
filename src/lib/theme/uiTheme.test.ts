@@ -15,8 +15,8 @@ describe("ui theme routing", () => {
     expect(v2Handles("/chat", ["/"])).toBe(false);
   });
   it("sends only the rebuilt pages to v2", () => {
-    for (const path of ["/", "/pricing", "/about", "/contact", "/guides", "/guides/x", "/features/crm", "/solutions/business", "/login", "/register", "/home"]) expect(v2Handles(path)).toBe(true);
-    for (const path of ["/chat", "/privacy", "/terms", "/security", "/industry", "/admin", "/pricing-old", "/login-old", "/welcome", "/home/x"]) expect(v2Handles(path)).toBe(false);
+    for (const path of ["/", "/pricing", "/about", "/contact", "/guides", "/guides/x", "/features/crm", "/solutions/business", "/login", "/register", "/home", "/chat", "/chat/abc"]) expect(v2Handles(path)).toBe(true);
+    for (const path of ["/chatbot", "/privacy", "/terms", "/security", "/industry", "/admin", "/pricing-old", "/login-old", "/welcome", "/home/x"]) expect(v2Handles(path)).toBe(false);
   });
   it("decides a page language like getServerLang: a valid lang cookie first", async () => {
     expect(await pageLang("de")).toBe("de");

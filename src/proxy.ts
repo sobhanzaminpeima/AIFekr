@@ -3,6 +3,7 @@ import { rateLimit, getClientIp } from "@/lib/utils/rateLimit";
 import { isPublicRoute, stripPublicLocale } from "@/lib/seo/locales";
 import { moduleKeyForPath } from "@/lib/modules/moduleRoutes";
 import { blockedModules } from "@/lib/modules/moduleStatus";
+import { shellGate } from "@/lib/layout/platformShellData";
 import { UI_PREVIEW_COOKIE, V2_ASSET_PREFIX, pageLang, resolveTheme, siteUiTheme, v2Available, v2Handles, v2Origin } from "@/lib/theme/uiTheme";
 
 // Path-prefix -> { limit, windowMs }. First match wins (checked in order).
@@ -153,6 +154,10 @@ async function routeToV2(req: NextRequest): Promise<NextResponse | null> {
   if (localized.path === "/" && req.cookies.get("token")) return null;
   const theme = resolveTheme(await siteUiTheme(), req.cookies.get(UI_PREVIEW_COOKIE)?.value);
   if (theme !== "v2" || !(await v2Available())) return null;
+  // The new design's chat is the full signed-in chat. Visitors, chat-only
+  // accounts and anyone the classic layout would send elsewhere (sign-in,
+  // onboarding, FIT) keep the classic /chat and its chat-only studio.
+  if ((localized.path === "/chat" || localized.path.startsWith("/chat/")) && (await shellGate(req.cookies.get("token")?.value, pathname + search)).kind !== "full") return null;
   const target = new URL(localized.path + search, origin);
   // Public pages take their language from the URL, as in the classic design;
   // the others from the lang cookie or the site's default language.

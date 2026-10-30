@@ -20,9 +20,9 @@ export const V2_ASSET_PREFIX = "/_v2";
 /** Pages rebuilt in v2 and connected to the real backend. An entry matches the path itself and everything under it. */
 // Phase 1: landing and public pages. Privacy, terms, security, industry and
 // the other public pages stay classic until they are rebuilt.
-// Phase 2: sign-in, sign-up and the signed-in home. App pages use their own
-// frame (/api/app/shell), so only exact paths are listed for them.
-export const V2_ROUTES: readonly string[] = ["/", "/pricing", "/about", "/contact", "/guides", "/features", "/solutions", "/login", "/register", "/home"];
+// Phase 2: sign-in, sign-up, the signed-in home and chat (/chat and
+// /chat/<id>). App pages use their own frame (/api/app/shell).
+export const V2_ROUTES: readonly string[] = ["/", "/pricing", "/about", "/contact", "/guides", "/features", "/solutions", "/login", "/register", "/home", "/chat"];
 
 export function isUiTheme(value: unknown): value is UiTheme {
   return value === "classic" || value === "v2";

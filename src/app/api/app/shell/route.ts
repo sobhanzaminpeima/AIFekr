@@ -5,6 +5,8 @@ import { shellCopy } from "@/lib/layout/shellCopy";
 import { sidebarAccess } from "@/lib/layout/sidebarAccess";
 import { sidebarModel } from "@/lib/layout/sidebarModel";
 import { standaloneMetadata } from "@/lib/seo/publicSeo";
+import { chatCopy } from "@/lib/chat/chatCopy";
+import { prisma } from "@/lib/db/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +26,9 @@ export async function GET(req: NextRequest) {
   const lang = await getServerLang();
   const data = await shellData(user);
   const copy = shellCopy(lang);
+  // The chat page's wording and options, and what its starters and photo limit depend on.
+  const chatPage = path.split("?")[0] === "/chat" || path.startsWith("/chat/");
+  const pack = chatPage && user.industryPackId ? await prisma.industryPack.findUnique({ where: { id: user.industryPackId }, select: { slug: true } }) : null;
   return NextResponse.json({
     redirect: null,
     lang,
@@ -38,5 +43,6 @@ export async function GET(req: NextRequest) {
     conversations: data.conversations.map((c) => ({ ...c, updatedAt: c.updatedAt.toISOString() })),
     copy,
     model: sidebarModel(lang),
+    chat: chatPage ? { ...chatCopy(lang), industrySlug: pack?.slug ?? null } : null,
   }, noStore);
 }
