@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
     guides: guides.map(g => ({ slug: g.slug, title: text(lang, g.title), description: text(lang, g.description), related: g.related, sections: g.sections.map(sec => ({ title: text(lang, sec.title), body: text(lang, sec.body) })) })),
     guidesUpdatedAt: CONTENT_UPDATED_AT,
     faq: faqItems.map(f => ({ q: text(lang, f.q), a: text(lang, f.a) })),
-    costs: { imageStandard: costs.image_standard, imageHd: costs.image_hd, video5s: costs.video_5s, video10s: costs.video_10s },
+    costs: { imageStandard: costs.image_standard, imageHd: costs.image_hd, video5s: costs.video_5s, video10s: costs.video_10s, music30s: costs.music_30s },
     contact: { email: contact.contact_email, phone: contact.contact_phone, address: contact.contact_address, telegram: contact.contact_telegram },
     auth: auth?.auth ?? null,
   };
