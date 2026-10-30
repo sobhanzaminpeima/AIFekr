@@ -112,7 +112,10 @@ export default function ChatStudio() {
     call("/api/ai-chat/v1/session", {})
       .then(async (s) => {
         setSession(s);
-        if(s.authenticated&&s.needsPlanSelection){window.location.assign("/choose-plan");return;}
+        // A new chat account starts chatting at once: this records "chat" as its
+        // starting point, as choosing chat on /choose-plan does. Packages stay one
+        // tap away in the header, instead of standing before the first message.
+        if(s.authenticated&&s.needsPlanSelection)await call("/api/ai-chat/v1/entry",{module:"CHAT"}).catch(()=>{});
         if (s.mergedConversationId)
           await openConversation(s.mergedConversationId);
         else setMessages(s.messages);

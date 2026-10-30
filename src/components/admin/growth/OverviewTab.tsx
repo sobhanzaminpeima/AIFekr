@@ -9,6 +9,13 @@ type Overview = {
   funnel: { step: string; count: number; note?: string }[];
   stages: Record<string, number>;
   modules: [string, number][];
+  generation: { modules: [string, { started: number; succeeded: number; failed: number; reasons: Record<string, number> }][]; firstSuccess: { count: number; medianMinutes: number | null } };
+};
+
+const REASONS: Record<string, [string, string]> = {
+  credits: ["اعتبار کافی نبود", "Not enough credits"], plan: ["نیاز به پلن", "Plan required"], limit: ["سقف پلن", "Plan limit reached"],
+  rate_limited: ["محدودیت سرعت", "Rate limited"], disabled: ["غیرفعال", "Disabled"], invalid_input: ["ورودی نامعتبر", "Invalid input"],
+  forbidden: ["بدون دسترسی", "Not allowed"], provider: ["خطای سرویس", "Provider error"], cancelled: ["لغو یا قطع", "Cancelled"], unknown: ["نامشخص", "Unknown"],
 };
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -51,6 +58,19 @@ export default function OverviewTab() {
           {data.modules.length ? <div className="gc-funnel">{data.modules.map(([m, n]) => <div key={m} className="gc-funnel-row"><span>{GROWTH_MODULES.find(x => x.id === m)?.name[fa ? 0 : 1] ?? m}</span><div className="gc-bar"><span style={{ width: `${n * 100 / Math.max(1, data.funnel[1].count)}%` }}/></div><b>{fmtNum(n, lang)}</b></div>)}</div> : <p className="gc-empty">{t("هنوز نتیجه‌ای ثبت نشده.", "No results recorded yet.")}</p>}
         </section>
       </div>
+      <section className="gc-card">
+        <h2>{t("تلاش‌های تولید", "Generation attempts")}</h2>
+        <p className="gc-sub">{t("از رویدادهای ثبت‌شده در سرور (از ۳۰ اکتبر ۲۰۲۶). شکست با دلیلش جدا از رها کردن کاربر دیده می‌شود.", "From server-recorded events (since 30 Oct 2026). A failure shows with its reason, apart from a user who left.")}</p>
+        <p>{t("اولین موفقیت حساب‌های جدید", "New accounts' first success")}: <strong>{fmtNum(data.generation.firstSuccess.count, lang)}</strong>
+          {data.generation.firstSuccess.medianMinutes != null && <> · {t("میانهٔ زمان از ثبت‌نام (دقیقه)", "median minutes from signup")}: <strong>{fmtNum(data.generation.firstSuccess.medianMinutes, lang)}</strong></>}</p>
+        {data.generation.modules.length ? <div className="gc-table-wrap"><table className="gc-table">
+          <thead><tr><th>{t("ابزار", "Tool")}</th><th>{t("شروع", "Started")}</th><th>{t("موفق", "Succeeded")}</th><th>{t("ناموفق", "Failed")}</th><th>{t("دلیل شکست", "Failure reasons")}</th></tr></thead>
+          <tbody>{data.generation.modules.map(([m, r]) => <tr key={m}>
+            <td>{GROWTH_MODULES.find(x => x.id === m)?.name[fa ? 0 : 1] ?? m}</td><td>{fmtNum(r.started, lang)}</td><td>{fmtNum(r.succeeded, lang)}</td><td>{fmtNum(r.failed, lang)}</td>
+            <td>{Object.entries(r.reasons).map(([k, n]) => `${REASONS[k]?.[fa ? 0 : 1] ?? k}: ${fmtNum(n, lang)}`).join(" · ") || "—"}</td>
+          </tr>)}</tbody>
+        </table></div> : <Missing>{t("هنوز تلاشی در این بازه ثبت نشده", "No attempts recorded in this range yet")}</Missing>}
+      </section>
       <details className="gc-card gc-defs"><summary>{t("تعریف دقیق شاخص‌ها", "Exact metric definitions")}</summary><dl>
         <dt>{t("نتیجهٔ اول", "First value")}</dt><dd>{t("اولین ردیف واقعی در جداول خروجی: تصویر/ویدئو/موسیقی بدون بازپرداخت، صدای آماده، پاسخ دستیار، مخاطب CRM، تحلیل سئو، پست، وبسایت، منبع درسی، پروفایل فیت. کلیک روی دکمه شمرده نمی‌شود.", "First real row in output tables: unrefunded image/video/music, READY voice audio, assistant reply, CRM contact, SEO audit, post, website, study material, fitness profile. Clicks never count.")}</dd>
         <dt>{t("خرید", "Paid")}</dt><dd>{t("Payment.status = SUCCESS که فقط توسط تأیید درگاه، وب‌هوک یا بررسی مدیر ثبت می‌شود.", "Payment.status = SUCCESS, set only by gateway verification, webhook or admin review.")}</dd>

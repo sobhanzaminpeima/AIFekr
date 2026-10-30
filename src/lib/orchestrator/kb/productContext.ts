@@ -20,7 +20,7 @@ import { searchKb } from "./search";
  */
 
 const PRODUCT_TERMS = [
-  "aifekr", "ai fekr", "ای‌فکر", "ایفکر", "آی‌فکر", "آیفکر",
+  "aifekr", "ai fekr", "ای‌فکر", "ایفکر", "آی‌فکر", "آیفکر", "ای فکر", "آی فکر", "پلتفرم", "platform",
   "این پلتفرم", "این سایت", "این سرویس", "این محصول", "این برنامه",
   "this platform", "this product", "this app", "this service", "this website",
   "diese plattform", "dieses produkt", "diese app",
@@ -29,7 +29,7 @@ const PRODUCT_TERMS = [
 /** Words that make a message a question ABOUT a product rather than a task for the assistant. */
 const CAPABILITY_TERMS = [
   "چیکار", "چه کار", "چی کار", "قابلیت", "امکانات", "فیچر", "چیه", "چیست", "معرفی",
-  "کجاست", "کجا پیدا", "چطور استفاده", "چگونه استفاده", "پلن", "تعرفه", "اشتراک",
+  "کجاست", "کجا پیدا", "کجاس", "کدوم قسمت", "کدام قسمت", "کدوم بخش", "کدام بخش", "چطور استفاده", "چگونه استفاده", "پلن", "تعرفه", "اشتراک",
   "what can", "what is", "what does", "features", "capabilities", "how do i use",
   "where do i find", "where is", "pricing", "plans", "subscription",
   "was kann", "was ist", "funktionen", "wo finde", "preise", "tarife",

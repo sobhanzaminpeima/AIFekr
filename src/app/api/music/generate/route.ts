@@ -11,11 +11,12 @@ import { getAvailableCredits, chargeAndLog, refundCredits } from "@/lib/utils/te
 import { getLimitsForPlan } from "@/lib/utils/planLimits";
 import { isFeatureEnabled, FEATURE_DISABLED_MESSAGE } from "@/lib/utils/featureToggles";
 import { getCreditCosts } from "@/lib/utils/creditCosts";
+import { withGenerationTracking } from "@/lib/growth/generation";
 
 const MUSIC_DURATIONS = [30, 60, 120];
 type MusicDuration = 30 | 60 | 120;
 
-export async function POST(req: NextRequest) {
+async function handleMusicRequest(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
 
@@ -122,3 +123,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "خطا در تولید موزیک" }, { status: 500 });
   }
 }
+
+// Activation measurement: music that finished at once is a confirmed result; a queued one is recorded by music/status.
+export const POST = withGenerationTracking("music", handleMusicRequest, (b) => (b.status === "succeeded" && typeof b.musicId === "string" ? b.musicId : null));

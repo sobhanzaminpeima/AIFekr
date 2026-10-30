@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getPredictionStatus } from "@/lib/ai/replicate";
 import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
 import { refundCredits } from "@/lib/utils/teamCredits";
+import { recordGenerationFailed, recordGenerationSucceeded } from "@/lib/growth/generation";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -33,11 +34,13 @@ export async function GET(req: NextRequest) {
       where: { id: musicId, userId: user.id },
       data: { url: finalUrl },
     });
+    await recordGenerationSucceeded(user.id, "music", musicId);
 
     return NextResponse.json({ status, output: finalUrl });
   }
 
   if ((status === "failed" || status === "canceled") && musicId) {
+    await recordGenerationFailed(user.id, "music", "provider", musicId);
     // Credits were charged up-front in generate/route.ts before the async
     // job's outcome was known — refund now that it's terminally failed.
     // Same idempotency trick as video/status: `refunded: false` in the where

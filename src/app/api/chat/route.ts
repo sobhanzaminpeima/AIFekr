@@ -21,6 +21,7 @@ import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
 import { studentWorkspaceDisabledResponse } from "@/lib/student/access";
 import { wrapUntrustedContent } from "@/lib/ai/promptSafety";
 import {verifyDocument} from "@/lib/chat/documents";
+import { recordGenerationFailed, recordGenerationStarted, recordGenerationSucceeded } from "@/lib/growth/generation";
 
 const SUGGESTIONS_INSTRUCTION = `
 
@@ -132,6 +133,7 @@ export async function POST(req: NextRequest) {
     if (typeof message !== "string" || !message.trim()) {
       return NextResponse.json({ error: "پیام خالی است" }, { status: 400 });
     }
+    void recordGenerationStarted(user.id, "chat");
 
     // Pre-check against the actual cost the selected model can incur, not a
     // flat floor — a user with e.g. 2 credits could otherwise pass a flat-1
@@ -147,6 +149,7 @@ export async function POST(req: NextRequest) {
     // this user's in-flight answers count as spent until those answers settle.
     const heldCredits = inFlightChatCredits.get(user.id) ?? 0;
     if (availableCredits - heldCredits < expectedCost) {
+      void recordGenerationFailed(user.id, "chat", "credits");
       return NextResponse.json({ error: "اعتبار کافی ندارید. لطفاً اعتبار خود را شارژ کنید", code: heldCredits ? "CREDITS_HELD_BY_ACTIVE_ANSWER" : "INSUFFICIENT_CREDITS" }, { status: 402 });
     }
 
@@ -337,13 +340,14 @@ export async function POST(req: NextRequest) {
           // (they already have it). Isolated in its own try/catch so it
           // can't be confused with the generation try above.
           try {
-            await prisma.message.create({
+            const answer = await prisma.message.create({
               data: {
                 conversationId: convId,
                 role: "assistant",
                 content: assistantContent,
               },
             });
+            void recordGenerationSucceeded(user.id, "chat", answer.id);
 
             // Deduct credit only now that generation actually succeeded (from
             // the shared team pool if the user is on a team), scaled to the
@@ -402,6 +406,7 @@ export async function POST(req: NextRequest) {
           // user's error message, so a screenshot of the error finds the log row.
           const requestId = globalThis.crypto.randomUUID().slice(0, 8);
           await logError({ source: "/api/chat (stream)", error: err, userId: user.id, requestId });
+          void recordGenerationFailed(user.id, "chat", "provider", requestId);
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: `خطا در دریافت پاسخ (کد پیگیری: ${requestId})`, requestId })}\n\n`));
           controller.close();
         } finally {

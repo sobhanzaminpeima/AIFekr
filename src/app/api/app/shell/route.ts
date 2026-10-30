@@ -11,6 +11,7 @@ import { characterCopy } from "@/lib/image/characterCopy";
 import { voiceCopy } from "@/lib/voice-studio/voiceCopy";
 import { factoryCopy } from "@/lib/video-factory/factoryCopy";
 import { crmCopy } from "@/lib/crm/crmCopy";
+import { mediaPlanAccess, planNoticeCopy } from "@/lib/growth/planAccess";
 import { prisma } from "@/lib/db/prisma";
 import en from "@/lib/i18n/en";
 import fa from "@/lib/i18n/fa";
@@ -63,6 +64,6 @@ export async function GET(req: NextRequest) {
     factory: bare === "/video-factory" ? factoryCopy(lang) : null,
     // Only on the CRM: the classic CRM's wording and dictionary.
     crm: bare === "/crm" ? crmCopy(lang) : null,
-    chat: chatPage ? { ...chatCopy(lang), ...(bare === "/music/generate" ? { musicGenres: MUSIC_PAGE_GENRES[lang] } : {}), industrySlug: pack?.slug ?? null, create: createCopy(lang), characters: bare === "/image/generate" ? characterCopy(lang) : null } : null,
+    chat: chatPage ? { ...chatCopy(lang), ...(bare === "/music/generate" ? { musicGenres: MUSIC_PAGE_GENRES[lang] } : {}), industrySlug: pack?.slug ?? null, create: createCopy(lang), characters: bare === "/image/generate" ? characterCopy(lang) : null, planAccess: { ...(await mediaPlanAccess(user)), notice: planNoticeCopy(lang) } } : null,
   }, noStore);
 }

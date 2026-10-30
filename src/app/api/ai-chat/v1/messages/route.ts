@@ -5,6 +5,7 @@ import { chatIdentity } from "@/lib/ai-chat/identity";
 import { claimTurn, settleTurn, failTurn } from "@/lib/ai-chat/service";
 import { independentChatProvider } from "@/lib/ai-chat/provider";
 import { rateLimit, getClientIp } from "@/lib/utils/rateLimit";
+import { recordGenerationFailed, recordGenerationStarted, recordGenerationSucceeded } from "@/lib/growth/generation";
 const inputSchema = z
   .object({
     id: z.uuid(),
@@ -19,10 +20,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "ORIGIN_FORBIDDEN" }, { status: 403 });
   let claim: Awaited<ReturnType<typeof claimTurn>>;
   let body: z.infer<typeof inputSchema>;
+  // Activation measurement, for signed-in accounts only (guests have no account yet).
+  let accountId: string | null = null;
   try {
     const identity = await chatIdentity(req);
     if (!identity)
       return NextResponse.json({ error: "SESSION_REQUIRED" }, { status: 401 });
+    accountId = identity.user?.id ?? null;
     if (
       !rateLimit(`independent-chat:${identity.key}`, 8, 60000).allowed ||
       !rateLimit(`independent-chat:ip:${getClientIp(req.headers)}`, 30, 60000)
@@ -32,6 +36,7 @@ export async function POST(req: NextRequest) {
     const text = await req.text();
     if (text.length > 12000) throw Error("INPUT_TOO_LARGE");
     body = inputSchema.parse(JSON.parse(text));
+    if (accountId) void recordGenerationStarted(accountId, "ai_chat");
     claim = await claimTurn(identity, body);
     if (claim.status === "FAILED") throw Error("PREVIOUS_REQUEST_FAILED");
     if (claim.status === "PENDING" && !("history" in claim))
@@ -41,6 +46,7 @@ export async function POST(req: NextRequest) {
       );
   } catch (e) {
     const error = e instanceof Error ? e.message : "INVALID_REQUEST";
+    if (accountId && error === "INSUFFICIENT_CREDITS") void recordGenerationFailed(accountId, "ai_chat", "credits");
     return NextResponse.json(
       { error },
       {
@@ -93,12 +99,14 @@ export async function POST(req: NextRequest) {
         );
         if (abort.signal.aborted) throw Error("CANCELLED");
         await settleTurn(claim.id, output, usage);
+        if (accountId) void recordGenerationSucceeded(accountId, "ai_chat", claim.id);
         send({ done: true });
       } catch {
         await failTurn(
           claim.id,
           abort.signal.aborted ? "CANCELLED" : "PROVIDER_UNAVAILABLE",
         );
+        if (accountId) void recordGenerationFailed(accountId, "ai_chat", abort.signal.aborted ? "cancelled" : "provider", claim.id);
         send({
           error: abort.signal.aborted ? "CANCELLED" : "PROVIDER_UNAVAILABLE",
           refunded: true,

@@ -6,6 +6,7 @@ import { bootstrap, saveProject, deleteProject, ownedProject, ownedGeneration, e
 import { VoiceError } from "@/lib/voice-studio/domain";
 import { prisma } from "@/lib/db/prisma";
 import { boundedJson } from "@/lib/voice-studio/request";
+import { classifyFailure, recordGenerationFailed, recordGenerationStarted } from "@/lib/growth/generation";
 export const dynamic = "force-dynamic";
 function failure(e: unknown) { return NextResponse.json({ code: e instanceof VoiceError ? e.code : e instanceof z.ZodError ? "INVALID_INPUT" : "VOICE_STUDIO_UNAVAILABLE" }, { status: e instanceof VoiceError ? e.status : e instanceof z.ZodError ? 400 : 503 }); }
 export async function GET(req: NextRequest) { const user = await requireAuth(req); if (!user)
@@ -51,7 +52,15 @@ export async function POST(req: NextRequest) {
         }
         if (action === "generate") {
             const input = z.object({ action: z.literal("generate"), projectId: z.string().max(100), segmentIndex: z.number().int().min(0).max(500), voiceId: z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/), modelId: z.string().max(100), idempotencyKey: z.string().uuid(), settings: z.unknown().optional() }).strict().parse(body);
-            return NextResponse.json({ generation: publicGeneration(await enqueueSpeech(user.id, input)) });
+            void recordGenerationStarted(user.id, "voice");
+            try {
+                return NextResponse.json({ generation: publicGeneration(await enqueueSpeech(user.id, input)) });
+            }
+            catch (e) {
+                // A refusal (plan, credits, limits) is a failed attempt; the worker records the real outcome of a queued one.
+                if (e instanceof VoiceError) void recordGenerationFailed(user.id, "voice", classifyFailure(e.status, { code: e.code }) ?? "provider");
+                throw e;
+            }
         }
         const input = z.object({ action: z.string(), id: z.string().max(100) }).strict().parse(body);
         if (action === "deletePreset")

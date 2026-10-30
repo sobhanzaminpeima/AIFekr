@@ -11,11 +11,12 @@ import { getCreditCosts } from "@/lib/utils/creditCosts";
 import { getAvailableCredits, chargeAndLog } from "@/lib/utils/teamCredits";
 import { getLimitsForPlan } from "@/lib/utils/planLimits";
 import { isFeatureEnabled, FEATURE_DISABLED_MESSAGE } from "@/lib/utils/featureToggles";
+import { withGenerationTracking } from "@/lib/growth/generation";
 
 const VIDEO_DURATIONS = [5, 10, 30];
 type VideoDuration = 5 | 10 | 30;
 
-export async function POST(req: NextRequest) {
+async function generateVideo(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
 
@@ -104,3 +105,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "خطا در تولید ویدیو" }, { status: 500 });
   }
 }
+
+// Activation measurement: a queued video only counts as started; video/status records its outcome.
+export const POST = withGenerationTracking("video", generateVideo, () => null);

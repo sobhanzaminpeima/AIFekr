@@ -14,6 +14,7 @@ import { generateCustomImage } from "@/lib/ai/customImageProvider";
 import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
 import { isFeatureEnabled, FEATURE_DISABLED_MESSAGE } from "@/lib/utils/featureToggles";
 import { maxReferenceImages } from "@/lib/constants/imageUploadLimits";
+import { withGenerationTracking } from "@/lib/growth/generation";
 
 // OpenAI (gpt-image) is preferred when configured — real credit was purchased
 // for it — with Qwen kept as the fallback path exactly as qwen.ts documents.
@@ -40,7 +41,7 @@ function resolveProvider(requested: string | undefined) {
 const OPENAI_IMAGE_DAILY_LIMIT_PER_USER = Number(process.env.OPENAI_IMAGE_DAILY_LIMIT_PER_USER || 5);
 const OPENAI_IMAGE_MONTHLY_BUDGET_CAP = Number(process.env.OPENAI_IMAGE_MONTHLY_BUDGET_CAP || 200);
 
-export async function POST(req: NextRequest) {
+async function generateImage(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
 
@@ -190,3 +191,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "خطا در تولید تصویر" }, { status: 500 });
   }
 }
+
+// Activation measurement: a saved image is a confirmed result.
+export const POST = withGenerationTracking("image", generateImage, (b) => (Array.isArray(b.images) && typeof (b.images[0] as { id?: unknown } | undefined)?.id === "string" ? (b.images[0] as { id: string }).id : null));

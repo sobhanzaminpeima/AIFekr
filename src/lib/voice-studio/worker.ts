@@ -6,6 +6,7 @@ import { SpeechFailure, synthesize, voiceSettingsSchema, assertSpeechQuota, keep
 import { inspectAudio } from "./audio";
 import { VoiceError, type VoicePolicy } from "./domain";
 import { notify } from "@/lib/notifications/create";
+import { recordGenerationFailed, recordGenerationSucceeded } from "@/lib/growth/generation";
 export async function processVoiceTick() {
     const policy = await voicePolicy();
     if (policy.enabled) await keepCatalogFresh();
@@ -49,12 +50,16 @@ export async function processVoiceTick() {
         const settled = await finishGeneration(row.id, "READY", { ...audio, storageKey, bytes: bytes.length });
         if (settled.status !== "READY")
             await deletePrivateObject(storageKey);
-        else
+        else {
+            await recordGenerationSucceeded(row.userId, "voice", row.id);
             await notify(row.userId, { type: "voice_studio_ready", title: row.language === "fa" ? "فایل صوتی شما آماده است" : "Your audio is ready", link: `/voice-studio?project=${row.projectId}` });
+        }
     }
     catch (error) {
-        if (!dispatched || error instanceof SpeechFailure && error.confirmedNoOutput)
+        if (!dispatched || error instanceof SpeechFailure && error.confirmedNoOutput) {
             await finishGeneration(row.id, "FAILED", { errorCode: error instanceof VoiceError ? error.code : "PRECHECK_FAILED_REFUNDED" });
+            await recordGenerationFailed(row.userId, "voice", "provider", row.id);
+        }
         else
             await prisma.voiceStudioGeneration.updateMany({ where: { id: row.id, status: "RUNNING" }, data: { status: "REVIEW", errorCode: error instanceof SpeechFailure ? error.code : "OUTCOME_REQUIRES_RECONCILIATION" } });
     }
