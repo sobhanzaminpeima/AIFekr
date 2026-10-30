@@ -1,5 +1,5 @@
 import {releaseFailedPromotion} from "@/lib/billing/releasePromotion";
-import { GROWTH_MODULES } from "@/lib/growth/modules";
+import { GROWTH_MODULES, moduleEntry } from "@/lib/growth/modules";
 import { referralDiscount, applyPromo } from "@/lib/utils/referralPromo";
 import {publicAppUrl} from "@/lib/utils/publicAppUrl";
 import { createPayment } from "@/lib/payment/zarinpal";
@@ -17,7 +17,7 @@ import { priceForPeriod } from "@/lib/billing/plans";
 import { packageUsdPrice } from "@/lib/plans/packagePricing";
 import { rateLimit } from "@/lib/utils/rateLimit";
 /** A module the buyer upgraded from; payment/verify sends them back there (see resultPath). */
-const MODULE_RETURN_PATHS: unknown[] = GROWTH_MODULES.map(m => m.paths[0]);
+const MODULE_RETURN_PATHS: unknown[] = GROWTH_MODULES.flatMap(m => [m.paths[0], moduleEntry(m)]);
 export async function POST(req: NextRequest) {
  const user=await requireAuth(req); if(!user)return unauthorizedResponse(req);
  if(!rateLimit(`payment-create:${user.id}`,10,300000).allowed)return bankError(req,"Too many requests",429);

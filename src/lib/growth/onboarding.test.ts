@@ -53,10 +53,10 @@ describe("onboarding answers", () => {
   });
   it("completes into the chosen suggestion, never into a disabled module", async () => {
     mocks.profile = { goals: "media", objective: "media", onboardingState: "in_progress" };
-    expect(await (await post({ action: "complete", module: "music" })).json()).toMatchObject({ redirect: "/music" });
+    expect(await (await post({ action: "complete", module: "music" })).json()).toMatchObject({ redirect: "/music/generate" });
     mocks.profile = { goals: "media", objective: "media", onboardingState: "in_progress" };
     // "video" is disabled in the registry above.
-    expect((await (await post({ action: "complete", module: "video" })).json()).redirect).not.toBe("/video");
+    expect((await (await post({ action: "complete", module: "video" })).json()).redirect).not.toBe("/video/generate");
   });
   it("skipping leaves for home and never blocks", async () => {
     expect(await (await post({ action: "skip" })).json()).toMatchObject({ redirect: "/home" });
@@ -96,6 +96,12 @@ describe("home invitation", () => {
   });
 });
 
-it("every growth module has a page", () => {
+it("every growth module links to a real page, not a bare prefix", async () => {
+  const { moduleEntry } = await import("./modules");
+  const { existsSync } = await import("node:fs");
+  const pageOf = (href: string) => ["(dashboard)", "(dashboard)/(business)", ""].some((g) => existsSync(`src/app/${g}${href}/page.tsx`));
+  for (const m of GROWTH_MODULES) expect(pageOf(moduleEntry(m)), moduleEntry(m)).toBe(true);
+});
+it("every growth module has a path", () => {
   expect(GROWTH_MODULES.every((m) => m.paths[0].startsWith("/"))).toBe(true);
 });

@@ -11,6 +11,10 @@ export type GrowthModule = {
   registryKey: string | null;
   name: Copy2;
   paths: string[];
+  /** The page that opens the module when its first path is only a prefix (/image has no page). */
+  entry?: string;
+  /** What the module does for the user, in plain words (shown instead of a bare module name). */
+  benefit: Copy2;
   /** Public landing page used by campaigns. */
   landingPath: string;
   firstValue: Copy2;
@@ -20,45 +24,47 @@ export type GrowthModule = {
 };
 
 export const GROWTH_MODULES: GrowthModule[] = [
-  { id: "voice-studio", registryKey: "voice-studio", name: ["استودیوی صدا", "Voice Studio"], paths: ["/voice-studio"], landingPath: "/features/voice-studio",
+  { id: "voice-studio", benefit: ["متن را به صدای طبیعی و حرفه‌ای تبدیل کنید", "Turn any text into natural, professional speech"], registryKey: "voice-studio", name: ["استودیوی صدا", "Voice Studio"], paths: ["/voice-studio"], landingPath: "/features/voice-studio",
     firstValue: ["اولین فایل صوتی آماده", "First ready audio file"], exampleTask: ["یک جملهٔ معرفی کسب‌وکارتان را به صدای طبیعی تبدیل کنید", "Turn one sentence about your business into natural speech"],
     nextStep: ["همان متن را با صدای دیگری بسازید یا متن بلندتری بنویسید", "Try another voice or a longer script"], objectives: ["media", "content", "business"] },
-  { id: "image", registryKey: "image", name: ["تولید تصویر", "Image creation"], paths: ["/image"], landingPath: "/features/images",
+  { id: "image", benefit: ["تصویر تبلیغاتی و محتوای بصری را در چند ثانیه بسازید", "Create ad images and visuals in seconds"], registryKey: "image", name: ["تولید تصویر", "Image creation"], paths: ["/image"], entry: "/image/generate", landingPath: "/features/images",
     firstValue: ["اولین تصویر ساخته‌شده", "First generated image"], exampleTask: ["یک تصویر تبلیغاتی برای محصولتان بسازید", "Create an ad image for your product"],
     nextStep: ["همان ایده را در سبک دیگری بسازید", "Recreate the idea in another style"], objectives: ["media", "content"] },
-  { id: "video", registryKey: "video", name: ["تولید ویدئو", "Video creation"], paths: ["/video"], landingPath: "/features/video",
+  { id: "video", benefit: ["از یک ایده یا تصویر، ویدئوی کوتاه بسازید", "Turn an idea or an image into a short video"], registryKey: "video", name: ["تولید ویدئو", "Video creation"], paths: ["/video"], entry: "/video/generate", landingPath: "/features/video",
     firstValue: ["اولین ویدئوی ساخته‌شده", "First generated video"], exampleTask: ["یک ویدئوی کوتاه پنج‌ثانیه‌ای از یک تصویر بسازید", "Make a five-second clip from an image"],
     nextStep: ["برای ویدئو موسیقی یا صدا بسازید", "Add music or a voiceover"], objectives: ["media", "content", "youtube"] },
-  { id: "video-factory", registryKey: "video", name: ["کارخانهٔ ویدئو", "Video Factory"], paths: ["/video-factory"], landingPath: "/features/video-factory",
+  { id: "video-factory", benefit: ["از یک ایده تا ویدئوی کامل، با استوری‌بورد", "Go from an idea to a finished video, storyboard first"], registryKey: "video", name: ["کارخانهٔ ویدئو", "Video Factory"], paths: ["/video-factory"], landingPath: "/features/video-factory",
     firstValue: ["اولین پروژهٔ ویدئو", "First video project"], exampleTask: ["ایدهٔ یک ویدئوی آموزشی را بنویسید تا استوری‌بورد ساخته شود", "Write a video idea and get a storyboard"],
     nextStep: ["استوری‌بورد را تأیید و تولید کنید", "Approve the storyboard and produce it"], objectives: ["youtube", "content"] },
-  { id: "music", registryKey: "music", name: ["تولید موسیقی", "Music creation"], paths: ["/music"], landingPath: "/features/video",
+  { id: "music", benefit: ["برای محتوایتان موسیقی پس‌زمینهٔ اختصاصی بسازید", "Create original background music for your content"], registryKey: "music", name: ["تولید موسیقی", "Music creation"], paths: ["/music"], entry: "/music/generate", landingPath: "/features/video",
     firstValue: ["اولین قطعهٔ موسیقی", "First music track"], exampleTask: ["یک موسیقی پس‌زمینه برای ویدئوی محصول بسازید", "Create background music for a product video"],
     nextStep: ["آن را روی ویدئو بگذارید", "Use it in a video"], objectives: ["media"] },
-  { id: "chat", registryKey: "chat", name: ["دستیار هوشمند", "AI assistant"], paths: ["/chat"], landingPath: "/features/assistant",
+  { id: "chat", benefit: ["هر سؤالی دارید بپرسید؛ نوشتن، ترجمه و ایده‌پردازی", "Ask anything: writing, translation and ideas"], registryKey: "chat", name: ["دستیار هوشمند", "AI assistant"], paths: ["/chat"], landingPath: "/features/assistant",
     firstValue: ["اولین گفتگوی کامل", "First completed conversation"], exampleTask: ["از دستیار بخواهید یک ایمیل رسمی بنویسد", "Ask the assistant to draft a formal email"],
     nextStep: ["یک ابزار تخصصی را امتحان کنید", "Try a specialised tool"], objectives: ["general", "business", "automation"] },
-  { id: "crm", registryKey: "crm", name: ["CRM و فروش", "CRM & sales"], paths: ["/crm"], landingPath: "/features/crm",
+  { id: "crm", benefit: ["مشتریان را منظم کنید و فرصت‌های فروش را پیگیری کنید", "Organize customers and follow up on sales opportunities"], registryKey: "crm", name: ["CRM و فروش", "CRM & sales"], paths: ["/crm"], landingPath: "/features/crm",
     firstValue: ["اولین مشتری ثبت‌شده در CRM", "First contact added to the CRM"], exampleTask: ["سه مشتری فعلی‌تان را وارد کنید", "Add three of your current customers"],
     nextStep: ["یک پیگیری برای مشتری تعریف کنید", "Schedule a follow-up for a contact"], objectives: ["crm", "sales", "real_estate", "business"] },
-  { id: "seo", registryKey: "seo", name: ["محتوا و سئو", "Content & SEO"], paths: ["/seo"], landingPath: "/features/content",
+  { id: "seo", benefit: ["سایتتان را تحلیل کنید و در گوگل بهتر دیده شوید", "Analyze your website and get found on Google"], registryKey: "seo", name: ["محتوا و سئو", "Content & SEO"], paths: ["/seo"], landingPath: "/features/content",
     firstValue: ["اولین تحلیل سئو", "First SEO analysis"], exampleTask: ["آدرس سایتتان را برای تحلیل وارد کنید", "Enter your website address for an analysis"],
     nextStep: ["برای یک کلمهٔ کلیدی محتوا بسازید", "Create content for one keyword"], objectives: ["seo", "content"] },
-  { id: "social", registryKey: "social", name: ["شبکه‌های اجتماعی", "Social media"], paths: ["/social"], landingPath: "/features/social",
+  { id: "social", benefit: ["پست‌ها و برنامهٔ انتشار شبکه‌های اجتماعی را آماده کنید", "Prepare social posts and a publishing plan"], registryKey: "social", name: ["شبکه‌های اجتماعی", "Social media"], paths: ["/social"], landingPath: "/features/social",
     firstValue: ["اولین پست ساخته‌شده", "First generated post"], exampleTask: ["یک پست اینستاگرام برای کسب‌وکارتان بسازید", "Create an Instagram post for your business"],
     nextStep: ["برنامهٔ انتشار هفته را بچینید", "Plan a week of posts"], objectives: ["content", "media", "business"] },
-  { id: "website-designer", registryKey: "website-designer", name: ["طراحی وبسایت", "Website designer"], paths: ["/website-designer"], landingPath: "/features/websites",
+  { id: "website-designer", benefit: ["بدون کدنویسی برای کسب‌وکارتان وبسایت بسازید", "Build a website for your business without code"], registryKey: "website-designer", name: ["طراحی وبسایت", "Website designer"], paths: ["/website-designer"], landingPath: "/features/websites",
     firstValue: ["اولین وبسایت ساخته‌شده", "First generated website"], exampleTask: ["یک صفحهٔ معرفی ساده برای کسب‌وکارتان بسازید", "Build a simple landing page for your business"],
     nextStep: ["متن و تصاویر سایت را شخصی کنید", "Personalise the site copy and images"], objectives: ["business", "seo"] },
-  { id: "student", registryKey: null, name: ["فضای دانشجویی", "Student workspace"], paths: ["/student"], landingPath: "/features/education",
+  { id: "student", benefit: ["جزوه‌ها را خلاصه کنید و با آزمون و فلش‌کارت تمرین کنید", "Summarize notes and practice with quizzes and flashcards"], registryKey: null, name: ["فضای دانشجویی", "Student workspace"], paths: ["/student"], landingPath: "/features/education",
     firstValue: ["اولین جزوه یا منبع پردازش‌شده", "First processed study material"], exampleTask: ["یک جزوه را برای خلاصه‌سازی بارگذاری کنید", "Upload a document to summarise"],
     nextStep: ["از آن فلش‌کارت یا آزمون بسازید", "Turn it into flashcards or a quiz"], objectives: ["education"] },
-  { id: "fitness", registryKey: null, name: ["فیت", "Fitness"], paths: ["/fitness", "/fit"], landingPath: "/fit",
+  { id: "fitness", benefit: ["برنامهٔ تمرین و تغذیهٔ شخصی بگیرید و پیشرفت را ثبت کنید", "Get a personal workout and nutrition plan and track progress"], registryKey: null, name: ["فیت", "Fitness"], paths: ["/fitness", "/fit"], landingPath: "/fit",
     firstValue: ["اولین پروفایل و برنامهٔ شخصی", "First personal fitness profile"], exampleTask: ["پروفایل بدنی‌تان را کامل کنید تا برنامه ساخته شود", "Complete your profile to get a plan"],
     nextStep: ["اولین تمرین را ثبت کنید", "Log your first workout"], objectives: ["fitness"] },
 ];
 
 export const growthModule = (id: string | null | undefined) => GROWTH_MODULES.find(m => m.id === id) ?? null;
+/** Where a link to the module goes. */
+export const moduleEntry = (m: GrowthModule) => m.entry ?? m.paths[0];
 
 export const OBJECTIVES: { id: string; label: Copy2 }[] = [
   { id: "media", label: ["ساخت تصویر، ویدئو و صدا با AI", "AI images, video and voice"] },

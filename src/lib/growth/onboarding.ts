@@ -3,7 +3,7 @@ import type { Lang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
 import { BLOCKING_MODULE_STATUSES } from "@/lib/modules/moduleRoutes";
 import { growthFlag } from "./config";
-import { GROWTH_MODULES, INTENTS, OBJECTIVES, PERSONAS, parseGoals, recommendModules, type GrowthModule } from "./modules";
+import { GROWTH_MODULES, INTENTS, moduleEntry, OBJECTIVES, PERSONAS, parseGoals, recommendModules, type GrowthModule } from "./modules";
 
 /** Modules an admin has not disabled; onboarding never recommends an unavailable module. */
 export async function availableModules() {
@@ -11,7 +11,7 @@ export async function availableModules() {
   return GROWTH_MODULES.filter(m => !m.registryKey || !blocked.has(m.registryKey));
 }
 
-const recView = (m: GrowthModule) => ({ id: m.id, name: m.name, path: m.paths[0], firstValue: m.firstValue, exampleTask: m.exampleTask });
+const recView = (m: GrowthModule) => ({ id: m.id, name: m.name, path: moduleEntry(m), firstValue: m.firstValue, exampleTask: m.exampleTask });
 
 /**
  * Accounts that keep the established welcome wizard: plan purchases (its
@@ -49,12 +49,6 @@ export async function personalizeInvite(user: { id: string; accountType: string 
   const profile = await prisma.growthProfile.findUnique({ where: { userId: user.id }, select: { goals: true, objective: true, onboardingState: true } });
   if (parseGoals(profile?.goals || profile?.objective).length || profile?.onboardingState === "completed") return false;
   return !(await prisma.growthEvent.findFirst({ where: { userId: user.id, name: INVITE_DISMISSED }, select: { id: true } }));
-}
-
-/** The account's saved goals, for ordering the home page's tools. */
-export async function savedGoals(userId: string) {
-  const profile = await prisma.growthProfile.findUnique({ where: { userId }, select: { goals: true, objective: true } });
-  return parseGoals(profile?.goals || profile?.objective);
 }
 
 /** Wording of the new design's onboarding and home invitation (option labels come with the options). */

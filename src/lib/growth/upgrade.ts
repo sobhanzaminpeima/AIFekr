@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { effectivePlan, MODULE_PLANS } from "@/lib/auth/planGuard";
 import { voicePolicy } from "@/lib/voice-studio/config";
 import { getAvailableCredits } from "@/lib/utils/teamCredits";
-import { growthModule } from "./modules";
+import { growthModule, moduleEntry } from "./modules";
 
 const PLAN_RANK: Record<string, number> = { FREE: 0, BASIC: 1, PRO: 2, BUSINESS: 3, TEAM: 4, AGENCY: 5 };
 
@@ -53,6 +53,6 @@ export async function upgradeFor(userId: string, moduleId: string) {
   const iran = user.currency ? user.currency === "IRT" : (user.country || "IR") === "IR";
   const allowedPlans = mod.id === "voice-studio" ? (await voicePolicy()).allowedPlans : null;
   const rows = await prisma.package.findMany({ where: { isActive: true, publicVisible: true, publicationStatus: "PUBLISHED" }, select: { planCode: true, name: true, nameEn: true, price: true, priceUsd: true, market: true, duration: true, credits: true, category: true } });
-  const recommendation = pickRecommendation(rows, { moduleId: mod.id, currentPlan: plan, iran, allowedPlans, minPlan: MODULE_PLANS[mod.registryKey ?? ""] ?? "FREE", returnTo: mod.paths[0] });
+  const recommendation = pickRecommendation(rows, { moduleId: mod.id, currentPlan: plan, iran, allowedPlans, minPlan: MODULE_PLANS[mod.registryKey ?? ""] ?? "FREE", returnTo: moduleEntry(mod) });
   return { currentPlan: plan, credits: await getAvailableCredits(userId), recommendation };
 }

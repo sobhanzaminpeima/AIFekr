@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { growthFlag } from "@/lib/growth/config";
 import { trackEvent } from "@/lib/growth/events";
-import { INTENTS, OBJECTIVES, PERSONAS, growthModule, parseGoals, recommendModules } from "@/lib/growth/modules";
+import { INTENTS, OBJECTIVES, PERSONAS, moduleEntry, parseGoals, recommendModules } from "@/lib/growth/modules";
 import { INVITE_DISMISSED, availableModules, onboardingView } from "@/lib/growth/onboarding";
 
 export async function GET(req: NextRequest) {
@@ -68,5 +68,5 @@ export async function POST(req: NextRequest) {
   const recs = recommendModules(parseGoals(profile?.goals || profile?.objective), m => modules.includes(m));
   // Only a module that is available may be the destination; anything else goes to the first suggestion.
   const chosen = recs.find(m => m.id === module) ?? modules.find(m => m.id === module) ?? recs[0];
-  return NextResponse.json({ ok: true, redirect: growthModule(chosen?.id)?.paths[0] ?? "/home" });
+  return NextResponse.json({ ok: true, redirect: (chosen ? moduleEntry(chosen) : "/home") });
 }

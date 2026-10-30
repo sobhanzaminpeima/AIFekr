@@ -5,7 +5,10 @@ import { publicAppUrl } from "@/lib/utils/publicAppUrl";
 import { getGrowthSettings, type GrowthSettings } from "./config";
 import { loadFacts } from "./facts";
 import { daysSince, evaluate, isPaidActive, type CustomerFacts } from "./lifecycle";
-import { growthModule } from "./modules";
+import { growthModule, moduleEntry } from "./modules";
+
+/** A module's page for a message link; home when the module is unknown. */
+const entryOf = (id: string | null | undefined) => { const m = growthModule(id); return m ? moduleEntry(m) : "/home"; };
 import { unsubscribeToken } from "./request";
 
 export const TEMPLATE_VARIABLES = ["first_name", "preferred_module", "current_plan", "credit_balance", "recommended_next_step", "pricing_url"] as const;
@@ -32,13 +35,13 @@ export type Rule = { key: string; kind: "guidance" | "promotional"; name: [strin
 
 const hasFirstValue = (c: Ctx) => !!c.ev.firstValueAt;
 export const RULES: Rule[] = [
-  { key: "welcome", kind: "guidance", name: ["خوش‌آمد و شروع", "Welcome & start"], when: ["روز ۰، هنوز نتیجهٔ اول ندارد", "Day 0, no first result yet"], link: c => growthModule(c.intendedModule)?.paths[0] ?? "/home",
+  { key: "welcome", kind: "guidance", name: ["خوش‌آمد و شروع", "Welcome & start"], when: ["روز ۰، هنوز نتیجهٔ اول ندارد", "Day 0, no first result yet"], link: c => entryOf(c.intendedModule),
     eligible: c => c.ageDays < 1 && !hasFirstValue(c),
     template: { titleFa: "به AIFekr خوش آمدید، {{first_name}}", bodyFa: "برای شروع، {{recommended_next_step}}. فقط چند دقیقه طول می‌کشد.", titleEn: "Welcome to AIFekr, {{first_name}}", bodyEn: "To get started, {{recommended_next_step}}. It only takes a few minutes." } },
-  { key: "getting_started_24h", kind: "guidance", name: ["راهنمای شروع (۲۴ ساعت)", "Getting started (24h)"], when: ["۱ تا ۳ روز بعد از ثبت‌نام، بدون نتیجهٔ اول", "1–3 days after signup, no first result"], link: c => growthModule(c.intendedModule)?.paths[0] ?? "/home",
+  { key: "getting_started_24h", kind: "guidance", name: ["راهنمای شروع (۲۴ ساعت)", "Getting started (24h)"], when: ["۱ تا ۳ روز بعد از ثبت‌نام، بدون نتیجهٔ اول", "1–3 days after signup, no first result"], link: c => entryOf(c.intendedModule),
     eligible: c => c.ageDays >= 1 && c.ageDays < 3 && !hasFirstValue(c),
     template: { titleFa: "اولین نتیجه‌تان را با {{preferred_module}} بگیرید", bodyFa: "پیشنهاد ما: {{recommended_next_step}}. اعتبار فعلی شما {{credit_balance}} کردیت است.", titleEn: "Get your first result with {{preferred_module}}", bodyEn: "Our suggestion: {{recommended_next_step}}. You currently have {{credit_balance}} credits." } },
-  { key: "second_workflow_day3", kind: "guidance", name: ["کار دوم (روز ۳)", "Second workflow (day 3)"], when: ["نتیجهٔ اول دارد ولی برنگشته", "Has a first result but has not returned"], link: c => growthModule(c.intendedModule)?.paths[0] ?? "/home",
+  { key: "second_workflow_day3", kind: "guidance", name: ["کار دوم (روز ۳)", "Second workflow (day 3)"], when: ["نتیجهٔ اول دارد ولی برنگشته", "Has a first result but has not returned"], link: c => entryOf(c.intendedModule),
     eligible: c => c.ageDays >= 3 && hasFirstValue(c) && c.f.activeDaysWindow < 2 && !c.paid,
     template: { titleFa: "قدم بعدی با {{preferred_module}}", bodyFa: "{{recommended_next_step}} — از همان جایی که ماندید ادامه دهید.", titleEn: "Your next step with {{preferred_module}}", bodyEn: "{{recommended_next_step}} — pick up where you left off." } },
   { key: "paid_benefits_day5", kind: "promotional", name: ["مزایای پلن (روز ۵)", "Plan benefits (day 5)"], when: ["کاربر رایگانِ فعال", "Engaged free user"], link: () => "/pricing",
@@ -56,13 +59,13 @@ export const RULES: Rule[] = [
   { key: "voice_first_generation", kind: "guidance", name: ["استودیو صدا: اولین صدا", "Voice Studio: first audio"], when: ["از کمپین صدا آمده و هنوز صدا نساخته", "Came for Voice Studio, no audio yet"], link: () => "/voice-studio",
     eligible: c => c.intendedModule === "voice-studio" && c.ageDays >= 1 && c.ageDays < 7 && !c.f.successes["voice-studio"],
     template: { titleFa: "اولین صدای خود را بسازید", bodyFa: "یک جملهٔ کوتاه بنویسید، گوینده را انتخاب کنید و صدا بسازید. هزینه پیش از ساخت نمایش داده می‌شود.", titleEn: "Create your first voice", bodyEn: "Write a short sentence, pick a speaker and generate. The cost is shown before you create." } },
-  { key: "inactive_return", kind: "guidance", name: ["بازگشت کاربر غیرفعال", "Inactive user return"], when: ["نتیجه داشته و مدتی برنگشته", "Had results, inactive for the configured days"], link: c => growthModule(Object.keys(c.f.successes)[0])?.paths[0] ?? "/home",
+  { key: "inactive_return", kind: "guidance", name: ["بازگشت کاربر غیرفعال", "Inactive user return"], when: ["نتیجه داشته و مدتی برنگشته", "Had results, inactive for the configured days"], link: c => entryOf(Object.keys(c.f.successes)[0]),
     eligible: c => hasFirstValue(c) && daysSince(c.f.lastActiveAt, c.now) >= c.s.thresholds.inactiveDays, period: c => `${Math.floor(c.now.getTime() / (30 * 86_400_000))}`,
     template: { titleFa: "پروژه‌هایتان منتظر شماست", bodyFa: "کارهای ذخیره‌شده در {{preferred_module}} هنوز آن‌جاست. {{recommended_next_step}}.", titleEn: "Your projects are waiting", bodyEn: "Your saved work in {{preferred_module}} is still there. {{recommended_next_step}}." } },
   { key: "payment_failed", kind: "guidance", name: ["پرداخت ناموفق", "Payment failed"], when: ["پرداخت ناموفق در ۳ روز اخیر", "Failed payment in the last 3 days"], link: () => "/payments",
     eligible: c => !!c.f.payments.lastFailedAt && daysSince(c.f.payments.lastFailedAt, c.now) <= 3 && !c.paid, period: c => c.f.payments.lastFailedAt!.toISOString().slice(0, 10),
     template: { titleFa: "پرداخت شما کامل نشد", bodyFa: "اگر مبلغی کسر شده، طبق روال درگاه برگشت داده می‌شود. می‌توانید دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.", titleEn: "Your payment didn't complete", bodyEn: "If you were charged, the gateway returns it as usual. You can try again or contact support." } },
-  { key: "post_purchase", kind: "guidance", name: ["شروع بعد از خرید", "Post-purchase onboarding"], when: ["خرید در ۳ روز اخیر", "Purchased in the last 3 days"], link: c => growthModule(c.intendedModule)?.paths[0] ?? "/home",
+  { key: "post_purchase", kind: "guidance", name: ["شروع بعد از خرید", "Post-purchase onboarding"], when: ["خرید در ۳ روز اخیر", "Purchased in the last 3 days"], link: c => entryOf(c.intendedModule),
     eligible: c => c.paid && !!c.f.payments.firstPaidAt && daysSince(c.f.payments.firstPaidAt, c.now) <= 3,
     template: { titleFa: "پلن {{current_plan}} فعال است", bodyFa: "برای استفادهٔ کامل از پلن: {{recommended_next_step}}.", titleEn: "Your {{current_plan}} plan is active", bodyEn: "To get the most out of it: {{recommended_next_step}}." } },
   { key: "renewal_soon", kind: "guidance", name: ["تمدید نزدیک", "Renewal soon"], when: ["پایان پلن در روزهای تعیین‌شده", "Plan ends within the configured days"], link: () => "/plans",
