@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { signToken, signRefreshToken } from "@/lib/auth/jwt";
 import { hashPassword } from "@/lib/auth/password";
-import { findUserByEmail, findUserByPhone, findUserByReferralCode, createUser } from "@/lib/repositories/userRepository";
+import { findUserByEmail, findUserByPhone, findUserByReferralCode, createUser, recordLogin } from "@/lib/repositories/userRepository";
 import { generateUniqueReferralCode } from "@/lib/utils/referralCode";
 import { getServerLang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
@@ -100,6 +100,9 @@ export async function POST(req: NextRequest) {
 
     // Links campaign attribution and, for a module campaign, returns the module page to open instead of /welcome.
     const redirect = user.chatOnly ? null : await onAccountCreated(user.id, req.cookies.get(ANON_COOKIE)?.value, bodyForLang.redirect, { selectedPlan, marketingConsent: bodyForLang.marketingConsent === true });
+
+    // Registration signs the user in, so it is their first login.
+    await recordLogin(user.id);
 
     const payload = { userId: user.id, role: user.role, plan: user.plan };
     const token = signToken(payload);

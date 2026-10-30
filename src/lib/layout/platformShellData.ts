@@ -43,7 +43,9 @@ export async function shellGate(token: string | undefined, requestedPath: string
   const path = requestedPath.split("?")[0];
   if (path === "/play") return { kind: "minimal", frame: "play", user };
   if (standaloneChatOnly(user)) {
-    if (!["/play", "/settings", "/profile", "/payments", "/referral", "/credits"].some(p => path === p || path.startsWith(p + "/"))) return { kind: "redirect", to: "/chat" };
+    // /chat itself stays: when the standalone chat is switched off, /chat renders
+    // the regular chat in this frame instead of redirecting to itself forever.
+    if (!["/chat", "/play", "/settings", "/profile", "/payments", "/referral", "/credits"].some(p => path === p || path.startsWith(p + "/"))) return { kind: "redirect", to: "/chat" };
     return { kind: "minimal", frame: "chat-only", user };
   }
   if (!fitness && user.accountType === "FITNESS" && !["ADMIN", "SUPER_ADMIN"].includes(user.role)) return { kind: "redirect", to: "/fitness" };
