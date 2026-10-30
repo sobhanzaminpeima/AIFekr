@@ -3,10 +3,10 @@ import { pageLang, resolveTheme, v2Handles } from "./uiTheme";
 
 describe("ui theme routing", () => {
   it("matches a ready route and the pages under it, never a lookalike", () => {
-    const routes = ["/pricing", "/crm"];
+    const routes = ["/pricing", "/guides"];
     expect(v2Handles("/pricing", routes)).toBe(true);
     expect(v2Handles("/pricing/", routes)).toBe(true);
-    expect(v2Handles("/crm/contacts?x=1", routes)).toBe(true);
+    expect(v2Handles("/guides/contacts?x=1", routes)).toBe(true);
     expect(v2Handles("/pricing-old", routes)).toBe(false);
     expect(v2Handles("/chat", routes)).toBe(false);
   });
@@ -15,8 +15,8 @@ describe("ui theme routing", () => {
     expect(v2Handles("/chat", ["/"])).toBe(false);
   });
   it("sends only the rebuilt pages to v2", () => {
-    for (const path of ["/", "/pricing", "/about", "/contact", "/guides", "/guides/x", "/features/crm", "/solutions/business", "/login", "/register", "/home", "/chat", "/chat/abc", "/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate", "/voice-studio", "/video-factory"]) expect(v2Handles(path)).toBe(true);
-    for (const path of ["/chatbot", "/privacy", "/terms", "/security", "/industry", "/admin", "/pricing-old", "/login-old", "/welcome", "/home/x", "/image/generate/x", "/create/image", "/gallery/x", "/voice-studio/x", "/video-factory/x"]) expect(v2Handles(path)).toBe(false);
+    for (const path of ["/", "/pricing", "/about", "/contact", "/guides", "/guides/x", "/features/crm", "/solutions/business", "/login", "/register", "/home", "/chat", "/chat/abc", "/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate", "/voice-studio", "/video-factory", "/crm"]) expect(v2Handles(path)).toBe(true);
+    for (const path of ["/chatbot", "/privacy", "/terms", "/security", "/industry", "/admin", "/pricing-old", "/login-old", "/welcome", "/home/x", "/image/generate/x", "/create/image", "/gallery/x", "/voice-studio/x", "/video-factory/x", "/crm/x"]) expect(v2Handles(path)).toBe(false);
   });
   it("decides a page language like getServerLang: a valid lang cookie first", async () => {
     expect(await pageLang("de")).toBe("de");
