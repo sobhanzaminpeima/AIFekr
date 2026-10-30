@@ -7,7 +7,7 @@ const CLASSIC = [
   "components/layout/Sidebar.tsx", "components/layout/MobileNavShell.tsx", "components/layout/TrialBanner.tsx",
   "components/layout/SubscriptionGate.tsx", "components/billing/PendingPaymentNotice.tsx", "components/layout/SessionWatchdog.tsx",
   "components/layout/WorkspaceHeader.tsx", "components/layout/WorkspaceGuide.tsx", "components/ui/CommandPalette.tsx",
-  "components/organization/OrganizationSwitcher.tsx", "components/student/StudentTimerDock.tsx", "components/layout/DashboardPullToRefresh.tsx",
+  "components/organization/OrganizationSwitcher.tsx", "components/student/StudentTimerDock.tsx", "components/layout/DashboardPullToRefresh.tsx", "components/layout/WorkspaceError.tsx",
 ].map((file) => readFileSync(join(__dirname, "../..", file), "utf8")).join("\n");
 
 describe("new-design frame wording", () => {

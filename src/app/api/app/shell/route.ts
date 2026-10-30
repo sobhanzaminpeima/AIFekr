@@ -4,6 +4,7 @@ import { shellData, shellGate } from "@/lib/layout/platformShellData";
 import { shellCopy } from "@/lib/layout/shellCopy";
 import { sidebarAccess } from "@/lib/layout/sidebarAccess";
 import { sidebarModel } from "@/lib/layout/sidebarModel";
+import { standaloneMetadata } from "@/lib/seo/publicSeo";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     redirect: null,
     lang,
+    // The dashboard layout keeps every app page out of search engines.
+    metadata: standaloneMetadata(lang, { robots: { index: false, follow: false } }),
     user: {
       name: user.name, plan: user.plan, planName: copy.planNames[user.plan] ?? user.plan, role: user.role, accountType: user.accountType,
       credits: data.displayCredits, pendingPaymentCount: data.pendingPaymentCount, studentWorkspaceEnabled: data.studentWorkspaceEnabled, showFitness: data.showFitness,
@@ -34,6 +37,6 @@ export async function GET(req: NextRequest) {
     banners: { expired: data.expired, expiresAt: data.expiresAt ?? null, trial: data.showTrialBanner && user.trialEndsAt ? { endsAt: user.trialEndsAt.toISOString(), limited: user.trialLimited } : null },
     conversations: data.conversations.map((c) => ({ ...c, updatedAt: c.updatedAt.toISOString() })),
     copy,
-    model: sidebarModel(lang, copy.nav, path.split("?")[0]),
+    model: sidebarModel(lang),
   }, noStore);
 }

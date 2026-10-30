@@ -432,6 +432,17 @@ export default function ChatInterface({
 
   useEffect(() => { if (typeof window !== "undefined" && window.puter) setPuterReady(true); }, []);
 
+  // A starting idea from another page (the home composer, a suggestion):
+  // ?prompt= fills the composer and ?mode= opens its image/video/music tab.
+  // Nothing is sent until the user does.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const startMode = params.get("mode");
+    if (startMode === "image" || startMode === "video" || startMode === "music") setMediaType(startMode);
+    const startPrompt = params.get("prompt");
+    if (startPrompt) setInput(startPrompt.slice(0, 4000));
+  }, []);
+
   useEffect(() => {
     if (mediaType === "chat" || mediaType === "music") { setTemplates([]); return; }
     fetch(`/api/prompts?toolType=${mediaType}`).then((r) => r.json()).then((d) => setTemplates(d.prompts || [])).catch(() => {});

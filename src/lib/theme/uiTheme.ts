@@ -20,16 +20,20 @@ export const V2_ASSET_PREFIX = "/_v2";
 /** Pages rebuilt in v2 and connected to the real backend. An entry matches the path itself and everything under it. */
 // Phase 1: landing and public pages. Privacy, terms, security, industry and
 // the other public pages stay classic until they are rebuilt.
-// Phase 2: sign-in and sign-up.
-export const V2_ROUTES: readonly string[] = ["/", "/pricing", "/about", "/contact", "/guides", "/features", "/solutions", "/login", "/register"];
+// Phase 2: sign-in, sign-up and the signed-in home. App pages use their own
+// frame (/api/app/shell), so only exact paths are listed for them.
+export const V2_ROUTES: readonly string[] = ["/", "/pricing", "/about", "/contact", "/guides", "/features", "/solutions", "/login", "/register", "/home"];
 
 export function isUiTheme(value: unknown): value is UiTheme {
   return value === "classic" || value === "v2";
 }
 
+/** App pages match only themselves: /home/anything is not a page the new design has. */
+const EXACT_ROUTES = new Set(["/", "/home"]);
+
 export function v2Handles(path: string, routes: readonly string[] = V2_ROUTES) {
   const clean = path.split("?")[0].replace(/\/+$/, "") || "/";
-  return routes.some((route) => route === "/" ? clean === "/" : clean === route || clean.startsWith(route + "/"));
+  return routes.some((route) => EXACT_ROUTES.has(route) ? clean === route : clean === route || clean.startsWith(route + "/"));
 }
 
 /** Preview cookie wins over the site-wide setting; an unknown value is ignored. */

@@ -4,7 +4,6 @@ import fa from "@/lib/i18n/fa";
 import de from "@/lib/i18n/de";
 import tr from "@/lib/i18n/tr";
 import { SUPPORT_WIDGET_COPY } from "@/lib/orchestrator/support/widgetCopy";
-import { CURRENCY_SYMBOLS } from "@/lib/currencyShared";
 import { SUPPORT_COLOR, SUPPORT_TINT, supportAssistantInitial } from "@/lib/orchestrator/support/identity";
 
 /**
@@ -103,6 +102,11 @@ const COPY = {
   // Pull to refresh
   refreshing: ["در حال تازه‌سازی…", "Refreshing…", "Wird aktualisiert…", "Yenileniyor…"],
   releaseToRefresh: ["برای تازه‌سازی رها کن", "Release to refresh", "Zum Aktualisieren loslassen", "Yenilemek için bırak"],
+  // Page that failed to load (components/layout/WorkspaceError)
+  loadErrorTitle: ["این بخش بارگذاری نشد", "This section couldn't load", "Dieser Bereich konnte nicht geladen werden", "Bu bölüm yüklenemedi"],
+  loadErrorBody: ["دوباره تلاش کنید یا به خانه برگردید.", "Try again or return to your workspace home.", "Versuchen Sie es erneut oder kehren Sie zur Startseite zurück.", "Tekrar deneyin veya ana sayfaya dönün."],
+  tryAgain: ["تلاش مجدد", "Try again", "Erneut versuchen", "Tekrar dene"],
+  loadErrorHome: ["خانه", "Home", "Startseite", "Ana sayfa"],
   sessionExpired: ["نشست شما منقضی شده است. در حال انتقال به صفحهٔ ورود...", "Your session has expired. Redirecting you to sign in...", "Ihre Sitzung ist abgelaufen. Sie werden zur Anmeldung weitergeleitet...", "Your session has expired. Redirecting you to sign in..."],
 } as const satisfies Record<string, Four>;
 
@@ -142,7 +146,6 @@ export function shellCopy(lang: Lang) {
     fit: lang === "fa" ? COPY.fit[0] : COPY.fit[1],
     nav: DICTIONARIES[lang].nav,
     notifications: DICTIONARIES[lang].notifications,
-    currencies: (["USD", "EUR", "AED", "GBP", "IRR"] as const).map((code) => ({ code, symbol: CURRENCY_SYMBOLS[code] })),
     support: { ...SUPPORT_WIDGET_COPY[lang], initial: supportAssistantInitial(lang), color: SUPPORT_COLOR, tint: SUPPORT_TINT },
     tools: TOOLS.map(([href, label]) => ({ href, label: pick(label) })),
     assistants: ASSISTANTS.map(([href, label]) => ({ href, label: pick(label) })),
