@@ -50,7 +50,8 @@ export async function shellGate(token: string | undefined, requestedPath: string
   }
   if (!fitness && user.accountType === "FITNESS" && !["ADMIN", "SUPER_ADMIN"].includes(user.role)) return { kind: "redirect", to: "/fitness" };
   // New users finish the onboarding wizard first (welcome is outside this layout group).
-  if (!fitness && !user.onboardingDone) return { kind: "redirect", to: "/welcome" };
+  // The new design renders /welcome itself, inside this frame.
+  if (!fitness && !user.onboardingDone && path !== "/welcome") return { kind: "redirect", to: "/welcome" };
   return { kind: "full", user };
 }
 

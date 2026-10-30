@@ -4825,7 +4825,10 @@ model GrowthProfile {
   attributionConfidence String    @default("unknown")
   /// Module the visitor was sent to by the campaign or signup redirect, if any.
   intendedModule        String?
+  /// Primary goal (first of `goals`); kept for every reader that expects one.
   objective             String?
+  /// Every goal picked in onboarding, comma-separated objective ids, primary first.
+  goals                 String    @default("")
   persona               String?
   intent                String?
   /// "not_started" | "in_progress" | "completed" | "skipped" | "contextual"

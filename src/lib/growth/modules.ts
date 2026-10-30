@@ -99,3 +99,21 @@ export function recommendModule(objective: string | null | undefined, available:
   const pool = GROWTH_MODULES.filter(available);
   return pool.find(m => objective && m.objectives[0] === objective) ?? pool.find(m => objective && m.objectives.includes(objective)) ?? pool.find(m => m.id === "chat") ?? pool[0] ?? null;
 }
+
+/**
+ * Up to `n` modules for several goals, primary goal first: each goal's best
+ * module (as recommendModule picks it), then the remaining modules that serve
+ * any goal. Never repeats a module; falls back to the assistant.
+ */
+export function recommendModules(goals: string[], available: (m: GrowthModule) => boolean, n = 3): GrowthModule[] {
+  const pool = GROWTH_MODULES.filter(available);
+  const out: GrowthModule[] = [];
+  const add = (m: GrowthModule | null | undefined) => { if (m && !out.includes(m) && out.length < n) out.push(m); };
+  for (const g of goals) add(recommendModule(g, m => pool.includes(m) && !out.includes(m)));
+  for (const g of goals) pool.filter(m => m.objectives.includes(g)).forEach(add);
+  if (!out.length) add(recommendModule(null, available));
+  return out;
+}
+
+/** Comma-separated stored goals → known objective ids, in order, without repeats. */
+export const parseGoals = (raw: string | null | undefined) => [...new Set((raw ?? "").split(",").filter(id => OBJECTIVES.some(o => o.id === id)))];

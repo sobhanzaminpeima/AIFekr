@@ -12,6 +12,7 @@ import { voiceCopy } from "@/lib/voice-studio/voiceCopy";
 import { factoryCopy } from "@/lib/video-factory/factoryCopy";
 import { crmCopy } from "@/lib/crm/crmCopy";
 import { mediaPlanAccess, planNoticeCopy } from "@/lib/growth/planAccess";
+import { onboardingCopy, onboardingView, personalizeInvite, savedGoals, usesLegacyWelcome } from "@/lib/growth/onboarding";
 import { prisma } from "@/lib/db/prisma";
 import en from "@/lib/i18n/en";
 import fa from "@/lib/i18n/fa";
@@ -42,6 +43,9 @@ export async function GET(req: NextRequest) {
   // The chat page's wording and options, and what its starters and photo limit depend on.
   // Chat and the create pages share the media options (styles, ratios, durations...).
   const bare = path.split("?")[0];
+  // Plan purchases, student and fitness accounts keep the established wizard (classic, its checkout routing).
+  if (bare === "/welcome" && await usesLegacyWelcome(user, new URLSearchParams(path.split("?")[1] ?? "").has("plan")))
+    return NextResponse.json({ redirect: "/welcome/setup" + (path.includes("?") ? "?" + path.split("?")[1] : "") }, noStore);
   const chatPage = bare === "/chat" || bare.startsWith("/chat/") || ["/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate"].includes(bare);
   const pack = chatPage && user.industryPackId ? await prisma.industryPack.findUnique({ where: { id: user.industryPackId }, select: { slug: true } }) : null;
   return NextResponse.json({
@@ -64,6 +68,10 @@ export async function GET(req: NextRequest) {
     factory: bare === "/video-factory" ? factoryCopy(lang) : null,
     // Only on the CRM: the classic CRM's wording and dictionary.
     crm: bare === "/crm" ? crmCopy(lang) : null,
+    // Only on /welcome: the onboarding answers, options and suggestions, and its wording.
+    welcome: bare === "/welcome" ? { ...(await onboardingView(user)), copy: onboardingCopy(lang) } : null,
+    // Only on /home: the saved goals (what comes first) and the optional invitation to set them.
+    personal: bare === "/home" ? { goals: await savedGoals(user.id), invite: await personalizeInvite(user), copy: (({ invite, personalize }) => ({ invite, personalize }))(onboardingCopy(lang)) } : null,
     chat: chatPage ? { ...chatCopy(lang), ...(bare === "/music/generate" ? { musicGenres: MUSIC_PAGE_GENRES[lang] } : {}), industrySlug: pack?.slug ?? null, create: createCopy(lang), characters: bare === "/image/generate" ? characterCopy(lang) : null, planAccess: { ...(await mediaPlanAccess(user)), notice: planNoticeCopy(lang) } } : null,
   }, noStore);
 }
