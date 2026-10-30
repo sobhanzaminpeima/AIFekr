@@ -7,7 +7,15 @@ import { sidebarModel } from "@/lib/layout/sidebarModel";
 import { standaloneMetadata } from "@/lib/seo/publicSeo";
 import { chatCopy } from "@/lib/chat/chatCopy";
 import { createCopy } from "@/lib/chat/createCopy";
+import { characterCopy } from "@/lib/image/characterCopy";
 import { prisma } from "@/lib/db/prisma";
+import en from "@/lib/i18n/en";
+import fa from "@/lib/i18n/fa";
+import de from "@/lib/i18n/de";
+import tr from "@/lib/i18n/tr";
+
+// The music page offers its genres in the visitor's language (chat keeps its own list).
+const MUSIC_PAGE_GENRES = { en: en.musicGeneratePage.genres, fa: fa.musicGeneratePage.genres, de: (de as typeof en).musicGeneratePage.genres, tr: tr.musicGeneratePage.genres };
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +38,7 @@ export async function GET(req: NextRequest) {
   // The chat page's wording and options, and what its starters and photo limit depend on.
   // Chat and the create pages share the media options (styles, ratios, durations...).
   const bare = path.split("?")[0];
-  const chatPage = bare === "/chat" || bare.startsWith("/chat/") || ["/create", "/gallery", "/image/gallery", "/video/generate", "/music/generate"].includes(bare);
+  const chatPage = bare === "/chat" || bare.startsWith("/chat/") || ["/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate"].includes(bare);
   const pack = chatPage && user.industryPackId ? await prisma.industryPack.findUnique({ where: { id: user.industryPackId }, select: { slug: true } }) : null;
   return NextResponse.json({
     redirect: null,
@@ -46,6 +54,6 @@ export async function GET(req: NextRequest) {
     conversations: data.conversations.map((c) => ({ ...c, updatedAt: c.updatedAt.toISOString() })),
     copy,
     model: sidebarModel(lang),
-    chat: chatPage ? { ...chatCopy(lang), industrySlug: pack?.slug ?? null, create: createCopy(lang) } : null,
+    chat: chatPage ? { ...chatCopy(lang), ...(bare === "/music/generate" ? { musicGenres: MUSIC_PAGE_GENRES[lang] } : {}), industrySlug: pack?.slug ?? null, create: createCopy(lang), characters: bare === "/image/generate" ? characterCopy(lang) : null } : null,
   }, noStore);
 }

@@ -7,6 +7,7 @@ import { tri, type Lang } from "@/lib/i18n";
 import { downscaleImage } from "@/lib/image/downscaleImage";
 import { SAMPLE_CHARACTERS } from "@/lib/ai/characterSheetPrompts";
 import CreditCost from "@/components/ui/CreditCost";
+import { CHARACTER_GENRES as GENRES, type Genre } from "@/lib/image/characterOptions";
 
 /**
  * Character Creation — a submenu of Image Generation. Step 1 (choose a
@@ -23,16 +24,6 @@ import CreditCost from "@/components/ui/CreditCost";
 type Source = { kind: "upload"; url: string } | { kind: "sample"; id: string; url: string } | null;
 interface SavedSheet { id: string; url: string; createdAt: string; }
 
-type Genre = "cinematic_drama" | "luxury_editorial" | "sci_fi" | "fantasy" | "business_corporate" | "streetwear_urban" | "minimal_tech";
-const GENRES: { value: Genre; fa: string; en: string; de: string }[] = [
-  { value: "cinematic_drama", fa: "درام سینمایی", en: "Cinematic Drama", de: "Kinodrama" },
-  { value: "luxury_editorial", fa: "ادیتوریال لوکس", en: "Luxury Editorial", de: "Luxus-Editorial" },
-  { value: "sci_fi", fa: "علمی‌تخیلی", en: "Sci-Fi", de: "Science-Fiction" },
-  { value: "fantasy", fa: "فانتزی", en: "Fantasy", de: "Fantasy" },
-  { value: "business_corporate", fa: "کسب‌وکار / شرکتی", en: "Business / Corporate", de: "Business / Unternehmen" },
-  { value: "streetwear_urban", fa: "خیابانی / شهری", en: "Streetwear / Urban", de: "Streetwear / Urban" },
-  { value: "minimal_tech", fa: "تک مینیمال", en: "Minimal Tech", de: "Minimal Tech" },
-];
 
 export default function CharacterCreationPanel({ lang, imageProvider }: { lang: Lang; imageProvider: string }) {
   const [source, setSource] = useState<Source>(null);
