@@ -32,6 +32,16 @@ describe("ui theme routing", () => {
     expect(v2Handles("/social/unknown")).toBe(false);
     expect(v2Handles("/social-other")).toBe(false);
   });
+  it("keeps lead generation isolated behind its own exact-route flag",()=>{
+    vi.stubEnv("UI_V2_LEADS_ENABLED","0");expect(v2Handles("/lead-gen")).toBe(false);
+    vi.stubEnv("UI_V2_LEADS_ENABLED","1");expect(v2Handles("/lead-gen?tab=forms")).toBe(true);
+    expect(v2Handles("/lead-gen/unknown")).toBe(false);expect(v2Handles("/lead-generate")).toBe(false);
+  });
+  it("rolls advisory, website, referral and startup back independently",()=>{
+    for(const [path,flag] of [["/business-doctor","UI_V2_ADVISORY_ENABLED"],["/meeting","UI_V2_ADVISORY_ENABLED"],["/website-designer","UI_V2_WEBSITE_ENABLED"],["/referral","UI_V2_REFERRAL_ENABLED"],["/startup/builder","UI_V2_STARTUP_ENABLED"]]) {
+      vi.stubEnv(flag,"0");expect(v2Handles(path)).toBe(false);vi.stubEnv(flag,"1");expect(v2Handles(path+"?tab=history")).toBe(true);expect(v2Handles(path+"/unknown")).toBe(false);
+    }
+  });
   it("decides a page language like getServerLang: a valid lang cookie first", async () => {
     expect(await pageLang("de")).toBe("de");
     expect(await pageLang("tr")).toBe("tr");

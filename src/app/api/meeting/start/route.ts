@@ -270,3 +270,9 @@ async function handlePost(req: NextRequest) {
 }
 
 export const POST = withToolCredits("meeting", handlePost);
+
+export async function GET(req:NextRequest) {
+ const user=await requireAuth(req);if(!user)return unauthorizedResponse(req);
+ const meetings=await prisma.conversation.findMany({where:{userId:user.id,tool:"meeting"},orderBy:{createdAt:"desc"},take:100,select:{id:true,title:true,createdAt:true}});
+ return NextResponse.json({meetings});
+}

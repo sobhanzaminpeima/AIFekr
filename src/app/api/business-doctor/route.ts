@@ -151,6 +151,10 @@ async function handlePost(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
+  if(req.nextUrl.searchParams.get("history")==="1") {
+    const analyses=await prisma.businessAnalysis.findMany({where:{userId:user.id},orderBy:{createdAt:"desc"},take:50,select:{id:true,businessName:true,industry:true,result:true,createdAt:true}});
+    return NextResponse.json({analyses});
+  }
 
   const last = await prisma.businessAnalysis.findFirst({
     where: { userId: user.id },

@@ -17,6 +17,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   return new NextResponse(site.htmlCode, {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
+      // Generated HTML is untrusted: even a direct preview must have an opaque origin.
+      "Content-Security-Policy": "sandbox allow-scripts; default-src 'none'; img-src https: data:; style-src 'unsafe-inline' https:; font-src https: data:; script-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; base-uri 'none'",
+      "X-Content-Type-Options": "nosniff",
+      "Cache-Control": "private, no-store",
       ...(download ? { "Content-Disposition": `attachment; filename="${encodeURIComponent(site.businessName)}.html"` } : {}),
     },
   });

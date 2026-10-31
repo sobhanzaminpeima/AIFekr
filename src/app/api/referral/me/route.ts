@@ -1,5 +1,6 @@
 import { changeReferralCode } from "@/lib/utils/changeReferralCode";
 import {randomBytes} from "node:crypto";
+import QRCode from "qrcode";
 import { rateLimit } from "@/lib/utils/rateLimit";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
@@ -29,6 +30,13 @@ export async function GET(req: NextRequest) {
   ]);
 
   const commissions=await prisma.walletTransaction.groupBy({by:["relatedUserId"],where:{userId:auth.id,type:"commission"},_sum:{amount:true}});
+
+  if(req.nextUrl.searchParams.get("qr")==="1") {
+    const target=new URL("/register",process.env.NEXT_PUBLIC_APP_URL||"https://aifekr.com");
+    target.searchParams.set("ref",user?.referralCode??"");
+    const svg=await QRCode.toString(target.href,{type:"svg",width:220,margin:2});
+    return new NextResponse(svg,{headers:{"Content-Type":"image/svg+xml","Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}});
+  }
 
   return NextResponse.json({
     currency: auth.currency ?? null,

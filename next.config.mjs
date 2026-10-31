@@ -46,6 +46,8 @@ const nextConfig = {
       // /api/public/leadform/<slug>/embed, so only they may be framed.
       { source: "/f/:path*", headers: [...base, privateShare] },
       { source: "/((?!f/).*)", headers: [...base, { key: "X-Frame-Options", value: "SAMEORIGIN" }, { key: "Content-Security-Policy", value: "frame-ancestors 'self'" }] },
+      // Applied after the generic CSP: generated HTML must never execute as the app origin.
+      { source: "/api/website-designer/:id", headers: [{ key: "Content-Security-Policy", value: "sandbox allow-scripts; default-src 'none'; img-src https: data:; style-src 'unsafe-inline' https:; font-src https: data:; script-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'" }] },
     ];
   },
 };

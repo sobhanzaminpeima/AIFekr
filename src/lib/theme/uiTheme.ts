@@ -26,7 +26,7 @@ export const V2_ROUTES: readonly string[] = ["/", "/pricing", "/about", "/contac
   // Phase 3: creative studio, galleries, video and music studios.
   "/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate", "/voice-studio", "/video-factory",
   // Phase 4: business modules (/accounting includes its sub-pages, e.g. /accounting/bank).
-  "/crm", "/accounting", "/social",
+  "/crm", "/accounting", "/social", "/lead-gen", "/business-doctor", "/meeting", "/website-designer", "/referral", "/startup/builder",
   // Activation: goal-based onboarding (its classic wizard stays at /welcome/setup).
   "/welcome",
   // Legal pages (text shared with the classic pages: lib/marketing/legal.ts).
@@ -43,6 +43,11 @@ const EXACT_ROUTES = new Set(["/", "/home", "/create", "/gallery", "/image/galle
 
 export function v2Handles(path: string, routes: readonly string[] = V2_ROUTES) {
   const clean = path.split("?")[0].replace(/\/+$/, "") || "/";
+  if(routes===V2_ROUTES&&(clean==="/startup/builder"||clean.startsWith("/startup/builder/"))) return clean==="/startup/builder"&&process.env.UI_V2_STARTUP_ENABLED==="1";
+  if(routes===V2_ROUTES&&(clean==="/referral"||clean.startsWith("/referral/"))) return clean==="/referral"&&process.env.UI_V2_REFERRAL_ENABLED==="1";
+  if(routes===V2_ROUTES&&(clean==="/website-designer"||clean.startsWith("/website-designer/"))) return clean==="/website-designer"&&process.env.UI_V2_WEBSITE_ENABLED==="1";
+  if (routes === V2_ROUTES && ["/business-doctor","/meeting"].some(base=>clean===base||clean.startsWith(base+"/"))) return ["/business-doctor","/meeting"].includes(clean) && process.env.UI_V2_ADVISORY_ENABLED === "1";
+  if (routes === V2_ROUTES && (clean === "/lead-gen" || clean.startsWith("/lead-gen/"))) return clean === "/lead-gen" && process.env.UI_V2_LEADS_ENABLED === "1";
   if (routes === V2_ROUTES && (clean === "/social" || clean.startsWith("/social/"))) return clean === "/social" && process.env.UI_V2_SOCIAL_ENABLED === "1";
   // Roll back only this migration without changing the site's overall design.
   if (routes === V2_ROUTES && (clean === "/accounting" || clean.startsWith("/accounting/")) && process.env.UI_V2_ACCOUNTING_ENABLED !== "1") return false;
