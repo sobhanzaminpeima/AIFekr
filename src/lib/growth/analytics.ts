@@ -69,13 +69,16 @@ export async function overview(range: Range) {
 async function generationAttempts(range: Range) {
   const where = { createdAt: { gte: range.from, lte: range.to } };
   const [events, firsts] = await Promise.all([
-    prisma.growthEvent.findMany({ where: { ...where, name: { in: ["generation_started", "generation_succeeded", "generation_failed"] } }, select: { name: true, moduleId: true, metadata: true } }),
+    prisma.growthEvent.findMany({ where: { ...where, name: { in: ["generation_started", "generation_succeeded", "generation_failed", "module_viewed"] } }, select: { name: true, moduleId: true, metadata: true, userId: true } }),
     prisma.growthEvent.findMany({ where: { ...where, name: "first_success_achieved" }, select: { metadata: true } }),
   ]);
-  const byModule: Record<string, { started: number; succeeded: number; failed: number; reasons: Record<string, number> }> = {};
+  // Views are module_viewed (once per browser session); signed-in views only, so they compare with attempts.
+  const byModule: Record<string, { views: number; started: number; succeeded: number; failed: number; reasons: Record<string, number> }> = {};
   for (const e of events) {
-    const row = (byModule[e.moduleId ?? "other"] ??= { started: 0, succeeded: 0, failed: 0, reasons: {} });
-    if (e.name === "generation_started") row.started++;
+    if (e.name === "module_viewed" && (!e.userId || !e.moduleId)) continue;
+    const row = (byModule[e.moduleId ?? "other"] ??= { views: 0, started: 0, succeeded: 0, failed: 0, reasons: {} });
+    if (e.name === "module_viewed") row.views++;
+    else if (e.name === "generation_started") row.started++;
     else if (e.name === "generation_succeeded") row.succeeded++;
     else {
       row.failed++;
@@ -86,7 +89,7 @@ async function generationAttempts(range: Range) {
   }
   const minutes = firsts.map((f) => { try { return Number(JSON.parse(f.metadata).minutesFromSignup); } catch { return NaN; } }).filter(Number.isFinite).sort((a, b) => a - b);
   return {
-    modules: Object.entries(byModule).sort((a, b) => b[1].started - a[1].started),
+    modules: Object.entries(byModule).sort((a, b) => b[1].started - a[1].started || b[1].views - a[1].views),
     firstSuccess: { count: firsts.length, medianMinutes: minutes.length ? minutes[Math.floor(minutes.length / 2)] : null },
   };
 }

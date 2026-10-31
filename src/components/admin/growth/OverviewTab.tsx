@@ -9,7 +9,7 @@ type Overview = {
   funnel: { step: string; count: number; note?: string }[];
   stages: Record<string, number>;
   modules: [string, number][];
-  generation: { modules: [string, { started: number; succeeded: number; failed: number; reasons: Record<string, number> }][]; firstSuccess: { count: number; medianMinutes: number | null } };
+  generation: { modules: [string, { views: number; started: number; succeeded: number; failed: number; reasons: Record<string, number> }][]; firstSuccess: { count: number; medianMinutes: number | null } };
 };
 
 const REASONS: Record<string, [string, string]> = {
@@ -64,9 +64,9 @@ export default function OverviewTab() {
         <p>{t("اولین موفقیت حساب‌های جدید", "New accounts' first success")}: <strong>{fmtNum(data.generation.firstSuccess.count, lang)}</strong>
           {data.generation.firstSuccess.medianMinutes != null && <> · {t("میانهٔ زمان از ثبت‌نام (دقیقه)", "median minutes from signup")}: <strong>{fmtNum(data.generation.firstSuccess.medianMinutes, lang)}</strong></>}</p>
         {data.generation.modules.length ? <div className="gc-table-wrap"><table className="gc-table">
-          <thead><tr><th>{t("ابزار", "Tool")}</th><th>{t("شروع", "Started")}</th><th>{t("موفق", "Succeeded")}</th><th>{t("ناموفق", "Failed")}</th><th>{t("دلیل شکست", "Failure reasons")}</th></tr></thead>
+          <thead><tr><th>{t("ابزار", "Tool")}</th><th>{t("بازدید", "Views")}</th><th>{t("شروع", "Started")}</th><th>{t("موفق", "Succeeded")}</th><th>{t("ناموفق", "Failed")}</th><th>{t("دلیل شکست", "Failure reasons")}</th></tr></thead>
           <tbody>{data.generation.modules.map(([m, r]) => <tr key={m}>
-            <td>{GROWTH_MODULES.find(x => x.id === m)?.name[fa ? 0 : 1] ?? m}</td><td>{fmtNum(r.started, lang)}</td><td>{fmtNum(r.succeeded, lang)}</td><td>{fmtNum(r.failed, lang)}</td>
+            <td>{GROWTH_MODULES.find(x => x.id === m)?.name[fa ? 0 : 1] ?? m}</td><td>{fmtNum(r.views, lang)}</td><td>{fmtNum(r.started, lang)}</td><td>{fmtNum(r.succeeded, lang)}</td><td>{fmtNum(r.failed, lang)}</td>
             <td>{Object.entries(r.reasons).map(([k, n]) => `${REASONS[k]?.[fa ? 0 : 1] ?? k}: ${fmtNum(n, lang)}`).join(" · ") || "—"}</td>
           </tr>)}</tbody>
         </table></div> : <Missing>{t("هنوز تلاشی در این بازه ثبت نشده", "No attempts recorded in this range yet")}</Missing>}
