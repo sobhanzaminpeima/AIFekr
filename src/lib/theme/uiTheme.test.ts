@@ -26,6 +26,12 @@ describe("ui theme routing", () => {
     expect(v2Handles("/accounting/bank")).toBe(false);
     expect(v2Handles("/crm")).toBe(true);
   });
+  it("enables social only with its own rollout flag and exact route", () => {
+    vi.stubEnv("UI_V2_SOCIAL_ENABLED", "0"); expect(v2Handles("/social")).toBe(false);
+    vi.stubEnv("UI_V2_SOCIAL_ENABLED", "1"); expect(v2Handles("/social?tab=content")).toBe(true);
+    expect(v2Handles("/social/unknown")).toBe(false);
+    expect(v2Handles("/social-other")).toBe(false);
+  });
   it("decides a page language like getServerLang: a valid lang cookie first", async () => {
     expect(await pageLang("de")).toBe("de");
     expect(await pageLang("tr")).toBe("tr");

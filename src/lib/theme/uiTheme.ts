@@ -26,7 +26,7 @@ export const V2_ROUTES: readonly string[] = ["/", "/pricing", "/about", "/contac
   // Phase 3: creative studio, galleries, video and music studios.
   "/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate", "/voice-studio", "/video-factory",
   // Phase 4: business modules (/accounting includes its sub-pages, e.g. /accounting/bank).
-  "/crm", "/accounting",
+  "/crm", "/accounting", "/social",
   // Activation: goal-based onboarding (its classic wizard stays at /welcome/setup).
   "/welcome",
   // Legal pages (text shared with the classic pages: lib/marketing/legal.ts).
@@ -43,6 +43,7 @@ const EXACT_ROUTES = new Set(["/", "/home", "/create", "/gallery", "/image/galle
 
 export function v2Handles(path: string, routes: readonly string[] = V2_ROUTES) {
   const clean = path.split("?")[0].replace(/\/+$/, "") || "/";
+  if (routes === V2_ROUTES && (clean === "/social" || clean.startsWith("/social/"))) return clean === "/social" && process.env.UI_V2_SOCIAL_ENABLED === "1";
   // Roll back only this migration without changing the site's overall design.
   if (routes === V2_ROUTES && (clean === "/accounting" || clean.startsWith("/accounting/")) && process.env.UI_V2_ACCOUNTING_ENABLED !== "1") return false;
   if (routes === V2_ROUTES && clean.startsWith("/accounting/") && !["overview", "journal", "accounts", "ledger-setup", "expenses", "bank", "payroll", "budgets", "tax", "close-period", "owner-statements", "assistant", "automation"].some(v => clean === `/accounting/${v}`) && !/^\/accounting\/accounts\/[^/]+$/.test(clean)) return false;
