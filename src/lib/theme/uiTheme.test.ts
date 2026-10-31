@@ -42,6 +42,10 @@ describe("ui theme routing", () => {
       vi.stubEnv(flag,"0");expect(v2Handles(path)).toBe(false);vi.stubEnv(flag,"1");expect(v2Handles(path+"?tab=history")).toBe(true);expect(v2Handles(path+"/unknown")).toBe(false);
     }
   });
+  it("only enables the rebuilt SEO entry, leaving legacy detail routes intact",()=>{
+    vi.stubEnv("UI_V2_SEO_ENABLED","0");expect(v2Handles("/seo")).toBe(false);
+    vi.stubEnv("UI_V2_SEO_ENABLED","1");expect(v2Handles("/seo?tab=verify")).toBe(true);expect(v2Handles("/seo/sites/unknown")).toBe(false);
+  });
   it("decides a page language like getServerLang: a valid lang cookie first", async () => {
     expect(await pageLang("de")).toBe("de");
     expect(await pageLang("tr")).toBe("tr");

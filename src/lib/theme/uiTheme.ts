@@ -43,6 +43,7 @@ const EXACT_ROUTES = new Set(["/", "/home", "/create", "/gallery", "/image/galle
 
 export function v2Handles(path: string, routes: readonly string[] = V2_ROUTES) {
   const clean = path.split("?")[0].replace(/\/+$/, "") || "/";
+  if(routes===V2_ROUTES&&clean==="/seo") return process.env.UI_V2_SEO_ENABLED==="1";
   if(routes===V2_ROUTES&&(clean==="/startup/builder"||clean.startsWith("/startup/builder/"))) return clean==="/startup/builder"&&process.env.UI_V2_STARTUP_ENABLED==="1";
   if(routes===V2_ROUTES&&(clean==="/referral"||clean.startsWith("/referral/"))) return clean==="/referral"&&process.env.UI_V2_REFERRAL_ENABLED==="1";
   if(routes===V2_ROUTES&&(clean==="/website-designer"||clean.startsWith("/website-designer/"))) return clean==="/website-designer"&&process.env.UI_V2_WEBSITE_ENABLED==="1";
