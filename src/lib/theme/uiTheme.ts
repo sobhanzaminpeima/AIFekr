@@ -25,8 +25,8 @@ export const V2_ASSET_PREFIX = "/_v2";
 export const V2_ROUTES: readonly string[] = ["/", "/pricing", "/about", "/contact", "/guides", "/features", "/solutions", "/login", "/register", "/home", "/chat",
   // Phase 3: creative studio, galleries, video and music studios.
   "/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate", "/voice-studio", "/video-factory",
-  // Phase 4: business modules.
-  "/crm",
+  // Phase 4: business modules (/accounting includes its sub-pages, e.g. /accounting/bank).
+  "/crm", "/accounting",
   // Activation: goal-based onboarding (its classic wizard stays at /welcome/setup).
   "/welcome",
   // Legal pages (text shared with the classic pages: lib/marketing/legal.ts).
@@ -43,6 +43,9 @@ const EXACT_ROUTES = new Set(["/", "/home", "/create", "/gallery", "/image/galle
 
 export function v2Handles(path: string, routes: readonly string[] = V2_ROUTES) {
   const clean = path.split("?")[0].replace(/\/+$/, "") || "/";
+  // Roll back only this migration without changing the site's overall design.
+  if (routes === V2_ROUTES && (clean === "/accounting" || clean.startsWith("/accounting/")) && process.env.UI_V2_ACCOUNTING_ENABLED !== "1") return false;
+  if (routes === V2_ROUTES && clean.startsWith("/accounting/") && !["overview", "journal", "accounts", "ledger-setup", "expenses", "bank", "payroll", "budgets", "tax", "close-period", "owner-statements", "assistant", "automation"].some(v => clean === `/accounting/${v}`) && !/^\/accounting\/accounts\/[^/]+$/.test(clean)) return false;
   return routes.some((route) => EXACT_ROUTES.has(route) ? clean === route : clean === route || clean.startsWith(route + "/"));
 }
 

@@ -11,6 +11,8 @@ import { characterCopy } from "@/lib/image/characterCopy";
 import { voiceCopy } from "@/lib/voice-studio/voiceCopy";
 import { factoryCopy } from "@/lib/video-factory/factoryCopy";
 import { crmCopy } from "@/lib/crm/crmCopy";
+import { accountingCopy } from "@/lib/accounting/accountingCopy";
+import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { mediaPlanAccess, planNoticeCopy } from "@/lib/growth/planAccess";
 import { onboardingCopy, onboardingView, usesLegacyWelcome } from "@/lib/growth/onboarding";
 import { homeWorkspace } from "@/lib/growth/workspace";
@@ -45,6 +47,8 @@ export async function GET(req: NextRequest) {
   // The chat page's wording and options, and what its starters and photo limit depend on.
   // Chat and the create pages share the media options (styles, ratios, durations...).
   const bare = path.split("?")[0];
+  const accountingPage = bare === "/accounting" || bare.startsWith("/accounting/");
+  const accountingWorkspace = accountingPage ? await resolveCrmWorkspace(user.id) : null;
   // Plan purchases, student and fitness accounts keep the established wizard (classic, its checkout routing).
   if (bare === "/welcome" && await usesLegacyWelcome(user, new URLSearchParams(path.split("?")[1] ?? "").has("plan")))
     return NextResponse.json({ redirect: "/welcome/setup" + (path.includes("?") ? "?" + path.split("?")[1] : "") }, noStore);
@@ -70,10 +74,14 @@ export async function GET(req: NextRequest) {
     factory: bare === "/video-factory" ? factoryCopy(lang) : null,
     // Only on the CRM: the classic CRM's wording and dictionary.
     crm: bare === "/crm" ? crmCopy(lang) : null,
+    // Only on the accounting pages: the classic accounting pages' wording.
+    accounting: accountingPage ? accountingCopy(lang) : null,
+    accountingAccess: accountingWorkspace ? { allowed: hasCrmAccess(accountingWorkspace), restricted: accountingWorkspace.isAgentRestricted } : null,
     // Only on /payments: the classic payment history's wording.
     payments: bare === "/payments" ? paymentsCopy(lang) : null,
     // Only on /welcome: the onboarding answers, options and suggestions, and its wording.
     welcome: bare === "/welcome" ? { ...(await onboardingView(user)), copy: onboardingCopy(lang) } : null,
+    // Only on /home: the saved goals (what comes first) and the optional invitation to set them.
     // Only on /home: the personalized workspace (main next step, suggested tools, recently opened tools) and the invitation.
     personal: bare === "/home" ? await homeWorkspace(user, { student: data.studentWorkspaceEnabled, fitness: data.showFitness }, lang) : null,
     chat: chatPage ? { ...chatCopy(lang), ...(bare === "/music/generate" ? { musicGenres: MUSIC_PAGE_GENRES[lang] } : {}), industrySlug: pack?.slug ?? null, create: createCopy(lang), characters: bare === "/image/generate" ? characterCopy(lang) : null, planAccess: { ...(await mediaPlanAccess(user)), notice: planNoticeCopy(lang) } } : null,

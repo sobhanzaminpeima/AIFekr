@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { pageLang, resolveTheme, v2Handles } from "./uiTheme";
 
 describe("ui theme routing", () => {
+  afterEach(() => vi.unstubAllEnvs());
   it("matches a ready route and the pages under it, never a lookalike", () => {
     const routes = ["/pricing", "/guides"];
     expect(v2Handles("/pricing", routes)).toBe(true);
@@ -15,8 +16,15 @@ describe("ui theme routing", () => {
     expect(v2Handles("/chat", ["/"])).toBe(false);
   });
   it("sends only the rebuilt pages to v2", () => {
-    for (const path of ["/", "/pricing", "/about", "/contact", "/guides", "/guides/x", "/features/crm", "/solutions/business", "/login", "/register", "/home", "/chat", "/chat/abc", "/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate", "/voice-studio", "/video-factory", "/crm", "/welcome", "/privacy", "/terms", "/security", "/payments"]) expect(v2Handles(path)).toBe(true);
-    for (const path of ["/chatbot", "/privacy/x", "/payments/x", "/industry", "/admin", "/pricing-old", "/login-old", "/welcome/setup", "/home/x", "/image/generate/x", "/create/image", "/gallery/x", "/voice-studio/x", "/video-factory/x", "/crm/x"]) expect(v2Handles(path)).toBe(false);
+    vi.stubEnv("UI_V2_ACCOUNTING_ENABLED", "1");
+    for (const path of ["/", "/pricing", "/about", "/contact", "/guides", "/guides/x", "/features/crm", "/solutions/business", "/login", "/register", "/home", "/chat", "/chat/abc", "/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate", "/voice-studio", "/video-factory", "/crm", "/accounting", "/accounting/bank", "/accounting/accounts/1000", "/welcome", "/privacy", "/terms", "/security", "/payments"]) expect(v2Handles(path)).toBe(true);
+    for (const path of ["/chatbot", "/privacy/x", "/payments/x", "/industry", "/admin", "/pricing-old", "/login-old", "/welcome/setup", "/home/x", "/image/generate/x", "/create/image", "/gallery/x", "/voice-studio/x", "/video-factory/x", "/crm/x", "/accountingx"]) expect(v2Handles(path)).toBe(false);
+  });
+  it("keeps accounting classic until its isolated rollout is enabled", () => {
+    vi.stubEnv("UI_V2_ACCOUNTING_ENABLED", "0");
+    expect(v2Handles("/accounting")).toBe(false);
+    expect(v2Handles("/accounting/bank")).toBe(false);
+    expect(v2Handles("/crm")).toBe(true);
   });
   it("decides a page language like getServerLang: a valid lang cookie first", async () => {
     expect(await pageLang("de")).toBe("de");

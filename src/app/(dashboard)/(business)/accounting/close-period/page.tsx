@@ -160,7 +160,7 @@ export default function ClosePeriodPage() {
                   )}
                   {p.isLocked && (
                     <button disabled={busy} onClick={() => periodAction(p.id, "reopen")} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium" style={{ background: "var(--surface-2)", color: "var(--neg)", border: "1px solid var(--border)" }}>
-                      <Unlock className="w-3.5 h-3.5" />{tri(lang, "باز", "Open", "Offen")}گشایی
+                      <Unlock className="w-3.5 h-3.5" />{tri(lang, "بازگشایی", "Reopen", "Wieder öffnen", "Yeniden aç")}
                     </button>
                   )}
                 </div>
