@@ -1,3 +1,4 @@
+import { LEGAL_META, LEGAL_PAGES, type LegalPage } from "@/lib/marketing/legal";
 import type { Metadata } from "next";
 import type { Lang } from "@/lib/i18n/server";
 import { tri } from "@/lib/i18n/tri";
@@ -49,6 +50,8 @@ export function publicSeo(lang: Lang, path: string): PublicSeo | null {
   if (path === "/pricing") return { metadata: pageMetadata(lang, "/pricing", four(copy.pricing), four(copy.plansDesc)), jsonLd: pageJsonLd(lang, "/pricing", "WebPage", tri(lang, "قیمت پکیج‌های AIFekr", "AIFekr pricing", "AIFekr Preise", "AIFekr fiyatları")) };
   if (path === "/about") return { metadata: pageMetadata(lang, "/about", ABOUT_TITLE, ABOUT_DESCRIPTION), jsonLd: pageJsonLd(lang, "/about", "AboutPage") };
   if (path === "/contact") return { metadata: pageMetadata(lang, "/contact", CONTACT_TITLE, CONTACT_DESCRIPTION), jsonLd: pageJsonLd(lang, "/contact", "ContactPage") };
+  const legal = (LEGAL_PAGES as readonly string[]).includes(path.slice(1)) ? (path.slice(1) as LegalPage) : null;
+  if (legal) return { metadata: pageMetadata(lang, path, ...LEGAL_META[legal]), jsonLd: pageJsonLd(lang, path) };
   if (path === "/guides") return { metadata: pageMetadata(lang, "/guides", four(GUIDES_TITLE), four(GUIDES_DESCRIPTION)), jsonLd: pageJsonLd(lang, "/guides", "CollectionPage") };
   const [, section, slug, extra] = path.split("/");
   if (!slug || extra !== undefined) return null;

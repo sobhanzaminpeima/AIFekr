@@ -5,6 +5,7 @@ import { guides, CONTENT_UPDATED_AT } from "@/lib/marketing/guides";
 import { solutionDetails } from "@/lib/marketing/solutionDetails";
 import { faqItems } from "@/components/marketing/Sections";
 import { getEntryPlans } from "@/lib/marketing/entryPlans";
+import { LEGAL_PAGES, legalPage, type LegalPage } from "@/lib/marketing/legal";
 import { getContactSettings } from "@/lib/marketing/contact";
 import { getCreditCosts } from "@/lib/utils/creditCosts";
 import { publicSeo, standaloneMetadata } from "@/lib/seo/publicSeo";
@@ -64,6 +65,8 @@ export async function GET(req: NextRequest) {
     costs: { imageStandard: costs.image_standard, imageHd: costs.image_hd, video5s: costs.video_5s, video10s: costs.video_10s, music30s: costs.music_30s },
     contact: { email: contact.contact_email, phone: contact.contact_phone, address: contact.contact_address, telegram: contact.contact_telegram },
     auth: auth?.auth ?? null,
+    // Only on /privacy, /terms and /security: the legal text the classic pages show.
+    legal: (LEGAL_PAGES as readonly string[]).includes(path.slice(1)) ? legalPage(lang, path.slice(1) as LegalPage) : null,
   };
   return NextResponse.json(body, { headers: { "Cache-Control": "public, max-age=0, s-maxage=60" } });
 }

@@ -28,14 +28,16 @@ export const V2_ROUTES: readonly string[] = ["/", "/pricing", "/about", "/contac
   // Phase 4: business modules.
   "/crm",
   // Activation: goal-based onboarding (its classic wizard stays at /welcome/setup).
-  "/welcome"];
+  "/welcome",
+  // Legal pages (text shared with the classic pages: lib/marketing/legal.ts).
+  "/privacy", "/terms", "/security"];
 
 export function isUiTheme(value: unknown): value is UiTheme {
   return value === "classic" || value === "v2";
 }
 
 /** App pages match only themselves: /home/anything is not a page the new design has. */
-const EXACT_ROUTES = new Set(["/", "/home", "/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate", "/voice-studio", "/video-factory", "/crm", "/welcome"]);
+const EXACT_ROUTES = new Set(["/", "/home", "/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate", "/voice-studio", "/video-factory", "/crm", "/welcome", "/privacy", "/terms", "/security"]);
 
 export function v2Handles(path: string, routes: readonly string[] = V2_ROUTES) {
   const clean = path.split("?")[0].replace(/\/+$/, "") || "/";

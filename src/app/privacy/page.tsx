@@ -3,147 +3,20 @@ import { getServerLang } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 import { pageMetadata, pageJsonLd } from "@/lib/seo/site";
 import JsonLd from "@/components/seo/JsonLd";
+import { LEGAL_META, legalPage } from "@/lib/marketing/legal";
 
 export const dynamic = "force-dynamic";
 
-const SECTIONS_FA = [
-  {
-    title: "۱. اطلاعاتی که جمع‌آوری می‌کنیم",
-    body: "هنگام ثبت‌نام: نام، ایمیل یا شماره موبایل، و رمز عبور (به‌صورت هش‌شده و غیرقابل بازیابی ذخیره می‌شود). هنگام استفاده از خدمات: پیام‌های چت، محتوای تولیدشده، و لاگ مصرف اعتبار. هنگام پرداخت: اطلاعات تراکنش از طریق درگاه زرین‌پال (اطلاعات کارت بانکی شما هرگز روی سرورهای AiFekr ذخیره نمی‌شود). در صورت اتصال اختیاری حساب‌های شخص ثالث (وردپرس، اینستاگرام): توکن دسترسی محدود (Application Password یا Access Token) که فقط برای انجام عملیات درخواستی شما استفاده می‌شود.",
-  },
-  {
-    title: "۲. نحوه‌ی استفاده از اطلاعات",
-    body: "اطلاعات شما صرفاً برای ارائه و بهبود خدمات، پردازش پرداخت، ارسال اعلان‌های ضروری (تایید حساب، رسید پرداخت)، و پشتیبانی فنی استفاده می‌شود. پیام‌های چت شما ممکن است برای پردازش به provider های هوش مصنوعی (مانند Anthropic، DeepSeek، OpenAI) ارسال شوند تا پاسخ تولید شود؛ این ارسال فقط برای تولید پاسخ لحظه‌ای است.",
-  },
-  {
-    title: "۳. اشتراک‌گذاری اطلاعات",
-    body: "AiFekr اطلاعات شخصی شما را به هیچ شخص ثالثی برای اهداف تبلیغاتی نمی‌فروشد یا اجاره نمی‌دهد. اطلاعات فقط در موارد زیر با اشخاص ثالث در میان گذاشته می‌شود: (الف) provider های هوش مصنوعی برای پردازش درخواست شما، (ب) درگاه پرداخت زرین‌پال برای تکمیل تراکنش، (ج) در صورت الزام قانونی توسط مراجع ذی‌صلاح.",
-  },
-  {
-    title: "۴. امنیت اطلاعات",
-    body: "رمز عبور شما با الگوریتم هش یک‌طرفه ذخیره می‌شود و حتی تیم فنی AiFekr به آن دسترسی ندارد. ارتباط بین مرورگر شما و سرورهای AiFekr از طریق HTTPS رمزنگاری می‌شود. توکن‌های اتصال به حساب‌های شخص ثالث (وردپرس/اینستاگرام) در پایگاه‌داده‌ی داخلی نگهداری می‌شوند و در هیچ پاسخ API به‌صورت کامل نمایش داده نمی‌شوند.",
-  },
-  {
-    title: "۵. مدت نگهداری اطلاعات",
-    body: "اطلاعات حساب شما تا زمانی که حساب فعال است نگهداری می‌شود. در صورت درخواست حذف حساب، اطلاعات شخصی شما ظرف مدت معقول حذف می‌شود، به‌جز مواردی که طبق قانون (مانند سوابق مالی تراکنش‌ها) نگهداری آن‌ها الزامی است.",
-  },
-  {
-    title: "۶. حقوق شما",
-    body: "شما می‌توانید در هر زمان از طریق بخش «تنظیمات حساب» به اطلاعات خود دسترسی داشته باشید، آن‌ها را ویرایش کنید، یا درخواست حذف کامل حساب خود را از طریق پشتیبانی ارسال کنید. همچنین می‌توانید اتصال حساب‌های شخص ثالث (وردپرس/اینستاگرام) را در هر زمان از داشبورد قطع کنید.",
-  },
-  {
-    title: "۷. کوکی‌ها",
-    body: "AiFekr از کوکی برای مدیریت نشست ورود (session)، ذخیره‌ی ترجیحات (زبان، تم، واحد پول) استفاده می‌کند. این کوکی‌ها برای عملکرد صحیح سایت ضروری‌اند و شامل کوکی‌های تبلیغاتی شخص ثالث نمی‌شوند.",
-  },
-  {
-    title: "۸. تغییرات این سیاست",
-    body: "این سیاست حریم خصوصی ممکن است به‌مرور به‌روزرسانی شود. تغییرات مهم از طریق ایمیل یا اعلان داخل سایت به اطلاع شما خواهد رسید.",
-  },
-  {
-    title: "۹. تماس با ما",
-    body: "برای هرگونه سوال درباره‌ی حریم خصوصی یا درخواست حذف اطلاعات، از طریق صفحه‌ی «تماس با ما» با ما در ارتباط باشید.",
-  },
-];
-
-const SECTIONS_EN = [
-  {
-    title: "1. Information We Collect",
-    body: "At registration: name, email or mobile number, and password (stored hashed and non-recoverable). While using the services: chat messages, generated content, and credit-usage logs. During payment: transaction information via the Zarinpal payment gateway (your bank card details are never stored on AiFekr's servers). If you optionally connect third-party accounts (WordPress, Instagram): a limited access token (Application Password or Access Token) used only to perform the operations you request.",
-  },
-  {
-    title: "2. How We Use Information",
-    body: "Your information is used solely to provide and improve our services, process payments, send essential notifications (account confirmation, payment receipts), and provide technical support. Your chat messages may be sent to AI providers (such as Anthropic, DeepSeek, OpenAI) for processing in order to generate a response; this transmission is only for real-time response generation.",
-  },
-  {
-    title: "3. Information Sharing",
-    body: "AiFekr does not sell or rent your personal information to any third party for advertising purposes. Information is shared with third parties only in the following cases: (a) AI providers, to process your requests; (b) the Zarinpal payment gateway, to complete transactions; (c) when required by law by competent authorities.",
-  },
-  {
-    title: "4. Data Security",
-    body: "Your password is stored using a one-way hashing algorithm, and even AiFekr's technical team cannot access it. Communication between your browser and AiFekr's servers is encrypted via HTTPS. Tokens for connected third-party accounts (WordPress/Instagram) are stored in an internal database and are never fully displayed in any API response.",
-  },
-  {
-    title: "5. Data Retention",
-    body: "Your account information is retained for as long as your account remains active. If you request account deletion, your personal information will be deleted within a reasonable period, except where retention is legally required (such as financial transaction records).",
-  },
-  {
-    title: "6. Your Rights",
-    body: "You can access and edit your information at any time through the \"Account Settings\" section, or submit a request for complete account deletion through support. You can also disconnect third-party accounts (WordPress/Instagram) at any time from the dashboard.",
-  },
-  {
-    title: "7. Cookies",
-    body: "AiFekr uses cookies to manage login sessions and store preferences (language, theme, currency). These cookies are necessary for the site to function correctly and do not include third-party advertising cookies.",
-  },
-  {
-    title: "8. Changes to This Policy",
-    body: "This privacy policy may be updated from time to time. Significant changes will be communicated to you via email or an in-site notification.",
-  },
-  {
-    title: "9. Contact Us",
-    body: "For any questions about privacy or to request data deletion, please contact us through the \"Contact Us\" page.",
-  },
-];
-const SECTIONS_DE = [
-  {
-    title: "1. Informationen, die wir sammeln",
-    body: "Bei der Registrierung: Name, E-Mail oder Mobilnummer und Passwort (gespeichert als Hash und nicht wiederherstellbar). Bei der Nutzung der Dienste: Chat-Nachrichten, generierte Inhalte und Gutschrift-Protokolle. Bei der Zahlung: Transaktionsinformationen über das Zarinpal-Zahlungsportal (Ihre Bankkartendaten werden niemals auf AiFekr-Servern gespeichert). Bei optionaler Verbindung von Drittanbieter-Konten (WordPress, Instagram): Ein begrenzter Zugriffstoken (Application Password oder Access Token), der nur zur Durchführung Ihrer angeforderten Operationen verwendet wird.",
-  },
-  {
-    title: "2. Wie wir Informationen verwenden",
-    body: "Ihre Informationen werden ausschließlich zur Bereitstellung und Verbesserung unserer Dienste, zur Zahlungsabwicklung, zum Versand wesentlicher Benachrichtigungen (Kontobestätigung, Zahlungsbelege) und zur technischen Unterstützung verwendet. Ihre Chat-Nachrichten können zur Verarbeitung an KI-Anbieter (wie Anthropic, DeepSeek, OpenAI) gesendet werden, um eine Antwort zu generieren; diese Übertragung erfolgt nur zur Echtzeit-Antwortgenerierung.",
-  },
-  {
-    title: "3. Informationsweitergabe",
-    body: "AiFekr verkauft oder vermietet Ihre persönlichen Informationen nicht an Dritte für Werbezwecke. Informationen werden nur in den folgenden Fällen mit Dritten geteilt: (a) KI-Anbieter, um Ihre Anfragen zu verarbeiten; (b) das Zarinpal-Zahlungsportal, um Transaktionen abzuschließen; (c) bei gesetzlicher Verpflichtung durch zuständige Behörden.",
-  },
-  {
-    title: "4. Datensicherheit",
-    body: "Ihr Passwort wird mit einem Einweg-Hash-Algorithmus gespeichert, und selbst das technische Team von AiFekr kann darauf nicht zugreifen. Die Kommunikation zwischen Ihrem Browser und AiFekr-Servern ist über HTTPS verschlüsselt. Tokens für verbundene Drittanbieter-Konten (WordPress/Instagram) werden in einer internen Datenbank gespeichert und niemals vollständig in einer API-Antwort angezeigt.",
-  },
-  {
-    title: "5. Datenaufbewahrung",
-    body: "Ihre Kontoinformationen werden aufbewahrt, solange Ihr Konto aktiv ist. Bei einer Löschungsanfrage werden Ihre persönlichen Informationen innerhalb eines angemessenen Zeitraums gelöscht, außer wo eine gesetzliche Aufbewahrungspflicht besteht (z.B. finanzielle Transaktionsaufzeichnungen).",
-  },
-  {
-    title: "6. Ihre Rechte",
-    body: "Sie können jederzeit über den Bereich \"Kontoeinstellungen\" auf Ihre Informationen zugreifen und diese bearbeiten, oder eine Anfrage zur vollständigen Kontolöschung über den Support einreichen. Sie können auch Drittanbieter-Konten (WordPress/Instagram) jederzeit vom Dashboard trennen.",
-  },
-  {
-    title: "7. Cookies",
-    body: "AiFekr verwendet Cookies zur Verwaltung von Anmeldesessions und Speicherung von Präferenzen (Sprache, Theme, Währung). Diese Cookies sind für das einwandfreie Funktionieren der Seite erforderlich und enthalten keine Cookies von Drittanbietern für Werbezwecke.",
-  },
-  {
-    title: "8. Änderungen dieser Richtlinie",
-    body: "Diese Datenschutzrichtlinie kann von Zeit zu Zeit aktualisiert werden. Wesentliche Änderungen werden Ihnen per E-Mail oder einer Benachrichtigung auf der Seite mitgeteilt.",
-  },
-  {
-    title: "9. Kontakt",
-    body: "Bei Fragen zum Datenschutz oder zur Anfrage auf Datenlöschung kontaktieren Sie uns bitte über die Seite \"Kontakt\".",
-  },
-];
-
-const SECTIONS_TR = [
-  { title: "1. Toplanan bilgiler", body: "Kayıtta ad, e-posta veya telefon ve parola alınır. Kullanım sırasında sohbetler, üretilen içerikler, kredi ve ödeme kayıtları tutulur. İsteğe bağlı hesap bağlantıları için sınırlı erişim belirteçleri saklanır; banka kartı bilgileri sunucumuzda saklanmaz." },
-  { title: "2. Bilgilerin kullanımı", body: "Veriler hizmet sunumu, ödemeler, bildirimler ve destek için kullanılır. Yanıt üretmek için istek içeriği ilgili yapay zekâ sağlayıcılarına gönderilebilir." },
-  { title: "3. Paylaşım", body: "Kişisel bilgiler reklam için satılmaz veya kiralanmaz. İstekleri işlemek, ödeme yapmak veya yasal gereklilikleri karşılamak için ilgili sağlayıcılarla paylaşılabilir." },
-  { title: "4. Güvenlik", body: "Parolalar tek yönlü karma ile saklanır. Tarayıcı ve sunucu arasındaki iletişim HTTPS kullanır. Bağlı hesap belirteçleri API yanıtlarında tam olarak gösterilmez." },
-  { title: "5. Saklama", body: "Hesap ve hizmet verileri hizmet sunmak için saklanır. Hesap silme taleplerinde, yasal olarak gerekli ödeme kayıtları hariç ilgili kişisel verilerin kaldırılması için destekle iletişime geçin." },
-  { title: "6. Haklarınız", body: "Hesap ayarlarından bilgilerinizi inceleyip değiştirebilir, bağlantıları kaldırabilir veya destekten hesap silme talep edebilirsiniz." },
-  { title: "7. Çerezler", body: "Oturum, dil, tema ve para birimi tercihlerinde gerekli çerezler kullanılır. Üçüncü taraf reklam çerezleri kullanılmaz." },
-  { title: "8. Değişiklikler", body: "Politika güncellenebilir. Önemli değişiklikler e-posta veya platform bildirimiyle duyurulur." },
-  { title: "9. İletişim", body: "Gizlilik soruları veya silme talepleri için iletişim sayfasını kullanın." },
-];
-
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getServerLang();
-  const meta = pageMetadata(lang, "/privacy", {"fa":"حریم خصوصی — نحوه نگهداری داده‌های شما","en":"Privacy Policy — How We Handle Your Data","de":"Datenschutz — So gehen wir mit Ihren Daten um","tr":"Gizlilik Politikası — Verilerinizi Nasıl Kullanırız"}, {"fa":"سیاست حریم خصوصی AiFekr: چه داده‌هایی جمع‌آوری می‌کنیم، چگونه از آن‌ها استفاده می‌کنیم و چه حقوقی دارید.","en":"AiFekr's privacy policy: what data we collect, how we use it and what rights you have.","de":"Datenschutzerklärung von AiFekr: welche Daten wir erheben, wie wir sie verwenden und welche Rechte Sie haben.","tr":"AiFekr gizlilik politikası: hangi verileri topladığımız, nasıl kullandığımız ve haklarınız."});
+  const meta = pageMetadata(lang, "/privacy", ...LEGAL_META.privacy);
   return meta;
 }
 
 export default async function PrivacyPage() {
   const lang = await getServerLang();
   const isFa = lang === "fa";
-  const SECTIONS = lang === "tr" ? SECTIONS_TR : lang === "de" ? SECTIONS_DE : isFa ? SECTIONS_FA : SECTIONS_EN;
+  const SECTIONS = legalPage(lang, "privacy").sections;
 
   return (
     <PublicShell lang={lang}><div className="m-public-existing">
