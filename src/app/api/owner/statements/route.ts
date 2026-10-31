@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     select: { id: true, title: true, address: true, city: true },
   });
   const propertyIds = properties.map((p) => p.id);
-  if (propertyIds.length === 0) return NextResponse.json({ properties: [], statements: [] });
+  if (propertyIds.length === 0) return NextResponse.json({ properties: [], statements: [], bookings:[] });
 
   const statements = await prisma.accountingOwnerStatement.findMany({
     where: { propertyId: { in: propertyIds }, status: "sent" },
@@ -31,9 +31,11 @@ export async function GET(req: NextRequest) {
       netProfit: true, managementFee: true, ownerShare: true, sentAt: true, propertyId: true,
     },
   });
+  const bookings=await prisma.propertyBooking.findMany({where:{propertyId:{in:propertyIds}},orderBy:{checkIn:'desc'},take:300,select:{id:true,propertyId:true,checkIn:true,checkOut:true,status:true}});
 
   return NextResponse.json({
     properties,
+    bookings:bookings.map(b=>({...b,propertyTitle:properties.find(p=>p.id===b.propertyId)?.title})),
     statements: statements.map((s) => ({ ...s, propertyTitle: properties.find((p) => p.id === s.propertyId)?.title })),
   });
 }

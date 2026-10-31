@@ -35,14 +35,17 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   const path = (req.nextUrl.searchParams.get("path") || "/home").slice(0, 300);
-  const gate = await shellGate(req.cookies.get("token")?.value, path);
+  const route = path.split("?")[0];
+  const fitnessPage = route === "/fitness" || route.startsWith("/fitness/");
+  const profilePage = route === "/settings" && process.env.UI_V2_PROFILE_ENABLED === "1";
+  const gate = await shellGate(req.cookies.get("token")?.value, path, fitnessPage || profilePage);
   const noStore = { headers: { "Cache-Control": "no-store" } };
   if (gate.kind === "redirect") return NextResponse.json({ redirect: gate.to }, noStore);
   // /play and chat-only accounts keep the classic frame; the proxy never sends them here.
-  if (gate.kind === "minimal") return NextResponse.json({ redirect: null, classicFrame: gate.frame }, noStore);
+  if (gate.kind === "minimal" && !((route === "/play" && process.env.UI_V2_FINAL_MODULES_ENABLED === "1") || profilePage)) return NextResponse.json({ redirect: null, classicFrame: gate.frame }, noStore);
   const user = gate.user;
   const lang = await getServerLang();
-  const data = await shellData(user);
+  const data = await shellData(user, fitnessPage);
   const copy = shellCopy(lang);
   // The chat page's wording and options, and what its starters and photo limit depend on.
   // Chat and the create pages share the media options (styles, ratios, durations...).

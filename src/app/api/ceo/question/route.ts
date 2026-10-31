@@ -71,6 +71,7 @@ async function handlePost(req: NextRequest) {
     }
 
     let convId = conversationId;
+    if(convId && !await prisma.conversation.findFirst({where:{id:convId,userId:user.id,tool:"ceo"},select:{id:true}}))return NextResponse.json({error:"Not found"},{status:404});
     if (!convId) {
       const conv = await prisma.conversation.create({
         data: { userId: user.id, title: question.slice(0, 60), tool: "ceo", model: "auto" },

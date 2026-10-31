@@ -43,6 +43,13 @@ const EXACT_ROUTES = new Set(["/", "/home", "/create", "/gallery", "/image/galle
 
 export function v2Handles(path: string, routes: readonly string[] = V2_ROUTES) {
   const clean = path.split("?")[0].replace(/\/+$/, "") || "/";
+  if(routes===V2_ROUTES&&["/fitness","/fitness/marketplace","/student","/play"].includes(clean))return process.env.UI_V2_FINAL_MODULES_ENABLED==="1";
+  if(routes===V2_ROUTES&&clean==="/settings")return process.env.UI_V2_PROFILE_ENABLED==="1";
+  if(routes===V2_ROUTES&&clean==="/owner")return process.env.UI_V2_OWNER_ENABLED==="1";
+  if(routes===V2_ROUTES&&clean==="/voice-agent")return process.env.UI_V2_CALL_CENTER_ENABLED==="1";
+  if(routes===V2_ROUTES&&clean==="/learn")return process.env.UI_V2_ACADEMY_ENABLED==="1";
+  if(routes===V2_ROUTES&&clean==="/organization/onboarding")return process.env.UI_V2_ORGANIZATION_ENABLED==="1";
+  if(routes===V2_ROUTES&&["/ceo","/agents"].includes(clean)) return process.env.UI_V2_TEAM_ENABLED==="1";
   if(routes===V2_ROUTES&&clean==="/seo") return process.env.UI_V2_SEO_ENABLED==="1";
   if(routes===V2_ROUTES&&(clean==="/startup/builder"||clean.startsWith("/startup/builder/"))) return clean==="/startup/builder"&&process.env.UI_V2_STARTUP_ENABLED==="1";
   if(routes===V2_ROUTES&&(clean==="/referral"||clean.startsWith("/referral/"))) return clean==="/referral"&&process.env.UI_V2_REFERRAL_ENABLED==="1";

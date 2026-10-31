@@ -6,7 +6,7 @@ import {createPayment} from "@/lib/payment/zarinpal";
 import {publicAppUrl} from "@/lib/utils/publicAppUrl";
 import {savedGatewayUrl} from "@/lib/payment/tracking";
 import {fitnessAccess} from "./service";
-export async function marketplaceCheckout(userId:string,role:string,input:{productId?:string;slotId?:string;quantity:number;currency:"TRY"|"EUR"|"IRR";clientKey:string;shippingAddress?:string}){
+export async function marketplaceCheckout(userId:string,role:string,input:{productId?:string;slotId?:string;quantity:number;currency:"TRY"|"USD"|"EUR"|"IRR";clientKey:string;shippingAddress?:string}){
  const old=await prisma.fitnessMarketOrder.findUnique({where:{userId_clientKey:{userId,clientKey:input.clientKey}},include:{booking:true}});if(old){if(old.productId!==(input.productId||null)||old.booking?.slotId!==input.slotId||old.quantity!==input.quantity||old.currency!==(input.currency==="IRR"?"IRT":input.currency))throw Error("IDEMPOTENCY_MISMATCH");return old;}
  if(!await fitnessAccess(userId,role))throw Error("FITNESS_SUBSCRIPTION_REQUIRED");
  const product=input.productId?await prisma.fitnessProduct.findUniqueOrThrow({where:{id:input.productId},include:{trainer:true}}):null;
@@ -17,7 +17,7 @@ export async function marketplaceCheckout(userId:string,role:string,input:{produ
  if(product?.kind==="PHYSICAL"&&!input.shippingAddress?.trim())throw Error("SHIPPING_ADDRESS_REQUIRED");
  const base=(product?.priceMinor??slot!.priceMinor)*input.quantity,baseCurrency=product?.currency??slot!.currency;
  const [foreign,toman,bank]=await Promise.all([currencyConvert(base,baseCurrency,input.currency==="IRR"?"IRT":input.currency),currencyConvert(base,baseCurrency,"IRT"),bankSettings()]);
- const iban=input.currency==="EUR"?bank.euroIban:bank.iban;if((input.currency!=="IRR"&&!validIban(iban))||foreign.minor<=0||toman.minor<=0)throw Error("PAYMENT_CONFIGURATION_REQUIRED");
+ const iban=["USD","EUR"].includes(input.currency)?bank.euroIban:bank.iban;if((input.currency!=="IRR"&&!validIban(iban))||foreign.minor<=0||toman.minor<=0)throw Error("PAYMENT_CONFIGURATION_REQUIRED");
  return prisma.$transaction(async tx=>{
   const duplicate=await tx.fitnessMarketOrder.findUnique({where:{userId_clientKey:{userId,clientKey:input.clientKey}}});if(duplicate)return duplicate;
   await tx.fitnessTrainer.findFirstOrThrow({where:{id:trainer.id,status:"ACTIVE",type:"HUMAN",consentAt:{not:null}}});

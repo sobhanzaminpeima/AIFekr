@@ -46,6 +46,13 @@ describe("ui theme routing", () => {
     vi.stubEnv("UI_V2_SEO_ENABLED","0");expect(v2Handles("/seo")).toBe(false);
     vi.stubEnv("UI_V2_SEO_ENABLED","1");expect(v2Handles("/seo?tab=verify")).toBe(true);expect(v2Handles("/seo/sites/unknown")).toBe(false);
   });
+  it("isolates each final module rollout and preserves legacy detail pages",()=>{
+    for(const [path,flag] of [["/ceo","UI_V2_TEAM_ENABLED"],["/agents","UI_V2_TEAM_ENABLED"],["/organization/onboarding","UI_V2_ORGANIZATION_ENABLED"],["/voice-agent","UI_V2_CALL_CENTER_ENABLED"],["/learn","UI_V2_ACADEMY_ENABLED"],["/owner","UI_V2_OWNER_ENABLED"],["/settings","UI_V2_PROFILE_ENABLED"],["/student","UI_V2_FINAL_MODULES_ENABLED"],["/fitness","UI_V2_FINAL_MODULES_ENABLED"],["/fitness/marketplace","UI_V2_FINAL_MODULES_ENABLED"],["/play","UI_V2_FINAL_MODULES_ENABLED"]]){
+      vi.stubEnv(flag,"0");expect(v2Handles(path)).toBe(false);
+      vi.stubEnv(flag,"1");expect(v2Handles(path+"?tab=profile")).toBe(true);
+      expect(v2Handles(path+"/not-ready")).toBe(false);
+    }
+  });
   it("decides a page language like getServerLang: a valid lang cookie first", async () => {
     expect(await pageLang("de")).toBe("de");
     expect(await pageLang("tr")).toBe("tr");

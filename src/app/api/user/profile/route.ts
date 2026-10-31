@@ -39,7 +39,10 @@ export async function PATCH(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
 
-  const { name, firstName, lastName, country, currency, language, avatar } = await req.json();
+  let input: Record<string, unknown>;
+  try { const body=await req.json();if(!body||typeof body!=="object"||Array.isArray(body))throw Error();input=body; }
+  catch { return NextResponse.json({error:"INVALID_PROFILE_INPUT"},{status:400}); }
+  const { name, firstName, lastName, country, currency, language, avatar } = input;
   const data: { name?: string; firstName?: string | null; lastName?: string | null; country?: string | null; currency?: string | null; language?: string; avatar?: string } = {};
   if (typeof name === "string" && name.trim()) data.name = name.trim().slice(0, 60);
   if (typeof firstName === "string") data.firstName = firstName.trim().slice(0, 60) || null;
@@ -51,15 +54,16 @@ export async function PATCH(req: NextRequest) {
   // Called (best-effort, fire-and-forget) by LanguageSwitcher on every
   // change -- so the choice survives to the NEXT login too, not just this
   // browser's cookie (see login/route.ts, which restores from this field).
-  if (VALID_LANGS.has(language)) data.language = language;
+  if (typeof language === "string" && VALID_LANGS.has(language)) data.language = language;
   if (typeof avatar === "string") data.avatar = avatar.slice(0, 500);
 
   // Keep the legacy `name` column in sync -- same rule as the admin panel's
   // updateUserAsAdmin, so every existing caller reading user.name (most of
   // the app) doesn't go stale just because someone edited first/last name here.
   if (("firstName" in data || "lastName" in data) && !("name" in data)) {
-    const first = data.firstName !== undefined ? data.firstName : user.name?.split(" ")[0];
-    const last = data.lastName !== undefined ? data.lastName : undefined;
+    const current=await prisma.user.findUnique({where:{id:user.id},select:{firstName:true,lastName:true}});
+    const first = data.firstName !== undefined ? data.firstName : current?.firstName;
+    const last = data.lastName !== undefined ? data.lastName : current?.lastName;
     const composed = [first, last].filter((s) => s && s.trim()).join(" ");
     if (composed) data.name = composed;
   }
