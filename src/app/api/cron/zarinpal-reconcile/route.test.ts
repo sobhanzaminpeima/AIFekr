@@ -17,8 +17,8 @@ it("rejects calls without the cron secret", async () => {
 });
 it("checks only old unpaid Zarinpal orders, through the gateway-verified close", async () => {
   m.rows = [{ id: "p1", authority: "A1" }, { id: "p2", authority: "A2" }, { id: "p3", authority: "A3" }];
-  m.close.mockResolvedValueOnce("SUCCESS").mockResolvedValueOnce("CANCELLED").mockResolvedValueOnce(null);
-  expect(await (await call()).json()).toEqual({ checked: 3, settled: 1, cancelled: 1, unresolved: 1 });
+  m.close.mockResolvedValueOnce("SUCCESS").mockResolvedValueOnce("FAILED").mockResolvedValueOnce(null);
+  expect(await (await call()).json()).toEqual({ checked: 3, settled: 1, closed: 1, unresolved: 1 });
   const where = m.findMany.mock.calls[0][0].where;
   expect(where).toMatchObject({ gateway: "zarinpal", status: "PENDING" });
   expect(Date.now() - where.createdAt.lt.getTime()).toBeGreaterThanOrEqual(30 * 60 * 1000 - 1000);

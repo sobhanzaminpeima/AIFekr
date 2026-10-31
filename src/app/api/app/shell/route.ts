@@ -14,6 +14,7 @@ import { crmCopy } from "@/lib/crm/crmCopy";
 import { mediaPlanAccess, planNoticeCopy } from "@/lib/growth/planAccess";
 import { onboardingCopy, onboardingView, usesLegacyWelcome } from "@/lib/growth/onboarding";
 import { homeWorkspace } from "@/lib/growth/workspace";
+import { paymentsCopy } from "@/lib/payment/paymentsCopy";
 import { prisma } from "@/lib/db/prisma";
 import en from "@/lib/i18n/en";
 import fa from "@/lib/i18n/fa";
@@ -69,6 +70,8 @@ export async function GET(req: NextRequest) {
     factory: bare === "/video-factory" ? factoryCopy(lang) : null,
     // Only on the CRM: the classic CRM's wording and dictionary.
     crm: bare === "/crm" ? crmCopy(lang) : null,
+    // Only on /payments: the classic payment history's wording.
+    payments: bare === "/payments" ? paymentsCopy(lang) : null,
     // Only on /welcome: the onboarding answers, options and suggestions, and its wording.
     welcome: bare === "/welcome" ? { ...(await onboardingView(user)), copy: onboardingCopy(lang) } : null,
     // Only on /home: the personalized workspace (main next step, suggested tools, recently opened tools) and the invitation.

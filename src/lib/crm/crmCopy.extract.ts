@@ -50,14 +50,17 @@ export function extractCrmLabels(src: string): Record<string, Record<string, Fou
   return out;
 }
 
-/** Every tri(lang, ...) string of the classic page, keyed by its English. */
-export function extractCrmStrings(src: string): Four[] {
+/**
+ * Every tri(<lang>, ...) string of a classic page, keyed by its English.
+ * `calls` matches another helper's opening, e.g. /\bt\(/g for t(fa, en, de, tr).
+ */
+export function extractCrmStrings(src: string, calls: RegExp = /\btri\(\s*\w+\s*,/g): Four[] {
   const rows = new Map<string, Four>();
   const add = (v: string[]) => {
     if (!rows.has(v[1])) rows.set(v[1], four(v));
   };
-  for (let i = src.indexOf("tri(lang,"); i >= 0; i = src.indexOf("tri(lang,", i + 1)) {
-    let j = i + "tri(lang,".length;
+  for (const call of src.matchAll(calls)) {
+    let j = call.index! + call[0].length;
     const parts: string[] = [];
     for (;;) {
       while (/\s/.test(src[j])) j++;
@@ -73,4 +76,19 @@ export function extractCrmStrings(src: string): Four[] {
     if (parts.length >= 2) add(parts);
   }
   return [...rows.values()];
+}
+
+/**
+ * The strings of several classic pages, keyed by English; when two pages word
+ * the same English differently, the later wording is keyed "<English> · 2"
+ * (then "· 3"...), so each page's own wording stays available verbatim.
+ */
+export function extractKeyedStrings(sources: string[], calls?: RegExp): [string, Four][] {
+  const out: [string, Four][] = [];
+  for (const row of sources.flatMap((src) => extractCrmStrings(src, calls))) {
+    const same = out.filter(([, r]) => r[1] === row[1]);
+    if (same.some(([, r]) => r.join("|") === row.join("|"))) continue;
+    out.push([same.length ? `${row[1]} · ${same.length + 1}` : row[1], row]);
+  }
+  return out;
 }
