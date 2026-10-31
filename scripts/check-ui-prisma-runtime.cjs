@@ -1,5 +1,10 @@
 // Run against a read-only deployment database before switching the app process.
-const {PrismaClient}=require('@prisma/client');
+// Validate the same import resolution as the deployed route, not this script's folder.
+const {createRequire}=require('node:module');
+const path=require('node:path');
+if(!process.env.UI_DEPLOY_DIST||!path.isAbsolute(process.env.UI_DEPLOY_DIST))throw Error('ABSOLUTE_DEPLOY_DIST_REQUIRED');
+const deployedRequire=createRequire(path.join(process.env.UI_DEPLOY_DIST,'server/app/api/app/shell/route.js'));
+const {PrismaClient}=deployedRequire('@prisma/client');
 if(!process.env.DATABASE_URL?.includes('mode=ro'))throw Error('READ_ONLY_DATABASE_REQUIRED');
 const prisma=new PrismaClient();
 (async()=>{

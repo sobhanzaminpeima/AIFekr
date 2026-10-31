@@ -72,8 +72,8 @@ async function handlePost(req: NextRequest) {
         send(tri(lang, "در حال بارگذاری وبسایت...\n", "Loading website...\n", "Website wird geladen...\n"));
         const data = await crawlUrl(url);
         if (!data) {
-          send(tri(lang, "❌ خطا در بارگذاری URL.\n", "❌ Failed to load URL.\n", "❌ URL konnte nicht geladen werden.\n"));
-          controller.enqueue(encoder.encode("data: [DONE]\n\n")); controller.close(); return;
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({error:tri(lang,"خطا در بارگذاری URL.","Failed to load URL.","URL konnte nicht geladen werden.")})}\n\n`));
+          controller.close(); return;
         }
         send(tri(lang, "✅ وبسایت بارگذاری شد. در حال تحلیل سئو...\n\n---\n\n", "✅ Website loaded. Analyzing SEO...\n\n---\n\n", "✅ Website geladen. SEO-Analyse läuft...\n\n---\n\n"));
         systemPrompt = lang === "fa" ? "تو متخصص سئو حرفه‌ای با ۱۰+ سال تجربه هستی. گزارش جامع، دقیق و عملی سئو ارائه می‌دهی. پاسخ کامل و حرفه‌ای بده." : "You are a professional SEO specialist. Provide comprehensive, accurate and actionable SEO reports.";
@@ -99,8 +99,8 @@ async function handlePost(req: NextRequest) {
       try {
         await routedStreamChat([{ role: "user", content: userMessage }], systemPrompt + outputLanguageRule(lang), (chunk) => send(chunk), (_p) => {});
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "خطا";
-        send(`\n\n❌ ${tri(lang, "خطا در ارتباط با AI: ", "AI error: ", "KI-Fehler: ")}${msg}`);
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({error:tri(lang,"ارتباط با هوش مصنوعی انجام نشد.","AI generation failed.","KI-Generierung fehlgeschlagen.")})}\n\n`));
+        controller.close();return;
       }
       controller.enqueue(encoder.encode("data: [DONE]\n\n"));
       controller.close();
