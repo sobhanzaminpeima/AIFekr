@@ -30,6 +30,7 @@ const UNBILLED: Record<string, string> = {
   "ai/chat-providers": "read-only provider list",
   "ai/image-providers": "read-only provider list",
   "ai/video-providers": "read-only provider list",
+  "student/workspace": "read-only quizzes and configured provider credit ranges; getEnabledProviders does not invoke a model",
   "video/status": "status poll of an already-charged job",
   "music/status": "status poll of an already-charged job",
   "accounting/ai/anomalies": "rule-based, no model call",
