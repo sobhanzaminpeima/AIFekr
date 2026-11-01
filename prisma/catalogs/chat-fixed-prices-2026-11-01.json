@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-01",
+  "authorization": "Owner requested fixed prices based on current market prices in chat.",
+  "sources": [
+    {"url":"https://alanchand.com/currencies-price/usd","rate":"271600","pair":"USD/IRT","asOf":"2026-11-01"},
+    {"url":"https://www.xe.com/currencyconverter/convert/?Amount=1&From=USD&To=TRY","rate":"49.95587976","pair":"USD/TRY","asOf":"2026-10-31T17:21:00Z"}
+  ],
+  "rounding": "Convert each existing IRT price independently and round half up to USD cents / TRY kurus. Retail prices remain fixed until edited in admin.",
+  "plans": [
+    {"code":"CHAT_ECO_30","IRT":199000,"USD":73,"TRY":3660},
+    {"code":"CHAT_PLUS_30","IRT":499000,"USD":184,"TRY":9178},
+    {"code":"CHAT_PRO_30","IRT":1499000,"USD":552,"TRY":27571}
+  ]
+}
