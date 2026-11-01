@@ -2,3 +2,5 @@
 .ai-chat-studio .commerce-modal{position:fixed;inset:0;z-index:80;background:#0009;display:flex;overflow:auto;padding-block:24px;backdrop-filter:blur(5px)}
 /* The package picked on /pricing. */
 .entry-card.is-chosen{border-color:#ff6b00;box-shadow:0 0 0 2px #ff6b0066}
+
+.entry-purchase-help{padding:20px;border:1px solid var(--border);background:var(--surface-1);border-radius:16px;margin:24px 0}.entry-purchase-help p{font-size:13px;line-height:1.9;margin-top:8px}

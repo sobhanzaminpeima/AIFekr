@@ -1,0 +1,22 @@
+import {afterAll,beforeAll,describe,it,expect,vi} from 'vitest';
+import {NextRequest} from 'next/server';
+import {prisma} from '@/lib/db/prisma';
+const auth=vi.hoisted(()=>({id:''}));
+vi.mock('@/lib/auth/middleware',()=>({requireAuth:async()=>auth.id?{id:auth.id}:null,unauthorizedResponse:()=>new Response('{}',{status:401})}));
+import {POST as branch} from '@/app/api/chat/branch/route';
+import {POST as move,DELETE as remove} from '@/app/api/projects/[id]/conversations/route';
+const own='chat-manage-'+crypto.randomUUID(),other=own+'-other';let project:string,foreign:string,conv:string,userMessage:string;
+const req=(path:string,body:unknown)=>new NextRequest('http://localhost'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+beforeAll(async()=>{await prisma.user.createMany({data:[{id:own},{id:other}]});auth.id=own;project=(await prisma.project.create({data:{userId:own,name:'Own'}})).id;foreign=(await prisma.project.create({data:{userId:other,name:'Other'}})).id;conv=(await prisma.conversation.create({data:{userId:own,title:'Original',projectId:project}})).id;
+ await prisma.message.create({data:{conversationId:conv,role:'user',content:'First',createdAt:new Date('2026-01-01T00:00:00Z')}});
+ await prisma.message.create({data:{conversationId:conv,role:'assistant',content:'Original reply',createdAt:new Date('2026-01-01T00:00:01Z')}});
+ userMessage=(await prisma.message.create({data:{conversationId:conv,role:'user',content:'Edit this',createdAt:new Date('2026-01-01T00:00:02Z')}})).id;
+});
+afterAll(async()=>{await prisma.conversation.deleteMany({where:{userId:{in:[own,other]}}});await prisma.project.deleteMany({where:{userId:{in:[own,other]}}});await prisma.user.deleteMany({where:{id:{in:[own,other]}}});await prisma.$disconnect()});
+describe('conversation ownership and branches',()=>{
+ it('rejects another owner’s project and leaves the original assignment intact',async()=>{const r=await move(req('/api/projects/'+foreign+'/conversations',{conversationId:conv}),{params:Promise.resolve({id:foreign})});expect(r.status).toBe(404);expect((await prisma.conversation.findUniqueOrThrow({where:{id:conv}})).projectId).toBe(project)});
+ it('copies only context before the edited user turn and preserves the source',async()=>{const r=await branch(req('/api/chat/branch',{conversationId:conv,messageId:userMessage}));expect(r.status).toBe(200);const d=await r.json();expect(d.conversation.id).not.toBe(conv);expect(d.conversation.projectId).toBe(project);const messages=await prisma.message.findMany({where:{conversationId:d.conversation.id},orderBy:{createdAt:'asc'}});expect(messages.map(m=>m.content)).toEqual(['First','Original reply']);expect(await prisma.message.count({where:{conversationId:conv}})).toBe(3);expect(d.conversation.routingState).toBeNull()});
+ it('does not branch or move another user’s thread',async()=>{auth.id=other;expect((await branch(req('/api/chat/branch',{conversationId:conv,messageId:userMessage}))).status).toBe(404);expect((await move(req('/api/projects/'+foreign+'/conversations',{conversationId:conv}),{params:Promise.resolve({id:foreign})})).status).toBe(404);auth.id=own});
+ it('removes only from the requested owned project',async()=>{const next=await prisma.project.create({data:{userId:own,name:'Next'}});expect((await remove(req('/api/projects/'+next.id+'/conversations',{conversationId:conv}),{params:Promise.resolve({id:next.id})})).status).toBe(404);expect((await move(req('/api/projects/'+next.id+'/conversations',{conversationId:conv}),{params:Promise.resolve({id:next.id})})).status).toBe(200);expect((await remove(req('/api/projects/'+next.id+'/conversations',{conversationId:conv}),{params:Promise.resolve({id:next.id})})).status).toBe(200);expect((await prisma.conversation.findUniqueOrThrow({where:{id:conv}})).projectId).toBeNull()});
+ it('requires authentication before creating a branch',async()=>{auth.id='';expect((await branch(req('/api/chat/branch',{conversationId:conv,messageId:userMessage}))).status).toBe(401);auth.id=own});
+});

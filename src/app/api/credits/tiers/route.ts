@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
+import {getFxRates} from "@/lib/utils/currency";
 import { prisma } from "@/lib/db/prisma";
 
 /** Active credit-purchase tiers, for the user-facing /credits page. */
@@ -13,5 +14,5 @@ export async function GET(req: NextRequest) {
     where: { isActive: true },
     orderBy: { sortOrder: "asc" },
   });
-  return NextResponse.json({ tiers });
+  return NextResponse.json({ tiers, fxRates: await getFxRates() });
 }

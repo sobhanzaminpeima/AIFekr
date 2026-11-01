@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   if (!admin) return forbiddenResponse(req);
   const p = req.nextUrl.searchParams, view = p.get("view") || "overview";
   const settings = await getGrowthSettings();
-  if (!settings.flags.customer_growth_enabled && view !== "settings") return NextResponse.json({ disabled: true });
+  if (!settings.flags.customer_growth_enabled && view !== "settings") return NextResponse.json({ disabled: true },{status:view.startsWith("export")?409:200});
   if (view === "overview") {
     const to = day(p.get("to"), true) ?? new Date(), from = day(p.get("from")) ?? new Date(to.getTime() - 30 * 86_400_000);
     if (from > to || to.getTime() - from.getTime() > 731 * 86_400_000) return NextResponse.json({ error: "INVALID_RANGE" }, { status: 400 });
@@ -42,14 +42,24 @@ export async function GET(req: NextRequest) {
       history: await prisma.growthMessage.groupBy({ by: ["ruleKey", "status"], _count: { _all: true } }) });
   }
   if (view === "settings") return NextResponse.json({ settings });
+  if (view === "export-report") {
+    if(admin.role!=="SUPER_ADMIN")return forbiddenResponse(req);
+    const to=day(p.get("to"),true)??new Date(),from=day(p.get("from"))??new Date(to.getTime()-30*86400000);
+    if(from>to||to.getTime()-from.getTime()>731*86400000)return NextResponse.json({error:"INVALID_RANGE"},{status:400});
+    const filters={q:p.get("q")?.slice(0,100)||"",stage:(p.get("stage")||"") as never,segment:(p.get("segment")||"") as never,band:p.get("band")||""};
+    const snapshot=await customerList({...filters,page:1},true);
+    const rows=snapshot.rows;
+    const [funnel,campaigns]=await Promise.all([overview({from,to},true),campaignReport(true)]);
+    await prisma.auditLog.create({data:{actorId:admin.id,action:"growth_complete_report_exported",metadata:JSON.stringify({count:rows.length,from,to,filters})}});
+    return NextResponse.json({schemaVersion:1,generatedAt:new Date().toISOString(),range:{from,to},scopes:{funnel:"selected date range",campaigns:"all campaigns",customers:"current filtered customer snapshot"},filters,overview:funnel,campaigns,customers:rows,definitions:{currency:"IRT",customers:"AIFekr platform users; excludes their CRM contacts",snapshot:"Customer scores and segments reflect export time, not historical date range"}},{headers:{"Cache-Control":"no-store","Content-Disposition":`attachment; filename="aifekr-growth-report-${new Date().toISOString().slice(0,10)}.json"`}});
+  }
   if (view === "export") {
     if (admin.role !== "SUPER_ADMIN") return forbiddenResponse(req);
-    const list = await customerList({ q: p.get("q") || "", stage: (p.get("stage") || "") as never, segment: (p.get("segment") || "") as never, band: p.get("band") || "", page: 1 });
-    const all = list.total > list.size ? await Promise.all(Array.from({ length: Math.ceil(list.total / list.size) }, (_, i) => customerList({ q: p.get("q") || "", stage: (p.get("stage") || "") as never, segment: (p.get("segment") || "") as never, band: p.get("band") || "", page: i + 1 }))) : [list];
-    const rows = all.flatMap(l => l.rows);
+    const list = await customerList({ q: p.get("q")?.slice(0,100) || "", stage: (p.get("stage") || "") as never, segment: (p.get("segment") || "") as never, band: p.get("band") || "", page: 1 },true);
+    const rows=list.rows;
     await prisma.auditLog.create({ data: { actorId: admin.id, action: "growth_customers_exported", metadata: JSON.stringify({ count: rows.length, filters: Object.fromEntries(p) }) } });
-    const head = ["id", "name", "email", "phone", "createdAt", "plan", "credits", "source", "confidence", "stage", "score", "band", "segments", "lastActiveAt", "preferredModule", "followUpStatus"];
-    const csv = [head.join(","), ...rows.map(r => [r.id, r.name, r.email, r.phone, r.createdAt, r.plan, r.credits, r.source, r.confidence, r.stage, r.score, r.band, r.segments.join("|"), r.lastActiveAt, r.preferredModule, r.followUpStatus].map(csvEscape).join(","))].join("\n");
+    const head = ["id", "name", "email", "phone", "createdAt", "plan", "credits", "source", "confidence", "stage", "score", "band", "segments", "lastActiveAt", "preferredModule", "followUpStatus", "firstValueAt", "activeDaysWindow", "creditsUsedWindow", "checkoutsWindow", "successfulPayments", "revenueToman", "moduleSuccesses"];
+    const csv = [head.join(","), ...rows.map(r => [r.id, r.name, r.email, r.phone, r.createdAt, r.plan, r.credits, r.source, r.confidence, r.stage, r.score, r.band, r.segments.join("|"), r.lastActiveAt, r.preferredModule, r.followUpStatus,r.firstValueAt,r.activeDaysWindow,r.creditsUsedWindow,r.checkoutsWindow,r.successfulPayments,r.revenueToman,JSON.stringify(r.moduleSuccesses)].map(csvEscape).join(","))].join("\n");
     return new NextResponse("﻿" + csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="aifekr-customers-${new Date().toISOString().slice(0, 10)}.csv"`, "Cache-Control": "no-store" } });
   }
   return NextResponse.json({ error: "UNKNOWN_VIEW" }, { status: 400 });

@@ -44,6 +44,7 @@ const EXACT_ROUTES = new Set(["/", "/home", "/create", "/gallery", "/image/galle
 export function v2Handles(path: string, routes: readonly string[] = V2_ROUTES) {
   const clean = path.split("?")[0].replace(/\/+$/, "") || "/";
   if(routes===V2_ROUTES&&["/fitness","/fitness/marketplace","/student","/play"].includes(clean))return process.env.UI_V2_FINAL_MODULES_ENABLED==="1";
+  if(routes===V2_ROUTES&&["/credits","/wallet","/notifications"].includes(clean))return process.env.UI_V2_PROFILE_ENABLED==="1";
   if(routes===V2_ROUTES&&clean==="/settings")return process.env.UI_V2_PROFILE_ENABLED==="1";
   if(routes===V2_ROUTES&&clean==="/owner")return process.env.UI_V2_OWNER_ENABLED==="1";
   if(routes===V2_ROUTES&&clean==="/voice-agent")return process.env.UI_V2_CALL_CENTER_ENABLED==="1";

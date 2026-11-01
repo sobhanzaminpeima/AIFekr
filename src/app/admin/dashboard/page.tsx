@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { Users, DollarSign, Bot, TrendingUp, TrendingDown, Loader2, RefreshCw } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -101,6 +102,7 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      <nav className="admin-quick-links" aria-label="دسترسی سریع مدیریت"><Link href="/admin/users"><Users size={20}/>مدیریت کاربران</Link><Link href="/admin/financial"><DollarSign size={20}/>پرداخت‌ها و فاکتورها</Link><Link href="/admin/customer-growth"><TrendingUp size={20}/>مرکز رشد و خروجی گزارش</Link><Link href="/admin/packages"><Bot size={20}/>پکیج‌ها و قیمت‌گذاری</Link></nav>
       {/* Stat cards */}
       {stats && (
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">

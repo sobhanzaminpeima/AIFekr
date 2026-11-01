@@ -1,36 +1,18 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-
-export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
-  const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse(req);
-
-  const { conversationId } = await req.json();
-  const { id: projectId } = params;
-
-  await (prisma as any).$executeRaw`
-    UPDATE Conversation SET projectId = ${projectId}, updatedAt = datetime('now')
-    WHERE id = ${conversationId} AND userId = ${user.id}
-  `;
-
-  return NextResponse.json({ success: true });
+type Context={params:Promise<{id:string}>};
+async function move(req:NextRequest,ctx:Context,remove:boolean){
+ const user=await requireAuth(req);if(!user)return unauthorizedResponse(req);
+ const {id}=await ctx.params;const body=await req.json().catch(()=>null);
+ if(typeof body?.conversationId!=="string")return NextResponse.json({error:"INVALID_CONVERSATION"},{status:400});
+ const result=await prisma.$transaction(async tx=>{
+  if(!await tx.project.findFirst({where:{id,userId:user.id},select:{id:true}}))return null;
+  return tx.conversation.updateMany({where:{id:body.conversationId,userId:user.id,...(remove?{projectId:id}:{})},data:{projectId:remove?null:id}});
+ });
+ if(!result?.count)return NextResponse.json({error:"NOT_FOUND"},{status:404});
+ return NextResponse.json({success:true,projectId:remove?null:id});
 }
-
-export async function DELETE(req: NextRequest, _ctx: unknown) {
-  const user = await requireAuth(req);
-  if (!user) return unauthorizedResponse(req);
-
-  const { conversationId } = await req.json();
-
-  await (prisma as any).$executeRaw`
-    UPDATE Conversation SET projectId = NULL, updatedAt = datetime('now')
-    WHERE id = ${conversationId} AND userId = ${user.id}
-  `;
-
-  return NextResponse.json({ success: true });
-}
+export const POST=(req:NextRequest,ctx:Context)=>move(req,ctx,false);
+export const DELETE=(req:NextRequest,ctx:Context)=>move(req,ctx,true);

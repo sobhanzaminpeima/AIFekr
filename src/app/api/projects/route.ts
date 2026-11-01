@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
       SELECT p.id, p.name, p.description, p.color, p.icon, p.createdAt,
              CAST(COUNT(c.id) AS INTEGER) as conversationCount
       FROM Project p
-      LEFT JOIN Conversation c ON c.projectId = p.id
+      LEFT JOIN Conversation c ON c.projectId = p.id AND c.userId = ${user.id}
       WHERE p.userId = ${user.id}
       GROUP BY p.id
       ORDER BY p.createdAt DESC

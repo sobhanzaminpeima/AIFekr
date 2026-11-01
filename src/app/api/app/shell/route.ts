@@ -16,6 +16,7 @@ import { resolveCrmWorkspace, hasCrmAccess } from "@/lib/crm/workspace";
 import { mediaPlanAccess, planNoticeCopy } from "@/lib/growth/planAccess";
 import { onboardingCopy, onboardingView, usesLegacyWelcome } from "@/lib/growth/onboarding";
 import { homeWorkspace } from "@/lib/growth/workspace";
+import {creditsCopy} from "@/lib/billing/creditsCopy";
 import { paymentsCopy } from "@/lib/payment/paymentsCopy";
 import { prisma } from "@/lib/db/prisma";
 import en from "@/lib/i18n/en";
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
   const path = (req.nextUrl.searchParams.get("path") || "/home").slice(0, 300);
   const route = path.split("?")[0];
   const fitnessPage = route === "/fitness" || route.startsWith("/fitness/");
-  const profilePage = route === "/settings" && process.env.UI_V2_PROFILE_ENABLED === "1";
+  const profilePage = ["/settings","/credits","/wallet","/notifications"].includes(route) && process.env.UI_V2_PROFILE_ENABLED === "1";
   const gate = await shellGate(req.cookies.get("token")?.value, path, fitnessPage || profilePage);
   const noStore = { headers: { "Cache-Control": "no-store" } };
   if (gate.kind === "redirect") return NextResponse.json({ redirect: gate.to }, noStore);
@@ -81,6 +82,7 @@ export async function GET(req: NextRequest) {
     accounting: accountingPage ? accountingCopy(lang) : null,
     accountingAccess: accountingWorkspace ? { allowed: hasCrmAccess(accountingWorkspace), restricted: accountingWorkspace.isAgentRestricted } : null,
     // Only on /payments: the classic payment history's wording.
+    credits: bare === "/credits" ? creditsCopy(lang) : null,
     payments: bare === "/payments" ? paymentsCopy(lang) : null,
     // Only on /welcome: the onboarding answers, options and suggestions, and its wording.
     welcome: bare === "/welcome" ? { ...(await onboardingView(user)), copy: onboardingCopy(lang) } : null,

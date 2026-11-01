@@ -10,9 +10,10 @@ const ratio = (a: number, b: number) => b ? Math.round(a * 1000 / b) / 10 : null
 /** Customers only: admins and blocked accounts are excluded from every metric. */
 const customerWhere = { role: "USER", isBlocked: false } as const;
 
-async function evaluatedUsers(where: Record<string, unknown> = {}) {
+async function evaluatedUsers(where: Record<string, unknown> = {}, complete = false) {
   const settings = await getGrowthSettings(), now = new Date();
-  const users = await prisma.user.findMany({ where: { ...customerWhere, ...where }, select: { id: true, name: true, email: true, phone: true, createdAt: true, plan: true, credits: true, growthProfile: { select: { firstTouchId: true, attributionConfidence: true, intendedModule: true, followUpStatus: true } } }, orderBy: { createdAt: "desc" }, take: 5000 });
+  const users = await prisma.user.findMany({ where: { ...customerWhere, ...where }, select: { id: true, name: true, email: true, phone: true, createdAt: true, plan: true, credits: true, growthProfile: { select: { firstTouchId: true, attributionConfidence: true, intendedModule: true, followUpStatus: true } } }, orderBy: { createdAt: "desc" }, take: complete ? 100001 : 5000 });
+  if(complete && users.length>100000)throw Error("EXPORT_TOO_LARGE_USE_FILTERS");
   const facts = await loadFacts(users.map(u => u.id), settings.thresholds.scoringWindowDays, now);
   return { settings, now, rows: users.map(u => ({ user: u, facts: facts.get(u.id)!, ...evaluate(facts.get(u.id)!, settings, now) })) };
 }
@@ -23,9 +24,9 @@ export type Range = { from: Date; to: Date };
  * Signup-cohort funnel and KPIs for users who registered inside the range.
  * Conversion counts only server-confirmed payments (Payment.status = SUCCESS).
  */
-export async function overview(range: Range) {
-  const { rows, settings, now } = await evaluatedUsers({ createdAt: { gte: range.from, lte: range.to } });
-  const all = await evaluatedUsers();
+export async function overview(range: Range, complete = false) {
+  const { rows, settings, now } = await evaluatedUsers({ createdAt: { gte: range.from, lte: range.to } }, complete);
+  const all = await evaluatedUsers({}, complete);
   const visitors = await prisma.growthTouch.findMany({ where: { createdAt: { gte: range.from, lte: range.to } }, distinct: ["anonId"], select: { anonId: true } });
   const n = rows.length;
   const onboarded = rows.filter(r => onboardingFinished(r.facts)).length;
@@ -95,11 +96,11 @@ async function generationAttempts(range: Range) {
 }
 
 /** Per-campaign journey. Attribution = the user's FIRST touch; revenue = all confirmed payments of those users. */
-export async function campaignReport() {
+export async function campaignReport(complete = false) {
   const campaigns = await prisma.growthCampaign.findMany({ orderBy: { createdAt: "desc" } });
   const touches = await prisma.growthTouch.groupBy({ by: ["utmCampaign"], _count: { _all: true }, where: { utmCampaign: { not: null } } });
   const visitors = await prisma.$queryRaw<{ c: string; v: bigint }[]>`SELECT utmCampaign AS c, COUNT(DISTINCT anonId) AS v FROM GrowthTouch WHERE utmCampaign IS NOT NULL GROUP BY utmCampaign`;
-  const { rows } = await evaluatedUsers();
+  const { rows } = await evaluatedUsers({}, complete);
   const firstTouchIds = rows.map(r => r.user.growthProfile?.firstTouchId).filter((x): x is string => !!x);
   const first = new Map((await prisma.growthTouch.findMany({ where: { id: { in: firstTouchIds } }, select: { id: true, utmCampaign: true, utmSource: true, referrerHost: true } })).map(t => [t.id, t]));
   const keyFor = (r: typeof rows[number]) => { const t = first.get(r.user.growthProfile?.firstTouchId ?? ""); return t?.utmCampaign ?? (t?.referrerHost ? `ref:${t.referrerHost}` : t?.utmSource ? `src:${t.utmSource}` : "unknown"); };
@@ -124,8 +125,8 @@ export async function campaignReport() {
 
 export type CustomerFilter = { q?: string; stage?: Stage | ""; segment?: Segment | ""; band?: string; page?: number };
 
-export async function customerList(filter: CustomerFilter) {
-  const { rows, settings } = await evaluatedUsers();
+export async function customerList(filter: CustomerFilter, complete = false) {
+  const { rows, settings } = await evaluatedUsers({}, complete);
   const touchIds = rows.map(r => r.user.growthProfile?.firstTouchId).filter((x): x is string => !!x);
   const touches = new Map((await prisma.growthTouch.findMany({ where: { id: { in: touchIds } }, select: { id: true, utmCampaign: true, utmSource: true, referrerHost: true } })).map(t => [t.id, t]));
   const q = (filter.q || "").toLowerCase().trim();
@@ -135,7 +136,7 @@ export async function customerList(filter: CustomerFilter) {
   return {
     total: filtered.length, page, size, settings: { thresholds: settings.thresholds, weights: settings.weights },
     segmentCounts: rows.reduce<Record<string, number>>((m, r) => { for (const s of r.segments) m[s] = (m[s] ?? 0) + 1; return m; }, {}),
-    rows: filtered.slice((page - 1) * size, page * size).map(r => {
+    rows: (complete ? filtered : filtered.slice((page - 1) * size, page * size)).map(r => {
       const t = touches.get(r.user.growthProfile?.firstTouchId ?? "");
       const preferred = Object.entries(r.facts.successes).sort((a, b) => b[1].count - a[1].count)[0]?.[0] ?? r.user.growthProfile?.intendedModule ?? null;
       return {
@@ -143,6 +144,7 @@ export async function customerList(filter: CustomerFilter) {
         source: t ? (t.utmCampaign ?? t.utmSource ?? t.referrerHost) : null, confidence: r.user.growthProfile?.attributionConfidence ?? "unknown",
         stage: r.stage, score: r.score, band: r.band, segments: r.segments, lastActiveAt: r.facts.lastActiveAt, preferredModule: preferred,
         followUpStatus: r.user.growthProfile?.followUpStatus ?? "none", firstValueAt: r.firstValueAt,
+        activeDaysWindow:r.facts.activeDaysWindow,creditsUsedWindow:r.facts.creditsUsedWindow,checkoutsWindow:r.facts.checkoutsWindow,successfulPayments:r.facts.payments.success,revenueToman:r.facts.payments.revenueToman,moduleSuccesses:Object.fromEntries(Object.entries(r.facts.successes).map(([key,value])=>[key,value.count])),
       };
     }),
   };
