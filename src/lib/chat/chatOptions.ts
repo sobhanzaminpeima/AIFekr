@@ -59,6 +59,7 @@ export const IMAGE_CATEGORIES = [
   { id: "art", fa: "هنری و نقاشی", en: "Art", de: "Kunst" },
   { id: "corporate", fa: "کسب‌وکار", en: "Corporate", de: "Unternehmen" },
   { id: "fantasy", fa: "فانتزی و سینمایی", en: "Fantasy", de: "Fantasie" },
+  { id: "halloween", fa: "هالووین", en: "Halloween", de: "Halloween" },
   { id: "1980s", fa: "دهه ۸۰ میلادی", en: "1980s", de: "1980er" },
 ];
 export const REFERENCE_REQUIRED_CATEGORIES = new Set(["1980s"]);

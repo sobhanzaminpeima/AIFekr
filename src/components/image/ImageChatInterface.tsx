@@ -31,6 +31,7 @@ const CATEGORIES = [
   { id: "art",       fa: "هنری و نقاشی",     en: "Art",         de: "Kunst", icon: Palette,    gradient: "linear-gradient(135deg, #8b5cf6, #a78bfa)" },
   { id: "corporate", fa: "کسب‌وکار",         en: "Corporate",   de: "Unternehmen", icon: Briefcase,  gradient: "linear-gradient(135deg, #3b82f6, #6366f1)" },
   { id: "fantasy",   fa: "فانتزی و سینمایی", en: "Fantasy",     de: "Fantasie", icon: Wand,       gradient: "linear-gradient(135deg, #f59e0b, #ea580c)" },
+  { id: "halloween", fa: "هالووین", en: "Halloween", de: "Halloween", icon: Camera, gradient: "linear-gradient(135deg, #ea580c, #7c3aed)" },
   { id: "1980s",     fa: "دهه ۸۰ میلادی",    en: "1980s",       de: "1980er", icon: Camera,     gradient: "linear-gradient(135deg, #d946ef, #f472b6)" },
 ];
 const REFERENCE_REQUIRED_CATEGORIES = new Set(["1980s"]);

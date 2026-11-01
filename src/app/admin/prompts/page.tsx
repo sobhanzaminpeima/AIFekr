@@ -32,7 +32,7 @@ const TOOL_TYPES = [
   { value: "video", label: "تولید ویدیو" },
 ];
 
-const CATEGORIES = ["عمومی", "کسب‌وکار", "آموزش", "سلامت", "فناوری", "هنر و خلاقیت", "سفر", "مالی"];
+const CATEGORIES = ["عمومی", "کسب‌وکار", "آموزش", "سلامت", "فناوری", "هنر و خلاقیت", "سفر", "مالی", "halloween"];
 
 const EMPTY_FORM = { title: "", titleEn: "", titleDe: "", content: "", contentEn: "", contentDe: "", category: "عمومی", toolType: "chat", thumbnailUrl: "", guideFa: "", guideEn: "", guideDe: "" };
 
@@ -318,7 +318,7 @@ export default function PromptsPage() {
               <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>دسته‌بندی</label>
               <select value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                {CATEGORIES.map((c) => <option key={c} value={c}>{c === "halloween" ? "هالووین" : c}</option>)}
               </select>
             </div>
 
