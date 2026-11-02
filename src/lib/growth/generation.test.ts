@@ -14,6 +14,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 beforeEach(() => { mocks.track.mockClear(); mocks.user.mockReset(); mocks.verify.mockReset(); });
 
 describe("classifyFailure", () => {
+  it('does not count a content safety rejection as a service outage',()=>expect(classifyFailure(400,{code:'IMAGE_SAFETY_REJECTED'})).toBe('content_blocked'));
   it("tells credits, plan and limits apart", () => {
     expect(classifyFailure(402, { error: "اعتبار کافی ندارید" })).toBe("credits");
     expect(classifyFailure(402, { error: "تولید ویدیو برای پلن شما در دسترس نیست" })).toBe("plan");

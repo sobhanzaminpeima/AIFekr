@@ -14,9 +14,10 @@ import { trackEvent } from "./events";
 /** Accounts created from this moment are measured for their first success; older ones started before measurement existed. */
 export const FIRST_SUCCESS_SINCE = new Date("2026-10-30T00:00:00Z");
 
-export type FailureReason = "credits" | "plan" | "limit" | "rate_limited" | "disabled" | "invalid_input" | "forbidden" | "provider" | "cancelled";
+export type FailureReason = "credits" | "plan" | "limit" | "rate_limited" | "disabled" | "invalid_input" | "forbidden" | "provider" | "cancelled" | "content_blocked";
 
 const CODE_REASONS: Record<string, FailureReason> = {
+  IMAGE_SAFETY_REJECTED:'content_blocked',
   PLAN_REQUIRED: "plan", REQUIRES_UPGRADE: "plan", VIDEO_PACKAGE_REQUIRED_OR_EXHAUSTED: "plan",
   INSUFFICIENT_CREDITS: "credits", CREDITS_INSUFFICIENT: "credits",
   RATE_LIMIT: "rate_limited", RATE_LIMITED: "rate_limited",

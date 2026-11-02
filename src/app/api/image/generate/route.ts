@@ -15,6 +15,7 @@ import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
 import { isFeatureEnabled, FEATURE_DISABLED_MESSAGE } from "@/lib/utils/featureToggles";
 import { maxReferenceImages } from "@/lib/constants/imageUploadLimits";
 import { withGenerationTracking } from "@/lib/growth/generation";
+import {ImageSafetyError} from '@/lib/ai/imageErrors';
 
 // OpenAI (gpt-image) is preferred when configured — real credit was purchased
 // for it — with Qwen kept as the fallback path exactly as qwen.ts documents.
@@ -184,6 +185,7 @@ async function generateImage(req: NextRequest) {
 
     return NextResponse.json({ images: saved, credits_used: creditCost });
   } catch (err) {
+    if(err instanceof ImageSafetyError)return NextResponse.json({code:'IMAGE_SAFETY_REJECTED',error:'درخواست تصویر توسط بررسی ایمنی سرویس پذیرفته نشد؛ متن یا تصویر مرجع را بررسی کنید. کردیتی کسر نشده است.'},{status:400});
     if (err instanceof Error && err.message === "INSUFFICIENT_CREDITS") {
       return NextResponse.json({ error: "اعتبار کافی نیست" }, { status: 402 });
     }

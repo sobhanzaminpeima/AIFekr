@@ -4,6 +4,7 @@
 // swap, not a rewrite of the calling route.
 import sharp from "sharp";
 import { safeFetch } from "@/lib/net/safeUrl";
+import {imageProviderError} from './imageErrors';
 
 const hasOpenAIImage = !!(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.length > 10);
 
@@ -46,7 +47,7 @@ export interface GenerateImageOptions {
 
 interface OpenAIImageResponse {
   data?: Array<{ b64_json?: string; url?: string }>;
-  error?: { message?: string };
+  error?: { message?: string;code?:string };
 }
 
 // gpt-image responses come back as base64 (no hosted url) — callers get a
@@ -66,7 +67,7 @@ async function callOpenAIGenerate(promptText: string, count: number, size: strin
   });
 
   const data = (await res.json()) as OpenAIImageResponse;
-  if (!res.ok) throw new Error(`OpenAI image generation failed: HTTP ${res.status} ${data.error?.message || ""}`);
+  if (!res.ok) throw imageProviderError(res.status,data.error);
 
   const images = (data.data || [])
     .map((d) => (d.url ? d.url : d.b64_json ? `data:image/png;base64,${d.b64_json}` : null))
@@ -116,7 +117,7 @@ async function callOpenAIEdit(promptText: string, referenceImageUrls: string[], 
   });
 
   const data = (await res.json()) as OpenAIImageResponse;
-  if (!res.ok) throw new Error(`OpenAI image edit failed: HTTP ${res.status} ${data.error?.message || ""}`);
+  if (!res.ok) throw imageProviderError(res.status,data.error);
 
   const images = (data.data || [])
     .map((d) => (d.url ? d.url : d.b64_json ? `data:image/png;base64,${d.b64_json}` : null))

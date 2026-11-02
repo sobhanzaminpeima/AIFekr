@@ -15,7 +15,7 @@ type Overview = {
 const REASONS: Record<string, [string, string]> = {
   credits: ["اعتبار کافی نبود", "Not enough credits"], plan: ["نیاز به پلن", "Plan required"], limit: ["سقف پلن", "Plan limit reached"],
   rate_limited: ["محدودیت سرعت", "Rate limited"], disabled: ["غیرفعال", "Disabled"], invalid_input: ["ورودی نامعتبر", "Invalid input"],
-  forbidden: ["بدون دسترسی", "Not allowed"], provider: ["خطای سرویس", "Provider error"], cancelled: ["لغو یا قطع", "Cancelled"], unknown: ["نامشخص", "Unknown"],
+  content_blocked:["رد بررسی ایمنی محتوا","Content safety rejection"],forbidden: ["بدون دسترسی", "Not allowed"], provider: ["خطای سرویس", "Provider error"], cancelled: ["لغو یا قطع", "Cancelled"], unknown: ["نامشخص", "Unknown"],
 };
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
