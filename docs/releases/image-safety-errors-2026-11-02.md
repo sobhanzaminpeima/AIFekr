@@ -9,3 +9,5 @@ Provider text is not forwarded to the client or included in the typed exception.
 Validation: 11 focused image-error/growth tests passed, and TypeScript passed in backend and UI. Both production builds are required before deployment. No new paid generation request was executed; this validates handling of mocked provider errors rather than a new image-generation acceptance run.
 
 Backend runtime source: `043cbb92`. UI runtime source: `c7a89831`. Previous runtime pair `.next-rel-ef4b3434` and `/var/www/aifekr-ui-v2-ce742a7a` remains the rollback pair. No database schema, account, package, rate or provider setting is changed by this release.
+
+Deployment completed successfully after both production builds. Preview health, UI loading and unauthenticated image-POST rejection passed. The active pair was switched and public home, pricing, login and language routes returned 200; PM2 state was saved. No new generation request was submitted.
