@@ -16,3 +16,11 @@
 - Backend and UI production builds are required before deployment. Release runtime commits: backend `79adcbf7`, UI `093870fc`.
 - Deployment uses the existing SSH key, paired preview services, health checks and rollback. No paid provider generation or real payment is part of this validation.
 - Interactive authenticated browser acceptance remains unavailable while browser control is disabled; automated checks do not establish that the entire platform is defect-free.
+
+## Deployment result
+
+- Both production builds passed. Paired preview checks passed and production now runs backend `.next-rel-79adcbf7` with UI `093870fc`; both PM2 services are online.
+- Public `/`, `/pricing`, `/en`, `/de`, `/tr` and `/api/health` returned 200; unauthenticated `/api/admin/packages` returned 401.
+- Public API returned five categories in all four languages, 15 offers in Persian and 14 in each other language. The creator-five offer is absent internationally because no usable USD/TRY price is configured; no rate or price was invented. This absence is visible in the admin preview.
+- Existing chat Toman prices remain 199,000 / 499,000 / 1,499,000 and `VF_CREATOR_5` remains 4,250,000 Toman with 500 credits.
+- Backend main and accounting branch, and UI first-success-media branch were updated. Previous runtime pair retained for rollback. Available server space remained above 3 GiB.
