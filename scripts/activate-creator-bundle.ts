@@ -1,8 +1,23 @@
 import {prisma} from '../src/lib/db/prisma';
 import {creatorBundle} from '../src/lib/video-factory/creatorBundle';
 import {settingsSchema} from '../src/lib/voice-studio/domain';
+import {readFileSync,writeFileSync,existsSync} from 'node:fs';
 async function main(){
  const actor=await prisma.user.findFirstOrThrow({where:{role:'SUPER_ADMIN'},select:{id:true}});
+ const backupPath=process.env.ACCESS_CONFIG_BACKUP||'/root/pre-access-creator-config.json';
+ if(process.argv.includes('--rollback')){
+  const previous=JSON.parse(readFileSync(backupPath,'utf-8'));
+  await prisma.$transaction(async tx=>{
+   for(const row of previous.settings)await tx.siteSetting.update({where:{key:row.key},data:{value:row.value}});
+   await tx.videoFactoryProvider.update({where:{id:previous.provider.id},data:previous.provider});
+   if(previous.offer)await tx.package.upsert({where:{planCode:'VF_CREATOR_5'},create:previous.offer,update:previous.offer});
+   else await tx.package.updateMany({where:{planCode:'VF_CREATOR_5'},data:{isActive:false,publicVisible:false,publicationStatus:'ARCHIVED'}});
+   await tx.auditLog.create({data:{actorId:actor.id,action:'owner_approved.creator_bundle_rollback'}});
+  });console.log('CONFIGURATION_ROLLBACK_OK');await prisma.$disconnect();return;
+ }
+ if(existsSync(backupPath))throw Error('CONFIG_BACKUP_ALREADY_EXISTS');
+ const previous={settings:await prisma.siteSetting.findMany({where:{key:{in:['voiceStudioSettings','videoFactoryPolicy']}}}),offer:await prisma.package.findUnique({where:{planCode:'VF_CREATOR_5'}}),provider:await prisma.videoFactoryProvider.findUniqueOrThrow({where:{id:'vf-eleven-voice'}})};
+ writeFileSync(backupPath,JSON.stringify(previous),{mode:0o600,flag:'wx'});
  await prisma.$transaction(async tx=>{
   const row=await tx.siteSetting.findUniqueOrThrow({where:{key:'voiceStudioSettings'}});
   const voice=settingsSchema.parse(JSON.parse(row.value));voice.trialGenerations=2;voice.trialFree=true;voice.trialMaxSeconds=30;voice.version++;
