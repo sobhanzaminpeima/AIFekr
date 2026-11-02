@@ -11,8 +11,8 @@ export type {EntryPlan};
 export default function PlanChoice({plans,authenticated,initialGroup,initialPlan,embedded=false}:{plans:EntryPlan[];authenticated:boolean;initialGroup:string;initialPlan?:string;embedded?:boolean}){
  // A package picked on /pricing arrives as ?plan=: its group opens and its card is marked and brought into view.
  const chosen=plans.find(p=>p.code===initialPlan),chosenGroup=chosen?(chosen.category==="CHAT_STARTER"?"CHAT":chosen.category):null;
- const {lang}=useTranslation(),t=(fa:string,en:string,de:string,tr:string)=>tri(lang,fa,en,de,tr),[group,setGroup]=useState(chosenGroup??(["CHAT",...LANDING_PACKAGE_CATEGORIES.map(c=>c.code)].includes(initialGroup)?initialGroup:"CHAT")),[busy,setBusy]=useState(false),[error,setError]=useState("");
- const labels=packageCategoryLabels(lang),groups=Object.fromEntries(LANDING_PACKAGE_CATEGORIES.map(c=>[c.code==="CHAT_STARTER"?"CHAT":c.code,labels[c.code]]));
+ const {lang}=useTranslation(),t=(fa:string,en:string,de:string,tr:string)=>tri(lang,fa,en,de,tr),[group,setGroup]=useState(chosenGroup??(["CHAT",...LANDING_PACKAGE_CATEGORIES].includes(initialGroup)?initialGroup:"CHAT")),[busy,setBusy]=useState(false),[error,setError]=useState("");
+ const labels=packageCategoryLabels(lang),groups=Object.fromEntries(LANDING_PACKAGE_CATEGORIES.map(c=>[c==="CHAT_STARTER"?"CHAT":c,labels[c]]));
  useEffect(()=>{if(chosen)document.getElementById(`plan-${chosen.code}`)?.scrollIntoView({block:"center"});},[chosen]);
  async function select(module:string,destination:string,plan?:string){if(!authenticated){window.location.assign(`/register?entry=chat&redirect=${encodeURIComponent(`/choose-plan?group=${module}${plan?`&plan=${plan}`:""}`)}`);return;}setBusy(true);setError("");try{const r=await fetch("/api/ai-chat/v1/entry",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({module})});if(!r.ok)throw Error();window.location.assign(destination);}catch{setError(t("انتخاب ذخیره نشد؛ دوباره تلاش کنید.","Could not save selection. Please retry.","Auswahl konnte nicht gespeichert werden.","Seçim kaydedilemedi. Tekrar deneyin."));setBusy(false);}}
  const Heading=embedded?"h2":"h1";
