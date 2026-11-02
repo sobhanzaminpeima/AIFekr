@@ -1,3 +1,4 @@
+import {RETIRED_PUBLIC_PLAN_CODES} from "@/lib/billing/packageCategories";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth/jwt";
 import { referralDiscount } from "@/lib/utils/referralPromo";
@@ -8,7 +9,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getFxRates } from "@/lib/utils/currency";
 export async function GET() {
   const packages = await prisma.package.findMany({
-    where: { isActive: true,publicVisible:true,publicationStatus:"PUBLISHED" },
+    where: { isActive: true,publicVisible:true,publicationStatus:"PUBLISHED",planCode:{notIn:RETIRED_PUBLIC_PLAN_CODES} },
     orderBy: { sortOrder: "asc" },
     select: {
       badge:true,termPrices:true,baseCurrency:true,category:true,planCode: true, name: true, nameEn: true, price: true, priceUsd: true, priceTry: true,

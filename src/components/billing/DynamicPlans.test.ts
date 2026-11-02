@@ -51,6 +51,6 @@ describe("plan checkout uses the language's payment currency", () => {
     state.lang = "en";
     const rendered = nodes(DynamicPlans({}));
     const option = rendered.find(element => element.type === "option" && element.props.value === "CHAT_STARTER");
-    expect(option?.props.children).toBe("Chat");
+    expect(option?.props.children).toBe("AI Chat");
   });
 });

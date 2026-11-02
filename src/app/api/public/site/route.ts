@@ -5,6 +5,7 @@ import { guides, CONTENT_UPDATED_AT } from "@/lib/marketing/guides";
 import { solutionDetails } from "@/lib/marketing/solutionDetails";
 import { faqItems } from "@/components/marketing/Sections";
 import { getEntryPlans } from "@/lib/marketing/entryPlans";
+import {PACKAGE_CATEGORIES} from '@/lib/billing/packageCategories';
 import { LEGAL_PAGES, legalPage, type LegalPage } from "@/lib/marketing/legal";
 import { getContactSettings } from "@/lib/marketing/contact";
 import { getCreditCosts } from "@/lib/utils/creditCosts";
@@ -57,6 +58,7 @@ export async function GET(req: NextRequest) {
     growthModule: moduleForPath(path),
     copy: { hero: text(lang, copy.hero), intro: text(lang, copy.intro), noPromise: text(lang, copy.noPromise), credits: text(lang, copy.credits), creditsDesc: text(lang, copy.creditsDesc) },
     plans,
+    packageCategories:PACKAGE_CATEGORIES.filter(c=>c.landing).map(c=>({code:c.code,label:c.labels[lang]})),
     features: features.map(f => ({ slug: f.slug, route: f.route, category: f.category, title: text(lang, f.title), desc: text(lang, f.desc), items: f.items.map(i => text(lang, i)), requirement: text(lang, f.requirement) })),
     solutions: solutionCatalog.map(s => ({ slug: s.slug, title: text(lang, s.title), modules: s.modules, description: text(lang, solutionDetails[s.slug].description), guide: solutionDetails[s.slug].guide, steps: solutionDetails[s.slug].steps.map(step => ({ title: text(lang, step.title), body: text(lang, step.body) })) })),
     guides: guides.map(g => ({ slug: g.slug, title: text(lang, g.title), description: text(lang, g.description), related: g.related, sections: g.sections.map(sec => ({ title: text(lang, sec.title), body: text(lang, sec.body) })) })),
@@ -68,5 +70,5 @@ export async function GET(req: NextRequest) {
     // Only on /privacy, /terms and /security: the legal text the classic pages show.
     legal: (LEGAL_PAGES as readonly string[]).includes(path.slice(1)) ? legalPage(lang, path.slice(1) as LegalPage) : null,
   };
-  return NextResponse.json(body, { headers: { "Cache-Control": "public, max-age=0, s-maxage=60" } });
+  return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
 }
