@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
       if (!costs || typeof costs !== "object" || Array.isArray(costs) || Object.values(costs).some(value => !Number.isSafeInteger(value) || Number(value) < 0 || Number(value) > 1000000)) throw new Error("Invalid costs");
     } catch { return NextResponse.json({ error: "Credit costs must be nonnegative whole numbers" }, { status: 400 }); }
   }
+  if(settings.default_language !== undefined && !["fa","en","de","tr"].includes(settings.default_language))return NextResponse.json({error:"Invalid default language"},{status:400});
   const keys = Object.keys(settings);
   if (keys.some(key => !SETTING_KEY.test(key) || String(settings[key]).length > 100000)) return NextResponse.json({ error: "Invalid setting key or value" }, { status: 400 });
   const before = new Map((await prisma.siteSetting.findMany({ where: { key: { in: keys } } })).map(row => [row.key, row.value]));

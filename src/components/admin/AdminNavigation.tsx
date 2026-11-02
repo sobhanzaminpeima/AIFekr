@@ -227,6 +227,7 @@ export const adminGroups: Group[] = [
         "Video Factory",
         "Video Fabrikası",
       ),
+      item("packages?category=VIDEO_FACTORY", "قیمت‌های تولید محتوا", "Content creation pricing", "Preise für Inhalte", "İçerik üretim fiyatları"),
       item("voice-studio", "استودیوی صدا", "Voice Studio", "Sprachstudio", "Ses Stüdyosu"),
       item(
         "voice-agent",

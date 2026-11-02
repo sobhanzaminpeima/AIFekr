@@ -59,6 +59,15 @@ export async function updateUserAsAdmin(userId: string, body: Record<string, unk
   for (const key of ADMIN_EDITABLE_USER_FIELDS) {
     if (key in body) data[key] = body[key];
   }
+  // A paid plan with no expiry is treated as FREE by every subscription gate.
+  // Give a newly assigned plan one month when the form omitted a valid term.
+  if (typeof data.plan === "string" && data.plan !== "FREE") {
+    const current = await prisma.user.findUniqueOrThrow({where:{id:userId},select:{plan:true,planExpiry:true}});
+    if (current.plan !== data.plan || !current.planExpiry) {
+      const expiry = data.planExpiry instanceof Date ? data.planExpiry : current.planExpiry;
+      if (!expiry || expiry <= new Date()) data.planExpiry = new Date(Date.now() + 30 * 86400000);
+    }
+  }
 
   if (typeof data.phone === "string") {
     const trimmed = data.phone.trim();

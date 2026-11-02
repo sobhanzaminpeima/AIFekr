@@ -29,6 +29,28 @@ beforeEach(async () => {
 afterAll(() => prisma.$disconnect());
 async function project() { return saveProject("voice-alice", { name: "Test", text: "سلام دوست من.", language: "fa" }); }
 describe("Voice Studio reservations and access", () => {
+    it("allows exactly two free samples without spending the user's credits", async () => {
+        await prisma.user.update({where:{id:"voice-alice"},data:{plan:"FREE",planExpiry:null,credits:0,aiCredits:0}});
+        const policy = {...defaults,enabled:true,allowedModels:["test-model"],trialGenerations:2,trialFree:true};
+        await prisma.siteSetting.update({where:{key:"voiceStudioSettings"},data:{value:JSON.stringify(policy)}});
+        const p=await project();
+        for(let i=0;i<2;i++) {
+            const request=input(p.id),job=await enqueueSpeech("voice-alice",request);
+            expect(job.reservedCredits).toBe(0);
+            const ready=await finishGeneration(job.id,"READY",{durationMs:12000,storageKey:`trial/${i}.mp3`});
+            expect(ready.chargedCredits).toBe(0);
+            expect((await enqueueSpeech("voice-alice",request)).id).toBe(job.id);
+        }
+        await expect(enqueueSpeech("voice-alice",input(p.id))).rejects.toThrow("PLAN_REQUIRED");
+        expect((await prisma.user.findUniqueOrThrow({where:{id:"voice-alice"}})).credits).toBe(0);
+    });
+    it("restores the free allowance after a confirmed failed generation", async () => {
+        await prisma.user.update({where:{id:"voice-alice"},data:{plan:"FREE",planExpiry:null,credits:0,aiCredits:0}});
+        await prisma.siteSetting.update({where:{key:"voiceStudioSettings"},data:{value:JSON.stringify({...defaults,enabled:true,allowedModels:["test-model"],trialGenerations:2,trialFree:true})}});
+        const p=await project(),job=await enqueueSpeech("voice-alice",input(p.id));
+        await finishGeneration(job.id,"FAILED");
+        expect((await enqueueSpeech("voice-alice",input(p.id))).reservedCredits).toBe(0);
+    });
     it.each(["unknown", "storage"])("holds ambiguous %s outcomes without a paid retry", async (mode) => { mocks.mode = mode; mocks.calls = 0; mocks.duration = 12000; const p = await project(), job = await enqueueSpeech("voice-alice", input(p.id)); await processVoiceTick(); expect((await prisma.voiceStudioGeneration.findUniqueOrThrow({ where: { id: job.id } })).status).toBe("REVIEW"); await processVoiceTick(); expect(mocks.calls).toBe(1); expect((await prisma.user.findUniqueOrThrow({ where: { id: "voice-alice" } })).credits).toBe(410); mocks.mode = "success"; });
     it.each(["quota", "rejected"])("refunds confirmed %s failures", async (mode) => { mocks.mode = mode; mocks.calls = 0; const p = await project(), job = await enqueueSpeech("voice-alice", input(p.id)); await processVoiceTick(); expect((await prisma.voiceStudioGeneration.findUniqueOrThrow({ where: { id: job.id } })).status).toBe("FAILED"); expect((await prisma.user.findUniqueOrThrow({ where: { id: "voice-alice" } })).credits).toBe(500); mocks.mode = "success"; });
     it("delivers a validated durable output and settles once", async () => { mocks.mode = "success"; mocks.duration = 12000; mocks.calls = 0; const p = await project(), job = await enqueueSpeech("voice-alice", input(p.id)); await processVoiceTick(); const row = await prisma.voiceStudioGeneration.findUniqueOrThrow({ where: { id: job.id } }); expect(row.status).toBe("READY"); expect(row.providerRequestId).toBe("test-request"); expect(row.chargedCredits).toBe(45); await processVoiceTick(); expect(mocks.calls).toBe(1); });

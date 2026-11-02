@@ -1,5 +1,6 @@
 import { FactoryError } from "./domain";
 import type { RegisteredProvider } from "./registry";
+import {voiceTransport} from "@/lib/voice-studio/transport";
 
 export class ProviderFailure extends FactoryError {
   constructor(code:string, public rejected:boolean, public retryable=false) { super(code,502); }
@@ -13,7 +14,7 @@ export async function boundedBytes(response:Response,maxBytes:number) {
 }
 export async function providerRequest(provider:RegisteredProvider,path:string,init:RequestInit,signal:AbortSignal) {
   const eleven=provider.adapter.startsWith("ELEVENLABS_");
-  const response=await fetch((eleven?"https://api.elevenlabs.io/v1":"https://api.openai.com/v1")+path,{...init,signal,redirect:"error",headers:{...(eleven?{"xi-api-key":provider.key}:{Authorization:`Bearer ${provider.key}`}),...init.headers}});
+  const response=await fetch((eleven?"https://api.elevenlabs.io/v1":"https://api.openai.com/v1")+path,{...(eleven?voiceTransport():{}),...init,signal,redirect:"error",headers:{...(eleven?{"xi-api-key":provider.key}:{Authorization:`Bearer ${provider.key}`}),...init.headers}});
   if(!response.ok){await response.body?.cancel();throw new ProviderFailure(`PROVIDER_HTTP_${response.status}`,[400,401,403,404,413,422,429].includes(response.status),[408,429,500,502,503,504].includes(response.status));}
   return response;
 }

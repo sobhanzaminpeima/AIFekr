@@ -86,6 +86,8 @@ export const policySchema = z.object({
   maxStorageBytesPerUser: z.number().int().min(10000000).max(100000000000).default(2000000000),
   retentionDays: z.number().int().min(1).max(3650).default(30),
   maxRetries: z.number().int().min(0).max(5).default(2),
+  bundleCredits: z.number().int().positive().max(100000).optional(),
+  narratedBundlesOnly: z.boolean().default(false),
   publishingEnabled: z.boolean().default(false),
   presets: z.object({
     SMART: z.object({ videoPercent: z.number().int().min(0).max(100), imagePercent: z.number().int().min(0).max(100) }).default({videoPercent:0,imagePercent:80}),
@@ -96,6 +98,7 @@ export const policySchema = z.object({
 export type Policy = z.infer<typeof policySchema>;
 export function chapterCount(seconds: number) { return Math.max(1, Math.ceil(seconds / 300)); }
 export function quote(configuration: Configuration, policy: Policy) {
+  if(configuration.narration && policy.narratedBundlesOnly && !policy.bundleCredits)throw new FactoryError("NARRATED_BUNDLE_REQUIRED",403);
   if(policy.silentOnly&&(configuration.narration||configuration.music||configuration.voiceProfileId||configuration.audioTracks.length||configuration.forcedAlignment))throw new FactoryError("AUDIO_TEMPORARILY_UNAVAILABLE",503);
   if(configuration.mediaMode!=="MULTIMEDIA" && (configuration.exportStems || configuration.forcedAlignment || configuration.semanticReview || configuration.voiceProfileId || configuration.transcriptionAssetId || configuration.audioTracks.length))throw new FactoryError("ADVANCED_FEATURES_REQUIRE_MULTIMEDIA",400);
   if(configuration.forcedAlignment && !configuration.narration)throw new FactoryError("ALIGNMENT_REQUIRES_NARRATION",400);
@@ -138,6 +141,7 @@ export function quote(configuration: Configuration, policy: Policy) {
   let credits = items.reduce((n, item) => n + item.credits, 0);
   const commercial=policy.commercial.mode==="DURATION_RETAIL"?commercialEstimate(policy.commercial,configuration.durationSeconds,configuration.quality):null;
   if(commercial){if(!commercial.credits)throw new FactoryError("PLATFORM_CREDIT_RATE_UNAVAILABLE",503);if(credits>commercial.credits)throw new FactoryError("ACTION_BUDGET_EXCEEDS_RETAIL",503);items.push({action:"completed_film_package",quantity:1,credits:commercial.credits-credits});credits=commercial.credits;}
+  if(policy.bundleCredits){if(credits>policy.bundleCredits)throw new FactoryError("BUNDLE_FEATURE_LIMIT",400);items.push({action:"creator_bundle_video",quantity:1,credits:policy.bundleCredits-credits});credits=policy.bundleCredits;}
   if (credits > Math.min(configuration.budgetCap, policy.maxProjectCredits)) throw new FactoryError("BUDGET_EXCEEDED", 402);
   return { items, credits,commercial, kind: "estimate" as const, output: configuration.mediaMode === "MULTIMEDIA" ? "multimedia_film" : "silent_storyboard_film", unavailable: [] as string[] };
 }

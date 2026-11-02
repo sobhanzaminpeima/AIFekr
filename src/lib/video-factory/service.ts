@@ -14,6 +14,7 @@ import {preserveProjectVersion} from "./versions";
 import {ownedAsset} from "./assets";
 import {requireVoiceConsent} from "./voiceConsent";
 import {claimPackage,settlementCredits} from "./packages";
+import {policyForBundle} from "./bundlePolicy";
 async function validateAdvancedReferences(userId:string,projectId:string,configuration:ReturnType<typeof configurationSchema.parse>){
  if(configuration.voiceProfileId)await requireVoiceConsent(userId,configuration.voiceProfileId,projectId);
  for(const id of [configuration.transcriptionAssetId,...configuration.audioTracks.map(t=>t.assetId)].filter(Boolean)){const asset=await ownedAsset(userId,id);if(!asset.mimeType.startsWith("audio/"))throw new FactoryError("INVALID_AUDIO_ASSET",400);}
@@ -61,7 +62,8 @@ export async function editManifest(userId: string, id: string, expectedVersion: 
 }
 export async function estimateProject(userId: string, id: string) {
   const project = await getProject(userId, id), policy = await getPolicy();
-  return quote(configurationSchema.parse(JSON.parse(project.configuration)), policy);
+  const configuration=configurationSchema.parse(JSON.parse(project.configuration));
+  return quote(configuration, await policyForBundle(prisma,userId,configuration.durationSeconds,policy));
 }
 export async function startProject(userId: string, id: string, key: string, expectedCredits: number) {
   const fingerprint = hash({ id, expectedCredits });
@@ -70,10 +72,13 @@ export async function startProject(userId: string, id: string, key: string, expe
     if (existing.requestHash !== fingerprint) throw new FactoryError("IDEMPOTENCY_CONFLICT");
     return { id: existing.id, status: existing.status };
   }
-  const project = await getProject(userId, id), policy = await getPolicy();
+  const project = await getProject(userId, id);
+  let policy = await getPolicy();
   if(process.env.VIDEO_FACTORY_SALES_APPROVED!=="true")throw new FactoryError("OWNER_SALES_APPROVAL_REQUIRED",403);
   if(policy.commercial.mode==="DURATION_RETAIL" && policy.commercial.status!=="APPROVED")throw new FactoryError("TARIFF_NOT_APPROVED",403);
-  const configuration = configurationSchema.parse(JSON.parse(project.configuration)), estimate = quote(configuration, policy);
+  const configuration = configurationSchema.parse(JSON.parse(project.configuration));
+  policy=await policyForBundle(prisma,userId,configuration.durationSeconds,policy);
+  const estimate = quote(configuration, policy);
   await validateAdvancedReferences(userId,id,configuration);
   if (estimate.credits !== expectedCredits) throw new FactoryError("COST_CHANGED");
   await approvedProvider(policy.approvedModelId);
@@ -95,6 +100,7 @@ export async function startProject(userId: string, id: string, key: string, expe
     return await prisma.$transaction(async tx => {
       // Serialize quota authorizations for this account before establishing the read snapshot.
       await tx.videoFactoryStorageQuota.upsert({where:{userId},create:{userId},update:{usedBytes:{increment:0}}});
+      if(policy.packageRequired){const lockedPolicy=await policyForBundle(tx,userId,configuration.durationSeconds,await getPolicy());if(quote(configuration,lockedPolicy).credits!==estimate.credits)throw new FactoryError("COST_CHANGED");}
       if(policy.packageRequired)policy.packageUsage=await claimPackage(tx,userId,configuration.durationSeconds);
       const current = await tx.videoFactoryProject.findFirst({ where: { id, userId, version: project.version } });
       if (!current) throw new FactoryError("VERSION_CONFLICT");

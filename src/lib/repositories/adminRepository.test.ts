@@ -1,10 +1,19 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/db/prisma";
-import { assertAdminMayManage, AdminPermissionError, AdminValidationError } from "./adminRepository";
+import { assertAdminMayManage, AdminPermissionError, AdminValidationError,updateUserAsAdmin } from "./adminRepository";
 
 // Integration test against the isolated vitest DB; rows are scoped to this file.
 const stamp = `admin-rbac-${Date.now()}`;
 const ids = { admin: `${stamp}-admin`, other: `${stamp}-other`, superA: `${stamp}-super`, customer: `${stamp}-customer` };
+
+it('activates an explicitly assigned Pro plan with a valid term instead of leaving it effectively FREE',async()=>{
+ await prisma.user.update({where:{id:ids.customer},data:{plan:'FREE',planExpiry:null}});
+ const updated=await updateUserAsAdmin(ids.customer,{plan:'PRO'});
+ expect(updated.plan).toBe('PRO');expect(updated.planExpiry!.getTime()).toBeGreaterThan(Date.now()+29*86400000);
+ const expiry=new Date(Date.now()+90*86400000);
+ await updateUserAsAdmin(ids.customer,{plan:'PRO',planExpiry:expiry});
+ expect((await prisma.user.findUniqueOrThrow({where:{id:ids.customer}})).planExpiry!.getTime()).toBe(expiry.getTime());
+});
 
 beforeAll(async () => {
   await prisma.user.createMany({ data: [

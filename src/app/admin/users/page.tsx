@@ -214,12 +214,11 @@ export default function AdminUsersPage() {
   }
 
   async function changePlan(userId: string, plan: string) {
-    await fetch(`/api/admin/users/${userId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan }),
+    const response=await fetch(`/api/admin/users/${userId}`, {
+      method: "PUT",headers: { "Content-Type": "application/json" },body: JSON.stringify({ plan }),
     });
-    toast.success(`پلن به «${planBadge(plan).label}» تغییر کرد`);
+    if(!response.ok){toast.error("تغییر پلن انجام نشد؛ دوباره تلاش کنید.");return;}
+    toast.success(`پلن به «${planBadge(plan).label}» تغییر کرد؛ دورهٔ معتبر حفظ یا برای فعال‌سازی جدید ۳۰ روز ثبت شد.`);
     fetchUsers();
     setPlanMenuUserId(null);
     setActionUserId(null);
@@ -234,7 +233,7 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="admin-users-workspace p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -254,6 +253,11 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
+      <section className="admin-users-summary" aria-label="خلاصه کاربران">
+        <article><span>کل کاربران</span><strong>{formatNumber(total)}</strong></article>
+        <article><span>کاربران این صفحه</span><strong>{formatNumber(users.length)}</strong></article>
+        <article><span>مسدود در این صفحه</span><strong>{formatNumber(users.filter(user=>user.isBlocked).length)}</strong></article>
+      </section>
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
         <label className="text-sm">ترتیب ثبت‌نام<select aria-label="ترتیب ثبت‌نام" value={sort} onChange={e=>{setSort(e.target.value);setPage(1);}} className="block rounded-xl px-3 py-2" style={{background:"var(--surface-1)",color:"var(--text-primary)",border:"1px solid var(--border)"}}><option value="newest">جدیدترین کاربران</option><option value="oldest">قدیمی‌ترین کاربران</option></select></label>

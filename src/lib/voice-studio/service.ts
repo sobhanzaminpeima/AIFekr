@@ -32,7 +32,7 @@ export function planAllowed(user: { role: string; plan: string; planExpiry: Date
 }
 const TRIAL_COUNTED = ["QUEUED", "RUNNING", "REVIEW", "READY", "DELETED"];
 async function trialSamplesUsed(db: Pick<typeof prisma, "voiceStudioGeneration">, userId: string) {
-    return db.voiceStudioGeneration.count({ where: { userId, status: { in: TRIAL_COUNTED } } });
+    return db.voiceStudioGeneration.count({ where: { userId, status: { in: TRIAL_COUNTED }, pricingSnapshot: { contains: '"trialSample":true' } } });
 }
 export async function bootstrap(userId: string) { const policy = await voicePolicy();
     // Tell the screen up front whether this account may generate, so it can explain instead of failing on click.
@@ -43,7 +43,7 @@ export async function bootstrap(userId: string) { const policy = await voicePoli
 }
 catch (e) {
     catalogError = e instanceof VoiceError ? e.code : "CATALOG_UNAVAILABLE";
-} return { access, policy: { enabled: policy.enabled, version: policy.version, maxCharacters: policy.maxCharacters, maxDurationSeconds: effectivePolicy(policy, trialLeft > 0).maxDurationSeconds, creditsPerInterval: policy.creditsPerInterval, billingInterval: policy.billingInterval, allowedModels: policy.allowedModels, allowedVoices: policy.allowedVoices }, catalog, catalogError, presets: await presetsFor(userId), credits: await getAvailableCredits(userId), projects: await prisma.voiceStudioProject.findMany({ where: { ...await voiceScope(userId), deletedAt: null }, orderBy: { updatedAt: "desc" }, take: 100 }) }; }
+} return { access, policy: { enabled: policy.enabled, version: policy.version, maxCharacters: policy.maxCharacters, maxDurationSeconds: effectivePolicy(policy, trialLeft > 0).maxDurationSeconds, trialFree: policy.trialFree, creditsPerInterval: policy.creditsPerInterval, billingInterval: policy.billingInterval, allowedModels: policy.allowedModels, allowedVoices: policy.allowedVoices }, catalog, catalogError, presets: await presetsFor(userId), credits: await getAvailableCredits(userId), projects: await prisma.voiceStudioProject.findMany({ where: { ...await voiceScope(userId), deletedAt: null }, orderBy: { updatedAt: "desc" }, take: 100 }) }; }
 export async function saveProject(userId: string, input: {
     id?: string;
     name: string;
@@ -76,9 +76,8 @@ export async function enqueueSpeech(userId: string, input: GenerationInput) {
         throw new VoiceError("PRIVATE_STORAGE_REQUIRED", 503);
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { role: true, plan: true, planExpiry: true } });
     const planOk = planAllowed(user, basePolicy);
-    // Outside allowedPlans only a configured trial sample is possible; it is re-checked inside the transaction.
-    if (!planOk && trialRemaining(false, basePolicy, await trialSamplesUsed(prisma, userId)) < 1)
-        throw new VoiceError("PLAN_REQUIRED", 403);
+    // The locked check below follows idempotency lookup, so retrying the second
+    // sample still returns its job after the allowance has been consumed.
     const policy = effectivePolicy(basePolicy, !planOk);
     const project = await ownedProject(userId, input.projectId);
     if (project.archivedAt)
@@ -97,8 +96,10 @@ export async function enqueueSpeech(userId: string, input: GenerationInput) {
     const segments = splitProject(project.text, project.language, policy.maxDurationSeconds, model.maxCharacters), text = segments[input.segmentIndex];
     if (!text)
         throw new VoiceError("INVALID_SEGMENT", 400);
-    const inputHash = createHash("sha256").update(JSON.stringify({ text, voice: voice.id, model: model.id, language: project.language, settings, segment: input.segmentIndex, project: project.id })).digest("hex"), id = randomUUID(), reserved = creditsFor(policy.maxDurationSeconds, policy);
+    const inputHash = createHash("sha256").update(JSON.stringify({ text, voice: voice.id, model: model.id, language: project.language, settings, segment: input.segmentIndex, project: project.id })).digest("hex"), id = randomUUID(), reserved = !planOk && policy.trialFree ? 0 : creditsFor(policy.maxDurationSeconds, policy);
     return prisma.$transaction(async (tx) => {
+        // Acquire SQLite's write lock before checking the shared lifetime allowance.
+        await tx.user.update({where:{id:userId},data:{credits:{increment:0}}});
         const previous = await tx.voiceStudioGeneration.findUnique({ where: { userId_idempotencyKey: { userId, idempotencyKey: input.idempotencyKey } } });
         if (previous) {
             if (previous.inputHash !== inputHash)
@@ -116,10 +117,10 @@ export async function enqueueSpeech(userId: string, input: GenerationInput) {
             throw new VoiceError("TOO_MANY_PENDING_JOBS", 429);
         if (await tx.voiceStudioGeneration.count({ where: { userId, createdAt: { gte: new Date(Date.now() - 86400000) } } }) >= policy.dailyJobs)
             throw new VoiceError("DAILY_QUOTA_REACHED", 429);
-        const reservation = await reserveLoggedCredits(tx, userId, reserved, { type: "voice_studio", provider: "elevenlabs", model: model.id, requestId: `voice:${id}:reserve`, metadata: { generationId: id, pricingVersion: policy.version, kind: "RESERVATION", trial: !planOk } });
+        const reservation = reserved === 0 ? {payerTeamId: null, mirroredAi: 0, usageLogId: (await tx.usageLog.create({data:{userId,type:"voice_studio_trial",credits:0,requestId:`voice:${id}:reserve`,metadata:JSON.stringify({generationId:id,trial:true})}})).id} : await reserveLoggedCredits(tx, userId, reserved, { type: "voice_studio", provider: "elevenlabs", model: model.id, requestId: `voice:${id}:reserve`, metadata: { generationId: id, pricingVersion: policy.version, kind: "RESERVATION", trial: !planOk } });
         if (!reservation)
             throw new VoiceError("INSUFFICIENT_CREDITS", 402);
-        return tx.voiceStudioGeneration.create({ data: { id, userId, businessId: project.businessId, projectId: project.id, idempotencyKey: input.idempotencyKey, inputHash, text, graphemes: graphemes(text), providerCharacters: Array.from(text).length, segmentIndex: input.segmentIndex, language: project.language, voiceId: voice.id, modelId: model.id, voiceSettings: JSON.stringify(settings), pricingSnapshot: JSON.stringify(policy), estimatedSeconds: estimatedSeconds(text, project.language), reservedCredits: reserved, ...reservation } });
+        return tx.voiceStudioGeneration.create({ data: { id, userId, businessId: project.businessId, projectId: project.id, idempotencyKey: input.idempotencyKey, inputHash, text, graphemes: graphemes(text), providerCharacters: Array.from(text).length, segmentIndex: input.segmentIndex, language: project.language, voiceId: voice.id, modelId: model.id, voiceSettings: JSON.stringify(settings), pricingSnapshot: JSON.stringify({...policy, trialSample: !planOk}), estimatedSeconds: estimatedSeconds(text, project.language), reservedCredits: reserved, ...reservation } });
     });
 }
 /** Exactly one final transition owns settlement; all ledger rows are append-only. */
@@ -141,7 +142,8 @@ export async function finishGeneration(id: string, status: "READY" | "FAILED" | 
         const policy = JSON.parse(row.pricingSnapshot) as VoicePolicy;
         if (status === "READY" && (!details.storageKey || !details.durationMs || details.durationMs > policy.maxDurationSeconds * 1000))
             throw new VoiceError("INVALID_FINAL_AUDIO");
-        const charged = status === "READY" ? creditsFor(details.durationMs! / 1000, policy) : 0;
+        const snapshot = JSON.parse(row.pricingSnapshot) as VoicePolicy & {trialSample?: boolean};
+        const charged = status === "READY" && !(snapshot.trialSample && snapshot.trialFree) ? creditsFor(details.durationMs! / 1000, policy) : 0;
         if (charged > row.reservedCredits)
             throw new VoiceError("RESERVATION_EXCEEDED");
         const changed = await tx.voiceStudioGeneration.updateMany({ where: { id, status: row.status }, data: { status, chargedCredits: charged, refundedCredits: row.reservedCredits - charged, durationMs: details.durationMs, storageKey: details.storageKey, bytes: details.bytes, waveform: details.waveform ? JSON.stringify(details.waveform) : undefined, errorCode: details.errorCode, completedAt: new Date(), expiresAt: status === "READY" ? new Date(Date.now() + policy.retentionDays * 86400000) : null } });

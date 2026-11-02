@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { Settings, Save, Globe, Bell, Shield, Palette, DollarSign, FileText, RefreshCw, ToggleRight } from "lucide-react";
 import toast from "react-hot-toast";
 import { PAYMENT_ACCOUNTS } from "@/lib/payment/accounts";
+import {sectionSettings} from '@/lib/admin/settingsForm';
 import UiThemeSettings from "@/components/admin/UiThemeSettings";
 
 const SECTIONS = [
@@ -35,7 +36,7 @@ const SECTIONS = [
   {
     id: "language", label: "زبان و محلی‌سازی", icon: Globe,
     fields: [
-      { key: "default_language", label: "زبان پیش‌فرض سایت", type: "select", default: "fa", options: ["fa", "en", "de"] },
+      { key: "default_language", label: "زبان پیش‌فرض سایت", type: "select", default: "fa", options: ["fa", "en", "de", "tr"] },
       { key: "calendar_type", label: "نوع تقویم", type: "select", default: "jalali", options: ["jalali", "gregorian"] },
     ],
   },
@@ -146,7 +147,7 @@ export default function AdminSettingsPage() {
     fetch("/api/admin/settings", { credentials: "include" })
       .then(r => r.json())
       .then(data => {
-        if (data.settings) setValues(prev => ({ ...prev, ...data.settings }));
+        if (data.settings) setValues(prev => ({ ...prev, ...Object.fromEntries(SECTIONS.flatMap(section => section.fields).filter(field => typeof data.settings[field.key] === "string").map(field => [field.key, data.settings[field.key]])) }));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -159,7 +160,7 @@ export default function AdminSettingsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ settings: values }),
+        body: JSON.stringify({ settings: sectionSettings(SECTIONS.find(section => section.id === activeSection)!.fields,values) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
