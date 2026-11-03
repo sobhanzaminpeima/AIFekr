@@ -1,4 +1,6 @@
+import { recordLedger } from "@/lib/credits/ledger";
 import { prisma } from "@/lib/db/prisma";
+import type { Prisma } from "@prisma/client";
 
 /**
  * Centralizes admin-privileged mutations of arbitrary users. Every function here
@@ -53,7 +55,39 @@ export class PhoneAlreadyInUseError extends Error {
   }
 }
 
-export async function updateUserAsAdmin(userId: string, body: Record<string, unknown>) {
+/** Admin credit changes need a short written reason; it goes to the credit ledger and the audit log. */
+function creditReason(value: unknown): string {
+  const reason = typeof value === "string" ? value.trim() : "";
+  if (reason.length < 3 || reason.length > 500) throw new AdminValidationError("CREDIT_REASON_REQUIRED");
+  return reason;
+}
+
+/**
+ * Applies an admin credit change as a delta in one guarded statement, so a
+ * spend that lands at the same moment is never overwritten (an absolute
+ * "set to N" computed from a stale page could erase it). A legacy absolute
+ * value is accepted only if the balance is still the one it was based on.
+ */
+async function applyAdminCredits(tx: Prisma.TransactionClient, userId: string, actorId: string | null, body: Record<string, unknown>) {
+  let delta: number, where: Prisma.UserWhereInput = { id: userId };
+  if ("creditDelta" in body) {
+    delta = Number(body.creditDelta);
+    if (!Number.isSafeInteger(delta) || delta === 0 || Math.abs(delta) > 100_000_000) throw new AdminValidationError("INVALID_CREDIT_DELTA");
+    if (delta < 0) where = { ...where, credits: { gte: -delta } };
+  } else {
+    const target = Number(body.credits);
+    const current = (await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { credits: true } })).credits;
+    delta = target - current;
+    if (!delta) return;
+    where = { ...where, credits: current };
+  }
+  const reason = creditReason(body.creditReason ?? ("creditDelta" in body ? undefined : "Balance set in admin panel"));
+  const { count } = await tx.user.updateMany({ where, data: { credits: { increment: delta } } });
+  if (!count) throw new AdminValidationError(delta < 0 ? "INSUFFICIENT_CREDITS" : "CREDITS_CHANGED");
+  await recordLedger(tx, { userId, delta, type: "ADMIN_ADJUSTMENT", actorId, reason });
+}
+
+export async function updateUserAsAdmin(userId: string, body: Record<string, unknown>, actorId: string | null = null) {
   if(body.accountType!==undefined&&!["PERSONAL","STUDENT","BUSINESS"].includes(String(body.accountType)))throw new Error("INVALID_ACCOUNT_TYPE");
   const data: Record<string, unknown> = {};
   for (const key of ADMIN_EDITABLE_USER_FIELDS) {
@@ -87,7 +121,12 @@ export async function updateUserAsAdmin(userId: string, body: Record<string, unk
       data.name = [first, last].filter((s) => s && s.trim()).join(" ") || undefined;
     }
   }
-  return prisma.user.update({ where: { id: userId }, data });
+  const rest = { ...data };
+  delete rest.credits;
+  return prisma.$transaction(async (tx) => {
+    if ("credits" in body || "creditDelta" in body) await applyAdminCredits(tx, userId, actorId, body);
+    return tx.user.update({ where: { id: userId }, data: rest });
+  });
 }
 
 export function deleteUserAsAdmin(userId: string) {

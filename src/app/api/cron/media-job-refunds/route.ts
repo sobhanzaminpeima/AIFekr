@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
           ? await prisma.generatedVideo.updateMany({ where: { id: row.id, refunded: false }, data: { refunded: true } })
           : await prisma.generatedMusic.updateMany({ where: { id: row.id, refunded: false }, data: { refunded: true } });
         if (!claim.count) continue;
-        await refundCredits(row.userId, row.credits);
+        await refundCredits(row.userId, row.credits, undefined, { module: kind, operationId: `media-refund:${kind}:${row.id}` });
         refunded += 1;
       } catch (error) {
         await logError({ source: "/api/cron/media-job-refunds", error, userId: row.userId });

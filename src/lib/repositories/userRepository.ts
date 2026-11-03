@@ -1,3 +1,4 @@
+import { recordLedger } from "@/lib/credits/ledger";
 import { prisma } from "@/lib/db/prisma";
 import type { Prisma } from "@prisma/client";
 
@@ -19,8 +20,13 @@ export function findUserByReferralCode(code: string) {
   return prisma.$queryRaw<{id:string}[]>`SELECT id FROM User WHERE lower(referralCode) = ${code.toLowerCase()} UNION SELECT userId AS id FROM ReferralCodeAlias WHERE lower(code) = ${code.toLowerCase()}`.then(rows => rows.length === 1 ? rows[0] : null);
 }
 
+/** Creates an account and records its starting credits (explicit or the column default) in the credit ledger. */
 export function createUser(data: Prisma.UserCreateInput) {
-  return prisma.user.create({ data });
+  return prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({ data });
+    await recordLedger(tx, { userId: user.id, delta: user.credits, type: "SIGNUP_GRANT", operationId: `signup:${user.id}` });
+    return user;
+  });
 }
 
 export function updatePasswordHash(userId: string, passwordHash: string) {

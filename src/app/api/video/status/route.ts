@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
     });
     if (count > 0) {
       const video = await prisma.generatedVideo.findUnique({ where: { id: videoId }, select: { credits: true } });
-      if (video) await refundCredits(user.id, video.credits);
+      if (video) await refundCredits(user.id, video.credits, undefined, { module: "video" });
     }
   }
 

@@ -26,7 +26,8 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   const history=await prisma.auditLog.findMany({where:{targetId:params.id},orderBy:{createdAt:"desc"},take:100,select:{id:true,action:true,createdAt:true,actorId:true}});
   const events=[...history,{id:"registered",action:"account_registered",createdAt:user.createdAt,actorId:user.id},...(user.lastLoginAt?[{id:"last-login",action:"last_login",createdAt:user.lastLoginAt,actorId:user.id}]:[]),...user.payments.map(p=>({id:`payment-${p.id}`,action:`payment_${p.status.toLowerCase()}`,createdAt:p.createdAt,actorId:user.id})),...user.usageLogs.map(u=>({id:`usage-${u.id}`,action:`usage_${u.type}`,createdAt:u.createdAt,actorId:user.id}))].sort((a,b)=>b.createdAt.getTime()-a.createdAt.getTime());
   const safeUser={...user,passwordHash:undefined};
-  return NextResponse.json({ user:safeUser,history:events });
+  const creditLedger=await prisma.creditLedgerEntry.findMany({where:{userId:params.id},orderBy:{createdAt:"desc"},take:50,select:{id:true,teamId:true,delta:true,balanceAfter:true,type:true,module:true,provider:true,model:true,paymentId:true,actorId:true,reason:true,createdAt:true}});
+  return NextResponse.json({ user:safeUser,history:events,creditLedger });
 }
 
 export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -54,9 +55,9 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
   }
   try {
     const before = await assertAdminMayManage(admin, params.id, body);
-    const user = await updateUserAsAdmin(params.id, body);
+    const user = await updateUserAsAdmin(params.id, body, admin.id);
     // Role and credit changes record old -> new so they can be reconciled later.
-    const changes = { ...("role" in body && body.role !== before.role ? { role: { from: before.role, to: body.role } } : {}), ...("credits" in body && body.credits !== before.credits ? { credits: { from: before.credits, to: body.credits } } : {}) };
+    const changes = { ...("role" in body && body.role !== before.role ? { role: { from: before.role, to: body.role } } : {}), ...("credits" in body && body.credits !== before.credits ? { credits: { from: before.credits, to: body.credits } } : {}), ...("creditDelta" in body ? { creditDelta: body.creditDelta, creditReason: body.creditReason } : {}) };
     await prisma.auditLog.create({data:{actorId:admin.id,action:"account_updated",targetId:params.id,metadata:JSON.stringify({fields:Object.keys(body).filter(k=>!["password","passwordHash"].includes(k)),changes})}});
     return NextResponse.json({ user:{id:user.id} });
   } catch (err) {
@@ -64,7 +65,7 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
       return NextResponse.json({ error: err.message }, { status: 409 });
     }
     if (err instanceof AdminPermissionError) return NextResponse.json({ error: "Only a super admin can do this", code: err.message }, { status: 403 });
-    if (err instanceof AdminValidationError) return NextResponse.json({ error: "Invalid value", code: err.message }, { status: err.message === "USER_NOT_FOUND" ? 404 : 400 });
+    if (err instanceof AdminValidationError) return NextResponse.json({ error: "Invalid value", code: err.message }, { status: err.message === "USER_NOT_FOUND" ? 404 : err.message === "CREDITS_CHANGED" ? 409 : 400 });
     throw err;
   }
 }

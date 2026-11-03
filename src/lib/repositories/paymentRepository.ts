@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { recordLedger } from "@/lib/credits/ledger";
 import type { Payment, Prisma, User } from "@prisma/client";
 import { STUDENT_PLAN_CODE, STUDENT_MONTHLY_CODE, isStudentIntroPlan, STUDENT_OFFER } from "@/lib/plans/studentOffer";
 
@@ -27,6 +28,11 @@ export function markPaymentAuthority(id: string, authority: string | undefined) 
 
 export function markPaymentFailed(id: string) {
   return prisma.payment.update({ where: { id }, data: { status: "FAILED" } });
+}
+
+/** Ledger row for the credits a payment granted; the operation id makes a second grant for the same payment fail. */
+function ledgerPurchase(tx: Prisma.TransactionClient, payment: Payment, credits: number | undefined, teamId: string | null = null) {
+  return recordLedger(tx, { userId: payment.userId, teamId, delta: credits || 0, type: "PURCHASE", operationId: `payment:${payment.id}`, paymentId: payment.id, module: payment.plan });
 }
 
 // Wallet discount is only deducted on success (see payment/create), and only
@@ -65,6 +71,7 @@ export async function activatePlanForPayment(
         return current.planExpiry || expiry;
       }
       await tx.user.update({ where: { id: payment.userId }, data: { plan: payment.plan, accountType: "STUDENT", planExpiry: expiry, credits: { increment: planInfo?.credits || 0 }, trialLimited: false } });
+      await ledgerPurchase(tx, payment, planInfo?.credits);
       const education=await tx.industryPack.findUnique({where:{slug:"university"},select:{id:true}});if(!education)throw new Error("STUDENT_INDUSTRY_NOT_CONFIGURED");await tx.user.update({where:{id:payment.userId},data:{industryPackId:education.id}});
       await tx.userModuleOverride.upsert({ where: { userId_moduleKey: { userId: payment.userId, moduleKey: "student.workspace" } }, create: { userId: payment.userId, moduleKey: "student.workspace", enabled: true }, update: { enabled: true } });
       await debitWalletDiscount(tx, payment);
@@ -114,6 +121,7 @@ export async function activatePlanForPayment(
     // credits increment. `planInfo.credits` here is the tier's creditsAmount.
     } else if (payment.plan.startsWith("CREDITS_")) {
       await tx.user.update({ where: { id: payment.userId }, data: { credits: { increment: planInfo?.credits || 0 } } });
+      await ledgerPurchase(tx, payment, planInfo?.credits);
     // Voice Agent add-on — must never touch/overwrite the user's AI-usage `plan`.
     } else if (payment.plan.startsWith("VOICE_")) {
       await tx.user.update({ where: { id: payment.userId }, data: { voicePlan: "ACTIVE", voicePlanExpiry: expiry } });
@@ -126,8 +134,9 @@ export async function activatePlanForPayment(
           where: { id: existingTeam.id },
           data: { credits: { increment: planInfo?.credits || 0 }, planExpiry: expiry, maxSeats: Math.max(existingTeam.maxSeats, seatLimit) },
         });
+        await ledgerPurchase(tx, payment, planInfo?.credits, existingTeam.id);
       } else {
-        await tx.team.create({
+        const team = await tx.team.create({
           data: {
             name: `تیم ${payment.user.name || "من"}`,
             ownerId: payment.userId,
@@ -137,6 +146,7 @@ export async function activatePlanForPayment(
             members: { create: { userId: payment.userId, role: "OWNER" } },
           },
         });
+        await ledgerPurchase(tx, payment, planInfo?.credits, team.id);
       }
     } else {
       await tx.user.update({
@@ -146,6 +156,7 @@ export async function activatePlanForPayment(
         // restored" -- see activate-trial/route.ts for where it's first set.
         data: { plan: payment.plan, credits: { increment: planInfo?.credits || 0 }, planExpiry: expiry, trialLimited: false },
       });
+      await ledgerPurchase(tx, payment, planInfo?.credits);
     }
 
     await debitWalletDiscount(tx, payment);

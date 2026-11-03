@@ -199,16 +199,18 @@ export default function AdminUsersPage() {
   }
 
   async function addCredits(userId: string) {
-    const amount = prompt("تعداد اعتبار برای افزودن:");
-    if (!amount || isNaN(parseInt(amount))) return;
-    const user = users.find((u) => u.id === userId);
-    if (!user) return;
-    await fetch(`/api/admin/users/${userId}`, {
+    const amount = prompt("تعداد اعتبار برای افزودن (برای کم کردن، عدد منفی):");
+    const delta = Number(amount);
+    if (!amount || !Number.isSafeInteger(delta) || delta === 0) return;
+    const reason = prompt("دلیل این تغییر (در دفتر کل کردیت ثبت می‌شود):");
+    if (!reason || reason.trim().length < 3) { toast.error("ثبت دلیل برای تغییر اعتبار الزامی است"); return; }
+    const res = await fetch(`/api/admin/users/${userId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ credits: user.credits + parseInt(amount) }),
+      body: JSON.stringify({ creditDelta: delta, creditReason: reason.trim() }),
     });
-    toast.success("اعتبار افزوده شد");
+    if (!res.ok) { toast.error("تغییر اعتبار انجام نشد"); return; }
+    toast.success(delta > 0 ? "اعتبار افزوده شد" : "اعتبار کم شد");
     fetchUsers();
     setActionUserId(null);
   }

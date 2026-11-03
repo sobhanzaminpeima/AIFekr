@@ -1,6 +1,7 @@
 import {featureAccessExpired,teamFeatureExpiry} from "@/lib/subscriptions/access";
 import { prisma } from "@/lib/db/prisma";
 import type { Prisma } from "@prisma/client";
+import { recordLedger, type LedgerEntry } from "@/lib/credits/ledger";
 
 /**
  * Every credit-costing operation (chat, image, video, music) should check
@@ -32,11 +33,12 @@ export async function reserveLoggedCredits(tx: Prisma.TransactionClient, userId:
   const wallet = membership
     ? await tx.team.findUniqueOrThrow({ where: { id: membership.teamId }, select: { aiCredits: true, mediaCredits: true, voiceMinutes: true } })
     : await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { aiCredits: true, mediaCredits: true, voiceMinutes: true } });
-  if (!await deductCredits(userId, amount, tx,payer)) return null;
+  if (!await debit(userId, amount, tx,payer)) return null;
   // Keep the existing mirroredAi DTO name for course jobs; it snapshots the selected wallet.
   const mirroredAi = Math.min(amount, Math.max(0, wallet[walletField]));
   await mirrorWalletSpend(userId, amount, walletField, tx,payer);
   const log = await tx.usageLog.create({ data: { userId, type: usage.type, credits: amount, requestId: usage.requestId, model: usage.model ?? undefined, provider: usage.provider ?? undefined, mediaSeconds: usage.mediaSeconds ?? undefined, metadata: JSON.stringify({ ...usage.metadata, payerTeamId: membership?.teamId || null }) } });
+  await recordLedger(tx, { userId, teamId: membership?.teamId, delta: -amount, type: "SPEND", operationId: `usage:${log.id}`, usageLogId: log.id, ...usageLedger(usage) });
   return { usageLogId: log.id, payerTeamId: membership?.teamId || null, mirroredAi };
 }
 
@@ -46,6 +48,7 @@ export async function refundLoggedReservation(tx: Prisma.TransactionClient, rese
   if (reservation.payerTeamId) await tx.team.update({ where: { id: reservation.payerTeamId }, data });
   else await tx.user.update({ where: { id: reservation.userId }, data });
   await tx.usageLog.update({ where: { id: reservation.usageLogId }, data: { metadata: JSON.stringify({ ...metadata, status: "REFUNDED" }) } });
+  await recordLedger(tx, { userId: reservation.userId, teamId: reservation.payerTeamId, delta: reservation.credits, type: "REFUND", usageLogId: reservation.usageLogId, module: usageType });
   await tx.usageLog.create({ data: { userId: reservation.userId, type: usageType, credits: -reservation.credits, requestId: `${reservation.usageLogId}:refund`, metadata: JSON.stringify({ ...metadata, status: "REFUNDED", originalTransactionId: reservation.usageLogId, creditDelta: reservation.credits }) } });
 }
 
@@ -56,6 +59,7 @@ export async function releaseLoggedCredits(tx: Prisma.TransactionClient, reserva
   const data={credits:{increment:amount},aiCredits:{increment:Math.min(amount,reservation.mirroredAi)}};
   if(reservation.payerTeamId)await tx.team.update({where:{id:reservation.payerTeamId},data});
   else await tx.user.update({where:{id:reservation.userId},data});
+  await recordLedger(tx,{userId:reservation.userId,teamId:reservation.payerTeamId,delta:amount,type:"REFUND",usageLogId:reservation.usageLogId,module:"voice_studio"});
   await tx.usageLog.create({data:{userId:reservation.userId,type:"voice_studio_refund",credits:-amount,requestId,metadata:JSON.stringify({...metadata,originalTransactionId:reservation.usageLogId,payerTeamId:reservation.payerTeamId})}});
 }
 
@@ -136,39 +140,70 @@ export async function getWalletBalances(userId: string, db: Db = prisma): Promis
 }
 
 /**
- * Atomically deducts `amount` if — and only if — the balance covers it.
- * Returns false when it does not; callers must treat false as "payment
- * declined" and not perform the paid work.
+ * Ledger row for a balance change made through `db`. Inside a caller's
+ * transaction it is atomic with the change (a failure rolls both back).
+ * Outside one, the change has already committed as a single guarded
+ * statement -- wrapping these in an interactive SQLite transaction made
+ * concurrent charges queue on the write lock and time out -- so a failed
+ * write is logged and left to the ledger reconciliation (/api/admin/credit-ledger)
+ * rather than failing a charge or refund that already happened.
  */
-export async function deductCredits(userId: string, amount: number, db: Db = prisma,payer:CreditPayer="DEFAULT"): Promise<boolean> {
-  if (amount <= 0) return true;
+async function ledgerFor(db: Db, entry: LedgerEntry): Promise<void> {
+  if (db !== prisma) return recordLedger(db, entry);
+  try {
+    await recordLedger(db, entry);
+  } catch (error) {
+    const { logError } = await import("@/lib/logging/errorLog");
+    await logError({ source: "credit-ledger", error, userId: entry.userId }).catch(() => {});
+  }
+}
 
+/** The guarded debit itself; returns the paying wallet (team id or null for the user's own) or false. */
+async function debit(userId: string, amount: number, db: Db, payer: CreditPayer): Promise<{ teamId: string | null } | false> {
   const membership = payer!=="DEFAULT"?null:await db.teamMember.findUnique({ where: { userId } });
   if (membership) {
     const { count } = await db.team.updateMany({
       where: { id: membership.teamId, credits: { gte: amount } },
       data: { credits: { decrement: amount } },
     });
-    return count > 0;
+    return count > 0 && { teamId: membership.teamId };
   }
 
   const { count } = await db.user.updateMany({
     where: { id: userId, credits: { gte: amount } },
     data: { credits: { decrement: amount } },
   });
-  return count > 0;
+  return count > 0 && { teamId: null };
+}
+
+/** Ledger fields describing a usage record (module, provider, model). */
+function usageLedger(usage: UsageRecord): Pick<LedgerEntry, "module" | "provider" | "model"> {
+  const feature = usage.metadata?.feature;
+  return { module: typeof feature === "string" ? feature : usage.type, provider: usage.provider ?? null, model: usage.model ?? null };
+}
+
+type LedgerDetails = Omit<LedgerEntry, "userId" | "teamId" | "delta" | "type">;
+
+/**
+ * Atomically deducts `amount` if — and only if — the balance covers it, and
+ * records it in the credit ledger. Returns false when it does not; callers
+ * must treat false as "payment declined" and not perform the paid work.
+ */
+export async function deductCredits(userId: string, amount: number, db: Db = prisma,payer:CreditPayer="DEFAULT",details:LedgerDetails={}): Promise<boolean> {
+  if (amount <= 0) return true;
+  const wallet = await debit(userId, amount, db, payer);
+  if (!wallet) return false;
+  await ledgerFor(db, { ...details, userId, teamId: wallet.teamId, delta: -amount, type: "SPEND" });
+  return true;
 }
 
 /** Reverses a deductCredits() call — used when a job charged up-front (e.g. async video generation) ends up failing. */
-export async function refundCredits(userId: string, amount: number, db: Db = prisma): Promise<void> {
+export async function refundCredits(userId: string, amount: number, db: Db = prisma, details: LedgerDetails = {}): Promise<void> {
   if (amount <= 0) return;
-
-  const membership = await db.teamMember.findUnique({ where: { userId } });
-  if (membership) {
-    await db.team.update({ where: { id: membership.teamId }, data: { credits: { increment: amount } } });
-    return;
-  }
-  await db.user.update({ where: { id: userId }, data: { credits: { increment: amount } } });
+  const teamId = (await db.teamMember.findUnique({ where: { userId } }))?.teamId ?? null;
+  if (teamId) await db.team.update({ where: { id: teamId }, data: { credits: { increment: amount } } });
+  else await db.user.update({ where: { id: userId }, data: { credits: { increment: amount } } });
+  await ledgerFor(db, { ...details, userId, teamId, delta: amount, type: "REFUND" });
 }
 
 export interface UsageRecord {
@@ -225,12 +260,12 @@ export async function chargeAndLog(userId: string, amount: number, usage: UsageR
   }
 
   return prisma.$transaction(async (tx) => {
-    const charged = await deductCredits(userId, amount, tx,payer);
-    if (!charged) return false;
+    const wallet = await debit(userId, amount, tx,payer);
+    if (!wallet) return false;
 
     await mirrorWalletSpend(userId, amount, walletFieldFor(usage.type), tx,payer);
 
-    await tx.usageLog.create({
+    const log = await tx.usageLog.create({
       data: {
         userId,
         type: usage.type,
@@ -249,6 +284,7 @@ export async function chargeAndLog(userId: string, amount: number, usage: UsageR
         requestId: usage.requestId ?? undefined,
       },
     });
+    await recordLedger(tx, { userId, teamId: wallet.teamId, delta: -amount, type: "SPEND", operationId: `usage:${log.id}`, usageLogId: log.id, ...usageLedger(usage) });
     return true;
   });
 }

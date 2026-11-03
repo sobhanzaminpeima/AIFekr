@@ -1,3 +1,4 @@
+import { recordLedger } from "@/lib/credits/ledger";
 import { prisma } from "@/lib/db/prisma";
 import type { VoiceAgent, Prisma } from "@prisma/client";
 
@@ -26,7 +27,9 @@ export async function reserveVoiceCall(agent: VoiceAgent, callId: string | null,
       ? await tx.team.updateMany({ where: { id: membership.teamId, credits: { gte: amount } }, data: { credits: { decrement: amount } } })
       : await tx.user.updateMany({ where: { id: agent.userId, credits: { gte: amount } }, data: { credits: { decrement: amount } } });
     if (!debited.count) throw new Error("INSUFFICIENT_VOICE_CREDITS");
-    return tx.voiceCallLog.create({ data: { agentId: agent.id, userId: agent.userId, businessId: agent.businessId, vapiCallId: callId, reservedCredits: amount, creditsPerMinute: rate, creditTeamId: membership?.teamId, direction, contactId, callerPhone } });
+    const call = await tx.voiceCallLog.create({ data: { agentId: agent.id, userId: agent.userId, businessId: agent.businessId, vapiCallId: callId, reservedCredits: amount, creditsPerMinute: rate, creditTeamId: membership?.teamId, direction, contactId, callerPhone } });
+    await recordLedger(tx, { userId: agent.userId, teamId: membership?.teamId, delta: -amount, type: "SPEND", operationId: `voice-call:${call.id}:reserve`, module: "voice_agent", provider: "vapi" });
+    return call;
   });
 }
 
@@ -41,6 +44,7 @@ export async function settleVoiceCall(id: string, seconds: number, data: Prisma.
         ?await tx.team.updateMany({where:{id:call.creditTeamId,credits:{gte:additional}},data:{credits:{decrement:additional}}})
         :await tx.user.updateMany({where:{id:call.userId,credits:{gte:additional}},data:{credits:{decrement:additional}}});
       if(!paid.count)throw new Error("INSUFFICIENT_SETTLEMENT_CREDITS");
+      await recordLedger(tx,{userId:call.userId,teamId:call.creditTeamId,delta:-additional,type:"SPEND",operationId:`voice-call:${id}:settle`,module:"voice_agent",provider:"vapi"});
     }
     const claim = await tx.voiceCallLog.updateMany({ where: { id, billingStatus: "pending" }, data: { billingStatus: "settled", creditsCharged: charged } });
     if (!claim.count) return { fresh: false, call };
@@ -48,6 +52,7 @@ export async function settleVoiceCall(id: string, seconds: number, data: Prisma.
     if (refund) {
       if (call.creditTeamId) await tx.team.update({ where: { id: call.creditTeamId }, data: { credits: { increment: refund } } });
       else await tx.user.update({ where: { id: call.userId }, data: { credits: { increment: refund } } });
+      await recordLedger(tx, { userId: call.userId, teamId: call.creditTeamId, delta: refund, type: "REFUND", operationId: `voice-call:${id}:refund`, module: "voice_agent", provider: "vapi" });
     }
     if(seconds>0){
       if(call.creditTeamId){const t=await tx.team.findUniqueOrThrow({where:{id:call.creditTeamId}});await tx.team.update({where:{id:t.id},data:{voiceMinutes:Math.max(0,t.voiceMinutes-seconds/60)}});}

@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { createUser } from "@/lib/repositories/userRepository";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { signToken, signRefreshToken } from "@/lib/auth/jwt";
@@ -47,13 +48,11 @@ export async function POST(req: NextRequest) {
     let redirect: string | null = null;
 
     if (!user) {
-      user = await prisma.user.create({
-        data: {
-          phone,
-          credits: 100,
-          lastLoginAt: new Date(),
-          ...(entry==="chat"?{chatOnly:true,onboardingDone:true}:{}),
-        },
+      user = await createUser({
+        phone,
+        credits: 100,
+        lastLoginAt: new Date(),
+        ...(entry==="chat"?{chatOnly:true,onboardingDone:true}:{}),
       });
       if (!user.chatOnly) redirect = await onAccountCreated(user.id, req.cookies.get(ANON_COOKIE)?.value, requestedRedirect);
     } else {

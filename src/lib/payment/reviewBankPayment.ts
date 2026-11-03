@@ -1,3 +1,4 @@
+import { recordLedger } from "@/lib/credits/ledger";
 import {settleMarketOrder} from "@/lib/fitness/marketplace";
 import {grantReferralRewardInTransaction} from "@/lib/utils/referralWallet";
 import { isBusinessBundle, businessIncludesVoice } from "@/lib/plans/business";
@@ -24,35 +25,40 @@ async function settlePayment(id:string,review:{adminId?:string;approve:boolean;n
  if(!Number.isInteger(entitlement.credits)||entitlement.credits<0||!Number.isFinite(entitlement.days)||entitlement.days<=0)throw new Error("INVALID_ENTITLEMENT");
  const u=p.user;
  if(entitlement.quote?.bonus){const bonus=entitlement.quote.bonus;const reservation=await tx.billingPromotionRedemption.findUniqueOrThrow({where:{paymentId:p.id}});if(reservation.userId!==u.id||reservation.promotionId!==bonus.id)throw Error("INVALID_PROMOTION_RESERVATION");entitlement.days+=bonus.days;entitlement.credits+=bonus.credits;}
+ const purchase=(teamId:string|null=null)=>recordLedger(tx,{userId:u.id,teamId,delta:entitlement.credits,type:"PURCHASE",operationId:`payment:${p.id}`,paymentId:p.id,module:p.plan});
 
  if(entitlement.category==="CHAT_STARTER"){
  const expiry=new Date(Math.max(Date.now(),u.chatPlanExpiry?.getTime()||0)+entitlement.days*86400000);
  await tx.user.update({where:{id:u.id},data:{chatPlanExpiry:expiry,credits:{increment:entitlement.credits},aiCredits:{increment:entitlement.credits}}});
+ await purchase();
  await tx.auditLog.create({data:{actorId:adminId||u.id,action:"chat_starter.activated",targetId:p.id,metadata:JSON.stringify({credits:entitlement.credits,expiresAt:expiry})}});
  }else if(entitlement.category==="VIDEO_FACTORY"){
  const {videoLimitsSchema}=await import("@/lib/video-factory/packages");videoLimitsSchema.parse((entitlement.entitlements as {limits?:unknown})?.limits);
  await tx.user.update({where:{id:u.id},data:{trialLimited:false,credits:{increment:entitlement.credits},aiCredits:{increment:entitlement.credits}}});
+ await purchase();
  await tx.userModuleOverride.upsert({where:{userId_moduleKey:{userId:u.id,moduleKey:"video-factory"}},create:{userId:u.id,moduleKey:"video-factory",enabled:true},update:{enabled:true}});
  await tx.auditLog.create({data:{actorId:adminId||u.id,action:"video_factory.package_granted",targetId:p.id,metadata:JSON.stringify({credits:entitlement.credits,days:entitlement.days})}});
  }else if(entitlement.category==="FITNESS"){
- const profile=await tx.fitnessProfile.findUnique({where:{userId:u.id}});if(!profile)throw Error("FITNESS_ONBOARDING_REQUIRED");const expires=new Date(Math.max(Date.now(),profile.entitlementExpiry?.getTime()||0)+entitlement.days*86400000);await tx.fitnessProfile.update({where:{userId:u.id},data:{entitlementExpiry:expires}});await tx.user.update({where:{id:u.id},data:{credits:{increment:entitlement.credits},aiCredits:{increment:entitlement.credits},mediaCredits:{increment:entitlement.mediaCredits||0},voiceMinutes:{increment:entitlement.voiceMinutes||0}}});await tx.auditLog.create({data:{actorId:adminId||u.id,action:"fitness_subscription_activated",targetId:u.id,metadata:JSON.stringify({paymentId:p.id,expires})}});
+ const profile=await tx.fitnessProfile.findUnique({where:{userId:u.id}});if(!profile)throw Error("FITNESS_ONBOARDING_REQUIRED");const expires=new Date(Math.max(Date.now(),profile.entitlementExpiry?.getTime()||0)+entitlement.days*86400000);await tx.fitnessProfile.update({where:{userId:u.id},data:{entitlementExpiry:expires}});await tx.user.update({where:{id:u.id},data:{credits:{increment:entitlement.credits},aiCredits:{increment:entitlement.credits},mediaCredits:{increment:entitlement.mediaCredits||0},voiceMinutes:{increment:entitlement.voiceMinutes||0}}});await purchase();await tx.auditLog.create({data:{actorId:adminId||u.id,action:"fitness_subscription_activated",targetId:u.id,metadata:JSON.stringify({paymentId:p.id,expires})}});
  }else{
  if(entitlement.mediaCredits||entitlement.voiceMinutes)await tx.user.update({where:{id:u.id},data:{mediaCredits:{increment:entitlement.mediaCredits||0},voiceMinutes:{increment:entitlement.voiceMinutes||0}}});
  for(const key of entitlement.entitlements?.modules||[]){if(key==="fitness.workspace")continue;await tx.userModuleOverride.upsert({where:{userId_moduleKey:{userId:u.id,moduleKey:key}},create:{userId:u.id,moduleKey:key,enabled:true},update:{enabled:true}});}
  const bundle=isBusinessBundle(p.plan)&&entitlement.businessBundle===true;
  const oldExpiry=p.plan.startsWith("CRM_")?u.crmPlanExpiry:p.plan.startsWith("VOICE_")?u.voicePlanExpiry:u.planExpiry;
  const expiry=new Date(Math.max(Date.now(),oldExpiry?.getTime()||0)+entitlement.days*86400000);
- if(p.plan.startsWith("CREDITS_"))await tx.user.update({where:{id:u.id},data:{credits:{increment:entitlement.credits}}});
+ if(p.plan.startsWith("CREDITS_")){await tx.user.update({where:{id:u.id},data:{credits:{increment:entitlement.credits}}});await purchase();}
  else if(p.plan.startsWith("VOICE_"))await tx.user.update({where:{id:u.id},data:{voicePlan:"ACTIVE",voicePlanExpiry:expiry}});
  else {
  const separateVoice=bundle&&!businessIncludesVoice(p.plan)?await standaloneVoiceExpiry(tx,u.id):null;
  const crm=p.plan.startsWith("CRM_"),team=p.plan==="TEAM"||p.plan.startsWith("TEAM_")||p.plan==="CRM_TEAM";
  await tx.user.update({where:{id:u.id},data:crm?{crmPlan:p.plan==="CRM_TEAM"?"TEAM":"SOLO",crmPlanExpiry:expiry}:{plan:team?"TEAM":p.plan,...(p.plan.startsWith("STUDENT_")?{accountType:"STUDENT"}:bundle?{accountType:"BUSINESS"}:{}),planExpiry:expiry,trialLimited:false,...(bundle?{crmPlan:"TEAM",crmPlanExpiry:expiry,...(businessIncludesVoice(p.plan)?{voicePlan:"ACTIVE",voicePlanExpiry:expiry}:separateVoice&&u.voicePlan==="ACTIVE"?{voicePlan:"ACTIVE",voicePlanExpiry:separateVoice}:{voicePlan:"NONE",voicePlanExpiry:null})}:{}),...(!team?{credits:{increment:entitlement.credits}}:{})}});
+ if(!team)await purchase();
  if(team){
  const seats=crm?entitlement.crmSeatLimit||5:entitlement.teamSeatLimit||5;
  const existing=await tx.team.findUnique({where:{ownerId:u.id}});
  if(bundle&&existing&&await tx.teamMember.count({where:{teamId:existing.id}})>seats)throw new Error("TEAM_CAPACITY_EXCEEDED");
  const row=existing?await tx.team.update({where:{id:existing.id},data:{maxSeats:bundle?seats:Math.max(existing.maxSeats,seats),...(!crm?{credits:{increment:entitlement.credits},planExpiry:expiry}:{})}}):await tx.team.create({data:{ownerId:u.id,name:`Team ${u.name||"AIFekr"}`,maxSeats:seats,credits:crm?0:entitlement.credits,...(!crm?{planExpiry:expiry}:{})}});
+ if(!crm)await purchase(row.id);
  await tx.teamMember.upsert({where:{userId:u.id},create:{teamId:row.id,userId:u.id,role:"OWNER",...((crm||bundle)?{crmRole:"OWNER"}:{})},update:{...((crm||bundle)?{crmRole:"OWNER"}:{})}});
  }
  if(p.plan.startsWith("STUDENT_")){const education=await tx.industryPack.findUnique({where:{slug:"university"},select:{id:true}});if(!education)throw new Error("STUDENT_INDUSTRY_NOT_CONFIGURED");await tx.user.update({where:{id:u.id},data:{industryPackId:education.id}});await tx.userModuleOverride.upsert({where:{userId_moduleKey:{userId:u.id,moduleKey:"student.workspace"}},create:{userId:u.id,moduleKey:"student.workspace",enabled:true},update:{enabled:true}});}

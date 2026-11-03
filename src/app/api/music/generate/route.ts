@@ -83,7 +83,7 @@ async function handleMusicRequest(req: NextRequest) {
         finalUrl = await uploadToStorage(elevenLabsResult.buffer, key, elevenLabsResult.contentType);
       } catch (err) {
         await prisma.generatedMusic.updateMany({ where: { id: music.id, refunded: false }, data: { refunded: true } });
-        await refundCredits(user.id, creditCost);
+        await refundCredits(user.id, creditCost, undefined, { module: "music" });
         throw err;
       }
 
@@ -97,7 +97,7 @@ async function handleMusicRequest(req: NextRequest) {
     try {
       started = await generateMusic({ prompt, genre, duration });
     } catch (err) {
-      await refundCredits(user.id, creditCost);
+      await refundCredits(user.id, creditCost, undefined, { module: "music" });
       console.error("music generate start error:", err);
       return NextResponse.json({ error: "سرویس تولید موزیک در دسترس نیست. اعتبار شما برگشت داده شد." }, { status: 503 });
     }

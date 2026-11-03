@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     });
     if (count > 0) {
       const music = await prisma.generatedMusic.findUnique({ where: { id: musicId }, select: { credits: true } });
-      if (music) await refundCredits(user.id, music.credits);
+      if (music) await refundCredits(user.id, music.credits, undefined, { module: "music" });
     }
   }
 

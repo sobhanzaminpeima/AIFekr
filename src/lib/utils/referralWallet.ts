@@ -1,3 +1,4 @@
+import { recordLedger } from "@/lib/credits/ledger";
 import { prisma } from "@/lib/db/prisma";
 
 /**
@@ -46,7 +47,8 @@ export async function grantReferralRewardInTransaction(tx: import("@prisma/clien
  const commissionToman=Math.round(amount*percent/100);
  await tx.walletTransaction.create({data:{id:"referral-commission-"+paymentId,userId:referrerId,type:"commission",amount:commissionToman,relatedUserId:referredUserId,relatedPaymentId:paymentId,note:`${percent}% commission on successful purchase`}});
  await tx.user.update({where:{id:referrerId},data:{walletBalance:{increment:commissionToman}}});
- await tx.user.updateMany({where:{id:referredUserId,referralRewarded:false},data:{referralRewarded:true,credits:{increment:bonus}}});
+ const rewarded=await tx.user.updateMany({where:{id:referredUserId,referralRewarded:false},data:{referralRewarded:true,credits:{increment:bonus}}});
+ if(rewarded.count)await recordLedger(tx,{userId:referredUserId,delta:bonus,type:"REFERRAL_BONUS",operationId:`referral:${referredUserId}`,paymentId:paymentId??null,module:"referral"});
  return {commissionToman};
 }
 export async function grantReferralReward(referredUserId:string,referrerId:string,bonus:number,amount:number,paymentId?:string){return prisma.$transaction(tx=>grantReferralRewardInTransaction(tx,referredUserId,referrerId,bonus,amount,paymentId));}

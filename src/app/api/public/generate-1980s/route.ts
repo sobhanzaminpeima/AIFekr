@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
     // now — the image is already generated, so an exhausted house balance is
     // recorded and still served, but it can't silently overdraw.
     const charged = await prisma.$transaction(async (tx) => {
-      const ok = await deductCredits(adminId, creditCost, tx);
+      const ok = await deductCredits(adminId, creditCost, tx, "DEFAULT", { module: "public.generate-1980s" });
       if (!ok) return false;
       await tx.generatedImage.create({
         data: { userId: adminId, prompt: prompt.content, style: "realistic", url: finalUrls[0], sourceImageUrl: urls[0], credits: creditCost, kind: "public_share" },

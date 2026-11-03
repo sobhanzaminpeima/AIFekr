@@ -1197,6 +1197,43 @@ model AiModelPricing {
 /// Deliberately NOT a relation to User: an error is worth keeping after the
 /// account that hit it is deleted, and `userId` is often null anyway
 /// (unauthenticated requests, cron jobs).
+/// Append-only credit ledger: one row per change to a spendable balance
+/// (User.credits, or Team.credits for a team's pooled wallet), so every
+/// balance can be rebuilt from its history and checked against the stored
+/// number (see lib/credits/ledger.ts). UsageLog stays the usage/cost record;
+/// this is the money record. Deliberately NOT a relation to User or Team:
+/// financial history is kept after an account is deleted.
+model CreditLedgerEntry {
+  id             String   @id @default(cuid())
+  /// The account the change belongs to (who spent, bought or was granted).
+  userId         String
+  /// Set when the balance that changed was a team's pooled wallet.
+  teamId         String?
+  /// Signed credits: positive adds to the balance, negative takes from it.
+  delta          Int
+  /// The wallet's balance read right after the change, in the same transaction.
+  balanceAfter   Int?
+  /// OPENING_BALANCE | SIGNUP_GRANT | PURCHASE | REFERRAL_BONUS | ADMIN_ADJUSTMENT | SPEND | REFUND
+  type           String
+  /// Unique per business operation (e.g. "payment:<id>"), so a replayed grant fails instead of paying twice.
+  operationId    String?  @unique
+  module         String?
+  provider       String?
+  model          String?
+  pricingVersion String?
+  usageLogId     String?
+  paymentId      String?
+  /// Admin who made a manual change.
+  actorId        String?
+  reason         String?
+  metadata       String?
+  createdAt      DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([teamId, createdAt])
+  @@index([type, createdAt])
+}
+
 model ErrorLog {
   id        String   @id @default(cuid())
   /// "error" | "warn" -- severity, so the tab can show real failures first.

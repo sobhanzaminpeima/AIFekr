@@ -46,7 +46,7 @@ export async function reserveToolCredits(
     release: async () => {
       if (released) return;
       released = true;
-      await refundCredits(userId, credits);
+      await refundCredits(userId, credits, undefined, { module: feature });
     },
   };
 }
