@@ -10,7 +10,7 @@ import {
   Briefcase, TrendingUp, ShoppingCart, Calculator, Salad,
   GraduationCap, Stethoscope, Languages, ChefHat, Dumbbell, Plane, Code2,
   Plus, History, HeartPulse, Search, Share2, Globe, Factory, Users, Mic,
-  FolderOpen, Folder, FolderPlus, X, Check, MoreHorizontal, Trash2, ArrowLeft, Zap, Rocket, Gift, Sparkles, FlaskConical, Phone, Handshake, Magnet,
+  FolderOpen, Folder, FolderPlus, X, Check, MoreHorizontal, Trash2, ArrowLeft, Zap, Rocket, Gift, Sparkles, FlaskConical, Phone, Handshake, Magnet, AudioLines,
 } from "lucide-react";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
@@ -328,6 +328,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             menu answered 401 for them. */}
         {!fitnessOnly && <>
         <NavItem icon={MessageSquare} label={t.nav.chat} href="/chat" active={isActive("/chat")} />
+        <NavItem icon={AudioLines} label="AIFekr Live" href="/live" active={isActive("/live")} />
         {user?.studentWorkspaceEnabled !== false && <NavItem icon={GraduationCap} label={t.nav.studentWorkspace} href="/student" active={isActive("/student")} />}
 
         {/* Shown in the menu only while a payment needs the user; otherwise it is an icon in the footer. */}
