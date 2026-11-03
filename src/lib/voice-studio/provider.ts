@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { VOICE_EMOTIONS, supportsEmotion } from "./emotions";
 import { prisma } from "@/lib/db/prisma";
 import { voiceCredentials } from "./config";
 import { VoiceError } from "./domain";
@@ -78,7 +79,7 @@ export async function keepCatalogFresh(maxAgeMs = CATALOG_TTL - 4 * 3600000) { t
 export async function assertSpeechQuota(characters: number) { const quota = await readOnly("/user/subscription"); if (typeof quota.character_limit !== "number" || typeof quota.character_count !== "number")
     throw new VoiceError("QUOTA_UNAVAILABLE", 503); if (quota.character_limit - quota.character_count < characters)
     throw new VoiceError("PROVIDER_QUOTA_EXCEEDED", 429); }
-export const voiceSettingsSchema = z.object({ stability: z.number().min(0).max(1).optional(), similarity_boost: z.number().min(0).max(1).optional(), style: z.number().min(0).max(1).optional(), use_speaker_boost: z.boolean().optional() }).strict();
+export const voiceSettingsSchema = z.object({ stability: z.number().min(0).max(1).optional(), similarity_boost: z.number().min(0).max(1).optional(), style: z.number().min(0).max(1).optional(), use_speaker_boost: z.boolean().optional(), emotion: z.enum(VOICE_EMOTIONS).optional() }).strict();
 export async function synthesize(input: {
     text: string;
     voiceId: string;
@@ -89,7 +90,7 @@ export async function synthesize(input: {
     const { base, key } = await voiceCredentials();
     let response: Response;
     try {
-        response = await fetch(`${base}/text-to-speech/${encodeURIComponent(input.voiceId)}?output_format=mp3_44100_128`, { ...voiceTransport(),method: "POST", headers: { "xi-api-key": key, "Content-Type": "application/json" }, body: JSON.stringify({ text: input.text, model_id: input.modelId, language_code: input.language, voice_settings: input.settings }), signal: AbortSignal.timeout(65000), redirect: "error" });
+        response = await fetch(`${base}/text-to-speech/${encodeURIComponent(input.voiceId)}?output_format=mp3_44100_128`, { ...voiceTransport(),method: "POST", headers: { "xi-api-key": key, "Content-Type": "application/json" }, body: JSON.stringify({ text: input.settings.emotion && supportsEmotion(input.modelId) ? `[${input.settings.emotion}] ${input.text}` : input.text, model_id: input.modelId, language_code: input.language, voice_settings: { ...input.settings, emotion: undefined } }), signal: AbortSignal.timeout(65000), redirect: "error" });
     }
     catch {
         throw new SpeechFailure("PROVIDER_OUTCOME_UNKNOWN", false);

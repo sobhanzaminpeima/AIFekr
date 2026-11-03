@@ -427,8 +427,8 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             })}
           </>
         ) : (
-          /* No pack - show CTA */
-          <Link href="/industry"
+          /* No pack - show CTA: business packages inside the platform, not the public /industry page */
+          <Link href="/plans?category=BUSINESS"
             className="flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium transition-all mx-1 mb-1"
             style={{ background: "linear-gradient(135deg, rgba(234,88,12,0.15), rgba(249,115,22,0.1))", border: "1px solid rgba(234,88,12,0.3)", color: "#ea580c" }}>
             <Zap className="w-4 h-4 flex-shrink-0" />
@@ -694,7 +694,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             </span>
           </Link>
           {!hasPack && !fitnessOnly && (
-            <Link href="/industry" className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium"
+            <Link href="/plans?category=BUSINESS" className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium"
               style={{ background: "rgba(234,88,12,0.15)", color: "var(--primary)", border: "1px solid rgba(234,88,12,0.3)" }}>
               <Crown className="w-4 h-4 flex-shrink-0" />{tri(lang, "بسته‌های کسب‌وکار", "Business Plans", "Business-Pakete", "İşletme Planları")}
             </Link>

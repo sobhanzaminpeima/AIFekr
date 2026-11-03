@@ -1,3 +1,4 @@
+import { fitnessRequired } from "@/lib/fitness/required";
 import {NextRequest,NextResponse} from 'next/server';
 import {z} from 'zod';
 import {prisma} from '@/lib/db/prisma';
@@ -10,7 +11,7 @@ export const dynamic='force-dynamic';
 const COST=5;
 export async function POST(req:NextRequest){
  const user=await requireAuth(req);if(!user)return unauthorizedResponse(req);
- if(!await fitnessAccess(user.id,user.role))return NextResponse.json({error:'FITNESS_SUBSCRIPTION_REQUIRED'},{status:402});
+ if(!await fitnessAccess(user.id,user.role))return await fitnessRequired();
  const body=z.object({requestId:z.string().uuid(),language:z.enum(['fa','en','tr','de'])}).safeParse(await req.json());
  if(!body.success)return NextResponse.json({error:'INVALID_REQUEST'},{status:400});
  const id=`fit-ai-${user.id}-${body.data.requestId}`;
