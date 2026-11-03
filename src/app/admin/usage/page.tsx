@@ -40,6 +40,8 @@ const CREDIT_COST_LABELS: Record<string, string> = {
   music_60s: "موزیک — تا ۶۰ ثانیه",
   music_120s: "موزیک — تا ۱۲۰ ثانیه",
   tool: "ابزار عمومی",
+  live_turn: "AIFekr Live — هر نوبت گفتگو",
+  live_tts_100: "AIFekr Live — هر ۱۰۰ کاراکتر پاسخ صوتی",
 };
 
 const PLAN_LABELS: Record<string, string> = { FREE: "رایگان", BASIC: "پایه", PRO: "حرفه‌ای", TEAM: "تیمی" };

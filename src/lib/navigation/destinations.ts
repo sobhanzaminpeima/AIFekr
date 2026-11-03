@@ -3,6 +3,7 @@ import type { Lang } from "@/lib/i18n/server";
 export const destinations = [
   ["/home", "خانه", "Home", "Startseite", "Ana sayfa"],
   ["/chat", "گفتگوی هوشمند", "AI chat", "KI-Chat", "Yapay zekâ sohbeti"],
+  ["/live", "AIFekr Live — گفتگوی صوتی", "AIFekr Live — voice conversation", "AIFekr Live — Sprachgespräch", "AIFekr Live — sesli sohbet"],
   ["/agents", "ایجنت‌ها", "Agents", "Agenten", "Ajanlar"],
   ["/create", "ساخت محتوا", "Create", "Erstellen", "Oluştur"],
   ["/crm", "مدیریت مشتری", "CRM", "Kundenverwaltung", "Müşteri yönetimi"],

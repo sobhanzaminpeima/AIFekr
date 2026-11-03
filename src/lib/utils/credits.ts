@@ -16,6 +16,9 @@ export const CREDIT_COSTS = {
   music_60s: 18,
   music_120s: 30,
   tool: 2,
+  /** AIFekr Live, per spoken turn: transcription + answer, plus per started 100 characters read aloud (lib/live/service.ts). */
+  live_turn: 2,
+  live_tts_100: 7,
 } as const;
 
 export const PLAN_LIMITS = {

@@ -32,7 +32,9 @@ export const V2_ROUTES: readonly string[] = ["/", "/pricing", "/about", "/contac
   // Legal pages (text shared with the classic pages: lib/marketing/legal.ts).
   "/privacy", "/terms", "/security",
   // Account pages.
-  "/payments"];
+  "/payments",
+  // AIFekr Live: spoken conversation (new design only; lib/live/service.ts).
+  "/live"];
 
 export function isUiTheme(value: unknown): value is UiTheme {
   return value === "classic" || value === "v2";

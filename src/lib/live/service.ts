@@ -1,0 +1,148 @@
+import { prisma } from "@/lib/db/prisma";
+import { PROVIDERS, type Provider } from "@/lib/ai/providers";
+import { routedStreamChat } from "@/lib/ai/router";
+import { estimateCostUsd } from "@/lib/ai/costEstimator";
+import { getCreditCosts } from "@/lib/utils/creditCosts";
+import { chargeAndLog, getAvailableCredits, refundCredits } from "@/lib/utils/teamCredits";
+import { voicePolicy, voiceCredentials } from "@/lib/voice-studio/config";
+import { synthesize } from "@/lib/voice-studio/provider";
+import type { SpeechCatalog } from "@/lib/voice-studio/provider";
+
+/**
+ * AIFekr Live: a spoken conversation with the assistant. One turn is
+ * speech -> text (OpenAI transcription), an answer from the chat router, and
+ * that answer read aloud by ElevenLabs. Nothing is stored except the usual
+ * usage and ledger rows; the conversation itself stays in the browser.
+ *
+ * Charging: the balance is checked before any provider is called, the turn is
+ * charged once the answer's length (and so its speech cost) is known, and the
+ * charge is refunded if the speech then fails. Prices are admin-editable
+ * Credit Rules: `live_turn` per turn (transcription + answer) plus
+ * `live_tts_100` per started 100 characters spoken.
+ */
+
+/** ElevenLabs' low-latency model that also speaks Persian (eleven_flash_v2_5 does not). */
+export const LIVE_TTS_MODEL = "eleven_v4_turbo";
+/** Answers are spoken, so they are kept short; a longer one is cut at a sentence end. */
+export const LIVE_MAX_REPLY_CHARS = 600;
+export const LIVE_MAX_AUDIO_BYTES = 8 * 1024 * 1024;
+const AUDIO_TYPES = new Set(["audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audio/wav", "audio/x-wav"]);
+
+/** ElevenLabs' premade conversational voices, offered when the account's catalog has them. */
+const LIVE_VOICES = [
+  { id: "cgSgspJ2msm6clMCkdW9", name: "Jessica", gender: "female" },
+  { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", gender: "female" },
+  { id: "cjVigY5qzO86Huf0OWal", name: "Eric", gender: "male" },
+  { id: "iP95p4xoKVk53GoZ742B", name: "Chris", gender: "male" },
+] as const;
+
+export class LiveError extends Error {
+  constructor(public code: string, public status = 400, public extra: Record<string, unknown> = {}) { super(code); }
+}
+
+export const LIVE_PROMPT = `You are AIFekr Live, the real-time voice assistant of AIFekr (aifekr.com), an AI platform for chat, content creation, business and study tools. You are speaking out loud with the user.
+
+Identity: if asked who or what you are, or how you work, answer plainly: you are AIFekr Live, AIFekr's voice assistant; the user's voice is turned into text, an AI language model chosen by AIFekr writes your answer, and a speech engine reads it aloud. Never claim to be another company's product, never invent a model name, and never say you don't know what you are.
+
+Style: this is a spoken conversation. Answer in 1 to 3 short sentences (at most about 60 words) unless the user asks for detail. No markdown, lists, headings, emoji, links or code. Warm and natural.
+
+Language: reply entirely in the language the user just spoke.
+
+Never repeat yourself: do not repeat an earlier answer or reuse the same opening. If the user asks again about something you already answered, add something new or ask what they want to know more about. If the transcript looks empty or garbled, say briefly that you didn't catch it and ask them to say it again.
+
+Topics: any topic the user wants. When you mention AIFekr, describe only what it really offers: AI chat, image, video and music generation, Voice Studio, Video Factory, CRM, accounting, SEO, social media tools, and student and fitness workspaces; usage is paid with credits.`;
+
+export type LiveHistory = { role: "user" | "assistant"; content: string }[];
+
+export async function liveCosts() {
+  const costs = await getCreditCosts();
+  return { turn: costs.live_turn, per100: costs.live_tts_100 };
+}
+export const turnCredits = (chars: number, c: { turn: number; per100: number }) => c.turn + c.per100 * Math.ceil(Math.max(1, chars) / 100);
+
+async function liveVoices() {
+  const row = await prisma.siteSetting.findUnique({ where: { key: "voiceStudioCatalog" } });
+  const ids = row ? new Set((JSON.parse(row.value) as SpeechCatalog).voices.map((v) => v.id)) : null;
+  return LIVE_VOICES.filter((v) => !ids || ids.has(v.id));
+}
+
+/** What the screen needs before the first turn: availability, voices, price and balance. */
+export async function liveBootstrap(userId: string) {
+  const [policy, voices, costs, credits] = await Promise.all([voicePolicy(), liveVoices(), liveCosts(), getAvailableCredits(userId)]);
+  let speech = policy.enabled;
+  if (speech) await voiceCredentials().catch(() => { speech = false; });
+  const transcription = !!PROVIDERS.find((p) => p.id === "openai-direct")?.apiKey;
+  return { enabled: speech && transcription && voices.length > 0, voices, costs, credits, typicalTurn: turnCredits(200, costs) };
+}
+
+async function transcribe(audio: File, lang: string): Promise<string> {
+  const provider = PROVIDERS.find((p) => p.id === "openai-direct")!;
+  const body = new FormData();
+  body.set("file", audio);
+  body.set("model", process.env.OPENAI_TRANSCRIPTION_MODEL || "gpt-4o-mini-transcribe");
+  body.set("response_format", "json");
+  if (["fa", "en", "tr", "de"].includes(lang)) body.set("language", lang);
+  const res = await fetch(`${provider.baseURL}/audio/transcriptions`, { method: "POST", body, headers: { Authorization: `Bearer ${provider.apiKey}` }, signal: AbortSignal.timeout(45000) });
+  if (!res.ok) throw new LiveError("TRANSCRIPTION_FAILED", 502);
+  const text = String(((await res.json()) as { text?: string }).text ?? "").trim();
+  if (!text) throw new LiveError("NO_SPEECH", 422);
+  return text.slice(0, 2000);
+}
+
+/** Spoken form of an answer: no markdown symbols, cut at a sentence end within the limit. */
+export function spokenReply(text: string, max = LIVE_MAX_REPLY_CHARS): string {
+  const clean = text.replace(/<SUGGESTIONS>[\s\S]*?<\/SUGGESTIONS>/g, "").replace(/[*#`_>|~]/g, "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/\s+/g, " ").trim();
+  if (clean.length <= max) return clean;
+  const cut = clean.slice(0, max), end = Math.max(...[".", "!", "?", "؟", "。"].map((p) => cut.lastIndexOf(p)));
+  return (end > max * 0.5 ? cut.slice(0, end + 1) : cut).trim();
+}
+
+/** ElevenLabs language code for the answer: Persian when it is written in Persian script, else the visitor's language. */
+export const speechLanguage = (reply: string, lang: string) => (/[؀-ۿ]/.test(reply) ? "fa" : ["en", "de", "tr"].includes(lang) ? lang : "en");
+
+export async function liveTurn(input: { userId: string; lang: string; voiceId: string; history: LiveHistory; audio?: File | null; text?: string | null }) {
+  const { voices, enabled, costs } = await liveBootstrap(input.userId);
+  if (!enabled) throw new LiveError("LIVE_UNAVAILABLE", 503);
+  if (!voices.some((v) => v.id === input.voiceId)) throw new LiveError("UNSUPPORTED_VOICE");
+  const minimum = turnCredits(200, costs), available = await getAvailableCredits(input.userId);
+  if (available < minimum) throw new LiveError("INSUFFICIENT_CREDITS", 402, { required: minimum, available });
+
+  let question = input.text?.trim().slice(0, 2000) || "";
+  if (input.audio) {
+    if (!AUDIO_TYPES.has(input.audio.type.split(";")[0]) || input.audio.size === 0 || input.audio.size > LIVE_MAX_AUDIO_BYTES) throw new LiveError("INVALID_AUDIO");
+    question = await transcribe(input.audio, input.lang);
+  }
+  if (!question) throw new LiveError("EMPTY_TURN");
+
+  const history = input.history.filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-12).map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }));
+  let answer = "", provider: Provider | null = null, usage: { promptTokens: number; completionTokens: number; totalTokens: number } | null = null;
+  try {
+    await routedStreamChat([...history, { role: "user", content: question }], LIVE_PROMPT, (t) => { answer += t; }, (p) => { provider = p; }, undefined, ({ partial }) => { if (partial) answer = ""; }, 400, (u) => { usage = u; });
+  } catch {
+    throw new LiveError("ANSWER_FAILED", 502, { transcript: question });
+  }
+  const reply = spokenReply(answer);
+  if (!reply) throw new LiveError("ANSWER_FAILED", 502, { transcript: question });
+
+  const credits = turnCredits(reply.length, costs);
+  const used = provider as Provider | null, tokens = usage as { promptTokens: number; completionTokens: number; totalTokens: number } | null;
+  const llmUsd = used && tokens ? await estimateCostUsd({ kind: "chat", providerId: used.id, inputTokens: tokens.promptTokens, outputTokens: tokens.completionTokens }) : null;
+  const unit = (await voicePolicy()).modelUsdPer1k[LIVE_TTS_MODEL];
+  const ttsUsd = unit !== undefined ? (reply.length * unit) / 1000 : null;
+  const charged = await chargeAndLog(input.userId, credits, {
+    type: "tool", provider: used?.id ?? null, model: used?.model ?? null, tokens: tokens?.totalTokens ?? null,
+    inputTokens: tokens?.promptTokens ?? null, outputTokens: tokens?.completionTokens ?? null,
+    estimatedCostUsd: ttsUsd !== null ? ttsUsd + (llmUsd ?? 0) : null,
+    metadata: { feature: "live", ttsModel: LIVE_TTS_MODEL, ttsCharacters: reply.length, voiceInput: !!input.audio },
+  });
+  if (!charged) throw new LiveError("INSUFFICIENT_CREDITS", 402, { required: credits, available: await getAvailableCredits(input.userId) });
+
+  let audio: Uint8Array;
+  try {
+    audio = await synthesize({ text: reply, voiceId: input.voiceId, modelId: LIVE_TTS_MODEL, language: speechLanguage(reply, input.lang), settings: {} }, async () => {});
+  } catch {
+    await refundCredits(input.userId, credits, prisma, { module: "live" });
+    throw new LiveError("SPEECH_FAILED", 502, { transcript: question, reply });
+  }
+  return { transcript: question, reply, audio: Buffer.from(audio).toString("base64"), credits, balance: await getAvailableCredits(input.userId) };
+}
