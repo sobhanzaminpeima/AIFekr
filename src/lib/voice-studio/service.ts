@@ -30,6 +30,11 @@ export async function ownedGeneration(userId: string, id: string) { const row = 
 export function planAllowed(user: { role: string; plan: string; planExpiry: Date | null }, policy: Pick<VoicePolicy, "allowedPlans">) {
     return ["ADMIN", "SUPER_ADMIN"].includes(user.role) || policy.allowedPlans.includes(effectivePlan(user as Parameters<typeof effectivePlan>[0]));
 }
+/** planAllowed, or -- when the policy opens the studio to paying customers -- any account that has completed a purchase. */
+export async function voiceAccess(userId: string, user: { role: string; plan: string; planExpiry: Date | null }, policy: Pick<VoicePolicy, "allowedPlans" | "paidAccess">) {
+    if (planAllowed(user, policy)) return true;
+    return policy.paidAccess && !!await prisma.payment.findFirst({ where: { userId, status: "SUCCESS" }, select: { id: true } });
+}
 const TRIAL_COUNTED = ["QUEUED", "RUNNING", "REVIEW", "READY", "DELETED"];
 async function trialSamplesUsed(db: Pick<typeof prisma, "voiceStudioGeneration">, userId: string) {
     return db.voiceStudioGeneration.count({ where: { userId, status: { in: TRIAL_COUNTED }, pricingSnapshot: { contains: '"trialSample":true' } } });
@@ -37,7 +42,7 @@ async function trialSamplesUsed(db: Pick<typeof prisma, "voiceStudioGeneration">
 export async function bootstrap(userId: string) { const policy = await voicePolicy();
     // Tell the screen up front whether this account may generate, so it can explain instead of failing on click.
     const account = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { role: true, plan: true, planExpiry: true } });
-    const planOk = planAllowed(account, policy), trialLeft = trialRemaining(planOk, policy, planOk ? 0 : await trialSamplesUsed(prisma, userId));
+    const planOk = await voiceAccess(userId, account, policy), trialLeft = trialRemaining(planOk, policy, planOk ? 0 : await trialSamplesUsed(prisma, userId));
     const access = { planAllowed: planOk, trialRemaining: trialLeft, trialMaxSeconds: policy.trialMaxSeconds, storageReady: privateStorageConfigured() }; let catalog = null, catalogError: string | null = null; try {
     catalog = await speechCatalog();
 }
@@ -75,7 +80,7 @@ export async function enqueueSpeech(userId: string, input: GenerationInput) {
     if (!privateStorageConfigured())
         throw new VoiceError("PRIVATE_STORAGE_REQUIRED", 503);
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { role: true, plan: true, planExpiry: true } });
-    const planOk = planAllowed(user, basePolicy);
+    const planOk = await voiceAccess(userId, user, basePolicy);
     // The locked check below follows idempotency lookup, so retrying the second
     // sample still returns its job after the allowance has been consumed.
     const policy = effectivePolicy(basePolicy, !planOk);
