@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LIVE_PROMPT, spokenReply, speechLanguage, turnCredits } from "./service";
+import { LIVE_PROMPT, liveCostUsd, spokenReply, speechLanguage, turnCredits } from "./service";
 
 describe("AIFekr Live", () => {
   it("prices a turn per started 100 spoken characters", () => {
@@ -28,5 +28,11 @@ describe("AIFekr Live", () => {
     expect(LIVE_PROMPT).toContain("You are AIFekr Live");
     expect(LIVE_PROMPT).toMatch(/never say you don't know what you are/i);
     expect(LIVE_PROMPT).toMatch(/Never repeat yourself/);
+  });
+
+  it("costs speech by the credits ElevenLabs billed, falling back to characters", () => {
+    expect(liveCostUsd(0.001, 0.08, 180, 81)).toBeCloseTo(0.00748, 6);
+    expect(liveCostUsd(null, 0.08, 180, null)).toBeCloseTo(0.0144, 6);
+    expect(liveCostUsd(0.001, undefined, 180, 81)).toBeNull();
   });
 });

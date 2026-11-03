@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
 import { PROVIDERS, type Provider } from "@/lib/ai/providers";
 import { routedStreamChat } from "@/lib/ai/router";
@@ -97,6 +98,17 @@ export function spokenReply(text: string, max = LIVE_MAX_REPLY_CHARS): string {
   return (end > max * 0.5 ? cut.slice(0, end + 1) : cut).trim();
 }
 
+/**
+ * Provider cost of a turn in USD, or null when the speech price is not configured.
+ * `unit` is USD per 1,000 billed ElevenLabs credits (Voice Studio's modelUsdPer1k);
+ * Turbo models bill about half a credit per character, so the billed count from the
+ * response is used when present and the character count (an upper bound) otherwise.
+ */
+export function liveCostUsd(llmUsd: number | null, unit: number | undefined, characters: number, billed: number | null): number | null {
+  if (unit === undefined) return null;
+  return ((billed ?? characters) * unit) / 1000 + (llmUsd ?? 0);
+}
+
 /** ElevenLabs language code for the answer: Persian when it is written in Persian script, else the visitor's language. */
 export const speechLanguage = (reply: string, lang: string) => (/[؀-ۿ]/.test(reply) ? "fa" : ["en", "de", "tr"].includes(lang) ? lang : "en");
 
@@ -128,21 +140,25 @@ export async function liveTurn(input: { userId: string; lang: string; voiceId: s
   const used = provider as Provider | null, tokens = usage as { promptTokens: number; completionTokens: number; totalTokens: number } | null;
   const llmUsd = used && tokens ? await estimateCostUsd({ kind: "chat", providerId: used.id, inputTokens: tokens.promptTokens, outputTokens: tokens.completionTokens }) : null;
   const unit = (await voicePolicy()).modelUsdPer1k[LIVE_TTS_MODEL];
-  const ttsUsd = unit !== undefined ? (reply.length * unit) / 1000 : null;
+  const requestId = `live:${randomUUID()}`;
   const charged = await chargeAndLog(input.userId, credits, {
     type: "tool", provider: used?.id ?? null, model: used?.model ?? null, tokens: tokens?.totalTokens ?? null,
     inputTokens: tokens?.promptTokens ?? null, outputTokens: tokens?.completionTokens ?? null,
-    estimatedCostUsd: ttsUsd !== null ? ttsUsd + (llmUsd ?? 0) : null,
+    estimatedCostUsd: liveCostUsd(llmUsd, unit, reply.length, null), requestId,
     metadata: { feature: "live", ttsModel: LIVE_TTS_MODEL, ttsCharacters: reply.length, voiceInput: !!input.audio },
   });
   if (!charged) throw new LiveError("INSUFFICIENT_CREDITS", 402, { required: credits, available: await getAvailableCredits(input.userId) });
 
-  let audio: Uint8Array;
+  let audio: Uint8Array, billed: number | null = null;
   try {
-    audio = await synthesize({ text: reply, voiceId: input.voiceId, modelId: LIVE_TTS_MODEL, language: speechLanguage(reply, input.lang), settings: {} }, async () => {});
+    audio = await synthesize({ text: reply, voiceId: input.voiceId, modelId: LIVE_TTS_MODEL, language: speechLanguage(reply, input.lang), settings: {} }, async (_id, credits) => { billed = credits; });
   } catch {
     await refundCredits(input.userId, credits, prisma, { module: "live" });
     throw new LiveError("SPEECH_FAILED", 502, { transcript: question, reply });
+  }
+  // The charge was logged with the character-based estimate; replace it with what ElevenLabs billed.
+  if (billed !== null && unit !== undefined) {
+    await prisma.usageLog.updateMany({ where: { userId: input.userId, requestId }, data: { estimatedCostUsd: liveCostUsd(llmUsd, unit, reply.length, billed) } }).catch(() => {});
   }
   return { transcript: question, reply, audio: Buffer.from(audio).toString("base64"), credits, balance: await getAvailableCredits(input.userId) };
 }
