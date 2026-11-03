@@ -48,7 +48,7 @@ export async function bootstrap(userId: string) { const policy = await voicePoli
 }
 catch (e) {
     catalogError = e instanceof VoiceError ? e.code : "CATALOG_UNAVAILABLE";
-} return { access, policy: { enabled: policy.enabled, version: policy.version, maxCharacters: policy.maxCharacters, maxDurationSeconds: effectivePolicy(policy, trialLeft > 0).maxDurationSeconds, trialFree: policy.trialFree, creditsPerInterval: policy.creditsPerInterval, billingInterval: policy.billingInterval, allowedModels: policy.allowedModels, allowedVoices: policy.allowedVoices }, catalog, catalogError, presets: await presetsFor(userId), credits: await getAvailableCredits(userId), projects: await prisma.voiceStudioProject.findMany({ where: { ...await voiceScope(userId), deletedAt: null }, orderBy: { updatedAt: "desc" }, take: 100 }) }; }
+} return { access, policy: { enabled: policy.enabled, paidAccess: policy.paidAccess, version: policy.version, maxCharacters: policy.maxCharacters, maxDurationSeconds: effectivePolicy(policy, trialLeft > 0).maxDurationSeconds, trialFree: policy.trialFree, creditsPerInterval: policy.creditsPerInterval, billingInterval: policy.billingInterval, allowedModels: policy.allowedModels, allowedVoices: policy.allowedVoices }, catalog, catalogError, presets: await presetsFor(userId), credits: await getAvailableCredits(userId), projects: await prisma.voiceStudioProject.findMany({ where: { ...await voiceScope(userId), deletedAt: null }, orderBy: { updatedAt: "desc" }, take: 100 }) }; }
 export async function saveProject(userId: string, input: {
     id?: string;
     name: string;

@@ -39,3 +39,6 @@
 .live-send:disabled { opacity: 0.5; }
 .live-talk .text-link { color: var(--primary); font-size: 13px; }
 .live-talk .row-between { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+/* The classic frame gives pages no side gutter of their own. */
+.live-talk { padding-inline: 16px; box-sizing: border-box; width: 100%; }
+@media (max-width: 640px) { .live-talk-controls { margin-bottom: 64px; } }

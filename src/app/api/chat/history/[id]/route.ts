@@ -11,6 +11,7 @@ export async function DELETE(req: NextRequest, props: { params: Promise<{ id: st
   const conv = await prisma.conversation.findFirst({ where: { id: params.id, userId: user.id } });
   if (!conv) return NextResponse.json({ error: "گفتگو پیدا نشد" }, { status: 404 });
 
-  await prisma.conversation.delete({ where: { id: params.id } });
+  // deleteMany: a second tap (or a parallel request) after the row is gone is still a success, not a 500.
+  await prisma.conversation.deleteMany({ where: { id: params.id, userId: user.id } });
   return NextResponse.json({ success: true });
 }

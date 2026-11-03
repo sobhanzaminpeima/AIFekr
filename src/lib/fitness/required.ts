@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerLang } from "@/lib/i18n/server";
-import { tri } from "@/lib/i18n";
+import { tri } from "@/lib/i18n/tri";
 
 /** Where a visitor without fitness access picks and pays for a fitness package, inside the platform. */
 export const FITNESS_PLANS_URL = "/plans?category=FITNESS";
