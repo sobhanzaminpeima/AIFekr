@@ -63,3 +63,28 @@ Sources:
 | 1 | Session endpoint + server sideband + per-minute block charging + automatic close | Tests: low balance, connection drop, double session, final settlement; ledger drift stays zero |
 | 2 | Live mode in the screen (both themes) with interruption and fallback | Works on mobile Chrome/Safari |
 | 3 | Admin: price per minute, max length, free allowance, live-minutes report and real margin | Values change without a deploy |
+
+## Pilot results (2026-11-03, on the server, test questions only, about $0.25 actual cost)
+Setup:
+- Four fixed questions (three Persian, one English), spoken with ElevenLabs.
+- Each was streamed live to both models.
+- Each spoken answer was transcribed again separately, to check pronunciation.
+
+| | `gpt-live-1` | `gpt-realtime-2.1-mini` |
+|---|---|---|
+| Delay after the user stops | **0.04–0.42 s** (measured on the audio timeline) | ~1.0–1.2 s |
+| Persian tone | Natural and colloquial: «آره، می‌فهمم، بعضی روزا واقعاً سنگینن…» | Mostly OK, but more formal and less smooth |
+| Persian pronunciation | The independent transcript matched the model's own text almost word for word | Several mispronounced words (e.g. «قدم» was heard as «کادنه») |
+| Identity ("who are you") | Correct; it said «AIFekr» like «ایسک» | Correct; it said «AIFekr» like «AI فیک» |
+| Language | It answered the English question in Persian (does not follow "same language") | It answered English in English |
+| Stability | 1 of 6 runs gave no answer; both retries were fine | 4 of 4 fine |
+| Cost | $0.05 per minute of open session (listening included) | Per token: one 10–20 s answer ≈ ~1,000 tokens, roughly $0.005–0.01 |
+
+Conclusion:
+- **`gpt-live-1` is clearly better for a Persian conversation** (speed, tone, pronunciation).
+- Three fixes are needed before launch:
+  1. The prompt should state the user's language explicitly, and the brand pronunciation («ای آی فکر»).
+  2. The screen should reconnect and retry automatically if there is no answer.
+  3. Billing should be per minute of open session, since listening time is billed too.
+
+Proposed price: ~66 credits per minute (65% margin at the cheapest credit). It needs the owner's approval.
