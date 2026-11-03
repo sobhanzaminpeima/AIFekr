@@ -24,8 +24,14 @@ import type { SpeechCatalog } from "@/lib/voice-studio/provider";
 
 /** ElevenLabs' low-latency model that also speaks Persian (eleven_flash_v2_5 does not). */
 export const LIVE_TTS_MODEL = "eleven_v4_turbo";
+/**
+ * The model that answers. The chat router picks by message type and, on this
+ * server, fell back to a small model that handled Persian badly; Live always
+ * starts with OpenAI (LIVE_MODEL, else OPENAI_MODEL) and only falls back if it fails.
+ */
+const liveModel = () => process.env.LIVE_MODEL || PROVIDERS.find((p) => p.id === "openai-direct")?.model;
 /** Answers are spoken, so they are kept short; a longer one is cut at a sentence end. */
-export const LIVE_MAX_REPLY_CHARS = 600;
+export const LIVE_MAX_REPLY_CHARS = 450;
 export const LIVE_MAX_AUDIO_BYTES = 8 * 1024 * 1024;
 const AUDIO_TYPES = new Set(["audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audio/wav", "audio/x-wav"]);
 
@@ -45,13 +51,13 @@ export const LIVE_PROMPT = `You are AIFekr Live, the real-time voice assistant o
 
 Identity: if asked who or what you are, or how you work, answer plainly: you are AIFekr Live, AIFekr's voice assistant; the user's voice is turned into text, an AI language model chosen by AIFekr writes your answer, and a speech engine reads it aloud. Never claim to be another company's product, never invent a model name, and never say you don't know what you are.
 
-Style: this is a spoken conversation. Answer in 1 to 3 short sentences (at most about 60 words) unless the user asks for detail. No markdown, lists, headings, emoji, links or code. Warm and natural.
+Style: this is a spoken conversation between friends, not an essay. Answer in one or two short sentences (about 35 words at most) unless the user asks for detail or a step-by-step answer. No markdown, lists, headings, emoji, links or code. Be warm, curious and natural; you may ask one short follow-up question.
 
-Language: reply entirely in the language the user just spoke.
+Language: reply entirely in the language the user just spoke. In Persian, always use everyday spoken (colloquial, Tehrani) Persian the way people actually talk, e.g. «می‌خوای»، «چیکار کنیم»، «یه کم»، «نگران نباش», never formal written or bookish Persian.
 
-Never repeat yourself: do not repeat an earlier answer or reuse the same opening. If the user asks again about something you already answered, add something new or ask what they want to know more about. If the transcript looks empty or garbled, say briefly that you didn't catch it and ask them to say it again.
+Never repeat yourself: do not repeat an earlier answer or reuse the same opening. If the user asks again about something you already answered, add something new or ask what they want to know more about. If the transcript looks empty, garbled or cut off, don't guess or comment on which language it is; just say briefly that you didn't catch it and ask them to say it again.
 
-Topics: any topic the user wants. When you mention AIFekr, describe only what it really offers: AI chat, image, video and music generation, Voice Studio, Video Factory, CRM, accounting, SEO, social media tools, and student and fitness workspaces; usage is paid with credits.`;
+Topics: anything on the user's mind: feelings and a bad day, relationships, health habits, study, work, money, ideas, business questions, general knowledge, small talk. Never say you can only help with one area. When someone is having a hard time, listen first and be kind and practical; for a medical, legal or mental-health emergency, gently suggest a professional or local emergency help. When you mention AIFekr, describe only what it really offers: AI chat, image, video and music generation, Voice Studio, Video Factory, CRM, accounting, SEO, social media tools, and student and fitness workspaces; usage is paid with credits.`;
 
 export type LiveHistory = { role: "user" | "assistant"; content: string }[];
 
@@ -82,7 +88,8 @@ async function transcribe(audio: File, lang: string): Promise<string> {
   body.set("file", audio);
   body.set("model", process.env.OPENAI_TRANSCRIPTION_MODEL || "gpt-4o-mini-transcribe");
   body.set("response_format", "json");
-  if (["fa", "en", "tr", "de"].includes(lang)) body.set("language", lang);
+  // A hint, not a forced language: a visitor whose site language differs from what they speak must still be understood.
+  body.set("prompt", lang === "fa" ? "گفتگوی روزمره به فارسی محاوره‌ای." : "Everyday conversation.");
   const res = await fetch(`${provider.baseURL}/audio/transcriptions`, { method: "POST", body, headers: { Authorization: `Bearer ${provider.apiKey}` }, signal: AbortSignal.timeout(45000) });
   if (!res.ok) throw new LiveError("TRANSCRIPTION_FAILED", 502);
   const text = String(((await res.json()) as { text?: string }).text ?? "").trim();
@@ -109,6 +116,15 @@ export function liveCostUsd(llmUsd: number | null, unit: number | undefined, cha
   return ((billed ?? characters) * unit) / 1000 + (llmUsd ?? 0);
 }
 
+/** An answer split into at most 3 speakable parts at sentence ends (each part is synthesized in parallel). */
+export function speechParts(reply: string, maxParts = 3): string[] {
+  const sentences = reply.match(/[^.!?؟。]+[.!?؟。]*\s*/g)?.map((x) => x.trim()).filter(Boolean) ?? [reply];
+  if (sentences.length <= maxParts) return sentences;
+  const size = Math.ceil(sentences.length / maxParts), out: string[] = [];
+  for (let i = 0; i < sentences.length; i += size) out.push(sentences.slice(i, i + size).join(" "));
+  return out;
+}
+
 /** ElevenLabs language code for the answer: Persian when it is written in Persian script, else the visitor's language. */
 export const speechLanguage = (reply: string, lang: string) => (/[؀-ۿ]/.test(reply) ? "fa" : ["en", "de", "tr"].includes(lang) ? lang : "en");
 
@@ -129,7 +145,7 @@ export async function liveTurn(input: { userId: string; lang: string; voiceId: s
   const history = input.history.filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-12).map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }));
   let answer = "", provider: Provider | null = null, usage: { promptTokens: number; completionTokens: number; totalTokens: number } | null = null;
   try {
-    await routedStreamChat([...history, { role: "user", content: question }], LIVE_PROMPT, (t) => { answer += t; }, (p) => { provider = p; }, undefined, ({ partial }) => { if (partial) answer = ""; }, 400, (u) => { usage = u; });
+    await routedStreamChat([...history, { role: "user", content: question }], LIVE_PROMPT, (t) => { answer += t; }, (p) => { provider = p; }, liveModel(), ({ partial }) => { if (partial) answer = ""; }, 400, (u) => { usage = u; });
   } catch {
     throw new LiveError("ANSWER_FAILED", 502, { transcript: question });
   }
@@ -149,9 +165,11 @@ export async function liveTurn(input: { userId: string; lang: string; voiceId: s
   });
   if (!charged) throw new LiveError("INSUFFICIENT_CREDITS", 402, { required: credits, available: await getAvailableCredits(input.userId) });
 
-  let audio: Uint8Array, billed: number | null = null;
+  // Spoken sentence by sentence, all at once: the speech takes about as long as its longest part instead of the whole answer.
+  let audio: Uint8Array[], billed: number | null = null;
   try {
-    audio = await synthesize({ text: reply, voiceId: input.voiceId, modelId: LIVE_TTS_MODEL, language: speechLanguage(reply, input.lang), settings: {} }, async (_id, credits) => { billed = credits; });
+    const language = speechLanguage(reply, input.lang);
+    audio = await Promise.all(speechParts(reply).map((text) => synthesize({ text, voiceId: input.voiceId, modelId: LIVE_TTS_MODEL, language, settings: {} }, async (_id, credits) => { if (credits !== null) billed = (billed ?? 0) + credits; })));
   } catch {
     await refundCredits(input.userId, credits, prisma, { module: "live" });
     throw new LiveError("SPEECH_FAILED", 502, { transcript: question, reply });
@@ -160,5 +178,5 @@ export async function liveTurn(input: { userId: string; lang: string; voiceId: s
   if (billed !== null && unit !== undefined) {
     await prisma.usageLog.updateMany({ where: { userId: input.userId, requestId }, data: { estimatedCostUsd: liveCostUsd(llmUsd, unit, reply.length, billed) } }).catch(() => {});
   }
-  return { transcript: question, reply, audio: Buffer.from(audio).toString("base64"), credits, balance: await getAvailableCredits(input.userId) };
+  return { transcript: question, reply, audio: audio.map((part) => Buffer.from(part).toString("base64")), credits, balance: await getAvailableCredits(input.userId) };
 }

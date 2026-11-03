@@ -98,11 +98,18 @@ export default function LiveTalk() {
       turnsRef.current = next;
       setTurns(next);
       window.dispatchEvent(new Event("aifekr:credits-refresh"));
-      const audio = new Audio(`data:audio/mpeg;base64,${data.audio}`);
-      player.current = audio;
+      // The answer arrives as consecutive sentences, played one after another.
+      const parts: string[] = Array.isArray(data.audio) ? data.audio : [data.audio];
       go("speaking");
-      audio.onended = () => { if (stateRef.current === "speaking") { go("idle"); void startRecording(); } };
-      await audio.play().catch(() => go("idle"));
+      const play = (i: number) => {
+        if (stateRef.current !== "speaking") return;
+        if (i >= parts.length) { go("idle"); void startRecording(); return; }
+        const audio = new Audio(`data:audio/mpeg;base64,${parts[i]}`);
+        player.current = audio;
+        audio.onended = () => play(i + 1);
+        audio.play().catch(() => go("idle"));
+      };
+      play(0);
     } catch {
       setNotice({ text: say("failed") });
       go("idle");

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LIVE_PROMPT, liveCostUsd, spokenReply, speechLanguage, turnCredits } from "./service";
+import { LIVE_PROMPT, liveCostUsd, speechParts, spokenReply, speechLanguage, turnCredits } from "./service";
 
 describe("AIFekr Live", () => {
   it("prices a turn per started 100 spoken characters", () => {
@@ -34,5 +34,18 @@ describe("AIFekr Live", () => {
     expect(liveCostUsd(0.001, 0.08, 180, 81)).toBeCloseTo(0.00748, 6);
     expect(liveCostUsd(null, 0.08, 180, null)).toBeCloseTo(0.0144, 6);
     expect(liveCostUsd(0.001, undefined, 180, 81)).toBeNull();
+  });
+
+  it("splits an answer into at most three spoken parts at sentence ends", () => {
+    expect(speechParts("Hi there.")).toEqual(["Hi there."]);
+    expect(speechParts("سلام! خوبی؟ چه خبر.")).toEqual(["سلام!", "خوبی؟", "چه خبر."]);
+    const parts = speechParts("A. B. C. D. E.");
+    expect(parts).toHaveLength(3);
+    expect(parts.join(" ")).toBe("A. B. C. D. E.");
+  });
+
+  it("talks like a friend in everyday Persian, about anything", () => {
+    expect(LIVE_PROMPT).toMatch(/colloquial/);
+    expect(LIVE_PROMPT).toMatch(/Never say you can only help with one area/);
   });
 });
