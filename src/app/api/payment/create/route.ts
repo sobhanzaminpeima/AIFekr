@@ -17,6 +17,7 @@ import { priceForPeriod } from "@/lib/billing/plans";
 import { packageUsdPrice } from "@/lib/plans/packagePricing";
 import { rateLimit } from "@/lib/utils/rateLimit";
 import { closeAbandonedGatewayOrder } from "@/lib/payment/adminLifecycle";
+import { RETIRED_PUBLIC_PLAN_CODES } from "@/lib/billing/packageCategories";
 /** A module the buyer upgraded from; payment/verify sends them back there (see resultPath). */
 const MODULE_RETURN_PATHS: unknown[] = GROWTH_MODULES.flatMap(m => [m.paths[0], moduleEntry(m)]);
 export async function POST(req: NextRequest) {
@@ -31,7 +32,8 @@ export async function POST(req: NextRequest) {
  if(plan.startsWith("STUDENT_")&&user.accountType!=="STUDENT"&&body.selectStudentAccount!==true)return bankError(req,"STUDENT_ACCOUNT_REQUIRED",403);
  const tier=plan.startsWith("CREDITS_")?await prisma.creditPricingTier.findUnique({where:{id:plan.slice(8)}}):null;
  const pkg=tier?{isActive:tier.isActive,price:tier.priceToman*10,priceUsd:null,credits:tier.creditsAmount,duration:30,crmSeatLimit:null,teamSeatLimit:null}:await prisma.package.findUnique({where:{planCode:plan}});
- if(!pkg?.isActive || ("publicationStatus" in pkg && pkg.publicationStatus!=="PUBLISHED"))return bankError(req,"Invalid plan",400);
+ // Same purchasability as the quote and the public pages: hidden and retired offers are never sold, even without a quote.
+ if(!pkg?.isActive || ("publicationStatus" in pkg && pkg.publicationStatus!=="PUBLISHED") || ("publicVisible" in pkg && pkg.publicVisible===false) || RETIRED_PUBLIC_PLAN_CODES.includes(plan))return bankError(req,"Invalid plan",400);
  if("category" in pkg&&pkg.category==="VIDEO_FACTORY"&&process.env.VIDEO_FACTORY_SALES_APPROVED!=="true")return bankError(req,"OWNER_SALES_APPROVAL_REQUIRED",403);
  if("category" in pkg&&pkg.category==="VIDEO_FACTORY"&&process.env.VIDEO_FACTORY_SALES_APPROVED!=="true")return bankError(req,"OWNER_SALES_APPROVAL_REQUIRED",403);
  if("category" in pkg&&pkg.category==="FITNESS"){const profile=await prisma.fitnessProfile.findUnique({where:{userId:user.id}});if(!profile?.goal.trim())return bankError(req,"FITNESS_ONBOARDING_REQUIRED",409);}

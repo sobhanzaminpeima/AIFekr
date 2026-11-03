@@ -35,6 +35,8 @@ describe("plan checkout uses the language's payment currency", () => {
   it.each([["fa","IRT"],["tr","TRY"],["en","USD"],["de","USD"]])(
     "%s sends %s in the quote and exposes no conflicting payment selector", async (lang, currency) => {
       state.lang = lang;
+      // /api/packages prices each term in the visitor's currency (lib/marketing/entryPlans resolveOffer).
+      state.plans = state.plans.map(p => ({...p, offers:{monthly:{minor:{IRT:199000,TRY:99,USD:1000}[currency],currency}}}));
       const rendered = nodes(DynamicPlans({category:"CHAT_STARTER"}));
       const choose = rendered.find(element => element.type === "button" && typeof element.props.onClick === "function" && element.props["aria-pressed"] === undefined);
       expect(choose).toBeDefined();
@@ -52,5 +54,29 @@ describe("plan checkout uses the language's payment currency", () => {
     const rendered = nodes(DynamicPlans({}));
     const option = rendered.find(element => element.type === "option" && element.props.value === "CHAT_STARTER");
     expect(option?.props.children).toBe("AI Chat");
+  });
+});
+
+describe("a package without a price in the visitor's currency", () => {
+  // VF_CREATOR_5 on production: priced in Toman only (base IRT), no fixed USD/TRY price.
+  const tomanOnly = {planCode:"VF_CREATOR_5", category:"VIDEO_FACTORY", name:"پنج ویدیو", nameEn:"Five videos",
+    termPrices:JSON.stringify({monthly:4250000}), baseCurrency:"IRT", credits:500, duration:30, features:"5 videos",
+    purchaseAvailable:true, entitlements:JSON.stringify({limits:{compareAtToman:7000000}})};
+  const text = (node: ReactNode): string => nodes(node).map(e => typeof e.props.children === "string" || typeof e.props.children === "number" ? String(e.props.children) : Array.isArray(e.props.children) ? e.props.children.filter(c => typeof c === "string" || typeof c === "number").join("") : "").join(" ");
+  beforeEach(() => { state.plans = [tomanOnly]; vi.stubGlobal("fetch", vi.fn()); });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each(["en", "de", "tr"])("%s: is not offered in Toman, the landing omits it too", (lang) => {
+    state.lang = lang;
+    const rendered = nodes(DynamicPlans({category:"VIDEO_FACTORY"}));
+    expect(text(DynamicPlans({category:"VIDEO_FACTORY"}))).not.toMatch(/تومان|Toman/);
+    expect(rendered.some(e => e.type === "article")).toBe(false);
+  });
+  it("fa: shows the Toman price with the admin's before-discount price", () => {
+    state.lang = "fa";
+    state.plans = [{...tomanOnly, offers:{monthly:{minor:4250000,currency:"IRT",compareAtMinor:7000000}}}];
+    const out = text(DynamicPlans({category:"VIDEO_FACTORY"}));
+    expect(out).toContain((4250000).toLocaleString("fa"));
+    expect(out).toContain((7000000).toLocaleString("fa"));
   });
 });

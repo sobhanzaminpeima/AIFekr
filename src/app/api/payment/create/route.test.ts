@@ -174,3 +174,10 @@ it("closes an expired unpaid Zarinpal order instead of reopening its dead link",
   expect(mocks.closeStale).toHaveBeenCalledWith("old-payment", "A-old");
   expect(mocks.stale.mock.calls[0][0].where).toMatchObject({ userId: "buyer", status: "PENDING", gateway: "zarinpal" });
 });
+
+it.each([["a hidden package", { publicVisible: false }, "PRO"], ["the retired chat starter", {}, "CHAT_STARTER_30"]])("never sells %s, even without a quote", async (_label, extra, plan) => {
+  mocks.findPackage.mockResolvedValue({ isActive: true, publicationStatus: "PUBLISHED", priceUsd: 8000, price: 80000, credits: 1000, duration: 30, ...extra });
+  const res = await POST(request(plan, "monthly", "IRR"));
+  expect(res.status).toBe(400);
+  expect(mocks.create).not.toHaveBeenCalled();
+});
