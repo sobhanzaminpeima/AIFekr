@@ -82,10 +82,14 @@ export function useRealtimeCall(h: Handlers) {
   const start = useCallback(async (options: { voice?: string; conversationId?: string | null } = {}) => {
     if (call.current) return;
     setPhase("connecting");
+    // Made and resumed inside the tap (before the microphone prompt): phones keep an audio
+    // context made later suspended, and then neither the microphone nor the voice works.
+    const ctx = new AudioContext();
+    void ctx.resume().catch(() => {});
     let stream: MediaStream;
     try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
-    catch { setPhase("idle"); handlers.current.onError("NO_MIC"); return; }
-    const ctx = new AudioContext();
+    catch { void ctx.close(); setPhase("idle"); handlers.current.onError("NO_MIC"); return; }
+    await ctx.resume().catch(() => {});
     const source = ctx.createMediaStreamSource(stream), processor = ctx.createScriptProcessor(4096, 1, 1), out = ctx.createGain();
     out.connect(ctx.destination);
     const meter = ctx.createAnalyser();

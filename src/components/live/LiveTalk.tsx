@@ -67,11 +67,15 @@ const COPY = {
   untitled: ["گفتگوی صوتی", "Voice conversation", "Sprachgespräch", "Sesli konuşma"],
   deleteTalk: ["پاک کردن گفتگو", "Delete conversation", "Gespräch löschen", "Konuşmayı sil"],
   deleteConfirm: ["این گفتگو برای همیشه پاک شود؟", "Delete this conversation permanently?", "Dieses Gespräch endgültig löschen?", "Bu konuşma kalıcı olarak silinsin mi?"],
+  tapToHear: ["گوشی اجازهٔ پخش خودکار صدا را نداد؛ یک بار روی دکمهٔ میکروفن بزنید.", "Your phone blocked the voice from playing; tap the microphone once.", "Ihr Telefon hat die Wiedergabe blockiert; tippen Sie einmal auf das Mikrofon.", "Telefonunuz sesi engelledi; mikrofona bir kez dokunun."],
   lowCreditLive: ["اعتبار کافی برای یک دقیقه تماس زنده ندارید.", "You don't have enough credits for a minute of live call.", "Ihre Credits reichen nicht für eine Minute Live-Gespräch.", "Bir dakikalık canlı görüşme için yeterli krediniz yok."],
 } as const;
 const LOCALES = ["fa", "en", "de", "tr"] as const;
 /** Recording stops on its own after this much quiet following speech, or at the hard limit. */
 const SILENCE_MS = 1500, MAX_RECORD_MS = 60000, SPEECH_LEVEL = 0.04;
+// A few silent samples, played inside the first tap so the phone lets later replies play.
+const SILENT_WAV = "data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YSADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
+const audioExt = (type: string) => (/mp4|m4a|aac/.test(type) ? "mp4" : /ogg/.test(type) ? "ogg" : /mpeg|mp3/.test(type) ? "mp3" : /wav/.test(type) ? "wav" : "webm");
 
 export default function LiveTalk() {
   const { lang: locale } = useTranslation();
@@ -94,8 +98,19 @@ export default function LiveTalk() {
   const [showTranscript, setShowTranscript] = useState(true);
   const credits = useLiveCredits(boot?.credits ?? 0);
   const stateRef = useRef<State>("idle");
-  const media = useRef<{ recorder: MediaRecorder; stream: MediaStream; ctx: AudioContext; frame: number; timer: number } | null>(null);
+  const media = useRef<{ recorder: MediaRecorder; stream: MediaStream; source: MediaStreamAudioSourceNode; frame: number; timer: number } | null>(null);
   const player = useRef<HTMLAudioElement | null>(null);
+  // Phones (iOS Safari, some Android browsers) only let audio start inside a tap: one player
+  // and one audio context are made and unlocked on the first tap, then reused for every
+  // reply and every recording that follows (including the automatic one after a reply).
+  const audioCtx = useRef<AudioContext | null>(null);
+  function unlockAudio() {
+    if (!player.current) player.current = new Audio();
+    const p = player.current;
+    if (!p.src || p.ended || p.paused) { p.src = SILENT_WAV; p.play().catch(() => {}); }
+    if (!audioCtx.current || audioCtx.current.state === "closed") audioCtx.current = new AudioContext();
+    void audioCtx.current.resume().catch(() => {});
+  }
   const turnsRef = useRef<Turn[]>([]);
   const go = (s: State) => { stateRef.current = s; setState(s); };
   const [mode, setMode] = useState<Mode>("turns");
@@ -172,14 +187,15 @@ export default function LiveTalk() {
       // Live mode is the default wherever it is available.
       if (d.realtime?.enabled && savedMode !== "turns") setMode("live");
     }).catch(() => setFailed(true));
-    return () => { stopRecording(true); player.current?.pause(); };
+    return () => { stopRecording(true); player.current?.pause(); void audioCtx.current?.close().catch(() => {}); };
   }, []);
 
   const send = useCallback(async (input: { audio?: Blob; text?: string }) => {
     go("thinking");
     setNotice(null);
     const form = new FormData();
-    if (input.audio) form.set("audio", new File([input.audio], "speech.webm", { type: input.audio.type || "audio/webm" }));
+    // The name's extension tells speech-to-text the format: iPhones record mp4, not webm.
+    if (input.audio) { const type = input.audio.type || "audio/webm"; form.set("audio", new File([input.audio], `speech.${audioExt(type)}`, { type })); }
     if (input.text) form.set("text", input.text);
     const voice = boot?.voices.find((v) => v.key === voiceKey) ?? boot?.voices[0];
     form.set("voiceId", voice?.id ?? "");
@@ -205,10 +221,11 @@ export default function LiveTalk() {
       const play = (i: number) => {
         if (stateRef.current !== "speaking") return;
         if (i >= parts.length) { go("idle"); void startRecording(); return; }
-        const audio = new Audio(`data:audio/mpeg;base64,${parts[i]}`);
-        player.current = audio;
+        if (!player.current) player.current = new Audio();
+        const audio = player.current;
         audio.onended = () => play(i + 1);
-        audio.play().catch(() => go("idle"));
+        audio.src = `data:audio/mpeg;base64,${parts[i]}`;
+        audio.play().catch(() => { setNotice({ text: say("tapToHear") }); go("idle"); });
       };
       play(0);
     } catch {
@@ -227,7 +244,7 @@ export default function LiveTalk() {
     if (discard) m.recorder.onstop = null;
     if (m.recorder.state !== "inactive") m.recorder.stop();
     m.stream.getTracks().forEach((t) => t.stop());
-    void m.ctx.close();
+    m.source.disconnect();
     setLevel(0);
   }
 
@@ -238,16 +255,24 @@ export default function LiveTalk() {
     catch { setNotice({ text: say("noMic") }); go("idle"); return; }
     const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"].find((t) => MediaRecorder.isTypeSupported(t));
     const recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined), chunks: Blob[] = [];
-    const ctx = new AudioContext(), analyser = ctx.createAnalyser();
+    if (!audioCtx.current || audioCtx.current.state === "closed") audioCtx.current = new AudioContext();
+    const ctx = audioCtx.current;
+    await ctx.resume().catch(() => {});
+    const analyser = ctx.createAnalyser();
     analyser.fftSize = 512;
-    ctx.createMediaStreamSource(stream).connect(analyser);
+    const source = ctx.createMediaStreamSource(stream);
+    source.connect(analyser);
     const samples = new Uint8Array(analyser.fftSize);
-    let heard = false, quietSince = 0;
+    // `meterDead`: the level never moved (a phone that kept the audio context suspended);
+    // the recording is then sent anyway instead of being dropped as silence.
+    let heard = false, quietSince = 0, peak = 0;
+    const startedAt = performance.now();
     const tick = () => {
       analyser.getByteTimeDomainData(samples);
       let sum = 0;
       for (const s of samples) sum += ((s - 128) / 128) ** 2;
       const rms = Math.sqrt(sum / samples.length);
+      peak = Math.max(peak, rms);
       setLevel(Math.min(1, rms * 6));
       const now = performance.now();
       if (rms > SPEECH_LEVEL) { heard = true; quietSince = 0; }
@@ -256,15 +281,17 @@ export default function LiveTalk() {
     };
     recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
     recorder.onstop = () => {
-      if (!heard) { go(stateRef.current === "paused" ? "paused" : "idle"); return; }
+      const meterDead = peak === 0 && performance.now() - startedAt > 1200;
+      if (!heard && !meterDead) { go(stateRef.current === "paused" ? "paused" : "idle"); return; }
       void send({ audio: new Blob(chunks, { type: recorder.mimeType || "audio/webm" }) });
     };
     recorder.start(250);
-    media.current = { recorder, stream, ctx, frame: requestAnimationFrame(tick), timer: window.setTimeout(() => stopRecording(), MAX_RECORD_MS) };
+    media.current = { recorder, stream, source, frame: requestAnimationFrame(tick), timer: window.setTimeout(() => stopRecording(), MAX_RECORD_MS) };
     go("listening");
   }
 
   function onMic() {
+    unlockAudio();
     if (mode === "live") {
       setNotice(null);
       if (realtime.phase === "idle") void realtime.start({ voice: voiceKey, conversationId: conversationRef.current });

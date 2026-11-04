@@ -33,7 +33,7 @@ const liveModel = () => process.env.LIVE_MODEL || PROVIDERS.find((p) => p.id ===
 /** Answers are spoken, so they are kept short; a longer one is cut at a sentence end. */
 export const LIVE_MAX_REPLY_CHARS = 450;
 export const LIVE_MAX_AUDIO_BYTES = 8 * 1024 * 1024;
-const AUDIO_TYPES = new Set(["audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audio/wav", "audio/x-wav"]);
+const AUDIO_TYPES = new Set(["audio/webm", "audio/ogg", "audio/mp4", "audio/x-m4a", "audio/aac", "audio/mpeg", "audio/wav", "audio/x-wav"]);
 
 /** ElevenLabs' premade conversational voices, offered when the account's catalog has them. */
 /** AIFekr Live's two voices: Fika (female) and Fiko (male), in both modes (live mode: realtime.ts LIVE_REALTIME_VOICES). */
@@ -92,7 +92,10 @@ export async function liveBootstrap(userId: string, withRealtime = true) {
 async function transcribe(audio: File, lang: string): Promise<string> {
   const provider = PROVIDERS.find((p) => p.id === "openai-direct")!;
   const body = new FormData();
-  body.set("file", audio);
+  // The extension is how the provider reads the format: an iPhone recording is mp4 even if a page named it .webm.
+  const type = audio.type.split(";")[0];
+  const ext = /mp4|m4a|aac/.test(type) ? "mp4" : /ogg/.test(type) ? "ogg" : /mpeg/.test(type) ? "mp3" : /wav/.test(type) ? "wav" : "webm";
+  body.set("file", audio, `speech.${ext}`);
   body.set("model", process.env.OPENAI_TRANSCRIPTION_MODEL || "gpt-4o-mini-transcribe");
   body.set("response_format", "json");
   // A hint, not a forced language: a visitor whose site language differs from what they speak must still be understood.
