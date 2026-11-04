@@ -45,6 +45,8 @@ export function isUiTheme(value: unknown): value is UiTheme {
 /** App pages match only themselves: /home/anything is not a page the new design has. */
 const EXACT_ROUTES = new Set(["/", "/home", "/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate", "/voice-studio", "/video-factory", "/crm", "/welcome", "/privacy", "/terms", "/security", "/payments"]);
 
+const SEO_V2 = ["/seo", "/seo/intelligence", "/seo/sites", "/seo/agent-pipeline"];
+
 export function v2Handles(path: string, routes: readonly string[] = V2_ROUTES) {
   const clean = path.split("?")[0].replace(/\/+$/, "") || "/";
   if(routes===V2_ROUTES&&["/fitness","/fitness/marketplace","/student","/play"].includes(clean))return process.env.UI_V2_FINAL_MODULES_ENABLED==="1";
@@ -55,7 +57,8 @@ export function v2Handles(path: string, routes: readonly string[] = V2_ROUTES) {
   if(routes===V2_ROUTES&&clean==="/learn")return process.env.UI_V2_ACADEMY_ENABLED==="1";
   if(routes===V2_ROUTES&&clean==="/organization/onboarding")return process.env.UI_V2_ORGANIZATION_ENABLED==="1";
   if(routes===V2_ROUTES&&["/ceo","/agents"].includes(clean)) return process.env.UI_V2_TEAM_ENABLED==="1";
-  if(routes===V2_ROUTES&&clean==="/seo") return process.env.UI_V2_SEO_ENABLED==="1";
+  // SEO: the workspace and its former sub-pages (shown as views of the same workspace); deeper paths stay classic.
+  if(routes===V2_ROUTES&&(clean==="/seo"||clean.startsWith("/seo/"))) return SEO_V2.includes(clean)&&process.env.UI_V2_SEO_ENABLED==="1";
   if(routes===V2_ROUTES&&(clean==="/startup/builder"||clean.startsWith("/startup/builder/"))) return clean==="/startup/builder"&&process.env.UI_V2_STARTUP_ENABLED==="1";
   if(routes===V2_ROUTES&&(clean==="/referral"||clean.startsWith("/referral/"))) return clean==="/referral"&&process.env.UI_V2_REFERRAL_ENABLED==="1";
   if(routes===V2_ROUTES&&(clean==="/website-designer"||clean.startsWith("/website-designer/"))) return clean==="/website-designer"&&process.env.UI_V2_WEBSITE_ENABLED==="1";

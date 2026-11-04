@@ -44,7 +44,7 @@ describe("ui theme routing", () => {
   });
   it("only enables the rebuilt SEO entry, leaving legacy detail routes intact",()=>{
     vi.stubEnv("UI_V2_SEO_ENABLED","0");expect(v2Handles("/seo")).toBe(false);
-    vi.stubEnv("UI_V2_SEO_ENABLED","1");expect(v2Handles("/seo?tab=verify")).toBe(true);expect(v2Handles("/seo/sites/unknown")).toBe(false);
+    vi.stubEnv("UI_V2_SEO_ENABLED","1");expect(v2Handles("/seo?tab=verify")).toBe(true);expect(v2Handles("/seo/sites/unknown")).toBe(false);expect(v2Handles("/seo/intelligence")).toBe(true);expect(v2Handles("/seo/sites")).toBe(true);expect(v2Handles("/seo/agent-pipeline")).toBe(true);
   });
   it("isolates each final module rollout and preserves legacy detail pages",()=>{
     for(const [path,flag] of [["/ceo","UI_V2_TEAM_ENABLED"],["/agents","UI_V2_TEAM_ENABLED"],["/organization/onboarding","UI_V2_ORGANIZATION_ENABLED"],["/voice-agent","UI_V2_CALL_CENTER_ENABLED"],["/learn","UI_V2_ACADEMY_ENABLED"],["/owner","UI_V2_OWNER_ENABLED"],["/settings","UI_V2_PROFILE_ENABLED"],["/student","UI_V2_FINAL_MODULES_ENABLED"],["/fitness","UI_V2_FINAL_MODULES_ENABLED"],["/fitness/marketplace","UI_V2_FINAL_MODULES_ENABLED"],["/play","UI_V2_FINAL_MODULES_ENABLED"]]){
