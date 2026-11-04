@@ -62,7 +62,7 @@
 
 
 /* New-feature announcement (feature-announcement.tsx). */
-.feature-announce-backdrop { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px; background: rgba(5, 6, 9, 0.62); backdrop-filter: blur(6px); animation: fa-fade 0.25s ease-out; }
+.feature-announce-backdrop { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; padding: 16px; background: rgba(5, 6, 9, 0.62); backdrop-filter: blur(6px); animation: fa-fade 0.25s ease-out; }
 .feature-announce { position: relative; width: min(420px, 100%); padding: 26px 22px 20px; border-radius: 24px; border: 1px solid rgba(255, 107, 0, 0.35); background: radial-gradient(120% 80% at 50% 0%, rgba(255, 107, 0, 0.22), transparent 60%), var(--surface-1); box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55); text-align: center; animation: fa-rise 0.35s cubic-bezier(.2,.8,.2,1); }
 .feature-announce h2 { font-size: 20px; font-weight: 800; margin: 10px 0 8px; color: var(--text-primary); }
 .feature-announce p { font-size: 13px; line-height: 1.95; color: var(--text-secondary); margin: 0 0 8px; }
