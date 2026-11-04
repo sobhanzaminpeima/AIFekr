@@ -6,6 +6,10 @@ import { bootstrap, saveProject, deleteProject, ownedProject, ownedGeneration, e
 import { VoiceError } from "@/lib/voice-studio/domain";
 import { prisma } from "@/lib/db/prisma";
 import { boundedJson } from "@/lib/voice-studio/request";
+import { randomUUID } from "node:crypto";
+/** Browser id for the free-sample limit (lib/voice-studio/service trialSamplesUsed); set on the first visit. */
+const DEVICE_COOKIE = "aifekr_did";
+const deviceOf = (req: NextRequest) => { const v = req.cookies.get(DEVICE_COOKIE)?.value; return v && /^[0-9a-f-]{36}$/.test(v) ? v : null; };
 import { classifyFailure, recordGenerationFailed, recordGenerationStarted } from "@/lib/growth/generation";
 export const dynamic = "force-dynamic";
 function failure(e: unknown) { return NextResponse.json({ code: e instanceof VoiceError ? e.code : e instanceof z.ZodError ? "INVALID_INPUT" : "VOICE_STUDIO_UNAVAILABLE" }, { status: e instanceof VoiceError ? e.status : e instanceof z.ZodError ? 400 : 503 }); }
@@ -22,7 +26,10 @@ export async function GET(req: NextRequest) { const user = await requireAuth(req
         await ownedProject(user.id, projectId);
         return NextResponse.json({ generations: (await prisma.voiceStudioGeneration.findMany({ where: { projectId, ...await voiceScope(user.id), deletedAt: null }, orderBy: { createdAt: "desc" }, take: 100 })).map(publicGeneration) }, { headers: { "Cache-Control": "private, no-store" } });
     }
-    return NextResponse.json(await bootstrap(user.id), { headers: { "Cache-Control": "private, no-store" } });
+    const device = deviceOf(req) ?? randomUUID();
+    const res = NextResponse.json(await bootstrap(user.id, device), { headers: { "Cache-Control": "private, no-store" } });
+    if (!deviceOf(req)) res.cookies.set(DEVICE_COOKIE, device, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 2 * 365 * 86400 });
+    return res;
 }
 catch (e) {
     return failure(e);
@@ -54,7 +61,7 @@ export async function POST(req: NextRequest) {
             const input = z.object({ action: z.literal("generate"), projectId: z.string().max(100), segmentIndex: z.number().int().min(0).max(500), voiceId: z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/), modelId: z.string().max(100), idempotencyKey: z.string().uuid(), settings: z.unknown().optional() }).strict().parse(body);
             void recordGenerationStarted(user.id, "voice");
             try {
-                return NextResponse.json({ generation: publicGeneration(await enqueueSpeech(user.id, input)) });
+                return NextResponse.json({ generation: publicGeneration(await enqueueSpeech(user.id, input, deviceOf(req))) });
             }
             catch (e) {
                 // A refusal (plan, credits, limits) is a failed attempt; the worker records the real outcome of a queued one.

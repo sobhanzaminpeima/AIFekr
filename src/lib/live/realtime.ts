@@ -5,6 +5,7 @@ import { getCreditCosts } from "@/lib/utils/creditCosts";
 import { chargeAndLog, getAvailableCredits } from "@/lib/utils/teamCredits";
 import { logError } from "@/lib/logging/errorLog";
 import { LIVE_PROMPT, LiveError } from "./service";
+import { liveConversation, recentLines, saveLine } from "./history";
 
 /**
  * AIFekr Live, live mode: a full-duplex voice call with OpenAI GPT-Live,
@@ -25,6 +26,8 @@ import { LIVE_PROMPT, LiveError } from "./service";
  * $0.05 per open minute.
  */
 export const LIVE_REALTIME_MODEL = "gpt-live-1";
+/** Fika and Fiko in live mode: GPT-Live voices chosen by measured pitch (marin ~171 Hz, cinder ~102 Hz; 2026-11-04). */
+export const LIVE_REALTIME_VOICES = { fika: "marin", fiko: "cinder" } as const;
 /** OpenAI's price for an open GPT-Live minute (developers.openai.com/api/docs/models/gpt-live-1, 2026-11-03). */
 const PROVIDER_USD_PER_MINUTE = 0.05;
 const TICK_MS = 5000, GOODBYE_MS = 7000, IDLE_MS = 45000, STALE_MS = 30000;
@@ -60,7 +63,10 @@ export async function hasFreeMinute(userId: string) {
 }
 
 /** Live-mode instructions: the AIFekr Live identity and tone, plus the visitor's language and the brand's spoken form (the pilot answered English in Persian and mispronounced the name). */
-export function realtimeInstructions(lang: string) {
+export function realtimeInstructions(lang: string, earlier: { role: "user" | "assistant"; content: string }[] = []) {
+  const transcript = earlier.length
+    ? `\n\nThis continues an earlier conversation with this user. What was said so far (remember it, including their name and details):\n${earlier.map((m) => `${m.role === "user" ? "User" : "You"}: ${m.content}`).join("\n")}\n\nContinue naturally from there; do not repeat the greeting.`
+    : "";
   const language = lang === "fa" ? "Persian (Farsi)" : lang === "de" ? "German" : lang === "tr" ? "Turkish" : "English";
   return `${LIVE_PROMPT}
 
@@ -68,13 +74,16 @@ Language for this call: the user's app is set to ${language}; start in ${languag
 
 Your name: in Persian say it as «ای آی فکر لایو» (ey-ey fekr laiv); in other languages say "A-I Fekr Live".
 
-This is a live call: keep each answer short, stop talking when the user starts talking, and never read out symbols or lists.`;
+This is a live call: keep each answer short, stop talking when the user starts talking, and never read out symbols or lists.${transcript}`;
 }
 
 /** What the browser's event stream receives. */
 export type RelayEvent = { type: "audio"; data: string } | { type: "user" | "assistant"; delta: string } | { type: "closed"; reason: string };
 type Relay = {
-  id: string; userId: string; ws: WebSocket; startedAt: number; maxSeconds: number;
+  id: string; userId: string; ws: WebSocket; startedAt: number; maxSeconds: number; conversationId: string;
+  /** Next microphone chunk to forward, and chunks that arrived early (uploads run in parallel). */
+  nextSeq: number; early: Map<number, Uint8Array>;
+  lines: { user: string; assistant: string };
   lastInput: number; closing: boolean; ended: boolean;
   listeners: Set<(e: RelayEvent) => void>; backlog: RelayEvent[]; tick: ReturnType<typeof setInterval>;
 };
@@ -86,7 +95,7 @@ function emit(r: Relay, e: RelayEvent) {
 }
 
 /** Starts a live call: opens the OpenAI session, charges (or gives free) the first minute, and starts metering. */
-export async function startRealtime(input: { userId: string; role: string; lang: string }) {
+export async function startRealtime(input: { userId: string; role: string; lang: string; voice?: string; conversationId?: string | null }) {
   const settings = await realtimeSettings(input.role);
   if (!settings.enabled) throw new LiveError("LIVE_REALTIME_UNAVAILABLE", 503);
   await sweepRealtime();
@@ -95,10 +104,13 @@ export async function startRealtime(input: { userId: string; role: string; lang:
   const available = await getAvailableCredits(input.userId);
   if (!free && available < settings.creditsPerMinute) throw new LiveError("INSUFFICIENT_CREDITS", 402, { required: settings.creditsPerMinute, available });
 
+  const conversationId = await liveConversation(input.userId, input.conversationId);
+  const earlier = await recentLines(conversationId);
+  const voice = input.voice === "fiko" ? LIVE_REALTIME_VOICES.fiko : LIVE_REALTIME_VOICES.fika;
   const ws = new WebSocket("wss://api.openai.com/v1/live/sessions", { headers: { Authorization: `Bearer ${openaiKey()}` } });
   const providerSessionId = await new Promise<string>((resolve, reject) => {
     const timer = setTimeout(() => reject(new LiveError("LIVE_REALTIME_FAILED", 502)), 15000);
-    ws.onopen = () => ws.send(JSON.stringify({ type: "session.start", session: { model: LIVE_REALTIME_MODEL, instructions: realtimeInstructions(input.lang), audio: { format: { type: "audio/pcm", rate: 24000 } } } }));
+    ws.onopen = () => ws.send(JSON.stringify({ type: "session.start", session: { model: LIVE_REALTIME_MODEL, instructions: realtimeInstructions(input.lang, earlier), audio: { format: { type: "audio/pcm", rate: 24000 }, output: { voice } } } }));
     ws.onmessage = (m) => {
       try {
         const e = JSON.parse(String(m.data)) as { type?: string; session?: { id?: string } };
@@ -116,12 +128,12 @@ export async function startRealtime(input: { userId: string; role: string; lang:
     await finish(row.id, "insufficient_credits", null);
     throw new LiveError("INSUFFICIENT_CREDITS", 402, { required: settings.creditsPerMinute, available: await getAvailableCredits(input.userId) });
   }
-  relay(row.id, input.userId, ws, settings.maxMinutes * 60);
-  return { sessionId: row.id, creditsPerMinute: settings.creditsPerMinute, freeMinute: free, maxMinutes: settings.maxMinutes };
+  relay(row.id, input.userId, ws, settings.maxMinutes * 60, conversationId);
+  return { sessionId: row.id, conversationId, creditsPerMinute: settings.creditsPerMinute, freeMinute: free, maxMinutes: settings.maxMinutes };
 }
 
-function relay(id: string, userId: string, ws: WebSocket, maxSeconds: number) {
-  const r: Relay = { id, userId, ws, startedAt: Date.now(), maxSeconds, lastInput: Date.now(), closing: false, ended: false, listeners: new Set(), backlog: [], tick: setInterval(() => void meterTick(r), TICK_MS) };
+function relay(id: string, userId: string, ws: WebSocket, maxSeconds: number, conversationId: string) {
+  const r: Relay = { id, userId, ws, startedAt: Date.now(), maxSeconds, conversationId, nextSeq: 0, early: new Map(), lines: { user: "", assistant: "" }, lastInput: Date.now(), closing: false, ended: false, listeners: new Set(), backlog: [], tick: setInterval(() => void meterTick(r), TICK_MS) };
   relays.set(id, r);
   let lastSeconds: number | null = null;
   ws.onmessage = (m) => {
@@ -129,8 +141,8 @@ function relay(id: string, userId: string, ws: WebSocket, maxSeconds: number) {
     try { e = JSON.parse(String(m.data)); } catch { return; }
     if (typeof e.usage?.seconds === "number") lastSeconds = e.usage.seconds;
     if (e.type === "session.output_audio.delta" && e.delta) emit(r, { type: "audio", data: e.delta });
-    else if (e.type === "session.input_transcript.delta" && e.delta) emit(r, { type: "user", delta: e.delta });
-    else if (e.type === "session.output_transcript.delta" && e.delta) emit(r, { type: "assistant", delta: e.delta });
+    else if (e.type === "session.input_transcript.delta" && e.delta) { flushLine(r, "assistant"); r.lines.user += e.delta; emit(r, { type: "user", delta: e.delta }); }
+    else if (e.type === "session.output_transcript.delta" && e.delta) { flushLine(r, "user"); r.lines.assistant += e.delta; emit(r, { type: "assistant", delta: e.delta }); }
     else if (e.type === "session.closed") void end(r, e.reason || "closed", lastSeconds);
   };
   ws.onclose = () => void end(r, "provider_disconnected", lastSeconds);
@@ -154,6 +166,14 @@ async function meterTick(r: Relay) {
   }
 }
 
+/** Saves a speaker's finished line to the conversation (when the other side starts talking, or the call ends). */
+function flushLine(r: Relay, role: "user" | "assistant") {
+  const text = r.lines[role];
+  if (!text.trim()) return;
+  r.lines[role] = "";
+  void saveLine(r.conversationId, role, text).catch(() => {});
+}
+
 function send(r: Relay, event: unknown) { try { r.ws.send(JSON.stringify(event)); return true; } catch { return false; } }
 function closeNow(r: Relay) {
   if (r.ended) return;
@@ -175,6 +195,8 @@ async function end(r: Relay, reason: string, seconds: number | null) {
   clearInterval(r.tick);
   relays.delete(r.id);
   try { r.ws.close(); } catch { /* closed */ }
+  flushLine(r, "user");
+  flushLine(r, "assistant");
   emit(r, { type: "closed", reason });
   r.listeners.clear();
   // A minute that started after the last tick is still charged.
@@ -217,12 +239,25 @@ function owned(userId: string, id: string) {
   return r;
 }
 
-/** One chunk of the caller's microphone (24 kHz mono 16-bit PCM). */
-export function pushAudio(userId: string, id: string, pcm: Uint8Array) {
+/**
+ * One chunk of the caller's microphone (24 kHz mono 16-bit PCM), numbered by
+ * `seq`: uploads run in parallel, so chunks are forwarded in order, and a
+ * chunk lost on the way is skipped once later ones have piled up.
+ */
+export function pushAudio(userId: string, id: string, pcm: Uint8Array, seq?: number) {
   const r = owned(userId, id);
   if (pcm.length === 0 || pcm.length > MAX_AUDIO_CHUNK || pcm.length % 2) throw new LiveError("INVALID_AUDIO");
   r.lastInput = Date.now();
-  if (!r.closing) send(r, { type: "session.input_audio.append", audio: Buffer.from(pcm).toString("base64") });
+  if (r.closing) return;
+  if (seq === undefined || !Number.isSafeInteger(seq)) { send(r, { type: "session.input_audio.append", audio: Buffer.from(pcm).toString("base64") }); return; }
+  if (seq < r.nextSeq) return;
+  r.early.set(seq, pcm);
+  if (r.early.size > 6 && !r.early.has(r.nextSeq)) r.nextSeq = Math.min(...r.early.keys());
+  while (r.early.has(r.nextSeq)) {
+    send(r, { type: "session.input_audio.append", audio: Buffer.from(r.early.get(r.nextSeq)!).toString("base64") });
+    r.early.delete(r.nextSeq);
+    r.nextSeq++;
+  }
 }
 
 /** Whether this process is relaying the caller's call (the event stream answers 404 otherwise). */

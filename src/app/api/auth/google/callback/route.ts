@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import { signupCredits } from "@/lib/credits/freeCredits";
 import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/db/prisma";
@@ -69,7 +70,7 @@ export async function GET(req:NextRequest) {
         if(context.promoCode&&!promo)return fail(lang,"Invalid invitation code. Please check your registration link.");
         if(referrer&&promo&&referrer.id!==promo.id)return fail(lang,"Invitation link and code belong to different people.");
         const name=typeof profile.name==="string"?profile.name:email.split("@")[0];
-        user=await createUser({email,name,firstName:typeof profile.given_name==="string"?profile.given_name:undefined,lastName:typeof profile.family_name==="string"?profile.family_name:undefined,avatar:typeof profile.picture==="string"?profile.picture:undefined,googleId:profile.sub,authProvider:"google",credits:200,plan:"FREE",language:context.language||"en",accountType:accountTypeFor(context.selectedPlan,context.accountType),referralCode:await generateUniqueReferralCode(name),referredBy:promo?.id||referrer?.id});
+        user=await createUser({email,name,firstName:typeof profile.given_name==="string"?profile.given_name:undefined,lastName:typeof profile.family_name==="string"?profile.family_name:undefined,avatar:typeof profile.picture==="string"?profile.picture:undefined,googleId:profile.sub,authProvider:"google",credits:await signupCredits(200),plan:"FREE",language:context.language||"en",accountType:accountTypeFor(context.selectedPlan,context.accountType),referralCode:await generateUniqueReferralCode(name),referredBy:promo?.id||referrer?.id});
         if(["/chat","/explore","/choose-plan"].includes(context.redirect||"")&&!context.selectedPlan&&context.accountType==="PERSONAL")user=await prisma.user.update({where:{id:user.id},data:{chatOnly:true,onboardingDone:true}});
         created=true;
         if(!user.chatOnly)contextual=await onAccountCreated(user.id,req.cookies.get(ANON_COOKIE)?.value,context.redirect,{selectedPlan:context.selectedPlan||undefined});

@@ -2,6 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
+import FreeCreditsCard from "@/components/admin/FreeCreditsCard";
 import { useState, useEffect } from "react";
 import { Settings, Save, Globe, Bell, Shield, Palette, DollarSign, FileText, RefreshCw, ToggleRight } from "lucide-react";
 import toast from "react-hot-toast";
@@ -30,7 +31,6 @@ const SECTIONS = [
       { key: "max_tokens", label: "حداکثر توکن", type: "number", default: "4096" },
       { key: "free_daily_messages", label: "پیام رایگان روزانه", type: "number", default: "20" },
       { key: "free_monthly_images", label: "تصویر رایگان ماهانه", type: "number", default: "5" },
-      { key: "free_credits", label: "اعتبار اولیه کاربر جدید", type: "number", default: "200" },
     ],
   },
   {
@@ -187,6 +187,8 @@ export default function AdminSettingsPage() {
           <Save className="w-4 h-4" />{saving ? "در حال ذخیره..." : "ذخیره تنظیمات"}
         </button>}
       </div>
+
+      <FreeCreditsCard />
 
       <div className="flex flex-col md:flex-row gap-4 md:gap-6">
         <nav aria-label="دسته‌بندی تنظیمات" className="admin-settings-nav md:w-52 flex-shrink-0 md:space-y-1">

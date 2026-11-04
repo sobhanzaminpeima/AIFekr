@@ -26,6 +26,11 @@ export function createUser(data: Prisma.UserCreateInput) {
     const user = await tx.user.create({ data });
     await recordLedger(tx, { userId: user.id, delta: user.credits, type: "SIGNUP_GRANT", operationId: `signup:${user.id}` });
     return user;
+  }).then(async (user) => {
+    // Starting credits expire when the free-credit policy is on (lib/credits/freeCredits).
+    const { markSignupPromo } = await import("@/lib/credits/freeCredits");
+    await markSignupPromo(user.id).catch(() => {});
+    return user;
   });
 }
 

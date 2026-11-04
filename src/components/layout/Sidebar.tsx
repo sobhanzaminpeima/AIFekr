@@ -328,7 +328,7 @@ export default function Sidebar({ user, conversations = [], onNewChat }: Sidebar
             menu answered 401 for them. */}
         {!fitnessOnly && <>
         <NavItem icon={MessageSquare} label={t.nav.chat} href="/chat" active={isActive("/chat")} />
-        <NavItem icon={AudioLines} label="AIFekr Live" href="/live" active={isActive("/live")} />
+        <NavItem icon={AudioLines} label="AIFekr Live" href="/live" active={isActive("/live")} badge={tri(lang, "جدید", "New", "Neu", "Yeni")} />
         {user?.studentWorkspaceEnabled !== false && <NavItem icon={GraduationCap} label={t.nav.studentWorkspace} href="/student" active={isActive("/student")} />}
 
         {/* Shown in the menu only while a payment needs the user; otherwise it is an icon in the footer. */}
@@ -763,8 +763,10 @@ function NavSection({ label }: { label: string }) {
   );
 }
 
-function NavItem({ icon: Icon, label, href, active, small = false, accent }: {
+function NavItem({ icon: Icon, label, href, active, small = false, accent, badge }: {
   icon: React.ElementType; label: string; href: string; active: boolean; small?: boolean;
+  /** A short label after the name, e.g. "New" for a recently added feature. */
+  badge?: string;
   /** Department colour — sub-items inherit their department's hue so the group stays readable when open. */
   accent?: string;
 }) {
@@ -793,6 +795,7 @@ function NavItem({ icon: Icon, label, href, active, small = false, accent }: {
       )}
       <Icon className={`flex-shrink-0 ${small ? "w-3.5 h-3.5" : "w-4 h-4"}`} style={{ color: active ? hue : "currentColor" }} />
       <span className="truncate">{label}</span>
+      {badge && <span className="ms-auto rounded-full px-2 text-[10px] font-bold leading-4 text-white" style={{ background: "linear-gradient(135deg,#ea580c,#fb923c)" }}>{badge}</span>}
     </Link>
   );
 }

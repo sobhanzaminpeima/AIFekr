@@ -19,7 +19,9 @@ export type LedgerType =
   | "REFERRAL_BONUS"
   | "ADMIN_ADJUSTMENT"
   | "SPEND"
-  | "REFUND";
+  | "REFUND"
+  | "PROMO_GRANT"
+  | "PROMO_EXPIRED";
 
 export interface LedgerEntry {
   userId: string;

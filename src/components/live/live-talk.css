@@ -1,4 +1,5 @@
-/* AIFekr Live, classic theme (components/live/LiveTalk.tsx; same as the new design's live-app.css): one calm, centred stage that also fits a phone. */
+/* AIFekr Live, classic theme: generated from the new design's live-app.css (same rules, classic colours). */
+/* AIFekr Live (components/live-talk.tsx): one calm, centred stage that also fits a phone. */
 .live-talk { display: flex; flex-direction: column; align-items: center; gap: 18px; max-width: 760px; margin: 0 auto; padding: clamp(12px, 3vw, 28px) 0 32px; min-height: calc(100dvh - 140px); }
 .live-talk-head { width: 100%; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
 .live-talk-head h1 { font-size: clamp(20px, 3vw, 26px); font-weight: 750; }
@@ -35,13 +36,7 @@
   .live-talk-meta { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 }
 @media (prefers-reduced-motion: reduce) { .live-orb { animation: none !important; transition: none; } }
-.live-send { padding: 10px 16px; border-radius: 12px; background: var(--primary); color: #fff; font-weight: 600; }
-.live-send:disabled { opacity: 0.5; }
-.live-talk .text-link { color: var(--primary); font-size: 13px; }
-.live-talk .row-between { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-/* The classic frame gives pages no side gutter of their own. */
-.live-talk { padding-inline: 16px; box-sizing: border-box; width: 100%; }
-@media (max-width: 640px) { .live-talk-controls { margin-bottom: 64px; } }
+
 
 /* AIFekr Live mode switch: live (GPT-Live, per minute) or turn by turn. */
 .live-talk-modes { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 8px; }
@@ -50,3 +45,55 @@
 .live-talk-modes button:disabled { opacity: 0.5; cursor: default; }
 .live-talk-modes small { flex-basis: 100%; text-align: center; color: var(--text-muted); font-size: 12px; }
 .live-mic[data-calling] { background: var(--danger, #e5484d); border-color: var(--danger, #e5484d); color: #fff; }
+
+
+/* AIFekr Live saved conversations (like chat history: open one to continue it). */
+.live-talk-history { width: 100%; max-width: 620px; font-size: 13px; }
+.live-talk-history > .text-link { display: inline-flex; align-items: center; gap: 6px; }
+.live-talk-history ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+.live-talk-history li { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-1); }
+.live-talk-history li.active { border-color: var(--primary); }
+.live-talk-history li.muted { padding: 10px 12px; color: var(--text-muted); }
+.live-history-open { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 9px 12px; background: none; border: 0; color: var(--text-primary); font: inherit; text-align: start; cursor: pointer; }
+.live-history-open span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-history-open small { color: var(--text-muted); font-size: 11px; }
+.live-history-delete { flex: none; display: grid; place-items: center; width: 32px; height: 32px; margin-inline-end: 6px; border: 0; border-radius: 8px; background: none; color: var(--text-muted); cursor: pointer; }
+.live-history-delete:hover { color: var(--danger, #e5484d); }
+
+
+/* New-feature announcement (feature-announcement.tsx). */
+.feature-announce-backdrop { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px; background: rgba(5, 6, 9, 0.62); backdrop-filter: blur(6px); animation: fa-fade 0.25s ease-out; }
+.feature-announce { position: relative; width: min(420px, 100%); padding: 26px 22px 20px; border-radius: 24px; border: 1px solid rgba(255, 107, 0, 0.35); background: radial-gradient(120% 80% at 50% 0%, rgba(255, 107, 0, 0.22), transparent 60%), var(--surface-1); box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55); text-align: center; animation: fa-rise 0.35s cubic-bezier(.2,.8,.2,1); }
+.feature-announce h2 { font-size: 20px; font-weight: 800; margin: 10px 0 8px; color: var(--text-primary); }
+.feature-announce p { font-size: 13px; line-height: 1.95; color: var(--text-secondary); margin: 0 0 8px; }
+.feature-announce-free { display: inline-flex; align-items: center; gap: 6px; color: var(--primary) !important; font-weight: 600; }
+.feature-announce-close { position: absolute; top: 12px; inset-inline-end: 12px; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, 0.06); color: var(--text-muted); cursor: pointer; }
+.feature-announce-art { position: relative; height: 96px; display: grid; place-items: center; }
+.feature-announce-orb { width: 84px; height: 84px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffd2ad, var(--primary) 45%, #7a2e00); box-shadow: 0 0 46px rgba(255, 107, 0, 0.55); animation: fa-pulse 2.2s ease-in-out infinite; }
+.feature-announce-wave { position: absolute; display: flex; gap: 4px; align-items: center; }
+.feature-announce-wave i { width: 4px; border-radius: 4px; background: #fff; opacity: 0.9; animation: fa-bar 1s ease-in-out infinite; }
+.feature-announce-wave i:nth-child(1) { height: 14px; } .feature-announce-wave i:nth-child(2) { height: 26px; animation-delay: .15s; } .feature-announce-wave i:nth-child(3) { height: 34px; animation-delay: .3s; } .feature-announce-wave i:nth-child(4) { height: 24px; animation-delay: .45s; } .feature-announce-wave i:nth-child(5) { height: 12px; animation-delay: .6s; }
+.feature-announce-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; background: rgba(255, 107, 0, 0.15); color: var(--primary); font-size: 11px; font-weight: 700; }
+.feature-announce-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.feature-announce-actions .btn { justify-content: center; width: 100%; }
+@keyframes fa-fade { from { opacity: 0; } }
+@keyframes fa-rise { from { opacity: 0; transform: translateY(18px) scale(.97); } }
+@keyframes fa-pulse { 50% { transform: scale(1.06); } }
+@keyframes fa-bar { 50% { transform: scaleY(.45); } }
+@media (max-width: 640px) {
+  .feature-announce-backdrop { place-items: end center; padding: 0; }
+  .feature-announce { width: 100%; border-radius: 24px 24px 0 0; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+}
+@media (prefers-reduced-motion: reduce) { .feature-announce, .feature-announce-orb, .feature-announce-wave i, .feature-announce-backdrop { animation: none; } }
+
+
+.live-send { padding: 10px 16px; border-radius: 12px; background: var(--primary); color: #fff; font-weight: 600; }
+.live-send:disabled { opacity: 0.5; }
+.live-talk .text-link, .live-talk-history .text-link { color: var(--primary); font-size: 13px; background: none; border: 0; cursor: pointer; }
+.live-talk .row-between { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.live-talk .muted { color: var(--text-muted); }
+.feature-announce .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary); font-weight: 600; }
+.feature-announce .btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+/* The classic frame gives pages no side gutter of their own. */
+.live-talk { padding-inline: 16px; box-sizing: border-box; width: 100%; }
+@media (max-width: 640px) { .live-talk-controls { margin-bottom: 64px; } }

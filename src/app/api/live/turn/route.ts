@@ -7,7 +7,7 @@ import { getServerLang } from "@/lib/i18n/server";
 import { liveTurn, LiveError, type LiveHistory } from "@/lib/live/service";
 import { logError } from "@/lib/logging/errorLog";
 
-/** One AIFekr Live turn: multipart with `audio` (recorded speech) or `text`, plus `voiceId` and `history` (JSON). */
+/** One AIFekr Live turn: multipart with `audio` (recorded speech) or `text`, plus `voiceId`, `conversationId` (to continue a saved conversation) and `history` (JSON). */
 export async function POST(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   const audio = form.get("audio");
   try {
     const result = await liveTurn({
-      userId: user.id, lang: await getServerLang(), voiceId: String(form.get("voiceId") || ""), history,
+      userId: user.id, lang: await getServerLang(), voiceId: String(form.get("voiceId") || ""), history, conversationId: typeof form.get("conversationId") === "string" && form.get("conversationId") ? String(form.get("conversationId")) : null,
       audio: audio instanceof File ? audio : null, text: typeof form.get("text") === "string" ? String(form.get("text")) : null,
     });
     return NextResponse.json(result);

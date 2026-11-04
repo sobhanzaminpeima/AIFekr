@@ -39,5 +39,9 @@ export async function setStudentWorkspaceEnabled(enabled: boolean): Promise<void
 
 export async function studentWorkspaceDisabledResponse(user?: StudentAccessUser): Promise<NextResponse | null> {
   if (await isStudentWorkspaceEnabled(user)) return null;
-  return NextResponse.json({ error: "ایجنت دانشجویی به حساب دانشجویی و پکیج دانشجویی فعال نیاز دارد." }, { status: 403 });
+  // renewUrl: the new design offers it as an "activate" button next to the message (the in-platform student packages).
+  const { getServerLang } = await import("@/lib/i18n/server");
+  const { tri } = await import("@/lib/i18n/tri");
+  const error = tri(await getServerLang(), "ایجنت دانشجویی به حساب دانشجویی و پکیج دانشجویی فعال نیاز دارد.", "The student assistant needs a student account with an active student package.", "Der Studienassistent braucht ein Studierendenkonto mit aktivem Studierendenpaket.", "Öğrenci asistanı, etkin öğrenci paketi olan bir öğrenci hesabı gerektirir.");
+  return NextResponse.json({ error, code: "STUDENT_PACKAGE_REQUIRED", renewUrl: "/plans?category=STUDENT" }, { status: 403 });
 }

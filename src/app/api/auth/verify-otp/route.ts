@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { signupCredits } from "@/lib/credits/freeCredits";
 import { createUser } from "@/lib/repositories/userRepository";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
     if (!user) {
       user = await createUser({
         phone,
-        credits: 100,
+        credits: await signupCredits(100),
         lastLoginAt: new Date(),
         ...(entry==="chat"?{chatOnly:true,onboardingDone:true}:{}),
       });

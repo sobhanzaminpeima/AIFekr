@@ -36,11 +36,10 @@ export const LIVE_MAX_AUDIO_BYTES = 8 * 1024 * 1024;
 const AUDIO_TYPES = new Set(["audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audio/wav", "audio/x-wav"]);
 
 /** ElevenLabs' premade conversational voices, offered when the account's catalog has them. */
+/** AIFekr Live's two voices: Fika (female) and Fiko (male), in both modes (live mode: realtime.ts LIVE_REALTIME_VOICES). */
 const LIVE_VOICES = [
-  { id: "cgSgspJ2msm6clMCkdW9", name: "Jessica", gender: "female" },
-  { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", gender: "female" },
-  { id: "cjVigY5qzO86Huf0OWal", name: "Eric", gender: "male" },
-  { id: "iP95p4xoKVk53GoZ742B", name: "Chris", gender: "male" },
+  { id: "cgSgspJ2msm6clMCkdW9", key: "fika", name: "Fika", gender: "female" },
+  { id: "cjVigY5qzO86Huf0OWal", key: "fiko", name: "Fiko", gender: "male" },
 ] as const;
 
 export class LiveError extends Error {
@@ -136,7 +135,7 @@ export function speechParts(reply: string, maxParts = 3): string[] {
 /** ElevenLabs language code for the answer: Persian when it is written in Persian script, else the visitor's language. */
 export const speechLanguage = (reply: string, lang: string) => (/[؀-ۿ]/.test(reply) ? "fa" : ["en", "de", "tr"].includes(lang) ? lang : "en");
 
-export async function liveTurn(input: { userId: string; lang: string; voiceId: string; history: LiveHistory; audio?: File | null; text?: string | null }) {
+export async function liveTurn(input: { userId: string; lang: string; voiceId: string; history: LiveHistory; conversationId?: string | null; audio?: File | null; text?: string | null }) {
   const { voices, enabled, costs } = await liveBootstrap(input.userId, false);
   if (!enabled) throw new LiveError("LIVE_UNAVAILABLE", 503);
   if (!voices.some((v) => v.id === input.voiceId)) throw new LiveError("UNSUPPORTED_VOICE");
@@ -150,7 +149,11 @@ export async function liveTurn(input: { userId: string; lang: string; voiceId: s
   }
   if (!question) throw new LiveError("EMPTY_TURN");
 
-  const history = input.history.filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-12).map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }));
+  // A saved conversation is continued from what was actually said in it (the browser's copy is only a fallback).
+  const { liveConversation, recentLines, saveLine } = await import("./history");
+  const conversationId = await liveConversation(input.userId, input.conversationId);
+  const saved = await recentLines(conversationId);
+  const history = (saved.length ? saved : input.history.filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string").map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }))).slice(-12);
   let answer = "", provider: Provider | null = null, usage: { promptTokens: number; completionTokens: number; totalTokens: number } | null = null;
   try {
     await routedStreamChat([...history, { role: "user", content: question }], LIVE_PROMPT, (t) => { answer += t; }, (p) => { provider = p; }, liveModel(), ({ partial }) => { if (partial) answer = ""; }, 400, (u) => { usage = u; });
@@ -186,5 +189,7 @@ export async function liveTurn(input: { userId: string; lang: string; voiceId: s
   if (billed !== null && unit !== undefined) {
     await prisma.usageLog.updateMany({ where: { userId: input.userId, requestId }, data: { estimatedCostUsd: liveCostUsd(llmUsd, unit, reply.length, billed) } }).catch(() => {});
   }
-  return { transcript: question, reply, audio: audio.map((part) => Buffer.from(part).toString("base64")), credits, balance: await getAvailableCredits(input.userId) };
+  await saveLine(conversationId, "user", question);
+  await saveLine(conversationId, "assistant", reply);
+  return { conversationId, transcript: question, reply, audio: audio.map((part) => Buffer.from(part).toString("base64")), credits, balance: await getAvailableCredits(input.userId) };
 }

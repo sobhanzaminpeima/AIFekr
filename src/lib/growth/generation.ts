@@ -53,6 +53,9 @@ export function recordGenerationStarted(userId: string, moduleId: string) {
 export async function recordGenerationSucceeded(userId: string, moduleId: string, ref: string) {
   await trackEvent({ name: "generation_succeeded", userId, moduleId, idempotencyKey: `gen_ok:${moduleId}:${ref}` });
   await recordFirstSuccess(userId, moduleId);
+  // The free-credit policy's one-time activation bonus (no-op while the policy is off).
+  const { grantActivationBonus } = await import("@/lib/credits/freeCredits");
+  await grantActivationBonus(userId).catch(() => {});
 }
 
 /** A generation that did not produce a result, and why. Credit and plan refusals are also recorded under their own names. */

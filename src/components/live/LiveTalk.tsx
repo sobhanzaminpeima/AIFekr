@@ -6,12 +6,13 @@
 // conversation stays in this tab.
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Mic, MessageSquare, Pause, Square } from "lucide-react";
+import { History, Mic, MessageSquare, Pause, Square, Trash2 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { useLiveCredits } from "@/lib/credits/live";
 import { useRealtimeCall, type RealtimeInfo } from "./useRealtimeCall";
 
-type Voice = { id: string; name: string; gender: string };
+type Voice = { id: string; key?: string; name: string; gender: string };
+type Saved = { id: string; title: string | null; updatedAt: string };
 type Boot = { enabled: boolean; voices: Voice[]; costs: { turn: number; per100: number }; credits: number; typicalTurn: number; realtime?: RealtimeInfo | null };
 type Mode = "live" | "turns";
 type Turn = { role: "user" | "assistant"; content: string };
@@ -58,6 +59,14 @@ const COPY = {
   callEnded: ["تماس تمام شد.", "The call has ended.", "Das Gespräch ist beendet.", "Görüşme sona erdi."],
   liveFailed: ["تماس زنده وصل نشد. دوباره امتحان کنید یا حالت نوبتی را بزنید.", "The live call didn't connect. Try again or switch to turn by turn.", "Das Live-Gespräch kam nicht zustande. Erneut versuchen oder auf Abwechselnd wechseln.", "Canlı görüşme bağlanamadı. Tekrar deneyin veya Sırayla moduna geçin."],
   alreadyActive: ["یک تماس زندهٔ دیگر باز است؛ اول آن را ببندید.", "Another live call is still open; end it first.", "Ein anderes Live-Gespräch ist noch offen; beenden Sie es zuerst.", "Başka bir canlı görüşme açık; önce onu bitirin."],
+  fika: ["فیکا · صدای زن", "Fika · female voice", "Fika · weibliche Stimme", "Fika · kadın sesi"],
+  fiko: ["فیکو · صدای مرد", "Fiko · male voice", "Fiko · männliche Stimme", "Fiko · erkek sesi"],
+  history: ["گفتگوهای قبلی", "Previous conversations", "Frühere Gespräche", "Önceki konuşmalar"],
+  noHistory: ["هنوز گفتگویی ذخیره نشده است.", "No saved conversations yet.", "Noch keine gespeicherten Gespräche.", "Henüz kayıtlı konuşma yok."],
+  continuing: ["ادامهٔ گفتگوی قبلی؛ هر چه گفته شده را به یاد دارد.", "Continuing an earlier conversation; it remembers what was said.", "Fortsetzung eines früheren Gesprächs; es erinnert sich an alles Gesagte.", "Önceki konuşmanın devamı; söylenenleri hatırlıyor."],
+  untitled: ["گفتگوی صوتی", "Voice conversation", "Sprachgespräch", "Sesli konuşma"],
+  deleteTalk: ["پاک کردن گفتگو", "Delete conversation", "Gespräch löschen", "Konuşmayı sil"],
+  deleteConfirm: ["این گفتگو برای همیشه پاک شود؟", "Delete this conversation permanently?", "Dieses Gespräch endgültig löschen?", "Bu konuşma kalıcı olarak silinsin mi?"],
   lowCreditLive: ["اعتبار کافی برای یک دقیقه تماس زنده ندارید.", "You don't have enough credits for a minute of live call.", "Ihre Credits reichen nicht für eine Minute Live-Gespräch.", "Bir dakikalık canlı görüşme için yeterli krediniz yok."],
 } as const;
 const LOCALES = ["fa", "en", "de", "tr"] as const;
@@ -70,14 +79,19 @@ export default function LiveTalk() {
   const say = (key: keyof typeof COPY) => COPY[key][Math.max(0, LOCALES.indexOf(locale as (typeof LOCALES)[number]))];
   const [boot, setBoot] = useState<Boot | null>(null);
   const [failed, setFailed] = useState(false);
-  const [voiceId, setVoiceId] = useState("");
+  const [voiceKey, setVoiceKey] = useState("fika");
+  // The saved conversation being continued (null: a new one starts with the next turn or call).
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const conversationRef = useRef<string | null>(null);
+  const [saved, setSaved] = useState<Saved[] | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
   const [state, setState] = useState<State>("idle");
   const [level, setLevel] = useState(0);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [notice, setNotice] = useState<{ text: string; buy?: boolean } | null>(null);
   const [typing, setTyping] = useState(false);
   const [draft, setDraft] = useState("");
-  const [showTranscript, setShowTranscript] = useState(false);
+  const [showTranscript, setShowTranscript] = useState(true);
   const credits = useLiveCredits(boot?.credits ?? 0);
   const stateRef = useRef<State>("idle");
   const media = useRef<{ recorder: MediaRecorder; stream: MediaStream; ctx: AudioContext; frame: number; timer: number } | null>(null);
@@ -98,8 +112,10 @@ export default function LiveTalk() {
     onAssistant: (d) => appendLive("assistant", d),
     onLevel: setLevel,
     onError: (code) => setNotice(code === "NO_MIC" ? { text: say("noMic") } : code === "INSUFFICIENT_CREDITS" ? { text: say("lowCreditLive"), buy: true } : code === "LIVE_ALREADY_ACTIVE" ? { text: say("alreadyActive") } : code === "RATE_LIMITED" ? { text: say("busy") } : { text: say("liveFailed") }),
+    onConversation: (id) => { conversationRef.current = id; setConversationId(id); },
     onEnded: () => {
       setNotice({ text: say("callEnded") });
+      void loadHistory();
       setBoot((b) => (b?.realtime ? { ...b, realtime: { ...b.realtime, freeMinute: false } } : b));
       window.dispatchEvent(new Event("aifekr:credits-refresh"));
     },
@@ -119,11 +135,39 @@ export default function LiveTalk() {
     try { localStorage.setItem("aifekr-live-mode", next); } catch { /* private mode */ }
   }
 
+  const loadHistory = useCallback(async () => {
+    const d = await fetch("/api/live/conversations", { credentials: "include", cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    if (d?.conversations) setSaved(d.conversations);
+  }, []);
+  async function openSaved(id: string) {
+    if (realtime.phase !== "idle") return;
+    const d = await fetch(`/api/live/conversations/${encodeURIComponent(id)}`, { credentials: "include", cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    if (!d) return;
+    stopRecording(true);
+    player.current?.pause();
+    go("idle");
+    const lines = (d.messages as Turn[]).filter((m) => m.role === "user" || m.role === "assistant");
+    turnsRef.current = lines;
+    setTurns(lines);
+    conversationRef.current = id;
+    setConversationId(id);
+    setShowTranscript(true);
+    setShowHistory(false);
+    setNotice({ text: say("continuing") });
+  }
+  async function removeSaved(id: string) {
+    if (!confirm(say("deleteConfirm"))) return;
+    await fetch(`/api/live/conversations/${encodeURIComponent(id)}`, { method: "DELETE", credentials: "include" }).catch(() => null);
+    if (conversationRef.current === id) onNew();
+    setSaved((list) => (list ?? []).filter((c) => c.id !== id));
+  }
+
   useEffect(() => {
+    void loadHistory();
     fetch("/api/live", { credentials: "include", cache: "no-store" }).then((r) => (r.ok ? r.json() : Promise.reject())).then((d: Boot) => {
       setBoot(d);
-      let saved = ""; try { saved = localStorage.getItem("aifekr-live-voice") || ""; } catch { /* private mode */ }
-      setVoiceId(d.voices.some((v) => v.id === saved) ? saved : d.voices[0]?.id || "");
+      let savedVoice = ""; try { savedVoice = localStorage.getItem("aifekr-live-voice-key") || ""; } catch { /* private mode */ }
+      setVoiceKey(savedVoice === "fiko" ? "fiko" : "fika");
       let savedMode = ""; try { savedMode = localStorage.getItem("aifekr-live-mode") || ""; } catch { /* private mode */ }
       // Live mode is the default wherever it is available.
       if (d.realtime?.enabled && savedMode !== "turns") setMode("live");
@@ -137,8 +181,10 @@ export default function LiveTalk() {
     const form = new FormData();
     if (input.audio) form.set("audio", new File([input.audio], "speech.webm", { type: input.audio.type || "audio/webm" }));
     if (input.text) form.set("text", input.text);
-    form.set("voiceId", voiceId);
+    const voice = boot?.voices.find((v) => v.key === voiceKey) ?? boot?.voices[0];
+    form.set("voiceId", voice?.id ?? "");
     form.set("history", JSON.stringify(turnsRef.current.slice(-12)));
+    if (conversationRef.current) form.set("conversationId", conversationRef.current);
     try {
       const res = await fetch("/api/live/turn", { method: "POST", body: form, credentials: "include" });
       const data = await res.json().catch(() => ({}));
@@ -148,6 +194,7 @@ export default function LiveTalk() {
         go("idle");
         return;
       }
+      if (data.conversationId && conversationRef.current !== data.conversationId) { conversationRef.current = data.conversationId; setConversationId(data.conversationId); void loadHistory(); }
       const next = [...turnsRef.current, { role: "user" as const, content: data.transcript }, { role: "assistant" as const, content: data.reply }];
       turnsRef.current = next;
       setTurns(next);
@@ -169,7 +216,7 @@ export default function LiveTalk() {
       go("idle");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [voiceId, locale]);
+  }, [voiceKey, boot, locale]);
 
   function stopRecording(discard = false) {
     const m = media.current;
@@ -220,7 +267,7 @@ export default function LiveTalk() {
   function onMic() {
     if (mode === "live") {
       setNotice(null);
-      if (realtime.phase === "idle") void realtime.start();
+      if (realtime.phase === "idle") void realtime.start({ voice: voiceKey, conversationId: conversationRef.current });
       else void realtime.end();
       return;
     }
@@ -238,12 +285,14 @@ export default function LiveTalk() {
     onPause();
     turnsRef.current = [];
     setTurns([]);
+    conversationRef.current = null;
+    setConversationId(null);
     setNotice(null);
     go("idle");
   }
-  function chooseVoice(id: string) {
-    setVoiceId(id);
-    try { localStorage.setItem("aifekr-live-voice", id); } catch { /* private mode */ }
+  function chooseVoice(key: string) {
+    setVoiceKey(key);
+    try { localStorage.setItem("aifekr-live-voice-key", key); } catch { /* private mode */ }
   }
 
   if (failed) return <section className="live-talk"><p className="live-talk-status">{say("unavailable")}</p></section>;
@@ -261,12 +310,13 @@ export default function LiveTalk() {
           <p>{say("intro")}</p>
         </div>
         <div className="live-talk-meta">
-          {!liveMode && <label>
+          <label>
             <span>{say("voice")}</span>
-            <select value={voiceId} onChange={(e) => chooseVoice(e.target.value)} disabled={state === "listening" || busy}>
-              {boot.voices.map((v) => <option key={v.id} value={v.id}>{v.name} · {say(v.gender === "male" ? "male" : "female")}</option>)}
+            <select value={voiceKey} onChange={(e) => chooseVoice(e.target.value)} disabled={state === "listening" || busy || calling}>
+              <option value="fika">{say("fika")}</option>
+              <option value="fiko">{say("fiko")}</option>
             </select>
-          </label>}
+          </label>
           <span>{say("credits")}: <strong>{n(credits)}</strong></span>
           {liveMode && rt
             ? <small>{say("perMinute").replace("{n}", n(rt.creditsPerMinute))} · {say("maxLength").replace("{n}", n(rt.maxMinutes))}{rt.freeMinute ? ` · ${say("freeMinute")}` : ""}</small>
@@ -302,6 +352,26 @@ export default function LiveTalk() {
           {(liveMode ? calling : state === "listening") ? <Square size={26} /> : <Mic size={26} />}
         </button>
         {!liveMode && <button className="live-ctl" onClick={onPause} disabled={state === "idle" || state === "paused"} aria-label={say("pause")} title={say("pause")}><Pause size={20} /></button>}
+      </div>
+
+      <div className="live-talk-history">
+        <button className="text-link" onClick={() => { setShowHistory((v) => !v); if (!saved) void loadHistory(); }} aria-expanded={showHistory}>
+          <History size={15} /> {say("history")}{saved?.length ? ` (${n(saved.length)})` : ""}
+        </button>
+        {showHistory && (
+          <ul>
+            {!saved?.length && <li className="muted">{say("noHistory")}</li>}
+            {saved?.map((c) => (
+              <li key={c.id} className={c.id === conversationId ? "active" : ""}>
+                <button className="live-history-open" onClick={() => void openSaved(c.id)} disabled={calling} dir="auto">
+                  <span>{c.title || say("untitled")}</span>
+                  <small>{new Intl.DateTimeFormat(locale === "fa" ? "fa-IR" : locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(c.updatedAt))}</small>
+                </button>
+                <button className="live-history-delete" onClick={() => void removeSaved(c.id)} aria-label={say("deleteTalk")} title={say("deleteTalk")}><Trash2 size={14} /></button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {turns.length > 0 && (

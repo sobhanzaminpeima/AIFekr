@@ -1,6 +1,7 @@
 
 
 
+import FeatureAnnouncement from "@/components/live/FeatureAnnouncement";
 import { cookies,headers } from "next/headers";
 import { redirect } from "next/navigation";
 import PendingPaymentNotice from "@/components/billing/PendingPaymentNotice";
@@ -54,6 +55,7 @@ export async function renderPlatformShell(children:React.ReactNode,fitness=false
         <SubscriptionGate expired={expired} expiresAt={fitness?undefined:expiresAt} lang={lang} overlay={<>{studentWorkspaceEnabled&&<StudentTimerDock lang={lang}/>}<FloatingSupportWidget lang={lang}/></>}>{children}</SubscriptionGate>
       </MobileNavShell>
       <DashboardPullToRefresh lang={lang} />
+      {!fitness && <FeatureAnnouncement path={requestedPath.split("?")[0]} />}
       {/* Dashboard-only by design (Phase 1 decision) -- admin pages are on the
           orchestrator's DENY list anyway, and the public/marketing site has no
           session and a different threat model. */}

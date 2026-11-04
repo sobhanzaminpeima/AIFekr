@@ -36,13 +36,23 @@ export async function voiceAccess(userId: string, user: { role: string; plan: st
     return policy.paidAccess && !!await prisma.payment.findFirst({ where: { userId, status: "SUCCESS" }, select: { id: true } });
 }
 const TRIAL_COUNTED = ["QUEUED", "RUNNING", "REVIEW", "READY", "DELETED"];
-async function trialSamplesUsed(db: Pick<typeof prisma, "voiceStudioGeneration">, userId: string) {
-    return db.voiceStudioGeneration.count({ where: { userId, status: { in: TRIAL_COUNTED }, pricingSnapshot: { contains: '"trialSample":true' } } });
+/**
+ * Free samples used by this account, plus those other accounts already took
+ * on the same device (browser cookie aifekr_did): signing in with a second
+ * account on the same browser does not give new samples.
+ */
+async function trialSamplesUsed(db: Pick<typeof prisma, "voiceStudioGeneration" | "usageLog">, userId: string, device?: string | null) {
+    const own = await db.voiceStudioGeneration.count({ where: { userId, status: { in: TRIAL_COUNTED }, pricingSnapshot: { contains: '"trialSample":true' } } });
+    if (!device) return own;
+    const logs = await db.usageLog.findMany({ where: { type: "voice_studio_trial", userId: { not: userId }, metadata: { contains: `"device":"${device}"` } }, select: { metadata: true }, take: 20 });
+    const ids = logs.map((l) => { try { return String(JSON.parse(l.metadata || "{}").generationId || ""); } catch { return ""; } }).filter(Boolean);
+    const others = ids.length ? await db.voiceStudioGeneration.count({ where: { id: { in: ids }, status: { in: TRIAL_COUNTED } } }) : 0;
+    return own + others;
 }
-export async function bootstrap(userId: string) { const policy = await voicePolicy();
+export async function bootstrap(userId: string, device?: string | null) { const policy = await voicePolicy();
     // Tell the screen up front whether this account may generate, so it can explain instead of failing on click.
     const account = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { role: true, plan: true, planExpiry: true } });
-    const planOk = await voiceAccess(userId, account, policy), trialLeft = trialRemaining(planOk, policy, planOk ? 0 : await trialSamplesUsed(prisma, userId));
+    const planOk = await voiceAccess(userId, account, policy), trialLeft = trialRemaining(planOk, policy, planOk ? 0 : await trialSamplesUsed(prisma, userId, device));
     const access = { planAllowed: planOk, trialRemaining: trialLeft, trialMaxSeconds: policy.trialMaxSeconds, storageReady: privateStorageConfigured() }; let catalog = null, catalogError: string | null = null; try {
     catalog = await speechCatalog();
 }
@@ -72,7 +82,7 @@ export type GenerationInput = {
     idempotencyKey: string;
     settings?: unknown;
 };
-export async function enqueueSpeech(userId: string, input: GenerationInput) {
+export async function enqueueSpeech(userId: string, input: GenerationInput, device?: string | null) {
     const basePolicy = await voicePolicy();
     const blocked = await prisma.moduleRegistry.findUnique({ where: { key: "voice-studio" } });
     if (!basePolicy.enabled || blocked && ["disabled", "maintenance"].includes(blocked.status))
@@ -116,13 +126,13 @@ export async function enqueueSpeech(userId: string, input: GenerationInput) {
             throw new VoiceError("PROJECT_NOT_FOUND", 404);
         if (currentProject.updatedAt.getTime() !== project.updatedAt.getTime())
             throw new VoiceError("PROJECT_CHANGED_RETRY");
-        if (!planOk && trialRemaining(false, basePolicy, await trialSamplesUsed(tx, userId)) < 1)
+        if (!planOk && trialRemaining(false, basePolicy, await trialSamplesUsed(tx, userId, device)) < 1)
             throw new VoiceError("PLAN_REQUIRED", 403);
         if (await tx.voiceStudioGeneration.count({ where: { userId, status: { in: ["QUEUED", "RUNNING", "REVIEW"] } } }) >= policy.maxPendingPerUser)
             throw new VoiceError("TOO_MANY_PENDING_JOBS", 429);
         if (await tx.voiceStudioGeneration.count({ where: { userId, createdAt: { gte: new Date(Date.now() - 86400000) } } }) >= policy.dailyJobs)
             throw new VoiceError("DAILY_QUOTA_REACHED", 429);
-        const reservation = reserved === 0 ? {payerTeamId: null, mirroredAi: 0, usageLogId: (await tx.usageLog.create({data:{userId,type:"voice_studio_trial",credits:0,requestId:`voice:${id}:reserve`,metadata:JSON.stringify({generationId:id,trial:true})}})).id} : await reserveLoggedCredits(tx, userId, reserved, { type: "voice_studio", provider: "elevenlabs", model: model.id, requestId: `voice:${id}:reserve`, metadata: { generationId: id, pricingVersion: policy.version, kind: "RESERVATION", trial: !planOk } });
+        const reservation = reserved === 0 ? {payerTeamId: null, mirroredAi: 0, usageLogId: (await tx.usageLog.create({data:{userId,type:"voice_studio_trial",credits:0,requestId:`voice:${id}:reserve`,metadata:JSON.stringify({generationId:id,trial:true,device:device||null})}})).id} : await reserveLoggedCredits(tx, userId, reserved, { type: "voice_studio", provider: "elevenlabs", model: model.id, requestId: `voice:${id}:reserve`, metadata: { generationId: id, pricingVersion: policy.version, kind: "RESERVATION", trial: !planOk } });
         if (!reservation)
             throw new VoiceError("INSUFFICIENT_CREDITS", 402);
         return tx.voiceStudioGeneration.create({ data: { id, userId, businessId: project.businessId, projectId: project.id, idempotencyKey: input.idempotencyKey, inputHash, text, graphemes: graphemes(text), providerCharacters: Array.from(text).length, segmentIndex: input.segmentIndex, language: project.language, voiceId: voice.id, modelId: model.id, voiceSettings: JSON.stringify(settings), pricingSnapshot: JSON.stringify({...policy, trialSample: !planOk}), estimatedSeconds: estimatedSeconds(text, project.language), reservedCredits: reserved, ...reservation } });

@@ -15,15 +15,24 @@ type Handlers = {
   onLevel: (level: number) => void;
   onError: (code: string) => void;
   onEnded: () => void;
+  /** The saved conversation this call is part of (new or continued). */
+  onConversation?: (id: string) => void;
 };
 type Call = {
   id: string; stream: MediaStream; ctx: AudioContext; events: EventSource | null; processor: ScriptProcessorNode; source: MediaStreamAudioSourceNode;
-  out: GainNode; playing: AudioBufferSourceNode[]; nextAt: number; pending: Int16Array[]; pendingLength: number; upload: Promise<unknown>; frame: number;
+  out: GainNode; playing: AudioBufferSourceNode[]; nextAt: number; pending: Int16Array[]; pendingLength: number; seq: number; loudFrames: number; frame: number;
 };
 /** Rate of the audio exchanged with the server, and how much microphone audio goes up per request. */
 const RATE = 24000, CHUNK = RATE / 4;
-/** While the assistant is speaking, quieter microphone input is treated as its echo and sent as silence; louder input interrupts it. */
-const BARGE_IN = 0.06;
+/**
+ * While the assistant is speaking, the microphone mostly hears its echo: that
+ * is sent as silence. Only input that stays loud for a few frames (~250 ms)
+ * counts as the user talking over it; a single loud frame used to cut the
+ * assistant's voice into pieces.
+ */
+const BARGE_IN = 0.09, BARGE_FRAMES = 3;
+/** Audio waits this long before playing when a reply starts (and after a gap), so network jitter does not break it up. */
+const JITTER_S = 0.35;
 
 const post = (url: string, body: BodyInit, type = "application/json") => fetch(url, { method: "POST", credentials: "include", keepalive: true, headers: { "Content-Type": type }, body });
 
@@ -70,7 +79,7 @@ export function useRealtimeCall(h: Handlers) {
     if (notify) handlers.current.onEnded();
   }, []);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (options: { voice?: string; conversationId?: string | null } = {}) => {
     if (call.current) return;
     setPhase("connecting");
     let stream: MediaStream;
@@ -83,15 +92,16 @@ export function useRealtimeCall(h: Handlers) {
     meter.fftSize = 512;
     out.connect(meter);
     source.connect(meter);
-    const c: Call = { id: "", stream, ctx, events: null, processor, source, out, playing: [], nextAt: 0, pending: [], pendingLength: 0, upload: Promise.resolve(), frame: 0 };
+    const c: Call = { id: "", stream, ctx, events: null, processor, source, out, playing: [], nextAt: 0, pending: [], pendingLength: 0, seq: 0, loudFrames: 0, frame: 0 };
     call.current = c;
     let res: Response;
-    try { res = await post("/api/live/realtime", "{}"); }
+    try { res = await post("/api/live/realtime", JSON.stringify({ voice: options.voice, conversationId: options.conversationId ?? null })); }
     catch { await end(false); handlers.current.onError("LIVE_REALTIME_FAILED"); return; }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) { await end(false); handlers.current.onError(data.error || "LIVE_REALTIME_FAILED"); return; }
     if (call.current !== c) { post("/api/live/realtime/close", JSON.stringify({ sessionId: data.sessionId })).catch(() => {}); return; }
     c.id = data.sessionId;
+    if (data.conversationId) handlers.current.onConversation?.(data.conversationId);
 
     // Down: the assistant's voice, scheduled back to back as it arrives.
     const events = new EventSource(`/api/live/realtime/events?id=${encodeURIComponent(c.id)}`, { withCredentials: true });
@@ -107,7 +117,8 @@ export function useRealtimeCall(h: Handlers) {
         const node = ctx.createBufferSource();
         node.buffer = buffer;
         node.connect(out);
-        const at = Math.max(ctx.currentTime + 0.05, c.nextAt);
+        // A new reply (or one that ran dry) starts after a short buffer; the rest follows back to back.
+        const at = c.nextAt > ctx.currentTime ? c.nextAt : ctx.currentTime + JITTER_S;
         node.start(at);
         c.nextAt = at + buffer.duration;
         c.playing.push(node);
@@ -123,7 +134,8 @@ export function useRealtimeCall(h: Handlers) {
       if (call.current !== c) return;
       const input = ev.inputBuffer.getChannelData(0);
       const speakingBack = c.nextAt > ctx.currentTime;
-      const loud = rms(input) >= BARGE_IN;
+      c.loudFrames = rms(input) >= BARGE_IN ? c.loudFrames + 1 : 0;
+      const loud = c.loudFrames >= BARGE_FRAMES;
       if (speakingBack && loud) flush(c); // the user talks over the assistant
       const pcm = toPcm24k(speakingBack && !loud ? new Float32Array(input.length) : input, ctx.sampleRate);
       c.pending.push(pcm);
@@ -134,7 +146,9 @@ export function useRealtimeCall(h: Handlers) {
       for (const p of c.pending) { chunk.set(p, offset); offset += p.length; }
       c.pending = [];
       c.pendingLength = 0;
-      c.upload = c.upload.then(() => fetch(`/api/live/realtime/audio?id=${encodeURIComponent(c.id)}`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/octet-stream" }, body: chunk.buffer }).then((r) => { if (r.status === 404) void end(); }).catch(() => {}));
+      // Sent at once and numbered: the server puts them back in order, so a slow request no longer holds up the next ones.
+      const seq = c.seq++;
+      fetch(`/api/live/realtime/audio?id=${encodeURIComponent(c.id)}&seq=${seq}`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/octet-stream" }, body: chunk.buffer }).then((r) => { if (r.status === 404) void end(); }).catch(() => {});
     };
     source.connect(processor);
     processor.connect(ctx.destination);

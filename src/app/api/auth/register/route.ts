@@ -1,3 +1,4 @@
+import { signupCredits } from "@/lib/credits/freeCredits";
 import { resolvePromo } from "@/lib/utils/referralPromo";
 export const dynamic = "force-dynamic";
 
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest) {
       email: email || undefined,
       phone: phone || undefined,
       passwordHash: password ? await hashPassword(password) : undefined,
-      credits: 200,
+      credits: await signupCredits(200),
       plan: "FREE",
       accountType: accountTypeFor(selectedPlan, accountType),
       ...(bodyForLang.entry==="chat"&&!selectedPlan&&accountTypeFor(selectedPlan,accountType)==="PERSONAL"?{chatOnly:true,onboardingDone:true}:{}),
