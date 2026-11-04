@@ -42,3 +42,11 @@
 /* The classic frame gives pages no side gutter of their own. */
 .live-talk { padding-inline: 16px; box-sizing: border-box; width: 100%; }
 @media (max-width: 640px) { .live-talk-controls { margin-bottom: 64px; } }
+
+/* AIFekr Live mode switch: live (GPT-Live, per minute) or turn by turn. */
+.live-talk-modes { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 8px; }
+.live-talk-modes button { padding: 7px 16px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-1); color: var(--text-secondary); font: inherit; font-size: 13px; cursor: pointer; }
+.live-talk-modes button.selected { border-color: var(--primary); color: var(--primary); }
+.live-talk-modes button:disabled { opacity: 0.5; cursor: default; }
+.live-talk-modes small { flex-basis: 100%; text-align: center; color: var(--text-muted); font-size: 12px; }
+.live-mic[data-calling] { background: var(--danger, #e5484d); border-color: var(--danger, #e5484d); color: #fff; }

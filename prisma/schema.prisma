@@ -1234,6 +1234,35 @@ model CreditLedgerEntry {
   @@index([type, createdAt])
 }
 
+/// One AIFekr Live voice conversation in live mode (OpenAI GPT-Live, relayed
+/// through this server: the browser cannot reach OpenAI's media servers from
+/// Iran). Each started minute is charged from credits (lib/live/realtime.ts). Kept after the account is deleted:
+/// it is a billing record.
+model LiveVoiceSession {
+  id                String    @id @default(cuid())
+  userId            String
+  providerSessionId String    @unique
+  /// ACTIVE | CLOSED
+  status            String    @default("ACTIVE")
+  /// The account's one free first minute was used here.
+  freeMinute        Boolean   @default(false)
+  creditsPerMinute  Int
+  maxSeconds        Int
+  /// Started minutes already charged (or given free); claimed atomically so two processes never charge one minute twice.
+  chargedMinutes    Int       @default(0)
+  chargedCredits    Int       @default(0)
+  /// Final voice duration reported by OpenAI (usage.seconds) when the session closed.
+  seconds           Int?
+  endReason         String?
+  /// Last time the relaying process metered this call; a stale one (process restarted) is closed.
+  meteredAt         DateTime  @default(now())
+  startedAt         DateTime  @default(now())
+  endedAt           DateTime?
+
+  @@index([userId, status])
+  @@index([status, meteredAt])
+}
+
 model ErrorLog {
   id        String   @id @default(cuid())
   /// "error" | "warn" -- severity, so the tab can show real failures first.

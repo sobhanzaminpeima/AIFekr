@@ -42,6 +42,7 @@ const CREDIT_COST_LABELS: Record<string, string> = {
   tool: "ابزار عمومی",
   live_turn: "AIFekr Live — هر نوبت گفتگو",
   live_tts_100: "AIFekr Live — هر ۱۰۰ کاراکتر پاسخ صوتی",
+  live_realtime_minute: "AIFekr Live زنده — هر دقیقه گفتگو",
 };
 
 const PLAN_LABELS: Record<string, string> = { FREE: "رایگان", BASIC: "پایه", PRO: "حرفه‌ای", TEAM: "تیمی" };

@@ -74,12 +74,20 @@ async function liveVoices() {
 }
 
 /** What the screen needs before the first turn: availability, voices, price and balance. */
-export async function liveBootstrap(userId: string) {
+export async function liveBootstrap(userId: string, withRealtime = true) {
   const [policy, voices, costs, credits] = await Promise.all([voicePolicy(), liveVoices(), liveCosts(), getAvailableCredits(userId)]);
   let speech = policy.enabled;
   if (speech) await voiceCredentials().catch(() => { speech = false; });
   const transcription = !!PROVIDERS.find((p) => p.id === "openai-direct")?.apiKey;
-  return { enabled: speech && transcription && voices.length > 0, voices, costs, credits, typicalTurn: turnCredits(200, costs) };
+  // Live mode (GPT-Live, per minute) next to the turn-by-turn mode.
+  const realtime = withRealtime ? await (async () => {
+    const { realtimeSettings, hasFreeMinute, ensureSweeper } = await import("./realtime");
+    ensureSweeper();
+    const role = (await prisma.user.findUnique({ where: { id: userId }, select: { role: true } }))?.role;
+    const s = await realtimeSettings(role);
+    return { enabled: s.enabled, creditsPerMinute: s.creditsPerMinute, maxMinutes: s.maxMinutes, freeMinute: s.freeFirstMinute && await hasFreeMinute(userId) };
+  })() : null;
+  return { enabled: speech && transcription && voices.length > 0, voices, costs, credits, typicalTurn: turnCredits(200, costs), realtime };
 }
 
 async function transcribe(audio: File, lang: string): Promise<string> {
@@ -129,7 +137,7 @@ export function speechParts(reply: string, maxParts = 3): string[] {
 export const speechLanguage = (reply: string, lang: string) => (/[؀-ۿ]/.test(reply) ? "fa" : ["en", "de", "tr"].includes(lang) ? lang : "en");
 
 export async function liveTurn(input: { userId: string; lang: string; voiceId: string; history: LiveHistory; audio?: File | null; text?: string | null }) {
-  const { voices, enabled, costs } = await liveBootstrap(input.userId);
+  const { voices, enabled, costs } = await liveBootstrap(input.userId, false);
   if (!enabled) throw new LiveError("LIVE_UNAVAILABLE", 503);
   if (!voices.some((v) => v.id === input.voiceId)) throw new LiveError("UNSUPPORTED_VOICE");
   const minimum = turnCredits(200, costs), available = await getAvailableCredits(input.userId);

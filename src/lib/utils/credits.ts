@@ -19,6 +19,8 @@ export const CREDIT_COSTS = {
   /** AIFekr Live, per spoken turn: transcription + answer, plus per started 100 characters read aloud (lib/live/service.ts). */
   live_turn: 2,
   live_tts_100: 7,
+  /** AIFekr Live, live mode (GPT-Live): per started minute of call; owner-approved 2026-11-03 (65% margin at the cheapest credit). */
+  live_realtime_minute: 66,
 } as const;
 
 export const PLAN_LIMITS = {
