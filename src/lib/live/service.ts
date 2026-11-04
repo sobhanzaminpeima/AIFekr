@@ -42,6 +42,14 @@ const LIVE_VOICES = [
   { id: "cjVigY5qzO86Huf0OWal", key: "fiko", name: "Fiko", gender: "male" },
 ] as const;
 
+/** What the assistant knows about who it is talking to: the name on the account, unless the user says another. */
+export async function accountNameNote(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } }).catch(() => null);
+  const name = user?.name?.trim().replace(/\s+/g, " ").slice(0, 60);
+  if (!name || /@|\d{3,}|^(user|test|local)\b/i.test(name)) return "";
+  return `\n\nThe name on this user's AIFekr account is «${name}». If it looks like a real first name you may call them by it; if they tell you a different name, use theirs.`;
+}
+
 export class LiveError extends Error {
   constructor(public code: string, public status = 400, public extra: Record<string, unknown> = {}) { super(code); }
 }
@@ -56,7 +64,9 @@ Language: reply entirely in the language the user just spoke. In Persian, always
 
 Never repeat yourself: do not repeat an earlier answer or reuse the same opening. If the user asks again about something you already answered, add something new or ask what they want to know more about. If the transcript looks empty, garbled or cut off, don't guess or comment on which language it is; just say briefly that you didn't catch it and ask them to say it again.
 
-Topics: anything on the user's mind: feelings and a bad day, relationships, health habits, study, work, money, ideas, business questions, general knowledge, small talk. Never say you can only help with one area. When someone is having a hard time, listen first and be kind and practical; for a medical, legal or mental-health emergency, gently suggest a professional or local emergency help. When you mention AIFekr, describe only what it really offers: AI chat, image, video and music generation, Voice Studio, Video Factory, CRM, accounting, SEO, social media tools, and student and fitness workspaces; usage is paid with credits.`;
+Topics: anything on the user's mind: feelings and a bad day, relationships, health habits, study, work, money, ideas, business questions, general knowledge, small talk. Never say you can only help with one area. When someone is having a hard time, listen first and be kind and practical; for a medical, legal or mental-health emergency, gently suggest a professional or local emergency help. When you mention AIFekr, describe only what it really offers: AI chat, image, video and music generation, Voice Studio, Video Factory, CRM, accounting, SEO, social media tools, and student and fitness workspaces; usage is paid with credits.
+
+Names: when the user tells you their name, use exactly that name from then on. If a name is unclear, cut off or unusual, ask them once to say it again instead of guessing, and never replace it with a different name.`;
 
 export type LiveHistory = { role: "user" | "assistant"; content: string }[];
 
@@ -159,7 +169,8 @@ export async function liveTurn(input: { userId: string; lang: string; voiceId: s
   const history = (saved.length ? saved : input.history.filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string").map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }))).slice(-12);
   let answer = "", provider: Provider | null = null, usage: { promptTokens: number; completionTokens: number; totalTokens: number } | null = null;
   try {
-    await routedStreamChat([...history, { role: "user", content: question }], LIVE_PROMPT, (t) => { answer += t; }, (p) => { provider = p; }, liveModel(), ({ partial }) => { if (partial) answer = ""; }, 400, (u) => { usage = u; });
+    const prompt = LIVE_PROMPT + await accountNameNote(input.userId);
+    await routedStreamChat([...history, { role: "user", content: question }], prompt, (t) => { answer += t; }, (p) => { provider = p; }, liveModel(), ({ partial }) => { if (partial) answer = ""; }, 400, (u) => { usage = u; });
   } catch {
     throw new LiveError("ANSWER_FAILED", 502, { transcript: question });
   }

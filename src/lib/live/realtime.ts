@@ -4,7 +4,7 @@ import { PROVIDERS } from "@/lib/ai/providers";
 import { getCreditCosts } from "@/lib/utils/creditCosts";
 import { chargeAndLog, getAvailableCredits } from "@/lib/utils/teamCredits";
 import { logError } from "@/lib/logging/errorLog";
-import { LIVE_PROMPT, LiveError } from "./service";
+import { LIVE_PROMPT, LiveError, accountNameNote } from "./service";
 import { liveConversation, recentLines, saveLine } from "./history";
 
 /**
@@ -30,7 +30,7 @@ export const LIVE_REALTIME_MODEL = "gpt-live-1";
 export const LIVE_REALTIME_VOICES = { fika: "marin", fiko: "cinder" } as const;
 /** OpenAI's price for an open GPT-Live minute (developers.openai.com/api/docs/models/gpt-live-1, 2026-11-03). */
 const PROVIDER_USD_PER_MINUTE = 0.05;
-const TICK_MS = 5000, GOODBYE_MS = 7000, IDLE_MS = 45000, STALE_MS = 30000;
+const GAP_MS = 1500, TICK_MS = 5000, GOODBYE_MS = 7000, IDLE_MS = 45000, STALE_MS = 30000;
 /** Audio the browser sends: 24 kHz mono 16-bit PCM, at most this many bytes per request (~2 s). */
 export const MAX_AUDIO_CHUNK = 96000;
 
@@ -63,7 +63,7 @@ export async function hasFreeMinute(userId: string) {
 }
 
 /** Live-mode instructions: the AIFekr Live identity and tone, plus the visitor's language and the brand's spoken form (the pilot answered English in Persian and mispronounced the name). */
-export function realtimeInstructions(lang: string, earlier: { role: "user" | "assistant"; content: string }[] = []) {
+export function realtimeInstructions(lang: string, earlier: { role: "user" | "assistant"; content: string }[] = [], nameNote = "") {
   const transcript = earlier.length
     ? `\n\nThis continues an earlier conversation with this user. What was said so far (remember it, including their name and details):\n${earlier.map((m) => `${m.role === "user" ? "User" : "You"}: ${m.content}`).join("\n")}\n\nContinue naturally from there; do not repeat the greeting.`
     : "";
@@ -74,7 +74,7 @@ Language for this call: the user's app is set to ${language}; start in ${languag
 
 Your name: in Persian say it as «ای آی فکر لایو» (ey-ey fekr laiv); in other languages say "A-I Fekr Live".
 
-This is a live call: keep each answer short, stop talking when the user starts talking, and never read out symbols or lists.${transcript}`;
+This is a live call: keep each answer short, stop talking when the user starts talking, and never read out symbols or lists.${nameNote}${transcript}`;
 }
 
 /** What the browser's event stream receives. */
@@ -82,7 +82,7 @@ export type RelayEvent = { type: "audio"; data: string } | { type: "user" | "ass
 type Relay = {
   id: string; userId: string; ws: WebSocket; startedAt: number; maxSeconds: number; conversationId: string;
   /** Next microphone chunk to forward, and chunks that arrived early (uploads run in parallel). */
-  nextSeq: number; early: Map<number, Uint8Array>;
+  nextSeq: number; early: Map<number, Uint8Array>; gapSince: number;
   lines: { user: string; assistant: string };
   lastInput: number; closing: boolean; ended: boolean;
   listeners: Set<(e: RelayEvent) => void>; backlog: RelayEvent[]; tick: ReturnType<typeof setInterval>;
@@ -105,12 +105,12 @@ export async function startRealtime(input: { userId: string; role: string; lang:
   if (!free && available < settings.creditsPerMinute) throw new LiveError("INSUFFICIENT_CREDITS", 402, { required: settings.creditsPerMinute, available });
 
   const conversationId = await liveConversation(input.userId, input.conversationId);
-  const earlier = await recentLines(conversationId);
+  const [earlier, nameNote] = await Promise.all([recentLines(conversationId), accountNameNote(input.userId)]);
   const voice = input.voice === "fiko" ? LIVE_REALTIME_VOICES.fiko : LIVE_REALTIME_VOICES.fika;
   const ws = new WebSocket("wss://api.openai.com/v1/live/sessions", { headers: { Authorization: `Bearer ${openaiKey()}` } });
   const providerSessionId = await new Promise<string>((resolve, reject) => {
     const timer = setTimeout(() => reject(new LiveError("LIVE_REALTIME_FAILED", 502)), 15000);
-    ws.onopen = () => ws.send(JSON.stringify({ type: "session.start", session: { model: LIVE_REALTIME_MODEL, instructions: realtimeInstructions(input.lang, earlier), audio: { format: { type: "audio/pcm", rate: 24000 }, output: { voice } } } }));
+    ws.onopen = () => ws.send(JSON.stringify({ type: "session.start", session: { model: LIVE_REALTIME_MODEL, instructions: realtimeInstructions(input.lang, earlier, nameNote), audio: { format: { type: "audio/pcm", rate: 24000 }, output: { voice } } } }));
     ws.onmessage = (m) => {
       try {
         const e = JSON.parse(String(m.data)) as { type?: string; session?: { id?: string } };
@@ -133,7 +133,7 @@ export async function startRealtime(input: { userId: string; role: string; lang:
 }
 
 function relay(id: string, userId: string, ws: WebSocket, maxSeconds: number, conversationId: string) {
-  const r: Relay = { id, userId, ws, startedAt: Date.now(), maxSeconds, conversationId, nextSeq: 0, early: new Map(), lines: { user: "", assistant: "" }, lastInput: Date.now(), closing: false, ended: false, listeners: new Set(), backlog: [], tick: setInterval(() => void meterTick(r), TICK_MS) };
+  const r: Relay = { id, userId, ws, startedAt: Date.now(), maxSeconds, conversationId, nextSeq: 0, early: new Map(), gapSince: 0, lines: { user: "", assistant: "" }, lastInput: Date.now(), closing: false, ended: false, listeners: new Set(), backlog: [], tick: setInterval(() => void meterTick(r), TICK_MS) };
   relays.set(id, r);
   let lastSeconds: number | null = null;
   ws.onmessage = (m) => {
@@ -241,8 +241,8 @@ function owned(userId: string, id: string) {
 
 /**
  * One chunk of the caller's microphone (24 kHz mono 16-bit PCM), numbered by
- * `seq`: uploads run in parallel, so chunks are forwarded in order, and a
- * chunk lost on the way is skipped once later ones have piled up.
+ * `seq`: uploads run in parallel, so chunks are forwarded in order (GPT-Live
+ * needs one continuous stream); a chunk still missing after GAP_MS is skipped.
  */
 export function pushAudio(userId: string, id: string, pcm: Uint8Array, seq?: number) {
   const r = owned(userId, id);
@@ -251,13 +251,29 @@ export function pushAudio(userId: string, id: string, pcm: Uint8Array, seq?: num
   if (r.closing) return;
   if (seq === undefined || !Number.isSafeInteger(seq)) { send(r, { type: "session.input_audio.append", audio: Buffer.from(pcm).toString("base64") }); return; }
   if (seq < r.nextSeq) return;
-  r.early.set(seq, pcm);
-  if (r.early.size > 6 && !r.early.has(r.nextSeq)) r.nextSeq = Math.min(...r.early.keys());
-  while (r.early.has(r.nextSeq)) {
-    send(r, { type: "session.input_audio.append", audio: Buffer.from(r.early.get(r.nextSeq)!).toString("base64") });
-    r.early.delete(r.nextSeq);
-    r.nextSeq++;
+  for (const chunk of orderChunks(r, seq, pcm)) send(r, { type: "session.input_audio.append", audio: Buffer.from(chunk).toString("base64") });
+}
+
+/**
+ * Puts numbered chunks back in order: returns those that can be forwarded now.
+ * A missing chunk is waited for (the browser retries a failed upload) for up
+ * to GAP_MS, or until too many later ones pile up, and then skipped.
+ */
+export function orderChunks(state: { nextSeq: number; early: Map<number, Uint8Array>; gapSince: number }, seq: number, pcm: Uint8Array, now = Date.now()): Uint8Array[] {
+  if (seq < state.nextSeq) return [];
+  state.early.set(seq, pcm);
+  if (!state.early.has(state.nextSeq)) {
+    state.gapSince ||= now;
+    if (now - state.gapSince > GAP_MS || state.early.size > 24) state.nextSeq = Math.min(...state.early.keys());
   }
+  const out: Uint8Array[] = [];
+  while (state.early.has(state.nextSeq)) {
+    out.push(state.early.get(state.nextSeq)!);
+    state.early.delete(state.nextSeq);
+    state.nextSeq++;
+  }
+  if (out.length) state.gapSince = state.early.size ? now : 0;
+  return out;
 }
 
 /** Whether this process is relaying the caller's call (the event stream answers 404 otherwise). */
