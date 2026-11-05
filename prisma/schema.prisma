@@ -296,6 +296,8 @@ model User {
   growthEvents   GrowthEvent[]
   growthTouches  GrowthTouch[]
   growthMessages GrowthMessage[]
+  followupJobs FollowupJob[]
+  followupSuppressions FollowupSuppression[]
   growthNotes    GrowthNote[]
   @@index([signupNotifiedAt, createdAt])
   id                        String    @id @default(cuid())
@@ -5010,6 +5012,59 @@ model GrowthMessage {
 }
 
 /// Internal admin note on a customer (never visible to the customer).
+/// One planned follow-up for one user (AIFekr's own customers only, never tenant CRM contacts).
+/// The queue of the follow-up engine (src/lib/followup): planned, re-checked and sent (or recorded as a dry run) by the worker.
+model FollowupJob {
+  id                String    @id @default(cuid())
+  userId            String
+  ruleKey           String
+  /// "in_app" | "email" -- the channel chosen at plan time; re-checked at send time.
+  channel           String
+  /// "dry_run" (record only) | "live" (really send) -- fixed when the job is planned.
+  mode              String
+  /// "queued" | "processing" | "sent" | "dry_run" | "suppressed" | "holdout" | "failed" | "cancelled"
+  status            String    @default("queued")
+  /// Why a job was not sent (suppression reason, holdout, ineligible...).
+  reason            String?
+  /// Same key format as GrowthMessage (rule:user[:period]); one job per key, ever.
+  idempotencyKey    String    @unique
+  /// Holdout experiment arm: "treatment" | "holdout".
+  variant           String    @default("treatment")
+  campaignKey       String?
+  scheduledFor      DateTime  @default(now())
+  nextAttemptAt     DateTime  @default(now())
+  attempts          Int       @default(0)
+  maxAttempts       Int       @default(4)
+  lastError         String?
+  claimedAt         DateTime?
+  processedAt       DateTime?
+  sentAt            DateTime?
+  /// Notification row created by an in-app send (for read tracking).
+  notificationId    String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([status, nextAttemptAt])
+  @@index([userId, sentAt])
+  @@index([ruleKey, status])
+  @@index([createdAt])
+}
+
+/// A user who must not receive follow-ups on a channel ("all" = every channel). Set by the user, an admin or a bounce.
+model FollowupSuppression {
+  id        String   @id @default(cuid())
+  userId    String
+  /// "all" | "in_app" | "email" | "push"
+  channel   String
+  reason    String
+  /// "admin" | "user" | "bounce" | "system"
+  source    String
+  actorId   String?
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, channel])
+}
+
 model GrowthNote {
   id        String   @id @default(cuid())
   userId    String

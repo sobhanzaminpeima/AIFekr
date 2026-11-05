@@ -60,6 +60,10 @@ export const GROWTH_MODULES: GrowthModule[] = [
   { id: "fitness", benefit: ["برنامهٔ تمرین و تغذیهٔ شخصی بگیرید و پیشرفت را ثبت کنید", "Get a personal workout and nutrition plan and track progress"], registryKey: null, name: ["فیت", "Fitness"], paths: ["/fitness", "/fit"], landingPath: "/fit",
     firstValue: ["اولین پروفایل و برنامهٔ شخصی", "First personal fitness profile"], exampleTask: ["پروفایل بدنی‌تان را کامل کنید تا برنامه ساخته شود", "Complete your profile to get a plan"],
     nextStep: ["اولین تمرین را ثبت کنید", "Log your first workout"], objectives: ["fitness"] },
+  // AIFekr Live: first value is read from LiveVoiceSession metadata (seconds/minutes), never from transcripts.
+  { id: "live", benefit: ["با هوش مصنوعی صحبت کنید و همان لحظه جواب صوتی بگیرید", "Talk with AI and get spoken answers in real time"], registryKey: null, name: ["AIFekr لایو", "AIFekr Live"], paths: ["/live"], landingPath: "/live",
+    firstValue: ["اولین گفتگوی زنده", "First live conversation"], exampleTask: ["یک گفتگوی زندهٔ کوتاه را شروع کنید و سؤالتان را بپرسید", "Start a short live conversation and ask your question"],
+    nextStep: ["گفتگوی ذخیره‌شده را ادامه دهید یا صدای دیگری را امتحان کنید", "Continue a saved conversation or try the other voice"], objectives: ["general"] },
 ];
 
 export const growthModule = (id: string | null | undefined) => GROWTH_MODULES.find(m => m.id === id) ?? null;

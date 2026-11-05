@@ -157,13 +157,14 @@ export async function customerDetail(userId: string) {
   if (!user) return null;
   const facts = (await loadFacts([userId], settings.thresholds.scoringWindowDays, now)).get(userId)!;
   const ev = evaluate(facts, settings, now);
-  const [touches, events, payments, messages, notes, usage] = await Promise.all([
+  const [touches, events, payments, messages, notes, usage, jobs] = await Promise.all([
     prisma.growthTouch.findMany({ where: { userId }, orderBy: { createdAt: "asc" }, take: 50 }),
     prisma.growthEvent.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 150, select: { id: true, name: true, moduleId: true, metadata: true, source: true, createdAt: true } }),
     prisma.payment.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 50, select: { id: true, plan: true, amount: true, status: true, gateway: true, periodMonths: true, createdAt: true } }),
     prisma.growthMessage.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 50 }),
     prisma.growthNote.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 50 }),
     prisma.usageLog.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 60, select: { id: true, type: true, credits: true, createdAt: true } }),
+    prisma.followupJob.findMany({ where: { userId, status: { not: "sent" } }, orderBy: { createdAt: "desc" }, take: 50, select: { ruleKey: true, channel: true, mode: true, status: true, reason: true, processedAt: true, createdAt: true } }),
   ]);
   const timeline = [
     { at: user.createdAt, type: "signup", label: "user_signed_up", detail: null as string | null },
@@ -173,6 +174,8 @@ export async function customerDetail(userId: string) {
     ...payments.map(p => ({ at: p.createdAt, type: "billing", label: p.status === "SUCCESS" ? "payment_succeeded" : p.status === "FAILED" ? "checkout_failed" : "checkout_started", detail: `${p.plan} · ${p.amount.toLocaleString("en")} Toman · ${p.gateway}` })),
     ...usage.map(u => ({ at: u.createdAt, type: "credits", label: u.credits >= 0 ? "credits_consumed" : "credits_refunded", detail: `${u.type} · ${u.credits}` })),
     ...messages.map(m => ({ at: m.createdAt, type: "communication", label: `message_${m.status}`, detail: `${m.ruleKey} · ${m.channel}${m.reason ? ` · ${m.reason}` : ""}` })),
+    // Sent follow-ups already appear as GrowthMessage rows above; this adds dry runs, holdouts and suppressions.
+    ...jobs.map(j => ({ at: j.processedAt ?? j.createdAt, type: "communication", label: `followup_${j.status}`, detail: `${j.ruleKey} · ${j.channel} · ${j.mode}${j.reason ? ` · ${j.reason}` : ""}` })),
   ].sort((a, b) => b.at.getTime() - a.at.getTime());
   return {
     user: { ...user, growthProfile: undefined }, profile: user.growthProfile, touches: { first: touches[0] ?? null, last: touches[touches.length - 1] ?? null, count: touches.length },

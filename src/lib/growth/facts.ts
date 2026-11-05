@@ -9,7 +9,8 @@ type Group = { userId: string | null; _count: { _all: number }; _min: { createdA
  * Batch-loads CustomerFacts for a set of users with grouped queries (one per
  * source table, no per-user N+1). "Success" only counts rows that exist after
  * a real outcome: generated assets, READY voice audio, assistant replies,
- * saved CRM contacts, finished SEO audits, etc.
+ * saved CRM contacts, finished SEO audits, AIFekr Live calls
+ * (session metadata only; Live transcripts are excluded from every query here), etc.
  */
 export async function loadFacts(userIds: string[], windowDays: number, now = new Date()): Promise<Map<string, CustomerFacts>> {
   const out = new Map<string, CustomerFacts>();
@@ -48,7 +49,11 @@ export async function loadFacts(userIds: string[], windowDays: number, now = new
   put("seo", seo); put("social", social); put("website-designer", sites); put("student", student); put("crm", crm as Group[]); put("fitness", fitness as Group[]);
 
   const idList = Prisma.join(userIds);
-  const chats = await prisma.$queryRaw<{ userId: string; n: bigint; first: string | Date | number | bigint }[]>`SELECT c.userId AS userId, COUNT(DISTINCT c.id) AS n, MIN(m.createdAt) AS first FROM Message m JOIN Conversation c ON c.id = m.conversationId WHERE m.role = 'assistant' AND c.userId IN (${idList}) GROUP BY c.userId`;
+  const chats = await prisma.$queryRaw<{ userId: string; n: bigint; first: string | Date | number | bigint }[]>`SELECT c.userId AS userId, COUNT(DISTINCT c.id) AS n, MIN(m.createdAt) AS first FROM Message m JOIN Conversation c ON c.id = m.conversationId WHERE m.role = 'assistant' AND c.userId IN (${idList}) AND (c.tool IS NULL OR c.tool <> 'live') GROUP BY c.userId`;
+  // AIFekr Live transcripts are never used for targeting (excluded above); a live call counts only from its
+  // billing metadata: at least 30 seconds of voice, or one charged/free minute.
+  const live = await prisma.liveVoiceSession.groupBy({ by: ["userId"], _count: { _all: true }, _min: { startedAt: true }, where: { userId: ids, OR: [{ seconds: { gte: 30 } }, { chargedMinutes: { gte: 1 } }] } });
+  put("live", live.map(l => ({ userId: l.userId, _count: { _all: l._count._all }, _min: { createdAt: l._min.startedAt } })));
   put("chat", chats.map(c => ({ userId: c.userId, _count: { _all: Number(c.n) }, _min: { createdAt: new Date(typeof c.first === "bigint" || typeof c.first === "number" ? Number(c.first) : c.first) } })));
 
   const [refunds, usage, activeDays, lastUsage, events, payments, lastFailed, checkouts, lastEvents] = await Promise.all([

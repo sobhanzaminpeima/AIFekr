@@ -9,6 +9,8 @@ import { GROWTH_MODULES } from "@/lib/growth/modules";
 import { SEGMENTS } from "@/lib/growth/lifecycle";
 import { safeInternalPath } from "@/lib/growth/attribution";
 import { publicAppUrl } from "@/lib/utils/publicAppUrl";
+import { getFollowupSettings } from "@/lib/followup/settings";
+import { liveSendBlockers } from "@/lib/followup/policy";
 
 export const dynamic = "force-dynamic";
 
@@ -37,8 +39,8 @@ export async function GET(req: NextRequest) {
     return detail ? NextResponse.json(detail) : NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }
   if (view === "automations") {
-    const preview = await runLifecycle({ dryRun: true });
-    return NextResponse.json({ preview, rules: RULES.map(r => ({ key: r.key, kind: r.kind, name: r.name, when: r.when, template: settings.messaging.templates[r.key] ?? r.template, customised: !!settings.messaging.templates[r.key] })), variables: TEMPLATE_VARIABLES, messaging: settings.messaging, flags: settings.flags,
+    const [preview, followup] = await Promise.all([runLifecycle(), getFollowupSettings()]);
+    return NextResponse.json({ preview, engine: { enabled: followup.engine_enabled, mode: followup.mode, blockers: liveSendBlockers(followup, settings), caps: followup.caps }, rules: RULES.map(r => ({ key: r.key, kind: r.kind, name: r.name, when: r.when, template: settings.messaging.templates[r.key] ?? r.template, customised: !!settings.messaging.templates[r.key] })), variables: TEMPLATE_VARIABLES, messaging: settings.messaging, flags: settings.flags,
       history: await prisma.growthMessage.groupBy({ by: ["ruleKey", "status"], _count: { _all: true } }) });
   }
   if (view === "settings") return NextResponse.json({ settings });

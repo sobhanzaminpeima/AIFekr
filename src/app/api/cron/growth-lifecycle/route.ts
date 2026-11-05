@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isCronAuthorized } from "@/lib/auth/cronAuth";
-import { runLifecycle } from "@/lib/growth/automation";
+import { runFollowupCycle } from "@/lib/followup/engine";
 export const dynamic = "force-dynamic";
 
-/** Scheduled lifecycle run. Sends nothing unless both lifecycle flags are on and an admin enabled the rule. */
+/**
+ * Scheduled follow-up cycle (hourly). Runs the follow-up engine, the single
+ * send path. With the engine off (the default) it plans and sends nothing;
+ * in dry-run mode it only records intended sends.
+ */
 export async function POST(req: NextRequest) {
   if (!isCronAuthorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const result = await runLifecycle({ dryRun: false });
-  return NextResponse.json({ dryRun: result.dryRun, blocked: result.blocked, quiet: result.quiet, sent: result.results.reduce((n, r) => n + r.sent, 0), rules: result.results.map(r => ({ key: r.key, enabled: r.enabled, eligible: r.eligible, sent: r.sent, suppressed: r.suppressed })) });
+  const { plan, processed } = await runFollowupCycle();
+  return NextResponse.json({ mode: plan.mode, disabled: processed.disabled, planned: plan.planned, byRule: plan.byRule, claimed: processed.claimed, outcomes: processed.outcomes });
 }

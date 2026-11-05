@@ -25,6 +25,8 @@ const weights = z.object({
   pricingViewed: z.number().int().min(0).max(100).default(10),
   checkoutStarted: z.number().int().min(0).max(100).default(20),
   demoRequested: z.number().int().min(0).max(100).default(10),
+  /** At least one real AIFekr Live call (session metadata only). Off (0) until an admin chooses a weight. */
+  liveUsed: z.number().int().min(0).max(100).default(0),
 });
 
 const thresholds = z.object({
@@ -51,7 +53,7 @@ const messaging = z.object({
   /** Rule keys an admin switched on; every rule starts off. */
   enabledRules: z.array(z.string().max(80)).max(50).default([]),
   /** Admin overrides of the built-in message texts, per rule key. Variables are validated on save. */
-  templates: z.record(z.string().max(80), z.object({ titleFa: z.string().max(120), bodyFa: z.string().max(600), titleEn: z.string().max(120), bodyEn: z.string().max(600) })).default({}),
+  templates: z.record(z.string().max(80), z.object({ titleFa: z.string().max(120), bodyFa: z.string().max(600), titleEn: z.string().max(120), bodyEn: z.string().max(600), titleDe: z.string().max(120).optional(), bodyDe: z.string().max(600).optional(), titleTr: z.string().max(120).optional(), bodyTr: z.string().max(600).optional() })).default({}),
 });
 
 export const growthSettingsSchema = z.object({

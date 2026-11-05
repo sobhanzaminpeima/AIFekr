@@ -22,6 +22,7 @@ const TH: Record<keyof GrowthSettings["thresholds"], [string, string]> = {
 const W: Record<keyof GrowthSettings["weights"], [string, string]> = {
   onboardingCompleted: ["تکمیل آشنایی", "Onboarding completed"], firstValue: ["نتیجهٔ اول", "First result"], returnedAnotherDay: ["بازگشت در روز دیگر", "Returned another day"],
   repeatedModuleUse: ["۳+ نتیجه در یک ماژول", "3+ results in one module"], pricingViewed: ["دیدن قیمت/پلن", "Viewed pricing/plans"], checkoutStarted: ["شروع پرداخت", "Checkout started"], demoRequested: ["درخواست کمک/دمو", "Requested help/demo"],
+  liveUsed: ["استفاده از AIFekr لایو (فقط مدت تماس)", "Used AIFekr Live (call length only)"],
 };
 
 export default function SettingsTab() {

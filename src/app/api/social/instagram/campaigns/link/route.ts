@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import { recordLinkTouch } from "@/lib/growth/serverTouch";
 
 interface CampaignLink { id: string; label: string; url: string; clicks: number }
 
@@ -38,5 +39,9 @@ export async function GET(req: NextRequest) {
     data: { links: JSON.stringify(updated) },
   }).catch(() => {});
 
-  return NextResponse.redirect(target.toString());
+  const res = NextResponse.redirect(target.toString());
+  // Links to AIFekr itself (e.g. the Live launch DM → /live) are attributed here,
+  // before any sign-in redirect can drop the UTM. Tenant sites are untouched.
+  await recordLinkTouch(req, res, target);
+  return res;
 }

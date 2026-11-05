@@ -8,21 +8,25 @@ export function useT() {
 }
 
 /** GET /api/admin/growth with loading/error state; `reload` re-fetches. */
-export function useGrowth<T>(query: string | null) {
+export function useGrowth<T>(query: string | null, api = "/api/admin/growth") {
   const [data, setData] = useState<T | null>(null), [error, setError] = useState(""), [loading, setLoading] = useState(true), [tick, setTick] = useState(0);
   useEffect(() => {
     if (query === null) return;
     let live = true;
-    fetch(`/api/admin/growth?${query}`, { cache: "no-store" }).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.error || `HTTP_${r.status}`); return d; })
+    fetch(`${api}?${query}`, { cache: "no-store" }).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.error || `HTTP_${r.status}`); return d; })
       .then(d => { if (live) { setData(d); setError(""); } }).catch(e => { if (live) setError(e instanceof Error ? e.message : "FAILED"); }).finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
-  }, [query, tick]);
+  }, [query, tick, api]);
   const reload = useCallback(() => { setLoading(true); setTick(n => n + 1); }, []);
   return { data, error, loading, reload };
 }
 
-export async function growthPost(body: Record<string, unknown>) {
-  const r = await fetch("/api/admin/growth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+/** The follow-up engine's admin API (same shape as the growth one). */
+export const useFollowup = <T,>(query: string | null) => useGrowth<T>(query, "/api/admin/followup");
+export const followupPost = (body: Record<string, unknown>) => growthPost(body, "/api/admin/followup");
+
+export async function growthPost(body: Record<string, unknown>, api = "/api/admin/growth") {
+  const r = await fetch(api, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const d = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error([d.error, ...(d.issues || [])].filter(Boolean).join(" · ") || `HTTP_${r.status}`);
   return d;

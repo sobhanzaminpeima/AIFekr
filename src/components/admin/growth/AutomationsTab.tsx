@@ -6,7 +6,7 @@ import type { GrowthSettings } from "@/lib/growth/config";
 type Template = { titleFa: string; bodyFa: string; titleEn: string; bodyEn: string };
 type RuleInfo = { key: string; kind: "guidance" | "promotional"; name: [string, string]; when: [string, string]; template: Template; customised: boolean };
 type Result = { key: string; eligible: number; wouldSend: number; suppressed: Record<string, number>; sample: { userId: string; name: string | null; channel: string; title: string }[] };
-type Data = { preview: { quiet: boolean; results: Result[] }; rules: RuleInfo[]; variables: string[]; messaging: GrowthSettings["messaging"]; flags: GrowthSettings["flags"]; history: { ruleKey: string; status: string; _count: { _all: number } }[] };
+type Data = { preview: { quiet: boolean; results: Result[] }; rules: RuleInfo[]; variables: string[]; messaging: GrowthSettings["messaging"]; flags: GrowthSettings["flags"]; history: { ruleKey: string; status: string; _count: { _all: number } }[]; engine?: { enabled: boolean; mode: string; blockers: string[]; caps: { per24h: number; per7d: number } } };
 
 export default function AutomationsTab() {
   const { t, lang, fa } = useT();
@@ -22,14 +22,15 @@ export default function AutomationsTab() {
   if (error) return <p className="gc-error" role="alert">{error}</p>;
   if (loading && !data) return <div className="gc-skeleton"/>;
   if (!data) return null;
-  const live = data.flags.lifecycle_automation_enabled && data.flags.automated_communications_enabled;
+  // Real sends happen only in the follow-up engine; the flags alone no longer send anything.
+  const live = !!data.engine && data.engine.blockers.length === 0;
   const reason: Record<string, string> = { unsubscribed: t("لغو اشتراک", "unsubscribed"), frequency_cap: t("سقف تعداد پیام", "frequency cap"), already_sent: t("قبلاً ارسال شده", "already sent"), paid_customer: t("مشتری پولی", "paying customer") };
   return <div className="gc-grid">
     <div className={`gc-banner ${live ? "gc-live" : ""}`} role="status">{live
       ? t("ارسال واقعی روشن است: قواعدِ فعال در اجرای زمان‌بندی‌شده پیام می‌فرستند.", "Live sending is ON: enabled rules send messages on the scheduled run.")
-      : t("حالت آزمایشی: هیچ پیامی ارسال نمی‌شود. آمار زیر فقط پیش‌نمایش است. برای ارسال واقعی، مدیر ارشد باید هر دو سوییچ «اتوماسیون چرخهٔ عمر» و «ارسال خودکار پیام» را در تنظیمات روشن کند و قاعده را فعال کند.", "Dry-run: nothing is sent. The numbers below are a preview only. To send, a super admin must turn on both 'lifecycle automation' and 'automated communications' in Settings and enable the rule.")}
+      : t("حالت آزمایشی: هیچ پیامی ارسال نمی‌شود. آمار زیر فقط پیش‌نمایش است. برای ارسال واقعی، مدیر ارشد باید هر دو سوییچ «اتوماسیون چرخهٔ عمر» و «ارسال خودکار پیام» را در تنظیمات روشن کند، قاعده را فعال کند و «موتور پیگیری» را با یک کانال روشن روی حالت واقعی بگذارد.", "Dry-run: nothing is sent. The numbers below are a preview only. To send, a super admin must turn on both 'lifecycle automation' and 'automated communications' in Settings, enable the rule, and switch the Follow-up engine to live with a channel on.")}
       {data.preview.quiet && <> {t("(الان ساعت سکوت تهران است.)", "(Tehran quiet hours right now.)")}</>}</div>
-    <p className="gc-sub">{t(`سقف: یک پیام در هر ${data.messaging.minHoursBetween} ساعت و حداکثر ${data.messaging.maxPer14Days} پیام در ۱۴ روز برای هر کاربر. ایمیل فقط با رضایت صریح؛ لغوکنندگان هیچ پیامی نمی‌گیرند. قواعد تبلیغاتی به مشتری پولی نمی‌رسند.`, `Caps: one message per ${data.messaging.minHoursBetween}h and at most ${data.messaging.maxPer14Days} per 14 days per user. Email only with explicit consent; unsubscribed users get nothing. Promotional rules never reach paying customers.`)}</p>
+    <p className="gc-sub">{t(`پیش‌نمایش با سقف قدیمی (${data.messaging.minHoursBetween} ساعت، ${data.messaging.maxPer14Days} پیام در ۱۴ روز) حساب می‌شود. ارسال واقعی فقط از «موتور پیگیری» است با سقف ${data.engine?.caps.per24h ?? 1} پیام در ۲۴ ساعت و ${data.engine?.caps.per7d ?? 3} پیام در ۷ روز. ایمیل فقط با رضایت صریح؛ لغوکنندگان هیچ پیامی نمی‌گیرند. قواعد تبلیغاتی به مشتری پولی نمی‌رسند.`, `The preview uses the legacy caps (${data.messaging.minHoursBetween}h, ${data.messaging.maxPer14Days} per 14 days). Real sends come only from the Follow-up engine, capped at ${data.engine?.caps.per24h ?? 1} per 24 hours and ${data.engine?.caps.per7d ?? 3} per 7 days. Email only with explicit consent; unsubscribed users get nothing. Promotional rules never reach paying customers.`)}</p>
     {saveError && <p className="gc-error" role="alert">{saveError}</p>}
     {data.rules.map(rule => {
       const r = data.preview.results.find(x => x.key === rule.key), enabled = data.messaging.enabledRules.includes(rule.key);

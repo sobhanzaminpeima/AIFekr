@@ -57,9 +57,13 @@ export async function trackEvent(input: TrackInput, db: Prisma.TransactionClient
   }
 }
 
-/** Stores a landing touch, linked to an admin campaign by utm_campaign. Repeats within 30 minutes are ignored. */
+/**
+ * Stores a landing touch, linked to an admin campaign by utm_campaign. Repeats within 30 minutes are ignored:
+ * for a campaign the same utm_campaign is one visit whatever the referrer (a server-side touch on a tracked
+ * link and the page beacon after the redirect report different referrers for the same click).
+ */
 export async function recordTouch(anonId: string, touch: TouchInput, userId?: string | null) {
-  const recent = await prisma.growthTouch.findFirst({ where: { anonId, createdAt: { gte: new Date(Date.now() - 30 * 60_000) }, utmCampaign: touch.utmCampaign ?? null, referrerHost: touch.referrerHost ?? null }, select: { id: true } });
+  const recent = await prisma.growthTouch.findFirst({ where: { anonId, createdAt: { gte: new Date(Date.now() - 30 * 60_000) }, utmCampaign: touch.utmCampaign ?? null, ...(touch.utmCampaign ? {} : { referrerHost: touch.referrerHost ?? null }) }, select: { id: true } });
   if (recent) return recent.id;
   const campaign = touch.utmCampaign ? await prisma.growthCampaign.findUnique({ where: { utmCampaign: touch.utmCampaign }, select: { id: true, targetModule: true } }) : null;
   const row = await prisma.growthTouch.create({ data: { anonId, userId: userId || null, campaignId: campaign?.id ?? null, ...touch, targetModule: touch.targetModule ?? campaign?.targetModule ?? null } });

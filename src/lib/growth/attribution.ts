@@ -37,7 +37,7 @@ export function parseTouch(landingUrl: string, referrer: string | null | undefin
 }
 
 /** Paths a sign-in/sign-up may return to. Relative, same-site, and inside the product. */
-const RETURN_PREFIXES = ["/voice-studio", "/chat", "/image", "/video", "/video-factory", "/music", "/crm", "/seo", "/social", "/website-designer", "/student", "/fitness", "/fit", "/home", "/plans", "/credits", "/checkout", "/settings", "/start", "/play", "/explore", "/choose-plan", "/lead-gen", "/agents", "/startup", "/accounting", "/voice-agent", "/admin"];
+const RETURN_PREFIXES = ["/voice-studio", "/live", "/live", "/chat", "/image", "/video", "/video-factory", "/music", "/crm", "/seo", "/social", "/website-designer", "/student", "/fitness", "/fit", "/home", "/plans", "/credits", "/checkout", "/settings", "/start", "/play", "/explore", "/choose-plan", "/lead-gen", "/agents", "/startup", "/accounting", "/voice-agent", "/admin"];
 
 export function safeInternalPath(target: string | null | undefined): string | null {
   if (!target || target.length > 500) return null;

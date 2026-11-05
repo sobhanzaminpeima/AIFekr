@@ -73,6 +73,7 @@ export function scoreFor(f: CustomerFacts, s: GrowthSettings): { score: number; 
   add("pricingViewed", f.pricingViewsWindow > 0, `${f.pricingViewsWindow} pricing views`);
   add("checkoutStarted", f.checkoutsWindow > 0, `${f.checkoutsWindow} checkouts`);
   add("demoRequested", f.demoRequests > 0, `${f.demoRequests} requests`);
+  add("liveUsed", !!f.successes.live, f.successes.live ? `${f.successes.live.count} live calls` : "");
   const max = Object.values(w).reduce((a, b) => a + b, 0) || 1;
   return { score: Math.round(lines.reduce((n, l) => n + l.points, 0) * 100 / max), lines };
 }
