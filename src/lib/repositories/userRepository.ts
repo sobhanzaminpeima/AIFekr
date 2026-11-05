@@ -1,5 +1,6 @@
 import { recordLedger } from "@/lib/credits/ledger";
 import { prisma } from "@/lib/db/prisma";
+import { BUSY_TX } from "@/lib/db/retry";
 import type { Prisma } from "@prisma/client";
 
 /**
@@ -26,7 +27,7 @@ export function createUser(data: Prisma.UserCreateInput) {
     const user = await tx.user.create({ data });
     await recordLedger(tx, { userId: user.id, delta: user.credits, type: "SIGNUP_GRANT", operationId: `signup:${user.id}` });
     return user;
-  }).then(async (user) => {
+  }, BUSY_TX).then(async (user) => {
     // Starting credits expire when the free-credit policy is on (lib/credits/freeCredits).
     const { markSignupPromo } = await import("@/lib/credits/freeCredits");
     await markSignupPromo(user.id).catch(() => {});

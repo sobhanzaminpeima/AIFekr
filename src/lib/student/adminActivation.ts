@@ -1,5 +1,6 @@
 import { recordLedger } from "@/lib/credits/ledger";
 import {prisma} from "@/lib/db/prisma";
+import {BUSY_TX} from "@/lib/db/retry";
 import {STUDENT_PLAN_CODE} from "@/lib/plans/studentOffer";
 /** An explicit admin grant sets the same finite entitlement fields as a paid purchase. */
 export async function activateStudentAsAdmin(userId:string,actorId:string,days=90){
@@ -25,5 +26,5 @@ export async function activateStudentAsAdmin(userId:string,actorId:string,days=9
   await tx.userModuleOverride.upsert({where:{userId_moduleKey:{userId,moduleKey:"student.workspace"}},create:{userId,moduleKey:"student.workspace",enabled:true},update:{enabled:true}});
   await tx.auditLog.create({data:{actorId,action:"student_activated",targetId:userId,metadata:JSON.stringify({days,planExpiry:expiry,creditsGranted:alreadyActive?0:pkg.credits,previousPlan:current.plan})}});
   return {id:user.id,accountType:user.accountType,plan:user.plan,planExpiry:user.planExpiry};
- });
+ },BUSY_TX);
 }

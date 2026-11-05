@@ -107,8 +107,8 @@ export default function AdminUsersPage() {
       const res = await fetch("/api/admin/invites/activate-trial", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "سرور پاسخ نداد؛ چند ثانیه بعد همین فرم را دوباره ارسال کنید.");
       setInviteTarget(null);
       toast.success("تریال فعال شد");
       // Phase 3's dedicated invite page is the one place credentials/referral

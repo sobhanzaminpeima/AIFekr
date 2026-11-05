@@ -10,6 +10,8 @@ import { findUserByEmail, findUserByPhone, createUser } from "@/lib/repositories
 import { generateUniqueReferralCode } from "@/lib/utils/referralCode";
 import { rateLimit } from "@/lib/utils/rateLimit";
 import { sendWelcomeEmail } from "@/lib/email/resend";
+import { isDbBusy, withDbRetry } from "@/lib/db/retry";
+import { logError } from "@/lib/logging/errorLog";
 
 /**
  * Admin "Invite to AIfekr" tool — activates a Pro trial + (optionally) the
@@ -39,8 +41,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `تعداد درخواست‌ها زیاد است — ${rl.retryAfterSec} ثانیه دیگر تلاش کنید` }, { status: 429 });
   }
 
+  try {
+    return await activate(req, admin.id);
+  } catch (error) {
+    // Always a JSON answer: an empty 500 showed the admin "Unexpected end of JSON input".
+    await logError({ source: "/api/admin/invites/activate-trial", error, userId: admin.id }).catch(() => {});
+    return NextResponse.json(
+      isDbBusy(error)
+        ? { error: "سرور لحظه‌ای مشغول بود و فعال‌سازی کامل نشد؛ همین فرم را دوباره ارسال کنید (حساب ساخته‌شده ادامه پیدا می‌کند).", code: "DB_BUSY" }
+        : { error: "فعال‌سازی دعوت با خطا روبه‌رو شد؛ دوباره تلاش کنید.", code: "INVITE_FAILED" },
+      { status: isDbBusy(error) ? 503 : 500 },
+    );
+  }
+}
+
+async function activate(req: NextRequest, adminId: string) {
+  const admin = { id: adminId };
   const body = await req.json().catch(() => ({}));
-  const { userId, firstName, lastName, email, phone, trialDays, realEstatePackage, trialLimited, studentPackage } = body as {
+  const { userId: requestedUserId, firstName, lastName, email, phone, trialDays, realEstatePackage, trialLimited, studentPackage } = body as {
     userId?: string; firstName?: string; lastName?: string; email?: string; phone?: string; trialDays?: number; realEstatePackage?: boolean; trialLimited?: boolean; studentPackage?: boolean;
   };
   const name = firstName ? `${firstName.trim()}${lastName?.trim() ? ` ${lastName.trim()}` : ""}` : undefined;
@@ -63,6 +81,18 @@ export async function POST(req: NextRequest) {
   let targetUserId: string;
   let isNewUser = false;
 
+  // An earlier submit that created the account but failed before finishing (the database
+  // was busy) is resumed instead of answered "already registered": same admin flow, same account.
+  let userId = requestedUserId;
+  let resumed = false;
+  if (!userId) {
+    const clash = (email ? await findUserByEmail(email) : null) ?? (phone ? await findUserByPhone(phone) : null);
+    if (clash?.invitedAt && !(await prisma.auditLog.findFirst({ where: { targetId: clash.id, action: "trial_activated" }, select: { id: true } }))) {
+      userId = clash.id;
+      resumed = true;
+    }
+  }
+
   if (userId) {
     const existing = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, referralCode: true } });
     if (!existing) return NextResponse.json({ error: "کاربر یافت نشد" }, { status: 404 });
@@ -74,7 +104,8 @@ export async function POST(req: NextRequest) {
     let referralCode = existing.referralCode;
     if (!referralCode) referralCode = await generateUniqueReferralCode(existing.name);
 
-    await prisma.user.update({
+    if (resumed) isNewUser = true;
+    await withDbRetry(() => prisma.user.update({
       where: { id: targetUserId },
       data: {
         plan:studentPackage===true?undefined:"PRO",
@@ -89,7 +120,7 @@ export async function POST(req: NextRequest) {
         invitedByAdminId: admin.id,
         invitedAt: now,
       },
-    });
+    }));
   } else {
     if (!name?.trim()) return NextResponse.json({ error: "نام الزامی است" }, { status: 400 });
     if (!email && !phone) return NextResponse.json({ error: "ایمیل یا موبایل الزامی است" }, { status: 400 });
@@ -117,13 +148,14 @@ export async function POST(req: NextRequest) {
     const placeholderPassword = randomBytes(24).toString("hex");
     const referralCode = await generateUniqueReferralCode(name);
 
-    const created = await createUser({
+    const passwordHash = await hashPassword(placeholderPassword);
+    const created = await withDbRetry(() => createUser({
       name: name!.trim(),
       firstName: firstName?.trim(),
       lastName: lastName?.trim() || undefined,
       email: email || undefined,
       phone: phone || undefined,
-      passwordHash: await hashPassword(placeholderPassword),
+      passwordHash,
       credits: 200,
       plan:studentPackage===true?"FREE":"PRO",
       planExpiry:studentPackage===true?null:trialEndsAt,
@@ -137,7 +169,7 @@ export async function POST(req: NextRequest) {
       mustChangePassword: true,
       invitedByAdminId: admin.id,
       invitedAt: now,
-    });
+    }));
     targetUserId = created.id;
 
     // Best-effort: the admin still has the invite page (credentials, referral
@@ -149,16 +181,16 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if(studentPackage===true)await activateStudentAsAdmin(targetUserId,admin.id,days);
+  if(studentPackage===true)await withDbRetry(()=>activateStudentAsAdmin(targetUserId,admin.id,days));
 
-  await prisma.auditLog.create({
+  await withDbRetry(() => prisma.auditLog.create({
     data: {
       actorId: admin.id,
       action: "trial_activated",
       targetId: targetUserId,
-      metadata: JSON.stringify({ trialDays: days, realEstatePackage: wantsRealEstate, studentPackage:studentPackage===true, trialLimited: isLimited, isNewUser }),
+      metadata: JSON.stringify({ trialDays: days, realEstatePackage: wantsRealEstate, studentPackage:studentPackage===true, trialLimited: isLimited, isNewUser, resumed }),
     },
-  });
+  }));
 
   const user = await prisma.user.findUnique({
     where: { id: targetUserId },

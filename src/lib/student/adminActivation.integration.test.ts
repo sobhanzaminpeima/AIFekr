@@ -31,4 +31,18 @@ describe.runIf(process.env.RUN_BANK_INTEGRATION==="1")("admin student activation
  it("keeps phone provider setup restricted to admins",async()=>{expect((await provision(request("/api/voice-agent/agents/x/provision",buyer,{}),{params:Promise.resolve({id:"x"})})).status).toBe(403);});
  it("supports student invites without replacing an already active student entitlement",async()=>{const before=await prisma.user.findUniqueOrThrow({where:{id:buyer}});const response=await activateInvite(request("/api/admin/invites/activate-trial",admin,{userId:buyer,studentPackage:true,trialDays:90}));expect(response.status).toBe(200);const after=await prisma.user.findUniqueOrThrow({where:{id:buyer}});expect(after.plan).toBe(before.plan);expect(after.credits).toBe(before.credits);expect(after.planExpiry).toEqual(before.planExpiry);expect(after.realEstatePackage).toBe(false);});
 
+ it("resumes an invite that created the account but stopped before finishing",async()=>{
+  // The state a busy database left behind: invited account, no package, no trial_activated record.
+  const email=`resumed-invite-${stamp}@test.invalid`;
+  const partial=(await prisma.user.create({data:{email,name:"Resumed",plan:"FREE",accountType:"PERSONAL",invitedAt:new Date(),invitedByAdminId:admin,credits:200}})).id;ids.push(partial);
+  const response=await activateInvite(request("/api/admin/invites/activate-trial",admin,{firstName:"Resumed",email,trialDays:90,studentPackage:true}));
+  expect(response.status).toBe(200);
+  const data=await response.json();expect(data.user.id).toBe(partial);expect(data.isNewUser).toBe(true);
+  const u=await prisma.user.findUniqueOrThrow({where:{id:partial}});expect(u.accountType).toBe("STUDENT");expect(u.plan).toBe("STUDENT_QUARTERLY");
+  expect(await prisma.auditLog.count({where:{targetId:partial,action:"trial_activated"}})).toBe(1);
+  // A finished invite is not resumed: the same email is "already registered".
+  const again=await activateInvite(request("/api/admin/invites/activate-trial",admin,{firstName:"Resumed",email,trialDays:90,studentPackage:true}));
+  expect(again.status).toBe(409);
+ });
+
 });
