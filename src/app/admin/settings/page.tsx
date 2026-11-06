@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import FreeCreditsCard from "@/components/admin/FreeCreditsCard";
+import PhoneRequirementCard from "@/components/admin/PhoneRequirementCard";
 import { useState, useEffect } from "react";
 import { Settings, Save, Globe, Bell, Shield, Palette, DollarSign, FileText, RefreshCw, ToggleRight } from "lucide-react";
 import toast from "react-hot-toast";
@@ -189,6 +190,7 @@ export default function AdminSettingsPage() {
       </div>
 
       <FreeCreditsCard />
+      <PhoneRequirementCard />
 
       <div className="flex flex-col md:flex-row gap-4 md:gap-6">
         <nav aria-label="دسته‌بندی تنظیمات" className="admin-settings-nav md:w-52 flex-shrink-0 md:space-y-1">

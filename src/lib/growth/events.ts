@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { growthFlag } from "./config";
 import type { Confidence, TouchInput } from "./attribution";
-import { moduleForPath } from "./attribution";
+import { moduleForPath, touchConfidence } from "./attribution";
 
 /**
  * Names a browser may report. Everything about money, credits or AI success
@@ -67,7 +67,7 @@ export async function recordTouch(anonId: string, touch: TouchInput, userId?: st
   if (recent) return recent.id;
   const campaign = touch.utmCampaign ? await prisma.growthCampaign.findUnique({ where: { utmCampaign: touch.utmCampaign }, select: { id: true, targetModule: true } }) : null;
   const row = await prisma.growthTouch.create({ data: { anonId, userId: userId || null, campaignId: campaign?.id ?? null, ...touch, targetModule: touch.targetModule ?? campaign?.targetModule ?? null } });
-  if (userId) await prisma.growthProfile.upsert({ where: { userId }, create: { userId, firstTouchId: row.id, lastTouchId: row.id, attributionConfidence: touch.utmSource || touch.utmCampaign ? "utm" : "referrer" }, update: { lastTouchId: row.id } });
+  if (userId) await prisma.growthProfile.upsert({ where: { userId }, create: { userId, firstTouchId: row.id, lastTouchId: row.id, attributionConfidence: touchConfidence(touch) ?? "referrer" }, update: { lastTouchId: row.id } });
   return row.id;
 }
 
@@ -82,9 +82,9 @@ export async function linkSignup(userId: string, anonId: string | null | undefin
       await prisma.growthTouch.updateMany({ where: { anonId, userId: null }, data: { userId } });
       await prisma.growthEvent.updateMany({ where: { anonId, userId: null }, data: { userId } });
     }
-    const touches = anonId ? await prisma.growthTouch.findMany({ where: { userId }, orderBy: { createdAt: "asc" }, select: { id: true, utmSource: true, utmCampaign: true, targetModule: true } }) : [];
+    const touches = anonId ? await prisma.growthTouch.findMany({ where: { userId }, orderBy: { createdAt: "asc" }, select: { id: true, utmSource: true, utmMedium: true, utmCampaign: true, referrerHost: true, targetModule: true } }) : [];
     const first = touches[0], last = touches[touches.length - 1];
-    const confidence: Confidence = first ? (first.utmSource || first.utmCampaign ? "utm" : "referrer") : anonId ? "direct" : "unknown";
+    const confidence: Confidence = first ? (touchConfidence(first) ?? "referrer") : anonId ? "direct" : "unknown";
     const intendedModule = (intendedPath ? moduleForPath(intendedPath.split("?")[0]) : null) ?? last?.targetModule ?? null;
     await prisma.growthProfile.upsert({
       where: { userId },

@@ -3,7 +3,7 @@ import { getGrowthSettings } from "@/lib/growth/config";
 import { RULES } from "@/lib/growth/automation";
 import { realAdapters } from "./channels";
 import { liveSendBlockers } from "./policy";
-import { planningMode } from "./engine";
+import { orderedRules, planningMode } from "./engine";
 import { getFollowupSettings } from "./settings";
 
 const DAY = 86_400_000;
@@ -29,6 +29,7 @@ export async function engineOverview(now = new Date()) {
       whatsapp: { available: false, needs: "no WhatsApp integration or credentials" },
       instagram_dm: { available: false, needs: "Meta allows DMs only as a reply; used for the comment campaign, not for follow-ups" },
     },
+    rules: orderedRules().map(r => ({ key: r.key, kind: r.kind, name: r.name, when: r.when, enabledInAutomations: g.messaging.enabledRules.includes(r.key) })),
     counts: byStatus.map(r => ({ mode: r.mode, status: r.status, n: r._count._all })), due, lastProcessedAt: last?.processedAt ?? null,
   };
 }

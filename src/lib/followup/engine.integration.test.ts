@@ -38,7 +38,7 @@ async function user(over: { email?: string; consent?: boolean; intendedModule?: 
   if (over.consent || over.intendedModule) await prisma.growthProfile.create({ data: { userId: u.id, marketingConsent: !!over.consent, intendedModule: over.intendedModule ?? null } });
   return u;
 }
-async function setFollowup(over: Partial<FollowupSettings>) { return saveFollowupSettings({ ...defaultFollowupSettings(), ...over }, ACTOR); }
+async function setFollowup(over: Partial<FollowupSettings>) { return saveFollowupSettings({ ...defaultFollowupSettings(), ruleModes: { welcome: over.mode === "live" ? "live" : "dry_run", getting_started_24h: "dry_run", live_first_session: "dry_run" }, ...over }, ACTOR); }
 async function setGrowth(mut: (g: GrowthSettings) => void) { const g = defaultGrowthSettings(); mut(g); return saveGrowthSettings(g, ACTOR.id); }
 const liveGrowth = (rules: string[]) => setGrowth(g => { g.flags.lifecycle_automation_enabled = true; g.flags.automated_communications_enabled = true; g.messaging.enabledRules = rules; });
 const jobsOf = (userId: string) => prisma.followupJob.findMany({ where: { userId }, orderBy: { createdAt: "asc" } });
@@ -111,7 +111,9 @@ describe("follow-up engine (integration, fake delivery)", () => {
     expect(job.notificationId).toBeTruthy();
     expect(inApp.map(m => m.userId)).toEqual([u.id]);
     expect(await prisma.growthMessage.count({ where: { userId: u.id, status: "sent", idempotencyKey: `welcome:${u.id}` } })).toBe(1);
-    expect((await planFollowups({ now: new Date(NOW.getTime() + 2 * D), userIds: [u.id] })).planned).toBe(0);
+    // Later cycles never send it again; other scenarios that are still in dry run may only be recorded.
+    await planFollowups({ now: new Date(NOW.getTime() + 2 * D), userIds: [u.id] });
+    expect(await prisma.followupJob.count({ where: { userId: u.id, mode: "live" } })).toBe(1);
   });
 
   it("defers for the frequency cap and for quiet hours instead of dropping", async () => {

@@ -1,6 +1,7 @@
 import { verifyToken } from "@/lib/auth/jwt";
 import { prisma } from "@/lib/db/prisma";
 import { safeInternalPath } from "@/lib/growth/attribution";
+import { COMPLETE_PHONE_PATH, mustCompletePhone, phoneRequired } from "@/lib/auth/phoneRequirement";
 import { featureAccessExpired, teamFeatureExpiry } from "@/lib/subscriptions/access";
 import { chatHistoryWhere } from "@/lib/chat/history";
 import { isStudentWorkspaceEnabled } from "@/lib/student/access";
@@ -16,7 +17,7 @@ import { shouldShowFitness } from "@/lib/fitness/navigation";
  * both designs gate and count exactly the same way.
  */
 
-const USER_SELECT = { id: true, role: true, fitnessAccessExpiry: true, accountType: true, chatOnly: true, name: true, credits: true, plan: true, planExpiry: true, isBlocked: true, industryPackId: true, crmPlan: true, crmPlanExpiry: true, onboardingDone: true, trialEndsAt: true, trialLimited: true, activeBusinessId: true, fitnessProfile: { select: { userId: true } } } as const;
+const USER_SELECT = { id: true, role: true, phone: true, fitnessAccessExpiry: true, accountType: true, chatOnly: true, name: true, credits: true, plan: true, planExpiry: true, isBlocked: true, industryPackId: true, crmPlan: true, crmPlanExpiry: true, onboardingDone: true, trialEndsAt: true, trialLimited: true, activeBusinessId: true, fitnessProfile: { select: { userId: true } } } as const;
 
 export type ShellUser = NonNullable<Awaited<ReturnType<typeof loadUser>>>;
 const loadUser = (id: string) => prisma.user.findUnique({ where: { id }, select: USER_SELECT });
@@ -41,6 +42,11 @@ export async function shellGate(token: string | undefined, requestedPath: string
   const user = await loadUser(payload.userId);
   if (!user || user.isBlocked) return { kind: "redirect", to: "/login" };
   const path = requestedPath.split("?")[0];
+  // A mobile number is required (lib/auth/phoneRequirement): every frame, before onboarding. Admins are exempt.
+  if (path !== COMPLETE_PHONE_PATH && mustCompletePhone(user, await phoneRequired())) {
+    const back = safeInternalPath(requestedPath);
+    return { kind: "redirect", to: back ? `${COMPLETE_PHONE_PATH}?redirect=${encodeURIComponent(back)}` : COMPLETE_PHONE_PATH };
+  }
   if (path === "/play") return { kind: "minimal", frame: "play", user };
   if (standaloneChatOnly(user)) {
     // /chat itself stays: when the standalone chat is switched off, /chat renders

@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import type { GrowthSettings } from "@/lib/growth/config";
 import { inQuietHours, tehranHour } from "@/lib/growth/automation";
-import type { FollowupSettings } from "./settings";
+import type { FollowupSettings, RuleMode } from "./settings";
 
 /** Pure decision rules of the follow-up engine (no DB), so every safety rule is unit-tested. */
 
@@ -65,6 +65,19 @@ export function liveSendBlockers(f: FollowupSettings, g: GrowthSettings, ruleKey
   if (!f.channels.in_app && !f.channels.email) out.push("no_channel_enabled");
   if (ruleKey && !g.messaging.enabledRules.includes(ruleKey)) out.push("rule_disabled");
   return out;
+}
+
+export const ruleModeOf = (f: FollowupSettings, ruleKey: string): RuleMode => f.ruleModes[ruleKey] ?? "off";
+
+/**
+ * The mode of one planned job: "live" only when real sending is globally allowed,
+ * the rule is enabled in Automations, and its scenario mode is live (or
+ * internal_test for a listed test account). Everything else is a dry run.
+ */
+export function jobModeFor(f: FollowupSettings, g: GrowthSettings, ruleKey: string, userId: string): "live" | "dry_run" {
+  if (liveSendBlockers(f, g, ruleKey).length) return "dry_run";
+  const m = ruleModeOf(f, ruleKey);
+  return m === "live" || (m === "internal_test" && f.testUserIds.includes(userId)) ? "live" : "dry_run";
 }
 
 /** Statuses after which a job is never touched again. */

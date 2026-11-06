@@ -48,8 +48,16 @@ export const INTL_TEMPLATES: Record<string, { de: IntlText; tr: IntlText }> = {
     tr: { title: "Projeleriniz sizi bekliyor", body: "{{preferred_module}} içindeki kayıtlı çalışmalarınız hâlâ orada. {{recommended_next_step}}." },
   },
   payment_failed: {
-    de: { title: "Ihre Zahlung wurde nicht abgeschlossen", body: "Falls Ihnen etwas abgebucht wurde, erstattet das Zahlungsportal es wie üblich. Sie können es erneut versuchen oder den Support kontaktieren." },
-    tr: { title: "Ödemeniz tamamlanmadı", body: "Ücret kesildiyse ödeme sistemi her zamanki gibi iade eder. Tekrar deneyebilir veya destekle iletişime geçebilirsiniz." },
+    de: { title: "Ihre Zahlung wurde nicht abgeschlossen", body: "Ihr Kauf von {{current_plan}} ist nicht durchgegangen. Falls Ihnen etwas abgebucht wurde, erstattet das Zahlungsportal es wie üblich. Mit diesem Link können Sie es erneut versuchen oder Banküberweisung wählen." },
+    tr: { title: "Ödemeniz tamamlanmadı", body: "{{current_plan}} satın alımınız tamamlanmadı. Ücret kesildiyse ödeme sistemi her zamanki gibi iade eder. Bu bağlantıyla tekrar deneyebilir veya banka havalesini seçebilirsiniz." },
+  },
+  first_result_30m: {
+    de: { title: "Ihr erstes Ergebnis ist fertig 🎉", body: "Toller Start! Weiter mit {{preferred_module}}: {{recommended_next_step}}." },
+    tr: { title: "İlk sonucunuz hazır 🎉", body: "Harika bir başlangıç! {{preferred_module}} ile sıradaki adım: {{recommended_next_step}}." },
+  },
+  inactive_3d: {
+    de: { title: "Ihre Arbeit in {{preferred_module}} wartet", body: "Sie waren ein paar Tage nicht da. Ihre gespeicherte Arbeit ist noch da; {{recommended_next_step}}." },
+    tr: { title: "{{preferred_module}} içindeki çalışmanız sizi bekliyor", body: "Birkaç gündür uğramadınız. Kayıtlı çalışmanız yerinde duruyor; {{recommended_next_step}}." },
   },
   post_purchase: {
     de: { title: "Ihr Plan {{current_plan}} ist aktiv", body: "So holen Sie das Beste heraus: {{recommended_next_step}}." },

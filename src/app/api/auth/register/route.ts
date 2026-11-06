@@ -1,4 +1,5 @@
 import { signupCredits } from "@/lib/credits/freeCredits";
+import { PHONE_COPY, phoneLang, phoneRequired } from "@/lib/auth/phoneRequirement";
 import { resolvePromo } from "@/lib/utils/referralPromo";
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,8 @@ export async function POST(req: NextRequest) {
       : name?.trim();
 
     if (!composedName) return NextResponse.json({ error: tri(lang, "نام الزامی است", "Name is required", "Name ist erforderlich") }, { status: 400 });
+    // Mobile number is mandatory while the owner's switch is on (lib/auth/phoneRequirement).
+    if (!phone && await phoneRequired()) return NextResponse.json({ error: PHONE_COPY[phoneLang(lang)].required, code: "PHONE_REQUIRED" }, { status: 400 });
     if (!email && !phone) return NextResponse.json({ error: tri(lang, "ایمیل یا موبایل الزامی است", "Email or phone is required", "E-Mail oder Telefonnummer ist erforderlich") }, { status: 400 });
     if (email && !password) return NextResponse.json({ error: tri(lang, "رمز عبور الزامی است", "Password is required", "Passwort ist erforderlich") }, { status: 400 });
     if (password && password.length < 6) return NextResponse.json({ error: tri(lang, "رمز عبور حداقل ۶ کاراکتر باشد", "Password must be at least 6 characters", "Das Passwort muss mindestens 6 Zeichen lang sein") }, { status: 400 });

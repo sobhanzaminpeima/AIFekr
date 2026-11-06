@@ -63,12 +63,15 @@ export async function loadFacts(userIds: string[], windowDays: number, now = new
     prisma.usageLog.groupBy({ by: ["userId"], _max: { createdAt: true }, where: { userId: ids } }),
     prisma.growthEvent.groupBy({ by: ["userId", "name"], _count: { _all: true }, _max: { createdAt: true }, where: { userId: ids, OR: [{ name: { in: ["pricing_page_viewed", "plan_selected", "upgrade_prompt_clicked"] }, createdAt: { gte: since } }, { name: "demo_requested" }] } }),
     prisma.payment.groupBy({ by: ["userId", "status"], _count: { _all: true }, _sum: { amount: true }, _min: { createdAt: true }, where: { userId: ids } }),
-    prisma.payment.groupBy({ by: ["userId"], _max: { createdAt: true }, where: { userId: ids, status: "FAILED" } }),
+    prisma.payment.findMany({ where: { userId: ids, status: { in: ["FAILED", "CANCELLED", "SUCCESS"] } }, orderBy: { createdAt: "desc" }, select: { userId: true, status: true, plan: true, periodMonths: true, createdAt: true }, take: 50_000 }),
     prisma.payment.groupBy({ by: ["userId"], _count: { _all: true }, where: { userId: ids, createdAt: { gte: since } } }),
     prisma.growthEvent.groupBy({ by: ["userId"], _max: { createdAt: true }, where: { userId: ids } }),
   ]);
   const map = <T extends { userId: string | null }>(rows: T[]) => new Map(rows.filter(r => r.userId).map(r => [r.userId as string, r]));
-  const lastEventBy = map(lastEvents), refundBy = map(refunds), usageBy = map(usage), daysBy = new Map(activeDays.map(r => [r.userId, Number(r.d)])), lastBy = map(lastUsage), failedBy = map(lastFailed), checkoutBy = map(checkouts);
+  const lastEventBy = map(lastEvents), refundBy = map(refunds), usageBy = map(usage), daysBy = new Map(activeDays.map(r => [r.userId, Number(r.d)])), lastBy = map(lastUsage), checkoutBy = map(checkouts);
+  // Latest failed/cancelled checkout and latest success per user (rows are newest first).
+  const failedBy = new Map<string, { createdAt: Date; plan: string; periodMonths: number }>(), successBy = new Map<string, Date>();
+  for (const p of lastFailed) { if (p.status === "SUCCESS") { if (!successBy.has(p.userId)) successBy.set(p.userId, p.createdAt); } else if (!failedBy.has(p.userId)) failedBy.set(p.userId, p); }
 
   for (const u of users) {
     const ev = events.filter(e => e.userId === u.id);
@@ -83,7 +86,7 @@ export async function loadFacts(userIds: string[], windowDays: number, now = new
       creditsUsedWindow: Math.max(0, usageBy.get(u.id)?._sum.credits ?? 0), activeDaysWindow: daysBy.get(u.id) ?? 0, lastActiveAt: last,
       pricingViewsWindow: count("pricing_page_viewed", "plan_selected", "upgrade_prompt_clicked"), demoRequests: count("demo_requested"),
       checkoutsWindow: checkoutBy.get(u.id)?._count._all ?? 0,
-      payments: { success: ok?._count._all ?? 0, failed: pay.find(p => p.status === "FAILED")?._count._all ?? 0, pending: pay.find(p => p.status === "PENDING")?._count._all ?? 0, revenueToman: ok?._sum.amount ?? 0, firstPaidAt: ok?._min.createdAt ?? null, lastFailedAt: failedBy.get(u.id)?._max.createdAt ?? null },
+      payments: { success: ok?._count._all ?? 0, failed: pay.find(p => p.status === "FAILED")?._count._all ?? 0, pending: pay.find(p => p.status === "PENDING")?._count._all ?? 0, revenueToman: ok?._sum.amount ?? 0, firstPaidAt: ok?._min.createdAt ?? null, lastFailedAt: failedBy.get(u.id)?.createdAt ?? null, lastFailedPlan: failedBy.get(u.id)?.plan ?? null, lastFailedPeriodMonths: failedBy.get(u.id)?.periodMonths ?? null, lastSuccessAt: successBy.get(u.id) ?? null },
       unsubscribed: !!u.growthProfile?.unsubscribedAt, marketingConsent: !!u.growthProfile?.marketingConsent,
     });
   }

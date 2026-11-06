@@ -5,6 +5,14 @@ import { loadFacts } from "./facts";
 import { daysSince, evaluate, isPaidActive, type CustomerFacts } from "./lifecycle";
 import { growthModule, moduleEntry } from "./modules";
 
+/** The module of the user's first successful result, else the intended one. */
+const firstModule = (c: { f: CustomerFacts; intendedModule: string | null }) => Object.entries(c.f.successes).sort((a, b) => a[1].first.getTime() - b[1].first.getTime())[0]?.[0] ?? c.intendedModule;
+const PERIOD_NAMES: Record<number, string> = { 1: "monthly", 3: "quarterly", 6: "semiannual", 12: "annual" };
+/** Retry link to the exact plan and billing period of the failed checkout (/plans also offers bank transfer). */
+export function retryLink(c: { f: CustomerFacts }): string {
+  const plan = c.f.payments.lastFailedPlan, period = PERIOD_NAMES[c.f.payments.lastFailedPeriodMonths ?? 1] ?? "monthly";
+  return plan && /^[A-Z0-9_]{1,80}$/.test(plan) ? `/plans?plan=${encodeURIComponent(plan)}&period=${period}` : "/plans";
+}
 /** A module's page for a message link; home when the module is unknown. */
 const entryOf = (id: string | null | undefined) => { const m = growthModule(id); return m ? moduleEntry(m) : "/home"; };
 import { INTL_TEMPLATES } from "./templates-intl";
@@ -36,7 +44,7 @@ export const RULES: Rule[] = [
   { key: "welcome", kind: "guidance", name: ["خوش‌آمد و شروع", "Welcome & start"], when: ["روز ۰، هنوز نتیجهٔ اول ندارد", "Day 0, no first result yet"], link: c => entryOf(c.intendedModule),
     eligible: c => c.ageDays < 1 && !hasFirstValue(c),
     template: { titleFa: "به AIFekr خوش آمدید، {{first_name}}", bodyFa: "برای شروع، {{recommended_next_step}}. فقط چند دقیقه طول می‌کشد.", titleEn: "Welcome to AIFekr, {{first_name}}", bodyEn: "To get started, {{recommended_next_step}}. It only takes a few minutes." } },
-  { key: "getting_started_24h", kind: "guidance", name: ["راهنمای شروع (۲۴ ساعت)", "Getting started (24h)"], when: ["۱ تا ۳ روز بعد از ثبت‌نام، بدون نتیجهٔ اول", "1–3 days after signup, no first result"], link: c => entryOf(c.intendedModule),
+  { key: "getting_started_24h", kind: "guidance", name: ["بدون اقدام بعد از ۲۴ ساعت (A)", "No action after 24h (A)"], when: ["۱ تا ۳ روز بعد از ثبت‌نام، بدون نتیجهٔ اول", "1–3 days after signup, no first result"], link: c => entryOf(c.intendedModule),
     eligible: c => c.ageDays >= 1 && c.ageDays < 3 && !hasFirstValue(c),
     template: { titleFa: "اولین نتیجه‌تان را با {{preferred_module}} بگیرید", bodyFa: "پیشنهاد ما: {{recommended_next_step}}. اعتبار فعلی شما {{credit_balance}} کردیت است.", titleEn: "Get your first result with {{preferred_module}}", bodyEn: "Our suggestion: {{recommended_next_step}}. You currently have {{credit_balance}} credits." } },
   { key: "second_workflow_day3", kind: "guidance", name: ["کار دوم (روز ۳)", "Second workflow (day 3)"], when: ["نتیجهٔ اول دارد ولی برنگشته", "Has a first result but has not returned"], link: c => entryOf(c.intendedModule),
@@ -60,12 +68,18 @@ export const RULES: Rule[] = [
   { key: "live_first_session", kind: "guidance", name: ["AIFekr لایو: اولین گفتگو", "AIFekr Live: first call"], when: ["۱ تا ۷ روز بعد از ثبت‌نام از کمپین لایو، هنوز گفتگوی زنده نداشته", "1–7 days after a Live-campaign signup, no live call yet"], link: () => "/live",
     eligible: c => c.intendedModule === "live" && c.ageDays >= 1 && c.ageDays < 7 && !c.f.successes.live,
     template: { titleFa: "با AIFekr لایو صحبت کنید", bodyFa: "یک گفتگوی زندهٔ کوتاه را شروع کنید و سؤالتان را بپرسید؛ AIFekr همان لحظه با صدا جواب می‌دهد.", titleEn: "Talk with AIFekr Live", bodyEn: "Start a short live conversation and ask your question — AIFekr answers out loud right away." } },
+  { key: "first_result_30m", kind: "guidance", name: ["بعد از اولین نتیجه (C)", "After the first result (C)"], when: ["۳۰ دقیقه تا ۲ روز بعد از اولین نتیجهٔ موفق", "30 minutes to 2 days after the first successful result"], link: c => entryOf(firstModule(c)),
+    eligible: c => !!c.ev.firstValueAt && c.now.getTime() - c.ev.firstValueAt.getTime() >= 30 * 60_000 && c.now.getTime() - c.ev.firstValueAt.getTime() < 2 * 86_400_000 && !c.paid,
+    template: { titleFa: "اولین نتیجه‌تان آماده شد 🎉", bodyFa: "عالی بود! قدم بعدی با {{preferred_module}}: {{recommended_next_step}}.", titleEn: "Your first result is ready 🎉", bodyEn: "Great start! Next with {{preferred_module}}: {{recommended_next_step}}." } },
+  { key: "inactive_3d", kind: "guidance", name: ["۳ روز غیرفعال (H)", "Inactive for 3 days (H)"], when: ["نتیجه داشته و ۳ روز (تا قبل از آستانهٔ غیرفعال) برنگشته", "Had a result, away for 3 days (before the long-inactive threshold)"], link: c => entryOf(firstModule(c)),
+    eligible: c => !!c.ev.firstValueAt && daysSince(c.f.lastActiveAt, c.now) >= 3 && daysSince(c.f.lastActiveAt, c.now) < c.s.thresholds.inactiveDays, period: c => (c.f.lastActiveAt ?? c.now).toISOString().slice(0, 10),
+    template: { titleFa: "کارتان در {{preferred_module}} منتظر شماست", bodyFa: "چند روزی سر نزده‌اید. کارهای ذخیره‌شده‌تان سر جایش است؛ {{recommended_next_step}}.", titleEn: "Your work in {{preferred_module}} is waiting", bodyEn: "It's been a few days. Your saved work is right where you left it; {{recommended_next_step}}." } },
   { key: "inactive_return", kind: "guidance", name: ["بازگشت کاربر غیرفعال", "Inactive user return"], when: ["نتیجه داشته و مدتی برنگشته", "Had results, inactive for the configured days"], link: c => entryOf(Object.keys(c.f.successes)[0]),
     eligible: c => hasFirstValue(c) && daysSince(c.f.lastActiveAt, c.now) >= c.s.thresholds.inactiveDays, period: c => `${Math.floor(c.now.getTime() / (30 * 86_400_000))}`,
     template: { titleFa: "پروژه‌هایتان منتظر شماست", bodyFa: "کارهای ذخیره‌شده در {{preferred_module}} هنوز آن‌جاست. {{recommended_next_step}}.", titleEn: "Your projects are waiting", bodyEn: "Your saved work in {{preferred_module}} is still there. {{recommended_next_step}}." } },
-  { key: "payment_failed", kind: "guidance", name: ["پرداخت ناموفق", "Payment failed"], when: ["پرداخت ناموفق در ۳ روز اخیر", "Failed payment in the last 3 days"], link: () => "/payments",
-    eligible: c => !!c.f.payments.lastFailedAt && daysSince(c.f.payments.lastFailedAt, c.now) <= 3 && !c.paid, period: c => c.f.payments.lastFailedAt!.toISOString().slice(0, 10),
-    template: { titleFa: "پرداخت شما کامل نشد", bodyFa: "اگر مبلغی کسر شده، طبق روال درگاه برگشت داده می‌شود. می‌توانید دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.", titleEn: "Your payment didn't complete", bodyEn: "If you were charged, the gateway returns it as usual. You can try again or contact support." } },
+  { key: "payment_failed", kind: "guidance", name: ["پرداخت ناموفق یا لغوشده (G)", "Payment failed or cancelled (G)"], when: ["پرداخت ناموفق/لغوشده در ۳ روز اخیر و بعد از آن خرید موفق نداشته", "Failed or cancelled checkout in the last 3 days, no successful purchase since"], link: c => retryLink(c),
+    eligible: c => !!c.f.payments.lastFailedAt && daysSince(c.f.payments.lastFailedAt, c.now) <= 3 && !c.paid && !(c.f.payments.lastSuccessAt && c.f.payments.lastSuccessAt > c.f.payments.lastFailedAt), period: c => c.f.payments.lastFailedAt!.toISOString().slice(0, 10),
+    template: { titleFa: "پرداخت شما کامل نشد", bodyFa: "خرید {{current_plan}} انجام نشد. اگر مبلغی کسر شده، طبق روال درگاه برگشت داده می‌شود. می‌توانید با همین لینک دوباره پرداخت کنید یا روش «واریز بانکی / کارت‌به‌کارت» را انتخاب کنید.", titleEn: "Your payment didn't complete", bodyEn: "Your {{current_plan}} purchase didn't go through. If you were charged, the gateway returns it as usual. Use this link to try again, or choose bank transfer instead." } },
   { key: "post_purchase", kind: "guidance", name: ["شروع بعد از خرید", "Post-purchase onboarding"], when: ["خرید در ۳ روز اخیر", "Purchased in the last 3 days"], link: c => entryOf(c.intendedModule),
     eligible: c => c.paid && !!c.f.payments.firstPaidAt && daysSince(c.f.payments.firstPaidAt, c.now) <= 3,
     template: { titleFa: "پلن {{current_plan}} فعال است", bodyFa: "برای استفادهٔ کامل از پلن: {{recommended_next_step}}.", titleEn: "Your {{current_plan}} plan is active", bodyEn: "To get the most out of it: {{recommended_next_step}}." } },

@@ -4,6 +4,16 @@ import { prisma } from "@/lib/db/prisma";
 export const FOLLOWUP_SETTINGS_KEY = "followupSettings";
 
 /**
+ * Per-scenario mode: "off" plans nothing; "dry_run" records intended sends only;
+ * "internal_test" really sends, but only to `testUserIds` (everyone else is a
+ * dry run); "live" sends to every eligible user. Owner-approved scenarios A, C, G
+ * and H start in dry run; every other rule starts off.
+ */
+export const RULE_MODES = ["off", "dry_run", "internal_test", "live"] as const;
+export type RuleMode = typeof RULE_MODES[number];
+export const DEFAULT_RULE_MODES: Record<string, RuleMode> = { getting_started_24h: "dry_run", first_result_30m: "dry_run", payment_failed: "dry_run", inactive_3d: "dry_run" };
+
+/**
  * Follow-up engine settings (SiteSetting `followupSettings`). Every default is
  * the safe one: the engine is off, and when an admin turns it on it starts in
  * dry-run mode with every channel off. Real sending also needs both growth
@@ -37,6 +47,9 @@ export const followupSettingsSchema = z.object({
   /** Days after a send (or holdout) in which a purchase counts as a conversion. */
   conversionWindowDays: z.number().int().min(1).max(60).default(7),
   batchSize: z.number().int().min(10).max(1000).default(200),
+  ruleModes: z.record(z.string().max(80), z.enum(RULE_MODES)).default(DEFAULT_RULE_MODES),
+  /** Accounts that receive "internal_test" scenarios for real (staff test accounts). */
+  testUserIds: z.array(z.string().min(5).max(40)).max(20).default([]),
   /** Admin switch for the AIFekr Live Instagram launch attribution card and its follow-up rule. */
   live_campaign_enabled: z.boolean().default(false),
 });
@@ -63,6 +76,9 @@ export function outreachEscalations(before: FollowupSettings, after: FollowupSet
   for (const c of ["in_app", "email", "push"] as const) if (after.channels[c] && !before.channels[c]) out.push(`channel_${c}`);
   if (after.engine_enabled && !before.engine_enabled && after.mode === "live") out.push("engine_on_live");
   if (after.live_campaign_enabled && !before.live_campaign_enabled) out.push("live_campaign");
+  const sends = (m: string | undefined) => m === "live" || m === "internal_test";
+  for (const [k, m] of Object.entries(after.ruleModes)) if (sends(m) && before.ruleModes[k] !== m && !(m === "internal_test" && before.ruleModes[k] === "live")) out.push(`rule_${k}_${m}`);
+  if (after.testUserIds.some(id => !before.testUserIds.includes(id))) out.push("test_users_added");
   return out;
 }
 

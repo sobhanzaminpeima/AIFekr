@@ -11,6 +11,8 @@ import { safeInternalPath } from "@/lib/growth/attribution";
 import { publicAppUrl } from "@/lib/utils/publicAppUrl";
 import { getFollowupSettings } from "@/lib/followup/settings";
 import { liveSendBlockers } from "@/lib/followup/policy";
+import { campaignPack, packDailyCsv, packMarkdown, packSummaryCsv } from "@/lib/growth/campaignPack";
+import { PHONE_EXPORT_LIMIT_PER_HOUR, phoneExportCsv, phoneExportRows, type PhoneAudience } from "@/lib/growth/phoneExport";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +46,30 @@ export async function GET(req: NextRequest) {
       history: await prisma.growthMessage.groupBy({ by: ["ruleKey", "status"], _count: { _all: true } }) });
   }
   if (view === "settings") return NextResponse.json({ settings });
+  if (view === "campaign-pack") {
+    // Aggregated and anonymized (lib/growth/campaignPack): safe to hand to an AI. Admin; audited.
+    const to = day(p.get("to"), true) ?? new Date(), from = day(p.get("from")) ?? new Date(to.getTime() - 30 * 86_400_000);
+    if (from > to || to.getTime() - from.getTime() > 366 * 86_400_000) return NextResponse.json({ error: "INVALID_RANGE" }, { status: 400 });
+    const campaign = p.get("campaign")?.slice(0, 120) || null, format = p.get("format") || "json";
+    const pack = await campaignPack({ from, to }, campaign);
+    await prisma.auditLog.create({ data: { actorId: admin.id, action: "growth_campaign_pack_exported", metadata: JSON.stringify({ from, to, campaign, format, campaigns: pack.campaigns.length }) } });
+    const stamp = `${from.toISOString().slice(0, 10)}_${to.toISOString().slice(0, 10)}${campaign ? `_${campaign.replace(/[^a-z0-9._-]/gi, "")}` : ""}`;
+    const file = (body: string, type: string, ext: string) => new NextResponse(body, { headers: { "Content-Type": type, "Content-Disposition": `attachment; filename="aifekr-campaigns-${stamp}.${ext}"`, "Cache-Control": "no-store" } });
+    if (format === "md") return file(packMarkdown(pack), "text/markdown; charset=utf-8", "md");
+    if (format === "csv") return file(packSummaryCsv(pack), "text/csv; charset=utf-8", "csv");
+    if (format === "csv-daily") return file(packDailyCsv(pack), "text/csv; charset=utf-8", "daily.csv");
+    return file(JSON.stringify(pack, null, 2), "application/json; charset=utf-8", "json");
+  }
+  if (view === "phone-export") {
+    // Contact data: SUPER_ADMIN only, audited, at most a few exports per hour per admin.
+    if (admin.role !== "SUPER_ADMIN") return forbiddenResponse(req);
+    const recent = await prisma.auditLog.count({ where: { actorId: admin.id, action: "growth_phone_export", createdAt: { gte: new Date(Date.now() - 3_600_000) } } });
+    if (recent >= PHONE_EXPORT_LIMIT_PER_HOUR) return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
+    const audience = (["not_opted_out", "consented", "all"].includes(p.get("audience") || "") ? p.get("audience") : "not_opted_out") as PhoneAudience;
+    const result = await phoneExportRows(audience);
+    await prisma.auditLog.create({ data: { actorId: admin.id, action: "growth_phone_export", metadata: JSON.stringify({ audience, exported: result.exported, withPhone: result.total, optedOut: result.optedOut }) } });
+    return new NextResponse(phoneExportCsv(result.rows), { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="aifekr-sms-${audience}-${new Date().toISOString().slice(0, 10)}.csv"`, "Cache-Control": "no-store" } });
+  }
   if (view === "export-report") {
     if(admin.role!=="SUPER_ADMIN")return forbiddenResponse(req);
     const to=day(p.get("to"),true)??new Date(),from=day(p.get("from"))??new Date(to.getTime()-30*86400000);

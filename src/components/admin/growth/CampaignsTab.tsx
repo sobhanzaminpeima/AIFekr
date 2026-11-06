@@ -1,5 +1,6 @@
 "use client";
 import LiveCampaignCard from "./LiveCampaignCard";
+import { CampaignReportCard } from "./ReportDownloads";
 import { useState } from "react";
 import { Copy, Plus } from "lucide-react";
 import { Missing, fmtDate, fmtNum, growthPost, useGrowth, useT } from "./shared";
@@ -32,6 +33,7 @@ export default function CampaignsTab() {
   const p = (v: number | null) => v == null ? <Missing/> : `${fmtNum(v, lang)}%`;
   return <div className="gc-grid">
     <LiveCampaignCard/>
+    <CampaignReportCard campaigns={(data?.campaigns ?? []).map(r => ({ key: r.key, name: r.campaign?.name ?? null }))}/>
     <div className="gc-toolbar"><button className="gc-btn gc-primary" onClick={() => setForm({ ...empty })}><Plus size={16}/>{t("کمپین جدید", "New campaign")}</button><button className="gc-btn" onClick={() => setForm({ ...LIVE_PRESET })}>{t("پر کردن خودکار: کمپین AIFekr لایو", "Prefill: AIFekr Live campaign")}</button><span className="gc-sub">{t("انتساب = اولین تماس کاربر. درآمد = همهٔ پرداخت‌های موفق کاربران منتسب. CAC فقط وقتی هزینهٔ تبلیغ وارد شده باشد.", "Attribution = the user's first touch. Revenue = all successful payments of attributed users. CAC only when ad spend is entered.")}</span></div>
     {form && data && <section className="gc-card" aria-label={t("ویرایش کمپین", "Edit campaign")}>
       <h2>{form.id ? t("ویرایش کمپین", "Edit campaign") : t("کمپین جدید", "New campaign")}</h2>

@@ -19,7 +19,8 @@ export type CustomerFacts = {
   pricingViewsWindow: number;
   demoRequests: number;
   checkoutsWindow: number;
-  payments: { success: number; failed: number; pending: number; revenueToman: number; firstPaidAt: Date | null; lastFailedAt: Date | null };
+  /** lastFailed*: the latest FAILED or CANCELLED checkout (plan and billing months, for a retry link). */
+  payments: { success: number; failed: number; pending: number; revenueToman: number; firstPaidAt: Date | null; lastFailedAt: Date | null; lastFailedPlan?: string | null; lastFailedPeriodMonths?: number | null; lastSuccessAt?: Date | null };
   unsubscribed: boolean;
   marketingConsent: boolean;
 };

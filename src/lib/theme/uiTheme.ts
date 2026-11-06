@@ -36,14 +36,16 @@ export const V2_ROUTES: readonly string[] = ["/", "/pricing", "/about", "/contac
   // AIFekr Live: spoken conversation (lib/live/service.ts).
   "/live",
   // Packages inside the platform (activation prompts link here with ?category=).
-  "/plans"];
+  "/plans",
+  // Required mobile number step (lib/auth/phoneRequirement).
+  "/complete-phone"];
 
 export function isUiTheme(value: unknown): value is UiTheme {
   return value === "classic" || value === "v2";
 }
 
 /** App pages match only themselves: /home/anything is not a page the new design has. */
-const EXACT_ROUTES = new Set(["/", "/home", "/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate", "/voice-studio", "/video-factory", "/crm", "/welcome", "/privacy", "/terms", "/security", "/payments"]);
+const EXACT_ROUTES = new Set(["/", "/home", "/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate", "/voice-studio", "/video-factory", "/crm", "/welcome", "/privacy", "/terms", "/security", "/payments", "/complete-phone"]);
 
 const SEO_V2 = ["/seo", "/seo/intelligence", "/seo/sites", "/seo/agent-pipeline"];
 

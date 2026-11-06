@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Download, Search } from "lucide-react";
 import { GROWTH_MODULES } from "@/lib/growth/modules";
+import { SmsListCard } from "./ReportDownloads";
 import { BAND_LABELS, Missing, SEGMENT_LABELS, STAGE_LABELS, fmtDate, fmtNum, useGrowth, useT } from "./shared";
 
 type Row = { id: string; name: string | null; email: string | null; phone: string | null; createdAt: string; plan: string; credits: number; source: string | null; confidence: string; stage: string; score: number; band: string; segments: string[]; lastActiveAt: string | null; preferredModule: string | null; followUpStatus: string };
@@ -24,6 +25,7 @@ export default function CustomersTab() {
   } : {};
   const exportUrl = `/api/admin/growth?${new URLSearchParams({ view: "export", q: query, stage, segment, band })}`;
   return <div className="gc-grid">
+    <SmsListCard/>
     <div className="gc-chips" role="group" aria-label={t("بخش‌ها", "Segments")}><button aria-pressed={!segment} onClick={() => { setSegment(""); setPage(1); }}>{t("همه", "All")}</button>{Object.entries(SEGMENT_LABELS).map(([k, l]) => <button key={k} aria-pressed={segment === k} title={defs[k]} onClick={() => { setSegment(k); setPage(1); }}>{l[fa ? 0 : 1]} {data ? `(${fmtNum(data.segmentCounts[k] ?? 0, lang)})` : ""}</button>)}</div>
     <form className="gc-toolbar" onSubmit={e => { e.preventDefault(); setQuery(q); setPage(1); }}>
       <label>{t("جستجو", "Search")}<span style={{ display: "flex", gap: 6 }}><input value={q} onChange={e => setQ(e.target.value)} placeholder={t("نام، ایمیل یا موبایل", "Name, email or phone")}/><button className="gc-btn" type="submit" aria-label={t("جستجو", "Search")}><Search size={16}/></button></span></label>

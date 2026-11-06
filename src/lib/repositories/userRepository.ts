@@ -29,6 +29,8 @@ export function createUser(data: Prisma.UserCreateInput) {
     return user;
   }, BUSY_TX).then(async (user) => {
     // Starting credits expire when the free-credit policy is on (lib/credits/freeCredits).
+    // Admin invites are not sign-up promotions: their trial credits never expire with the policy.
+    if (user.invitedByAdminId) return user;
     const { markSignupPromo } = await import("@/lib/credits/freeCredits");
     await markSignupPromo(user.id).catch(() => {});
     return user;

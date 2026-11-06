@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defaultGrowthSettings } from "@/lib/growth/config";
-import { backoffMinutes, capDecision, chooseChannel, holdoutVariant, liveSendBlockers, quietUntil } from "./policy";
+import { backoffMinutes, capDecision, chooseChannel, holdoutVariant, jobModeFor, liveSendBlockers, quietUntil } from "./policy";
 import { defaultFollowupSettings, followupSettingsSchema, outreachEscalations } from "./settings";
 import { jobKey, orderedRules, planningMode, plannableRules } from "./engine";
 import { RULES, messageLang, ruleContext, ruleMessage } from "@/lib/growth/automation";
@@ -75,12 +75,26 @@ describe("follow-up policy", () => {
     const g2 = { ...g, flags: { ...g.flags, lifecycle_automation_enabled: true, automated_communications_enabled: true }, messaging: { ...g.messaging, enabledRules: ["welcome"] } };
     expect(planningMode(on, g2)).toBe("live");
     expect(liveSendBlockers(on, g2, "welcome")).toEqual([]);
-    expect(plannableRules("live", on, g2).map(r => r.key)).toEqual(["welcome"]);
+    // Scenario modes: welcome is "off" by default, so even a live engine records it at most as a dry run.
+    expect(jobModeFor(on, g2, "welcome", "u1")).toBe("dry_run");
+    expect(jobModeFor({ ...on, ruleModes: { welcome: "live" } }, g2, "welcome", "u1")).toBe("live");
+    expect(jobModeFor({ ...on, ruleModes: { welcome: "internal_test" }, testUserIds: ["staff-1"] }, g2, "welcome", "u1")).toBe("dry_run");
+    expect(jobModeFor({ ...on, ruleModes: { welcome: "internal_test" }, testUserIds: ["staff-1"] }, g2, "welcome", "staff-1")).toBe("live");
+    expect(jobModeFor({ ...on, ruleModes: { welcome: "live" } }, g, "welcome", "u1")).toBe("dry_run"); // growth flags off
+  });
+  it("starts only the owner-approved scenarios A, C, G and H, in dry run", () => {
+    const f = defaultFollowupSettings();
+    expect(f.ruleModes).toEqual({ getting_started_24h: "dry_run", first_result_30m: "dry_run", payment_failed: "dry_run", inactive_3d: "dry_run" });
+    expect(plannableRules(f).map(r => r.key)).toEqual(["payment_failed", "first_result_30m", "getting_started_24h", "inactive_3d"]);
+    expect(outreachEscalations(f, { ...f, ruleModes: { ...f.ruleModes, payment_failed: "internal_test" } })).toEqual(["rule_payment_failed_internal_test"]);
+    expect(outreachEscalations(f, { ...f, testUserIds: ["staff-1"] })).toEqual(["test_users_added"]);
   });
   it("plans every rule in a dry run except the Live rule until its campaign is on, transactional rules first", () => {
     const f = defaultFollowupSettings(), g = defaultGrowthSettings();
-    expect(plannableRules("dry_run", f, g).some(r => r.key === "live_first_session")).toBe(false);
-    expect(plannableRules("dry_run", { ...f, live_campaign_enabled: true }, g).some(r => r.key === "live_first_session")).toBe(true);
+    const all = { ...f, ruleModes: Object.fromEntries(RULES.map(r => [r.key, "dry_run" as const])) };
+    expect(plannableRules(all).some(r => r.key === "live_first_session")).toBe(false);
+    expect(plannableRules({ ...all, live_campaign_enabled: true }).some(r => r.key === "live_first_session")).toBe(true);
+    void g;
     expect(orderedRules()[0].key).toBe("payment_failed");
     expect(orderedRules().length).toBe(RULES.length);
     expect(jobKey("dry_run", "welcome:u1")).toBe("dry:welcome:u1");

@@ -3,6 +3,7 @@ import { getGrowthSettings } from "./config";
 import { loadFacts } from "./facts";
 import { evaluate, isPaidActive, onboardingFinished, totalSuccesses, type Segment, type Stage } from "./lifecycle";
 import { growthModule } from "./modules";
+import { touchKey } from "./attribution";
 
 const DAY = 86_400_000;
 const ratio = (a: number, b: number) => b ? Math.round(a * 1000 / b) / 10 : null;
@@ -103,7 +104,7 @@ export async function campaignReport(complete = false) {
   const { rows } = await evaluatedUsers({}, complete);
   const firstTouchIds = rows.map(r => r.user.growthProfile?.firstTouchId).filter((x): x is string => !!x);
   const first = new Map((await prisma.growthTouch.findMany({ where: { id: { in: firstTouchIds } }, select: { id: true, utmCampaign: true, utmSource: true, referrerHost: true } })).map(t => [t.id, t]));
-  const keyFor = (r: typeof rows[number]) => { const t = first.get(r.user.growthProfile?.firstTouchId ?? ""); return t?.utmCampaign ?? (t?.referrerHost ? `ref:${t.referrerHost}` : t?.utmSource ? `src:${t.utmSource}` : "unknown"); };
+  const keyFor = (r: typeof rows[number]) => touchKey(first.get(r.user.growthProfile?.firstTouchId ?? ""));
   const by = new Map<string, typeof rows>();
   for (const r of rows) { const k = keyFor(r); by.set(k, [...(by.get(k) ?? []), r]); }
   const keys = new Set([...campaigns.map(c => c.utmCampaign), ...by.keys(), ...touches.map(t => t.utmCampaign!)]);

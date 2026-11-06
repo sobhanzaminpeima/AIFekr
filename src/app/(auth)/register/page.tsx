@@ -49,7 +49,7 @@ function RegisterForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.firstName.trim()) return toast.error(t.auth.register.errName);
-    if (!form.email && !form.phone) return toast.error(t.auth.register.errEmailOrPhone);
+    if (!form.phone.trim()) return toast.error(extra.phoneRequired);
     if (form.email && !form.password) return toast.error(t.auth.register.errPasswordRequired);
     if (form.password && form.password !== form.confirmPassword) return toast.error(t.auth.register.errPasswordMismatch);
     if (form.password && form.password.length < 6) return toast.error(t.auth.register.errPasswordShort);
@@ -175,14 +175,14 @@ function RegisterForm() {
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div>
-              <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.phoneLabel}</label>
+              <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>{t.auth.register.phoneLabel} <span aria-hidden="true" style={{ color: "var(--primary)" }}>*</span></label>
               <div className="flex gap-2" dir="ltr">
                 {dialCodeFor(form.country) && (
                   <span className="flex items-center px-3 rounded-xl text-sm flex-shrink-0" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
                     {dialCodeFor(form.country)}
                   </span>
                 )}
-                <input type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })}
+                <input type="tel" required aria-required="true" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })}
                   placeholder={form.country === "IR" ? "9123456789" : "123456789"} dir="ltr" className="flex-1 min-w-0 px-4 py-3 rounded-xl text-sm outline-none"
                   style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
               </div>

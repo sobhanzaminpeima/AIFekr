@@ -17,6 +17,7 @@ export function registerExtraCopy(lang: Lang) {
       BUSINESS: tri(lang, "کسب‌وکار", "Business", "Unternehmen", "İşletme"),
     },
     phoneInvalid: tri(lang, "شماره موبایل معتبر وارد کنید", "Enter a valid phone number", "Gültige Telefonnummer eingeben", "Geçerli telefon numarası girin"),
+    phoneRequired: tri(lang, "شماره موبایل الزامی است", "A mobile number is required", "Eine Handynummer ist erforderlich", "Cep telefonu numarası gerekli"),
     marketingConsent: tri(lang, "راهنماها و پیشنهادهای مفید AIFekr را برایم ایمیل کنید (اختیاری، هر زمان قابل لغو).", "Email me useful AIFekr guides and offers (optional, unsubscribe anytime).", "Senden Sie mir hilfreiche AIFekr-Tipps und Angebote per E-Mail (optional, jederzeit abbestellbar).", "Bana faydalı AIFekr rehberleri ve teklifleri e-postayla gönder (isteğe bağlı, istediğiniz zaman iptal)."),
   };
 }

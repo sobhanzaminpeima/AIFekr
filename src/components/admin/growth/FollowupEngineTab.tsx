@@ -8,6 +8,7 @@ type Channel = { available: boolean; needs?: string };
 type Data = {
   settings: FollowupSettings; planningMode: "dry_run" | "live" | null; liveBlockers: string[];
   growthFlags: Record<string, boolean>; enabledRules: string[]; quietHours: { start: number; end: number };
+  rules: { key: string; kind: string; name: [string, string]; when: [string, string]; enabledInAutomations: boolean }[];
   channels: Record<string, Channel>; counts: { mode: string; status: string; n: number }[]; due: number; lastProcessedAt: string | null;
 };
 
@@ -50,6 +51,20 @@ export default function FollowupEngineTab() {
       <div className="gc-table-wrap"><table><thead><tr><th>{t("کانال", "Channel")}</th><th>{t("روی سرور", "On the server")}</th><th>{t("نیاز دارد", "Needs")}</th></tr></thead><tbody>
         {Object.entries(data.channels).map(([k, c]) => <tr key={k}><td>{CH[k]?.[fa ? 0 : 1] ?? k}</td><td>{c.available ? t("آماده", "Available") : t("در دسترس نیست", "Not available")}</td><td className="gc-sub" dir="ltr">{c.needs ?? "—"}</td></tr>)}
       </tbody></table></div></section>
+
+    <section className="gc-card"><h2>{t("سناریوها", "Scenarios")}</h2>
+      <p className="gc-sub">{t("«آزمایشی» فقط ثبت می‌کند چه کسی پیام می‌گرفت. «تست داخلی» واقعاً ارسال می‌کند، اما فقط به حساب‌های تست زیر؛ بقیه آزمایشی می‌مانند. «واقعی» به همه ارسال می‌کند. تست داخلی و واقعی فقط وقتی کار می‌کنند که موتور روی حالت واقعی باشد، کانال روشن باشد و قاعده در «قواعد و متن پیام‌ها» روشن باشد.", "Dry run only records who would get a message. Internal test really sends, but only to the test accounts below; everyone else stays a dry run. Live sends to everyone eligible. Internal test and live need the engine in live mode, a channel on, and the rule switched on in Rules & templates.")}</p>
+      <div className="gc-table-wrap"><table><thead><tr><th>{t("سناریو", "Scenario")}</th><th>{t("کی", "When")}</th><th>{t("حالت", "Mode")}</th><th>{t("در قواعد", "In rules")}</th></tr></thead><tbody>
+        {data.rules.map(r => <tr key={r.key}><td>{r.name[fa ? 0 : 1]}</td><td className="gc-sub">{r.when[fa ? 0 : 1]}</td>
+          <td><select aria-label={r.name[fa ? 0 : 1]} value={s.ruleModes[r.key] ?? "off"} onChange={e => set({ ruleModes: { ...s.ruleModes, [r.key]: e.target.value as FollowupSettings["ruleModes"][string] } })}>
+            <option value="off">{t("خاموش", "Off")}</option><option value="dry_run">{t("آزمایشی (فقط ثبت)", "Dry run")}</option><option value="internal_test">{t("تست داخلی", "Internal test")}</option><option value="live">{t("واقعی", "Live")}</option>
+          </select></td><td>{r.enabledInAutomations ? t("روشن", "on") : t("خاموش", "off")}</td></tr>)}
+      </tbody></table></div>
+      <label style={{ display: "block", marginTop: 10 }}>{t("شناسهٔ حساب‌های تست داخلی (با کاما جدا کنید)", "Internal test account ids (comma-separated)")}
+        <input dir="ltr" value={s.testUserIds.join(", ")} onChange={e => set({ testUserIds: e.target.value.split(/[\s,،]+/).map(x => x.trim()).filter(Boolean).slice(0, 20) })} placeholder="cmh…"/>
+      </label>
+      <p className="gc-sub">{t("شناسه را از نشانی صفحهٔ هر مشتری (/admin/customer-growth/<شناسه>) بردارید.", "Take the id from a customer's page address (/admin/customer-growth/<id>).")}</p>
+    </section>
 
     <section className="gc-card"><h2>{t("تنظیمات موتور", "Engine settings")}</h2>
       <p className="gc-sub">{t("روشن‌کردن حالت واقعی، هر کانال یا کمپین لایو فقط با نقش مدیر ارشد ممکن است و در گزارش ممیزی ثبت می‌شود.", "Turning on live mode, any channel or the Live campaign needs a super admin and is audited.")}</p>
