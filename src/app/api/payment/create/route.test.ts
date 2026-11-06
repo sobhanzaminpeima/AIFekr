@@ -6,6 +6,9 @@ const mocks = vi.hoisted(() => ({
   promo:vi.fn(), findPending: vi.fn(), create: vi.fn(), auth: vi.fn(), findPackage: vi.fn(), membership:vi.fn(), memberCount:vi.fn(), gateway:vi.fn(),fx:vi.fn(), update:vi.fn(), updateMany:vi.fn(), stale:vi.fn(), closeStale:vi.fn(),
 }));
 vi.mock("@/lib/payment/zarinpal",()=>({createPayment:mocks.gateway}));
+// Payment routing has its own tests (lib/payment/routing.test.ts); here every currency is open.
+vi.mock("@/lib/payment/routing",()=>({paymentOptions:async()=>({options:[],preferred:null}),allowedCurrency:()=>true,PAYMENT_ROUTE_UNAVAILABLE:{fa:"",en:"",de:"",tr:""}}));
+vi.mock("@/lib/i18n/server",()=>({getServerLang:async()=>"en"}));
 vi.mock("@/lib/payment/adminLifecycle",()=>({closeAbandonedGatewayOrder:mocks.closeStale}));
 vi.mock("@/lib/auth/middleware", () => ({ requireAuth: mocks.auth, unauthorizedResponse: () => new Response(null, { status: 401 }) }));
 vi.mock("@/lib/utils/rateLimit", () => ({ rateLimit: () => ({ allowed: true }) }));

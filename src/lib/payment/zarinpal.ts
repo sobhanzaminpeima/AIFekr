@@ -3,6 +3,9 @@ import { prisma } from "@/lib/db/prisma";
 // Merchant ID / sandbox flag are editable from the admin settings panel
 // (SiteSetting table) so a merchant swap doesn't need a redeploy — env vars
 // remain the fallback for whatever isn't set in the DB yet.
+/** Whether a Zarinpal merchant is configured (admin settings or env), for payment routing. */
+export async function zarinpalConfigured() { return !!(await getConfig()).merchant; }
+
 async function getConfig() {
   const rows = await prisma.siteSetting.findMany({
     where: { key: { in: ["zarinpal_merchant", "zarinpal_sandbox"] } },
