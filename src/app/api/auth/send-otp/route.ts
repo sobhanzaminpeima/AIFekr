@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { randomInt } from "crypto";
+import { PHONE_SIGNUP_OFF, phoneSignupEnabled } from "@/lib/auth/phoneSignup";
+import { getServerLang } from "@/lib/i18n/server";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { sendOTP } from "@/lib/sms/smsir";
@@ -42,6 +44,12 @@ export async function POST(req: NextRequest) {
     const recentOtps = await prisma.otpCode.count({ where: { phone, createdAt: { gte: oneHourAgo } } });
     if (recentOtps >= 5) {
       return NextResponse.json({ error: "تعداد درخواست‌ها بیش از حد مجاز است. یک ساعت دیگر تلاش کنید" }, { status: 429 });
+    }
+
+    // Sign-up by mobile number is off for now (lib/auth/phoneSignup): a code goes only to a
+    // number that already has an account; new people sign up by email (and no SMS is paid for).
+    if (!(await phoneSignupEnabled()) && !(await prisma.user.findUnique({ where: { phone }, select: { id: true } }))) {
+      return NextResponse.json({ error: PHONE_SIGNUP_OFF[await getServerLang()], code: "PHONE_SIGNUP_OFF" }, { status: 404 });
     }
 
     const code = generateOtp(phone);

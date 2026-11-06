@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { signupCredits } from "@/lib/credits/freeCredits";
+import { PHONE_SIGNUP_OFF, phoneSignupEnabled } from "@/lib/auth/phoneSignup";
+import { getServerLang } from "@/lib/i18n/server";
 import { createUser } from "@/lib/repositories/userRepository";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
@@ -48,6 +50,10 @@ export async function POST(req: NextRequest) {
     let user = await prisma.user.findUnique({ where: { phone } });
     let redirect: string | null = null;
 
+    // Sign-up by mobile number is off for now (lib/auth/phoneSignup): only existing numbers log in.
+    if (!user && !(await phoneSignupEnabled())) {
+      return NextResponse.json({ error: PHONE_SIGNUP_OFF[await getServerLang()], code: "PHONE_SIGNUP_OFF" }, { status: 404 });
+    }
     if (!user) {
       user = await createUser({
         phone,
