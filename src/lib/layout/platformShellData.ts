@@ -57,7 +57,9 @@ export async function shellGate(token: string | undefined, requestedPath: string
   if (!fitness && user.accountType === "FITNESS" && !["ADMIN", "SUPER_ADMIN"].includes(user.role)) return { kind: "redirect", to: "/fitness" };
   // New users finish the onboarding wizard first (welcome is outside this layout group).
   // The new design renders /welcome itself, inside this frame.
-  if (!fitness && !user.onboardingDone && path !== "/welcome") return { kind: "redirect", to: "/welcome" };
+  // The mobile-number step comes first: sending /complete-phone on to /welcome (which sends a
+  // number-less account back to /complete-phone) looped new sign-ups (production 2026-11-06).
+  if (!fitness && !user.onboardingDone && path !== "/welcome" && path !== COMPLETE_PHONE_PATH) return { kind: "redirect", to: "/welcome" };
   return { kind: "full", user };
 }
 

@@ -149,6 +149,21 @@ async function routeToV2(req: NextRequest): Promise<NextResponse | null> {
   }
   if (!origin || pathname.startsWith("/api/")) return null;
   const localized = stripPublicLocale(pathname);
+  // Buy buttons and sign-up send buyers to the classic /choose-plan; in the new design
+  // the same choice is /plans (same package, category and period), so it stays in the new design.
+  // (/start?plan=… is where the landing pages' buy button resumes after sign-up.) Signed-in only:
+  // visitors keep the public package pages.
+  if (req.cookies.get("token") && (localized.path === "/choose-plan" || (localized.path === "/start" && req.nextUrl.searchParams.get("plan")))) {
+    const theme = resolveTheme(await siteUiTheme(), req.cookies.get(UI_PREVIEW_COOKIE)?.value);
+    if (theme !== "v2" || !(await v2Available())) return null;
+    const q = req.nextUrl.searchParams, to = req.nextUrl.clone();
+    to.pathname = "/plans";
+    to.search = "";
+    const group = q.get("group") || q.get("category");
+    if (group && /^[A-Za-z_]{2,40}$/.test(group)) to.searchParams.set("category", group.toUpperCase());
+    for (const k of ["plan", "period"]) { const v = q.get(k); if (v && /^[A-Za-z0-9_-]{1,60}$/.test(v)) to.searchParams.set(k, v); }
+    return NextResponse.redirect(to, 307);
+  }
   if (!v2Handles(localized.path)) return null;
   // Left to the classic routes: /fa/... redirects to the unprefixed URL, and
   // the landing page sends signed-in visitors to /chat.

@@ -51,6 +51,18 @@ describe("mandatory mobile number", () => {
     expect((await shellGate(signToken({ userId: u.id, role: "USER", plan: "FREE" }), "/home")).kind).toBe("full");
   });
 
+  it("a brand-new account (onboarding not done, no number) reaches /complete-phone instead of looping via /welcome", async () => {
+    const u = await user({ phone: null });
+    await prisma.user.update({ where: { id: u.id }, data: { onboardingDone: false } });
+    const token = signToken({ userId: u.id, role: "USER", plan: "FREE" });
+    expect(await shellGate(token, "/welcome")).toEqual({ kind: "redirect", to: "/complete-phone" });
+    expect((await shellGate(token, "/complete-phone")).kind).toBe("full");
+    // After the number is saved, onboarding comes next as before.
+    await prisma.user.update({ where: { id: u.id }, data: { phone: `091${rnd()}` } });
+    expect(await shellGate(token, "/home")).toEqual({ kind: "redirect", to: "/welcome" });
+    expect((await shellGate(token, "/welcome")).kind).toBe("full");
+  });
+
   it("saves a valid, unique number once, normalised like registration", async () => {
     const u = await user({ phone: null }), other = await user({ phone: `091${rnd()}` });
     const bad = await savePhone(req("http://localhost/api/account/phone", { country: "IR", phone: "123", lang: "en" }, u.id));
