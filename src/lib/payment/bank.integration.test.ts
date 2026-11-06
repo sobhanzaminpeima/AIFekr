@@ -5,6 +5,8 @@ import { validIban } from "./bank";
 describe.runIf(process.env.RUN_BANK_INTEGRATION === "1")("bank transaction integration",()=>{
 let buyer:string,referrer:string,admin:string;
 beforeAll(async()=>{
+ // Student purchases attach the University industry pack; a fresh test database may not have it yet.
+ await prisma.industryPack.upsert({where:{slug:"university"},update:{},create:{slug:"university",name:"دانشگاه / مدرسه",nameEn:"University / School",emoji:"🎓",tagline:"",valueProposition:"",targetCustomers:"[]",painPoints:"[]",agents:"[]",outcomes:"[]",kpis:"[]",color:"#6366f1",gradientFrom:"#312e81",gradientTo:"#6366f1"}});
  if(!["file:/private/tmp/aifekr-test.db", "file:./vitest.db"].includes(process.env.DATABASE_URL || ""))throw new Error("Isolated integration DB required");
  referrer=(await prisma.user.create({data:{email:`bank-ref-${Date.now()}@test.invalid`,commissionPercentOverride:15}})).id;
  buyer=(await prisma.user.create({data:{email:`bank-buyer-${Date.now()}@test.invalid`,referredBy:referrer}})).id;
