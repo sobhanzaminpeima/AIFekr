@@ -93,6 +93,7 @@ export async function publicContent(lang: Lang, path: string): Promise<PublicCon
 export function publicContentSeo(lang: Lang, path: string): { metadata: Metadata; jsonLd: Record<string, unknown>[] } | null {
   if (path === "/ai-chat") return { metadata: pageMetadata(lang, "/ai-chat", AI_CHAT_TITLE, AI_CHAT_DESCRIPTION), jsonLd: pageJsonLd(lang, "/ai-chat", "WebPage", AI_CHAT_TITLE[lang]) };
   if (path === "/ai-team") return { metadata: pageMetadata(lang, "/ai-team", AI_TEAM_TITLE, AI_TEAM_DESCRIPTION), jsonLd: pageJsonLd(lang, "/ai-team") };
+  if (path === "/explore") return { metadata: { title: { absolute: "AIFekr | Platform" }, robots: { index: false, follow: true } }, jsonLd: [] };
   if (path === "/start") return { metadata: { title: "AIFekr Chat Starter", robots: { index: false, follow: true } }, jsonLd: [] };
   if (path === "/owner/login") return { metadata: { title: { absolute: "AIFekr | Owner portal" }, robots: { index: false, follow: false } }, jsonLd: [] };
   if (path.startsWith("/verify-certificate/")) return { metadata: { title: { absolute: "Verify Certificate | AIFekr" }, robots: { index: false, follow: false } }, jsonLd: [] };
