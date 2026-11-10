@@ -11,3 +11,11 @@ export const SHORT_ROUTES = [
   ["/startup", "/startup/builder"],
   ["/games", "/play"],
 ];
+
+// Classic pages whose work now lives in a view of a new-design workspace.
+export const MOVED_ROUTES = [
+  ["/ceo/orchestrator", "/ceo?tab=orchestrator"],
+  ["/student/chat", "/student?view=chat"],
+  ["/sales", "/crm?tab=agent"],
+  ["/choose-plan", "/plans"],
+];

@@ -1,4 +1,4 @@
-import { SHORT_ROUTES } from "./src/lib/navigation/shortRoutes.mjs";
+import { MOVED_ROUTES, SHORT_ROUTES } from "./src/lib/navigation/shortRoutes.mjs";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -16,7 +16,7 @@ const nextConfig = {
   },
   typescript: { ignoreBuildErrors: true },
   async redirects() {
-    return SHORT_ROUTES.map(([source, destination]) => ({ source, destination, permanent: false }));
+    return [...SHORT_ROUTES, ...MOVED_ROUTES].map(([source, destination]) => ({ source, destination, permanent: false }));
   },
   images: {
     remotePatterns: [

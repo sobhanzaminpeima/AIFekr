@@ -1,3 +1,4 @@
+import { assistantFor } from "@/lib/chat/assistants";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -129,7 +130,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-    const { message, conversationId, model, history = [], systemPrompt, expertMode, studentCourseId, studentTutor } = body;
+    const { message, conversationId, model, history = [], expertMode, studentCourseId, studentTutor } = body;
+    // A specialist assistant's instructions come from the server (lib/chat/assistants), not from the page.
+    const systemPrompt = typeof body.assistantType === "string" ? assistantFor(body.assistantType, await getServerLang()).prompt : body.systemPrompt;
 
     if (typeof message !== "string" || !message.trim()) {
       return NextResponse.json({ error: "پیام خالی است" }, { status: 400 });

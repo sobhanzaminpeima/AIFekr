@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import nextConfig from "../../../next.config.mjs";
-import { SHORT_ROUTES } from "./shortRoutes.mjs";
+import { MOVED_ROUTES, SHORT_ROUTES } from "./shortRoutes.mjs";
 
 const appDir = path.resolve(__dirname, "../../app");
 
@@ -22,9 +22,13 @@ describe("short routes", () => {
     expect(hasPage(appDir, source.split("/").filter(Boolean))).toBe(false);
   });
 
+  it.each(MOVED_ROUTES)("%s moves to its new-design view (%s)", (_source, destination) => {
+    expect(hasPage(appDir, destination.split("?")[0].split("/").filter(Boolean))).toBe(true);
+  });
+
   it("every short route is an active, temporary redirect", async () => {
     const redirects = await nextConfig.redirects!();
-    for (const [source, destination] of SHORT_ROUTES) {
+    for (const [source, destination] of [...SHORT_ROUTES, ...MOVED_ROUTES]) {
       expect(redirects).toContainEqual({ source, destination, permanent: false });
     }
   });
