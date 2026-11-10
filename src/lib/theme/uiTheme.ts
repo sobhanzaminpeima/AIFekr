@@ -56,8 +56,6 @@ const SEO_V2 = ["/seo", "/seo/intelligence", "/seo/sites", "/seo/agent-pipeline"
 
 export function v2Handles(path: string, routes: readonly string[] = V2_ROUTES) {
   const clean = path.split("?")[0].replace(/\/+$/, "") || "/";
-  // The public 1980s gallery is its own page, not a shared report.
-  if(routes===V2_ROUTES&&clean==="/share/1980s")return false;
   // A public student profile; the signed-in tutor chat lives at /student/chat.
   if(routes===V2_ROUTES&&/^\/student\/(?!chat$)[^/]+$/.test(clean))return true;
   if(routes===V2_ROUTES&&["/fitness","/fitness/marketplace","/student","/play"].includes(clean))return process.env.UI_V2_FINAL_MODULES_ENABLED==="1";

@@ -42,7 +42,13 @@ async function leadForm(lang: Lang, slug: string): Promise<LinkPage | null> {
 export async function publicLink(lang: Lang, path: string): Promise<LinkPage | null> {
   const [, section, id, extra] = path.split("/");
   if (!id || extra !== undefined) return null;
-  if (section === "share" && id !== "1980s") return shared(id);
+  if (section === "share" && id === "1980s") {
+    // One row per calendar day, so the admin view shows a trend. Best effort: a visit that fails to record never blocks the page.
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    prisma.publicPageVisit.upsert({ where: { page_date: { page: "share/1980s", date: today } }, update: { count: { increment: 1 } }, create: { page: "share/1980s", date: today, count: 1 } }).catch(() => {});
+    return { metadata: { title: { absolute: lang === "fa" ? "عکس‌های دهه ۸۰ | AIFekr" : "1980s photos | AIFekr" } } };
+  }
+  if (section === "share") return shared(id);
   if (section === "f") return leadForm(lang, id);
   if (section === "p" || section === "o") return { metadata: hidden("AIFekr") };
   if (section === "student" && id !== "chat") {

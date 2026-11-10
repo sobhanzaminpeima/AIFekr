@@ -18,7 +18,7 @@ describe("ui theme routing", () => {
   it("sends only the rebuilt pages to v2", () => {
     vi.stubEnv("UI_V2_ACCOUNTING_ENABLED", "1");
     for (const path of ["/", "/pricing", "/about", "/contact", "/guides", "/guides/x", "/features/crm", "/solutions/business", "/login", "/register", "/home", "/chat", "/chat/abc", "/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate", "/voice-studio", "/video-factory", "/crm", "/accounting", "/accounting/bank", "/accounting/accounts/1000", "/welcome", "/privacy", "/terms", "/security", "/payments"]) expect(v2Handles(path)).toBe(true);
-    for (const path of ["/chatbot", "/privacy/x", "/payments/x", "/industry", "/admin", "/pricing-old", "/login-old", "/welcome/setup", "/home/x", "/image/generate/x", "/create/image", "/gallery/x", "/voice-studio/x", "/video-factory/x", "/crm/x", "/accountingx"]) expect(v2Handles(path)).toBe(false);
+    for (const path of ["/chatbot", "/privacy/x", "/payments/x", "/admin", "/pricing-old", "/login-old", "/welcome/setup", "/home/x", "/image/generate/x", "/create/image", "/gallery/x", "/voice-studio/x", "/video-factory/x", "/crm/x", "/accountingx"]) expect(v2Handles(path)).toBe(false);
   });
   it("keeps accounting classic until its isolated rollout is enabled", () => {
     vi.stubEnv("UI_V2_ACCOUNTING_ENABLED", "0");
@@ -50,7 +50,8 @@ describe("ui theme routing", () => {
     for(const [path,flag] of [["/ceo","UI_V2_TEAM_ENABLED"],["/agents","UI_V2_TEAM_ENABLED"],["/organization/onboarding","UI_V2_ORGANIZATION_ENABLED"],["/voice-agent","UI_V2_CALL_CENTER_ENABLED"],["/learn","UI_V2_ACADEMY_ENABLED"],["/owner","UI_V2_OWNER_ENABLED"],["/settings","UI_V2_PROFILE_ENABLED"],["/student","UI_V2_FINAL_MODULES_ENABLED"],["/fitness","UI_V2_FINAL_MODULES_ENABLED"],["/fitness/marketplace","UI_V2_FINAL_MODULES_ENABLED"],["/play","UI_V2_FINAL_MODULES_ENABLED"]]){
       vi.stubEnv(flag,"0");expect(v2Handles(path)).toBe(false);
       vi.stubEnv(flag,"1");expect(v2Handles(path+"?tab=profile")).toBe(true);
-      expect(v2Handles(path+"/not-ready")).toBe(false);
+      // /student/<slug> is the public student profile, served by the new design.
+      if(path!=="/student")expect(v2Handles(path+"/not-ready")).toBe(false);
     }
   });
   it("decides a page language like getServerLang: a valid lang cookie first", async () => {
@@ -66,9 +67,16 @@ describe("ui theme routing", () => {
 });
 
 it("keeps the public 1980s gallery out of the shared-report route", () => {
-  expect(v2Handles("/share/1980s")).toBe(false);
+  expect(v2Handles("/share/1980s")).toBe(true);
   expect(v2Handles("/share/abc123")).toBe(true);
   expect(v2Handles("/f/form")).toBe(true);
   expect(v2Handles("/p/1")).toBe(true);
   expect(v2Handles("/plans")).toBe(true);
+});
+
+it("serves the industry pages and public student profiles in the new design", () => {
+  expect(v2Handles("/industry")).toBe(true);
+  expect(v2Handles("/industry/restaurant")).toBe(true);
+  expect(v2Handles("/student/someone")).toBe(true);
+  expect(v2Handles("/student/chat")).toBe(false);
 });
