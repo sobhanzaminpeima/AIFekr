@@ -37,6 +37,8 @@ export const V2_ROUTES: readonly string[] = ["/", "/pricing", "/about", "/contac
   "/live",
   // Packages inside the platform (activation prompts link here with ?category=).
   "/plans",
+  // Bank-transfer orders.
+  "/checkout", "/fitness/checkout",
   // Required mobile number step (lib/auth/phoneRequirement).
   "/complete-phone"];
 
