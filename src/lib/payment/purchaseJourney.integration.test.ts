@@ -7,6 +7,8 @@ import { isModuleEnabled } from "@/lib/industry/moduleAccess";
 import { hasBusinessBundle } from "@/lib/plans/businessAccess";
 import { isStudentWorkspaceEnabled } from "@/lib/student/access";
 import { PATCH } from "@/app/api/admin/payments/[id]/route";
+import { POST as createPayment } from "@/app/api/payment/create/route";
+import { POST as createQuote } from "@/app/api/billing/quote/route";
 import { reviewBankPayment, settleVerifiedPayment } from "./reviewBankPayment";
 
 /** The paths a paid order takes after checkout, on a real (isolated) database. */
@@ -180,5 +182,25 @@ describe.runIf(process.env.RUN_BANK_INTEGRATION === "1")("purchase journey", () 
     const adminCookie = `token=${signToken({ userId: admin, role: "ADMIN", plan: "FREE" })}`;
     expect((await review(p.id, "approve", adminCookie)).status).toBe(200);
     expect((await account(u.id)).plan).toBe("STUDENT_MONTHLY");
+  });
+
+  it("refuses a Student order over an active paid plan, and leaves the plan alone", async () => {
+    const planCode = "STUDENT_JOURNEY_CONFLICT";
+    await prisma.package.create({ data: { planCode, name: "Journey", nameEn: "Journey", price: 1000, credits: 10, duration: 30, features: "[]", category: "STUDENT", isActive: true, publicVisible: true, publicationStatus: "PUBLISHED" } });
+    try {
+      const expiry = new Date(Date.now() + 40 * 86400000);
+      const u = await newUser({ plan: "PRO", planExpiry: expiry });
+      const cookie = `token=${signToken({ userId: u.id, role: "USER", plan: "PRO" })}`;
+      const send = (url: string, body: object) => new NextRequest(`http://localhost${url}`, { method: "POST", headers: { "Content-Type": "application/json", cookie }, body: JSON.stringify(body) });
+      const quote = await createQuote(send("/api/billing/quote", { plan: planCode, period: "monthly", currency: "TRY" }));
+      expect([quote.status, (await quote.json()).code]).toEqual([409, "ACTIVE_PLAN_CONFLICT"]);
+      const order = await createPayment(send("/api/payment/create", { plan: planCode, period: "monthly", currency: "TRY", selectStudentAccount: true }));
+      expect([order.status, (await order.json()).code]).toEqual([409, "ACTIVE_PLAN_CONFLICT"]);
+      expect(await prisma.payment.count({ where: { userId: u.id } })).toBe(0);
+      const after = await account(u.id);
+      expect([after.plan, after.planExpiry]).toEqual(["PRO", expiry]);
+    } finally {
+      await prisma.package.delete({ where: { planCode } });
+    }
   });
 });
