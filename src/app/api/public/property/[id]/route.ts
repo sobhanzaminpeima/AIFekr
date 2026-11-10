@@ -2,6 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import { getServerLang } from "@/lib/i18n/server";
+import { formatListingPrice } from "@/lib/industry/realEstate/listingFormat";
 
 /** Public, unauthenticated — powers the shareable /p/[id] lead-capture landing page. Only listing fields a buyer/renter needs to see, never owner/agent internal data. */
 export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -19,6 +21,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   });
   if (!property) return NextResponse.json({ error: "ملک یافت نشد" }, { status: 404 });
 
+  const lang = await getServerLang();
   let images: string[] = [];
   try { images = property.images ? JSON.parse(property.images) : []; } catch { images = []; }
 
@@ -26,6 +29,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
     property: {
       ...property, images,
       price: Number(property.price), nightlyPrice: property.nightlyPrice != null ? Number(property.nightlyPrice) : null,
+      priceText: formatListingPrice(property.price, property.currency, lang), nightlyPriceText: property.nightlyPrice != null ? formatListingPrice(property.nightlyPrice, property.currency, lang) : null,
     },
   });
 }

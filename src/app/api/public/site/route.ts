@@ -8,6 +8,7 @@ import { getEntryPlans } from "@/lib/marketing/entryPlans";
 import {PACKAGE_CATEGORIES} from '@/lib/billing/packageCategories';
 import { LEGAL_PAGES, legalPage, type LegalPage } from "@/lib/marketing/legal";
 import { getContactSettings } from "@/lib/marketing/contact";
+import { publicLink } from "@/lib/marketing/publicLinks";
 import { verifyCertificate } from "@/lib/courses/academy";
 import { publicContent, publicContentSeo } from "@/lib/marketing/publicContent";
 import { getCreditCosts } from "@/lib/utils/creditCosts";
@@ -53,7 +54,8 @@ export async function GET(req: NextRequest) {
   const path = (req.nextUrl.searchParams.get("path") || "/").slice(0, 200);
   const [plans, contact, costs] = await Promise.all([getEntryPlans(lang).catch(() => []), getContactSettings(lang), getCreditCosts()]);
   const auth = authPage(lang, path);
-  const seo = auth ? { metadata: auth.metadata, jsonLd: [] } : publicContentSeo(lang, path) ?? publicSeo(lang, path);
+  const link = await publicLink(lang, path);
+  const seo = auth ? { metadata: auth.metadata, jsonLd: [] } : link ? { metadata: link.metadata, jsonLd: [] } : publicContentSeo(lang, path) ?? publicSeo(lang, path);
   const page = await publicContent(lang, path);
   const body = {
     lang,
@@ -71,6 +73,8 @@ export async function GET(req: NextRequest) {
     contact: { email: contact.contact_email, phone: contact.contact_phone, address: contact.contact_address, telegram: contact.contact_telegram },
     auth: auth?.auth ?? null,
     page,
+    shared: link?.shared,
+    leadForm: link?.leadForm,
     certificate: path.startsWith("/verify-certificate/") ? await verifyCertificate(path.split("/")[2] ?? "") : undefined,
     // Only on /privacy, /terms and /security: the legal text the classic pages show.
     legal: (LEGAL_PAGES as readonly string[]).includes(path.slice(1)) ? legalPage(lang, path.slice(1) as LegalPage) : null,
