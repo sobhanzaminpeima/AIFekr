@@ -22,6 +22,7 @@ interface UsageStats {
   missingTokenCount: number;
   distinctUsers: number;
   byType: { type: string; calls: number; tokens: number; credits: number }[];
+  byModule: { module: string; calls: number; credits: number; costUsd: number }[];
   byModel: { model: string; calls: number; tokens: number }[];
   dailySeries: { day: string; calls: number; tokens: number }[];
   planLimits: Record<string, { dailyChats: number; monthlyImages: number; monthlyVideos: number; monthlyMusics: number; initialCredits: number }>;
@@ -331,7 +332,7 @@ export default function AdminUsagePage() {
             <div className="flex items-start gap-2 p-4 rounded-xl" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }}>
               <ShieldAlert className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
               <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                <b className="text-amber-400">{stats.missingTokenCount}</b> از {stats.totalCalls} درخواست در این بازه توکن ثبت‌شده ندارن (رکوردهای قدیمی، قبل از فعال‌سازی ثبت توکن واقعی، یا providerهایی که usage برنمی‌گردونن). عدد توکن زیر فقط شامل درخواست‌هایی‌ه که مقدار واقعی گزارش شده — پس یه کف مصرف واقعیه، نه سقفش.
+                <b className="text-amber-400">{stats.missingTokenCount}</b> از {stats.totalCalls} درخواست متنی در این بازه توکن ثبت‌شده ندارن و نمی‌شود برایشان عدد ساخت (تصویر، ویدیو، موسیقی و صدا جدا حساب می‌شوند و توکن ندارند؛ بقیه رکوردهای قدیمی، قبل از فعال‌سازی ثبت توکن واقعی، یا providerهایی که usage برنمی‌گردونن). عدد توکن زیر فقط شامل درخواست‌هایی‌ه که مقدار واقعی گزارش شده — پس یه کف مصرف واقعیه، نه سقفش.
               </p>
             </div>
           )}
@@ -354,18 +355,33 @@ export default function AdminUsagePage() {
               <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>حداقل ۱ درخواست</div>
             </div>
             <div className="p-4 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-              <div className="flex items-center gap-2 mb-1"><Calculator className="w-4 h-4" style={{ color: "#fbbf24" }} /><span className="text-xs" style={{ color: "var(--text-muted)" }}>هزینهٔ تخمینی</span></div>
-              <div className="text-3xl font-bold" style={{ color: "#fbbf24" }}>${estCost.toFixed(2)}</div>
-              <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>بر اساس نرخ‌های پایین</div>
+              <div className="flex items-center gap-2 mb-1"><Calculator className="w-4 h-4" style={{ color: "#fbbf24" }} /><span className="text-xs" style={{ color: "var(--text-muted)" }}>هزینهٔ AI</span></div>
+              <div className="text-3xl font-bold" style={{ color: "#fbbf24" }}>{economics ? `$${economics.totalCostUsd.toFixed(2)}` : "—"}</div>
+              <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>مجموع هزینهٔ ثبت‌شده برای هر درخواست</div>
             </div>
           </div>
+
+          {stats.byModule.length > 0 && (
+            <div className="p-5 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+              <h3 className="font-semibold text-sm mb-3" style={{ color: "var(--text-primary)" }}>مصرف به تفکیک ماژول</h3>
+              <div className="space-y-1.5">
+                {stats.byModule.map((m) => (
+                  <div key={m.module} className="flex items-center justify-between text-xs">
+                    <span style={{ color: "var(--text-secondary)" }}>{m.module}</span>
+                    <span style={{ color: "var(--text-muted)" }}>{m.calls}× · {m.credits} کردیت · ${m.costUsd.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* cost calculator */}
           <div className="p-5 rounded-2xl" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
             <h3 className="font-semibold text-sm mb-4 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
               <Calculator className="w-4 h-4" style={{ color: "var(--primary)" }} />
-              محاسبه‌گر هزینه (نرخ‌ها رو با قیمت مدل واقعی خودتون جایگزین کنید)
+              محاسبه‌گر فرضی هزینهٔ توکن (جدا از هزینهٔ AI بالا؛ نرخ‌ها رو با قیمت مدل واقعی خودتون جایگزین کنید)
             </h3>
+            <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>نتیجهٔ این محاسبه با نرخ‌های زیر: <b>${estCost.toFixed(2)}</b></p>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               {[
                 { label: "ورودی ($/1M توکن)", value: inputPrice, set: setInputPrice, step: 0.01 },

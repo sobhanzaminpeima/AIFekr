@@ -7,6 +7,7 @@ import { tri } from "@/lib/i18n/tri";
 import type { Lang } from "@/lib/i18n";
 import { withToolCredits } from "@/lib/utils/withToolCredits";
 import { safeFetch } from "@/lib/net/safeUrl";
+import { saveSeoGeneration } from "@/lib/seo/generationHistory";
 
 /**
  * Every prompt below branches only on `lang === "fa"`, so German fell into the
@@ -64,7 +65,13 @@ async function handlePost(req: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (text: string) => controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
+      // Enqueueing throws once the reader has gone. The answer is already paid for, so generation carries on and is saved.
+      let open = true;
+      const enqueue = (frame: string) => { if (!open) return; try { controller.enqueue(encoder.encode(frame)); } catch { open = false; } };
+      const finish = () => { if (!open) return; open = false; try { controller.close(); } catch { /* reader already gone */ } };
+      const send = (text: string) => enqueue(`data: ${JSON.stringify({ text })}\n\n`);
+      let output = "";
+      const save = (complete: boolean) => saveSeoGeneration({ userId: user.id, feature: "seo.analyze", tool: String(tool), keyword, url, input: { tool, keyword, content, url, targetKeyword, language: lang }, output, complete });
       let systemPrompt = "";
       let userMessage = "";
 
@@ -72,8 +79,8 @@ async function handlePost(req: NextRequest) {
         send(tri(lang, "در حال بارگذاری وبسایت...\n", "Loading website...\n", "Website wird geladen...\n"));
         const data = await crawlUrl(url);
         if (!data) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({error:tri(lang,"خطا در بارگذاری URL.","Failed to load URL.","URL konnte nicht geladen werden.")})}\n\n`));
-          controller.close(); return;
+          enqueue(`data: ${JSON.stringify({error:tri(lang,"خطا در بارگذاری URL.","Failed to load URL.","URL konnte nicht geladen werden.")})}\n\n`);
+          finish(); return;
         }
         send(tri(lang, "✅ وبسایت بارگذاری شد. در حال تحلیل سئو...\n\n---\n\n", "✅ Website loaded. Analyzing SEO...\n\n---\n\n", "✅ Website geladen. SEO-Analyse läuft...\n\n---\n\n"));
         systemPrompt = lang === "fa" ? "تو متخصص سئو حرفه‌ای با ۱۰+ سال تجربه هستی. گزارش جامع، دقیق و عملی سئو ارائه می‌دهی. پاسخ کامل و حرفه‌ای بده." : "You are a professional SEO specialist. Provide comprehensive, accurate and actionable SEO reports.";
@@ -88,6 +95,10 @@ async function handlePost(req: NextRequest) {
           "You are a keyword research specialist.",
           "Du bist Spezialist für Keyword-Recherche im deutschsprachigen Markt.");
         userMessage = lang === "fa" ? `تحقیق کلمات کلیدی برای: **"${keyword}"**\n\n۱. ۲۰ کلمه کلیدی مرتبط با جدول (رقابت، حجم جستجو، نیت کاربر)\n۲. ۵ long-tail با رقابت کم\n۳. ۳ کلمه LSI\n۴. سوالات کاربران (People Also Ask)\n۵. استراتژی کلی` : `Keyword research for "${keyword}": 20 related keywords table, 5 long-tail, 3 LSI, People Also Ask, strategy`;
+      } else if (tool === "content" && !(typeof content === "string" && content.trim())) {
+        // No page text: write from the topic instead of "optimizing" nothing.
+        systemPrompt = lang === "fa" ? "نویسندهٔ حرفه‌ای محتوای سئو هستی." : "You are a professional SEO content writer.";
+        userMessage = lang === "fa" ? `یک مقالهٔ کامل و سئوشده دربارهٔ **"${keyword}"** بنویس.\n\n۱. عنوان و متا دیسکریپشن\n۲. ساختار Heading و متن کامل هر بخش\n۳. پرسش‌های متداول\n۴. کلمات LSI` : `Write a complete SEO article about "${keyword}": title and meta description, headings with full text for each section, FAQ, LSI keywords`;
       } else if (tool === "content") {
         systemPrompt = lang === "fa" ? "متخصص بهینه‌سازی محتوا برای سئو هستی." : "Content SEO optimization specialist.";
         userMessage = lang === "fa" ? `بهینه‌سازی محتوا برای: **"${keyword}"**\n\n${content}\n\n۱. نسخه بهینه (تراکم ۱-۳٪)\n۲. ساختار Heading پیشنهادی\n۳. بهبود readability\n۴. کلمات LSI` : `Optimize content for "${keyword}":\n${content}\nProvide: optimized version, heading structure, readability tips, LSI keywords`;
@@ -97,13 +108,15 @@ async function handlePost(req: NextRequest) {
       }
 
       try {
-        await routedStreamChat([{ role: "user", content: userMessage }], systemPrompt + outputLanguageRule(lang), (chunk) => send(chunk), (_p) => {});
+        await routedStreamChat([{ role: "user", content: userMessage }], systemPrompt + outputLanguageRule(lang), (chunk) => { output += chunk; send(chunk); }, (_p) => {});
       } catch (e) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({error:tri(lang,"ارتباط با هوش مصنوعی انجام نشد.","AI generation failed.","KI-Generierung fehlgeschlagen.")})}\n\n`));
-        controller.close();return;
+        await save(false);
+        enqueue(`data: ${JSON.stringify({error:tri(lang,"ارتباط با هوش مصنوعی انجام نشد.","AI generation failed.","KI-Generierung fehlgeschlagen.")})}\n\n`);
+        finish();return;
       }
-      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-      controller.close();
+      await save(true);
+      enqueue("data: [DONE]\n\n");
+      finish();
     },
   });
 

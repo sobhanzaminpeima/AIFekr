@@ -6,6 +6,7 @@ import { normalizeUrlInput } from "@/lib/seo/urlInput";
 import { crawlFailureMessage } from "@/lib/seo/crawlMessages";
 import { generateImprovePlan } from "@/lib/seo/improvePlan";
 import { withToolCredits } from "@/lib/utils/withToolCredits";
+import { saveSeoGeneration } from "@/lib/seo/generationHistory";
 import { tri } from "@/lib/i18n/tri";
 import type { Lang } from "@/lib/i18n/server";
 
@@ -48,6 +49,7 @@ async function handlePost(req: NextRequest) {
     return NextResponse.json({ error: tri(lang, "هوش مصنوعی پاسخ قابل استفاده‌ای نداد. اعتبار شما برگشت داده شد؛ دوباره امتحان کنید.", "The AI didn't return a usable plan. Your credits were refunded; please try again.", "Die KI hat keinen brauchbaren Plan geliefert. Ihre Credits wurden erstattet; bitte erneut versuchen.", "Yapay zekâ kullanılabilir bir plan vermedi. Kredileriniz iade edildi; lütfen tekrar deneyin."), reason: "model_failed" }, { status: 502 });
   }
 
+  await saveSeoGeneration({ userId: user.id, feature: "seo.improve", tool: "improve", keyword: targetKeyword, url, input: { url, targetKeyword, language: lang }, output: JSON.stringify({ score, plan }, null, 2) });
   return NextResponse.json({ url, score, plan });
 }
 

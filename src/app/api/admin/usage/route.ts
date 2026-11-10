@@ -5,6 +5,7 @@ import { requireAdmin, unauthorizedResponse, forbiddenResponse } from "@/lib/aut
 import { prisma } from "@/lib/db/prisma";
 import { getPlanLimits } from "@/lib/utils/planLimits";
 import { getCreditCosts } from "@/lib/utils/creditCosts";
+import { isMediaUsage, TOOL_USAGE_TYPES, usageByModule } from "@/lib/admin/usageModules";
 
 export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req);
@@ -21,12 +22,12 @@ export async function GET(req: NextRequest) {
   const usageWhere = { createdAt: { gte: since }, ...(scope === "student" ? { type: "chat", metadata: { contains: '"feature":"student"' } } : {}) };
 
   try {
-    const [byType, byModel, dailySeries, distinctUsers, totalCalls, totalTokensRow, missingTokenCount, planLimits, creditCosts] = await Promise.all([
+    const [byType, byModel, dailySeries, distinctUsers, totalCalls, totalTokensRow, missingTokens, toolRows, planLimits, creditCosts] = await Promise.all([
       prisma.usageLog.groupBy({
         by: ["type"],
         where: usageWhere,
         _count: { _all: true },
-        _sum: { tokens: true, credits: true },
+        _sum: { tokens: true, credits: true, estimatedCostUsd: true },
       }),
       prisma.usageLog.groupBy({
         by: ["model"],
@@ -49,7 +50,8 @@ export async function GET(req: NextRequest) {
       }),
       prisma.usageLog.count({ where: usageWhere }),
       prisma.usageLog.aggregate({ where: usageWhere, _sum: { tokens: true } }),
-      prisma.usageLog.count({ where: { ...usageWhere, tokens: null } }),
+      prisma.usageLog.groupBy({ by: ["type"], where: { ...usageWhere, tokens: null }, _count: { _all: true } }),
+      prisma.usageLog.findMany({ where: { AND: [usageWhere, { type: { in: TOOL_USAGE_TYPES } }] }, select: { type: true, metadata: true, credits: true, estimatedCostUsd: true } }),
       getPlanLimits(),
       getCreditCosts(),
     ]);
@@ -59,7 +61,9 @@ export async function GET(req: NextRequest) {
       scope,
       totalCalls,
       totalTokens: totalTokensRow._sum.tokens ?? 0,
-      missingTokenCount, // calls where tokens weren't recorded (older rows, or providers that don't report usage)
+      // Text requests with no recorded tokens (older rows, or providers that don't report usage); media is billed by the unit.
+      missingTokenCount: missingTokens.filter((r) => !isMediaUsage(r.type)).reduce((sum, r) => sum + r._count._all, 0),
+      byModule: usageByModule(byType.map((r) => ({ type: r.type, calls: r._count._all, credits: r._sum.credits ?? 0, costUsd: r._sum.estimatedCostUsd ?? 0 })), toolRows),
       distinctUsers: distinctUsers.length,
       byType: byType.map((r) => ({
         type: r.type,
