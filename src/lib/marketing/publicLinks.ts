@@ -9,6 +9,7 @@ const hidden = (title: string): Metadata => ({ title: { absolute: title }, robot
 
 export type LinkPage = {
   metadata: Metadata;
+  studentProfile?: { name: string | null; avatar: string | null; slug: string };
   shared?: { badge: string; title: string; subtitle: string; author: string | null; date: string; content: string };
   leadForm?: { slug: string; title: string; description: string; accent: string; logoUrl: string | null; submitLabel: string | null; successMessage: string | null; fields: { key: string; label: string; required: boolean }[] };
 };
@@ -43,6 +44,10 @@ export async function publicLink(lang: Lang, path: string): Promise<LinkPage | n
   if (!id || extra !== undefined) return null;
   if (section === "share" && id !== "1980s") return shared(id);
   if (section === "f") return leadForm(lang, id);
-  if (section === "p") return { metadata: hidden("AIFekr") };
+  if (section === "p" || section === "o") return { metadata: hidden("AIFekr") };
+  if (section === "student" && id !== "chat") {
+    const user = await prisma.user.findFirst({ where: { studentPublicSlug: id.toLowerCase(), studentProfilePublic: true }, select: { name: true, avatar: true, studentPublicSlug: true } });
+    return user?.studentPublicSlug ? { metadata: hidden(user.name || "AIFekr"), studentProfile: { name: user.name, avatar: user.avatar, slug: user.studentPublicSlug } } : null;
+  }
   return null;
 }

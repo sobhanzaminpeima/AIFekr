@@ -74,6 +74,7 @@ export async function GET(req: NextRequest) {
     auth: auth?.auth ?? null,
     page,
     shared: link?.shared,
+    studentProfile: link?.studentProfile,
     leadForm: link?.leadForm,
     certificate: path.startsWith("/verify-certificate/") ? await verifyCertificate(path.split("/")[2] ?? "") : undefined,
     // Only on /privacy, /terms and /security: the legal text the classic pages show.
