@@ -10,6 +10,7 @@ import { LEGAL_PAGES, legalPage, type LegalPage } from "@/lib/marketing/legal";
 import { getContactSettings } from "@/lib/marketing/contact";
 import { publicLink } from "@/lib/marketing/publicLinks";
 import { industryPage } from "@/lib/marketing/industryPages";
+import { fitPage } from "@/lib/marketing/fitPage";
 import { verifyCertificate } from "@/lib/courses/academy";
 import { publicContent, publicContentSeo } from "@/lib/marketing/publicContent";
 import { getCreditCosts } from "@/lib/utils/creditCosts";
@@ -57,7 +58,8 @@ export async function GET(req: NextRequest) {
   const auth = authPage(lang, path);
   const link = await publicLink(lang, path);
   const industry = await industryPage(lang, path);
-  const seo = auth ? { metadata: auth.metadata, jsonLd: [] } : link ? { metadata: link.metadata, jsonLd: [] } : industry ? { metadata: industry.metadata, jsonLd: industry.jsonLd } : publicContentSeo(lang, path) ?? publicSeo(lang, path);
+  const fit = path === "/fit" ? fitPage(lang) : null;
+  const seo = auth ? { metadata: auth.metadata, jsonLd: [] } : link ? { metadata: link.metadata, jsonLd: [] } : industry ? { metadata: industry.metadata, jsonLd: industry.jsonLd } : fit ? { metadata: fit.metadata, jsonLd: fit.jsonLd } : publicContentSeo(lang, path) ?? publicSeo(lang, path);
   const page = await publicContent(lang, path);
   const body = {
     lang,
@@ -77,6 +79,7 @@ export async function GET(req: NextRequest) {
     page,
     shared: link?.shared,
     industries: industry?.industries,
+    fit: fit?.fit,
     industry: industry?.industry,
     studentProfile: link?.studentProfile,
     leadForm: link?.leadForm,

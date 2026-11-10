@@ -38,7 +38,7 @@ export const V2_ROUTES: readonly string[] = ["/", "/pricing", "/about", "/contac
   // Packages inside the platform (activation prompts link here with ?category=).
   "/plans",
   // Bank-transfer orders.
-  "/ai-chat", "/ai-team", "/industry", "/start", "/owner/login", "/startup/contact", "/verify-certificate", "/f", "/p", "/o", "/share", "/assistants",
+  "/ai-chat", "/ai-team", "/industry", "/start", "/fit", "/owner/login", "/startup/contact", "/verify-certificate", "/f", "/p", "/o", "/share", "/assistants",
   "/checkout", "/fitness/checkout", "/fitness/credits", "/fitness/payments",
   // Guided AI tools.
   "/tools",
