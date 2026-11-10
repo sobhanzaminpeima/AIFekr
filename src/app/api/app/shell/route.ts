@@ -82,8 +82,8 @@ export async function GET(req: NextRequest) {
     accounting: accountingPage ? accountingCopy(lang) : null,
     accountingAccess: accountingWorkspace ? { allowed: hasCrmAccess(accountingWorkspace), restricted: accountingWorkspace.isAgentRestricted } : null,
     // Only on /payments: the classic payment history's wording.
-    credits: bare === "/credits" ? creditsCopy(lang) : null,
-    payments: bare === "/payments" ? paymentsCopy(lang) : null,
+    credits: bare === "/credits" || bare === "/fitness/credits" ? creditsCopy(lang) : null,
+    payments: bare === "/payments" || bare === "/fitness/payments" ? paymentsCopy(lang) : null,
     // Only on /welcome: the onboarding answers, options and suggestions, and its wording.
     welcome: bare === "/welcome" ? { ...(await onboardingView(user)), copy: onboardingCopy(lang) } : null,
     // Only on /home: the saved goals (what comes first) and the optional invitation to set them.
