@@ -18,7 +18,7 @@ describe("ui theme routing", () => {
   it("sends only the rebuilt pages to v2", () => {
     vi.stubEnv("UI_V2_ACCOUNTING_ENABLED", "1");
     for (const path of ["/", "/pricing", "/about", "/contact", "/guides", "/guides/x", "/features/crm", "/solutions/business", "/login", "/register", "/home", "/chat", "/chat/abc", "/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate", "/voice-studio", "/video-factory", "/crm", "/accounting", "/accounting/bank", "/accounting/accounts/1000", "/welcome", "/privacy", "/terms", "/security", "/payments"]) expect(v2Handles(path)).toBe(true);
-    for (const path of ["/chatbot", "/privacy/x", "/payments/x", "/admin", "/pricing-old", "/login-old", "/home/x", "/image/generate/x", "/create/image", "/gallery/x", "/voice-studio/x", "/video-factory/x", "/crm/x", "/accountingx"]) expect(v2Handles(path)).toBe(false);
+    for (const path of ["/chatbot", "/privacy/x", "/payments/x", "/admin/logs", "/pricing-old", "/login-old", "/home/x", "/image/generate/x", "/create/image", "/gallery/x", "/voice-studio/x", "/video-factory/x", "/crm/x", "/accountingx"]) expect(v2Handles(path)).toBe(false);
   });
   it("keeps accounting classic until its isolated rollout is enabled", () => {
     vi.stubEnv("UI_V2_ACCOUNTING_ENABLED", "0");
@@ -81,5 +81,9 @@ it("serves the industry pages and public student profiles in the new design", ()
   expect(v2Handles("/student/chat")).toBe(false);
   expect(v2Handles("/welcome/setup")).toBe(true);
   expect(v2Handles("/admin/users")).toBe(true);
-  expect(v2Handles("/admin/users/abc")).toBe(false);
+  expect(v2Handles("/admin/users/abc")).toBe(true);
+  expect(v2Handles("/admin/users/abc/x")).toBe(false);
+  expect(v2Handles("/admin/dashboard")).toBe(true);
+  expect(v2Handles("/admin")).toBe(true);
+  expect(v2Handles("/admin/settings")).toBe(false);
 });

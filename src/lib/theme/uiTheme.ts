@@ -60,6 +60,10 @@ export function v2Handles(path: string, routes: readonly string[] = V2_ROUTES) {
   const clean = path.split("?")[0].replace(/\/+$/, "") || "/";
   // A public student profile; the signed-in tutor chat lives at /student/chat.
   if(routes===V2_ROUTES&&/^\/student\/(?!chat$)[^/]+$/.test(clean))return true;
+  // The admin control center; other admin pages stay classic until rebuilt.
+  if(routes===V2_ROUTES&&(clean==="/admin"||clean==="/admin/dashboard"))return true;
+  // An account profile in the admin user directory (admins only, see the proxy).
+  if(routes===V2_ROUTES&&/^\/admin\/users\/[^/]+$/.test(clean))return true;
   if(routes===V2_ROUTES&&["/fitness","/fitness/marketplace","/student","/play"].includes(clean))return process.env.UI_V2_FINAL_MODULES_ENABLED==="1";
   if(routes===V2_ROUTES&&["/credits","/wallet","/notifications"].includes(clean))return process.env.UI_V2_PROFILE_ENABLED==="1";
   if(routes===V2_ROUTES&&clean==="/settings")return process.env.UI_V2_PROFILE_ENABLED==="1";
