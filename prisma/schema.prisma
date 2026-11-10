@@ -464,6 +464,7 @@ model User {
   seoConnection            SeoConnection?
   gscConnection            GscConnection?
   seoSites                 SeoSite[]
+  seoGenerations           SeoGeneration[]
   instagramConnections     InstagramConnection[]
   scheduledPosts           ScheduledPost[]
   pipelineRuns             ContentPipelineRun[]
@@ -2224,6 +2225,27 @@ model GscConnection {
   updatedAt    DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// A saved result of a paid SEO tool, so a closed dialog never loses what was paid for.
+model SeoGeneration {
+  id        String   @id @default(cuid())
+  userId    String
+  /// "keyword" | "content" | "meta" | "url" | "improve" | "suggest"
+  tool      String
+  keyword   String?
+  url       String?
+  /// JSON of what the user submitted
+  input     String
+  output    String
+  credits   Int      @default(0)
+  /// "complete", or "partial" when the model stopped midway
+  status    String   @default("complete")
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 /// A website a user tracks in the SEO Command Center. Audits are saved per site

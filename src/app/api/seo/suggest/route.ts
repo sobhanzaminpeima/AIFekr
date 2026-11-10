@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { routedStreamChat } from "@/lib/ai/router";
 import { withToolCredits } from "@/lib/utils/withToolCredits";
+import { saveSeoGeneration } from "@/lib/seo/generationHistory";
 
 // Structured counterpart to /api/seo/analyze — that endpoint streams a free
 // -form markdown report; this one asks for strict JSON so the "اعمال خودکار"
@@ -31,6 +32,7 @@ async function handlePost(req: NextRequest) {
 
   try {
     const parsed = JSON.parse(match[0]);
+    await saveSeoGeneration({ userId: user.id, feature: "seo.suggest", tool: "suggest", keyword: targetKeyword, url, input: { url, targetKeyword }, output: JSON.stringify({ title: parsed.title, metaDescription: parsed.metaDescription }, null, 2) });
     return NextResponse.json({ title: parsed.title, metaDescription: parsed.metaDescription });
   } catch {
     return NextResponse.json({ error: "پاسخ AI قابل تفسیر نبود" }, { status: 502 });

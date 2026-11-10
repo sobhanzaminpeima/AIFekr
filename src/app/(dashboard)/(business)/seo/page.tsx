@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Search, Globe, FileText, Tag, Copy, Check, ExternalLink, Zap, Loader2, Link2, Sparkles, BarChart3, MousePointerClick, Eye, TrendingUp, ChevronDown, AlertTriangle, XCircle, CheckCircle2, ArrowUpRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { SeoGenerationHistory } from "@/components/seo/SeoGenerationHistory";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import { useTranslation, tri } from "@/lib/i18n";
@@ -287,6 +288,8 @@ export default function SEOPage() {
     }
   }
 
+  const [savedRuns, setSavedRuns] = useState(0);
+
   async function analyze(tool: Tab, payload: Record<string, string>) {
     setLoading(true);
     setResult("");
@@ -315,7 +318,7 @@ export default function SEOPage() {
         }
       }
     } catch { setResult(`❌ ${t.common.error}`); }
-    finally { setLoading(false); }
+    finally { setLoading(false); setSavedRuns((n) => n + 1); }
   }
 
   const tabs: { id: Tab; icon: React.ElementType; label: string }[] = [
@@ -795,6 +798,8 @@ export default function SEOPage() {
           </div>
         </div>
       )}
+
+      <SeoGenerationHistory refresh={savedRuns} />
     </div>
   );
 }
