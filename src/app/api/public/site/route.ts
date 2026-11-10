@@ -9,6 +9,7 @@ import {PACKAGE_CATEGORIES} from '@/lib/billing/packageCategories';
 import { LEGAL_PAGES, legalPage, type LegalPage } from "@/lib/marketing/legal";
 import { getContactSettings } from "@/lib/marketing/contact";
 import { publicLink } from "@/lib/marketing/publicLinks";
+import { industryPage } from "@/lib/marketing/industryPages";
 import { verifyCertificate } from "@/lib/courses/academy";
 import { publicContent, publicContentSeo } from "@/lib/marketing/publicContent";
 import { getCreditCosts } from "@/lib/utils/creditCosts";
@@ -55,7 +56,8 @@ export async function GET(req: NextRequest) {
   const [plans, contact, costs] = await Promise.all([getEntryPlans(lang).catch(() => []), getContactSettings(lang), getCreditCosts()]);
   const auth = authPage(lang, path);
   const link = await publicLink(lang, path);
-  const seo = auth ? { metadata: auth.metadata, jsonLd: [] } : link ? { metadata: link.metadata, jsonLd: [] } : publicContentSeo(lang, path) ?? publicSeo(lang, path);
+  const industry = await industryPage(lang, path);
+  const seo = auth ? { metadata: auth.metadata, jsonLd: [] } : link ? { metadata: link.metadata, jsonLd: [] } : industry ? { metadata: industry.metadata, jsonLd: industry.jsonLd } : publicContentSeo(lang, path) ?? publicSeo(lang, path);
   const page = await publicContent(lang, path);
   const body = {
     lang,
@@ -74,6 +76,8 @@ export async function GET(req: NextRequest) {
     auth: auth?.auth ?? null,
     page,
     shared: link?.shared,
+    industries: industry?.industries,
+    industry: industry?.industry,
     studentProfile: link?.studentProfile,
     leadForm: link?.leadForm,
     certificate: path.startsWith("/verify-certificate/") ? await verifyCertificate(path.split("/")[2] ?? "") : undefined,
