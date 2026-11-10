@@ -6,7 +6,8 @@ import { hasPlan, MODULE_PLANS } from "@/lib/auth/planGuard";
  * account's plan includes opens directly; one it does not is still listed,
  * locked, with the plan that opens it, so people can see what an upgrade
  * gives them. The plan rules are MODULE_PLANS, the same ones the pages and
- * APIs enforce; nothing here grants access.
+ * APIs enforce; nothing here grants access. Video Factory is sold as its own
+ * packages, so it is always listed open and its page offers them.
  */
 type Category = "business" | "content" | "learning";
 type Tool = { key: string; module: string; href: string; icon: string; category: Category; highlight?: "popular" | "new"; label: Record<Lang, string> };
@@ -16,7 +17,7 @@ const TOOLS: Tool[] = [
   { key: "business-doctor", module: "business-doctor", href: "/business-doctor", icon: "Stethoscope", category: "business", label: { fa: "دکتر کسب‌وکار", en: "Business doctor", de: "Business-Doktor", tr: "İş doktoru" } },
   { key: "meeting", module: "business-doctor", href: "/meeting", icon: "UsersRound", category: "business", label: { fa: "اتاق جلسهٔ هوشمند", en: "AI meeting room", de: "KI-Besprechungsraum", tr: "Yapay zekâ toplantı odası" } },
   { key: "social", module: "social", href: "/social", icon: "Instagram", category: "content", highlight: "popular", label: { fa: "استودیوی شبکه‌های اجتماعی", en: "Social studio", de: "Social-Studio", tr: "Sosyal medya stüdyosu" } },
-  { key: "video-factory", module: "video", href: "/video-factory", icon: "Clapperboard", category: "content", highlight: "new", label: { fa: "کارخانهٔ ویدیو", en: "Video factory", de: "Videofabrik", tr: "Video fabrikası" } },
+  { key: "video-factory", module: "video-factory", href: "/video-factory", icon: "Clapperboard", category: "content", highlight: "new", label: { fa: "کارخانهٔ ویدیو", en: "Video factory", de: "Videofabrik", tr: "Video fabrikası" } },
   { key: "website-designer", module: "website-designer", href: "/website-designer", icon: "PanelsTopLeft", category: "content", label: { fa: "طراح وب‌سایت", en: "Website designer", de: "Website-Designer", tr: "Web sitesi tasarımcısı" } },
   { key: "startup", module: "startup", href: "/startup/builder", icon: "Rocket", category: "business", label: { fa: "سازندهٔ استارتاپ", en: "Startup builder", de: "Startup-Builder", tr: "Girişim oluşturucu" } },
 ];
