@@ -19,6 +19,7 @@ import { priceForPeriod } from "@/lib/billing/plans";
 import { packageUsdPrice } from "@/lib/plans/packagePricing";
 import { rateLimit } from "@/lib/utils/rateLimit";
 import { closeAbandonedGatewayOrder } from "@/lib/payment/adminLifecycle";
+import { mainPlanConflict } from "@/lib/payment/planConflict";
 import { RETIRED_PUBLIC_PLAN_CODES } from "@/lib/billing/packageCategories";
 /** A module the buyer upgraded from; payment/verify sends them back there (see resultPath). */
 const MODULE_RETURN_PATHS: unknown[] = GROWTH_MODULES.flatMap(m => [m.paths[0], moduleEntry(m)]);
@@ -40,6 +41,7 @@ export async function POST(req: NextRequest) {
  if(!pkg?.isActive || ("publicationStatus" in pkg && pkg.publicationStatus!=="PUBLISHED") || ("publicVisible" in pkg && pkg.publicVisible===false) || RETIRED_PUBLIC_PLAN_CODES.includes(plan))return bankError(req,"Invalid plan",400);
  if("category" in pkg&&pkg.category==="VIDEO_FACTORY"&&process.env.VIDEO_FACTORY_SALES_APPROVED!=="true")return bankError(req,"OWNER_SALES_APPROVAL_REQUIRED",403);
  if("category" in pkg&&pkg.category==="VIDEO_FACTORY"&&process.env.VIDEO_FACTORY_SALES_APPROVED!=="true")return bankError(req,"OWNER_SALES_APPROVAL_REQUIRED",403);
+ if(mainPlanConflict(user,plan,"category" in pkg?pkg.category:null))return bankError(req,"ACTIVE_PLAN_CONFLICT",409);
  if("category" in pkg&&pkg.category==="FITNESS"){const profile=await prisma.fitnessProfile.findUnique({where:{userId:user.id}});if(!profile?.goal.trim())return bankError(req,"FITNESS_ONBOARDING_REQUIRED",409);}
  if(isBusinessBundle(plan)) {
   const membership=await prisma.teamMember.findUnique({where:{userId:user.id},include:{team:{select:{ownerId:true}}}});
