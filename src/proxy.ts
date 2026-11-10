@@ -175,6 +175,12 @@ async function routeToV2(req: NextRequest): Promise<NextResponse | null> {
   // accounts and anyone the classic layout would send elsewhere (sign-in,
   // onboarding, FIT) keep the classic /chat and its chat-only studio.
   if ((localized.path === "/chat" || localized.path.startsWith("/chat/")) && (await shellGate(req.cookies.get("token")?.value, pathname + search)).kind !== "full") return null;
+  // Admin pages in the new design are for admins only; everyone else gets the
+  // classic page and its own sign-in / permission handling.
+  if (localized.path.startsWith("/admin")) {
+    const gate = await shellGate(req.cookies.get("token")?.value, pathname + search);
+    if (gate.kind !== "full" || !["ADMIN", "SUPER_ADMIN"].includes(gate.user.role)) return null;
+  }
   const target = new URL(localized.path + search, origin);
   // Public pages take their language from the URL, as in the classic design;
   // the others from the lang cookie or the site's default language.

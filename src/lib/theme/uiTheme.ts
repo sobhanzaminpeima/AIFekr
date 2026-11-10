@@ -43,14 +43,16 @@ export const V2_ROUTES: readonly string[] = ["/", "/pricing", "/about", "/contac
   // Guided AI tools.
   "/tools",
   // Required mobile number step (lib/auth/phoneRequirement).
-  "/complete-phone"];
+  "/complete-phone",
+  // Admin pages, admins only (the proxy checks the role before forwarding).
+  "/admin/users"];
 
 export function isUiTheme(value: unknown): value is UiTheme {
   return value === "classic" || value === "v2";
 }
 
 /** App pages match only themselves: /home/anything is not a page the new design has. */
-const EXACT_ROUTES = new Set(["/", "/home", "/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate", "/voice-studio", "/video-factory", "/crm", "/welcome", "/privacy", "/terms", "/security", "/payments", "/complete-phone"]);
+const EXACT_ROUTES = new Set(["/", "/home", "/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate", "/voice-studio", "/video-factory", "/crm", "/welcome", "/privacy", "/terms", "/security", "/payments", "/complete-phone", "/admin/users"]);
 
 const SEO_V2 = ["/seo", "/seo/intelligence", "/seo/sites", "/seo/agent-pipeline"];
 

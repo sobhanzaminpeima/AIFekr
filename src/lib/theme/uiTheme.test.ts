@@ -80,4 +80,6 @@ it("serves the industry pages and public student profiles in the new design", ()
   expect(v2Handles("/student/someone")).toBe(true);
   expect(v2Handles("/student/chat")).toBe(false);
   expect(v2Handles("/welcome/setup")).toBe(true);
+  expect(v2Handles("/admin/users")).toBe(true);
+  expect(v2Handles("/admin/users/abc")).toBe(false);
 });

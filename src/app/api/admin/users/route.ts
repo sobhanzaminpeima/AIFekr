@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
   if (status === "blocked") where.isBlocked = true;
   if (status === "active") where.isBlocked = false;
 
-  const [users, total] = await Promise.all([
+  const [users, total, all, blocked, paid] = await Promise.all([
     prisma.user.findMany({
       where,
       skip: (page - 1) * limit,
@@ -72,9 +72,13 @@ export async function GET(req: NextRequest) {
       },
     }),
     prisma.user.count({ where }),
+    // Whole-directory figures for the new design's summary cards (not the filter).
+    prisma.user.count(),
+    prisma.user.count({ where: { isBlocked: true } }),
+    prisma.user.count({ where: { plan: { not: "FREE" } } }),
   ]);
 
-  return NextResponse.json({ users, total, page, totalPages: Math.ceil(total / limit) });
+  return NextResponse.json({ users, total, page, totalPages: Math.ceil(total / limit), summary: { total: all, active: all - blocked, blocked, paid } });
 }
 
 export async function POST(req: NextRequest) {
