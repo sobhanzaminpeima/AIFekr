@@ -39,7 +39,7 @@ export const V2_ROUTES: readonly string[] = ["/", "/pricing", "/about", "/contac
   "/plans",
   // Bank-transfer orders.
   "/ai-chat", "/ai-team", "/industry", "/start", "/fit", "/explore", "/owner/login", "/startup/contact", "/verify-certificate", "/f", "/p", "/o", "/share", "/assistants",
-  "/checkout", "/fitness/checkout", "/fitness/credits", "/fitness/payments",
+  "/checkout", "/fitness/checkout", "/welcome/setup", "/fitness/credits", "/fitness/payments",
   // Guided AI tools.
   "/tools",
   // Required mobile number step (lib/auth/phoneRequirement).
