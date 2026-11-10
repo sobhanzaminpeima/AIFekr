@@ -4,6 +4,7 @@ import { shellData, shellGate } from "@/lib/layout/platformShellData";
 import { shellCopy } from "@/lib/layout/shellCopy";
 import { sidebarAccess } from "@/lib/layout/sidebarAccess";
 import { sidebarModel } from "@/lib/layout/sidebarModel";
+import { interestOf, proTools } from "@/lib/navigation/proTools";
 import { standaloneMetadata } from "@/lib/seo/publicSeo";
 import { chatCopy } from "@/lib/chat/chatCopy";
 import { createCopy } from "@/lib/chat/createCopy";
@@ -57,6 +58,7 @@ export async function GET(req: NextRequest) {
   if (bare === "/welcome" && await usesLegacyWelcome(user, new URLSearchParams(path.split("?")[1] ?? "").has("plan")))
     return NextResponse.json({ redirect: "/welcome/setup" + (path.includes("?") ? "?" + path.split("?")[1] : "") }, noStore);
   const chatPage = bare === "/chat" || bare.startsWith("/chat/") || ["/create", "/gallery", "/image/gallery", "/image/generate", "/video/generate", "/music/generate"].includes(bare);
+  const usage = await prisma.usageLog.findMany({ where: { userId: user.id, createdAt: { gte: new Date(Date.now() - 30 * 86400000) } }, orderBy: { createdAt: "desc" }, take: 300, select: { type: true, metadata: true } });
   const pack = chatPage && user.industryPackId ? await prisma.industryPack.findUnique({ where: { id: user.industryPackId }, select: { slug: true } }) : null;
   return NextResponse.json({
     redirect: null,
@@ -68,6 +70,8 @@ export async function GET(req: NextRequest) {
       credits: data.displayCredits, pendingPaymentCount: data.pendingPaymentCount, studentWorkspaceEnabled: data.studentWorkspaceEnabled, showFitness: data.showFitness,
     },
     access: sidebarAccess(user),
+    // Paid workspaces: open ones, and locked ones with the plan that opens them (suggestions follow the account's own usage).
+    proTools: proTools(lang, user, interestOf(usage)),
     banners: { expired: data.expired, expiresAt: data.expiresAt ?? null, trial: data.showTrialBanner && user.trialEndsAt ? { endsAt: user.trialEndsAt.toISOString(), limited: user.trialLimited } : null },
     conversations: data.conversations.map((c) => ({ ...c, updatedAt: c.updatedAt.toISOString() })),
     copy,
