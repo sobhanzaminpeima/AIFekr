@@ -95,6 +95,10 @@ async function handlePost(req: NextRequest) {
           "You are a keyword research specialist.",
           "Du bist Spezialist für Keyword-Recherche im deutschsprachigen Markt.");
         userMessage = lang === "fa" ? `تحقیق کلمات کلیدی برای: **"${keyword}"**\n\n۱. ۲۰ کلمه کلیدی مرتبط با جدول (رقابت، حجم جستجو، نیت کاربر)\n۲. ۵ long-tail با رقابت کم\n۳. ۳ کلمه LSI\n۴. سوالات کاربران (People Also Ask)\n۵. استراتژی کلی` : `Keyword research for "${keyword}": 20 related keywords table, 5 long-tail, 3 LSI, People Also Ask, strategy`;
+      } else if (tool === "content" && !(typeof content === "string" && content.trim())) {
+        // No page text: write from the topic instead of "optimizing" nothing.
+        systemPrompt = lang === "fa" ? "نویسندهٔ حرفه‌ای محتوای سئو هستی." : "You are a professional SEO content writer.";
+        userMessage = lang === "fa" ? `یک مقالهٔ کامل و سئوشده دربارهٔ **"${keyword}"** بنویس.\n\n۱. عنوان و متا دیسکریپشن\n۲. ساختار Heading و متن کامل هر بخش\n۳. پرسش‌های متداول\n۴. کلمات LSI` : `Write a complete SEO article about "${keyword}": title and meta description, headings with full text for each section, FAQ, LSI keywords`;
       } else if (tool === "content") {
         systemPrompt = lang === "fa" ? "متخصص بهینه‌سازی محتوا برای سئو هستی." : "Content SEO optimization specialist.";
         userMessage = lang === "fa" ? `بهینه‌سازی محتوا برای: **"${keyword}"**\n\n${content}\n\n۱. نسخه بهینه (تراکم ۱-۳٪)\n۲. ساختار Heading پیشنهادی\n۳. بهبود readability\n۴. کلمات LSI` : `Optimize content for "${keyword}":\n${content}\nProvide: optimized version, heading structure, readability tips, LSI keywords`;

@@ -630,7 +630,7 @@ export default function SEOPage() {
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
-            <button disabled={loading || !keyword || !content} onClick={() => analyze("content", { keyword, content })}
+            <button disabled={loading || !keyword} onClick={() => analyze("content", { keyword, content })}
               className="w-full py-3 rounded-xl font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2" style={{ background: "var(--primary)" }}>
               <FileText className="w-4 h-4" />{loading ? t.seo.optimizing : t.seo.optimizeButton} <CreditCost feature="seo.analyze" />
             </button>

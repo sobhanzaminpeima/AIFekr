@@ -45,6 +45,20 @@ describe("POST /api/seo/analyze history", () => {
     expect(m.create.mock.calls[0][0].data).toMatchObject({ output: "نیمه", status: "partial" });
   });
 
+  it("writes from the topic when no page text is given", async () => {
+    m.model.mockImplementation(answers("مقاله"));
+    await (await POST(new NextRequest("http://localhost/api/seo/analyze", { method: "POST", body: JSON.stringify({ tool: "content", keyword: "قهوه", language: "fa" }) }))).text();
+    const prompt = m.model.mock.calls[0][0][0].content;
+    expect(prompt).toContain("مقالهٔ کامل");
+    expect(prompt).not.toContain("undefined");
+  });
+
+  it("optimizes the page text when it is given", async () => {
+    m.model.mockImplementation(answers("نسخه"));
+    await (await run()).text();
+    expect(m.model.mock.calls[0][0][0].content).toContain("بهینه‌سازی محتوا");
+  });
+
   it("saves nothing for an empty answer", async () => {
     m.model.mockImplementation(answers());
     await (await run()).text();
