@@ -86,4 +86,6 @@ it("serves the industry pages and public student profiles in the new design", ()
   expect(v2Handles("/admin/dashboard")).toBe(true);
   expect(v2Handles("/admin")).toBe(true);
   expect(v2Handles("/admin/settings")).toBe(false);
+  expect(v2Handles("/admin/financial")).toBe(true);
+  expect(v2Handles("/admin/financial/customers")).toBe(false);
 });
