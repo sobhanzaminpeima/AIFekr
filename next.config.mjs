@@ -1,3 +1,5 @@
+import { SHORT_ROUTES } from "./src/lib/navigation/shortRoutes.mjs";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Lets a deploy build into a scratch directory and swap it in afterwards,
@@ -13,6 +15,9 @@ const nextConfig = {
     ...(process.env.NEXT_BUILD_CPUS ? { cpus: Number(process.env.NEXT_BUILD_CPUS) } : {}),
   },
   typescript: { ignoreBuildErrors: true },
+  async redirects() {
+    return SHORT_ROUTES.map(([source, destination]) => ({ source, destination, permanent: false }));
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "picsum.photos" },
