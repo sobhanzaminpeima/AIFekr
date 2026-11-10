@@ -9,6 +9,7 @@ import { privateStorageConfigured } from "@/lib/storage/r2";
 import { finishGeneration } from "@/lib/voice-studio/service";
 import { rateLimit } from "@/lib/utils/rateLimit";
 import {boundedJson} from "@/lib/voice-studio/request";
+import { voiceCreditsReturned } from "@/lib/voice-studio/reporting";
 import type {SpeechCatalog} from "@/lib/voice-studio/provider";
 export const dynamic = "force-dynamic";
 async function admin(req: NextRequest) { const user = await requireAuth(req); return user && ["ADMIN", "SUPER_ADMIN"].includes(user.role) ? user : null; }
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) { if (!await admin(req))
     await voiceCredentials();
     configured = true;
 }
-catch { } const rows = await prisma.voiceStudioGeneration.findMany({ orderBy: { createdAt: "desc" }, take: 100, select: { id: true, userId: true, projectId: true, status: true, modelId: true, providerRequestId: true, providerCharacters: true, billedCharacters: true, providerCostUsd: true, estimatedSeconds: true, durationMs: true, reservedCredits: true, chargedCredits: true, refundedCredits: true, errorCode: true, createdAt: true, startedAt: true, completedAt: true } }); const totals = await prisma.voiceStudioGeneration.aggregate({ _sum: { chargedCredits: true, refundedCredits: true, providerCostUsd: true }, _count: true }); return NextResponse.json({ settings: await voicePolicy(), configured, privateStorage: privateStorageConfigured(), workerHeartbeat: (await prisma.siteSetting.findUnique({ where: { key: "voiceStudioWorkerHeartbeat" } }))?.value || null, catalog: await speechCatalog().catch(() => null), rows, totals }, { headers: { "Cache-Control": "private, no-store" } }); }
+catch { } const rows = await prisma.voiceStudioGeneration.findMany({ orderBy: { createdAt: "desc" }, take: 100, select: { id: true, userId: true, projectId: true, status: true, modelId: true, providerRequestId: true, providerCharacters: true, billedCharacters: true, providerCostUsd: true, estimatedSeconds: true, durationMs: true, reservedCredits: true, chargedCredits: true, refundedCredits: true, errorCode: true, createdAt: true, startedAt: true, completedAt: true } }); const totals = await prisma.voiceStudioGeneration.aggregate({ _sum: { chargedCredits: true, refundedCredits: true, providerCostUsd: true }, _count: true }); const returnedGroups = await prisma.voiceStudioGeneration.groupBy({ by: ["status"], _sum: { refundedCredits: true } }); const returned = voiceCreditsReturned(returnedGroups); return NextResponse.json({ settings: await voicePolicy(), configured, privateStorage: privateStorageConfigured(), workerHeartbeat: (await prisma.siteSetting.findUnique({ where: { key: "voiceStudioWorkerHeartbeat" } }))?.value || null, catalog: await speechCatalog().catch(() => null), rows, totals, returned }, { headers: { "Cache-Control": "private, no-store" } }); }
 export async function POST(req: NextRequest) { const user = await admin(req); if (!user)
     return unauthorizedResponse(req); if (req.headers.get("origin") !== (process.env.NODE_ENV === "production" ? "https://aifekr.com" : req.nextUrl.origin))
     return NextResponse.json({ code: "INVALID_ORIGIN" }, { status: 403 }); if (!rateLimit(`admin-voice:${user.id}`, 20, 60000).allowed)
