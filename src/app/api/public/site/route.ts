@@ -8,6 +8,7 @@ import { getEntryPlans } from "@/lib/marketing/entryPlans";
 import {PACKAGE_CATEGORIES} from '@/lib/billing/packageCategories';
 import { LEGAL_PAGES, legalPage, type LegalPage } from "@/lib/marketing/legal";
 import { getContactSettings } from "@/lib/marketing/contact";
+import { verifyCertificate } from "@/lib/courses/academy";
 import { publicContent, publicContentSeo } from "@/lib/marketing/publicContent";
 import { getCreditCosts } from "@/lib/utils/creditCosts";
 import { publicSeo, standaloneMetadata } from "@/lib/seo/publicSeo";
@@ -70,6 +71,7 @@ export async function GET(req: NextRequest) {
     contact: { email: contact.contact_email, phone: contact.contact_phone, address: contact.contact_address, telegram: contact.contact_telegram },
     auth: auth?.auth ?? null,
     page,
+    certificate: path.startsWith("/verify-certificate/") ? await verifyCertificate(path.split("/")[2] ?? "") : undefined,
     // Only on /privacy, /terms and /security: the legal text the classic pages show.
     legal: (LEGAL_PAGES as readonly string[]).includes(path.slice(1)) ? legalPage(lang, path.slice(1) as LegalPage) : null,
   };
