@@ -8,6 +8,7 @@ import { getEntryPlans } from "@/lib/marketing/entryPlans";
 import {PACKAGE_CATEGORIES} from '@/lib/billing/packageCategories';
 import { LEGAL_PAGES, legalPage, type LegalPage } from "@/lib/marketing/legal";
 import { getContactSettings } from "@/lib/marketing/contact";
+import { publicContent, publicContentSeo } from "@/lib/marketing/publicContent";
 import { getCreditCosts } from "@/lib/utils/creditCosts";
 import { publicSeo, standaloneMetadata } from "@/lib/seo/publicSeo";
 import { moduleForPath } from "@/lib/growth/attribution";
@@ -51,7 +52,8 @@ export async function GET(req: NextRequest) {
   const path = (req.nextUrl.searchParams.get("path") || "/").slice(0, 200);
   const [plans, contact, costs] = await Promise.all([getEntryPlans(lang).catch(() => []), getContactSettings(lang), getCreditCosts()]);
   const auth = authPage(lang, path);
-  const seo = auth ? { metadata: auth.metadata, jsonLd: [] } : publicSeo(lang, path);
+  const seo = auth ? { metadata: auth.metadata, jsonLd: [] } : publicContentSeo(lang, path) ?? publicSeo(lang, path);
+  const page = await publicContent(lang, path);
   const body = {
     lang,
     seo: seo && { metadata: standaloneMetadata(lang, seo.metadata), jsonLd: seo.jsonLd },
@@ -67,6 +69,7 @@ export async function GET(req: NextRequest) {
     costs: { imageStandard: costs.image_standard, imageHd: costs.image_hd, video5s: costs.video_5s, video10s: costs.video_10s, music30s: costs.music_30s },
     contact: { email: contact.contact_email, phone: contact.contact_phone, address: contact.contact_address, telegram: contact.contact_telegram },
     auth: auth?.auth ?? null,
+    page,
     // Only on /privacy, /terms and /security: the legal text the classic pages show.
     legal: (LEGAL_PAGES as readonly string[]).includes(path.slice(1)) ? legalPage(lang, path.slice(1) as LegalPage) : null,
   };
