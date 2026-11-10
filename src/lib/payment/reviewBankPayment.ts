@@ -4,6 +4,7 @@ import {grantReferralRewardInTransaction} from "@/lib/utils/referralWallet";
 import { isBusinessBundle, businessIncludesVoice } from "@/lib/plans/business";
 import {standaloneVoiceExpiry} from "./voiceEntitlement";
 import { prisma } from "@/lib/db/prisma";
+import { renewedExpiry } from "./term";
 export async function reviewBankPayment(id:string,adminId:string,approve:boolean,note:string){
  return settlePayment(id,{adminId,approve,note});
 }
@@ -28,7 +29,7 @@ async function settlePayment(id:string,review:{adminId?:string;approve:boolean;n
  const purchase=(teamId:string|null=null)=>recordLedger(tx,{userId:u.id,teamId,delta:entitlement.credits,type:"PURCHASE",operationId:`payment:${p.id}`,paymentId:p.id,module:p.plan});
 
  if(entitlement.category==="CHAT_STARTER"){
- const expiry=new Date(Math.max(Date.now(),u.chatPlanExpiry?.getTime()||0)+entitlement.days*86400000);
+ const expiry=renewedExpiry(u.chatPlanExpiry,entitlement.days,p.periodMonths);
  await tx.user.update({where:{id:u.id},data:{chatPlanExpiry:expiry,credits:{increment:entitlement.credits},aiCredits:{increment:entitlement.credits}}});
  await purchase();
  await tx.auditLog.create({data:{actorId:adminId||u.id,action:"chat_starter.activated",targetId:p.id,metadata:JSON.stringify({credits:entitlement.credits,expiresAt:expiry})}});
@@ -39,13 +40,14 @@ async function settlePayment(id:string,review:{adminId?:string;approve:boolean;n
  await tx.userModuleOverride.upsert({where:{userId_moduleKey:{userId:u.id,moduleKey:"video-factory"}},create:{userId:u.id,moduleKey:"video-factory",enabled:true},update:{enabled:true}});
  await tx.auditLog.create({data:{actorId:adminId||u.id,action:"video_factory.package_granted",targetId:p.id,metadata:JSON.stringify({credits:entitlement.credits,days:entitlement.days})}});
  }else if(entitlement.category==="FITNESS"){
- const profile=await tx.fitnessProfile.findUnique({where:{userId:u.id}});if(!profile)throw Error("FITNESS_ONBOARDING_REQUIRED");const expires=new Date(Math.max(Date.now(),profile.entitlementExpiry?.getTime()||0)+entitlement.days*86400000);await tx.fitnessProfile.update({where:{userId:u.id},data:{entitlementExpiry:expires}});await tx.user.update({where:{id:u.id},data:{credits:{increment:entitlement.credits},aiCredits:{increment:entitlement.credits},mediaCredits:{increment:entitlement.mediaCredits||0},voiceMinutes:{increment:entitlement.voiceMinutes||0}}});await purchase();await tx.auditLog.create({data:{actorId:adminId||u.id,action:"fitness_subscription_activated",targetId:u.id,metadata:JSON.stringify({paymentId:p.id,expires})}});
+ const profile=await tx.fitnessProfile.findUnique({where:{userId:u.id}});if(!profile)throw Error("FITNESS_ONBOARDING_REQUIRED");const expires=renewedExpiry(profile.entitlementExpiry,entitlement.days,p.periodMonths);await tx.fitnessProfile.update({where:{userId:u.id},data:{entitlementExpiry:expires}});await tx.user.update({where:{id:u.id},data:{credits:{increment:entitlement.credits},aiCredits:{increment:entitlement.credits},mediaCredits:{increment:entitlement.mediaCredits||0},voiceMinutes:{increment:entitlement.voiceMinutes||0}}});await purchase();await tx.auditLog.create({data:{actorId:adminId||u.id,action:"fitness_subscription_activated",targetId:u.id,metadata:JSON.stringify({paymentId:p.id,expires})}});
  }else{
  if(entitlement.mediaCredits||entitlement.voiceMinutes)await tx.user.update({where:{id:u.id},data:{mediaCredits:{increment:entitlement.mediaCredits||0},voiceMinutes:{increment:entitlement.voiceMinutes||0}}});
  for(const key of entitlement.entitlements?.modules||[]){if(key==="fitness.workspace")continue;await tx.userModuleOverride.upsert({where:{userId_moduleKey:{userId:u.id,moduleKey:key}},create:{userId:u.id,moduleKey:key,enabled:true},update:{enabled:true}});}
  const bundle=isBusinessBundle(p.plan)&&entitlement.businessBundle===true;
  const oldExpiry=p.plan.startsWith("CRM_")?u.crmPlanExpiry:p.plan.startsWith("VOICE_")?u.voicePlanExpiry:u.planExpiry;
- const expiry=new Date(Math.max(Date.now(),oldExpiry?.getTime()||0)+entitlement.days*86400000);
+ // Calendar months for a whole-month term (lib/payment/term): 1 month = 1 calendar month, 3 months = 3.
+ const expiry=renewedExpiry(oldExpiry,entitlement.days,p.periodMonths);
  if(p.plan.startsWith("CREDITS_")){await tx.user.update({where:{id:u.id},data:{credits:{increment:entitlement.credits}}});await purchase();}
  else if(p.plan.startsWith("VOICE_"))await tx.user.update({where:{id:u.id},data:{voicePlan:"ACTIVE",voicePlanExpiry:expiry}});
  else {

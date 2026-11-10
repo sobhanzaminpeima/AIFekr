@@ -29,6 +29,8 @@ export async function onAccountCreated(userId: string, anonId: string | null | u
     const intended = safeInternalPath(typeof requestedPath === "string" ? requestedPath : null);
     await linkSignup(userId, anonId, intended);
     if (opts.marketingConsent === true) await setMarketingConsent(userId, true, "signup");
+    // A visitor on their way to pay goes straight back to the package they chose.
+    if (intended && /^\/(plans|payments|checkout)([/?]|$)/.test(intended)) return intended;
     const moduleId = intended ? moduleForPath(intended.split("?")[0]) : null;
     if (!intended || !moduleId || opts.selectedPlan || !(await growthFlag("smart_onboarding_enabled"))) return null;
     await prisma.$transaction([

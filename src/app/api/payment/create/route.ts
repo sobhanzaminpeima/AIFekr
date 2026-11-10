@@ -7,6 +7,8 @@ import { isBusinessBundle } from "@/lib/plans/business";
 import { bankError } from "@/lib/payment/bankErrors";
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
+import { allowedCurrency, paymentOptions, PAYMENT_ROUTE_UNAVAILABLE } from "@/lib/payment/routing";
+import { getServerLang as routeLang } from "@/lib/i18n/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { getFxRates } from "@/lib/utils/currency";
@@ -26,6 +28,8 @@ export async function POST(req: NextRequest) {
  let body;try{body=await req.json();}catch{return bankError(req,"Invalid request",400);}
  if(!body||typeof body!=="object"||Array.isArray(body))return bankError(req,"Invalid request",400);
  if(body.currency!==undefined&&!["IRR","TRY","EUR","USD"].includes(body.currency))return bankError(req,"Invalid currency",400);
+ // The buyer's payment routes are decided on the server (lib/payment/routing): the site language alone never opens one.
+ if(body.currency!==undefined){const lang=await routeLang();if(!allowedCurrency((await paymentOptions(user.id,lang)).options,body.currency))return NextResponse.json({error:PAYMENT_ROUTE_UNAVAILABLE[lang],code:"PAYMENT_ROUTE_UNAVAILABLE"},{status:400});}
  const {plan}=body;
  const period = body.period ?? "monthly";
  if(typeof plan!=="string")return bankError(req,"Invalid plan",400);
