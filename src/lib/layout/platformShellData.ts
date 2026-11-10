@@ -61,7 +61,7 @@ export async function shellGate(token: string | undefined, requestedPath: string
   // number-less account back to /complete-phone) looped new sign-ups (production 2026-11-06).
   // A buyer arriving from a buy button goes straight to the packages and their payments: the
   // onboarding wizard does not stand between them and the purchase.
-  if (!fitness && !user.onboardingDone && !["/welcome", COMPLETE_PHONE_PATH, "/plans", "/payments"].includes(path)) return { kind: "redirect", to: "/welcome" };
+  if (!fitness && !user.onboardingDone && !["/welcome", "/welcome/setup", COMPLETE_PHONE_PATH, "/plans", "/payments"].includes(path)) return { kind: "redirect", to: "/welcome" };
   return { kind: "full", user };
 }
 

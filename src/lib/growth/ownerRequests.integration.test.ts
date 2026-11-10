@@ -61,6 +61,8 @@ describe("mandatory mobile number", () => {
     await prisma.user.update({ where: { id: u.id }, data: { phone: `091${rnd()}` } });
     expect(await shellGate(token, "/home")).toEqual({ kind: "redirect", to: "/welcome" });
     expect((await shellGate(token, "/welcome")).kind).toBe("full");
+    // The new-design wizard must not bounce back to /welcome (that looped /welcome ↔ /welcome/setup).
+    expect((await shellGate(token, "/welcome/setup")).kind).toBe("full");
     // A buyer from a buy button reaches the packages without the onboarding wizard.
     expect((await shellGate(token, "/plans?category=STUDENT")).kind).toBe("full");
   });
