@@ -2,12 +2,13 @@ import type { Lang } from "@/lib/i18n/server";
 import { prisma } from "@/lib/db/prisma";
 import { CHAT_STARTER } from "@/lib/billing/chatStarter";
 import { priceForPeriod } from "@/lib/billing/plans";
-import { text, type Copy } from "@/lib/marketing/catalog";
+import { copy, features, text, type Copy } from "@/lib/marketing/catalog";
+import { AI_TEAM_DESCRIPTION, AI_TEAM_TITLE, aiTeamCopy } from "@/lib/marketing/aiTeamCopy";
 import type { Metadata } from "next";
 import { pageJsonLd, pageMetadata } from "@/lib/seo/site";
 
 /** Content of the public pages that are plain copy in the new design. Same wording as the classic pages. */
-export type PublicBlock = { heading?: string; body?: string; ordered?: string[]; links?: { href: string; label: string }[] };
+export type PublicBlock = { heading?: string; body?: string; ordered?: string[]; cards?: { title: string; desc: string }[]; links?: { href: string; label: string }[] };
 export type PublicContent = {
   eyebrow: string;
   title: string;
@@ -65,7 +66,25 @@ async function start(lang: Lang): Promise<PublicContent> {
   };
 }
 
+function aiTeam(lang: Lang): PublicContent {
+  const s = aiTeamCopy(lang);
+  return {
+    eyebrow: s.heroEyebrow, title: s.heroTitle, intro: s.heroDesc,
+    actions: [{ href: "/register", label: s.heroCta, primary: true }, { href: "/ceo", label: t(lang, ["مشاور مدیرعامل", "CEO adviser", "CEO-Berater", "CEO danışmanı"]) }],
+    blocks: [
+      { heading: t(lang, copy.requirements), body: t(lang, features.find((f) => f.slug === "agents")!.requirement) },
+      { heading: s.pipelineTitle, body: s.pipelineDesc, cards: s.agents },
+      { heading: s.loopTitle, body: s.loopDesc },
+      { heading: s.memoryTitle, body: s.memoryDesc },
+      { heading: s.doctorTitle, body: s.doctorDesc, cards: s.doctorFeatures, links: [{ href: "/business-doctor", label: s.doctorTitle }] },
+      { heading: s.ceoTitle, body: s.ceoDesc, cards: s.ceoFeatures, links: [{ href: "/ceo", label: s.ceoTitle }] },
+      { heading: s.finalCtaTitle, body: s.finalCtaDesc, links: [{ href: "/register", label: s.finalCtaButton }] },
+    ],
+  };
+}
+
 export async function publicContent(lang: Lang, path: string): Promise<PublicContent | null> {
+  if (path === "/ai-team") return aiTeam(lang);
   if (path === "/ai-chat") return aiChat(lang);
   if (path === "/start") return start(lang);
   return null;
@@ -73,6 +92,7 @@ export async function publicContent(lang: Lang, path: string): Promise<PublicCon
 
 export function publicContentSeo(lang: Lang, path: string): { metadata: Metadata; jsonLd: Record<string, unknown>[] } | null {
   if (path === "/ai-chat") return { metadata: pageMetadata(lang, "/ai-chat", AI_CHAT_TITLE, AI_CHAT_DESCRIPTION), jsonLd: pageJsonLd(lang, "/ai-chat", "WebPage", AI_CHAT_TITLE[lang]) };
+  if (path === "/ai-team") return { metadata: pageMetadata(lang, "/ai-team", AI_TEAM_TITLE, AI_TEAM_DESCRIPTION), jsonLd: pageJsonLd(lang, "/ai-team") };
   if (path === "/start") return { metadata: { title: "AIFekr Chat Starter", robots: { index: false, follow: true } }, jsonLd: [] };
   if (path === "/owner/login") return { metadata: { title: { absolute: "AIFekr | Owner portal" }, robots: { index: false, follow: false } }, jsonLd: [] };
   if (path.startsWith("/verify-certificate/")) return { metadata: { title: { absolute: "Verify Certificate | AIFekr" }, robots: { index: false, follow: false } }, jsonLd: [] };
