@@ -64,3 +64,11 @@ describe("ui theme routing", () => {
     expect(resolveTheme("classic", undefined)).toBe("classic");
   });
 });
+
+it("keeps the public 1980s gallery out of the shared-report route", () => {
+  expect(v2Handles("/share/1980s")).toBe(false);
+  expect(v2Handles("/share/abc123")).toBe(true);
+  expect(v2Handles("/f/form")).toBe(true);
+  expect(v2Handles("/p/1")).toBe(true);
+  expect(v2Handles("/plans")).toBe(true);
+});

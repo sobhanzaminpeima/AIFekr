@@ -56,6 +56,8 @@ const SEO_V2 = ["/seo", "/seo/intelligence", "/seo/sites", "/seo/agent-pipeline"
 
 export function v2Handles(path: string, routes: readonly string[] = V2_ROUTES) {
   const clean = path.split("?")[0].replace(/\/+$/, "") || "/";
+  // The public 1980s gallery is its own page, not a shared report.
+  if(routes===V2_ROUTES&&clean==="/share/1980s")return false;
   if(routes===V2_ROUTES&&["/fitness","/fitness/marketplace","/student","/play"].includes(clean))return process.env.UI_V2_FINAL_MODULES_ENABLED==="1";
   if(routes===V2_ROUTES&&["/credits","/wallet","/notifications"].includes(clean))return process.env.UI_V2_PROFILE_ENABLED==="1";
   if(routes===V2_ROUTES&&clean==="/settings")return process.env.UI_V2_PROFILE_ENABLED==="1";
