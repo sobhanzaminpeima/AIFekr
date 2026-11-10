@@ -23,7 +23,7 @@ describe("short routes", () => {
   });
 
   it("every short route is an active, temporary redirect", async () => {
-    const redirects = await nextConfig.redirects();
+    const redirects = await nextConfig.redirects!();
     for (const [source, destination] of SHORT_ROUTES) {
       expect(redirects).toContainEqual({ source, destination, permanent: false });
     }
