@@ -46,6 +46,8 @@ export async function GET(req: NextRequest) {
   }
 
   if (plan && plan !== "all") where.plan = plan;
+  // The admin team page lists every staff account (admins, super admins, moderators).
+  if (searchParams.get("role") === "staff") where.role = { in: ["ADMIN", "SUPER_ADMIN", "MODERATOR"] };
   if (status === "blocked") where.isBlocked = true;
   if (status === "active") where.isBlocked = false;
 
