@@ -2227,6 +2227,26 @@ model GscConnection {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+/// One admin SMS send (to picked users, typed numbers or a segment). Numbers are not stored, only counts.
+model SmsBroadcast {
+  id         String    @id @default(cuid())
+  actorId    String
+  text       String
+  /// JSON of the audience as chosen: {type, userIds count | phones count | segment}
+  audience   String
+  recipients Int
+  sent       Int       @default(0)
+  failed     Int       @default(0)
+  cost       Float?
+  /// "sending" | "done" | "failed"
+  status     String    @default("sending")
+  error      String?
+  createdAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@index([createdAt])
+}
+
 /// A saved result of a paid SEO tool, so a closed dialog never loses what was paid for.
 model SeoGeneration {
   id        String   @id @default(cuid())

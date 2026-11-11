@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 const m = vi.hoisted(() => ({ create: vi.fn(), send: vi.fn(), user: vi.fn(), setting: vi.fn() }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: { otpCode: { create: m.create, count: vi.fn().mockResolvedValue(0), deleteMany: vi.fn(), updateMany: vi.fn(), findFirst: vi.fn() }, user: { findUnique: m.user }, siteSetting: { findUnique: m.setting } } }));
 vi.mock("@/lib/i18n/server", () => ({ getServerLang: async () => "fa" }));
-vi.mock("@/lib/sms/smsir", () => ({ sendOTP: m.send }));
+vi.mock("@/lib/sms/send", () => ({ sendOtpSms: m.send }));
 vi.mock("@/lib/utils/rateLimit", () => ({ rateLimit: () => ({ allowed: true, retryAfterSec: 0 }), getClientIp: () => "1.2.3.4" }));
 import { POST } from "./route";
 

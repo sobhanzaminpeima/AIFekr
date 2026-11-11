@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse, forbiddenResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { sendSMS } from "@/lib/sms/smsir";
+import { sendSingleSms as sendSMS } from "@/lib/sms/send";
 
 // Sends a follow-up SMS to one CRM contact. Requires an explicit click per
 // message (the frontend "send" button) — this endpoint never fires on its

@@ -5,7 +5,7 @@ import { PHONE_SIGNUP_OFF, phoneSignupEnabled } from "@/lib/auth/phoneSignup";
 import { getServerLang } from "@/lib/i18n/server";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
-import { sendOTP } from "@/lib/sms/smsir";
+import { sendOtpSms } from "@/lib/sms/send";
 import { rateLimit, getClientIp } from "@/lib/utils/rateLimit";
 
 // Fixed-code test phones exist for local development only. In production
@@ -53,7 +53,8 @@ export async function POST(req: NextRequest) {
     }
 
     const code = generateOtp(phone);
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    // The approved template tells the user the code lasts 5 minutes; the code must not outlive that promise.
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     // Echoing the code is for local development and tests only. Returning it
     // for the test phones in production handed anyone the real OTP of a
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Send real SMS
-    const sent = await sendOTP(phone, code);
+    const sent = await sendOtpSms(phone, code);
     if (!sent) {
       return NextResponse.json({ error: "خطا در ارسال پیامک. لطفاً دوباره تلاش کنید" }, { status: 500 });
     }
