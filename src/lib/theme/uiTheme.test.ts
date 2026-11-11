@@ -99,5 +99,6 @@ it("serves the industry pages and public student profiles in the new design", ()
   expect(v2Handles("/admin/ai-chat")).toBe(true);
   expect(v2Handles("/admin/logs")).toBe(true);
   expect(v2Handles("/admin/system")).toBe(true);
+  expect(v2Handles("/admin/prompts")).toBe(true);
   expect(v2Handles("/admin/financial/invoices/x")).toBe(false);
 });
