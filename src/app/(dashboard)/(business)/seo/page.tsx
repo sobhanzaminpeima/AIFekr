@@ -625,7 +625,7 @@ export default function SEOPage() {
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div>
-              <label className="block text-sm mb-1.5 font-medium" style={{ color: "var(--text-secondary)" }}>{t.seo.contentLabel}</label>
+              <label className="block text-sm mb-1.5 font-medium" style={{ color: "var(--text-secondary)" }}>{t.seo.contentLabel} <span style={{ color: "var(--text-muted)" }}>{tri(lang, "(اختیاری؛ خالی بماند، مقاله از روی موضوع نوشته می‌شود)", "(optional; leave empty to write from the topic)", "(optional; leer lassen, dann wird aus dem Thema geschrieben)", "(isteğe bağlı; boş bırakılırsa konudan yazılır)")}</span></label>
               <textarea aria-label={t.seo.contentLabel} value={content} onChange={e => setContent(e.target.value)} rows={6} placeholder={t.seo.contentPlaceholder}
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
