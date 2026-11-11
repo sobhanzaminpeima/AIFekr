@@ -150,7 +150,7 @@ export function detectQueryType(message: string): QueryType {
 }
 
 // ─── Routing table: query type → provider priority list ─────────────────────
-const ROUTING_TABLE: Record<QueryType, string[]> = {
+export const ROUTING_TABLE: Record<QueryType, string[]> = {
   code:        ["claude", "deepseek-v3", "gpt5", "deepseek-direct", "groq", "cohere"],
   math:        ["claude", "deepseek-v3", "deepseek-direct", "gpt5", "groq", "cohere"],
   creative:    ["claude", "gpt5", "openrouter", "gemini", "groq", "cohere"],

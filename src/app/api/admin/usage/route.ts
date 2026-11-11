@@ -5,6 +5,7 @@ import { requireAdmin, unauthorizedResponse, forbiddenResponse } from "@/lib/aut
 import { prisma } from "@/lib/db/prisma";
 import { getPlanLimits } from "@/lib/utils/planLimits";
 import { getCreditCosts } from "@/lib/utils/creditCosts";
+import { TOOL_FEATURES, TOOL_FEATURES_EN, toolCostKey } from "@/lib/utils/credits";
 import { isMediaUsage, TOOL_USAGE_TYPES, usageByModule } from "@/lib/admin/usageModules";
 
 export async function GET(req: NextRequest) {
@@ -57,6 +58,8 @@ export async function GET(req: NextRequest) {
     ]);
 
     return NextResponse.json({
+      // fa/en names for the per-tool credit cost keys (tool_*), for the admin credit rules editor.
+      toolCostLabels: Object.fromEntries(Object.keys(TOOL_FEATURES).map((f) => [toolCostKey(f), [TOOL_FEATURES[f], TOOL_FEATURES_EN[f] ?? TOOL_FEATURES[f]]])),
       days,
       scope,
       totalCalls,

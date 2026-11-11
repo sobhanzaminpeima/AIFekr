@@ -1,8 +1,19 @@
+import { prisma } from "@/lib/db/prisma";
 import { bankError } from "@/lib/payment/bankErrors";
 import { NextRequest,NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/middleware";
 import { reviewBankPayment } from "@/lib/payment/reviewBankPayment";
 import {manageUnpaidOrder,PaymentLifecycleError} from "@/lib/payment/adminLifecycle";
+/** One order for the admin invoice page: the payment, its buyer's contact and the subscription days it grants. */
+export async function GET(req:NextRequest, props:{params: Promise<{id:string}>}) {
+ const {id}=await props.params;
+ const admin=await requireAdmin(req);if(!admin)return NextResponse.json({error:"Forbidden"},{status:403});
+ const p=await prisma.payment.findUnique({where:{id},select:{id:true,userId:true,plan:true,status:true,gateway:true,amount:true,transferMinor:true,transferCurrency:true,refId:true,receiptAt:true,promoPercent:true,promoCode:true,entitlementSnapshot:true,createdAt:true,user:{select:{name:true,email:true,phone:true}}}});
+ if(!p)return NextResponse.json({error:"NOT_FOUND"},{status:404});
+ let days:number|null=null;try{days=JSON.parse(p.entitlementSnapshot||"{}").days||null;}catch{}
+ const {entitlementSnapshot:_snapshot,...payment}=p;void _snapshot;
+ return NextResponse.json({payment:{...payment,days,hasReceipt:!!p.receiptAt}});
+}
 export async function PATCH(req:NextRequest, props:{params: Promise<{id:string}>}) {
  const params = await props.params;
  const admin=await requireAdmin(req);if(!admin)return bankError(req,"Forbidden",403);

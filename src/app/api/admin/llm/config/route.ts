@@ -6,6 +6,7 @@ import { PROVIDERS } from "@/lib/ai/providers";
 import { getDisabledProviders, refreshDisabledProviders, setProviderEnabled } from "@/lib/ai/providerConfig";
 import { isTypeSafeConfigured } from "@/lib/ai/typesafe";
 import {prisma} from "@/lib/db/prisma";
+import { ROUTING_TABLE } from "@/lib/ai/router";
 
 export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
   await refreshDisabledProviders();
   const custom=await prisma.customAiProvider.findMany({where:{type:"chat"},orderBy:{createdAt:"desc"}});
   const customProviders=custom.map(p=>({id:`custom:${p.id}`,name:p.name,provider:"custom",model:p.model,strengths:["general","creative","code"],maxTokens:4096,creditCost:3,configured:!!p.apiKey,kind:"chat"}));
-  return NextResponse.json({ disabled: [...Array.from(getDisabledProviders()),...custom.filter(p=>!p.enabled).map(p=>`custom:${p.id}`)], providers:[...providers,...customProviders] });
+  return NextResponse.json({ disabled: [...Array.from(getDisabledProviders()),...custom.filter(p=>!p.enabled).map(p=>`custom:${p.id}`)], providers:[...providers,...customProviders], routing: ROUTING_TABLE });
 }
 
 export async function POST(req: NextRequest) {
