@@ -61,7 +61,7 @@ export function v2Handles(path: string, routes: readonly string[] = V2_ROUTES) {
   // A public student profile; the signed-in tutor chat lives at /student/chat.
   if(routes===V2_ROUTES&&/^\/student\/(?!chat$)[^/]+$/.test(clean))return true;
   // The admin control center and payment register; other admin pages stay classic until rebuilt.
-  if(routes===V2_ROUTES&&["/admin","/admin/dashboard","/admin/financial","/admin/financial/customers","/admin/subscriptions","/admin/revenue","/admin/credit-tiers","/admin/billing/rates","/admin/billing/promotions","/admin/invites/manage","/admin/packages","/admin/analytics","/admin/provider-fallback","/admin/ai-chat","/admin/logs","/admin/system","/admin/prompts","/admin/categories","/admin/companies","/admin/modules","/admin/public-share"].includes(clean))return true;
+  if(routes===V2_ROUTES&&["/admin","/admin/dashboard","/admin/financial","/admin/financial/customers","/admin/subscriptions","/admin/revenue","/admin/credit-tiers","/admin/billing/rates","/admin/billing/promotions","/admin/invites/manage","/admin/packages","/admin/analytics","/admin/provider-fallback","/admin/ai-chat","/admin/logs","/admin/system","/admin/prompts","/admin/categories","/admin/companies","/admin/modules","/admin/public-share","/admin/games","/admin/cloudflare"].includes(clean))return true;
   // An account profile in the admin user directory (admins only, see the proxy).
   if(routes===V2_ROUTES&&/^\/admin\/users\/[^/]+$/.test(clean))return true;
   if(routes===V2_ROUTES&&["/fitness","/fitness/marketplace","/student","/play"].includes(clean))return process.env.UI_V2_FINAL_MODULES_ENABLED==="1";
