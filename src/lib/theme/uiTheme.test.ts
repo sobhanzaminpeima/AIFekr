@@ -102,5 +102,8 @@ it("serves the industry pages and public student profiles in the new design", ()
   expect(v2Handles("/admin/prompts")).toBe(true);
   expect(v2Handles("/admin/categories")).toBe(true);
   expect(v2Handles("/admin/companies")).toBe(true);
+  expect(v2Handles("/admin/modules")).toBe(true);
+  expect(v2Handles("/admin/public-share")).toBe(true);
+  expect(v2Handles("/admin/module-access")).toBe(false);
   expect(v2Handles("/admin/financial/invoices/x")).toBe(false);
 });
