@@ -25,6 +25,25 @@ export function liveCampaignUrl(origin = publicAppUrl()): string {
 }
 
 const ADMIN_ROLES = ["ADMIN", "SUPER_ADMIN"];
+
+export type LiveActivationBlocker = "record_missing" | "record_not_active" | "instagram_not_connected" | "comment_campaign_missing";
+
+/**
+ * The one answer to "is the Live campaign running", read by the campaign table
+ * and the campaign card alike. It runs when its record is active and the
+ * connected Instagram account has an active «لایو» comment campaign whose link
+ * carries the UTM: that comment automation is what sends the DM. The
+ * follow-up engine's switch only adds later reminders and never decides this
+ * (production 2026-11-09: the table said active while the card said disabled).
+ */
+export function liveCampaignActivation(recordStatus: string | null | undefined, state: "ready" | "needs_comment_campaign" | "not_connected") {
+  const blockers: LiveActivationBlocker[] = [];
+  if (!recordStatus) blockers.push("record_missing");
+  else if (recordStatus !== "active") blockers.push("record_not_active");
+  if (state === "not_connected") blockers.push("instagram_not_connected");
+  else if (state === "needs_comment_campaign") blockers.push("comment_campaign_missing");
+  return { live: blockers.length === 0, blockers };
+}
 const keywordMatches = (keyword: string) => keyword.split(/[,،]/).map(k => k.trim().toLowerCase()).includes(LIVE_CAMPAIGN.keyword);
 
 /**
@@ -48,13 +67,15 @@ export async function liveCampaignStatus() {
   const now = Date.now();
   const connected = connections.filter(c => !c.tokenExpiry || c.tokenExpiry.getTime() > now);
   const ready = connected.length > 0 && live.some(c => c.isActive && c.linkHasUtm);
+  const state = ready ? "ready" : connected.length ? "needs_comment_campaign" : "not_connected";
   return {
+    activation: liveCampaignActivation(growthCampaign?.status, state),
     definition: { ...LIVE_CAMPAIGN, url: liveCampaignUrl() },
     growthCampaign,
     instagram: { connected: connected.length > 0, accounts: connected.map(c => c.igUsername).filter(Boolean), expired: connections.length - connected.length },
     commentCampaigns: live,
     /** "ready" only when a connected account has an active «لایو» campaign whose link carries the UTM. */
-    state: ready ? "ready" : connected.length ? "needs_comment_campaign" : "not_connected",
+    state,
   };
 }
 
