@@ -341,6 +341,8 @@ function AgentsTab({
   const [vertical, setVertical] = useState("general");
   const [language,setLanguage]=useState(lang);
   const [timezone,setTimezone]=useState(lang==="fa"?"Asia/Tehran":"Europe/Istanbul");
+  // Default to the visitor's own zone; the select adds it to its short list (was always Istanbul for non-Persian users).
+  useEffect(()=>{try{const zone=Intl.DateTimeFormat().resolvedOptions().timeZone;if(typeof zone==="string"&&zone.includes("/"))setTimezone(zone);}catch{}},[]);
   const [openingHour,setOpeningHour]=useState(9);
   const [closingHour,setClosingHour]=useState(18);
   const [appointmentMinutes,setAppointmentMinutes]=useState(30);
@@ -455,7 +457,7 @@ function AgentsTab({
             )}
             <div className="grid grid-cols-2 gap-3">
               <label className="text-xs">{tri(lang,"زبان تماس","Call language","Anrufsprache","Arama dili")}<select aria-label="Call language" value={language} onChange={e=>setLanguage(e.target.value as Lang)} className="block w-full rounded-lg p-2" style={{background:"var(--surface-2)"}}>{["fa","en","de","tr"].map(l=><option key={l}>{l}</option>)}</select></label>
-              <label className="text-xs">{tri(lang,"منطقهٔ زمانی","Timezone","Zeitzone","Saat dilimi")}<select aria-label="Timezone" value={timezone} onChange={e=>setTimezone(e.target.value)} className="block w-full rounded-lg p-2" style={{background:"var(--surface-2)"}}>{["Asia/Tehran","Europe/Istanbul","Asia/Nicosia","Europe/Berlin","Europe/London","Asia/Dubai","America/New_York"].map(z=><option key={z}>{z}</option>)}</select></label>
+              <label className="text-xs">{tri(lang,"منطقهٔ زمانی","Timezone","Zeitzone","Saat dilimi")}<select aria-label="Timezone" value={timezone} onChange={e=>setTimezone(e.target.value)} className="block w-full rounded-lg p-2" style={{background:"var(--surface-2)"}}>{[...new Set([timezone,"Asia/Tehran","Europe/Istanbul","Asia/Nicosia","Europe/Berlin","Europe/London","Asia/Dubai","America/New_York"])].map(z=><option key={z}>{z}</option>)}</select></label>
               <label className="text-xs">{tri(lang,"ساعت شروع","Opening hour","Öffnung","Açılış saati")}<input aria-label="Opening hour" type="number" min="0" max="23" value={openingHour} onChange={e=>setOpeningHour(Number(e.target.value))} className="block w-full rounded-lg p-2" style={{background:"var(--surface-2)"}}/></label>
               <label className="text-xs">{tri(lang,"ساعت پایان","Closing hour","Schließung","Kapanış saati")}<input aria-label="Closing hour" type="number" min="1" max="24" value={closingHour} onChange={e=>setClosingHour(Number(e.target.value))} className="block w-full rounded-lg p-2" style={{background:"var(--surface-2)"}}/></label>
               <label className="text-xs col-span-2">{tri(lang,"مدت نوبت (دقیقه)","Appointment length (minutes)","Termindauer (Minuten)","Randevu süresi (dakika)")}<select aria-label="Appointment length" value={appointmentMinutes} onChange={e=>setAppointmentMinutes(Number(e.target.value))} className="block w-full rounded-lg p-2" style={{background:"var(--surface-2)"}}>{[15,30,45,60].map(n=><option key={n}>{n}</option>)}</select></label>
