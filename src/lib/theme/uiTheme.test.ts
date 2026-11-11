@@ -92,7 +92,7 @@ it("serves the industry pages and public student profiles in the new design", ()
   for (const p of ["/admin/revenue", "/admin/credit-tiers", "/admin/billing/rates"]) expect(v2Handles(p)).toBe(true);
   expect(v2Handles("/admin/billing/promotions")).toBe(true);
   expect(v2Handles("/admin/invites/manage")).toBe(true);
-  expect(v2Handles("/admin/invites")).toBe(false);
+  expect(v2Handles("/admin/invites/x")).toBe(false);
   expect(v2Handles("/admin/packages")).toBe(true);
   expect(v2Handles("/admin/analytics")).toBe(true);
   expect(v2Handles("/admin/provider-fallback")).toBe(true);
@@ -115,6 +115,9 @@ it("serves the industry pages and public student profiles in the new design", ()
   expect(v2Handles("/admin/customer-growth")).toBe(true);
   expect(v2Handles("/admin/customer-growth/abc")).toBe(true);
   expect(v2Handles("/admin/customer-growth/abc/x")).toBe(false);
-  expect(v2Handles("/admin/module-access")).toBe(false);
+  expect(v2Handles("/admin/module-access")).toBe(true);
+  expect(v2Handles("/admin/invites")).toBe(true);
+  expect(v2Handles("/admin/social-connections")).toBe(true);
+  expect(v2Handles("/admin/usage")).toBe(false);
   expect(v2Handles("/admin/financial/invoices/x")).toBe(false);
 });

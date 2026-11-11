@@ -5,7 +5,7 @@ import { requireAdmin, requireAuth, unauthorizedResponse, forbiddenResponse } fr
 import { prisma } from "@/lib/db/prisma";
 import { uploadToStorage, getStorageKey } from "@/lib/storage/r2";
 
-const VALID_LANGS = ["fa", "en", "de"];
+const VALID_LANGS = ["fa", "en", "de", "tr"];
 
 /**
  * Called once the admin actually downloads an invite card PNG (phase 4) —
