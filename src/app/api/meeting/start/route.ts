@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 export const dynamic = "force-dynamic";
+import { agentLabels } from "@/lib/meeting/agentLabels";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
@@ -243,7 +244,7 @@ async function handlePost(req: NextRequest) {
             data: {
               conversationId: conv.id,
               role: "user",
-              content: lang === "en" ? `Meeting topic: ${topic}\nAgents: ${agents.join(", ")}` : lang === "de" ? `Sitzungsthema: ${topic}\nAgenten: ${agents.join(", ")}` : `موضوع جلسه: ${topic}\nایجنت‌ها: ${agents.join(", ")}`,
+              content: lang === "en" ? `Meeting topic: ${topic}\nAgents: ${agentLabels(agents, lang)}` : lang === "de" ? `Sitzungsthema: ${topic}\nAgenten: ${agentLabels(agents, lang)}` : `موضوع جلسه: ${topic}\nایجنت‌ها: ${agentLabels(agents, lang)}`,
             },
           });
           await prisma.message.create({
