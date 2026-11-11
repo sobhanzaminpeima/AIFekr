@@ -19,7 +19,7 @@ describe("low-latency chat routing",()=>{
  });
  it("preserves partial-response reset signals on fallback",async()=>{
   const fallback=vi.fn();mocks.stream.mockImplementationOnce(async(_p,_m,_s,chunk)=>{chunk("Partial");throw new Error("failed")}).mockResolvedValueOnce(null);
-  await routedStreamChat([{role:"user",content:"Test"}],"Test",()=>{},()=>{},"model-one",fallback);expect(fallback).toHaveBeenCalledWith({from:providers[0],partial:true});
+  await routedStreamChat([{role:"user",content:"Test"}],"Test",()=>{},()=>{},"model-one",fallback);expect(fallback).toHaveBeenCalledWith({from:providers[0],partial:true,reason:expect.any(String)});
  });
  it("identifies short Persian and international greetings as fast queries",()=>{for(const s of ["سلام","hello","hallo","merhaba"])expect(detectQueryType(s)).toBe("fast")});
  it("recognises failures that repeat until an operator acts",()=>{

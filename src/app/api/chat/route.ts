@@ -308,7 +308,7 @@ export async function POST(req: NextRequest) {
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({ provider: provider.name })}\n\n`));
               },
               model,
-              ({ from, partial }) => {
+              ({ from, partial, reason }) => {
                 // Recorded as a warning so fallbacks are measurable in the
                 // admin error log — the QA report's fix-order step 7 asked for
                 // fallback behaviour to be measured, and until now a provider
@@ -316,7 +316,7 @@ export async function POST(req: NextRequest) {
                 // Fire-and-forget: this callback is synchronous.
                 void logError({
                   source: "/api/chat (provider fallback)",
-                  error: new Error(`${from.name} failed${partial ? " mid-response" : ""}; falling back to the next provider`),
+                  error: new Error(`${from.name} failed${partial ? " mid-response" : ""}; falling back to the next provider. Upstream: ${reason}`),
                   level: "warn",
                   userId: user.id,
                 });

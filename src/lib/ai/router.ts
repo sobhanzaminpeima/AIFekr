@@ -1,3 +1,4 @@
+import { fallbackReason } from "./fallbackReason";
 import { getDisabledProviders, refreshDisabledProviders } from "./providerConfig";
 import { PROVIDERS, getAvailableProviders, streamProvider, type ChatMessage, type Provider, type TokenUsage } from "./providers";
 
@@ -201,7 +202,7 @@ export async function routedStreamChat(
    * the message bubble) — otherwise the next provider's full response gets
    * silently concatenated onto the previous provider's half-finished one.
    */
-  onFallback?: (info: { from: Provider; partial: boolean }) => void,
+  onFallback?: (info: { from: Provider; partial: boolean; reason: string }) => void,
   /** Override each provider's default max_tokens — use for long-form generation (e.g. full website HTML) that would otherwise get truncated. */
   maxTokensOverride?: number,
   /** Fired once with real prompt/completion token counts, when the provider that succeeded reports usage. Not every provider returns usage on every request (e.g. no output at all) — in that case this is never called and callers should treat tokens as unknown, not zero. */
@@ -222,7 +223,9 @@ export async function routedStreamChat(
     const partial = (error as Error & { partial?: boolean }).partial ?? false;
     console.warn(`[Router] ${primary.name} failed:`, error.message);
     coolDown(primary, error);
-    onFallback?.({ from: primary, partial });
+    const reason = fallbackReason(error);
+    recordFallback(primary, usableProviders().find((p) => p.id !== primary.id) ?? null, reason, message);
+    onFallback?.({ from: primary, partial, reason });
 
     // Prefer an available fallback immediately; only a sole provider gets
     // one short retry, so a rate limit does not add a 90-second wait.
@@ -239,7 +242,7 @@ export async function routedStreamChat(
           const retryError = retryErr instanceof Error ? retryErr : new Error(String(retryErr));
           const retryPartial = (retryError as Error & { partial?: boolean }).partial ?? false;
           console.warn(`[Router] ${primary.name} retry also failed:`, retryError.message);
-          onFallback?.({ from: primary, partial: retryPartial });
+          onFallback?.({ from: primary, partial: retryPartial, reason: fallbackReason(retryError) });
           if (!isRetryableRateLimitError(retryError)) break; // non-retryable failure — move to fallback chain
         }
       }
@@ -260,9 +263,25 @@ export async function routedStreamChat(
       const partial = (error as Error & { partial?: boolean }).partial ?? false;
       console.warn(`[Router] ${fallback.name} also failed:`, error.message);
       coolDown(fallback, error);
-      onFallback?.({ from: fallback, partial });
+      const reason = fallbackReason(error);
+      const next = available[available.indexOf(fallback) + 1] ?? null;
+      recordFallback(fallback, next, reason, message);
+      onFallback?.({ from: fallback, partial, reason });
     }
   }
 
   throw new Error("All AI providers failed");
+}
+
+
+/**
+ * One row per failed provider in ProviderFallbackLog, which the admin fallback
+ * page reads; nothing wrote it before, so the page was always empty and the
+ * real upstream error lived only in pm2 stdout. Fire-and-forget: a logging
+ * failure must never affect the answer.
+ */
+function recordFallback(from: Provider, to: Provider | null, reason: string, prompt: string) {
+  void import("@/lib/db/prisma")
+    .then(({ prisma }) => prisma.providerFallbackLog.create({ data: { fromProvider: from.id, toProvider: to?.id ?? null, reason, category: detectQueryType(prompt) } }))
+    .catch(() => {});
 }
