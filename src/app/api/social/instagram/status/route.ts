@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { canAutoPublish } from "@/lib/utils/planGates";
-import { unsubscribeFromWebhooks } from "@/lib/instagram";
+import { getAccountProfile, unsubscribeFromWebhooks } from "@/lib/instagram";
 import { activeBusinessIdFor } from "@/lib/organization/activeBusiness";
 import { instagramWorkspaceScope } from "@/lib/instagram/workspaceScope";
 
@@ -21,9 +21,26 @@ export async function GET(req: NextRequest) {
     ? await prisma.scheduledPost.findMany({ where: { userId: user.id, businessId }, orderBy: { scheduledFor: "desc" }, take: 20 })
     : [];
 
+  // The account card asks for the live profile (?profile=1); the studio header
+  // polls this route on every tab and does not need a Graph call each time.
+  let profile = null;
+  let profileError: string | null = null;
+  if (conn && req.nextUrl.searchParams.get("profile") === "1") {
+    try {
+      profile = await getAccountProfile(conn.igUserId, conn.accessToken);
+    } catch (err) {
+      profileError = err instanceof Error ? err.message : "PROFILE_UNAVAILABLE";
+    }
+  }
+
   return NextResponse.json({
     connected: !!conn,
     igUsername: conn?.igUsername || null,
+    connectedAt: conn?.createdAt ?? null,
+    tokenExpiry: conn?.tokenExpiry ?? null,
+    profile,
+    profileError,
+    checkedAt: new Date().toISOString(),
     canAutoPublish: canAutoPublish(user.plan),
     posts,
   });
