@@ -110,6 +110,7 @@ it("serves the industry pages and public student profiles in the new design", ()
   expect(v2Handles("/admin/lead-connectors")).toBe(true);
   expect(v2Handles("/admin/admins")).toBe(true);
   expect(v2Handles("/admin/industry-packs")).toBe(true);
+  expect(v2Handles("/admin/affiliate")).toBe(true);
   expect(v2Handles("/admin/module-access")).toBe(false);
   expect(v2Handles("/admin/financial/invoices/x")).toBe(false);
 });
