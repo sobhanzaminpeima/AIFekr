@@ -23,6 +23,18 @@ export function classifyOwnership(others: OtherConnection[], userId: string, now
   return live.some((c) => c.userId !== userId) ? { kind: "other_account" } : { kind: "other_workspace" };
 }
 
+/**
+ * One Instagram account per workspace, enforced at connect time. Logging in
+ * with a different account used to replace the connected one silently and
+ * delete its campaigns, logs, history and queue (production 2026-11-09:
+ * the brand account could not be added beside a personal test account).
+ * A second account goes in its own workspace; replacing one is an explicit
+ * disconnect first.
+ */
+export function workspaceSlotTaken(current: { igUserId: string } | null, incomingIgUserId: string): boolean {
+  return !!current && current.igUserId !== incomingIgUserId;
+}
+
 /** Removes a connection and everything tied to it, exactly as the owner's own disconnect does. Audited. */
 export async function releaseInstagramConnection(id: string, actorId: string, reason: "admin_release" | "stale_reclaim") {
   const connection = await prisma.instagramConnection.findUnique({ where: { id } });

@@ -5,11 +5,11 @@ import {requireAuth} from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { exchangeCodeForToken, getLongLivedToken, getInstagramProfile, subscribeToInstagramWebhooks, InstagramApiError } from "@/lib/instagram";
 import { instagramWorkspaceScope } from "@/lib/instagram/workspaceScope";
-import { classifyOwnership, releaseInstagramConnection } from "@/lib/instagram/ownership";
+import { classifyOwnership, releaseInstagramConnection, workspaceSlotTaken } from "@/lib/instagram/ownership";
 import { getInstagramRedirectUri, resolveInstagramAppUrl } from "@/lib/instagram/urls";
 
 /** Why a connection failed; shown to the user and logged. Never contains a token, code, state or secret. */
-type FailReason = "denied" | "session_expired" | "state_mismatch" | "account_mismatch" | "missing_code" | "token_exchange" | "long_lived_token" | "profile" | "connected_other_account" | "connected_other_workspace" | "save_failed";
+type FailReason = "denied" | "session_expired" | "state_mismatch" | "account_mismatch" | "missing_code" | "token_exchange" | "long_lived_token" | "profile" | "connected_other_account" | "connected_other_workspace" | "save_failed" | "workspace_has_account";
 
 function failed(appUrl: string, reason: FailReason, detail: Record<string, unknown> = {}) {
   console.error("[instagram-oauth]", JSON.stringify({ reason, ...detail }));
@@ -71,10 +71,12 @@ export async function GET(req: NextRequest) {
     // Meta has just proved this user controls the account, and no one else holds a working token for it.
     if (ownership.kind === "stale") for (const id of ownership.connectionIds) await releaseInstagramConnection(id, userId, "stale_reclaim");
 
-    // Switching to a different IG account (without an explicit disconnect
-    // first) must not leave the previous account's campaigns, trigger logs,
-    // follower history or auto-publish queue attached to the new one.
     const prev = await prisma.instagramConnection.findFirst({ where: { userId, ...instagramWorkspaceScope(businessId) } });
+    // A different account never replaces the connected one implicitly: that
+    // deleted the old account's campaigns and queue without asking.
+    if (workspaceSlotTaken(prev, igUserId)) return failed(appUrl, "workspace_has_account", { userId });
+    // Kept for safety should the guard above ever change: a switch must not
+    // leave the previous account's data attached to the new one.
     if (prev && prev.igUserId !== igUserId) {
       const camps = await prisma.instagramCommentCampaign.findMany({ where: { userId, ...instagramWorkspaceScope(businessId) }, select: { id: true } });
       await prisma.$transaction([

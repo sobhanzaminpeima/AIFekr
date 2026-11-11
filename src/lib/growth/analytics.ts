@@ -1,3 +1,4 @@
+import { LIVE_CAMPAIGN, liveCampaignStatus } from "@/lib/followup/liveCampaign";
 import { prisma } from "@/lib/db/prisma";
 import { getGrowthSettings } from "./config";
 import { loadFacts } from "./facts";
@@ -108,6 +109,8 @@ export async function campaignReport(complete = false) {
   const by = new Map<string, typeof rows>();
   for (const r of rows) { const k = keyFor(r); by.set(k, [...(by.get(k) ?? []), r]); }
   const keys = new Set([...campaigns.map(c => c.utmCampaign), ...by.keys(), ...touches.map(t => t.utmCampaign!)]);
+  // The Live campaign's running state comes from the same place as its card.
+  const live = keys.has(LIVE_CAMPAIGN.utmCampaign) ? (await liveCampaignStatus()).activation : null;
   return [...keys].map(key => {
     const c = campaigns.find(x => x.utmCampaign === key), us = by.get(key) ?? [];
     const paid = us.filter(r => r.facts.payments.success > 0).length, revenue = us.reduce((s, r) => s + r.facts.payments.revenueToman, 0);
@@ -120,6 +123,7 @@ export async function campaignReport(complete = false) {
       activationRate: ratio(us.filter(r => r.firstValueAt).length, us.length), conversionRate: ratio(paid, us.length),
       /** Only with admin-entered spend and at least one paying customer; otherwise null (never 0). */
       cacToman: c?.spendToman != null && paid > 0 ? Math.round(c.spendToman / paid) : null,
+      activation: key === LIVE_CAMPAIGN.utmCampaign ? live : null,
     };
   }).sort((a, b) => b.signups - a.signups);
 }

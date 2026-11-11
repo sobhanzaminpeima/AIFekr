@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyOwnership, type OtherConnection } from "./ownership";
+import { classifyOwnership, workspaceSlotTaken, type OtherConnection } from "./ownership";
 
 const now = new Date("2026-11-10T12:00:00Z");
 const future = new Date("2026-12-01T00:00:00Z");
@@ -25,5 +25,15 @@ describe("classifyOwnership", () => {
   });
   it("treats an unknown expiry as live", () => {
     expect(classifyOwnership([row({ tokenExpiry: null })], "me", now)).toEqual({ kind: "other_account" });
+  });
+});
+
+describe("one Instagram account per workspace", () => {
+  it("refuses a different account instead of replacing the connected one", () => {
+    expect(workspaceSlotTaken({ igUserId: "personal" }, "brand")).toBe(true);
+  });
+  it("lets the same account reconnect and an empty workspace connect", () => {
+    expect(workspaceSlotTaken({ igUserId: "brand" }, "brand")).toBe(false);
+    expect(workspaceSlotTaken(null, "brand")).toBe(false);
   });
 });

@@ -6,6 +6,7 @@
 // "Instagram API" → "API setup with Instagram login". App Review is still
 // required for instagram_business_content_publish to work for anyone other
 // than accounts added as testers on the app.
+import { parseAccountProfile, PROFILE_FIELDS, type IgAccountProfile } from "@/lib/instagram/profile";
 import { routedStreamChat } from "@/lib/ai/router";
 import { isCustomProviderModel, streamCustomProvider } from "@/lib/ai/customProviders";
 import { tri } from "@/lib/i18n/tri";
@@ -394,6 +395,14 @@ export async function getAccountStats(igUserId: string, accessToken: string): Pr
   const data = await res.json();
   if (!res.ok) throw new Error(data.error?.message || "خطا در دریافت آمار پیج");
   return { followersCount: data.followers_count ?? 0, mediaCount: data.media_count ?? 0 };
+}
+
+/** The connected account's own profile (name, picture, bio, counts) for the studio's account card. */
+export async function getAccountProfile(igUserId: string, accessToken: string): Promise<IgAccountProfile> {
+  const res = await fetch(`${IG_GRAPH_BASE}/${igUserId}?fields=${PROFILE_FIELDS}&access_token=${accessToken}`, { signal: AbortSignal.timeout(8000) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || "خطا در دریافت پروفایل اینستاگرام");
+  return parseAccountProfile(data);
 }
 
 export interface IgMediaItem {
