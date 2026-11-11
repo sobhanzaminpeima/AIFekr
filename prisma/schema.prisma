@@ -2187,6 +2187,8 @@ model ScheduledPost {
   status       String   @default("PENDING") // PENDING | PUBLISHED | FAILED
   igMediaId    String?
   errorMessage String?
+  /// Publish attempts so far; one automatic retry after an Instagram failure (roadmap E8).
+  attempts     Int      @default(0)
   /// Rule-based content-quality score (0-100) at generation time, plus the
   /// fixes suggested then — kept so a post's predicted score can later be
   /// compared against its real reach/engagement and the rules tuned against
