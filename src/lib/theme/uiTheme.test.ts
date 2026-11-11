@@ -121,7 +121,10 @@ it("serves the industry pages and public student profiles in the new design", ()
   expect(v2Handles("/admin/usage")).toBe(true);
   expect(v2Handles("/admin/academy")).toBe(true);
   expect(v2Handles("/admin/student")).toBe(true);
-  expect(v2Handles("/admin/ai-courses")).toBe(false);
+  expect(v2Handles("/admin/ai-courses")).toBe(true);
+  expect(v2Handles("/admin/ai-courses/abc/preview")).toBe(true);
+  expect(v2Handles("/admin/ai-courses/abc")).toBe(false);
+  expect(v2Handles("/admin/fitness")).toBe(false);
   expect(v2Handles("/admin/financial/invoices/x")).toBe(true);
   expect(v2Handles("/admin/financial/invoices/x/y")).toBe(false);
   expect(v2Handles("/admin/llm")).toBe(true);
