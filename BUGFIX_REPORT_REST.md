@@ -37,11 +37,24 @@ Production was only read (read-only connection); only counts, dates and scrubbed
 | 43, home figures | **Server data was correct** (the Super Admin had 130 credits of usage logged on 9 Nov). The card showed 0 while data was missing; it now shows a dash, and the referral line promises a rate only when it is positive. |
 | 45, timezone | **Fixed (default).** Both voice-agent forms default to the visitor's time zone. Spec: `tests/timezone.spec.ts`. **Not done:** Live's slow first paint. |
 
+## Part D, batch 2
+
+| Issue | Result |
+|---|---|
+| 34, stale CRM lists | **Not reproduced in the current code.** Creating a contact, property or automation rule reloads its list with `cache: "no-store"`; the audit predates this code. |
+| 35, pulse count | **Fixed.** A failed or pending request counted as "no deals", so the workspace pulse flickered 0/1. It now waits for every request, says so while reading, and refreshes after each CRM change. |
+| 41, deal needs a contact | **Fixed.** The new-deal dialog creates a contact inline and selects it; with no contacts it opens that form directly. |
+| 38, raw keys | **Fixed.** Saved meetings store agent names, not `ceo, sales` (test: `lib/meeting/agentLabels.test.ts`). The video factory estimate names its three unlabelled lines. Assignment and thesis assistant modes and sales-assistant note categories are labelled. Same-named voice projects show when each was last edited. |
+| 44, small defects | **Partly.** Generated websites get the current year for the copyright line; this is a prompt change, so no test can show it without a model call. The automation rule text already has its spaces in the current code. **Not done:** the truncated automation description, the "10.2" figure, the music tile images and the delayed "New project" click. |
+| 32, video price | **Not reproduced.** No card reading «ویدیوساز ۲۰» exists in either repository; the video factory already shows the itemized estimate before approval. Needs a screenshot of the card. |
+| 36, small-screen navigation | **Not reproduced from code.** Module pages read the view reactively from the address, and at 767 px and below the drawer sits above its overlay. Needs a browser check at about 761 px. |
+
+**Batch 2 verification:** typecheck is clean in both repositories. The full backend suite gave 1,591 passed and 3 failed while it ran in parallel with the UI build; those 3 integration tests pass when run alone (39 tests), so they were contention on the shared test database. The UI production build succeeds; 110 of 111 UI specs pass. The failing `admin-navigation.spec.ts` (duplicate admin links) also fails on the live base `a316d2b`, and this branch does not touch admin navigation.
+
 ## Not started
-Issues 32, 34, 35, 36, 38, 41, 44 and 46; roadmap E1-E15.
-Issue 46 needs a real chat turn on a quiet account (a paid provider call).
+Issue 46 needs a real chat turn on a quiet account (a paid provider call). Roadmap E1-E15.
 
 ## Owner actions found
 - Instagram events stopped reaching production on 2026-10-05; check and re-enable them (Issue 11).
 - The Live campaign needs a «لایو» Comment-to-DM campaign on the admin account where AIFekr's Instagram is connected (Issues 1, 6).
-- Server disk is about 3.0 GB free, at the release limit.
+- Server disk was about 3.0 GB free at the start; the release session reports about 3.8 GB after pruning.

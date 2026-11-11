@@ -58,7 +58,7 @@ function buildPrompt(data: {
 Generate the COMPLETE HTML code block (start with triple backticks html, end with triple backticks). Include:
 - DOCTYPE, html (lang=fa dir=rtl), full head with Google Fonts (Vazirmatn) and a single <style> block containing the entire design system + all component/section CSS
 - Title: ${data.businessName} — ${data.industry}
-- Full body with ALL these sections: ${sectionList}, plus a footer
+- Full body with ALL these sections: ${sectionList}, plus a footer (any copyright notice uses the current year, ${new Date().getFullYear()})
 - A single <script> block at the end of body with: mobile menu toggle, sticky-header-on-scroll, IntersectionObserver-based scroll-reveal
 - IMPORTANT: Do not stop early. Complete the entire file including closing html tag.`;
 }
