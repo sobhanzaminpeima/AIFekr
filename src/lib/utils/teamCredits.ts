@@ -1,5 +1,6 @@
 import {featureAccessExpired,teamFeatureExpiry} from "@/lib/subscriptions/access";
 import { prisma } from "@/lib/db/prisma";
+import { BUSY_TX, withDbRetry } from "@/lib/db/retry";
 import type { Prisma } from "@prisma/client";
 import { recordLedger, type LedgerEntry } from "@/lib/credits/ledger";
 
@@ -259,7 +260,11 @@ export async function chargeAndLog(userId: string, amount: number, usage: UsageR
     }
   }
 
-  return prisma.$transaction(async (tx) => {
+  // SQLite holds one writer at a time. With Prisma's 5 s default the chat
+  // charge expired while waiting ("Transaction already closed", 6 times from
+  // 2026-10-31 to 11-08), leaving answers uncharged. The longer limits match
+  // the rest of the app, and an expired attempt was rolled back, so it is retried.
+  return withDbRetry(() => prisma.$transaction(async (tx) => {
     const wallet = await debit(userId, amount, tx,payer);
     if (!wallet) return false;
 
@@ -286,5 +291,5 @@ export async function chargeAndLog(userId: string, amount: number, usage: UsageR
     });
     await recordLedger(tx, { userId, teamId: wallet.teamId, delta: -amount, type: "SPEND", operationId: `usage:${log.id}`, usageLogId: log.id, ...usageLedger(usage) });
     return true;
-  });
+  }, BUSY_TX));
 }
