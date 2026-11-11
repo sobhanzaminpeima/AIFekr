@@ -90,6 +90,8 @@ it("serves the industry pages and public student profiles in the new design", ()
   expect(v2Handles("/admin/financial/customers")).toBe(true);
   expect(v2Handles("/admin/subscriptions")).toBe(true);
   for (const p of ["/admin/revenue", "/admin/credit-tiers", "/admin/billing/rates"]) expect(v2Handles(p)).toBe(true);
-  expect(v2Handles("/admin/billing/promotions")).toBe(false);
+  expect(v2Handles("/admin/billing/promotions")).toBe(true);
+  expect(v2Handles("/admin/invites/manage")).toBe(true);
+  expect(v2Handles("/admin/invites")).toBe(false);
   expect(v2Handles("/admin/financial/invoices/x")).toBe(false);
 });
