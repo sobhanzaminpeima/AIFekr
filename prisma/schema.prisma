@@ -2228,6 +2228,26 @@ model GscConnection {
 }
 
 /// A saved result of a paid SEO tool, so a closed dialog never loses what was paid for.
+/// Every signal that reached the platform from outside (roadmap E6): kind, account, outcome and latency. Never message or comment text.
+model InboundEvent {
+  id         String   @id @default(cuid())
+  /// "instagram" for now
+  source     String
+  /// "comment" | "message" | "postback" | "invalid_signature" | ...
+  type       String
+  /// The external account it was for (e.g. the Instagram user id)
+  accountRef String?
+  /// "processed" | "failed" | "ignored" | "rejected"
+  status     String
+  error      String?
+  latencyMs  Int?
+  receivedAt DateTime @default(now())
+
+  @@index([receivedAt])
+  @@index([source, status, receivedAt])
+  @@index([accountRef, receivedAt])
+}
+
 model SeoGeneration {
   id        String   @id @default(cuid())
   userId    String
