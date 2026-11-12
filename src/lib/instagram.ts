@@ -256,8 +256,19 @@ export async function getInstagramWebhookSubscription(igUserId: string, accessTo
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error?.message || `Meta webhook status failed (HTTP ${res.status})`);
 
-  const subscriptions = Array.isArray(data.data) ? data.data : [];
-  const appSubscription = subscriptions.find((item: { application?: { id?: string }; subscribed_fields?: string[] }) => item.application?.id === configuredAppId);
+  return readWebhookSubscription(data, configuredAppId);
+}
+
+/**
+ * With Instagram Login, `subscribed_apps` answers `{data:[{id, subscribed_fields}]}` for the token's
+ * own app, and that `id` is neither INSTAGRAM_APP_ID nor META_APP_ID (production 2026-11-12). Matching
+ * `application.id` against the configured id therefore never matched, and the health panel always said
+ * "not subscribed". The token belongs to our app, so its listed entries are ours; an older-style
+ * `application.id` is still honoured when present.
+ */
+export function readWebhookSubscription(data: { data?: unknown }, configuredAppId: string): { subscribed: boolean; fields: string[] } {
+  const subscriptions = (Array.isArray(data.data) ? data.data : []) as { id?: string; application?: { id?: string }; subscribed_fields?: string[] }[];
+  const appSubscription = subscriptions.find((item) => item.application?.id === configuredAppId) ?? subscriptions.find((item) => !item.application);
   const fields = Array.isArray(appSubscription?.subscribed_fields) ? appSubscription.subscribed_fields : [];
   return { subscribed: ["comments", "messages", "messaging_postbacks"].every((field) => fields.includes(field)), fields };
 }
