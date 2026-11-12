@@ -49,6 +49,14 @@ async function trialSamplesUsed(db: Pick<typeof prisma, "voiceStudioGeneration" 
     const others = ids.length ? await db.voiceStudioGeneration.count({ where: { id: { in: ids }, status: { in: TRIAL_COUNTED } } }) : 0;
     return own + others;
 }
+/** The voice studio's free samples for this account, counted exactly as generation enforces them (roadmap E4). */
+export async function voiceTrialStatus(userId: string, device?: string | null) {
+    const policy = await voicePolicy();
+    const account = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { role: true, plan: true, planExpiry: true } });
+    const planOk = await voiceAccess(userId, account, policy);
+    const used = planOk ? 0 : await trialSamplesUsed(prisma, userId, device);
+    return { enabled: policy.enabled && policy.trialGenerations > 0, total: policy.trialGenerations, remaining: trialRemaining(planOk, policy, used), maxSeconds: policy.trialMaxSeconds, coveredByPlan: planOk };
+}
 export async function bootstrap(userId: string, device?: string | null) { const policy = await voicePolicy();
     // Tell the screen up front whether this account may generate, so it can explain instead of failing on click.
     const account = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { role: true, plan: true, planExpiry: true } });
