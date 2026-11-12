@@ -9,6 +9,7 @@ import { brandPromptFor } from "@/lib/social/brandProfile";
 import { selectDirectRule } from "@/lib/instagram/directRules";
 import { canAutoPublish } from "@/lib/utils/planGates";
 import { chooseDirectDelaySeconds, delayForDirectReply } from "@/lib/instagram/directDelivery";
+import { handleInbound, recordInbound } from "@/lib/events/inbound";
 
 // Meta's one-time webhook subscription check (GET with hub.mode=subscribe).
 export async function GET(req: NextRequest) {
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
   const signature = req.headers.get("x-hub-signature-256");
 
   if (!verifySignature(rawBody, signature)) {
+    await recordInbound({ source: "instagram", type: "invalid_signature", status: "rejected" });
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
@@ -96,15 +98,11 @@ export async function POST(req: NextRequest) {
     const igUserId = entry.id;
 
     for (const change of entry.changes || []) {
-      if (change.field !== "comments") continue;
+      if (change.field !== "comments") { await recordInbound({ source: "instagram", type: change.field || "change", accountRef: igUserId, status: "ignored" }); continue; }
       const comment = change.value;
-      if (!comment?.id || !comment.text || !comment.from?.id) continue;
+      if (!comment?.id || !comment.text || !comment.from?.id) { await recordInbound({ source: "instagram", type: "comment", accountRef: igUserId, status: "ignored" }); continue; }
 
-      try {
-        await handleComment(igUserId, comment);
-      } catch (e) {
-        console.error("instagram webhook comment handling error:", e);
-      }
+      await handleInbound({ source: "instagram", type: "comment", accountRef: igUserId }, () => handleComment(igUserId, comment), "instagram webhook comment handling error");
     }
 
     for (const msg of entry.messaging || []) {
@@ -128,11 +126,9 @@ export async function POST(req: NextRequest) {
       const text = msg.message?.text?.trim();
       // Echoes are messages sent by the connected account; never respond to them.
       if (senderId && text && !msg.message?.is_echo) {
-        try {
-          await handleInboundDirect(igUserId, senderId, text, msg.message?.mid);
-        } catch (e) {
-          console.error("instagram webhook direct handling error:", e);
-        }
+        await handleInbound({ source: "instagram", type: "message", accountRef: igUserId }, () => handleInboundDirect(igUserId, senderId, text, msg.message?.mid), "instagram webhook direct handling error");
+      } else if (!postbackPayload) {
+        await recordInbound({ source: "instagram", type: msg.message?.is_echo ? "echo" : "message", accountRef: igUserId, status: "ignored" });
       }
     }
   }

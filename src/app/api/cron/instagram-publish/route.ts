@@ -5,6 +5,7 @@ import { publishToInstagram, publishReelToInstagram } from "@/lib/instagram";
 import { notify } from "@/lib/notifications/create";
 import { isCronAuthorized } from "@/lib/auth/cronAuth";
 import { bizScope } from "@/lib/accounting/scope";
+import { afterPublishFailure } from "@/lib/instagram/publishRetry";
 
 // Hit by a system crontab entry every few minutes (see deployment notes) —
 // this is what makes mode="auto" posts actually go out without a human
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
     // several businesses must have this post go out through the business it was queued for.
     const conn = await prisma.instagramConnection.findFirst({ where: { userId: post.userId, ...bizScope(post.businessId) } });
     if (!conn || (!post.imageUrl && !post.videoUrl)) {
-      await prisma.scheduledPost.update({ where: { id: post.id }, data: { status: "FAILED", errorMessage: "اتصال اینستاگرام یا تصویر/ویدیو موجود نیست" } });
+      await prisma.scheduledPost.update({ where: { id: post.id }, data: { status: "FAILED", attempts: { increment: 1 }, errorMessage: "اتصال اینستاگرام یا تصویر/ویدیو موجود نیست" } });
       notify(post.userId, {
         type: "social_post",
         title: "انتشار پست ناموفق بود",
@@ -61,14 +62,19 @@ export async function GET(req: NextRequest) {
       results.push({ id: post.id, ok: true });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "خطا";
-      await prisma.scheduledPost.update({ where: { id: post.id }, data: { status: "FAILED", errorMessage: msg } });
-      notify(post.userId, {
+      // An Instagram-side failure gets one automatic retry before the owner is told.
+      const next = afterPublishFailure(post.attempts, true);
+      await prisma.scheduledPost.update({
+        where: { id: post.id },
+        data: { status: next.status, attempts: next.attempts, errorMessage: msg, ...(next.scheduledFor ? { scheduledFor: next.scheduledFor } : {}) },
+      });
+      if (next.notify) notify(post.userId, {
         type: "social_post",
         title: "انتشار پست ناموفق بود",
         body: msg,
         link: "/social",
       }).catch(() => {});
-      results.push({ id: post.id, ok: false, error: msg });
+      results.push({ id: post.id, ok: false, error: msg, retry: next.status === "PENDING" });
     }
   }
 
