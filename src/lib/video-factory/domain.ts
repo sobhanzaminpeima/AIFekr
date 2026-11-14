@@ -3,6 +3,7 @@ import {detailedCommercialSchema as commercialSchema,commercialEstimate} from ".
 
 import {FactoryError} from "./errors";
 export {FactoryError} from "./errors";
+import { visualBibleSchema, visualStyles } from "./visualStyle";
 export const configurationSchema = z.object({
   durationSeconds: z.number().int().min(15).max(3600),
   language: z.enum(["fa", "en", "de", "tr"]),
@@ -13,6 +14,8 @@ export const configurationSchema = z.object({
   audience: z.string().max(500).default(""),
   genre: z.string().max(100).default("educational"),
   styleBible: z.string().max(6000).default(""),
+  visualStyle: z.enum(visualStyles).default("NONE"),
+  visualBible: visualBibleSchema.default({ palette: "", lighting: "", era: "", composition: "", locations: "", branding: "", negative: "" }),
   mediaMode: z.enum(["ANIMATIC", "MULTIMEDIA"]).default("ANIMATIC"),
   shotsPerChapter: z.number().int().min(1).max(30).default(8),
   /** Every shot that is not a title, chart or map gets its own generated image, instead of the quality preset's image share. */
