@@ -91,7 +91,8 @@ export async function renderShot(jobId: string, index: number, manifest: Manifes
     if(voice){
       const info=JSON.parse(await mediaCommand("ffprobe",["-v","error","-show_entries","format=duration","-of","json",storagePath(voice.storageKey)],signal));
       const duration=Number(info.format?.duration);if(!Number.isFinite(duration)||duration<=0)throw new FactoryError("INVALID_VOICE_MEDIA");
-      const speed=Math.max(0.5,Math.min(2,duration/seconds));if(duration/seconds>2)throw new FactoryError("NARRATION_EXCEEDS_SHOT_DURATION",400);
+      // Never slow narration down (it sounds unnatural); a shorter clip is padded with silence. Longer clips are sped up, at most 2x.
+      const speed=Math.max(1,Math.min(2,duration/seconds));if(duration/seconds>2)throw new FactoryError("NARRATION_EXCEEDS_SHOT_DURATION",400);
       audioFilter=`atempo=${speed.toFixed(6)},apad,atrim=duration=${seconds},loudnorm=I=-16:TP=-1.5:LRA=11`;
       input.push("-i",storagePath(voice.storageKey));
     }else input.push("-f","lavfi","-i","anullsrc=channel_layout=stereo:sample_rate=48000");
