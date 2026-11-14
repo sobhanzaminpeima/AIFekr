@@ -15,6 +15,7 @@ import {accountJobStorage} from "./assets";
 import {checkContinuity,inspectRenderedShot} from "./quality";
 import {reviewSemanticShot} from "./semanticWorker";
 import {requireVoiceConsent} from "./voiceConsent";
+import {syncToNarration} from "./narrationSync";
 
 /** Sweep uncertain leases without ever repeating an ambiguous paid provider request. */
 export async function sweepJobs() {
@@ -133,12 +134,15 @@ export async function processFactoryTick() {
     } else if(queued.stage === "ASSET_GENERATION") {
       const savedPlan=productionPlanSchema.parse(JSON.parse(queued.plan));
       const result=savedPlan.tasks.length?await produceMedia({...queued,leaseToken:token},controller.signal):{pending:false,plan:savedPlan,retryable:false};
+      // When the last asset is in, time every shot to its own narration before rendering (no equal split).
+      const assetsDone=!result.pending && queued.cursor+1>=result.plan.tasks.length;
+      const timed=assetsDone && configuration.narration?await syncToNarration(manifest,result.plan,queued.userId,controller.signal):null;
       await prisma.$transaction(async tx=>{
         const current=await tx.videoFactoryJob.findUniqueOrThrow({where:{id:queued.id}});if(current.leaseToken!==token || !current.leaseUntil || current.leaseUntil<new Date())throw new FactoryError("STALE_WORKER");
         const next=result.pending?queued.cursor:queued.cursor+1,complete=next>=result.plan.tasks.length;
         if(result.retryable && current.attempts>=policy.maxRetries)throw new FactoryError("PROVIDER_RETRY_LIMIT");
         const status=current.status==="CANCELLING"?"CANCELLED":current.status==="PAUSING"?"PAUSED":"QUEUED";
-        await tx.videoFactoryJob.update({where:{id:queued.id},data:{plan:JSON.stringify(result.plan),cursor:complete?0:next,stage:complete?"SHOT_RENDERING":"ASSET_GENERATION",status,leaseToken:null,leaseUntil:null,nextAttemptAt:result.pending?new Date(Date.now()+(result.retryable?Math.min(60000,1000*2**current.attempts)+Math.floor(Math.random()*500):10000)):null,attempts:result.retryable?{increment:1}:0}});
+        await tx.videoFactoryJob.update({where:{id:queued.id},data:{plan:JSON.stringify(result.plan),...(complete&&timed?{checkpoint:JSON.stringify(timed)}:{}),cursor:complete?0:next,stage:complete?"SHOT_RENDERING":"ASSET_GENERATION",status,leaseToken:null,leaseUntil:null,nextAttemptAt:result.pending?new Date(Date.now()+(result.retryable?Math.min(60000,1000*2**current.attempts)+Math.floor(Math.random()*500):10000)):null,attempts:result.retryable?{increment:1}:0}});
         if(status==="CANCELLED")await settleJob(tx,queued.id,status);
       });
     } else if(queued.stage==="SEMANTIC_QC"){
