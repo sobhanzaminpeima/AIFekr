@@ -1,3 +1,4 @@
+import {characterMode} from "./domain";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { configurationSchema, policySchema, timeline, type Configuration, type Manifest, type Policy } from "./domain";
@@ -15,7 +16,7 @@ export function visualKinds(count:number,policy:Policy,quality:Configuration["qu
 export function buildProductionPlan(manifest:Manifest,configuration:Configuration,policy:Policy):ProductionPlan{
   const edit=timeline(manifest,configuration.durationSeconds),kinds=visualKinds(edit.shots.length,policy,configuration.quality,configuration.imageEveryShot),tasks:MediaTask[]=[];
   const add=(kind:MediaTask["kind"],shotId:string|null,prompt:string,credits:number,units=1)=>{
-    const providerId=["CLONE","ALIGNMENT","TRANSCRIPTION","SFX"].includes(kind)?policy.advancedProviders[kind.toLowerCase() as "clone"|"alignment"|"transcription"|"sfx"]:policy.providers[kind==="TTS"?"tts":kind.toLowerCase() as "image"|"video"|"music"];
+    const providerId=["CLONE","ALIGNMENT","TRANSCRIPTION","SFX"].includes(kind)?policy.advancedProviders[kind.toLowerCase() as "clone"|"alignment"|"transcription"|"sfx"]:kind==="IMAGE"&&characterMode(configuration,policy)?policy.characterImageProvider:policy.providers[kind==="TTS"?"tts":kind.toLowerCase() as "image"|"video"|"music"];
     tasks.push({key:`${kind.toLowerCase()}-${shotId || "bed"}`,kind,shotId,prompt,providerId,credits,units,fingerprint:fingerprint({kind,prompt,providerId,voice:kind==="TTS"?configuration.voice:null,voiceProfileId:configuration.voiceProfileId,ratio:configuration.ratio,style:configuration.styleBible,...(kind==="IMAGE"&&configuration.characterReferenceAssetId?{characterReference:configuration.characterReferenceAssetId}:{})})});
   };
   if(configuration.mediaMode==="MULTIMEDIA"){

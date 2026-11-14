@@ -76,3 +76,22 @@ describe("budget cap error", () => {
     }
   });
 });
+
+import { characterMode } from "./domain";
+describe("fixed-character videos", () => {
+  const manifest = { characters: [], chapters: [{ title: "c", continuity: "", shots: [{ id: "a", title: "t", narration: "", visualPrompt: "stickman", motion: "PUSH_IN" as const, notes: "", revision: 0, sfxPrompt: "" }] }] };
+  const policy = (extra: Record<string, unknown>) => policySchema.parse({ enabled: true, creditsPerChapter: 1, creditsPerRenderMinute: 1, creditsPerImage: 1, creditsPerVoice: 1, providers: { image: "flux" }, commercial: { pipeline: "IMAGE_MOTION" }, ...extra });
+  const cfg = (ref: string) => configurationSchema.parse({ ...base, quality: "SMART", characterReferenceAssetId: ref });
+  it("stays off until the owner sets both the provider and the price", () => {
+    expect(characterMode(cfg("ref1"), policy({}))).toBe(false);
+    expect(characterMode(cfg("ref1"), policy({ characterImageProvider: "gemini" }))).toBe(false);
+    expect(characterMode(cfg(""), policy({ characterImageProvider: "gemini", characterSaleCents: 1200 }))).toBe(false);
+    expect(characterMode(cfg("ref1"), policy({ characterImageProvider: "gemini", characterSaleCents: 1200 }))).toBe(true);
+  });
+  it("routes images to the character provider only in character mode", () => {
+    const on = policy({ characterImageProvider: "gemini", characterSaleCents: 1200 });
+    const images = (c: ReturnType<typeof cfg>, p: ReturnType<typeof policy>) => buildProductionPlan(manifest as never, c, p).tasks.filter((t) => t.kind === "IMAGE").map((t) => t.providerId);
+    expect(new Set(images(cfg("ref1"), on))).toEqual(new Set(["gemini"]));
+    expect(new Set(images(cfg(""), on))).toEqual(new Set(["flux"]));
+  });
+});

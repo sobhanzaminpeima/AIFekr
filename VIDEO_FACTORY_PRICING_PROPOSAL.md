@@ -52,3 +52,35 @@ This is admin configuration, not code:
 1. In `videoFactoryPolicy`, set `packageRequired: false` so videos are paid from the credit wallet. The current package holders keep their package credits.
 2. Keep `commercial.mode: DURATION_RETAIL`, set `saleCents` to 108 per 60 s (option A), and set `creditRate` so 1 credit = 0.216 US cents.
 3. The quote then charges the per-minute price in credits. The existing guards (`ACTION_BUDGET_EXCEEDS_RETAIL`, the daily cap and the budget cap) stay in force.
+
+## Option B, fixed character (code ready 2026-11-14, price waiting for the owner)
+
+The code is live-ready but inert. A project uses the character provider only when all three are set:
+- the project has a character image;
+- `videoFactoryPolicy.characterImageProvider` is set;
+- `videoFactoryPolicy.characterSaleCents` is set.
+
+### Cost per minute
+
+The provider is `vf-google-nano-banana` (`gemini-3.1-flash-image`). The rate card puts it at $0.067 per image, verified 2026-10-19.
+
+| Item | Cost per minute |
+| --- | --- |
+| Script | $0.033 |
+| 10 images | $0.67 |
+| Narration | $0.064 |
+| Render | $0.20 |
+| **Total** | **$0.967** |
+| With the 25% reserve | $1.21 |
+
+### Proposed price
+
+**`characterSaleCents` 1200, which is 1,200 credits per minute.**
+- At the cheapest pack, 1,200 credits are about $3.56, a 66% margin.
+- An 8-minute video costs 9,600 credits. That is under `maxProjectCredits` (10,000).
+- Videos longer than about 8 minutes would need `maxProjectCredits` raised.
+
+### Applying it after approval
+
+1. Enable `vf-google-nano-banana` with `commercialApproved` and `safetyReviewed` set.
+2. Set `characterImageProvider` to "vf-google-nano-banana" and `characterSaleCents` to 1200.
