@@ -78,6 +78,10 @@ export const policySchema = z.object({
   maxWorkers:z.number().int().min(1).max(8).default(2),
   providers: z.object({ image: z.string().max(100).default(""), video: z.string().max(100).default(""), tts: z.string().max(100).default(""), music: z.string().max(100).default("") }).default({ image: "", video: "", tts: "", music: "" }),
   fallbackProviders: z.array(z.string().max(100)).max(10).default([]),
+  /** Image provider that honours a character reference (e.g. Gemini); used only for projects with a fixed character. */
+  characterImageProvider: z.string().max(100).default(""),
+  /** Retail price per commercial.baseSeconds for fixed-character videos. Null keeps the feature off. */
+  characterSaleCents: z.number().int().positive().max(10000000).nullable().default(null),
   creditsPerImage: z.number().int().min(1).max(100000).nullable().default(null),
   creditsPerVoice: z.number().int().min(1).max(100000).nullable().default(null),
   creditsPerVideoSecond: z.number().int().min(1).max(100000).nullable().default(null),
@@ -104,6 +108,10 @@ export const policySchema = z.object({
 export type Policy = z.infer<typeof policySchema>;
 /** Owner-approved 2026-11-14 (was 8): long image videos need ~70-100 shots. A package still refuses any estimate whose per-image cost exceeds its fixed price. */
 export const PACKAGE_SHOTS_PER_CHAPTER = 20;
+/** A fixed character is honoured only when the owner set both a reference-capable provider and its price. */
+export function characterMode(configuration: Pick<Configuration,"characterReferenceAssetId">, policy: Pick<Policy,"characterImageProvider"|"characterSaleCents">) {
+  return !!configuration.characterReferenceAssetId && !!policy.characterImageProvider && policy.characterSaleCents !== null;
+}
 export function chapterCount(seconds: number) { return Math.max(1, Math.ceil(seconds / 300)); }
 export function quote(configuration: Configuration, policy: Policy) {
   if(configuration.narration && policy.narratedBundlesOnly && !policy.bundleCredits)throw new FactoryError("NARRATED_BUNDLE_REQUIRED",403);
@@ -147,11 +155,12 @@ export function quote(configuration: Configuration, policy: Policy) {
     add("sound_effects",policy.advancedProviders.sfx?shots:0,policy.creditsPerSfx);
   }
   let credits = items.reduce((n, item) => n + item.credits, 0);
-  const commercial=policy.commercial.mode==="DURATION_RETAIL"?commercialEstimate(policy.commercial,configuration.durationSeconds,configuration.quality):null;
+  const character=characterMode(configuration,policy);
+  const commercial=policy.commercial.mode==="DURATION_RETAIL"?commercialEstimate(character?{...policy.commercial,saleCents:policy.characterSaleCents!}:policy.commercial,configuration.durationSeconds,configuration.quality):null;
   if(commercial){if(!commercial.credits)throw new FactoryError("PLATFORM_CREDIT_RATE_UNAVAILABLE",503);if(credits>commercial.credits)throw new FactoryError("ACTION_BUDGET_EXCEEDS_RETAIL",503);items.push({action:"completed_film_package",quantity:1,credits:commercial.credits-credits});credits=commercial.credits;}
   if(policy.bundleCredits){if(credits>policy.bundleCredits)throw new FactoryError("BUNDLE_FEATURE_LIMIT",400);items.push({action:"creator_bundle_video",quantity:1,credits:policy.bundleCredits-credits});credits=policy.bundleCredits;}
   if (credits > Math.min(configuration.budgetCap, policy.maxProjectCredits)) throw new FactoryError("BUDGET_EXCEEDED", 402,{required:credits,budgetCap:configuration.budgetCap,maxProjectCredits:policy.maxProjectCredits});
-  return { items, credits,commercial, kind: "estimate" as const, output: configuration.mediaMode === "MULTIMEDIA" ? "multimedia_film" : "silent_storyboard_film", unavailable: [] as string[] };
+  return { items, credits,commercial,characterConsistency:character, kind: "estimate" as const, output: configuration.mediaMode === "MULTIMEDIA" ? "multimedia_film" : "silent_storyboard_film", unavailable: [] as string[] };
 }
 export type TimelineShot = z.infer<typeof shotSchema> & {chapter:number;startFrame:number;durationFrames:number};
 /** Allocate integer frames without gaps or rounding drift, including 60-minute projects. */

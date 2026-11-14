@@ -22,7 +22,7 @@ export async function produceMedia(job:{id:string;userId:string;projectId:string
   if(agent)signal=AbortSignal.any([signal,AbortSignal.timeout(agent.timeoutSeconds*1000)]);
   const allowedTool=voiceTask?"generate_voice":task.kind==="SFX"?"generate_music":`generate_${task.kind.toLowerCase()}`;
   if(agent && (!agent.allowedTools.includes(allowedTool as typeof agent.allowedTools[number])||task.credits>agent.budgetCap||job.cursor>=agent.maxSteps))throw new FactoryError("AGENT_POLICY_DENIED",403);
-  const allowed=[...Object.values(livePolicy.providers),...Object.values(livePolicy.advancedProviders),...livePolicy.fallbackProviders];
+  const allowed=[...Object.values(livePolicy.providers),...(livePolicy.characterImageProvider?[livePolicy.characterImageProvider]:[]),...Object.values(livePolicy.advancedProviders),...livePolicy.fallbackProviders];
   const consent=plan.configuration.voiceProfileId && voiceTask?await requireVoiceConsent(job.userId,plan.configuration.voiceProfileId,job.projectId):null;
   if(!allowed.includes(task.providerId))throw new FactoryError("PROVIDER_APPROVAL_REVOKED",403);
   await enforceUserPolicy(job.userId,0,[task.providerId],plan.configuration.durationSeconds>60);
@@ -72,7 +72,7 @@ export async function produceMedia(job:{id:string;userId:string;projectId:string
     }
     const response=task.kind==="VIDEO"?await pollVideo(provider,existing!.providerJobId!,signal):null;
     if(response && !response.ready)return {pending:true,plan};
-    const result:MediaResult=response?.ready?response.result:task.kind==="IMAGE"?await generateImage(provider,task.prompt,plan.configuration.ratio,signal,plan.configuration.characterReferenceAssetId?[(await assetBytes(job.userId,plan.configuration.characterReferenceAssetId)).bytes]:[]):task.kind==="TTS"?await generateSpeech(provider,task.prompt,voice,signal):task.kind==="CLONE"?await cloneVoice(provider,consent!.name,source!.bytes,source!.asset.mimeType,signal):task.kind==="ALIGNMENT"?await alignSpeech(provider,source!.bytes,task.prompt,source!.asset.mimeType,signal):task.kind==="TRANSCRIPTION"?await transcribeSpeech(provider,source!.bytes,source!.asset.mimeType,signal):task.kind==="SFX"?await generateSfx(provider,task.prompt,task.units,signal):await generateInstrumental(provider,task.prompt,task.units*60,signal);
+    const result:MediaResult=response?.ready?response.result:task.kind==="IMAGE"?await generateImage(provider,task.prompt,plan.configuration.ratio,signal,plan.configuration.characterReferenceAssetId && task.providerId===plan.policy.characterImageProvider?[await referencePng((await assetBytes(job.userId,plan.configuration.characterReferenceAssetId)).bytes)]:[]):task.kind==="TTS"?await generateSpeech(provider,task.prompt,voice,signal):task.kind==="CLONE"?await cloneVoice(provider,consent!.name,source!.bytes,source!.asset.mimeType,signal):task.kind==="ALIGNMENT"?await alignSpeech(provider,source!.bytes,task.prompt,source!.asset.mimeType,signal):task.kind==="TRANSCRIPTION"?await transcribeSpeech(provider,source!.bytes,source!.asset.mimeType,signal):task.kind==="SFX"?await generateSfx(provider,task.prompt,task.units,signal):await generateInstrumental(provider,task.prompt,task.units*60,signal);
     const current=await prisma.videoFactoryJob.findUniqueOrThrow({where:{id:job.id}});if(current.leaseToken!==job.leaseToken || !current.leaseUntil || current.leaseUntil<new Date())throw new FactoryError("STALE_WORKER");
     const asset=await saveAsset({userId:job.userId,projectId:job.projectId,jobId:job.id,shotId:task.shotId || undefined,kind:task.kind,name:task.key,metadata:{fingerprint:effectiveFingerprint},provenance:{source:"GENERATED",provider:provider.id,model:polling?existing?.model:provider.model,version:polling?existing?.promptVersion:provider.version,prompt:task.prompt,providerJobId:result.providerJobId,commercialApproved:provider.settings.commercialApproved}},result);
     const costUsd=provider.pricing.unitUsd===null?null:provider.pricing.unitUsd*(provider.pricing.unit==="second"?task.units:provider.pricing.unit==="minute"?task.units:1);
@@ -91,3 +91,5 @@ export async function produceMedia(job:{id:string;userId:string;projectId:string
 // Keep transport consumption part of this module's audited interface for webhook/download tests.
 export { boundedBytes };
 export type { ProductionPlan };
+/** References are sent as PNG at most 1536px, whatever the uploaded format. */
+async function referencePng(bytes:Buffer){const sharp=(await import("sharp")).default;return sharp(bytes,{limitInputPixels:40000000}).resize(1536,1536,{fit:"inside",withoutEnlargement:true}).png().toBuffer();}
