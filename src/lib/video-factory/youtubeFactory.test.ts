@@ -95,3 +95,12 @@ describe("fixed-character videos", () => {
     expect(new Set(images(cfg(""), on))).toEqual(new Set(["flux"]));
   });
 });
+
+describe("music availability", () => {
+  it("refuses music at estimate time when no music provider is set", () => {
+    const policy = policySchema.parse({ enabled: true, creditsPerChapter: 1, creditsPerRenderMinute: 1, creditsPerImage: 1, creditsPerVoice: 1, creditsPerMusicMinute: 1, providers: { image: "flux" }, commercial: { pipeline: "IMAGE_MOTION" } });
+    const cfg = (music: boolean) => configurationSchema.parse({ ...base, quality: "SMART", mediaMode: "MULTIMEDIA", music });
+    expect(() => quote(cfg(true), policy)).toThrow("MUSIC_UNAVAILABLE");
+    expect(() => quote(cfg(false), policy)).not.toThrow();
+  });
+});

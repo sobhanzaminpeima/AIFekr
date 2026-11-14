@@ -24,6 +24,9 @@ export const configurationSchema = z.object({
   characterReferenceAssetId: z.string().max(100).default(""),
   /** Owner's image asset used as the video thumbnail instead of the first frame. */
   thumbnailAssetId: z.string().max(100).default(""),
+  /** Owner's channel logo drawn in a corner of every shot (multimedia renders only). */
+  logoAssetId: z.string().max(100).default(""),
+  logoPosition: z.enum(["TOP_LEFT", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_RIGHT"]).default("TOP_RIGHT"),
   narration: z.boolean().default(false),
   music: z.boolean().default(false),
   musicPrompt: z.string().max(2000).default("Instrumental background, no vocals"),
@@ -122,6 +125,8 @@ export function quote(configuration: Configuration, policy: Policy) {
   if(configuration.mediaMode!=="MULTIMEDIA" && (configuration.exportStems || configuration.forcedAlignment || configuration.semanticReview || configuration.voiceProfileId || configuration.transcriptionAssetId || configuration.audioTracks.length))throw new FactoryError("ADVANCED_FEATURES_REQUIRE_MULTIMEDIA",400);
   if(configuration.forcedAlignment && !configuration.narration)throw new FactoryError("ALIGNMENT_REQUIRES_NARRATION",400);
   if (!policy.enabled) throw new FactoryError("FACTORY_DISABLED", 503);
+  // Say so at estimate time instead of failing at start: music needs an owner-enabled music provider.
+  if(configuration.music && configuration.mediaMode==="MULTIMEDIA" && !policy.providers.music)throw new FactoryError("MUSIC_UNAVAILABLE",400);
   if(policy.commercial.pipeline==="IMAGE_MOTION"){
     if(configuration.shotsPerChapter>PACKAGE_SHOTS_PER_CHAPTER)throw new FactoryError("PACKAGE_SHOT_LIMIT",400);
     if(policy.presets[configuration.quality].videoPercent>0)throw new FactoryError("GENERATIVE_VIDEO_DISABLED",400);
