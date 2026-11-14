@@ -61,3 +61,18 @@ describe("image-motion package shot cap", () => {
     expect(() => quote(config(21), pkg)).toThrow("PACKAGE_SHOT_LIMIT");
   });
 });
+
+import { FactoryError } from "./errors";
+describe("budget cap error", () => {
+  it("tells the client how many credits the cap must cover", () => {
+    const policy = policySchema.parse({ enabled: true, creditsPerChapter: 1, creditsPerRenderMinute: 1, creditsPerImage: 100, creditsPerVoice: 1, commercial: { pipeline: "IMAGE_MOTION" } });
+    const config = configurationSchema.parse({ ...base, quality: "SMART", shotsPerChapter: 20, budgetCap: 50 });
+    try { quote(config, policy); throw new Error("expected BUDGET_EXCEEDED"); }
+    catch (e) {
+      expect(e).toBeInstanceOf(FactoryError);
+      expect((e as FactoryError).code).toBe("BUDGET_EXCEEDED");
+      expect((e as FactoryError).details?.budgetCap).toBe(50);
+      expect((e as FactoryError).details?.required).toBeGreaterThan(50);
+    }
+  });
+});
