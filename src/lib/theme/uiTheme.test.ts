@@ -133,4 +133,8 @@ it("serves the industry pages and public student profiles in the new design", ()
   expect(v2Handles("/admin/financial/invoices/x")).toBe(true);
   expect(v2Handles("/admin/financial/invoices/x/y")).toBe(false);
   expect(v2Handles("/admin/llm")).toBe(true);
+  expect(v2Handles("/admin/crm")).toBe(true);
+  expect(v2Handles("/admin/seo-intelligence")).toBe(true);
+  expect(v2Handles("/admin/play")).toBe(true);
+  expect(v2Handles("/admin/play/x")).toBe(false);
 });
