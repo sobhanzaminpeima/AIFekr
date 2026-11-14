@@ -13,6 +13,8 @@ import {prisma} from "@/lib/db/prisma";
 import type {TimelineShot} from "./domain";
 import {productionCaptions} from "./alignedCaptions";
 import {renderRemotion} from "./remotion";
+import {youtubeMetadata} from "./youtubeMeta";
+import {getChannelProfile} from "./channelProfile";
 
 export function artifactDirectory(jobId: string) {
   if (!/^[a-zA-Z0-9-]{1,100}$/.test(jobId)) throw new FactoryError("INVALID_JOB_ID", 400);
@@ -141,7 +143,11 @@ export async function assemble(jobId: string, manifest: Manifest, configuration:
   else await copyFile(path.join(directory,"plate-0.png"),path.join(directory,"thumbnail.png")).catch(async()=>{await sharp(Buffer.from(storyboardSvg(manifest.chapters[0].title,0,configuration.ratio,configuration.language==="fa"))).png().toFile(path.join(directory,"thumbnail.png"));});
   const chapterStarts=manifest.chapters.map((chapter,index)=>{const s=edit.shots.find(shot=>shot.chapter===index)!;const total=Math.floor(s.startFrame/24);return `${Math.floor(total/60)}:${String(total%60).padStart(2,"0")} ${chapter.title}`;});
   await writeFile(path.join(directory,"chapters.txt"),chapterStarts.join("\n"));
-  const files = [["video", "film.mp4"], ["manifest", "manifest.json"], ["srt", "captions.srt"], ["vtt", "captions.vtt"], ["transcript", "transcript.txt"],["thumbnail","thumbnail.png"],["chapters","chapters.txt"]];
+  // Ready-to-paste upload text for creators who publish by hand.
+  const owner=await prisma.videoFactoryJob.findUnique({where:{id:jobId},select:{project:{select:{title:true,brief:true}}}}).catch(()=>null);
+  const channel=userId?await getChannelProfile(userId).catch(()=>null):null;
+  await writeFile(path.join(directory,"youtube.txt"),youtubeMetadata({title:owner?.project.title || manifest.chapters[0].title,brief:owner?.project.brief || edit.shots.map(s=>s.narration).join(" "),language:configuration.language,chapters:chapterStarts,keywords:channel?.keywords,genre:configuration.genre,channelName:channel?.name}));
+  const files = [["video", "film.mp4"], ["manifest", "manifest.json"], ["srt", "captions.srt"], ["vtt", "captions.vtt"], ["transcript", "transcript.txt"],["thumbnail","thumbnail.png"],["chapters","chapters.txt"],["youtube","youtube.txt"]];
   for(const [,file] of stemFiles)files.push([`stem_${file.split(".")[0]}`,file]);
   const archive=new JSZip();for(const [,fileName] of files)archive.file(fileName,createReadStream(path.join(directory,fileName)));
   await pipeline(archive.generateNodeStream({streamFiles:true,compression:"STORE"}),createWriteStream(path.join(directory,"project.zip")));
@@ -149,7 +155,7 @@ export async function assemble(jobId: string, manifest: Manifest, configuration:
   return Promise.all(files.map(async ([kind, fileName]) => ({ kind, fileName, bytes: (await stat(path.join(directory, fileName))).size })));
 }
 export function artifactPath(jobId: string, fileName: string) {
-  if (!["film.mp4", "manifest.json", "captions.srt", "captions.vtt", "transcript.txt","thumbnail.png","chapters.txt","project.zip","narration.m4a","music.m4a","layers.m4a"].includes(fileName)) throw new FactoryError("ARTIFACT_NOT_FOUND", 404);
+  if (!["film.mp4", "manifest.json", "captions.srt", "captions.vtt", "transcript.txt","thumbnail.png","chapters.txt","youtube.txt","project.zip","narration.m4a","music.m4a","layers.m4a"].includes(fileName)) throw new FactoryError("ARTIFACT_NOT_FOUND", 404);
   return path.join(artifactDirectory(jobId), fileName);
 }
 /** The channel logo scaled to 8% of the frame height, as a PNG with alpha. Only the owner's image assets are used. */
