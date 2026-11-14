@@ -64,7 +64,12 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
       files.push({ name: "prompts.txt", data: Buffer.from(promptList(shotMedia(manifest), configuration.styleBible), "utf8") });
       return new NextResponse(new Uint8Array(storedZip(files)), { headers: { "Content-Type": "application/zip", "Content-Disposition": `attachment; filename="images-${id}.zip"`, "Cache-Control": "private, no-store" } });
     }
-    return NextResponse.json({ version: project.version, ready: true, shots, withImage: shots.filter((s) => s.image).length });
+    // Newest narration clip per shot, for the timeline editor's preview and narration-length sync.
+    const voices = await prisma.videoFactoryAsset.findMany({ where: { userId, projectId: id, status: "READY", kind: "TTS", shotId: { in: shots.map((s) => s.id) } }, orderBy: { createdAt: "desc" }, select: { id: true, shotId: true } });
+    const voiceOf = new Map<string, string>();
+    for (const v of voices) if (v.shotId && !voiceOf.has(v.shotId)) voiceOf.set(v.shotId, v.id);
+    const withVoice = shots.map((s) => { const v = voiceOf.get(s.id); return { ...s, voice: v ? { id: v, url: `/api/video-factory/assets/${encodeURIComponent(v)}` } : null }; });
+    return NextResponse.json({ version: project.version, ready: true, shots: withVoice, withImage: shots.filter((s) => s.image).length, withVoice: voiceOf.size });
   });
 }
 
