@@ -1,4 +1,5 @@
 import {characterMode} from "./domain";
+import {styleText} from "./visualStyle";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { configurationSchema, policySchema, timeline, type Configuration, type Manifest, type Policy } from "./domain";
@@ -23,7 +24,7 @@ export function buildProductionPlan(manifest:Manifest,configuration:Configuratio
     if(configuration.narration && configuration.voiceProfileId)add("CLONE",null,configuration.voiceProfileId,policy.creditsPerClone!);
     if(configuration.transcriptionAssetId)add("TRANSCRIPTION",null,configuration.transcriptionAssetId,policy.creditsPerTranscription!);
     edit.shots.forEach((shot,index)=>{
-      const prompt=`${shot.visualPrompt}\nStyle and continuity: ${configuration.styleBible}\nVisual revision: ${shot.revision || 0}\nCharacter reference: ${manifest.characters.map(c=>`${c.name}: ${c.description}`).join("; ")}`;
+      const prompt=`${shot.visualPrompt}\nStyle and continuity: ${styleText(configuration)}\nVisual revision: ${shot.revision || 0}\nCharacter reference: ${manifest.characters.map(c=>`${c.name}: ${c.description}`).join("; ")}`;
       const code=["TITLE","CHART","MAP"].includes(shot.motion);
       if(!shot.assetId && !code && kinds[index]==="IMAGE")add("IMAGE",shot.id,prompt,policy.creditsPerImage!);
       if(!shot.assetId && !code && kinds[index]==="VIDEO")add("VIDEO",shot.id,prompt,policy.creditsPerVideoSecond!*4,4);
