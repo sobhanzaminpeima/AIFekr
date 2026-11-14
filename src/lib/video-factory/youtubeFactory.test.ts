@@ -50,3 +50,14 @@ describe("YouTube factory: character, thumbnail and channel", () => {
     expect(() => channelProfileSchema.parse({ extra: 1 })).toThrow();
   });
 });
+
+import { PACKAGE_SHOTS_PER_CHAPTER, quote } from "./domain";
+describe("image-motion package shot cap", () => {
+  const pkg = policySchema.parse({ enabled: true, creditsPerChapter: 1, creditsPerRenderMinute: 1, creditsPerImage: 1, creditsPerVoice: 1, commercial: { pipeline: "IMAGE_MOTION" } });
+  const config = (shotsPerChapter: number) => configurationSchema.parse({ ...base, quality: "SMART", shotsPerChapter });
+  it("allows up to the approved 20 shots per chapter and refuses more", () => {
+    expect(PACKAGE_SHOTS_PER_CHAPTER).toBe(20);
+    expect(quote(config(20), pkg).items.find((i) => i.action === "images")?.quantity).toBe(20);
+    expect(() => quote(config(21), pkg)).toThrow("PACKAGE_SHOT_LIMIT");
+  });
+});

@@ -102,6 +102,8 @@ export const policySchema = z.object({
   }).default({SMART:{videoPercent:0,imagePercent:80},CINEMATIC_HYBRID:{videoPercent:40,imagePercent:50},FILM_STUDIO:{videoPercent:80,imagePercent:20}}),
 }).strict();
 export type Policy = z.infer<typeof policySchema>;
+/** Owner-approved 2026-11-14 (was 8): long image videos need ~70-100 shots. A package still refuses any estimate whose per-image cost exceeds its fixed price. */
+export const PACKAGE_SHOTS_PER_CHAPTER = 20;
 export function chapterCount(seconds: number) { return Math.max(1, Math.ceil(seconds / 300)); }
 export function quote(configuration: Configuration, policy: Policy) {
   if(configuration.narration && policy.narratedBundlesOnly && !policy.bundleCredits)throw new FactoryError("NARRATED_BUNDLE_REQUIRED",403);
@@ -110,7 +112,7 @@ export function quote(configuration: Configuration, policy: Policy) {
   if(configuration.forcedAlignment && !configuration.narration)throw new FactoryError("ALIGNMENT_REQUIRES_NARRATION",400);
   if (!policy.enabled) throw new FactoryError("FACTORY_DISABLED", 503);
   if(policy.commercial.pipeline==="IMAGE_MOTION"){
-    if(configuration.shotsPerChapter>8)throw new FactoryError("PACKAGE_SHOT_LIMIT",400);
+    if(configuration.shotsPerChapter>PACKAGE_SHOTS_PER_CHAPTER)throw new FactoryError("PACKAGE_SHOT_LIMIT",400);
     if(policy.presets[configuration.quality].videoPercent>0)throw new FactoryError("GENERATIVE_VIDEO_DISABLED",400);
     if(configuration.voiceProfileId||configuration.forcedAlignment||configuration.semanticReview||configuration.transcriptionAssetId||policy.advancedProviders.sfx)throw new FactoryError("ADDON_NOT_PRICED_FOR_PACKAGE",400);
   }
