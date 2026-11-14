@@ -22,7 +22,7 @@ export async function factoryRoute(req: NextRequest, admin: boolean, handler: (u
   try { return await handler(user.id); }
   catch (error) {
     const code = error instanceof FactoryError ? error.code : error instanceof ZodError || error instanceof SyntaxError ? "INVALID_INPUT" : "VIDEO_FACTORY_UNAVAILABLE";
-    return NextResponse.json({ code }, { status: error instanceof FactoryError ? error.status : error instanceof ZodError || error instanceof SyntaxError ? 400 : 503 });
+    return NextResponse.json({ code, ...(error instanceof FactoryError && error.details ? { details: error.details } : {}) }, { status: error instanceof FactoryError ? error.status : error instanceof ZodError || error instanceof SyntaxError ? 400 : 503 });
   }
 }
 export async function boundedJson(req: NextRequest) {

@@ -150,7 +150,7 @@ export function quote(configuration: Configuration, policy: Policy) {
   const commercial=policy.commercial.mode==="DURATION_RETAIL"?commercialEstimate(policy.commercial,configuration.durationSeconds,configuration.quality):null;
   if(commercial){if(!commercial.credits)throw new FactoryError("PLATFORM_CREDIT_RATE_UNAVAILABLE",503);if(credits>commercial.credits)throw new FactoryError("ACTION_BUDGET_EXCEEDS_RETAIL",503);items.push({action:"completed_film_package",quantity:1,credits:commercial.credits-credits});credits=commercial.credits;}
   if(policy.bundleCredits){if(credits>policy.bundleCredits)throw new FactoryError("BUNDLE_FEATURE_LIMIT",400);items.push({action:"creator_bundle_video",quantity:1,credits:policy.bundleCredits-credits});credits=policy.bundleCredits;}
-  if (credits > Math.min(configuration.budgetCap, policy.maxProjectCredits)) throw new FactoryError("BUDGET_EXCEEDED", 402);
+  if (credits > Math.min(configuration.budgetCap, policy.maxProjectCredits)) throw new FactoryError("BUDGET_EXCEEDED", 402,{required:credits,budgetCap:configuration.budgetCap,maxProjectCredits:policy.maxProjectCredits});
   return { items, credits,commercial, kind: "estimate" as const, output: configuration.mediaMode === "MULTIMEDIA" ? "multimedia_film" : "silent_storyboard_film", unavailable: [] as string[] };
 }
 export type TimelineShot = z.infer<typeof shotSchema> & {chapter:number;startFrame:number;durationFrames:number};
