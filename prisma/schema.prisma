@@ -4816,6 +4816,22 @@ model VideoFactoryChannel {
   updatedAt DateTime @updatedAt
 }
 
+/// The owner's YouTube channel details, typed in by hand (no Google access needed).
+/// Used as reference data when writing scripts and as defaults for titles and descriptions.
+model VideoFactoryChannelProfile {
+  userId      String   @id
+  handle      String   @default("")
+  name        String   @default("")
+  niche       String   @default("")
+  audience    String   @default("")
+  language    String   @default("fa")
+  tone        String   @default("")
+  description String   @default("")
+  keywords    String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model VideoFactoryWebhookEvent {
   id String @id
   providerJobId String

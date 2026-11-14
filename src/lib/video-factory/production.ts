@@ -16,7 +16,7 @@ export function buildProductionPlan(manifest:Manifest,configuration:Configuratio
   const edit=timeline(manifest,configuration.durationSeconds),kinds=visualKinds(edit.shots.length,policy,configuration.quality,configuration.imageEveryShot),tasks:MediaTask[]=[];
   const add=(kind:MediaTask["kind"],shotId:string|null,prompt:string,credits:number,units=1)=>{
     const providerId=["CLONE","ALIGNMENT","TRANSCRIPTION","SFX"].includes(kind)?policy.advancedProviders[kind.toLowerCase() as "clone"|"alignment"|"transcription"|"sfx"]:policy.providers[kind==="TTS"?"tts":kind.toLowerCase() as "image"|"video"|"music"];
-    tasks.push({key:`${kind.toLowerCase()}-${shotId || "bed"}`,kind,shotId,prompt,providerId,credits,units,fingerprint:fingerprint({kind,prompt,providerId,voice:kind==="TTS"?configuration.voice:null,voiceProfileId:configuration.voiceProfileId,ratio:configuration.ratio,style:configuration.styleBible})});
+    tasks.push({key:`${kind.toLowerCase()}-${shotId || "bed"}`,kind,shotId,prompt,providerId,credits,units,fingerprint:fingerprint({kind,prompt,providerId,voice:kind==="TTS"?configuration.voice:null,voiceProfileId:configuration.voiceProfileId,ratio:configuration.ratio,style:configuration.styleBible,...(kind==="IMAGE"&&configuration.characterReferenceAssetId?{characterReference:configuration.characterReferenceAssetId}:{})})});
   };
   if(configuration.mediaMode==="MULTIMEDIA"){
     if(configuration.narration && configuration.voiceProfileId)add("CLONE",null,configuration.voiceProfileId,policy.creditsPerClone!);

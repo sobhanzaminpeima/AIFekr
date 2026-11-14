@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
+import { channelContext, getChannelProfile } from "./channelProfile";
 import { getPolicy } from "./config";
 import { chapterCount, configurationSchema, FactoryError, manifestSchema, policySchema, timeline, type Manifest } from "./domain";
 import { approvedProvider, generateChapter,generateIdeas,prepareCreativeRoles,generateSceneMotion } from "./providers";
@@ -89,7 +90,8 @@ export async function processFactoryTick() {
         if (!lock.count) throw new FactoryError("JOB_NO_LONGER_ACTIVE");
         await tx.videoFactoryStep.create({ data: { jobId: queued.id, key: stepKey, status: "SUBMITTED", credits: slice, inputHash: hash({ version: queued.projectVersion, cursor: queued.cursor, brief: queued.project.brief,creativeInstructions }), promptVersion:agent?.version,provider: modelId } });
       });
-      const generated = await generateChapter(policy.approvedModelId, { brief: queued.project.brief, title: queued.project.title, configuration,approvedPlan:JSON.parse(queued.project.planning),sources:JSON.parse(queued.project.research),chapterIndex: queued.cursor, chapterCount: chapterCount(configuration.durationSeconds), chapterIdPrefix: `c${queued.cursor}-`, priorContinuity: manifest.chapters.map(c => c.continuity) }, agent?AbortSignal.any([controller.signal,AbortSignal.timeout(agent.timeoutSeconds*1000)]):controller.signal, provider,creativeInstructions);
+      const channel=channelContext(await getChannelProfile(queued.userId));
+      const generated = await generateChapter(policy.approvedModelId, { brief: queued.project.brief, title: queued.project.title, ...(channel?{channel}:{}), configuration,approvedPlan:JSON.parse(queued.project.planning),sources:JSON.parse(queued.project.research),chapterIndex: queued.cursor, chapterCount: chapterCount(configuration.durationSeconds), chapterIdPrefix: `c${queued.cursor}-`, priorContinuity: manifest.chapters.map(c => c.continuity) }, agent?AbortSignal.any([controller.signal,AbortSignal.timeout(agent.timeoutSeconds*1000)]):controller.signal, provider,creativeInstructions);
       if(generated.chapter.shots.length>configuration.shotsPerChapter)throw new FactoryError("SHOT_BUDGET_EXCEEDED",502);
       // Canonical IDs are internally assigned, independent of model-controlled identifiers.
       generated.chapter.shots = generated.chapter.shots.map((s, i) => ({ ...s, id: `c${queued.cursor}-s${i}` }));

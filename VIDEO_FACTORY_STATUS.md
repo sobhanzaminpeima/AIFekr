@@ -2,7 +2,9 @@
 
 Checkpoint for the master prompt `AIFekr_YouTube_Video_Factory_Claude_Code_Master_Prompt.md`. The owner asked (2026-11-14) to build it inside the existing **Video Factory** (کارخانهٔ ویدیو), fully automated: script → list of every image prompt → generate them one by one → a Google-Flow-like media page with upload and download.
 
-Branches: backend `claude/video-factory-media-20261114`, UI `claude/video-factory-media-ui-20261114`. **Not pushed, not deployed.**
+Branches:
+- **Media & prompts:** backend `claude/video-factory-media-20261114`, UI `claude/video-factory-media-ui-20261114`. Merged to main; not yet deployed.
+- **Channel, character and thumbnail:** backend `claude/video-factory-youtube-20261114`, UI `claude/video-factory-youtube-ui-20261114`. Includes one additive migration.
 
 ## Phase 0: what already exists (verified in code)
 
@@ -34,6 +36,39 @@ The factory is far along. Do not rebuild it.
   - `lib/video-factory/media.test.ts`: numbering, prompt list, filename matching, edits, ZIP bytes and CRC, every-shot plan.
   - `api/video-factory/projects/[id]/media/route.test.ts`: list, prompts, ZIP, attach, unknown shot.
   - UI spec `tests/factory-media.spec.ts`.
+
+## Built in checkpoint 2: channel, fixed character, thumbnail
+
+- **Channel details** (`/video-factory?tab=channel`):
+  - Fields: handle, name, niche, audience, language, tone, description and keywords.
+  - Stored in `VideoFactoryChannelProfile` (migration `20261114120000_video_factory_channel_profile`); API `GET|PUT /api/video-factory/channel-profile`.
+  - The filled fields go to the script writer as reference data. No Google access is needed.
+- **Fixed character** (top of the Characters tab):
+  - Generate a character sheet through the existing image studio route (`/api/image/generate`, its approved price), upload one with rights confirmed, or pick a project image.
+  - `configuration.characterReferenceAssetId` sends that image with every generated shot: Gemini gets an inline image, OpenAI goes through `/images/edits`, and Cloudflare uses the text only.
+  - Image fingerprints change only when a reference is set, so existing projects keep their paid images.
+  - Generated images are imported through `POST /api/video-factory/assets/import` (owner-checked, `safeFetch`).
+- **Thumbnail** (Media tab):
+  - Pick any shot image as the thumbnail and download it.
+  - `configuration.thumbnailAssetId` becomes `thumbnail.png` at assembly.
+- **Tests:** `lib/video-factory/youtubeFactory.test.ts` covers fingerprint stability, the Gemini and OpenAI reference payloads, and channel validation.
+
+## Master prompt coverage (honest)
+
+| Area | State |
+| --- | --- |
+| Idea → script → shots → images → voice → render → MP4, one start in Autopilot | Built earlier; no live paid end-to-end run verified |
+| Prompts as `[SHOT n]`, images as `SHOT_###` and ZIP, bulk import by filename (Google Flow path) | Done |
+| Channel details used by the writer | Done (channel *presets* of style and voice are not yet saved) |
+| One fixed character from a reference image | Done; consistency depends on the provider, never guaranteed |
+| Visual bible, multi-view character sheet, approve first 3 shots before bulk | Not done |
+| Visual modes (Stickman / Custom / Cinematic / Hybrid) as presets | Not done; the style bible is free text today |
+| Thumbnail choice | Done |
+| Forced alignment exists, but as an option, not the default; equal split is still the fallback | Partial |
+| Text → audio → scene mapping view; drag-and-drop timeline; Ken Burns controls | Not done |
+| Pricing versions, admin cost reports and landing section for the factory | Partial (billing exists); landing not done |
+| 70–100 images per video | Blocked by the IMAGE_MOTION package cap of 8 shots per chapter, an owner pricing decision |
+| YouTube connect and publish | Built, but Google OAuth keys are not set on production |
 
 ## Not done yet, in order
 
