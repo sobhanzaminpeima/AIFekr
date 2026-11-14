@@ -127,7 +127,7 @@ it("serves the industry pages and public student profiles in the new design", ()
   expect(v2Handles("/admin/fitness")).toBe(true);
   expect(v2Handles("/admin/fitness/users")).toBe(true);
   expect(v2Handles("/admin/fitness/marketplace")).toBe(true);
-  expect(v2Handles("/admin/video-factory")).toBe(false);
+  expect(v2Handles("/admin/video-factory")).toBe(true);
   expect(v2Handles("/admin/voice-studio")).toBe(true);
   expect(v2Handles("/admin/voice-agent")).toBe(true);
   expect(v2Handles("/admin/financial/invoices/x")).toBe(true);
