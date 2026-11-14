@@ -1,0 +1,47 @@
+# Video Factory: long-video price proposal (draft, not applied)
+
+Status: **proposal for the owner, 2026-11-14.** Nothing here is live until the owner approves the numbers.
+
+## What the owner asked for
+
+- Long image videos (5–10 minutes, 70–100+ images) are paid from the normal credit wallet.
+- If the balance is short, the user buys credits right there. That flow is built: the cost step shows credit packs and returns the user to the factory after payment.
+
+## Cost basis
+
+All costs come from the production rate card (`videoFactoryPolicy`, checked 2026-10-20), per minute of finished video.
+
+| Item | Basis | Cost per minute |
+| --- | --- | --- |
+| Script and research (Llama 3.3 70B, Cloudflare) | rate card token rates | $0.033 |
+| 10 images, Flux Schnell (current provider) | $0.00063 per image | $0.006 |
+| 10 images, Gemini image (needed for the fixed character) | about $0.039 per image (**to verify**: the rate card has no price for this model) | $0.39 |
+| Narration, ElevenLabs | about 800 characters × $0.08 per 1k | $0.064 |
+| Render and platform | rate card estimate (`infrastructureMeasured: false`) | $0.20 |
+
+- **Retry reserve:** +25%, from the rate card's `retryReservePercent`.
+- **Margin:** the owner-approved 65%.
+- **Credit value:** $0.00216 per credit, the cheapest pack's rate (the same basis as Voice Studio pricing).
+
+## Proposal
+
+| Option | Cost per minute | Price per minute | Credits per minute | 8-minute video |
+| --- | --- | --- | --- | --- |
+| **A. Standard long video** (Flux images) | $0.38 | $1.08 | **500** | 4,000 credits |
+| **B. Long video with a fixed character** (Gemini images with a reference) | $0.86 | $2.45 | **1,150** | 9,200 credits |
+| For comparison: today's approved retail | — | $3.56 | 1,648 | 13,200 credits |
+
+### Notes
+
+- **Option A** is cheaper than today's retail and keeps a 65% margin. Most of the cost is the render and platform estimate, which has not been measured yet; re-check it after 2 weeks of real use.
+- **Option B** is the only way the fixed character works. The current image provider (Cloudflare Flux) ignores the reference image.
+  - Option B needs a Gemini image provider registered in the factory and its price verified.
+  - Choosing the provider per project (Flux for A, Gemini for B) is a small backend change that is not built yet.
+
+## Applying it after approval
+
+This is admin configuration, not code:
+
+1. In `videoFactoryPolicy`, set `packageRequired: false` so videos are paid from the credit wallet. The current package holders keep their package credits.
+2. Keep `commercial.mode: DURATION_RETAIL`, set `saleCents` to 108 per 60 s (option A), and set `creditRate` so 1 credit = 0.216 US cents.
+3. The quote then charges the per-minute price in credits. The existing guards (`ACTION_BUDGET_EXCEEDS_RETAIL`, the daily cap and the budget cap) stay in force.
