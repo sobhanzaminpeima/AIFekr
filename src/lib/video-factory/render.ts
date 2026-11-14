@@ -131,7 +131,9 @@ export async function assemble(jobId: string, manifest: Manifest, configuration:
   await writeFile(path.join(directory, "captions.srt"), subtitles(edit, "srt", configuration.language,cues));
   await writeFile(path.join(directory, "captions.vtt"), subtitles(edit, "vtt", configuration.language,cues));
   await writeFile(path.join(directory, "transcript.txt"), edit.shots.map(s => s.narration).join("\n\n"));
-  await copyFile(path.join(directory,"plate-0.png"),path.join(directory,"thumbnail.png")).catch(async()=>{await sharp(Buffer.from(storyboardSvg(manifest.chapters[0].title,0,configuration.ratio,configuration.language==="fa"))).png().toFile(path.join(directory,"thumbnail.png"));});
+  const chosenThumbnail=configuration.thumbnailAssetId&&userId?await ownedAsset(userId,configuration.thumbnailAssetId).catch(()=>null):null;
+  if(chosenThumbnail?.kind==="IMAGE")await sharp(storagePath(chosenThumbnail.storageKey),{limitInputPixels:40000000}).resize({width:1280,height:1280,fit:"inside",withoutEnlargement:true}).png().toFile(path.join(directory,"thumbnail.png"));
+  else await copyFile(path.join(directory,"plate-0.png"),path.join(directory,"thumbnail.png")).catch(async()=>{await sharp(Buffer.from(storyboardSvg(manifest.chapters[0].title,0,configuration.ratio,configuration.language==="fa"))).png().toFile(path.join(directory,"thumbnail.png"));});
   const chapterStarts=manifest.chapters.map((chapter,index)=>{const s=edit.shots.find(shot=>shot.chapter===index)!;const total=Math.floor(s.startFrame/24);return `${Math.floor(total/60)}:${String(total%60).padStart(2,"0")} ${chapter.title}`;});
   await writeFile(path.join(directory,"chapters.txt"),chapterStarts.join("\n"));
   const files = [["video", "film.mp4"], ["manifest", "manifest.json"], ["srt", "captions.srt"], ["vtt", "captions.vtt"], ["transcript", "transcript.txt"],["thumbnail","thumbnail.png"],["chapters","chapters.txt"]];
