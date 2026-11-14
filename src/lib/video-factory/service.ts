@@ -19,7 +19,7 @@ async function validateAdvancedReferences(userId:string,projectId:string,configu
  if(configuration.voiceProfileId)await requireVoiceConsent(userId,configuration.voiceProfileId,projectId);
  for(const id of [configuration.transcriptionAssetId,...configuration.audioTracks.map(t=>t.assetId)].filter(Boolean)){const asset=await ownedAsset(userId,id);if(!asset.mimeType.startsWith("audio/"))throw new FactoryError("INVALID_AUDIO_ASSET",400);}
  if(configuration.audioTracks.some(t=>t.startSeconds+t.durationSeconds>configuration.durationSeconds))throw new FactoryError("AUDIO_TRACK_OUTSIDE_TIMELINE",400);
- for(const id of [configuration.characterReferenceAssetId,configuration.thumbnailAssetId].filter(Boolean)){const asset=await ownedAsset(userId,id);if(asset.kind!=="IMAGE" || !asset.mimeType.startsWith("image/"))throw new FactoryError("INVALID_IMAGE_ASSET",400);}
+ for(const id of [configuration.characterReferenceAssetId,configuration.thumbnailAssetId,configuration.logoAssetId].filter(Boolean)){const asset=await ownedAsset(userId,id);if(asset.kind!=="IMAGE" || !asset.mimeType.startsWith("image/"))throw new FactoryError("INVALID_IMAGE_ASSET",400);}
 }
 export async function updateProjectConfiguration(userId:string,id:string,expectedVersion:number,input:unknown){
  const configuration=configurationSchema.parse(input);await validateAdvancedReferences(userId,id,configuration);

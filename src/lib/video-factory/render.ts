@@ -62,7 +62,7 @@ export async function renderShot(jobId: string, index: number, manifest: Manifes
   const plate = path.join(directory, `plate-${index}.png`), output = path.join(directory, `shot-${index}.mp4`);
   const captions=await captionFilter(directory,index,edit,configuration,plan,userId);
   const localShot={...shot,startFrame:undefined,chapter:undefined};
-  const signature=createHash("sha256").update(JSON.stringify({shot:localShot,index,durationFrames:shot.durationFrames,configuration:{ratio:configuration.ratio,resolution:configuration.resolution,mediaMode:configuration.mediaMode,renderer:plan?.policy.commercial.renderer,voice:configuration.voice,narration:configuration.narration,captions:configuration.captions,captionStyle:configuration.captionStyle,language:configuration.language,transition:configuration.transition},assets:plan?Object.entries(plan.assetIds).filter(([key])=>key.endsWith(`-${shot.id}`)).sort():[]})).digest("hex");
+  const signature=createHash("sha256").update(JSON.stringify({shot:localShot,index,durationFrames:shot.durationFrames,configuration:{ratio:configuration.ratio,resolution:configuration.resolution,mediaMode:configuration.mediaMode,renderer:plan?.policy.commercial.renderer,voice:configuration.voice,narration:configuration.narration,captions:configuration.captions,captionStyle:configuration.captionStyle,language:configuration.language,transition:configuration.transition,...(configuration.logoAssetId?{logo:configuration.logoAssetId,logoPosition:configuration.logoPosition}:{})},assets:plan?Object.entries(plan.assetIds).filter(([key])=>key.endsWith(`-${shot.id}`)).sort():[]})).digest("hex");
   if(userId){
     const previous=await prisma.videoFactoryStep.findFirst({where:{inputHash:signature,status:"COMPLETED",job:{userId,status:"DELIVERED"}},orderBy:{completedAt:"desc"},select:{jobId:true,output:true}});
     if(previous?.output){const saved=JSON.parse(previous.output) as {fileName?:string};if(saved.fileName && /^shot-\d+\.mp4$/.test(saved.fileName))try{await copyFile(path.join(artifactDirectory(previous.jobId),saved.fileName),output);return {reused:true,signature};}catch{/* Expired source media is rendered again. */}}
@@ -99,7 +99,11 @@ export async function renderShot(jobId: string, index: number, manifest: Manifes
     const scale=`scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},setsar=1`;
     const motion=!remotionVideo && !visual?.mimeType.startsWith("video/") && shot.motion==="PUSH_IN"?`,zoompan=z='min(zoom+0.0005,1.12)':x='(iw-iw/zoom)/2':y='(ih-ih/zoom)/2':d=1:s=${width}x${height}:fps=24`:!remotionVideo && !visual?.mimeType.startsWith("video/") && shot.motion==="PAN"?`,zoompan=z=1.15:x='min(iw-iw/zoom,on*2)':y='(ih-ih/zoom)/2':d=1:s=${width}x${height}:fps=24`:"";
     const fade=configuration.transition==="FADE"?",fade=t=in:st=0:d=0.2":"";
-    await mediaCommand("ffmpeg",["-y","-threads","1",...input,"-vf",`${scale}${motion}${fade}${captions}`,"-map","0:v:0","-map","1:a:0","-af",audioFilter,"-frames:v",String(shot.durationFrames),"-t",String(seconds),"-c:v","libx264","-preset","ultrafast","-pix_fmt","yuv420p","-r","24","-c:a","aac","-ar","48000","-ac","2","-threads","1",output],signal,false,directory);
+    const logo=configuration.logoAssetId?await logoPlate(userId,configuration.logoAssetId,directory,height):null;
+    const corner={TOP_LEFT:"24:24",TOP_RIGHT:"W-w-24:24",BOTTOM_LEFT:"24:H-h-24",BOTTOM_RIGHT:"W-w-24:H-h-24"}[configuration.logoPosition];
+    if(logo)input.push("-loop","1","-framerate","24","-i",logo);
+    const video=logo?["-filter_complex",`[0:v]${scale}${motion}${fade}${captions}[base];[2:v]format=rgba,colorchannelmixer=aa=0.85[logo];[base][logo]overlay=${corner}:shortest=1[v]`,"-map","[v]"]:["-vf",`${scale}${motion}${fade}${captions}`,"-map","0:v:0"];
+    await mediaCommand("ffmpeg",["-y","-threads","1",...input,...video,"-map","1:a:0","-af",audioFilter,"-frames:v",String(shot.durationFrames),"-t",String(seconds),"-c:v","libx264","-preset","ultrafast","-pix_fmt","yuv420p","-r","24","-c:a","aac","-ar","48000","-ac","2","-threads","1",output],signal,false,directory);
     return {reused:false,signature};
   }
   const [width,height]=dimensions(configuration.ratio,configuration.resolution);
@@ -148,6 +152,11 @@ export function artifactPath(jobId: string, fileName: string) {
   if (!["film.mp4", "manifest.json", "captions.srt", "captions.vtt", "transcript.txt","thumbnail.png","chapters.txt","project.zip","narration.m4a","music.m4a","layers.m4a"].includes(fileName)) throw new FactoryError("ARTIFACT_NOT_FOUND", 404);
   return path.join(artifactDirectory(jobId), fileName);
 }
-
-
-
+/** The channel logo scaled to 8% of the frame height, as a PNG with alpha. Only the owner's image assets are used. */
+async function logoPlate(userId:string,assetId:string,directory:string,frameHeight:number){
+  const asset=await ownedAsset(userId,assetId).catch(()=>null);
+  if(!asset || !asset.mimeType.startsWith("image/"))return null;
+  const file=path.join(directory,"logo.png");
+  await sharp(storagePath(asset.storageKey),{limitInputPixels:40000000}).resize({height:Math.max(24,Math.round(frameHeight*0.08)),withoutEnlargement:false}).png().toFile(file);
+  return file;
+}
