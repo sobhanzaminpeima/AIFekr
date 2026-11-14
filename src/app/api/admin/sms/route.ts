@@ -6,6 +6,7 @@ import { requireAdmin, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { getSmsConfig, publicSmsConfig, saveSmsConfig } from "@/lib/sms/config";
 import { SmsError, smsirCredit, smsirLines, smsirTemplates } from "@/lib/sms/smsirApi";
+import { onesmsBalance } from "@/lib/sms/onesmsApi";
 import { sendOtpSms } from "@/lib/sms/send";
 import { normalizeMobile } from "@/lib/sms/audience";
 import { PHONE_SIGNUP_KEY, phoneSignupEnabled } from "@/lib/auth/phoneSignup";
@@ -64,10 +65,12 @@ export async function POST(req: NextRequest) {
     switch (body.data.action) {
       case "check": {
         // Free, read-only calls: proves the key, shows credit and the lines it may send from.
+        if (c.provider === "onesms") return NextResponse.json({ ok: true, credit: await onesmsBalance(c.apiKey), lines: c.lineNumber ? [c.lineNumber] : [], lineConfigured: !!c.lineNumber, linesUnverified: true });
         const [credit, lines] = await Promise.all([smsirCredit(c.apiKey), smsirLines(c.apiKey)]);
         return NextResponse.json({ ok: true, credit, lines: lines.map(String), lineConfigured: !!c.lineNumber && lines.map(String).includes(c.lineNumber) });
       }
       case "templates":
+        if (c.provider === "onesms") return NextResponse.json({ error: "onesms has no template list API; copy the pattern key from the onesms panel", code: "NOT_SUPPORTED" }, { status: 400 });
         return NextResponse.json({ templates: await smsirTemplates(c.apiKey) });
       case "phoneSignup": {
         await prisma.siteSetting.upsert({ where: { key: PHONE_SIGNUP_KEY }, create: { key: PHONE_SIGNUP_KEY, value: JSON.stringify({ enabled: body.data.enabled }) }, update: { value: JSON.stringify({ enabled: body.data.enabled }) } });

@@ -11,9 +11,9 @@ import { decryptSecret, encryptSecret } from "@/lib/crypto/secretBox";
 export const SMS_SETTING = "smsProvider";
 
 const schema = z.object({
-  provider: z.literal("smsir").default("smsir"),
+  provider: z.enum(["smsir", "onesms"]).default("smsir"),
   apiKey: z.string().max(400).default(""),
-  lineNumber: z.string().regex(/^\d{0,20}$/).default(""),
+  lineNumber: z.string().regex(/^\+?\d{0,20}$/).default(""),
   /** The verify (OTP) template's id as the provider's API knows it. */
   otpTemplateId: z.string().max(60).default(""),
   /** The template's placeholder that receives the code, e.g. CODE. */

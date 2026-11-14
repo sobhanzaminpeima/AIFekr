@@ -1,5 +1,6 @@
 import { getSmsConfig } from "./config";
 import { SMSIR_BULK_LIMIT, SmsError, smsirBulk, smsirVerify } from "./smsirApi";
+import { ONESMS_BATCH_LIMIT, onesmsPattern, onesmsQuick } from "./onesmsApi";
 
 const devMode = () => process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
 
@@ -15,8 +16,12 @@ export async function sendOtpSms(phone: string, code: string): Promise<boolean> 
     return false;
   }
   try {
-    if (c.otpTemplateId) await smsirVerify(c.apiKey, phone, c.otpTemplateId, { [c.otpParam]: code });
-    else await smsirBulk(c.apiKey, c.lineNumber, `کد ورود به آی‌فکر: ${code}\nاین کد تا ۵ دقیقه معتبر است.\nAiFekr.com`, [phone]);
+    const text = `کد ورود به آی‌فکر: ${code}\nاین کد تا ۵ دقیقه معتبر است.\nAiFekr.com`;
+    if (c.provider === "onesms") {
+      if (c.otpTemplateId) await onesmsPattern(c.apiKey, c.lineNumber, phone, c.otpTemplateId, { [c.otpParam]: code });
+      else await onesmsQuick(c.apiKey, c.lineNumber, text, [phone]);
+    } else if (c.otpTemplateId) await smsirVerify(c.apiKey, phone, c.otpTemplateId, { [c.otpParam]: code });
+    else await smsirBulk(c.apiKey, c.lineNumber, text, [phone]);
     return true;
   } catch (e) {
     console.error("[sms] OTP send failed:", e instanceof SmsError ? `${e.code} ${e.message}` : e instanceof Error ? e.name : "unknown");
@@ -30,9 +35,16 @@ export async function sendTextSms(mobiles: string[], text: string) {
   if (!c.apiKey || !c.lineNumber) throw new SmsError("NOT_CONFIGURED", "SMS key or line number is not set");
   let sent = 0, failed = 0, cost = 0;
   const errors: string[] = [];
-  for (let i = 0; i < mobiles.length; i += SMSIR_BULK_LIMIT) {
-    const batch = mobiles.slice(i, i + SMSIR_BULK_LIMIT);
+  const limit = c.provider === "onesms" ? ONESMS_BATCH_LIMIT : SMSIR_BULK_LIMIT;
+  for (let i = 0; i < mobiles.length; i += limit) {
+    const batch = mobiles.slice(i, i + limit);
     try {
+      if (c.provider === "onesms") {
+        // onesms documents no per-number result: an accepted request counts its whole batch as sent.
+        await onesmsQuick(c.apiKey, c.lineNumber, text, batch);
+        sent += batch.length;
+        continue;
+      }
       const r = await smsirBulk(c.apiKey, c.lineNumber, text, batch);
       const ok = (r.messageIds ?? []).filter((id) => typeof id === "number" && id > 0).length;
       sent += ok; failed += batch.length - ok; cost += r.cost ?? 0;
