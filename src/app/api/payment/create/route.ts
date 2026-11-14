@@ -22,7 +22,9 @@ import { closeAbandonedGatewayOrder } from "@/lib/payment/adminLifecycle";
 import { mainPlanConflict } from "@/lib/payment/planConflict";
 import { RETIRED_PUBLIC_PLAN_CODES } from "@/lib/billing/packageCategories";
 /** A module the buyer upgraded from; payment/verify sends them back there (see resultPath). */
-const MODULE_RETURN_PATHS: unknown[] = GROWTH_MODULES.flatMap(m => [m.paths[0], moduleEntry(m)]);
+/** Credit top-ups started from a tool return there after payment. */
+const CREDIT_RETURN_PATHS = ["/video-factory"];
+const MODULE_RETURN_PATHS: unknown[] = [...GROWTH_MODULES.flatMap(m => [m.paths[0], moduleEntry(m)]), ...CREDIT_RETURN_PATHS];
 export async function POST(req: NextRequest) {
  const user=await requireAuth(req); if(!user)return unauthorizedResponse(req);
  if(!rateLimit(`payment-create:${user.id}`,10,300000).allowed)return bankError(req,"Too many requests",429);
