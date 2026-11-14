@@ -8,12 +8,12 @@ export const productionPlanSchema=z.object({configuration:configurationSchema,po
 export type ProductionPlan=z.infer<typeof productionPlanSchema>;
 export function fingerprint(value:unknown){return createHash("sha256").update(JSON.stringify(value)).digest("hex");}
 /** Assign a stable, budgeted mixture of generated clips/images and deterministic code scenes. */
-export function visualKinds(count:number,policy:Policy,quality:Configuration["quality"]){
-  const mix=policy.presets[quality],videos=Math.ceil(count*mix.videoPercent/100),images=Math.min(count-videos,Math.ceil(count*mix.imagePercent/100));
+export function visualKinds(count:number,policy:Policy,quality:Configuration["quality"],imageEveryShot=false){
+  const mix=policy.presets[quality],videos=Math.ceil(count*mix.videoPercent/100),images=imageEveryShot?count-videos:Math.min(count-videos,Math.ceil(count*mix.imagePercent/100));
   return Array.from({length:count},(_,i)=>i<videos?"VIDEO" as const:i<videos+images?"IMAGE" as const:"CODE" as const);
 }
 export function buildProductionPlan(manifest:Manifest,configuration:Configuration,policy:Policy):ProductionPlan{
-  const edit=timeline(manifest,configuration.durationSeconds),kinds=visualKinds(edit.shots.length,policy,configuration.quality),tasks:MediaTask[]=[];
+  const edit=timeline(manifest,configuration.durationSeconds),kinds=visualKinds(edit.shots.length,policy,configuration.quality,configuration.imageEveryShot),tasks:MediaTask[]=[];
   const add=(kind:MediaTask["kind"],shotId:string|null,prompt:string,credits:number,units=1)=>{
     const providerId=["CLONE","ALIGNMENT","TRANSCRIPTION","SFX"].includes(kind)?policy.advancedProviders[kind.toLowerCase() as "clone"|"alignment"|"transcription"|"sfx"]:policy.providers[kind==="TTS"?"tts":kind.toLowerCase() as "image"|"video"|"music"];
     tasks.push({key:`${kind.toLowerCase()}-${shotId || "bed"}`,kind,shotId,prompt,providerId,credits,units,fingerprint:fingerprint({kind,prompt,providerId,voice:kind==="TTS"?configuration.voice:null,voiceProfileId:configuration.voiceProfileId,ratio:configuration.ratio,style:configuration.styleBible})});

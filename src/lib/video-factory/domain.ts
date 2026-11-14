@@ -15,6 +15,8 @@ export const configurationSchema = z.object({
   styleBible: z.string().max(6000).default(""),
   mediaMode: z.enum(["ANIMATIC", "MULTIMEDIA"]).default("ANIMATIC"),
   shotsPerChapter: z.number().int().min(1).max(30).default(8),
+  /** Every shot that is not a title, chart or map gets its own generated image, instead of the quality preset's image share. */
+  imageEveryShot: z.boolean().default(false),
   narration: z.boolean().default(false),
   music: z.boolean().default(false),
   musicPrompt: z.string().max(2000).default("Instrumental background, no vocals"),
@@ -121,7 +123,7 @@ export function quote(configuration: Configuration, policy: Policy) {
     const shots = chapterCount(configuration.durationSeconds) * configuration.shotsPerChapter;
     const mix = policy.presets[configuration.quality];
     if (mix.imagePercent + mix.videoPercent > 100) throw new FactoryError("INVALID_PRESET", 503);
-    const video = Math.ceil(shots * mix.videoPercent / 100), images = Math.min(shots - video, Math.ceil(shots * mix.imagePercent / 100));
+    const video = Math.ceil(shots * mix.videoPercent / 100), images = configuration.imageEveryShot ? shots - video : Math.min(shots - video, Math.ceil(shots * mix.imagePercent / 100));
     const add = (action: string, quantity: number, rate: number | null) => {
       if (!quantity) return;
       if (!rate) throw new FactoryError("MEDIA_PRICING_NOT_CONFIGURED", 503);
