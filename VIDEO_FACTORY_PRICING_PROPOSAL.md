@@ -1,6 +1,13 @@
 # Video Factory: long-video price proposal (draft, not applied)
 
-Status: **proposal for the owner, 2026-11-14.** Nothing here is live until the owner approves the numbers.
+Status: **applied 2026-11-14 (option A, 500 credits/min).**
+
+What went live: `packageRequired: false`, `narratedBundlesOnly: false`, `saleCents: 500` per 60 s.
+- The credit rate is derived from `referencePlanCode` VF_STARTER, at about 1 cent per credit. No active pack sells at 0.216 cents; the cheapest is about 0.30 cents. So `saleCents` 108 would have given only about 108 credits per minute.
+- `saleCents` 500 gives 500 credits per minute: 60 s = 501, 300 s = 2,501, 480 s = 4,001 credits.
+- At the cheapest pack, 500 credits are about $1.48, above the $1.08 target price.
+- Admin margin reports show $5/min, because that figure uses the reference pack's rate, not the wallet price actually paid.
+- The backup and rollback are on the server under `/root/vf-pricing/`.
 
 ## What the owner asked for
 
