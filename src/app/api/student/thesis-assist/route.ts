@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { wrongLanguage } from "@/lib/ai/outputSanity";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
     );
     if (!output.trim()) return NextResponse.json({ error: "پاسخ خالی بود؛ اعتباری کسر نشد" }, { status: 502 });
     // An answer about the uploaded sources instead of the request is neither saved nor charged.
-    if (answeredMaterialsInstead(body.prompt, output, materials.map((item) => item.content))) {
+    if (wrongLanguage(lang, output) || answeredMaterialsInstead(body.prompt, output, materials.map((item) => item.content))) {
       console.warn("student thesis assist: answer ignored the request", { userId: user.id, courseId: course.id });
       return NextResponse.json({ error: tri(lang, "پاسخ به درخواست شما مربوط نبود؛ اعتباری کسر نشد. دوباره تلاش کنید.", "The answer didn't match your request; no credits were charged. Please try again.", "Die Antwort passte nicht zu Ihrer Anfrage; es wurden keine Credits berechnet. Bitte erneut versuchen.", "Yanıt isteğinle ilgili değildi; kredi düşülmedi. Lütfen tekrar dene."), code: "OFF_TOPIC_ANSWER" }, { status: 502 });
     }

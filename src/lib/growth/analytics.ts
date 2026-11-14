@@ -1,3 +1,4 @@
+import { commentFunnel } from "./commentFunnel";
 import { LIVE_CAMPAIGN, liveCampaignStatus } from "@/lib/followup/liveCampaign";
 import { prisma } from "@/lib/db/prisma";
 import { getGrowthSettings } from "./config";
@@ -111,6 +112,12 @@ export async function campaignReport(complete = false) {
   const keys = new Set([...campaigns.map(c => c.utmCampaign), ...by.keys(), ...touches.map(t => t.utmCampaign!)]);
   // The Live campaign's running state comes from the same place as its card.
   const live = keys.has(LIVE_CAMPAIGN.utmCampaign) ? (await liveCampaignStatus()).activation : null;
+  // Top of the funnel (E9): comment campaigns whose link carries a campaign's UTM.
+  const [commentCampaigns, replyLogs] = await Promise.all([
+    prisma.instagramCommentCampaign.findMany({ select: { id: true, links: true, triggerCount: true } }),
+    prisma.instagramCommentReplyLog.groupBy({ by: ["campaignId", "status"], _count: { _all: true } }),
+  ]);
+  const logCounts = replyLogs.map((l) => ({ campaignId: l.campaignId, status: l.status, count: l._count._all }));
   return [...keys].map(key => {
     const c = campaigns.find(x => x.utmCampaign === key), us = by.get(key) ?? [];
     const paid = us.filter(r => r.facts.payments.success > 0).length, revenue = us.reduce((s, r) => s + r.facts.payments.revenueToman, 0);
@@ -124,6 +131,7 @@ export async function campaignReport(complete = false) {
       /** Only with admin-entered spend and at least one paying customer; otherwise null (never 0). */
       cacToman: c?.spendToman != null && paid > 0 ? Math.round(c.spendToman / paid) : null,
       activation: key === LIVE_CAMPAIGN.utmCampaign ? live : null,
+      instagram: commentFunnel(key, commentCampaigns, logCounts),
     };
   }).sort((a, b) => b.signups - a.signups);
 }

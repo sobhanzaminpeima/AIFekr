@@ -21,13 +21,13 @@ export type ToolCharge =
 export async function reserveToolCredits(
   userId: string,
   feature: string,
-  opts: { cost?: number } = {},
+  opts: { cost?: number; requestId?: string } = {},
 ): Promise<ToolCharge> {
   const costs = opts.cost == null ? await getCreditCosts() : null;
   const credits = opts.cost ?? costs![toolCostKey(feature)] ?? costs!.tool;
   if (credits <= 0) return { ok: true, credits: 0, release: async () => {} };
 
-  const charged = await chargeAndLog(userId, credits, { type: "tool", metadata: { feature } });
+  const charged = await chargeAndLog(userId, credits, { type: "tool", metadata: { feature }, requestId: opts.requestId ?? null });
   if (!charged) {
     return {
       ok: false,

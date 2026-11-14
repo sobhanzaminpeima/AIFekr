@@ -1,6 +1,8 @@
 import type { NextRequest } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { reserveToolCredits } from "@/lib/utils/toolCredits";
+import { claimIdempotencyKey, idempotencyKeyOf, idempotencyRequestId, releaseIdempotencyKey } from "@/lib/utils/idempotency";
+import { NextResponse } from "next/server";
 
 /**
  * Wraps a route handler so it is charged before it runs and refunded if it
@@ -17,14 +19,21 @@ export function withToolCredits<A extends any[]>(
   return async (req: NextRequest, ...rest: A): Promise<Response> => {
     const user = await requireAuth(req);
     if (!user) return unauthorizedResponse(req);
-    const gate = await reserveToolCredits(user.id, feature);
-    if (!gate.ok) return gate.response;
+    // A repeated submission (double click, network retry) with the same key is refused before any charge.
+    const key = idempotencyKeyOf(req.headers);
+    if (key && !claimIdempotencyKey(user.id, feature, key)) {
+      return NextResponse.json({ error: "This request is already being processed.", code: "DUPLICATE_REQUEST" }, { status: 409 });
+    }
+    const forget = () => { if (key) releaseIdempotencyKey(user.id, feature, key); };
+    const gate = await reserveToolCredits(user.id, feature, key ? { requestId: idempotencyRequestId(feature, key) } : {});
+    if (!gate.ok) { forget(); return gate.response; }
     try {
       const res = await handler(req, ...rest);
-      if (res.status >= 400) await gate.release();
+      if (res.status >= 400) { await gate.release(); forget(); }
       return res;
     } catch (e) {
       await gate.release();
+      forget();
       throw e;
     }
   };
