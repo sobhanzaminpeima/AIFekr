@@ -155,3 +155,10 @@ describe("sample image approval in review modes", () => {
     expect(sampleReviewDue(plan, 3)).toBe(false);
   });
 });
+
+describe("refused scene image", () => {
+  it("is skipped (title card) only for a non-retryable content refusal, not for account errors", async () => {
+    const src = (await import("node:fs")).readFileSync(new URL("./mediaWorker.ts", import.meta.url), "utf8");
+    expect(src).toContain('task.kind==="IMAGE" && !error.retryable && !/_(401|403|404)$/.test(error.code)');
+  });
+});

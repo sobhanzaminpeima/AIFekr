@@ -137,6 +137,9 @@ export async function produceMedia(job:{id:string;userId:string;projectId:string
     if(error instanceof ProviderFailure && error.rejected && !polling){
       await prisma.$transaction(async tx=>{const changed=await tx.videoFactoryStep.updateMany({where:{jobId:job.id,key:task.key,status:"SUBMITTED"},data:{status:"REJECTED",credits:0,completedAt:new Date()}});if(changed.count)await tx.videoFactoryJob.update({where:{id:job.id},data:{spentCredits:{decrement:task.credits}}});});
       if(error.retryable && (!agent || (job.attempts || 0)<agent.maxRetries))return {pending:true,plan,retryable:true};
+      // A scene image the provider refused (e.g. its content filter) must not sink the whole film:
+      // the shot renders as a title card instead. Account/config errors and uncertain outcomes still stop.
+      if(task.kind==="IMAGE" && !error.retryable && !/_(401|403|404)$/.test(error.code))return {pending:false,plan};
     }
     throw error;
   }
