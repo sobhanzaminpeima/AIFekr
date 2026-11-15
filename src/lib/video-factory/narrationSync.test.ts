@@ -16,4 +16,17 @@ describe("narration sync", () => {
     expect(new Set(frames).size).toBeGreaterThan(1);
     expect(frames.reduce((n, f) => n + f, 0)).toBe(30 * 24);
   });
+  it("reallocates the last shot in a 30-second video so all eight clips fit", () => {
+    const clips = [3.866,4.833,3.474,4.911,3.631,5.068,4.833,6.348];
+    const original = { ...manifest, chapters: [{ ...manifest.chapters[0],
+      shots: clips.map((_, i) => shot(String(i), i===7 ? 2 : 4)) }] };
+    const voiceSeconds = Object.fromEntries(clips.map((seconds,i) => [String(i),seconds]));
+    const edit = timeline(timedManifest(original,voiceSeconds,30),30);
+    expect(edit.shots.at(-1)!.durationFrames).toBeGreaterThan(48);
+    expect(edit.shots.every((s,i)=>clips[i] / (s.durationFrames / 24) <= 2)).toBe(true);
+    expect(edit.shots.reduce((sum,s)=>sum+s.durationFrames,0)).toBe(720);
+  });
+  it("fails before rendering when the clips cannot fit within the speed cap", () => {
+    expect(()=>timedManifest(manifest,{a:35,b:35},30)).toThrow("NARRATION_EXCEEDS_VIDEO_DURATION");
+  });
 });
