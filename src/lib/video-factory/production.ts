@@ -8,6 +8,11 @@ export const mediaTaskSchema=z.object({key:z.string(),kind:z.enum(["IMAGE","VIDE
 export type MediaTask=z.infer<typeof mediaTaskSchema>;
 export const productionPlanSchema=z.object({configuration:configurationSchema,policy:policySchema,tasks:z.array(mediaTaskSchema),rendered:z.record(z.string(),z.string()).default({}),assetIds:z.record(z.string(),z.string()).default({})});
 export type ProductionPlan=z.infer<typeof productionPlanSchema>;
+export const SAMPLE_IMAGES=3;
+/** True right after the three sample images of a review-mode plan are done. */
+export function sampleReviewDue(plan:ProductionPlan,completedTasks:number){
+  return plan.configuration.mode!=="AUTOPILOT" && completedTasks===SAMPLE_IMAGES && plan.tasks.filter(t=>t.kind==="IMAGE").length>SAMPLE_IMAGES && plan.tasks.slice(0,SAMPLE_IMAGES).every(t=>t.kind==="IMAGE");
+}
 export function fingerprint(value:unknown){return createHash("sha256").update(JSON.stringify(value)).digest("hex");}
 /** Assign a stable, budgeted mixture of generated clips/images and deterministic code scenes. */
 export function visualKinds(count:number,policy:Policy,quality:Configuration["quality"],imageEveryShot=false){
@@ -37,5 +42,8 @@ export function buildProductionPlan(manifest:Manifest,configuration:Configuratio
     });
     if(configuration.music)add("MUSIC",null,configuration.musicPrompt,policy.creditsPerMusicMinute!*Math.min(5,Math.ceil(configuration.durationSeconds/60)),Math.min(5,Math.ceil(configuration.durationSeconds/60)));
   }
+  // Review modes make three visually diverse sample images first (first, middle, last shot)
+  // and pause for approval before the rest are paid for. Order never changes fingerprints.
+  if(configuration.mode!=="AUTOPILOT"){const images=tasks.filter(t=>t.kind==="IMAGE");if(images.length>SAMPLE_IMAGES){const picks=[images[0],images[Math.floor(images.length/2)],images[images.length-1]];tasks.splice(0,tasks.length,...picks,...tasks.filter(t=>!picks.includes(t)));}}
   return {configuration,policy,tasks,rendered:{},assetIds:{}};
 }

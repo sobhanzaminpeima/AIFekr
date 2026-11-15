@@ -55,7 +55,9 @@ export async function produceMedia(job:{id:string;userId:string;projectId:string
   const reused=await prisma.videoFactoryAsset.findFirst({where:{userId:job.userId,projectId:job.projectId,status:"READY",metadata:{contains:effectiveFingerprint},OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]},orderBy:{createdAt:"desc"}});
   if(reused){
     await prisma.videoFactoryStep.upsert({where:{jobId_key:{jobId:job.id,key:task.key}},create:{jobId:job.id,key:task.key,inputHash:task.fingerprint,status:"COMPLETED",output:JSON.stringify({assetId:reused.id,reused:true}),completedAt:new Date()},update:{status:"COMPLETED",output:JSON.stringify({assetId:reused.id,reused:true}),completedAt:new Date()}});
-    return {pending:false,plan:{...plan,assetIds:{...plan.assetIds,[task.key]:reused.id}}};
+    // A reused narration brings its word timings along when they were saved.
+    const timing=task.kind==="TTS" && task.shotId?await prisma.videoFactoryAsset.findFirst({where:{userId:job.userId,projectId:job.projectId,status:"READY",kind:"ALIGNMENT",metadata:{contains:fingerprint({alignmentOf:effectiveFingerprint})}},orderBy:{createdAt:"desc"},select:{id:true}}):null;
+    return {pending:false,plan:{...plan,assetIds:{...plan.assetIds,[task.key]:reused.id,...(timing?{[`alignment-${task.shotId}`]:timing.id}:{})}}};
   }
   if(existing?.status==="SUBMITTED" && !polling)throw new FactoryError("PROVIDER_OUTCOME_UNCERTAIN");
   const started=Date.now();
@@ -78,7 +80,12 @@ export async function produceMedia(job:{id:string;userId:string;projectId:string
     const costUsd=provider.pricing.unitUsd===null?null:provider.pricing.unitUsd*(provider.pricing.unit==="second"?task.units:provider.pricing.unit==="minute"?task.units:1);
     await prisma.videoFactoryStep.update({where:{jobId_key:{jobId:job.id,key:task.key}},data:{status:"COMPLETED",output:JSON.stringify({assetId:asset.id}),usage:JSON.stringify(result.usage || {units:task.units,unit:provider.pricing.unit}),costUsd,latencyMs:Date.now()-started,completedAt:new Date()}});
     await recordProviderHealth(provider.id,true);
-    return {pending:false,plan:{...plan,assetIds:{...plan.assetIds,[task.key]:asset.id}}};
+    let words:Record<string,string>={};
+    if(task.kind==="TTS" && task.shotId && result.words?.length){
+      const timing=await saveAsset({userId:job.userId,projectId:job.projectId,jobId:job.id,shotId:task.shotId,kind:"ALIGNMENT",name:`alignment-${task.shotId}`,metadata:{alignmentFor:fingerprint({alignmentOf:effectiveFingerprint})},provenance:{source:"GENERATED",provider:provider.id,model:provider.model,derivedFrom:asset.id}},{bytes:Buffer.from(JSON.stringify({words:result.words})),mimeType:"application/json",extension:"json"});
+      words={[`alignment-${task.shotId}`]:timing.id};
+    }
+    return {pending:false,plan:{...plan,assetIds:{...plan.assetIds,[task.key]:asset.id,...words}}};
   }catch(error){
     await recordProviderHealth(provider.id,false);
     if(error instanceof ProviderFailure && error.rejected && !polling){

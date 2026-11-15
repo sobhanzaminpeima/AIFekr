@@ -1,6 +1,7 @@
 import { FactoryError } from "./domain";
 import type { RegisteredProvider } from "./registry";
 import {voiceTransport} from "@/lib/voice-studio/transport";
+import {wordsFromCharacters,type TimedWord,type CharAlignment} from "./wordTiming";
 
 export class ProviderFailure extends FactoryError {
   constructor(code:string, public rejected:boolean, public retryable=false) { super(code,502); }
@@ -19,7 +20,9 @@ export async function providerRequest(provider:RegisteredProvider,path:string,in
   return response;
 }
 const request=providerRequest;
-export interface MediaResult {bytes:Buffer;mimeType:string;extension:string;providerJobId?:string;usage?:unknown}
+export interface MediaResult {bytes:Buffer;mimeType:string;extension:string;providerJobId?:string;usage?:unknown;
+  /** Word timings returned with the narration (ElevenLabs with-timestamps). */
+  words?:TimedWord[]}
 /** `references` are owner images (e.g. a character sheet) the model must keep consistent; providers without image input use the text prompt only. */
 export async function generateImage(provider:RegisteredProvider,prompt:string,ratio:string,signal:AbortSignal,references:Buffer[]=[]):Promise<MediaResult> {
   const lead=references.length?"Keep the character exactly as in the attached reference image (same design, proportions, colours and line style). ":"";
@@ -48,6 +51,19 @@ export async function generateSpeech(provider:RegisteredProvider,text:string,voi
   if(text.length>3000)throw new ProviderFailure("NARRATION_TOO_LONG",true);
   const eleven=provider.adapter==="ELEVENLABS_TTS";
   if(eleven && !/^[a-zA-Z0-9_-]{1,100}$/.test(voice))throw new ProviderFailure("INVALID_VOICE_ID",true);
+  if(eleven){
+    // Same price as plain TTS; also returns character timings, used for word-level subtitles.
+    try{
+      const timed=await request(provider,`/text-to-speech/${encodeURIComponent(voice)}/with-timestamps`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model_id:provider.model,text})},signal);
+      const data=JSON.parse((await boundedBytes(timed,40000000)).toString()) as {audio_base64?:string;alignment?:CharAlignment;normalized_alignment?:CharAlignment};
+      if(!data.audio_base64)throw new ProviderFailure("INVALID_TTS_RESPONSE",false,true);
+      const bytes=Buffer.from(data.audio_base64,"base64");if(!bytes.length || bytes.length>20000000)throw new ProviderFailure("INVALID_TTS_RESPONSE",false,true);
+      return {bytes,mimeType:"audio/mpeg",extension:"mp3",words:wordsFromCharacters(data.alignment ?? data.normalized_alignment)};
+    }catch(error){
+      // Older accounts or models without the timestamps endpoint: fall back to plain speech.
+      if(!(error instanceof ProviderFailure) || !["PROVIDER_HTTP_404","PROVIDER_HTTP_405","PROVIDER_HTTP_422"].includes(error.code))throw error;
+    }
+  }
   const response=await request(provider,eleven?`/text-to-speech/${encodeURIComponent(voice)}`:"/audio/speech",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(eleven?{model_id:provider.model,text}:{model:provider.model,input:text,voice,response_format:"mp3"})},signal);
   return {bytes:await boundedBytes(response,20000000),mimeType:"audio/mpeg",extension:"mp3"};
 }

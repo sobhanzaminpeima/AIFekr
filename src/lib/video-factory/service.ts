@@ -115,7 +115,10 @@ export async function startProject(userId: string, id: string, key: string, expe
       ]);
       if (busy || userActive >= Math.min(policy.maxActivePerUser,userPolicy?.maxActivePerUser || policy.maxActivePerUser) || globalActive >= policy.maxQueuedJobs) throw new FactoryError("QUEUE_LIMIT", 429);
       if(userPolicy){const day=new Date();day.setHours(0,0,0,0);const prior=await tx.videoFactoryJob.findMany({where:{userId,createdAt:{gte:day}},select:{credits:true,spentCredits:true,settledAt:true}});if(prior.reduce((n,j)=>n+(j.settledAt?j.spentCredits:j.credits),0)+estimate.credits>userPolicy.dailyCredits)throw new FactoryError("DAILY_CREDIT_CAP",402);}
-      if (!policy.packageRequired && limits.monthlyVideos !== -1) {
+      // With approved per-minute retail pricing the credit wallet is the gate (short of credits → buy inline),
+      // so the plan's monthly video count applies only to the older action-priced mode.
+      const walletPriced=policy.commercial.mode==="DURATION_RETAIL" && policy.commercial.status==="APPROVED";
+      if (!policy.packageRequired && !walletPriced && limits.monthlyVideos !== -1) {
         const month = new Date(); month.setDate(1); month.setHours(0, 0, 0, 0);
         const [shortVideos, factoryJobs] = await Promise.all([
           tx.generatedVideo.count({ where: { userId, createdAt: { gte: month } } }),
@@ -168,7 +171,7 @@ export async function controlJob(actorId: string, projectId: string, action: "pa
     else if (action === "resume" && job.status === "PAUSED") status = "QUEUED";
     else if (action === "approve" && job.status === "AWAITING_APPROVAL") status = job.stage==="SCRIPT_REVIEW"?"AWAITING_APPROVAL":"QUEUED";
     else throw new FactoryError("INVALID_TRANSITION");
-    const nextStage=action==="approve" && job.stage==="SCRIPT_REVIEW"?"STORYBOARD_REVIEW":action==="approve" && job.stage==="STORYBOARD_REVIEW"?"ASSET_GENERATION":job.stage;
+    const nextStage=action==="approve" && job.stage==="SCRIPT_REVIEW"?"STORYBOARD_REVIEW":action==="approve" && ["STORYBOARD_REVIEW","SAMPLE_REVIEW"].includes(job.stage)?"ASSET_GENERATION":job.stage;
     await tx.videoFactoryJob.update({ where: { id: job.id }, data: { status,stage:nextStage,nextAttemptAt:null } });
     if(action==="approve")await tx.videoFactoryApproval.create({data:{projectId:job.projectId,jobId:job.id,actorId,stage:job.stage,version:job.projectVersion,decision:"APPROVED"}});
     if (status === "CANCELLED") await settleJob(tx, job.id, status);

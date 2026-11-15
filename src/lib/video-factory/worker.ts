@@ -8,7 +8,7 @@ import { assemble, renderShot } from "./render";
 import { hash, settleJob } from "./service";
 import { isFeatureEnabled } from "@/lib/utils/featureToggles";
 import { featureAccessExpired, teamFeatureExpiry } from "@/lib/subscriptions/access";
-import { buildProductionPlan, productionPlanSchema } from "./production";
+import { buildProductionPlan, productionPlanSchema, sampleReviewDue } from "./production";
 import { produceMedia } from "./mediaWorker";
 import { agentSettings,enforceRole } from "./resources";
 import {accountJobStorage} from "./assets";
@@ -141,8 +141,9 @@ export async function processFactoryTick() {
         const current=await tx.videoFactoryJob.findUniqueOrThrow({where:{id:queued.id}});if(current.leaseToken!==token || !current.leaseUntil || current.leaseUntil<new Date())throw new FactoryError("STALE_WORKER");
         const next=result.pending?queued.cursor:queued.cursor+1,complete=next>=result.plan.tasks.length;
         if(result.retryable && current.attempts>=policy.maxRetries)throw new FactoryError("PROVIDER_RETRY_LIMIT");
-        const status=current.status==="CANCELLING"?"CANCELLED":current.status==="PAUSING"?"PAUSED":"QUEUED";
-        await tx.videoFactoryJob.update({where:{id:queued.id},data:{plan:JSON.stringify(result.plan),...(complete&&timed?{checkpoint:JSON.stringify(timed)}:{}),cursor:complete?0:next,stage:complete?"SHOT_RENDERING":"ASSET_GENERATION",status,leaseToken:null,leaseUntil:null,nextAttemptAt:result.pending?new Date(Date.now()+(result.retryable?Math.min(60000,1000*2**current.attempts)+Math.floor(Math.random()*500):10000)):null,attempts:result.retryable?{increment:1}:0}});
+        const sample=!result.pending && !complete && sampleReviewDue(result.plan,next);
+        const status=current.status==="CANCELLING"?"CANCELLED":current.status==="PAUSING"?"PAUSED":sample?"AWAITING_APPROVAL":"QUEUED";
+        await tx.videoFactoryJob.update({where:{id:queued.id},data:{plan:JSON.stringify(result.plan),...(complete&&timed?{checkpoint:JSON.stringify(timed)}:{}),cursor:complete?0:next,stage:complete?"SHOT_RENDERING":status==="AWAITING_APPROVAL"?"SAMPLE_REVIEW":"ASSET_GENERATION",status,leaseToken:null,leaseUntil:null,nextAttemptAt:result.pending?new Date(Date.now()+(result.retryable?Math.min(60000,1000*2**current.attempts)+Math.floor(Math.random()*500):10000)):null,attempts:result.retryable?{increment:1}:0}});
         if(status==="CANCELLED")await settleJob(tx,queued.id,status);
       });
     } else if(queued.stage==="SEMANTIC_QC"){
