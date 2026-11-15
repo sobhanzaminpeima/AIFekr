@@ -125,3 +125,22 @@ describe("re-render and music pricing", () => {
     expect(quote(cfg(true), retail({})).items.find((i) => i.action === "music_addon")).toBeUndefined();
   });
 });
+
+import { sampleReviewDue } from "./production";
+describe("sample image approval in review modes", () => {
+  const shots = Array.from({ length: 6 }, (_, i) => ({ id: `s${i}`, title: "t", narration: "n", visualPrompt: `p${i}`, motion: "PUSH_IN" as const, notes: "", revision: 0, sfxPrompt: "" }));
+  const manifest = { characters: [], chapters: [{ title: "c", continuity: "", shots }] };
+  const policy = policySchema.parse({ enabled: true, creditsPerChapter: 1, creditsPerRenderMinute: 1, creditsPerImage: 1, creditsPerVoice: 1, providers: { image: "flux", tts: "tts" }, commercial: { pipeline: "IMAGE_MOTION" } });
+  const cfg = (mode: string) => configurationSchema.parse({ ...base, quality: "SMART", mediaMode: "MULTIMEDIA", narration: true, imageEveryShot: true, mode });
+  it("puts three spread-out sample images first and pauses after them", () => {
+    const plan = buildProductionPlan(manifest as never, cfg("REVIEW_GATES"), policy);
+    expect(plan.tasks.slice(0, 3).map((t) => `${t.kind}:${t.shotId}`)).toEqual(["IMAGE:s0", "IMAGE:s3", "IMAGE:s5"]);
+    expect(sampleReviewDue(plan, 3)).toBe(true);
+    expect(sampleReviewDue(plan, 4)).toBe(false);
+  });
+  it("never pauses on autopilot and keeps its order", () => {
+    const plan = buildProductionPlan(manifest as never, cfg("AUTOPILOT"), policy);
+    expect(plan.tasks[1].kind).not.toBe("IMAGE");
+    expect(sampleReviewDue(plan, 3)).toBe(false);
+  });
+});

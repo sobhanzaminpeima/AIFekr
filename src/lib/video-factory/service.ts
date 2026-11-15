@@ -168,7 +168,7 @@ export async function controlJob(actorId: string, projectId: string, action: "pa
     else if (action === "resume" && job.status === "PAUSED") status = "QUEUED";
     else if (action === "approve" && job.status === "AWAITING_APPROVAL") status = job.stage==="SCRIPT_REVIEW"?"AWAITING_APPROVAL":"QUEUED";
     else throw new FactoryError("INVALID_TRANSITION");
-    const nextStage=action==="approve" && job.stage==="SCRIPT_REVIEW"?"STORYBOARD_REVIEW":action==="approve" && job.stage==="STORYBOARD_REVIEW"?"ASSET_GENERATION":job.stage;
+    const nextStage=action==="approve" && job.stage==="SCRIPT_REVIEW"?"STORYBOARD_REVIEW":action==="approve" && ["STORYBOARD_REVIEW","SAMPLE_REVIEW"].includes(job.stage)?"ASSET_GENERATION":job.stage;
     await tx.videoFactoryJob.update({ where: { id: job.id }, data: { status,stage:nextStage,nextAttemptAt:null } });
     if(action==="approve")await tx.videoFactoryApproval.create({data:{projectId:job.projectId,jobId:job.id,actorId,stage:job.stage,version:job.projectVersion,decision:"APPROVED"}});
     if (status === "CANCELLED") await settleJob(tx, job.id, status);
