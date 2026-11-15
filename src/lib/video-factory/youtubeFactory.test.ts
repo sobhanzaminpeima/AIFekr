@@ -144,3 +144,18 @@ describe("sample image approval in review modes", () => {
     expect(sampleReviewDue(plan, 3)).toBe(false);
   });
 });
+
+import { cloudflareFailure, ProviderFailure } from "./mediaAdapters";
+describe("Workers AI image errors", () => {
+  it("map to retry (busy/5xx/timeout), refuse (content) or stop (account) like other providers", () => {
+    const busy = cloudflareFailure(new Error("CLOUDFLARE_HTTP_429")) as ProviderFailure;
+    expect(busy).toBeInstanceOf(ProviderFailure);
+    expect(busy.retryable).toBe(true);
+    const flagged = cloudflareFailure(new Error("CLOUDFLARE_HTTP_400")) as ProviderFailure;
+    expect([flagged.code, flagged.rejected, flagged.retryable]).toEqual(["PROVIDER_HTTP_400", true, false]);
+    expect((cloudflareFailure(new Error("CLOUDFLARE_HTTP_503")) as ProviderFailure).retryable).toBe(true);
+    expect((cloudflareFailure(Object.assign(new Error("x"), { name: "TimeoutError" })) as ProviderFailure).code).toBe("PROVIDER_TIMEOUT");
+    expect((cloudflareFailure(new Error("INVALID_CLOUDFLARE_IMAGE")) as ProviderFailure).retryable).toBe(true);
+    expect((cloudflareFailure(new Error("CLOUDFLARE_HTTP_401")) as ProviderFailure).code).toBe("PROVIDER_HTTP_401");
+  });
+});

@@ -20,13 +20,25 @@ export async function providerRequest(provider:RegisteredProvider,path:string,in
   return response;
 }
 const request=providerRequest;
+/** Workers AI throws plain errors; give them the same retry/reject semantics as the other providers. */
+export function cloudflareFailure(error:unknown){
+  if(error instanceof FactoryError)return error;
+  const message=error instanceof Error?error.message:String(error),status=Number(/CLOUDFLARE_HTTP_(\d{3})/.exec(message)?.[1]);
+  if(status)return new ProviderFailure(`PROVIDER_HTTP_${status}`,[400,401,403,404,413,422].includes(status),[408,429,500,502,503,504].includes(status));
+  if(message==="INVALID_CLOUDFLARE_IMAGE")return new ProviderFailure("INVALID_IMAGE_RESPONSE",true,true);
+  if(error instanceof Error && ["AbortError","TimeoutError"].includes(error.name))return new ProviderFailure("PROVIDER_TIMEOUT",false,true);
+  return error;
+}
 export interface MediaResult {bytes:Buffer;mimeType:string;extension:string;providerJobId?:string;usage?:unknown;
   /** Word timings returned with the narration (ElevenLabs with-timestamps). */
   words?:TimedWord[]}
 /** `references` are owner images (e.g. a character sheet) the model must keep consistent; providers without image input use the text prompt only. */
 export async function generateImage(provider:RegisteredProvider,prompt:string,ratio:string,signal:AbortSignal,references:Buffer[]=[]):Promise<MediaResult> {
   const lead=references.length?"Keep the character exactly as in the attached reference image (same design, proportions, colours and line style). ":"";
-  if(provider.adapter==="CLOUDFLARE_IMAGE")return {bytes:await (await import("@/lib/cloudflare/workersAi")).workersAiImage(provider.model,prompt,signal),mimeType:"image/png",extension:"png"};
+  if(provider.adapter==="CLOUDFLARE_IMAGE"){
+    try{return {bytes:await (await import("@/lib/cloudflare/workersAi")).workersAiImage(provider.model,prompt,signal),mimeType:"image/png",extension:"png"};}
+    catch(error){throw cloudflareFailure(error);}
+  }
   if(provider.adapter==="GEMINI_IMAGE"){
     const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(provider.model)}:generateContent`,{method:"POST",redirect:"error",signal,headers:{"x-goog-api-key":provider.key,"Content-Type":"application/json"},body:JSON.stringify({contents:[{parts:[...references.map(bytes=>({inlineData:{mimeType:"image/png",data:bytes.toString("base64")}})),{text:lead+prompt}]}],generationConfig:{responseModalities:["TEXT","IMAGE"],imageConfig:{aspectRatio:ratio}}})});
     if(!response.ok){await response.body?.cancel();throw new ProviderFailure(`PROVIDER_HTTP_${response.status}`,[400,401,403,404,413,422,429].includes(response.status),response.status===429);}

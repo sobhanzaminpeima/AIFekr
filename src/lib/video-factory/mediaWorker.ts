@@ -88,9 +88,14 @@ export async function produceMedia(job:{id:string;userId:string;projectId:string
     return {pending:false,plan:{...plan,assetIds:{...plan.assetIds,[task.key]:asset.id,...words}}};
   }catch(error){
     await recordProviderHealth(provider.id,false);
-    if(error instanceof ProviderFailure && error.rejected && !polling){
+    if(error instanceof ProviderFailure && !polling){
+      // Nothing was produced: release this step's credits.
       await prisma.$transaction(async tx=>{const changed=await tx.videoFactoryStep.updateMany({where:{jobId:job.id,key:task.key,status:"SUBMITTED"},data:{status:"REJECTED",credits:0,completedAt:new Date()}});if(changed.count)await tx.videoFactoryJob.update({where:{id:job.id},data:{spentCredits:{decrement:task.credits}}});});
-      if(error.retryable && (!agent || (job.attempts || 0)<agent.maxRetries))return {pending:true,plan,retryable:true};
+      const maxRetries=agent?.maxRetries ?? plan.policy.maxRetries;
+      if(error.retryable && (job.attempts || 0)<maxRetries)return {pending:true,plan,retryable:true};
+      // One refused or repeatedly failing scene image must not sink the whole film: the shot
+      // renders as a title card instead. Account/configuration errors still stop the job.
+      if(task.kind==="IMAGE" && !["PROVIDER_HTTP_401","PROVIDER_HTTP_403","PROVIDER_HTTP_404"].includes(error.code))return {pending:false,plan};
     }
     throw error;
   }
