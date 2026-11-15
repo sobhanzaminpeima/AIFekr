@@ -21,6 +21,7 @@ export const configurationSchema = z.object({
   shotsPerChapter: z.number().int().min(1).max(30).default(8),
   /** Every shot that is not a title, chart or map gets its own generated image, instead of the quality preset's image share. */
   imageEveryShot: z.boolean().default(false),
+  sceneGrounding: z.boolean().default(false),
   /** Owner's image asset sent with every generated image so one character (e.g. a stickman) stays the same across the video. */
   characterReferenceAssetId: z.string().max(100).default(""),
   /** Owner's image asset used as the video thumbnail instead of the first frame. */

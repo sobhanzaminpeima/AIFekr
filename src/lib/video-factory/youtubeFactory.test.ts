@@ -12,6 +12,17 @@ const manifest = manifestSchema.parse({ characters: [{ name: "Stick", descriptio
 const imageTask = (extra: object) => buildProductionPlan(manifest, configurationSchema.parse({ ...base, ...extra }), policy).tasks.find((t) => t.kind === "IMAGE")!;
 
 describe("YouTube factory: character, thumbnail and channel", () => {
+  it("binds the image prompt and its cache key to the narration for new projects", () => {
+    const config = configurationSchema.parse({ ...base, sceneGrounding: true });
+    const story = manifestSchema.parse({ ...manifest, chapters: manifest.chapters.map(chapter => ({
+      ...chapter, shots: chapter.shots.map(shot => ({ ...shot, narration: "قطار از روی پل عبور می‌کند." })),
+    })) });
+    const task = buildProductionPlan(story, config, policy).tasks.find(t => t.kind === "IMAGE")!;
+    const before = buildProductionPlan(manifest, config, policy).tasks.find(t => t.kind === "IMAGE")!;
+    expect(task.prompt).toContain("Narration for this scene: قطار از روی پل عبور می‌کند.");
+    expect(task.fingerprint).not.toBe(before.fingerprint);
+    expect(buildProductionPlan(story, configurationSchema.parse(base), policy).tasks.find(t => t.kind === "IMAGE")?.fingerprint).toBe(imageTask({}).fingerprint);
+  });
   it("keeps existing image fingerprints unchanged until a character reference is chosen", () => {
     const plain = imageTask({}), withRef = imageTask({ characterReferenceAssetId: "ref-1" }), otherRef = imageTask({ characterReferenceAssetId: "ref-2" });
     expect(configurationSchema.parse(base)).toMatchObject({ characterReferenceAssetId: "", thumbnailAssetId: "" });
