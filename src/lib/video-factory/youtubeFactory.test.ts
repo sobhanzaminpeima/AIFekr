@@ -104,3 +104,24 @@ describe("music availability", () => {
     expect(() => quote(cfg(false), policy)).not.toThrow();
   });
 });
+
+import { rerenderPrice } from "./rerenderPrice";
+describe("re-render and music pricing", () => {
+  const retail = (extra: Record<string, unknown>) => ({ ...policySchema.parse({ enabled: true, longFormEnabled: true, creditsPerChapter: 1, creditsPerRenderMinute: 1, creditsPerImage: 1, creditsPerVoice: 1, creditsPerMusicMinute: 1, providers: { image: "flux", music: "music" }, commercial: { pipeline: "IMAGE_MOTION", mode: "DURATION_RETAIL", status: "APPROVED", baseSeconds: 60, saleCents: 500 }, ...extra }), commercial: { ...policySchema.parse({}).commercial, pipeline: "IMAGE_MOTION" as const, mode: "DURATION_RETAIL" as const, status: "APPROVED" as const, baseSeconds: 60, saleCents: 500, creditRate: { planCode: "VF", usdCents: 100, credits: 100 } } });
+  const cfg = (music = false) => configurationSchema.parse({ ...base, durationSeconds: 120, quality: "SMART", mediaMode: "MULTIMEDIA", music, budgetCap: 100000 });
+  it("charges half the retail price when nothing must be generated again, full price when everything changed", () => {
+    expect(rerenderPrice(1000, 0)).toBe(500);
+    expect(rerenderPrice(1000, 0.1)).toBe(550);
+    expect(rerenderPrice(1000, 1)).toBe(1000);
+    const first = quote(cfg(), retail({})).credits;
+    expect(quote(cfg(), retail({}), { rerenderShare: 0 }).credits).toBe(Math.ceil(first / 2));
+    expect(quote(cfg(), retail({}), { rerenderShare: 1 }).credits).toBe(first);
+  });
+  it("adds music per started minute on top of retail, scaled for re-renders", () => {
+    const withMusic = retail({ musicCreditsPerMinute: 180 });
+    const plain = quote(cfg(false), withMusic).credits;
+    expect(quote(cfg(true), withMusic).credits).toBe(plain + 360);
+    expect(quote(cfg(true), withMusic, { rerenderShare: 0 }).items.find((i) => i.action === "music_addon")).toBeUndefined();
+    expect(quote(cfg(true), retail({})).items.find((i) => i.action === "music_addon")).toBeUndefined();
+  });
+});

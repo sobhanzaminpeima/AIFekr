@@ -31,9 +31,18 @@ export function mediaCommand(binary: "ffmpeg" | "ffprobe", args: string[], signa
     child.once("close", code => code === 0 ? resolve(output) : reject(new FactoryError(signal.aborted ? "RENDER_ABORTED" : "RENDER_FAILED", 503)));
   });
 }
+let rendererCheckedUntil=0;
+/**
+ * FFmpeg's first start can take seconds on a busy server (e.g. while a release builds),
+ * so the check allows 20 s, retries once and remembers a success for 10 minutes.
+ */
 export async function rendererReady() {
-  try { await Promise.all([mediaCommand("ffmpeg", ["-version"], AbortSignal.timeout(5000)), mediaCommand("ffprobe", ["-version"], AbortSignal.timeout(5000))]); return true; }
-  catch { return false; }
+  if(Date.now()<rendererCheckedUntil)return true;
+  for(let attempt=0;attempt<2;attempt++){
+    try { await Promise.all([mediaCommand("ffmpeg", ["-version"], AbortSignal.timeout(20000)), mediaCommand("ffprobe", ["-version"], AbortSignal.timeout(20000))]); rendererCheckedUntil=Date.now()+600000; return true; }
+    catch { /* try once more */ }
+  }
+  return false;
 }
 const xml = (value: string) => value.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[c]!));
 export function dimensions(ratio: Configuration["ratio"],resolution="720p") { const base=ratio === "9:16" ? [720, 1280] : ratio === "1:1" ? [720, 720] : [1280, 720];return resolution==="1080p"?base.map(n=>Math.round(n*1.5)):base; }

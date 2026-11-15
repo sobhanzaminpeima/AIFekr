@@ -4,6 +4,7 @@ import {detailedCommercialSchema as commercialSchema,commercialEstimate} from ".
 import {FactoryError} from "./errors";
 export {FactoryError} from "./errors";
 import { visualBibleSchema, visualStyles } from "./visualStyle";
+import { rerenderPrice } from "./rerenderPrice";
 export const configurationSchema = z.object({
   durationSeconds: z.number().int().min(15).max(3600),
   language: z.enum(["fa", "en", "de", "tr"]),
@@ -88,6 +89,8 @@ export const policySchema = z.object({
   characterImageProvider: z.string().max(100).default(""),
   /** Retail price per commercial.baseSeconds for fixed-character videos. Null keeps the feature off. */
   characterSaleCents: z.number().int().positive().max(10000000).nullable().default(null),
+  /** Credits per started minute of background music (max 5 minutes, like the music bed), added on top of the retail price. Null: music is included. */
+  musicCreditsPerMinute: z.number().int().min(1).max(100000).nullable().default(null),
   creditsPerImage: z.number().int().min(1).max(100000).nullable().default(null),
   creditsPerVoice: z.number().int().min(1).max(100000).nullable().default(null),
   creditsPerVideoSecond: z.number().int().min(1).max(100000).nullable().default(null),
@@ -119,7 +122,8 @@ export function characterMode(configuration: Pick<Configuration,"characterRefere
   return !!configuration.characterReferenceAssetId && !!policy.characterImageProvider && policy.characterSaleCents !== null;
 }
 export function chapterCount(seconds: number) { return Math.max(1, Math.ceil(seconds / 300)); }
-export function quote(configuration: Configuration, policy: Policy) {
+/** `rerenderShare`: share (0..1) of media a re-render must generate again; null/undefined for a first production. */
+export function quote(configuration: Configuration, policy: Policy, options: { rerenderShare?: number | null } = {}) {
   if(configuration.narration && policy.narratedBundlesOnly && !policy.bundleCredits)throw new FactoryError("NARRATED_BUNDLE_REQUIRED",403);
   if(policy.silentOnly&&(configuration.narration||configuration.music||configuration.voiceProfileId||configuration.audioTracks.length||configuration.forcedAlignment))throw new FactoryError("AUDIO_TEMPORARILY_UNAVAILABLE",503);
   if(configuration.mediaMode!=="MULTIMEDIA" && (configuration.exportStems || configuration.forcedAlignment || configuration.semanticReview || configuration.voiceProfileId || configuration.transcriptionAssetId || configuration.audioTracks.length))throw new FactoryError("ADVANCED_FEATURES_REQUIRE_MULTIMEDIA",400);
@@ -165,7 +169,12 @@ export function quote(configuration: Configuration, policy: Policy) {
   let credits = items.reduce((n, item) => n + item.credits, 0);
   const character=characterMode(configuration,policy);
   const commercial=policy.commercial.mode==="DURATION_RETAIL"?commercialEstimate(character?{...policy.commercial,saleCents:policy.characterSaleCents!}:policy.commercial,configuration.durationSeconds,configuration.quality):null;
-  if(commercial){if(!commercial.credits)throw new FactoryError("PLATFORM_CREDIT_RATE_UNAVAILABLE",503);if(credits>commercial.credits)throw new FactoryError("ACTION_BUDGET_EXCEEDS_RETAIL",503);items.push({action:"completed_film_package",quantity:1,credits:commercial.credits-credits});credits=commercial.credits;}
+  const rerender=options.rerenderShare ?? null;
+  if(commercial){if(!commercial.credits)throw new FactoryError("PLATFORM_CREDIT_RATE_UNAVAILABLE",503);if(credits>commercial.credits)throw new FactoryError("ACTION_BUDGET_EXCEEDS_RETAIL",503);
+    // A re-render reuses unchanged paid media, so it costs part of the retail price (never less than the actions themselves).
+    const target=rerender===null?commercial.credits:Math.max(credits,rerenderPrice(commercial.credits,rerender));
+    items.push({action:rerender===null?"completed_film_package":"rerender_package",quantity:1,credits:target-credits});credits=target;
+    if(configuration.music && configuration.mediaMode==="MULTIMEDIA" && policy.musicCreditsPerMinute){const minutes=Math.min(5,Math.ceil(configuration.durationSeconds/60)),music=Math.ceil(minutes*policy.musicCreditsPerMinute*(rerender===null?1:rerender));if(music>0){items.push({action:"music_addon",quantity:minutes,credits:music});credits+=music;}}}
   if(policy.bundleCredits){if(credits>policy.bundleCredits)throw new FactoryError("BUNDLE_FEATURE_LIMIT",400);items.push({action:"creator_bundle_video",quantity:1,credits:policy.bundleCredits-credits});credits=policy.bundleCredits;}
   if (credits > Math.min(configuration.budgetCap, policy.maxProjectCredits)) throw new FactoryError("BUDGET_EXCEEDED", 402,{required:credits,budgetCap:configuration.budgetCap,maxProjectCredits:policy.maxProjectCredits});
   return { items, credits,commercial,characterConsistency:character, kind: "estimate" as const, output: configuration.mediaMode === "MULTIMEDIA" ? "multimedia_film" : "silent_storyboard_film", unavailable: [] as string[] };
