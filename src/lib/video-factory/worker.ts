@@ -174,6 +174,8 @@ export async function processFactoryTick() {
       });
     }
   } catch (error) {
+    // Operator diagnostics only: the error type and code, never prompts, scripts or user text.
+    console.error("[video-factory] step failed", JSON.stringify({ job: queued.id.slice(-8), stage: queued.stage, cursor: queued.cursor, code: error instanceof FactoryError ? error.code : null, type: error instanceof Error ? error.name : typeof error, issues: (error as { issues?: { path?: unknown[]; code?: string }[] })?.issues?.slice(0, 5).map(i => `${(i.path || []).join(".")}:${i.code}`) }));
     await prisma.$transaction(async tx => {
       const current = await tx.videoFactoryJob.findUniqueOrThrow({ where: { id: queued.id } });
       if (current.leaseToken !== token) return;

@@ -8,6 +8,7 @@ import type { Provider } from "@/lib/ai/providers";
 import { wrapUntrustedContent } from "@/lib/ai/promptSafety";
 import { z } from "zod";
 import { chapterSchema, FactoryError } from "./domain";
+import { extractJson, normalizeChapter } from "./lenientChapter";
 import { writerPrompt } from "./prompts";
 import { agentSettings,enforceRole } from "./resources";
 import {applyMotionPlan,motionPlanSchema} from "./sceneMotion";
@@ -43,7 +44,8 @@ export async function generateChapter(modelId: string, context: unknown, signal:
     if (output.length > 120000) throw new FactoryError("PROVIDER_OUTPUT_TOO_LARGE", 502);
   }, 6000, signal);
   if (output.length > 120000) throw new FactoryError("PROVIDER_OUTPUT_TOO_LARGE", 502);
-  return { chapter: chapterSchema.parse(JSON.parse(output.trim().replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, ""))), provider: provider.id, model: provider.model, usage };
+  // Tolerant of prose, wrappers, renamed keys and cut-off output from smaller writer models.
+  return { chapter: normalizeChapter(extractJson(output), Number((context as { chapterIndex?: number })?.chapterIndex) || 0), provider: provider.id, model: provider.model, usage };
 }
 export const ideasSchema=z.object({titles:z.array(z.string().min(3).max(180)).min(2).max(8),hooks:z.array(z.string().max(500)).min(2).max(8),outline:z.array(z.string().max(1000)).min(1).max(12),audienceStrategy:z.string().max(3000),evidence:z.array(z.object({claim:z.string().max(1000),sourceUrl:z.string().url(),quote:z.string().min(10).max(1000)}).strict()).max(20),uncertainties:z.array(z.string().max(1000)).max(20)}).strict();
 export async function generateIdeas(modelId:string,context:{brief:string;language:string;sources:{url:string;title:string;excerpt:string}[]},signal:AbortSignal,preparedProvider?:Provider){
@@ -64,5 +66,7 @@ export async function generateSceneMotion(modelId:string,chapter:z.infer<typeof 
  if(provider.id!==modelId)throw new FactoryError("MOTION_MODEL_MISMATCH",403);
  let output="";
  const usage=await streamText(provider,[{role:"user",content:wrapUntrustedContent("approved director chapter",JSON.stringify(chapter),"en")}],"Design professional motion for each approved shot. Return declarative scene animation JSON only. Preserve all shot IDs. Use CHART or MAP only when the shot already contains approved chart/map data. No code, URLs, new facts, dependencies or tool calls. Schema: "+JSON.stringify(z.toJSONSchema(motionPlanSchema)),chunk=>{output+=chunk;if(output.length>30000)throw new FactoryError("MOTION_PLAN_TOO_LARGE",502);},4000,signal);
- return {chapter:applyMotionPlan(chapter,JSON.parse(output.trim().replace(/^```(?:json)?\s*/,"").replace(/\s*```$/,""))),usage,model:provider.model};
+ // Motion is polish: an unreadable plan keeps the approved chapter as it is instead of failing the production.
+ let planned=chapter;try{planned=applyMotionPlan(chapter,extractJson(output) as never);}catch{planned=chapter;}
+ return {chapter:planned,usage,model:provider.model};
 }
