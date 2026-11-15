@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { reserveLoggedCredits, refundLoggedReservation } from "@/lib/utils/teamCredits";
 import { getPolicy } from "./config";
-import { chapterSchema, configurationSchema, FactoryError, manifestSchema, policySchema, projectSchema, quote, type Manifest } from "./domain";
+import { characterMode, chapterSchema, configurationSchema, FactoryError, manifestSchema, policySchema, projectSchema, quote, type Manifest } from "./domain";
 import { approvedProvider } from "./providers";
 import { rendererReady } from "./render";
 import { getLimitsForPlan } from "@/lib/utils/planLimits";
@@ -19,6 +19,7 @@ async function validateAdvancedReferences(userId:string,projectId:string,configu
  if(configuration.voiceProfileId)await requireVoiceConsent(userId,configuration.voiceProfileId,projectId);
  for(const id of [configuration.transcriptionAssetId,...configuration.audioTracks.map(t=>t.assetId)].filter(Boolean)){const asset=await ownedAsset(userId,id);if(!asset.mimeType.startsWith("audio/"))throw new FactoryError("INVALID_AUDIO_ASSET",400);}
  if(configuration.audioTracks.some(t=>t.startSeconds+t.durationSeconds>configuration.durationSeconds))throw new FactoryError("AUDIO_TRACK_OUTSIDE_TIMELINE",400);
+ for(const id of [configuration.characterReferenceAssetId,configuration.thumbnailAssetId,configuration.logoAssetId].filter(Boolean)){const asset=await ownedAsset(userId,id);if(asset.kind!=="IMAGE" || !asset.mimeType.startsWith("image/"))throw new FactoryError("INVALID_IMAGE_ASSET",400);}
 }
 export async function updateProjectConfiguration(userId:string,id:string,expectedVersion:number,input:unknown){
  const configuration=configurationSchema.parse(input);await validateAdvancedReferences(userId,id,configuration);
@@ -91,7 +92,7 @@ export async function startProject(userId: string, id: string, key: string, expe
     for(const [needed,key,kind] of [[configuration.voiceProfileId,"clone","CLONE"],[configuration.forcedAlignment,"alignment","ALIGNMENT"],[configuration.transcriptionAssetId,"transcription","TRANSCRIPTION"],[configuration.semanticReview,"vision","VISION"]] as const){if(needed)await getMediaProvider(policy.advancedProviders[key],kind);}
     if(configuration.voiceProfileId && (await getMediaProvider(policy.providers.tts,"TTS")).adapter!=="ELEVENLABS_TTS")throw new FactoryError("CUSTOM_VOICE_REQUIRES_ELEVENLABS",400);
   }
-  await enforceUserPolicy(userId,estimate.credits,[policy.approvedModelId,...(configuration.mediaMode==="MULTIMEDIA"?Object.values(policy.providers):[])],configuration.durationSeconds>60);
+  await enforceUserPolicy(userId,estimate.credits,[policy.approvedModelId,...(configuration.mediaMode==="MULTIMEDIA"?Object.values(policy.providers):[]),...(configuration.mediaMode==="MULTIMEDIA"&&characterMode(configuration,policy)?[policy.characterImageProvider]:[])],configuration.durationSeconds>60);
   const userPolicy=await getUserPolicy(userId);
   if (!await rendererReady()) throw new FactoryError("RENDERER_UNAVAILABLE", 503);
   const owner = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { plan: true } });

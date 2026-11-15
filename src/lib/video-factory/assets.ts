@@ -89,3 +89,17 @@ export async function accountJobStorage(jobId:string,userId:string,limit:number)
 
 
 
+
+/** Brings an image the owner made in AIFekr's image studio (already paid for there) into a factory project, e.g. a character sheet. */
+export async function importGeneratedImage(userId:string,projectId:string,generatedImageId:string){
+  const project=await prisma.videoFactoryProject.findFirst({where:{id:projectId,userId,deletedAt:null}});if(!project)throw new FactoryError("PROJECT_NOT_FOUND",404);
+  const image=await prisma.generatedImage.findFirst({where:{id:generatedImageId,userId}});if(!image?.url)throw new FactoryError("ASSET_NOT_FOUND",404);
+  const {safeFetch}=await import("@/lib/net/safeUrl");
+  const response=await safeFetch(image.url).catch(()=>{throw new FactoryError("IMPORT_FETCH_FAILED",502);});
+  if(!response.ok){await response.body?.cancel();throw new FactoryError("IMPORT_FETCH_FAILED",502);}
+  const {boundedBytes}=await import("./mediaAdapters");
+  const raw=await boundedBytes(response,20000000),picture=sharp(raw,{limitInputPixels:40000000}),info=await picture.metadata();
+  if(!["png","jpeg","webp"].includes(info.format || ""))throw new FactoryError("MEDIA_TYPE_MISMATCH",400);
+  const bytes=await picture.rotate().resize({width:3840,height:3840,fit:"inside",withoutEnlargement:true}).png().toBuffer();
+  return saveAsset({userId,projectId,kind:"IMAGE",name:`character-${generatedImageId.slice(0,8)}.png`,metadata:{width:info.width,height:info.height},provenance:{source:"AIFEKR_IMAGE_STUDIO",generatedImageId,importedAt:new Date().toISOString()}},{bytes,extension:"png",mimeType:"image/png"});
+}

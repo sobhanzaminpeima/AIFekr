@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   const paymentId = searchParams.get("paymentId");
 
   const appUrl = publicAppUrl();
-  const resultPath=(p:{plan:string;entitlementSnapshot?:string|null})=>{try{const path=JSON.parse(p.entitlementSnapshot||"{}").returnPath;if(["/chat","/fitness/credits","/fitness/marketplace"].includes(path))return path;const mod=GROWTH_MODULES.find(m=>m.paths[0]===path||moduleEntry(m)===path);if(mod)return moduleEntry(mod);}catch{}return p.plan.startsWith("CREDITS_")?"/credits":"/plans";};
+  const resultPath=(p:{plan:string;entitlementSnapshot?:string|null})=>{try{const path=JSON.parse(p.entitlementSnapshot||"{}").returnPath;if(["/chat","/fitness/credits","/fitness/marketplace","/video-factory"].includes(path))return path;const mod=GROWTH_MODULES.find(m=>m.paths[0]===path||moduleEntry(m)===path);if(mod)return moduleEntry(mod);}catch{}return p.plan.startsWith("CREDITS_")?"/credits":"/plans";};
 
   // Credit top-ups redirect back to /credits instead of /plans -- resolved
   // up front from paymentId (works even for the early failure paths, before

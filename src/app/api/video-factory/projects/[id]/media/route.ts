@@ -6,6 +6,7 @@ import { editManifest, getProject } from "@/lib/video-factory/service";
 import { configurationSchema, manifestSchema, type Manifest } from "@/lib/video-factory/domain";
 import { promptList, shotMedia, storedZip, withShotAsset } from "@/lib/video-factory/media";
 import { storagePath } from "@/lib/video-factory/assets";
+import { styleText } from "@/lib/video-factory/visualStyle";
 import { FactoryError } from "@/lib/video-factory/errors";
 import { prisma } from "@/lib/db/prisma";
 export const dynamic = "force-dynamic";
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
     const format = req.nextUrl.searchParams.get("format");
     if (!manifest) return NextResponse.json({ version: project.version, shots: [], ready: false });
     if (format === "prompts") {
-      return new NextResponse(promptList(shotMedia(manifest), configuration.styleBible), { headers: { "Content-Type": "text/plain; charset=utf-8", "Content-Disposition": `attachment; filename="prompts-${id}.txt"`, "Cache-Control": "private, no-store" } });
+      return new NextResponse(promptList(shotMedia(manifest), styleText(configuration)), { headers: { "Content-Type": "text/plain; charset=utf-8", "Content-Disposition": `attachment; filename="prompts-${id}.txt"`, "Cache-Control": "private, no-store" } });
     }
     const shots = await shotImages(userId, id, manifest);
     if (format === "zip") {
@@ -61,10 +62,15 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
         const asset = await prisma.videoFactoryAsset.findFirst({ where: { id: s.image!.id, userId }, select: { storageKey: true, mimeType: true } });
         if (asset) files.push({ name: `${s.code}.${EXT[asset.mimeType] ?? "img"}`, data: await readFile(storagePath(asset.storageKey)) });
       }
-      files.push({ name: "prompts.txt", data: Buffer.from(promptList(shotMedia(manifest), configuration.styleBible), "utf8") });
+      files.push({ name: "prompts.txt", data: Buffer.from(promptList(shotMedia(manifest), styleText(configuration)), "utf8") });
       return new NextResponse(new Uint8Array(storedZip(files)), { headers: { "Content-Type": "application/zip", "Content-Disposition": `attachment; filename="images-${id}.zip"`, "Cache-Control": "private, no-store" } });
     }
-    return NextResponse.json({ version: project.version, ready: true, shots, withImage: shots.filter((s) => s.image).length });
+    // Newest narration clip per shot, for the timeline editor's preview and narration-length sync.
+    const voices = await prisma.videoFactoryAsset.findMany({ where: { userId, projectId: id, status: "READY", kind: "TTS", shotId: { in: shots.map((s) => s.id) } }, orderBy: { createdAt: "desc" }, select: { id: true, shotId: true } });
+    const voiceOf = new Map<string, string>();
+    for (const v of voices) if (v.shotId && !voiceOf.has(v.shotId)) voiceOf.set(v.shotId, v.id);
+    const withVoice = shots.map((s) => { const v = voiceOf.get(s.id); return { ...s, voice: v ? { id: v, url: `/api/video-factory/assets/${encodeURIComponent(v)}` } : null }; });
+    return NextResponse.json({ version: project.version, ready: true, shots: withVoice, withImage: shots.filter((s) => s.image).length, withVoice: voiceOf.size });
   });
 }
 

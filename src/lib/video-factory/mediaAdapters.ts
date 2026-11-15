@@ -20,17 +20,25 @@ export async function providerRequest(provider:RegisteredProvider,path:string,in
 }
 const request=providerRequest;
 export interface MediaResult {bytes:Buffer;mimeType:string;extension:string;providerJobId?:string;usage?:unknown}
-export async function generateImage(provider:RegisteredProvider,prompt:string,ratio:string,signal:AbortSignal):Promise<MediaResult> {
+/** `references` are owner images (e.g. a character sheet) the model must keep consistent; providers without image input use the text prompt only. */
+export async function generateImage(provider:RegisteredProvider,prompt:string,ratio:string,signal:AbortSignal,references:Buffer[]=[]):Promise<MediaResult> {
+  const lead=references.length?"Keep the character exactly as in the attached reference image (same design, proportions, colours and line style). ":"";
   if(provider.adapter==="CLOUDFLARE_IMAGE")return {bytes:await (await import("@/lib/cloudflare/workersAi")).workersAiImage(provider.model,prompt,signal),mimeType:"image/png",extension:"png"};
   if(provider.adapter==="GEMINI_IMAGE"){
-    const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(provider.model)}:generateContent`,{method:"POST",redirect:"error",signal,headers:{"x-goog-api-key":provider.key,"Content-Type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseModalities:["TEXT","IMAGE"],imageConfig:{aspectRatio:ratio}}})});
+    const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(provider.model)}:generateContent`,{method:"POST",redirect:"error",signal,headers:{"x-goog-api-key":provider.key,"Content-Type":"application/json"},body:JSON.stringify({contents:[{parts:[...references.map(bytes=>({inlineData:{mimeType:"image/png",data:bytes.toString("base64")}})),{text:lead+prompt}]}],generationConfig:{responseModalities:["TEXT","IMAGE"],imageConfig:{aspectRatio:ratio}}})});
     if(!response.ok){await response.body?.cancel();throw new ProviderFailure(`PROVIDER_HTTP_${response.status}`,[400,401,403,404,413,422,429].includes(response.status),response.status===429);}
     const data=JSON.parse((await boundedBytes(response,30000000)).toString()) as {candidates?:{content?:{parts?:{inlineData?:{mimeType?:string;data?:string}}[]}}[];usageMetadata?:unknown};
     const image=data.candidates?.flatMap(c=>c.content?.parts || []).find(p=>p.inlineData?.mimeType?.startsWith("image/"))?.inlineData;
     if(!image?.data)throw new FactoryError("INVALID_IMAGE_RESPONSE",502);
     const sharp=(await import("sharp")).default,bytes=await sharp(Buffer.from(image.data,"base64"),{limitInputPixels:40000000}).png().toBuffer();if(bytes.length>20000000)throw new FactoryError("IMAGE_TOO_LARGE",502);return {bytes,mimeType:"image/png",extension:"png",usage:data.usageMetadata};
   }
-  const response=await request(provider,"/images/generations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:provider.model,prompt,n:1,size:ratio==="9:16"?"1024x1536":ratio==="1:1"?"1024x1024":"1536x1024",output_format:"png"})},signal);
+  const size=ratio==="9:16"?"1024x1536":ratio==="1:1"?"1024x1024":"1536x1024";
+  let response:Response;
+  if(references.length){
+    const form=new FormData();form.set("model",provider.model);form.set("prompt",lead+prompt);form.set("n","1");form.set("size",size);form.set("output_format","png");
+    references.forEach((bytes,index)=>form.append("image[]",new Blob([new Uint8Array(bytes)],{type:"image/png"}),`reference-${index}.png`));
+    response=await request(provider,"/images/edits",{method:"POST",body:form},signal);
+  }else response=await request(provider,"/images/generations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:provider.model,prompt,n:1,size,output_format:"png"})},signal);
   const data=JSON.parse((await boundedBytes(response,30000000)).toString()) as {data?:{b64_json?:string}[];usage?:unknown};
   if(!data.data?.[0]?.b64_json)throw new FactoryError("INVALID_IMAGE_RESPONSE",502);
   const bytes=Buffer.from(data.data[0].b64_json,"base64");if(bytes.length>20000000)throw new FactoryError("IMAGE_TOO_LARGE",502);

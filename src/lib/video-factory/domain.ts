@@ -3,6 +3,7 @@ import {detailedCommercialSchema as commercialSchema,commercialEstimate} from ".
 
 import {FactoryError} from "./errors";
 export {FactoryError} from "./errors";
+import { visualBibleSchema, visualStyles } from "./visualStyle";
 export const configurationSchema = z.object({
   durationSeconds: z.number().int().min(15).max(3600),
   language: z.enum(["fa", "en", "de", "tr"]),
@@ -13,10 +14,19 @@ export const configurationSchema = z.object({
   audience: z.string().max(500).default(""),
   genre: z.string().max(100).default("educational"),
   styleBible: z.string().max(6000).default(""),
+  visualStyle: z.enum(visualStyles).default("NONE"),
+  visualBible: visualBibleSchema.default({ palette: "", lighting: "", era: "", composition: "", locations: "", branding: "", negative: "" }),
   mediaMode: z.enum(["ANIMATIC", "MULTIMEDIA"]).default("ANIMATIC"),
   shotsPerChapter: z.number().int().min(1).max(30).default(8),
   /** Every shot that is not a title, chart or map gets its own generated image, instead of the quality preset's image share. */
   imageEveryShot: z.boolean().default(false),
+  /** Owner's image asset sent with every generated image so one character (e.g. a stickman) stays the same across the video. */
+  characterReferenceAssetId: z.string().max(100).default(""),
+  /** Owner's image asset used as the video thumbnail instead of the first frame. */
+  thumbnailAssetId: z.string().max(100).default(""),
+  /** Owner's channel logo drawn in a corner of every shot (multimedia renders only). */
+  logoAssetId: z.string().max(100).default(""),
+  logoPosition: z.enum(["TOP_LEFT", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_RIGHT"]).default("TOP_RIGHT"),
   narration: z.boolean().default(false),
   music: z.boolean().default(false),
   musicPrompt: z.string().max(2000).default("Instrumental background, no vocals"),
@@ -74,6 +84,10 @@ export const policySchema = z.object({
   maxWorkers:z.number().int().min(1).max(8).default(2),
   providers: z.object({ image: z.string().max(100).default(""), video: z.string().max(100).default(""), tts: z.string().max(100).default(""), music: z.string().max(100).default("") }).default({ image: "", video: "", tts: "", music: "" }),
   fallbackProviders: z.array(z.string().max(100)).max(10).default([]),
+  /** Image provider that honours a character reference (e.g. Gemini); used only for projects with a fixed character. */
+  characterImageProvider: z.string().max(100).default(""),
+  /** Retail price per commercial.baseSeconds for fixed-character videos. Null keeps the feature off. */
+  characterSaleCents: z.number().int().positive().max(10000000).nullable().default(null),
   creditsPerImage: z.number().int().min(1).max(100000).nullable().default(null),
   creditsPerVoice: z.number().int().min(1).max(100000).nullable().default(null),
   creditsPerVideoSecond: z.number().int().min(1).max(100000).nullable().default(null),
@@ -98,6 +112,12 @@ export const policySchema = z.object({
   }).default({SMART:{videoPercent:0,imagePercent:80},CINEMATIC_HYBRID:{videoPercent:40,imagePercent:50},FILM_STUDIO:{videoPercent:80,imagePercent:20}}),
 }).strict();
 export type Policy = z.infer<typeof policySchema>;
+/** Owner-approved 2026-11-14 (was 8): long image videos need ~70-100 shots. A package still refuses any estimate whose per-image cost exceeds its fixed price. */
+export const PACKAGE_SHOTS_PER_CHAPTER = 20;
+/** A fixed character is honoured only when the owner set both a reference-capable provider and its price. */
+export function characterMode(configuration: Pick<Configuration,"characterReferenceAssetId">, policy: Pick<Policy,"characterImageProvider"|"characterSaleCents">) {
+  return !!configuration.characterReferenceAssetId && !!policy.characterImageProvider && policy.characterSaleCents !== null;
+}
 export function chapterCount(seconds: number) { return Math.max(1, Math.ceil(seconds / 300)); }
 export function quote(configuration: Configuration, policy: Policy) {
   if(configuration.narration && policy.narratedBundlesOnly && !policy.bundleCredits)throw new FactoryError("NARRATED_BUNDLE_REQUIRED",403);
@@ -105,8 +125,10 @@ export function quote(configuration: Configuration, policy: Policy) {
   if(configuration.mediaMode!=="MULTIMEDIA" && (configuration.exportStems || configuration.forcedAlignment || configuration.semanticReview || configuration.voiceProfileId || configuration.transcriptionAssetId || configuration.audioTracks.length))throw new FactoryError("ADVANCED_FEATURES_REQUIRE_MULTIMEDIA",400);
   if(configuration.forcedAlignment && !configuration.narration)throw new FactoryError("ALIGNMENT_REQUIRES_NARRATION",400);
   if (!policy.enabled) throw new FactoryError("FACTORY_DISABLED", 503);
+  // Say so at estimate time instead of failing at start: music needs an owner-enabled music provider.
+  if(configuration.music && configuration.mediaMode==="MULTIMEDIA" && !policy.providers.music)throw new FactoryError("MUSIC_UNAVAILABLE",400);
   if(policy.commercial.pipeline==="IMAGE_MOTION"){
-    if(configuration.shotsPerChapter>8)throw new FactoryError("PACKAGE_SHOT_LIMIT",400);
+    if(configuration.shotsPerChapter>PACKAGE_SHOTS_PER_CHAPTER)throw new FactoryError("PACKAGE_SHOT_LIMIT",400);
     if(policy.presets[configuration.quality].videoPercent>0)throw new FactoryError("GENERATIVE_VIDEO_DISABLED",400);
     if(configuration.voiceProfileId||configuration.forcedAlignment||configuration.semanticReview||configuration.transcriptionAssetId||policy.advancedProviders.sfx)throw new FactoryError("ADDON_NOT_PRICED_FOR_PACKAGE",400);
   }
@@ -141,11 +163,12 @@ export function quote(configuration: Configuration, policy: Policy) {
     add("sound_effects",policy.advancedProviders.sfx?shots:0,policy.creditsPerSfx);
   }
   let credits = items.reduce((n, item) => n + item.credits, 0);
-  const commercial=policy.commercial.mode==="DURATION_RETAIL"?commercialEstimate(policy.commercial,configuration.durationSeconds,configuration.quality):null;
+  const character=characterMode(configuration,policy);
+  const commercial=policy.commercial.mode==="DURATION_RETAIL"?commercialEstimate(character?{...policy.commercial,saleCents:policy.characterSaleCents!}:policy.commercial,configuration.durationSeconds,configuration.quality):null;
   if(commercial){if(!commercial.credits)throw new FactoryError("PLATFORM_CREDIT_RATE_UNAVAILABLE",503);if(credits>commercial.credits)throw new FactoryError("ACTION_BUDGET_EXCEEDS_RETAIL",503);items.push({action:"completed_film_package",quantity:1,credits:commercial.credits-credits});credits=commercial.credits;}
   if(policy.bundleCredits){if(credits>policy.bundleCredits)throw new FactoryError("BUNDLE_FEATURE_LIMIT",400);items.push({action:"creator_bundle_video",quantity:1,credits:policy.bundleCredits-credits});credits=policy.bundleCredits;}
-  if (credits > Math.min(configuration.budgetCap, policy.maxProjectCredits)) throw new FactoryError("BUDGET_EXCEEDED", 402);
-  return { items, credits,commercial, kind: "estimate" as const, output: configuration.mediaMode === "MULTIMEDIA" ? "multimedia_film" : "silent_storyboard_film", unavailable: [] as string[] };
+  if (credits > Math.min(configuration.budgetCap, policy.maxProjectCredits)) throw new FactoryError("BUDGET_EXCEEDED", 402,{required:credits,budgetCap:configuration.budgetCap,maxProjectCredits:policy.maxProjectCredits});
+  return { items, credits,commercial,characterConsistency:character, kind: "estimate" as const, output: configuration.mediaMode === "MULTIMEDIA" ? "multimedia_film" : "silent_storyboard_film", unavailable: [] as string[] };
 }
 export type TimelineShot = z.infer<typeof shotSchema> & {chapter:number;startFrame:number;durationFrames:number};
 /** Allocate integer frames without gaps or rounding drift, including 60-minute projects. */

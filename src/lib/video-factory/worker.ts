@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
+import { channelContext, getChannelProfile } from "./channelProfile";
 import { getPolicy } from "./config";
 import { chapterCount, configurationSchema, FactoryError, manifestSchema, policySchema, timeline, type Manifest } from "./domain";
 import { approvedProvider, generateChapter,generateIdeas,prepareCreativeRoles,generateSceneMotion } from "./providers";
@@ -14,6 +15,7 @@ import {accountJobStorage} from "./assets";
 import {checkContinuity,inspectRenderedShot} from "./quality";
 import {reviewSemanticShot} from "./semanticWorker";
 import {requireVoiceConsent} from "./voiceConsent";
+import {syncToNarration} from "./narrationSync";
 
 /** Sweep uncertain leases without ever repeating an ambiguous paid provider request. */
 export async function sweepJobs() {
@@ -89,7 +91,8 @@ export async function processFactoryTick() {
         if (!lock.count) throw new FactoryError("JOB_NO_LONGER_ACTIVE");
         await tx.videoFactoryStep.create({ data: { jobId: queued.id, key: stepKey, status: "SUBMITTED", credits: slice, inputHash: hash({ version: queued.projectVersion, cursor: queued.cursor, brief: queued.project.brief,creativeInstructions }), promptVersion:agent?.version,provider: modelId } });
       });
-      const generated = await generateChapter(policy.approvedModelId, { brief: queued.project.brief, title: queued.project.title, configuration,approvedPlan:JSON.parse(queued.project.planning),sources:JSON.parse(queued.project.research),chapterIndex: queued.cursor, chapterCount: chapterCount(configuration.durationSeconds), chapterIdPrefix: `c${queued.cursor}-`, priorContinuity: manifest.chapters.map(c => c.continuity) }, agent?AbortSignal.any([controller.signal,AbortSignal.timeout(agent.timeoutSeconds*1000)]):controller.signal, provider,creativeInstructions);
+      const channel=channelContext(await getChannelProfile(queued.userId));
+      const generated = await generateChapter(policy.approvedModelId, { brief: queued.project.brief, title: queued.project.title, ...(channel?{channel}:{}), configuration,approvedPlan:JSON.parse(queued.project.planning),sources:JSON.parse(queued.project.research),chapterIndex: queued.cursor, chapterCount: chapterCount(configuration.durationSeconds), chapterIdPrefix: `c${queued.cursor}-`, priorContinuity: manifest.chapters.map(c => c.continuity) }, agent?AbortSignal.any([controller.signal,AbortSignal.timeout(agent.timeoutSeconds*1000)]):controller.signal, provider,creativeInstructions);
       if(generated.chapter.shots.length>configuration.shotsPerChapter)throw new FactoryError("SHOT_BUDGET_EXCEEDED",502);
       // Canonical IDs are internally assigned, independent of model-controlled identifiers.
       generated.chapter.shots = generated.chapter.shots.map((s, i) => ({ ...s, id: `c${queued.cursor}-s${i}` }));
@@ -131,12 +134,15 @@ export async function processFactoryTick() {
     } else if(queued.stage === "ASSET_GENERATION") {
       const savedPlan=productionPlanSchema.parse(JSON.parse(queued.plan));
       const result=savedPlan.tasks.length?await produceMedia({...queued,leaseToken:token},controller.signal):{pending:false,plan:savedPlan,retryable:false};
+      // When the last asset is in, time every shot to its own narration before rendering (no equal split).
+      const assetsDone=!result.pending && queued.cursor+1>=result.plan.tasks.length;
+      const timed=assetsDone && configuration.narration?await syncToNarration(manifest,result.plan,queued.userId,controller.signal):null;
       await prisma.$transaction(async tx=>{
         const current=await tx.videoFactoryJob.findUniqueOrThrow({where:{id:queued.id}});if(current.leaseToken!==token || !current.leaseUntil || current.leaseUntil<new Date())throw new FactoryError("STALE_WORKER");
         const next=result.pending?queued.cursor:queued.cursor+1,complete=next>=result.plan.tasks.length;
         if(result.retryable && current.attempts>=policy.maxRetries)throw new FactoryError("PROVIDER_RETRY_LIMIT");
         const status=current.status==="CANCELLING"?"CANCELLED":current.status==="PAUSING"?"PAUSED":"QUEUED";
-        await tx.videoFactoryJob.update({where:{id:queued.id},data:{plan:JSON.stringify(result.plan),cursor:complete?0:next,stage:complete?"SHOT_RENDERING":"ASSET_GENERATION",status,leaseToken:null,leaseUntil:null,nextAttemptAt:result.pending?new Date(Date.now()+(result.retryable?Math.min(60000,1000*2**current.attempts)+Math.floor(Math.random()*500):10000)):null,attempts:result.retryable?{increment:1}:0}});
+        await tx.videoFactoryJob.update({where:{id:queued.id},data:{plan:JSON.stringify(result.plan),...(complete&&timed?{checkpoint:JSON.stringify(timed)}:{}),cursor:complete?0:next,stage:complete?"SHOT_RENDERING":"ASSET_GENERATION",status,leaseToken:null,leaseUntil:null,nextAttemptAt:result.pending?new Date(Date.now()+(result.retryable?Math.min(60000,1000*2**current.attempts)+Math.floor(Math.random()*500):10000)):null,attempts:result.retryable?{increment:1}:0}});
         if(status==="CANCELLED")await settleJob(tx,queued.id,status);
       });
     } else if(queued.stage==="SEMANTIC_QC"){

@@ -1,3 +1,5 @@
+import {characterMode} from "./domain";
+import {styleText} from "./visualStyle";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { configurationSchema, policySchema, timeline, type Configuration, type Manifest, type Policy } from "./domain";
@@ -15,14 +17,14 @@ export function visualKinds(count:number,policy:Policy,quality:Configuration["qu
 export function buildProductionPlan(manifest:Manifest,configuration:Configuration,policy:Policy):ProductionPlan{
   const edit=timeline(manifest,configuration.durationSeconds),kinds=visualKinds(edit.shots.length,policy,configuration.quality,configuration.imageEveryShot),tasks:MediaTask[]=[];
   const add=(kind:MediaTask["kind"],shotId:string|null,prompt:string,credits:number,units=1)=>{
-    const providerId=["CLONE","ALIGNMENT","TRANSCRIPTION","SFX"].includes(kind)?policy.advancedProviders[kind.toLowerCase() as "clone"|"alignment"|"transcription"|"sfx"]:policy.providers[kind==="TTS"?"tts":kind.toLowerCase() as "image"|"video"|"music"];
-    tasks.push({key:`${kind.toLowerCase()}-${shotId || "bed"}`,kind,shotId,prompt,providerId,credits,units,fingerprint:fingerprint({kind,prompt,providerId,voice:kind==="TTS"?configuration.voice:null,voiceProfileId:configuration.voiceProfileId,ratio:configuration.ratio,style:configuration.styleBible})});
+    const providerId=["CLONE","ALIGNMENT","TRANSCRIPTION","SFX"].includes(kind)?policy.advancedProviders[kind.toLowerCase() as "clone"|"alignment"|"transcription"|"sfx"]:kind==="IMAGE"&&characterMode(configuration,policy)?policy.characterImageProvider:policy.providers[kind==="TTS"?"tts":kind.toLowerCase() as "image"|"video"|"music"];
+    tasks.push({key:`${kind.toLowerCase()}-${shotId || "bed"}`,kind,shotId,prompt,providerId,credits,units,fingerprint:fingerprint({kind,prompt,providerId,voice:kind==="TTS"?configuration.voice:null,voiceProfileId:configuration.voiceProfileId,ratio:configuration.ratio,style:configuration.styleBible,...(kind==="IMAGE"&&configuration.characterReferenceAssetId?{characterReference:configuration.characterReferenceAssetId}:{})})});
   };
   if(configuration.mediaMode==="MULTIMEDIA"){
     if(configuration.narration && configuration.voiceProfileId)add("CLONE",null,configuration.voiceProfileId,policy.creditsPerClone!);
     if(configuration.transcriptionAssetId)add("TRANSCRIPTION",null,configuration.transcriptionAssetId,policy.creditsPerTranscription!);
     edit.shots.forEach((shot,index)=>{
-      const prompt=`${shot.visualPrompt}\nStyle and continuity: ${configuration.styleBible}\nVisual revision: ${shot.revision || 0}\nCharacter reference: ${manifest.characters.map(c=>`${c.name}: ${c.description}`).join("; ")}`;
+      const prompt=`${shot.visualPrompt}\nStyle and continuity: ${styleText(configuration)}\nVisual revision: ${shot.revision || 0}\nCharacter reference: ${manifest.characters.map(c=>`${c.name}: ${c.description}`).join("; ")}`;
       const code=["TITLE","CHART","MAP"].includes(shot.motion);
       if(!shot.assetId && !code && kinds[index]==="IMAGE")add("IMAGE",shot.id,prompt,policy.creditsPerImage!);
       if(!shot.assetId && !code && kinds[index]==="VIDEO")add("VIDEO",shot.id,prompt,policy.creditsPerVideoSecond!*4,4);
