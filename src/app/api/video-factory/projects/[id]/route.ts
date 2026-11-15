@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { boundedJson, factoryRoute } from "@/lib/video-factory/http";
-import { controlJob, editManifest, estimateProject, getProject, startProject,updateProjectConfiguration } from "@/lib/video-factory/service";
+import { controlJob, deleteProject, editManifest, estimateProject, getProject, startProject,updateProjectConfiguration } from "@/lib/video-factory/service";
 export const dynamic = "force-dynamic";
 const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("estimate") }).strict(),
@@ -13,6 +13,10 @@ const actionSchema = z.discriminatedUnion("action", [
 export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   return factoryRoute(req, false, async userId => NextResponse.json({ project: await getProject(userId, params.id) }, { headers: { "Cache-Control": "no-store" } }));
+}
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  return factoryRoute(req, false, async userId => NextResponse.json(await deleteProject(userId, params.id)));
 }
 export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;

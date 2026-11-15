@@ -38,6 +38,24 @@ export async function createProject(userId: string, input: unknown) {
   return prisma.videoFactoryProject.create({ data: { userId, title: value.title, brief: value.brief, configuration: JSON.stringify(value.configuration) } });
 }
 /** Every user-facing object lookup enforces the authenticated owner boundary. */
+/**
+ * Deletes a project for its owner. Refused while a production is active (cancel first: unused
+ * credits come back through the normal settlement). The row is kept with deletedAt for the
+ * credit ledger and audit; its files expire now, so the retention sweep removes them and frees
+ * the storage quota on its next run.
+ */
+export async function deleteProject(userId: string, id: string) {
+  return prisma.$transaction(async tx => {
+    const project = await tx.videoFactoryProject.findFirst({ where: { id, userId, deletedAt: null }, select: { id: true, title: true } });
+    if (!project) throw new FactoryError("PROJECT_NOT_FOUND", 404);
+    if (await tx.videoFactoryJob.count({ where: { projectId: id, status: { in: activeStatuses } } })) throw new FactoryError("PROJECT_BUSY");
+    const now = new Date();
+    await tx.videoFactoryProject.update({ where: { id }, data: { deletedAt: now, activeJobId: null } });
+    const files = await tx.videoFactoryAsset.updateMany({ where: { projectId: id, userId, status: { in: ["READY", "QUARANTINED"] } }, data: { expiresAt: now } });
+    await tx.auditLog.create({ data: { actorId: userId, action: "video_factory.project_deleted", targetId: id, metadata: JSON.stringify({ files: files.count }) } });
+    return { deleted: true, files: files.count };
+  });
+}
 export async function getProject(userId: string, id: string) {
   const project = await prisma.videoFactoryProject.findFirst({ where: { id, userId,deletedAt:null }, include: { jobs: { take: 10, orderBy: { createdAt: "desc" }, include: { artifacts: true, steps: { select: { key: true, status: true, provider: true, model: true, credits: true, startedAt: true, completedAt: true } } } } } });
   if (!project) throw new FactoryError("PROJECT_NOT_FOUND", 404);
@@ -46,7 +64,7 @@ export async function getProject(userId: string, id: string) {
 export async function editManifest(userId: string, id: string, expectedVersion: number, input: unknown,configurationInput?:unknown) {
   const manifest = manifestSchema.parse(input);
   return prisma.$transaction(async tx => {
-    const project = await tx.videoFactoryProject.findFirst({ where: { id, userId } });
+    const project = await tx.videoFactoryProject.findFirst({ where: { id, userId, deletedAt: null } });
     if (!project) throw new FactoryError("PROJECT_NOT_FOUND", 404);
     const active=project.activeJobId?await tx.videoFactoryJob.findUnique({where:{id:project.activeJobId}}):null;
     if(active && !(active.status==="AWAITING_APPROVAL" && ["SCRIPT_REVIEW","STORYBOARD_REVIEW"].includes(active.stage)))throw new FactoryError("PROJECT_BUSY");
