@@ -64,7 +64,7 @@ export async function produceMedia(job:{id:string;userId:string;projectId:string
   if(!polling)await prisma.$transaction(async tx=>{
     const claimed=await tx.videoFactoryJob.updateMany({where:{id:job.id,leaseToken:job.leaseToken,status:"RUNNING",leaseUntil:{gt:new Date()},spentCredits:{lte:job.credits-task.credits}},data:{spentCredits:{increment:task.credits}}});
     if(!claimed.count)throw new FactoryError("BUDGET_OR_LEASE_EXCEEDED");
-    await tx.videoFactoryStep.upsert({where:{jobId_key:{jobId:job.id,key:task.key}},create:{jobId:job.id,key:task.key,status:"SUBMITTED",inputHash:task.fingerprint,provider:provider.id,model:provider.model,credits:task.credits,promptVersion:provider.version},update:{status:"SUBMITTED",provider:provider.id,model:provider.model,credits:task.credits}});
+    await tx.videoFactoryStep.upsert({where:{jobId_key:{jobId:job.id,key:task.key}},create:{jobId:job.id,key:task.key,status:"SUBMITTED",inputHash:task.fingerprint,provider:provider.id,model:provider.model,credits:task.credits,promptVersion:provider.version},update:{status:"SUBMITTED",provider:provider.id,model:provider.model,credits:task.credits,startedAt:new Date(),completedAt:null}});
   });
   try{
     if(task.kind==="VIDEO" && !polling){
