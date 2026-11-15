@@ -14,7 +14,7 @@ vi.mock("./assets",async original=>({...await original<typeof import("./assets")
 vi.mock("./quality",async original=>({...await original<typeof import("./quality")>(),inspectRenderedShot:vi.fn(async()=>({status:"PASSED",findings:[]}))}));
 vi.mock("./providers", () => ({ generateSceneMotion:vi.fn(async(_id,chapter)=>({chapter,usage:{inputTokens:10,outputTokens:5},model:"test-motion"})), prepareCreativeRoles:vi.fn(async()=>"TEST ONLY"), approvedProvider: vi.fn(async () => ({ id: "test-only", model: "test-only" })),generateIdeas:vi.fn(async()=>({value:{titles:["TEST A","TEST B"],hooks:["TEST A","TEST B"],outline:["Synthetic outline"],audienceStrategy:"Test only",evidence:[],uncertainties:["Synthetic test"]},provider:"test-only",model:"test-only",usage:null})), generateChapter: vi.fn(async () => ({ chapter: { title: "Synthetic chapter", continuity: "test-only", shots: [{ id: "s1", title: "Synthetic shot", narration: "روایت", visualPrompt: "TEST ONLY" }] }, provider: "test-only", model: "test-only", usage: null })) }));
 import { prisma } from "@/lib/db/prisma";
-import { createProject, getProject, startProject, controlJob, settleJob, editManifest } from "./service";
+import { createProject, deleteProject, getProject, startProject, controlJob, settleJob, editManifest } from "./service";
 import { savePolicy } from "./config";
 import { processFactoryTick, sweepJobs } from "./worker";
 import { generateChapter,generateSceneMotion } from "./providers";
@@ -57,6 +57,14 @@ describe("Video Factory isolated durable workflow", () => {
   beforeEach(async() => { vi.clearAllMocks();vi.unstubAllGlobals();await savePolicy(userId,{enabled:true,longFormEnabled:true,approvedModelId:"test-only",creditsPerChapter:3,creditsPerRenderMinute:2}); });
   afterAll(async () => { await prisma.$disconnect(); const file = process.env.DATABASE_URL!.slice(5); rmSync(file, { force: true }); rmSync(file + "-journal", { force: true });const storage=path.resolve(process.env.VIDEO_FACTORY_STORAGE_DIR!);if(!storage.startsWith(path.resolve("tmp")+path.sep))throw Error("Unexpected test storage path");rmSync(storage,{recursive:true,force:true}); });
   const project = () => createProject(userId, { title: "Test-only film", brief: "Synthetic brief for isolated tests", configuration: config });
+  it("deletes an idle project for its owner only, hides it and audits the deletion",async()=>{
+    const p=await project();
+    await expect(deleteProject(otherId,p.id)).rejects.toThrow("PROJECT_NOT_FOUND");
+    expect(await deleteProject(userId,p.id)).toMatchObject({deleted:true});
+    await expect(getProject(userId,p.id)).rejects.toThrow("PROJECT_NOT_FOUND");
+    await expect(deleteProject(userId,p.id)).rejects.toThrow("PROJECT_NOT_FOUND");
+    expect(await prisma.auditLog.count({where:{action:"video_factory.project_deleted",targetId:p.id}})).toBe(1);
+  });
   it("checkpoints Gemini scene planning and refunds a failed animation pass",async()=>{
     const policy=await savePolicy(userId,{enabled:true,longFormEnabled:true,approvedModelId:"test-only",creditsPerChapter:3,creditsPerRenderMinute:2,commercial:{motionModel:"test-only"}});
     const c=configurationSchema.parse({...config,mode:"AUTOPILOT"});
