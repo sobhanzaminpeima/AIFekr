@@ -26,16 +26,21 @@ async function load(userId: string, id: string) {
 async function shotImages(userId: string, projectId: string, manifest: Manifest) {
   const shots = shotMedia(manifest);
   const assets = await prisma.videoFactoryAsset.findMany({
-    where: { userId, projectId, status: "READY", mimeType: { in: IMAGE_TYPES }, OR: [{ shotId: { in: shots.map((s) => s.id) } }, { id: { in: shots.map((s) => s.assetId).filter((v): v is string => !!v) } }] },
+    where: { userId, projectId, status: "READY", mimeType: { in: [...IMAGE_TYPES, "video/mp4"] }, AND: [
+      { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+      { OR: [{ shotId: { in: shots.map((s) => s.id) }, mimeType: { in: IMAGE_TYPES } }, { id: { in: shots.map((s) => s.assetId).filter((v): v is string => !!v) } }] },
+    ] },
     orderBy: { createdAt: "desc" },
     select: { id: true, shotId: true, mimeType: true, provenance: true, createdAt: true },
   });
   const byId = new Map(assets.map((a) => [a.id, a]));
   return shots.map((s) => {
     const chosen = s.assetId ? byId.get(s.assetId) : undefined;
-    const generated = assets.find((a) => a.shotId === s.id);
-    const image = chosen ?? generated ?? null;
-    return { ...s, image: image ? { id: image.id, mimeType: image.mimeType, source: chosen ? "chosen" : "generated", url: `/api/video-factory/assets/${encodeURIComponent(image.id)}`, createdAt: image.createdAt } : null };
+    const clip = chosen?.mimeType === "video/mp4" ? chosen : null;
+    const generated = assets.find((a) => a.shotId === s.id && IMAGE_TYPES.includes(a.mimeType));
+    const image = chosen && !clip ? chosen : clip ? null : generated ?? null;
+    return { ...s, image: image ? { id: image.id, mimeType: image.mimeType, source: chosen ? "chosen" : "generated", url: `/api/video-factory/assets/${encodeURIComponent(image.id)}`, createdAt: image.createdAt } : null,
+      clip: clip ? { id: clip.id, url: `/api/video-factory/assets/${encodeURIComponent(clip.id)}` } : null };
   });
 }
 
