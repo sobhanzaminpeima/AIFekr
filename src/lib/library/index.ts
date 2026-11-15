@@ -3,7 +3,7 @@
  * what the account has made across modules, each item pointing to where it
  * opens. Bodies stay in their own module; this is the shared index.
  */
-export type LibraryKind = "image" | "video" | "music" | "voice" | "seo" | "website";
+export type LibraryKind = "image" | "video" | "music" | "voice" | "seo" | "website" | "film";
 
 export interface LibraryItem {
   kind: LibraryKind;
@@ -22,6 +22,8 @@ export function libraryIndex(input: {
   voice: { id: string; text: string; createdAt: Date }[];
   seo: { id: string; tool: string; keyword: string | null; url: string | null; createdAt: Date }[];
   websites: { id: string; businessName: string; createdAt: Date }[];
+  /** Finished Video Factory films (E15). */
+  films?: { id: string; projectId: string; title: string; finishedAt: Date }[];
 }, limit = 60): LibraryItem[] {
   const items: LibraryItem[] = [
     ...input.images.map((r) => ({ kind: "image" as const, id: r.id, title: short(r.prompt), createdAt: r.createdAt.toISOString(), openAt: "/image/gallery" })),
@@ -30,6 +32,7 @@ export function libraryIndex(input: {
     ...input.voice.map((r) => ({ kind: "voice" as const, id: r.id, title: short(r.text), createdAt: r.createdAt.toISOString(), openAt: "/voice-studio?tab=library" })),
     ...input.seo.map((r) => ({ kind: "seo" as const, id: r.id, title: short(r.keyword || r.url || r.tool), createdAt: r.createdAt.toISOString(), openAt: "/seo?tab=posts" })),
     ...input.websites.map((r) => ({ kind: "website" as const, id: r.id, title: short(r.businessName), createdAt: r.createdAt.toISOString(), openAt: "/website-designer" })),
+    ...(input.films ?? []).map((r) => ({ kind: "film" as const, id: r.id, title: short(r.title), createdAt: r.finishedAt.toISOString(), openAt: `/video-factory?project=${encodeURIComponent(r.projectId)}` })),
   ];
   return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit);
 }
