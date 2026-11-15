@@ -36,6 +36,23 @@ export interface Provider {
   maxOutputCeiling?: number;
   structuredJson?: boolean;
   creditCost: number;
+  /** Max wait for the first token; the router's default (8 s) when unset. */
+  firstTokenTimeoutMs?: number;
+  /**
+   * Set for models of a dynamic provider (LlmProvider rows, e.g. Coarena; see
+   * src/lib/ai/llmProviders/registry.ts). Such a Provider never carries its key
+   * (`apiKey` is empty); streamProvider() hands it to the dynamic runner, which
+   * resolves the key server-side and enforces the admin's caps.
+   */
+  dynamic?: {
+    providerId: string;
+    externalId: string;
+    /** Joins automatic routing as a last-resort fallback (admin: autoRouting + default model). */
+    fallbackEligible: boolean;
+    /** When this model fails, continue with the normal fallback chain (admin: fallbackEnabled). */
+    fallbackOnError?: boolean;
+    configured: boolean;
+  };
 }
 
 // ─── FreeLLMAPI (self-hosted free-tier aggregator) ──────────────────────────
@@ -440,8 +457,58 @@ export async function streamProvider(
   maxTokensOverride?: number,
   signal?: AbortSignal
 ): Promise<TokenUsage | null> {
-  if (provider.provider === "anthropic") {
-    return streamAnthropic(provider, messages, systemPrompt, onChunk, maxTokensOverride, signal);
+  if (provider.dynamic) {
+    const { streamDynamicProvider } = await import("./llmProviders/run");
+    return streamDynamicProvider(provider, messages, systemPrompt, onChunk, maxTokensOverride, signal);
   }
-  return streamOpenAICompat(provider, messages, systemPrompt, onChunk, maxTokensOverride, signal);
+  // Static providers: same call as before, plus one row in the unified usage
+  // ledger (LlmUsageEvent). The ledger import is lazy and its write never
+  // blocks or fails the answer.
+  const startedAt = new Date();
+  try {
+    const usage = provider.provider === "anthropic"
+      ? await streamAnthropic(provider, messages, systemPrompt, onChunk, maxTokensOverride, signal)
+      : await streamOpenAICompat(provider, messages, systemPrompt, onChunk, maxTokensOverride, signal);
+    void recordStaticUsage(provider, startedAt, "SUCCESS", usage, null);
+    return usage;
+  } catch (err) {
+    void recordStaticUsage(provider, startedAt, signal?.aborted && !(signal.reason instanceof Error && signal.reason.message === "STALL_TIMEOUT") ? "CANCELLED" : "ERROR", null, err);
+    throw err;
+  }
+}
+
+/** Coarse category from a static provider's error text (no text is stored). */
+function staticErrorCategory(err: unknown) {
+  const m = err instanceof Error ? err.message.toLowerCase() : "";
+  if (/timeout|stalled/.test(m)) return "TIMEOUT" as const;
+  if (/error 401\b/.test(m)) return "AUTH" as const;
+  if (/error 403\b/.test(m)) return "FORBIDDEN" as const;
+  if (/error 404\b/.test(m)) return "NOT_FOUND" as const;
+  if (/quota|billing/.test(m)) return "QUOTA" as const;
+  if (/error 429\b|rate limit/.test(m)) return "RATE_LIMIT" as const;
+  if (/error 5\d\d\b/.test(m)) return "UPSTREAM" as const;
+  if (/error 4\d\d\b/.test(m)) return "INVALID" as const;
+  return "NETWORK" as const;
+}
+
+async function recordStaticUsage(provider: Provider, startedAt: Date, status: "SUCCESS" | "ERROR" | "CANCELLED", usage: TokenUsage | null, err: unknown) {
+  try {
+    const [{ recordUsageEvent }, { llmContext }] = await Promise.all([import("./llmProviders/ledger"), import("./llmProviders/context")]);
+    const ctx = llmContext();
+    await recordUsageEvent({
+      providerId: provider.id,
+      modelId: provider.model,
+      userId: ctx.userId ?? null,
+      endpoint: provider.provider === "anthropic" ? "messages" : "chat.completions",
+      status,
+      inputTokens: usage?.promptTokens ?? null,
+      outputTokens: usage?.completionTokens ?? null,
+      totalTokens: usage?.totalTokens ?? null,
+      startedAt,
+      errorCategory: status === "SUCCESS" ? null : status === "CANCELLED" ? "CANCELLED" : staticErrorCategory(err),
+      metadata: { feature: ctx.feature },
+    }, [provider.id]);
+  } catch {
+    // ledger is best-effort
+  }
 }

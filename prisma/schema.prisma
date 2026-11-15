@@ -5154,3 +5154,147 @@ model GrowthNote {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId, createdAt])
 }
+
+/// LLM providers whose model catalogue comes from the provider's own API
+/// (first: Coarena). The static code registry in src/lib/ai/providers.ts keeps
+/// owning the fixed providers; rows here add dynamic ones next to it, through
+/// the same router. The API key never lives in this table in plaintext:
+/// `credentialRef` is either "env:<NAME>" (default, e.g. COARENA_API_KEY) or a
+/// secretBox value ("enc:v1:…") an admin saved; `keyHint` holds only the last
+/// four characters for the masked display.
+model LlmProvider {
+  /// Stable slug, e.g. "coarena".
+  id               String    @id
+  name             String
+  /// Adapter implementation in src/lib/ai/llmProviders (e.g. "coarena").
+  adapter          String
+  baseUrl          String
+  credentialRef    String
+  keyHint          String?
+  enabled          Boolean   @default(false)
+  /// HEALTHY | DEGRADED | OFFLINE | UNKNOWN
+  healthStatus     String    @default("UNKNOWN")
+  lastHealthAt     DateTime?
+  lastSyncAt       DateTime?
+  lastSyncError    String?
+  /// Last safe, user-readable error (never upstream bodies or headers).
+  lastError        String?
+  timeoutMs        Int       @default(60000)
+  /// LlmProviderModel.externalId used when the provider is picked without a model.
+  defaultModelId   String?
+  /// Credits charged per answer when a model has no own creditCost.
+  defaultCreditCost Int      @default(3)
+  /// Internal caps, checked before any upstream call. Null = no cap.
+  dailyRequestCap  Int?
+  perUserDailyCap  Int?
+  maxOutputTokens  Int?
+  maxConcurrency   Int?
+  softWarnPercent  Int       @default(80)
+  hardStopPercent  Int       @default(100)
+  /// When a model of this provider fails, continue with AIFekr's normal fallback chain.
+  fallbackEnabled  Boolean   @default(false)
+  /// Let the default model join automatic routing as a last-resort fallback.
+  autoRouting      Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  models    LlmProviderModel[]
+}
+
+/// Models synced from a provider's /models. Sync never deletes: a model the
+/// provider stops listing becomes available=false, and the admin's enabled,
+/// priority and cost choices are kept.
+model LlmProviderModel {
+  id              String    @id @default(cuid())
+  providerId      String
+  externalId      String
+  displayName     String
+  description     String?
+  /// Admin switch. New models arrive disabled.
+  enabled         Boolean   @default(false)
+  /// Listed by the provider on the last successful sync.
+  available       Boolean   @default(true)
+  /// Provider's own lifecycle label (e.g. "active", "deprecated").
+  lifecycle       String?
+  vision          Boolean   @default(false)
+  streaming       Boolean   @default(true)
+  tools           Boolean   @default(false)
+  contextWindow   Int?
+  maxOutputTokens Int?
+  priority        Int       @default(100)
+  creditCost      Int?
+  dailyRequestCap Int?
+  /// Controlled JSON (owner, aliases, efforts, pricing) from the provider.
+  metadata        String?
+  lastSyncedAt    DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  provider LlmProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, externalId])
+  @@index([providerId, enabled])
+}
+
+/// One row per upstream LLM call attempt, for every provider (static and
+/// dynamic). Never stores prompts or answers. `requestId` is unique, so a call
+/// is recorded once however often its bookkeeping retries.
+model LlmUsageEvent {
+  id                String    @id @default(cuid())
+  requestId         String    @unique
+  providerId        String
+  modelId           String
+  userId            String?
+  upstreamRequestId String?
+  /// e.g. "chat.completions", "responses"
+  endpoint          String
+  /// SUCCESS | ERROR | CANCELLED | BLOCKED
+  status            String
+  inputTokens       Int?
+  outputTokens      Int?
+  totalTokens       Int?
+  /// Cost the provider itself reported (Provider reported).
+  reportedCostUsd   Float?
+  /// Cost computed from AiModelPricing (Estimated). Never mixed with the above.
+  estimatedCostUsd  Float?
+  latencyMs         Int?
+  startedAt         DateTime
+  finishedAt        DateTime?
+  /// AUTH | FORBIDDEN | NOT_FOUND | TIMEOUT | RATE_LIMIT | QUOTA | UPSTREAM | BAD_RESPONSE | LIMIT | CANCELLED | NETWORK | INVALID
+  errorCategory     String?
+  metadata          String?
+
+  @@index([providerId, startedAt])
+  @@index([modelId, startedAt])
+  @@index([userId, startedAt])
+}
+
+/// What a provider's own limits/usage API said, fetched on a short cache.
+model LlmProviderSnapshot {
+  id                 String    @id @default(cuid())
+  providerId         String
+  /// OK | ERROR
+  status             String
+  creditRemainingUsd Float?
+  usedTodayUsd       Float?
+  dailyLimitUsd      Float?
+  requestsToday      Int?
+  requestsLeft       Int?
+  dailyRequestLimit  Int?
+  resetAt            DateTime?
+  /// Normalized JSON (a whitelist of fields; never raw responses).
+  data               String?
+  error              String?
+  fetchedAt          DateTime  @default(now())
+
+  @@index([providerId, fetchedAt])
+}
+
+/// Day counters for the internal caps, incremented in a transaction before
+/// an upstream call so two concurrent requests cannot both take the last slot.
+model LlmUsageCounter {
+  /// e.g. "provider:coarena:2026-11-14", "model:<id>:2026-11-14", "user:coarena:<userId>:2026-11-14"
+  key       String   @id
+  count     Int      @default(0)
+  updatedAt DateTime @updatedAt
+}

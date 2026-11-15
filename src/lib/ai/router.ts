@@ -1,6 +1,8 @@
 import { fallbackReason } from "./fallbackReason";
 import { getDisabledProviders, refreshDisabledProviders } from "./providerConfig";
 import { PROVIDERS, getAvailableProviders, streamProvider, type ChatMessage, type Provider, type TokenUsage } from "./providers";
+import { getDynamicProviders, refreshDynamicProviders } from "./llmProviders/registry";
+import { llmContext } from "./llmProviders/context";
 
 const FIRST_TOKEN_TIMEOUT_MS = 8_000;
 const STREAM_GAP_TIMEOUT_MS = 30_000;
@@ -25,6 +27,12 @@ async function streamWithStallGuard(
     let receivedAny = false;
     let timer: ReturnType<typeof setTimeout>;
     const abort = new AbortController();
+    // The caller's cancel (user closed the chat) stops the upstream request too.
+    const outer = llmContext().signal;
+    if (outer) {
+      if (outer.aborted) abort.abort(outer.reason);
+      else outer.addEventListener("abort", () => abort.abort(outer.reason), { once: true });
+    }
 
     const fail = (e: Error) => {
       (e as Error & { partial?: boolean }).partial = receivedAny;
@@ -36,15 +44,15 @@ async function streamWithStallGuard(
       timer = setTimeout(() => {
         if (settled) return;
         settled = true;
-        abort.abort();
+        abort.abort(new Error("STALL_TIMEOUT"));
         fail(
           new Error(
             receivedAny
               ? `Timeout: stream stalled for ${STREAM_GAP_TIMEOUT_MS / 1000}s mid-response`
-              : `Timeout: no token within ${FIRST_TOKEN_TIMEOUT_MS / 1000}s`
+              : `Timeout: no token within ${(provider.firstTokenTimeoutMs ?? FIRST_TOKEN_TIMEOUT_MS) / 1000}s`
           )
         );
-      }, receivedAny ? STREAM_GAP_TIMEOUT_MS : FIRST_TOKEN_TIMEOUT_MS);
+      }, receivedAny ? STREAM_GAP_TIMEOUT_MS : provider.firstTokenTimeoutMs ?? FIRST_TOKEN_TIMEOUT_MS);
     };
 
     arm();
@@ -111,8 +119,29 @@ function coolDown(provider: Provider, error: Error) {
 const isCooling = (p: Provider) => (coolingUntil.get(p.id) ?? 0) > Date.now();
 /** Enabled providers minus those cooling down; if every one is cooling, all of them (never leave chat with nothing). */
 function usableProviders(): Provider[] {
-  const enabled = getEnabledProviders(), ready = enabled.filter(p => !isCooling(p));
+  // Dynamic models (Coarena) join automatic routing only as the admin's chosen last resort.
+  const enabled = [...getEnabledProviders(), ...getDynamicProviders().filter((p) => p.dynamic?.fallbackEligible)], ready = enabled.filter(p => !isCooling(p));
   return ready.length ? ready : enabled;
+}
+
+/**
+ * Everything a user may pick by name: enabled static providers plus every
+ * enabled, available model of an enabled dynamic provider. A disabled or
+ * unlisted model is simply not here, so naming it cannot reach it.
+ */
+export function getChatProviders(): Provider[] {
+  return [...getEnabledProviders(), ...getDynamicProviders()];
+}
+
+/** The provider a user's explicit `model` string names, or undefined (auto / unknown / disabled). */
+export function findChatProvider(model: unknown): Provider | undefined {
+  if (typeof model !== "string" || !model || model === "auto") return undefined;
+  return getChatProviders().find((p) => p.model === model);
+}
+
+/** True for model strings that name a dynamic provider's model ("coarena:<id>"). */
+export function isDynamicModelString(model: unknown): model is string {
+  return typeof model === "string" && !model.startsWith("custom:") && /^[a-z][a-z0-9-]{1,30}:[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(model);
 }
 
 /**
@@ -169,7 +198,7 @@ export function selectProvider(message: string, userPreferredModel?: string): Pr
 
   // If user explicitly picked a specific claude model, respect it
   if (userPreferredModel && userPreferredModel !== "auto") {
-    const byModel = available.find((p) => p.model === userPreferredModel);
+    const byModel = available.find((p) => p.model === userPreferredModel) ?? getDynamicProviders().find((p) => p.model === userPreferredModel);
     if (byModel) return byModel;
   }
 
@@ -208,7 +237,7 @@ export async function routedStreamChat(
   /** Fired once with real prompt/completion token counts, when the provider that succeeded reports usage. Not every provider returns usage on every request (e.g. no output at all) — in that case this is never called and callers should treat tokens as unknown, not zero. */
   onUsage?: (usage: TokenUsage) => void
 ): Promise<Provider> {
-  await refreshDisabledProviders();
+  await Promise.all([refreshDisabledProviders(), refreshDynamicProviders()]);
   const message = messages[messages.length - 1]?.content ?? "";
   const primary = selectProvider(message, userPreferredModel);
   onProviderSelected(primary);
@@ -221,9 +250,14 @@ export async function routedStreamChat(
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     const partial = (error as Error & { partial?: boolean }).partial ?? false;
+    // The user went away: stop here, do not spend a fallback provider on nobody.
+    if (llmContext().signal?.aborted) throw error;
     console.warn(`[Router] ${primary.name} failed:`, error.message);
     coolDown(primary, error);
     const reason = fallbackReason(error);
+    // A dynamic model the user picked falls back only when the admin allowed it;
+    // otherwise its safe, typed error goes to the caller.
+    if (primary.dynamic && !primary.dynamic.fallbackOnError) throw error;
     recordFallback(primary, usableProviders().find((p) => p.id !== primary.id) ?? null, reason, message);
     onFallback?.({ from: primary, partial, reason });
 
@@ -252,6 +286,7 @@ export async function routedStreamChat(
   // Fallback chain — try all other enabled providers
   const available = usableProviders().filter((p) => p.id !== primary.id);
   for (const fallback of available) {
+    if (llmContext().signal?.aborted) break;
     try {
       console.log(`[Router] Falling back to ${fallback.name}`);
       onProviderSelected(fallback);
