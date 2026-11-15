@@ -1,10 +1,11 @@
+import { stat } from "node:fs/promises";
 import { prisma } from "@/lib/db/prisma";
 import { FactoryError } from "./domain";
-import { saveAsset } from "./assets";
+import { saveAsset, storagePath } from "./assets";
 import { getMediaProvider, recordProviderHealth } from "./registry";
 import { boundedBytes, generateImage, generateInstrumental, generateSpeech, pollVideo, ProviderFailure, submitVideo } from "./mediaAdapters";
 import type { MediaResult } from "./mediaAdapters";
-import { mediaTaskSchema, productionPlanSchema,fingerprint, type ProductionPlan } from "./production";
+import { mediaTaskSchema, productionPlanSchema,fingerprint, type MediaTask, type ProductionPlan } from "./production";
 import { enforceUserPolicy } from "./resources";
 import {agentSettings} from "./resources";
 import { getPolicy } from "./config";
@@ -12,6 +13,38 @@ import { rateLimit } from "@/lib/utils/rateLimit";
 import {assetBytes} from "./assets";
 import {requireVoiceConsent} from "./voiceConsent";
 import {cloneVoice,alignSpeech,transcribeSpeech,generateSfx,verifyClonedVoice} from "./advancedAdapters";
+
+async function imageFileExists(asset:{storageKey:string;bytes:number}){
+  try {
+    const file=await stat(storagePath(asset.storageKey));
+    return file.isFile()&&asset.bytes>0&&file.size===asset.bytes;
+  } catch(error){
+    if((error as NodeJS.ErrnoException).code==="ENOENT")return false;
+    throw error;
+  }
+}
+
+async function previousImage(job:{id:string;userId:string;projectId:string},task:MediaTask){
+  if(task.kind!=="IMAGE")return null;
+  const steps=await prisma.videoFactoryStep.findMany({
+    where:{jobId:{not:job.id},key:task.key,inputHash:task.fingerprint,status:"COMPLETED",
+      job:{userId:job.userId,projectId:job.projectId,status:{in:["FAILED","CANCELLED"]}}},
+    select:{output:true},
+    orderBy:{completedAt:"desc"},
+  });
+  for(const step of steps){
+    let id:unknown;
+    try { id=JSON.parse(step.output||"null")?.assetId; } catch { continue; }
+    if(typeof id!=="string")continue;
+    const asset=await prisma.videoFactoryAsset.findFirst({
+      where:{id,userId:job.userId,projectId:job.projectId,shotId:task.shotId,kind:"IMAGE",status:"READY",
+        OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]},
+      select:{id:true,storageKey:true,bytes:true},
+    });
+    if(asset && await imageFileExists(asset))return asset;
+  }
+  return null;
+}
 
 /** One paid submission or one non-paid async poll per tick, fenced by the owning job lease. */
 export async function produceMedia(job:{id:string;userId:string;projectId:string;cursor:number;credits:number;leaseToken:string;plan:string;attempts?:number},signal:AbortSignal){
@@ -30,6 +63,19 @@ export async function produceMedia(job:{id:string;userId:string;projectId:string
   // A persisted output is reused without submitting or billing it again.
   if(existing?.status==="COMPLETED" && existing.output){const saved=JSON.parse(existing.output) as {assetId:string};return {pending:false,plan:{...plan,assetIds:{...plan.assetIds,[task.key]:saved.assetId}}};}
   const polling=!!existing?.providerJobId;
+  if(!polling && existing?.status!=="SUBMITTED"){
+    const image=await previousImage(job,task);
+    if(image){
+      const output=JSON.stringify({assetId:image.id,reused:true});
+      const completedAt=new Date();
+      await prisma.videoFactoryStep.upsert({
+        where:{jobId_key:{jobId:job.id,key:task.key}},
+        create:{jobId:job.id,key:task.key,inputHash:task.fingerprint,status:"COMPLETED",output,completedAt},
+        update:{status:"COMPLETED",output,credits:0,completedAt},
+      });
+      return {pending:false,plan:{...plan,assetIds:{...plan.assetIds,[task.key]:image.id}}};
+    }
+  }
   if(existing?.provider && !allowed.includes(existing.provider))throw new FactoryError("PROVIDER_APPROVAL_REVOKED",403);
   const provider=await getMediaProvider(existing?.provider || task.providerId,task.kind,polling?[]:plan.policy.fallbackProviders.filter(id=>allowed.includes(id)));
   // A fallback must satisfy the account policy too, not just global approval.
@@ -49,17 +95,17 @@ export async function produceMedia(job:{id:string;userId:string;projectId:string
     if(!provider.settings.defaultVoiceId)throw new FactoryError("PROVIDER_VOICE_NOT_CONFIGURED",503);
     voice=provider.settings.defaultVoiceId as typeof voice;
   }
-  if(!rateLimit(`vf-provider:${provider.id}`,provider.settings.requestsPerMinute,60000).allowed)return {pending:true,plan};
-  const active=await prisma.videoFactoryStep.count({where:{provider:provider.id,status:"SUBMITTED",completedAt:null,job:{status:{in:["RUNNING","QUEUED","PAUSED","PAUSING"]}}}});
-  if(!polling && active>=provider.settings.maxConcurrent)return {pending:true,plan};
   const reused=await prisma.videoFactoryAsset.findFirst({where:{userId:job.userId,projectId:job.projectId,status:"READY",metadata:{contains:effectiveFingerprint},OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]},orderBy:{createdAt:"desc"}});
-  if(reused){
+  if(reused && (task.kind!=="IMAGE" || await imageFileExists(reused))){
     await prisma.videoFactoryStep.upsert({where:{jobId_key:{jobId:job.id,key:task.key}},create:{jobId:job.id,key:task.key,inputHash:task.fingerprint,status:"COMPLETED",output:JSON.stringify({assetId:reused.id,reused:true}),completedAt:new Date()},update:{status:"COMPLETED",output:JSON.stringify({assetId:reused.id,reused:true}),completedAt:new Date()}});
     // A reused narration brings its word timings along when they were saved.
     const timing=task.kind==="TTS" && task.shotId?await prisma.videoFactoryAsset.findFirst({where:{userId:job.userId,projectId:job.projectId,status:"READY",kind:"ALIGNMENT",metadata:{contains:fingerprint({alignmentOf:effectiveFingerprint})}},orderBy:{createdAt:"desc"},select:{id:true}}):null;
     return {pending:false,plan:{...plan,assetIds:{...plan.assetIds,[task.key]:reused.id,...(timing?{[`alignment-${task.shotId}`]:timing.id}:{})}}};
   }
   if(existing?.status==="SUBMITTED" && !polling)throw new FactoryError("PROVIDER_OUTCOME_UNCERTAIN");
+  if(!rateLimit(`vf-provider:${provider.id}`,provider.settings.requestsPerMinute,60000).allowed)return {pending:true,plan};
+  const active=await prisma.videoFactoryStep.count({where:{provider:provider.id,status:"SUBMITTED",completedAt:null,job:{status:{in:["RUNNING","QUEUED","PAUSED","PAUSING"]}}}});
+  if(!polling && active>=provider.settings.maxConcurrent)return {pending:true,plan};
   const started=Date.now();
   if(!polling)await prisma.$transaction(async tx=>{
     const claimed=await tx.videoFactoryJob.updateMany({where:{id:job.id,leaseToken:job.leaseToken,status:"RUNNING",leaseUntil:{gt:new Date()},spentCredits:{lte:job.credits-task.credits}},data:{spentCredits:{increment:task.credits}}});

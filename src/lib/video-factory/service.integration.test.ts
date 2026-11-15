@@ -18,7 +18,7 @@ import { createProject, deleteProject, getProject, startProject, controlJob, set
 import { savePolicy } from "./config";
 import { processFactoryTick, sweepJobs } from "./worker";
 import { generateChapter,generateSceneMotion } from "./providers";
-import { configurationSchema } from "./domain";
+import { chapterSchema, configurationSchema } from "./domain";
 import { POST as projectAction, GET as projectDetail } from "@/app/api/video-factory/projects/[id]/route";
 import { GET as adminGet } from "@/app/api/admin/video-factory/route";
 import { NextRequest } from "next/server";
@@ -215,6 +215,37 @@ describe("Video Factory isolated durable workflow", () => {
     const job=await startProject(userId,p.id,"multimedia-two-gates",estimate.credits);await processFactoryTick();expect((await getProject(userId,p.id)).jobs[0].stage).toBe("SCRIPT_REVIEW");await controlJob(userId,p.id,"approve");expect((await getProject(userId,p.id)).jobs[0].stage).toBe("STORYBOARD_REVIEW");await controlJob(userId,p.id,"approve");
     for(let i=0;i<4;i++)await processFactoryTick();
     const done=await prisma.videoFactoryJob.findUniqueOrThrow({where:{id:job.id}});expect(done.status).toBe("DELIVERED");expect(done.spentCredits).toBe(estimate.credits);expect(request).toHaveBeenCalledTimes(2);expect((await prisma.user.findUniqueOrThrow({where:{id:userId}})).credits).toBe(balance-estimate.credits);expect(await prisma.videoFactoryApproval.count({where:{jobId:job.id}})).toBe(2);
+  });
+  it("continues an interrupted eight-image project with only two new provider calls",async()=>{
+    const providerId="test-interrupted-image";
+    await saveMediaProvider(userId,{id:providerId,name:"TEST ONLY interrupted images",kind:"IMAGE",adapter:"OPENAI_IMAGE",model:"test-model",enabled:true,secret:"test-only-key",settings:{commercialApproved:true,safetyReviewed:true},pricing:{unitUsd:null,unit:"image",verifiedAt:null}});
+    const policy=await savePolicy(userId,{enabled:true,approvedModelId:"test-only",creditsPerChapter:3,creditsPerRenderMinute:2,providers:{image:providerId},creditsPerImage:2,presets:{SMART:{imagePercent:100,videoPercent:0}}});
+    const configuration=configurationSchema.parse({...config,mode:"AUTOPILOT",mediaMode:"MULTIMEDIA",shotsPerChapter:8,narration:false});
+    const p=await createProject(userId,{title:"Interrupted production",brief:"Eight distinct shots for restart verification",configuration});
+    vi.mocked(generateChapter).mockResolvedValueOnce({
+      chapter:chapterSchema.parse({title:"Chapter",continuity:"Test",shots:Array.from({length:8},(_,i)=>({id:`s${i}`,title:`Shot ${i}`,narration:"",visualPrompt:`Synthetic scene ${i}`}))}),
+      provider:"test-only",model:"test-only",usage:null,
+    });
+    const cost=quote(configuration,policy).credits;
+    const first=await startProject(userId,p.id,"eight-image-first",cost);
+    const image=()=>Response.json({data:[{b64_json:Buffer.from("synthetic image").toString("base64")}]});
+    const request=vi.fn<typeof fetch>();
+    for(let i=0;i<6;i++)request.mockImplementationOnce(async()=>image());
+    request.mockRejectedValueOnce(new TypeError("Synthetic interrupted connection"));
+    vi.stubGlobal("fetch",request);
+    for(let i=0;i<8;i++)await processFactoryTick();
+    expect(await prisma.videoFactoryJob.findUnique({where:{id:first.id}})).toMatchObject({status:"FAILED",cursor:6});
+    expect(request).toHaveBeenCalledTimes(7);
+
+    // A provider settings refresh changes the provider fingerprint between attempts.
+    await prisma.videoFactoryProvider.update({where:{id:providerId},data:{version:{increment:1}}});
+    const second=await startProject(userId,p.id,"eight-image-continue",cost);
+    request.mockReset().mockImplementation(async()=>image());
+    for(let i=0;i<8;i++)await processFactoryTick();
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(await prisma.videoFactoryStep.count({where:{jobId:second.id,status:"COMPLETED",credits:0}})).toBe(6);
+    expect(await prisma.videoFactoryJob.findUnique({where:{id:second.id}})).toMatchObject({stage:"SHOT_RENDERING",spentCredits:4});
+    await controlJob(userId,p.id,"cancel");
   });
   it("does not debit a known rejected media call and schedules a bounded retry",async()=>{
     const policy=await savePolicy(userId,{enabled:true,longFormEnabled:true,approvedModelId:"test-only",creditsPerChapter:3,creditsPerRenderMinute:2,providers:{image:"test-image"},creditsPerImage:2,presets:{SMART:{imagePercent:100,videoPercent:0}}});
