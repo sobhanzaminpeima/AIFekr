@@ -38,7 +38,19 @@ export async function listResources(kind?:string){const rows=await prisma.videoF
 export async function agentSettings(role:typeof agentRoles[number]){
   const row=await prisma.videoFactoryResource.findFirst({where:{id:`agent_${role}`,kind:"AGENT"}});
   if(!row)return null;if(!row.enabled)throw new FactoryError("AGENT_DISABLED",503);
-  return {version:row.version,...agentConfig.parse(JSON.parse(row.configuration))};
+  const settings={version:row.version,...agentConfig.parse(JSON.parse(row.configuration))};
+  // An agent pinned to a model the owner has not approved (or has switched off) keeps its
+  // instructions but runs on the shared approved model, instead of failing every production.
+  if(settings.modelId && !(await usableModelIds()).has(settings.modelId))settings.modelId="";
+  return settings;
+}
+/** Models and providers the live policy approves and that are switched on. */
+async function usableModelIds(){
+  const policy=(await import("./config")).getPolicy;
+  const p=await policy();
+  const approved=new Set([p.approvedModelId,...p.approvedTextModelIds,...Object.values(p.providers),...Object.values(p.advancedProviders),p.characterImageProvider].filter(Boolean));
+  const enabled=await prisma.videoFactoryProvider.findMany({where:{id:{in:[...approved]},enabled:true},select:{id:true,model:true}});
+  return new Set(enabled.flatMap(e=>[e.id,e.model]));
 }
 export async function enforceRole(role:typeof agentRoles[number],tool:z.infer<typeof agentConfig>["allowedTools"][number],step:number,credits:number){
  const settings=await agentSettings(role);if(settings && (!settings.allowedTools.includes(tool)||step>=settings.maxSteps||credits>settings.budgetCap))throw new FactoryError("AGENT_POLICY_DENIED",403);return settings;

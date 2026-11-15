@@ -24,7 +24,7 @@ import { GET as adminGet } from "@/app/api/admin/video-factory/route";
 import { NextRequest } from "next/server";
 import { signToken } from "@/lib/auth/jwt";
 import {saveMediaProvider,getMediaProvider} from "./registry";
-import {saveResource,rollbackResource} from "./resources";
+import {saveResource,rollbackResource,agentSettings} from "./resources";
 import {acceptFactoryWebhook} from "./webhooks";
 import {createHmac} from "node:crypto";
 import {quote,manifestSchema} from "./domain";
@@ -57,6 +57,13 @@ describe("Video Factory isolated durable workflow", () => {
   beforeEach(async() => { vi.clearAllMocks();vi.unstubAllGlobals();await savePolicy(userId,{enabled:true,longFormEnabled:true,approvedModelId:"test-only",creditsPerChapter:3,creditsPerRenderMinute:2}); });
   afterAll(async () => { await prisma.$disconnect(); const file = process.env.DATABASE_URL!.slice(5); rmSync(file, { force: true }); rmSync(file + "-journal", { force: true });const storage=path.resolve(process.env.VIDEO_FACTORY_STORAGE_DIR!);if(!storage.startsWith(path.resolve("tmp")+path.sep))throw Error("Unexpected test storage path");rmSync(storage,{recursive:true,force:true}); });
   const project = () => createProject(userId, { title: "Test-only film", brief: "Synthetic brief for isolated tests", configuration: config });
+  it("runs an agent pinned to a switched-off model on the shared approved model instead of failing",async()=>{
+    await prisma.videoFactoryResource.upsert({where:{id:"agent_continuity"},create:{id:"agent_continuity",kind:"AGENT",name:"QA continuity",enabled:true,configuration:JSON.stringify({role:"continuity",systemPrompt:"Keep characters and places consistent across chapters.",modelId:"vf-switched-off-model",allowedTools:["qc"],maxSteps:50,budgetCap:1000,timeoutSeconds:60,maxRetries:1})},update:{configuration:JSON.stringify({role:"continuity",systemPrompt:"Keep characters and places consistent across chapters.",modelId:"vf-switched-off-model",allowedTools:["qc"],maxSteps:50,budgetCap:1000,timeoutSeconds:60,maxRetries:1}),enabled:true}});
+    const settings=await agentSettings("continuity");
+    expect(settings?.modelId).toBe("");
+    expect(settings?.systemPrompt).toContain("consistent");
+    await prisma.videoFactoryResource.delete({where:{id:"agent_continuity"}});
+  });
   it("deletes an idle project for its owner only, hides it and audits the deletion",async()=>{
     const p=await project();
     await expect(deleteProject(otherId,p.id)).rejects.toThrow("PROJECT_NOT_FOUND");
