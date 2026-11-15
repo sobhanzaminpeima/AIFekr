@@ -4,7 +4,10 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
-import { routedStreamChat } from "@/lib/ai/router";
+import { findChatProvider, isDynamicModelString, routedStreamChat } from "@/lib/ai/router";
+import { getDynamicProviders, refreshDynamicProviders } from "@/lib/ai/llmProviders/registry";
+import { runWithLlmContext } from "@/lib/ai/llmProviders/context";
+import { LlmProviderError, USER_MESSAGE_FA } from "@/lib/ai/llmProviders/errors";
 import { PROVIDERS, type Provider } from "@/lib/ai/providers";
 import { isCustomProviderModel, streamCustomProvider } from "@/lib/ai/customProviders";
 import { CREDIT_COSTS } from "@/lib/utils/credits";
@@ -144,8 +147,17 @@ export async function POST(req: NextRequest) {
     // check and then get billed 5 for GPT-5, landing their balance negative.
     // "auto"/unset routing can land on any provider, so it's checked against
     // the most expensive one rather than the cheapest.
-    const explicitProvider = typeof model === "string" ? PROVIDERS.find((p) => p.model === model) : undefined;
-    const expectedCost = isCustomProviderModel(model) ? 3 : explicitProvider?.creditCost ?? MAX_AUTO_CREDIT_COST;
+    // Dynamic models (e.g. "coarena:<id>") are picked only from what the admin
+    // enabled; a disabled, unlisted or made-up id is refused here, before any
+    // credit check or upstream call, instead of silently routing elsewhere.
+    await refreshDynamicProviders();
+    const explicitProvider = findChatProvider(model);
+    if (isDynamicModelString(model) && !explicitProvider) {
+      return NextResponse.json({ error: "این مدل در دسترس نیست. مدل دیگری انتخاب کنید.", code: "MODEL_UNAVAILABLE" }, { status: 400 });
+    }
+    // "auto" can also land on a dynamic model the admin put in automatic routing.
+    const autoCost = Math.max(MAX_AUTO_CREDIT_COST, ...getDynamicProviders().filter((p) => p.dynamic?.fallbackEligible).map((p) => p.creditCost));
+    const expectedCost = isCustomProviderModel(model) ? 3 : explicitProvider?.creditCost ?? autoCost;
     const [availableCredits,lang] = await Promise.all([getAvailableCredits(user.id),getServerLang()]);
     // Answers are charged after they finish streaming, so parallel requests
     // (several tabs, a script) could each pass this check against the same
@@ -262,6 +274,8 @@ export async function POST(req: NextRequest) {
     // and cancel both release it.
     inFlightChatCredits.set(user.id, (inFlightChatCredits.get(user.id) ?? 0) + expectedCost);
     let creditHoldReleased = false;
+    // Closing the chat aborts the upstream call (and stops the fallback chain).
+    const userGone = new AbortController();
     const releaseCreditHold = () => {
       if (creditHoldReleased) return;
       creditHoldReleased = true;
@@ -295,7 +309,7 @@ export async function POST(req: NextRequest) {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
             });
           } else {
-            await routedStreamChat(
+            await runWithLlmContext({ userId: user.id, feature: "chat", signal: userGone.signal }, () => routedStreamChat(
               apiMessages,
               systemStr,
               (text) => {
@@ -334,7 +348,7 @@ export async function POST(req: NextRequest) {
                 promptTokensUsed = usage.promptTokens;
                 completionTokensUsed = usage.completionTokens;
               }
-            );
+            ));
           }
 
           // Generation succeeded and the full response has already been
@@ -411,13 +425,17 @@ export async function POST(req: NextRequest) {
           const requestId = globalThis.crypto.randomUUID().slice(0, 8);
           await logError({ source: "/api/chat (stream)", error: err, userId: user.id, requestId });
           void recordGenerationFailed(user.id, "chat", "provider", requestId);
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: `خطا در دریافت پاسخ (کد پیگیری: ${requestId})`, requestId })}\n\n`));
+          // A dynamic provider's typed error (quota, rate limit, internal cap…)
+          // has a clear Persian message of its own; nothing from upstream is shown.
+          const known = err instanceof LlmProviderError ? USER_MESSAGE_FA[err.category] : null;
+          if (!userGone.signal.aborted) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: known ? `${known} (کد پیگیری: ${requestId})` : `خطا در دریافت پاسخ (کد پیگیری: ${requestId})`, requestId, ...(err instanceof LlmProviderError ? { code: `LLM_${err.category}` } : {}) })}\n\n`));
           controller.close();
         } finally {
           releaseCreditHold();
         }
       },
       cancel() {
+        userGone.abort();
         releaseCreditHold();
       },
     });

@@ -5,6 +5,7 @@ import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { getAvailableProviders } from "@/lib/ai/providers";
 import { prisma } from "@/lib/db/prisma";
 import { getDisabledProviders, refreshDisabledProviders } from "@/lib/ai/providerConfig";
+import { getDynamicProviders, refreshDynamicProviders } from "@/lib/ai/llmProviders/registry";
 
 // User-facing list of usable chat/text models, for model pickers in content
 // generation flows (business posts, Instagram captions, etc). `model` is
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
   const user = await requireAuth(req);
   if (!user) return unauthorizedResponse(req);
 
-  await refreshDisabledProviders();
+  await Promise.all([refreshDisabledProviders(), refreshDynamicProviders()]);
   const disabled = getDisabledProviders();
   const providers = getAvailableProviders()
     .filter((p) => !disabled.has(p.id))
@@ -30,5 +31,10 @@ export async function GET(req: NextRequest) {
   const defaultChatCost = (await getCreditCosts()).chat;
   const customEntries = custom.map((p) => ({ id: `custom:${p.id}`, name: p.name, model: `custom:${p.id}`, creditCost: defaultChatCost }));
 
-  return NextResponse.json({ providers: [...providers, ...customEntries] });
+  // Dynamic-provider models (e.g. Coarena) the admin enabled; only enabled,
+  // still-listed models of an enabled provider with a key are ever here.
+  // `providerName` lets the picker show where the answer comes from.
+  const dynamicEntries = getDynamicProviders().map((p) => ({ id: p.id, name: p.name, model: p.model, creditCost: p.creditCost, providerName: p.dynamic?.providerId ?? null }));
+
+  return NextResponse.json({ providers: [...providers, ...customEntries, ...dynamicEntries] });
 }
