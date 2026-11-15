@@ -31,7 +31,7 @@ Never commit a real key. `.env.example` lists these variables with empty values.
 
 ## Migration
 
-`prisma/migrations/20261114120000_llm_providers` only adds tables and indexes. It never drops or alters anything. It creates:
+`prisma/migrations/20261115090000_llm_providers` only adds tables and indexes. It never drops or alters anything. It creates:
 
 - `LlmProvider`
 - `LlmProviderModel` (unique on `providerId` + `externalId`)
