@@ -2,11 +2,11 @@ import {z} from "zod";
 import type {Prisma} from "@prisma/client";
 import {FactoryError} from "./errors";
 export const VIDEO_PACKAGE_CATEGORY="VIDEO_FACTORY";
-export const videoLimitsSchema=z.object({videoCount:z.number().int().min(1).max(1000),videoSeconds:z.number().int().min(60).max(480000),videoMaxSeconds:z.number().int().min(60).max(480)});
+export const videoLimitsSchema=z.object({videoCount:z.number().int().min(1).max(1000),videoSeconds:z.number().int().min(60).max(600000),videoMaxSeconds:z.number().int().min(60).max(600)});
 export type PackageUsage={paymentId:string;seconds:number};
 /** Called under the account quota write lock; quotas use immutable paid snapshots. */
 export async function claimPackage(tx:Prisma.TransactionClient,userId:string,seconds:number,now=new Date()):Promise<PackageUsage>{
- if(!Number.isInteger(seconds)||seconds<15||seconds>480)throw new FactoryError("VIDEO_MAXIMUM_8_MINUTES",400);
+ if(!Number.isInteger(seconds)||seconds<15||seconds>600)throw new FactoryError("VIDEO_MAXIMUM_10_MINUTES",400);
  const payments=await tx.payment.findMany({where:{userId,status:"SUCCESS"},orderBy:{createdAt:"asc"},select:{id:true,entitlementSnapshot:true,reviewAt:true,createdAt:true}});
  const jobs=await tx.videoFactoryJob.findMany({where:{userId,status:{notIn:["FAILED","CANCELLED"]}},select:{policy:true}});
  for(const payment of payments){

@@ -6,8 +6,14 @@ function db(jobs:unknown[]=[],status="SUCCESS"){
  return {payment:{findMany:vi.fn(async()=>status==="SUCCESS"?[{id:"paid",createdAt:now,reviewAt:now,entitlementSnapshot:JSON.stringify({category:"VIDEO_FACTORY",days:30,entitlements:{limits:{videoCount:2,videoSeconds:720,videoMaxSeconds:480}}})}]:[])},videoFactoryJob:{findMany:vi.fn(async()=>jobs)}} as unknown as Prisma.TransactionClient;
 }
 describe("Paid video package authorization",()=>{
+ it("preserves the purchased eight-minute limit",async()=>{await expect(claimPackage(db(),"u",600,now)).rejects.toThrow("VIDEO_PACKAGE_REQUIRED_OR_EXHAUSTED");});
+ it("allows ten minutes when the purchased snapshot includes it",async()=>{
+   const tx=db();
+   vi.mocked(tx.payment.findMany).mockResolvedValueOnce([{id:"paid",createdAt:now,reviewAt:now,entitlementSnapshot:JSON.stringify({category:"VIDEO_FACTORY",days:30,entitlements:{limits:{videoCount:2,videoSeconds:1200,videoMaxSeconds:600}}})}] as never);
+   expect(await claimPackage(tx,"u",600,now)).toEqual({paymentId:"paid",seconds:600});
+ });
  it("requires a verified purchase",async()=>{await expect(claimPackage(db([],"PENDING"),"u",360,now)).rejects.toThrow("VIDEO_PACKAGE_REQUIRED");});
- it("enforces the hard eight-minute maximum",async()=>{await expect(claimPackage(db(),"u",481,now)).rejects.toThrow("VIDEO_MAXIMUM");});
+ it("enforces the hard ten-minute maximum",async()=>{await expect(claimPackage(db(),"u",601,now)).rejects.toThrow("VIDEO_MAXIMUM");});
  it("uses historical purchase limits and counts reserved minutes",async()=>{const tx=db([{policy:JSON.stringify({packageUsage:{paymentId:"paid",seconds:480}})}]);await expect(claimPackage(tx,"u",360,now)).rejects.toThrow("EXHAUSTED");expect(await claimPackage(tx,"u",240,now)).toEqual({paymentId:"paid",seconds:240});});
  it("enforces count even when minutes remain",async()=>{await expect(claimPackage(db(Array(2).fill({policy:JSON.stringify({packageUsage:{paymentId:"paid",seconds:30}})})),"u",30,now)).rejects.toThrow("EXHAUSTED");});
  it("does not count another purchase's work",async()=>{expect(await claimPackage(db([{policy:JSON.stringify({packageUsage:{paymentId:"other",seconds:480}})}]),"u",360,now)).toEqual({paymentId:"paid",seconds:360});});
