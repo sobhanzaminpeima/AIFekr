@@ -4,7 +4,7 @@ import { mkdir,rm,stat,writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 const fixtures=vi.hoisted(()=>({assets:[] as {id:string;userId:string;storageKey:string;mimeType:string;status:string}[]}));
-vi.mock("@/lib/db/prisma",()=>({prisma:{videoFactoryStep:{findFirst:async()=>null},videoFactoryAsset:{findFirst:async({where}:{where:{id:string;userId:string}})=>fixtures.assets.find(a=>a.id===where.id&&a.userId===where.userId&&a.status==="READY") || null}}}));
+vi.mock("@/lib/db/prisma",()=>({prisma:{videoFactoryJob:{findUnique:async()=>null},videoFactoryChannelProfile:{findUnique:async()=>null},videoFactoryStep:{findFirst:async()=>null},videoFactoryAsset:{findFirst:async({where}:{where:{id:string;userId:string}})=>fixtures.assets.find(a=>a.id===where.id&&a.userId===where.userId&&a.status==="READY") || null}}}));
 import { configurationSchema,manifestSchema,policySchema } from "./domain";
 import { buildProductionPlan } from "./production";
 import { renderShot,assemble,mediaCommand,artifactDirectory } from "./render";

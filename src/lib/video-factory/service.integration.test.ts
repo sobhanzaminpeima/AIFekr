@@ -36,6 +36,9 @@ import {POST as adminEconomics} from "@/app/api/admin/video-factory/economics/ro
 import {saveAsset} from "./assets";
 import {createVoiceConsent,revokeVoiceConsent,requireVoiceConsent} from "./voiceConsent";
 import {renderShot} from "./render";
+import {produceMedia} from "./mediaWorker";
+import {storagePath} from "./assets";
+import {unlink} from "node:fs/promises";
 
 describe("Video Factory isolated durable workflow", () => {
   let userId: string, otherId: string;
@@ -245,6 +248,12 @@ describe("Video Factory isolated durable workflow", () => {
     expect(request).toHaveBeenCalledTimes(2);
     expect(await prisma.videoFactoryStep.count({where:{jobId:second.id,status:"COMPLETED",credits:0}})).toBe(6);
     expect(await prisma.videoFactoryJob.findUnique({where:{id:second.id}})).toMatchObject({stage:"SHOT_RENDERING",spentCredits:4});
+    const resumed=await prisma.videoFactoryJob.findUniqueOrThrow({where:{id:second.id}});
+    const plan=JSON.parse(resumed.plan);
+    const saved=await prisma.videoFactoryAsset.findUniqueOrThrow({where:{id:plan.assetIds[plan.tasks[0].key]}});
+    await unlink(storagePath(saved.storageKey));
+    await expect(produceMedia({...resumed,cursor:0,leaseToken:"test-lease"},AbortSignal.timeout(10000))).rejects.toThrow("SAVED_MEDIA_MISSING");
+    expect(request).toHaveBeenCalledTimes(2);
     await controlJob(userId,p.id,"cancel");
   });
   it("does not debit a known rejected media call and schedules a bounded retry",async()=>{

@@ -6,12 +6,13 @@ export async function inspectRenderedShot(jobId:string,index:number,manifest:Man
   const edit=timeline(manifest,configuration.durationSeconds),shot=edit.shots[index],file=path.join(artifactDirectory(jobId),`shot-${index}.mp4`);
   const info=JSON.parse(await mediaCommand("ffprobe",["-v","error","-show_entries","format=duration:stream=codec_type,width,height,r_frame_rate","-of","json",file],signal));
   const findings:{code:string;severity:"ERROR"|"WARNING";value?:number}[]=[];
-  if(Math.abs(Number(info.format?.duration)-shot.durationFrames/24)>.15)findings.push({code:"DURATION_DRIFT",severity:"ERROR"});
+  if(!Number.isFinite(Number(info.format?.duration)) || Math.abs(Number(info.format?.duration)-shot.durationFrames/24)>.15)findings.push({code:"DURATION_DRIFT",severity:"ERROR"});
   if(!info.streams?.some((s:{codec_type:string})=>s.codec_type==="video"))findings.push({code:"MISSING_VIDEO",severity:"ERROR"});
   if(configuration.mediaMode==="MULTIMEDIA" && configuration.narration && shot.narration.trim()){
+    if(!info.streams?.some((s:{codec_type:string})=>s.codec_type==="audio"))findings.push({code:"MISSING_NARRATION",severity:"ERROR"});
     const audio=await mediaCommand("ffmpeg",["-hide_banner","-i",file,"-vn","-af","volumedetect","-f","null","-"],signal,true);
     const peak=audio.match(/max_volume:\s*(-?\d+(?:\.\d+)?) dB/),silence=audio.includes("max_volume: -inf");
-    if(silence || (peak && Number(peak[1])< -55))findings.push({code:"SILENT_NARRATION",severity:"ERROR"});
+    if(silence || !peak || Number(peak[1])< -55)findings.push({code:"SILENT_NARRATION",severity:"ERROR"});
     if(peak && Number(peak[1])>-.1)findings.push({code:"AUDIO_CLIPPING_RISK",severity:"WARNING",value:Number(peak[1])});
   }
   if(!shot.narration.trim() && configuration.narration)findings.push({code:"EMPTY_NARRATION",severity:"WARNING"});

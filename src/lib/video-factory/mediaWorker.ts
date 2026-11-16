@@ -14,7 +14,7 @@ import {assetBytes} from "./assets";
 import {requireVoiceConsent} from "./voiceConsent";
 import {cloneVoice,alignSpeech,transcribeSpeech,generateSfx,verifyClonedVoice} from "./advancedAdapters";
 
-async function imageFileExists(asset:{storageKey:string;bytes:number}){
+async function mediaFileExists(asset:{storageKey:string;bytes:number}){
   try {
     const file=await stat(storagePath(asset.storageKey));
     return file.isFile()&&asset.bytes>0&&file.size===asset.bytes;
@@ -41,7 +41,7 @@ async function previousImage(job:{id:string;userId:string;projectId:string},task
         OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]},
       select:{id:true,storageKey:true,bytes:true},
     });
-    if(asset && await imageFileExists(asset))return asset;
+    if(asset && await mediaFileExists(asset))return asset;
   }
   return null;
 }
@@ -61,7 +61,15 @@ export async function produceMedia(job:{id:string;userId:string;projectId:string
   await enforceUserPolicy(job.userId,0,[task.providerId],plan.configuration.durationSeconds>60);
   const existing=await prisma.videoFactoryStep.findUnique({where:{jobId_key:{jobId:job.id,key:task.key}}});
   // A persisted output is reused without submitting or billing it again.
-  if(existing?.status==="COMPLETED" && existing.output){const saved=JSON.parse(existing.output) as {assetId:string};return {pending:false,plan:{...plan,assetIds:{...plan.assetIds,[task.key]:saved.assetId}}};}
+  if(existing?.status==="COMPLETED" && existing.output){
+    const saved=JSON.parse(existing.output) as {assetId:string};
+    const asset=await prisma.videoFactoryAsset.findFirst({
+      where:{id:saved.assetId,userId:job.userId,projectId:job.projectId,kind:task.kind,status:"READY",OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]},
+      select:{id:true,storageKey:true,bytes:true},
+    });
+    if(!asset || !await mediaFileExists(asset))throw new FactoryError("SAVED_MEDIA_MISSING",409);
+    return {pending:false,plan:{...plan,assetIds:{...plan.assetIds,[task.key]:asset.id}}};
+  }
   const polling=!!existing?.providerJobId;
   if(!polling && existing?.status!=="SUBMITTED"){
     const image=await previousImage(job,task);
@@ -96,7 +104,7 @@ export async function produceMedia(job:{id:string;userId:string;projectId:string
     voice=provider.settings.defaultVoiceId as typeof voice;
   }
   const reused=await prisma.videoFactoryAsset.findFirst({where:{userId:job.userId,projectId:job.projectId,status:"READY",metadata:{contains:effectiveFingerprint},OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]},orderBy:{createdAt:"desc"}});
-  if(reused && (task.kind!=="IMAGE" || await imageFileExists(reused))){
+  if(reused && await mediaFileExists(reused)){
     await prisma.videoFactoryStep.upsert({where:{jobId_key:{jobId:job.id,key:task.key}},create:{jobId:job.id,key:task.key,inputHash:task.fingerprint,status:"COMPLETED",output:JSON.stringify({assetId:reused.id,reused:true}),completedAt:new Date()},update:{status:"COMPLETED",output:JSON.stringify({assetId:reused.id,reused:true}),completedAt:new Date()}});
     // A reused narration brings its word timings along when they were saved.
     const timing=task.kind==="TTS" && task.shotId?await prisma.videoFactoryAsset.findFirst({where:{userId:job.userId,projectId:job.projectId,status:"READY",kind:"ALIGNMENT",metadata:{contains:fingerprint({alignmentOf:effectiveFingerprint})}},orderBy:{createdAt:"desc"},select:{id:true}}):null;

@@ -75,7 +75,7 @@ export async function renderShot(jobId: string, index: number, manifest: Manifes
   const localShot={...shot,startFrame:undefined,chapter:undefined};
   const signature=createHash("sha256").update(JSON.stringify({shot:localShot,index,durationFrames:shot.durationFrames,configuration:{ratio:configuration.ratio,resolution:configuration.resolution,mediaMode:configuration.mediaMode,renderer:plan?.policy.commercial.renderer,voice:configuration.voice,narration:configuration.narration,captions:configuration.captions,captionStyle:configuration.captionStyle,language:configuration.language,transition:configuration.transition,...(configuration.logoAssetId?{logo:configuration.logoAssetId,logoPosition:configuration.logoPosition}:{})},assets:plan?Object.entries(plan.assetIds).filter(([key])=>key.endsWith(`-${shot.id}`)).sort():[]})).digest("hex");
   if(userId){
-    const previous=await prisma.videoFactoryStep.findFirst({where:{inputHash:signature,status:"COMPLETED",job:{userId,status:"DELIVERED"}},orderBy:{completedAt:"desc"},select:{jobId:true,output:true}});
+    const previous=await prisma.videoFactoryStep.findFirst({where:{inputHash:signature,status:"COMPLETED",job:{userId,status:{in:["DELIVERED","FAILED","CANCELLED"]}}},orderBy:{completedAt:"desc"},select:{jobId:true,output:true}});
     if(previous?.output){const saved=JSON.parse(previous.output) as {fileName?:string};if(saved.fileName && /^shot-\d+\.mp4$/.test(saved.fileName))try{await copyFile(path.join(artifactDirectory(previous.jobId),saved.fileName),output);return {reused:true,signature};}catch{/* Expired source media is rendered again. */}}
   }
   if(configuration.mediaMode==="MULTIMEDIA" && plan && userId){
