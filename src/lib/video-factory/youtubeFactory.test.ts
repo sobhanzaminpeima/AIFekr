@@ -4,6 +4,7 @@ import { buildProductionPlan } from "./production";
 import { generateImage } from "./mediaAdapters";
 import type { RegisteredProvider } from "./registry";
 import { channelContext, channelProfileSchema } from "./channelProfile";
+import { promptList, shotMedia } from "./media";
 
 afterEach(() => vi.unstubAllGlobals());
 const base = { durationSeconds: 30, language: "fa", ratio: "16:9", mode: "AUTOPILOT", quality: "SMART", budgetCap: 1000, mediaMode: "MULTIMEDIA", shotsPerChapter: 2, imageEveryShot: true };
@@ -20,6 +21,10 @@ describe("YouTube factory: character, thumbnail and channel", () => {
     const task = buildProductionPlan(story, config, policy).tasks.find(t => t.kind === "IMAGE")!;
     const before = buildProductionPlan(manifest, config, policy).tasks.find(t => t.kind === "IMAGE")!;
     expect(task.prompt).toContain("Narration for this scene: قطار از روی پل عبور می‌کند.");
+    const exported = shotMedia(story, config);
+    expect(exported[0].visualPrompt).toBe(task.prompt);
+    expect(promptList(exported)).toContain(task.prompt);
+    expect(exported[0].visualPrompt).toContain("Character continuity: Stick: A stickman");
     expect(task.fingerprint).not.toBe(before.fingerprint);
     expect(buildProductionPlan(story, configurationSchema.parse(base), policy).tasks.find(t => t.kind === "IMAGE")?.fingerprint).toBe(imageTask({}).fingerprint);
   });

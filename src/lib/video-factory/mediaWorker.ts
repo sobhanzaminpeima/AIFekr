@@ -103,12 +103,22 @@ export async function produceMedia(job:{id:string;userId:string;projectId:string
     if(!provider.settings.defaultVoiceId)throw new FactoryError("PROVIDER_VOICE_NOT_CONFIGURED",503);
     voice=provider.settings.defaultVoiceId as typeof voice;
   }
-  const reused=await prisma.videoFactoryAsset.findFirst({where:{userId:job.userId,projectId:job.projectId,status:"READY",metadata:{contains:effectiveFingerprint},OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]},orderBy:{createdAt:"desc"}});
+  // Operational changes (credentials/rate limits) must not invalidate completed media.
+  // Actual model, resolved voice and source dependencies still invalidate the output.
+  const reuseFingerprint=fingerprint({task:task.fingerprint,provider:provider.id,model:provider.model,
+    voice:task.kind==="TTS"?voice:null,
+    dependency:task.kind==="ALIGNMENT"?plan.assetIds[`tts-${task.shotId}`]:task.kind==="TTS"?plan.assetIds["clone-bed"]:null});
+  const candidates=await prisma.videoFactoryAsset.findMany({where:{userId:job.userId,projectId:job.projectId,kind:task.kind,status:"READY",
+    AND:[{OR:[{metadata:{contains:reuseFingerprint}},{metadata:{contains:effectiveFingerprint}}]},
+      {OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}]},orderBy:{createdAt:"desc"}});
+  const reused=candidates.find(asset=>{try{const metadata=JSON.parse(asset.metadata);return metadata.reuseFingerprint===reuseFingerprint || (!metadata.reuseFingerprint && metadata.fingerprint===effectiveFingerprint);}catch{return false;}});
   if(reused && await mediaFileExists(reused)){
     await prisma.videoFactoryStep.upsert({where:{jobId_key:{jobId:job.id,key:task.key}},create:{jobId:job.id,key:task.key,inputHash:task.fingerprint,status:"COMPLETED",output:JSON.stringify({assetId:reused.id,reused:true}),completedAt:new Date()},update:{status:"COMPLETED",output:JSON.stringify({assetId:reused.id,reused:true}),completedAt:new Date()}});
     // A reused narration brings its word timings along when they were saved.
-    const timing=task.kind==="TTS" && task.shotId?await prisma.videoFactoryAsset.findFirst({where:{userId:job.userId,projectId:job.projectId,status:"READY",kind:"ALIGNMENT",metadata:{contains:fingerprint({alignmentOf:effectiveFingerprint})}},orderBy:{createdAt:"desc"},select:{id:true}}):null;
-    return {pending:false,plan:{...plan,assetIds:{...plan.assetIds,[task.key]:reused.id,...(timing?{[`alignment-${task.shotId}`]:timing.id}:{})}}};
+    const originalFingerprint=JSON.parse(reused.metadata).fingerprint;
+    const timing=task.kind==="TTS" && task.shotId && typeof originalFingerprint==="string"?await prisma.videoFactoryAsset.findFirst({where:{userId:job.userId,projectId:job.projectId,status:"READY",kind:"ALIGNMENT",metadata:{contains:fingerprint({alignmentOf:originalFingerprint})}},orderBy:{createdAt:"desc"},select:{id:true}}):null;
+    const validTiming=timing && await prisma.videoFactoryAsset.findFirst({where:{id:timing.id,status:"READY",OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]},select:{storageKey:true,bytes:true}});
+    return {pending:false,plan:{...plan,assetIds:{...plan.assetIds,[task.key]:reused.id,...(validTiming && await mediaFileExists(validTiming)?{[`alignment-${task.shotId}`]:timing!.id}:{})}}};
   }
   if(existing?.status==="SUBMITTED" && !polling)throw new FactoryError("PROVIDER_OUTCOME_UNCERTAIN");
   if(!rateLimit(`vf-provider:${provider.id}`,provider.settings.requestsPerMinute,60000).allowed)return {pending:true,plan};
@@ -130,7 +140,7 @@ export async function produceMedia(job:{id:string;userId:string;projectId:string
     if(response && !response.ready)return {pending:true,plan};
     const result:MediaResult=response?.ready?response.result:task.kind==="IMAGE"?await generateImage(provider,task.prompt,plan.configuration.ratio,signal,plan.configuration.characterReferenceAssetId && task.providerId===plan.policy.characterImageProvider?[await referencePng((await assetBytes(job.userId,plan.configuration.characterReferenceAssetId)).bytes)]:[]):task.kind==="TTS"?await generateSpeech(provider,task.prompt,voice,signal):task.kind==="CLONE"?await cloneVoice(provider,consent!.name,source!.bytes,source!.asset.mimeType,signal):task.kind==="ALIGNMENT"?await alignSpeech(provider,source!.bytes,task.prompt,source!.asset.mimeType,signal):task.kind==="TRANSCRIPTION"?await transcribeSpeech(provider,source!.bytes,source!.asset.mimeType,signal):task.kind==="SFX"?await generateSfx(provider,task.prompt,task.units,signal):await generateInstrumental(provider,task.prompt,task.units*60,signal);
     const current=await prisma.videoFactoryJob.findUniqueOrThrow({where:{id:job.id}});if(current.leaseToken!==job.leaseToken || !current.leaseUntil || current.leaseUntil<new Date())throw new FactoryError("STALE_WORKER");
-    const asset=await saveAsset({userId:job.userId,projectId:job.projectId,jobId:job.id,shotId:task.shotId || undefined,kind:task.kind,name:task.key,metadata:{fingerprint:effectiveFingerprint},provenance:{source:"GENERATED",provider:provider.id,model:polling?existing?.model:provider.model,version:polling?existing?.promptVersion:provider.version,prompt:task.prompt,providerJobId:result.providerJobId,commercialApproved:provider.settings.commercialApproved}},result);
+    const asset=await saveAsset({userId:job.userId,projectId:job.projectId,jobId:job.id,shotId:task.shotId || undefined,kind:task.kind,name:task.key,metadata:{fingerprint:effectiveFingerprint,reuseFingerprint},provenance:{source:"GENERATED",provider:provider.id,model:polling?existing?.model:provider.model,version:polling?existing?.promptVersion:provider.version,prompt:task.prompt,providerJobId:result.providerJobId,commercialApproved:provider.settings.commercialApproved}},result);
     const costUsd=provider.pricing.unitUsd===null?null:provider.pricing.unitUsd*(provider.pricing.unit==="second"?task.units:provider.pricing.unit==="minute"?task.units:1);
     await prisma.videoFactoryStep.update({where:{jobId_key:{jobId:job.id,key:task.key}},data:{status:"COMPLETED",output:JSON.stringify({assetId:asset.id}),usage:JSON.stringify(result.usage || {units:task.units,unit:provider.pricing.unit}),costUsd,latencyMs:Date.now()-started,completedAt:new Date()}});
     await recordProviderHealth(provider.id,true);

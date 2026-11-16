@@ -1,4 +1,5 @@
-import type { Manifest } from "./domain";
+import type { Configuration, Manifest } from "./domain";
+import { scenePrompt } from "./scenePrompt";
 
 /**
  * The project's media library, Google-Flow style: every shot of the script in
@@ -10,11 +11,11 @@ export type ShotMedia = { order: number; code: string; id: string; chapter: numb
 
 export const shotCode = (order: number) => `SHOT_${String(order).padStart(3, "0")}`;
 
-export function shotMedia(manifest: Manifest): ShotMedia[] {
+export function shotMedia(manifest: Manifest, configuration?: Configuration): ShotMedia[] {
   let order = 0;
   return manifest.chapters.flatMap((chapter, c) => chapter.shots.map((s) => {
     order += 1;
-    return { order, code: shotCode(order), id: s.id, chapter: c + 1, title: s.title, narration: s.narration, visualPrompt: s.visualPrompt, assetId: s.assetId ?? null };
+    return { order, code: shotCode(order), id: s.id, chapter: c + 1, title: s.title, narration: s.narration, visualPrompt: configuration ? scenePrompt(manifest, configuration, c, s) : s.visualPrompt, assetId: s.assetId ?? null };
   }));
 }
 

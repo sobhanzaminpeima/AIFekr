@@ -256,6 +256,33 @@ describe("Video Factory isolated durable workflow", () => {
     expect(request).toHaveBeenCalledTimes(2);
     await controlJob(userId,p.id,"cancel");
   });
+  it.each([false,true])("reuses finished narration after operational changes, but respects a changed voice: %s",async(changeVoice)=>{
+    const providerId=`retry-voice-${changeVoice}`;
+    await saveMediaProvider(userId,{id:providerId,name:"TEST ONLY voice resume",kind:"TTS",adapter:"ELEVENLABS_TTS",model:"test-model",enabled:true,secret:"test-only-key",settings:{commercialApproved:true,safetyReviewed:true,defaultVoiceId:"voice-original"},pricing:{unitUsd:null,unit:"request",verifiedAt:null}});
+    const policy=await savePolicy(userId,{enabled:true,approvedModelId:"test-only",creditsPerChapter:3,creditsPerRenderMinute:2,providers:{tts:providerId},creditsPerVoice:1,presets:{SMART:{imagePercent:0,videoPercent:0}}});
+    const configuration=configurationSchema.parse({...config,mode:"AUTOPILOT",mediaMode:"MULTIMEDIA",shotsPerChapter:2,narration:true});
+    const p=await createProject(userId,{title:"Narration resume",brief:"Two shots for voice checkpoint verification",configuration});
+    vi.mocked(generateChapter).mockResolvedValueOnce({chapter:chapterSchema.parse({title:"Test",continuity:"Test",shots:[0,1].map(i=>({id:`s${i}`,title:`Shot ${i}`,narration:`Test narration ${i}`,visualPrompt:"Synthetic"}))}),provider:"test-only",model:"test-only",usage:null});
+    const response=()=>Response.json({audio_base64:Buffer.from("synthetic speech").toString("base64"),alignment:{characters:["h","i"],character_start_times_seconds:[0,0.1],character_end_times_seconds:[0.1,0.2]}});
+    const request=vi.fn<typeof fetch>().mockImplementationOnce(async()=>response()).mockRejectedValueOnce(new TypeError("Synthetic disconnect"));
+    vi.stubGlobal("fetch",request);
+    const cost=quote(configuration,policy).credits;
+    const first=await startProject(userId,p.id,`voice-first-${changeVoice}`,cost);
+    for(let i=0;i<3;i++)await processFactoryTick();
+    expect(await prisma.videoFactoryJob.findUnique({where:{id:first.id}})).toMatchObject({status:"FAILED",cursor:1});
+    const row=await prisma.videoFactoryProvider.findUniqueOrThrow({where:{id:providerId}});
+    await prisma.videoFactoryProvider.update({where:{id:providerId},data:{version:{increment:1},settings:JSON.stringify({...JSON.parse(row.settings),requestsPerMinute:20,defaultVoiceId:changeVoice?"voice-new":"voice-original"})}});
+    const second=await startProject(userId,p.id,`voice-resume-${changeVoice}`,cost);
+    request.mockReset().mockImplementation(async()=>response());
+    for(let i=0;i<2;i++)await processFactoryTick();
+    expect(request).toHaveBeenCalledTimes(changeVoice?2:1);
+    const resumed=await prisma.videoFactoryJob.findUniqueOrThrow({where:{id:second.id}});
+    expect(resumed.spentCredits).toBe(changeVoice?2:1);
+    const plan=JSON.parse(resumed.plan);
+    expect(plan.assetIds[`alignment-${plan.tasks[0].shotId}`]).toBeTruthy();
+    if(changeVoice)expect(String(request.mock.calls[0][0])).toContain("voice-new");
+    await controlJob(userId,p.id,"cancel");
+  });
   it("does not debit a known rejected media call and schedules a bounded retry",async()=>{
     const policy=await savePolicy(userId,{enabled:true,longFormEnabled:true,approvedModelId:"test-only",creditsPerChapter:3,creditsPerRenderMinute:2,providers:{image:"test-image"},creditsPerImage:2,presets:{SMART:{imagePercent:100,videoPercent:0}}});
     const c=configurationSchema.parse({...config,mediaMode:"MULTIMEDIA",mode:"AUTOPILOT",shotsPerChapter:1}),p=await createProject(userId,{title:"TEST ONLY rejection",brief:"Synthetic provider rejection test",configuration:c}),job=await startProject(userId,p.id,"rejected-media-test",quote(c,policy).credits);await processFactoryTick();vi.stubGlobal("fetch",vi.fn<typeof fetch>().mockResolvedValue(new Response("",{status:429})));await processFactoryTick();const current=await prisma.videoFactoryJob.findUniqueOrThrow({where:{id:job.id}});expect(current.status).toBe("QUEUED");expect(current.spentCredits).toBe(3);expect(current.attempts).toBe(1);await controlJob(userId,p.id,"cancel");

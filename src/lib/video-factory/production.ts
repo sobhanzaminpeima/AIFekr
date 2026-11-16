@@ -1,5 +1,5 @@
 import {characterMode} from "./domain";
-import {styleText} from "./visualStyle";
+import {scenePrompt} from "./scenePrompt";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { configurationSchema, policySchema, timeline, type Configuration, type Manifest, type Policy } from "./domain";
@@ -29,18 +29,7 @@ export function buildProductionPlan(manifest:Manifest,configuration:Configuratio
     if(configuration.narration && configuration.voiceProfileId)add("CLONE",null,configuration.voiceProfileId,policy.creditsPerClone!);
     if(configuration.transcriptionAssetId)add("TRANSCRIPTION",null,configuration.transcriptionAssetId,policy.creditsPerTranscription!);
     edit.shots.forEach((shot,index)=>{
-      const characterNotes = manifest.characters.map(c=>`${c.name}: ${c.description}`).join("; ");
-      const prompt=configuration.sceneGrounding
-        ? [
-            "Illustrate this exact moment in the narrated story. Depict its action, people, objects and setting; use the narration to resolve any conflicting visual directions. Do not put the narration on screen as text.",
-            `Chapter: ${manifest.chapters[shot.chapter].title.slice(0,100)}. Scene: ${shot.title.slice(0,100)}.`,
-            `Narration for this scene: ${shot.narration.trim().slice(0,650)}`,
-            `Visual style: ${styleText(configuration).slice(0,300)}`,
-            `Character continuity: ${characterNotes.slice(0,200)}`,
-            `Visual direction: ${shot.visualPrompt.slice(0,450)}`,
-            `Visual revision: ${shot.revision || 0}`,
-          ].join("\n")
-        : `${shot.visualPrompt}\nStyle and continuity: ${styleText(configuration)}\nVisual revision: ${shot.revision || 0}\nCharacter reference: ${characterNotes}`;
+      const prompt=scenePrompt(manifest,configuration,shot.chapter,shot);
       const code=["TITLE","CHART","MAP"].includes(shot.motion);
       if(!shot.assetId && !code && kinds[index]==="IMAGE")add("IMAGE",shot.id,prompt,policy.creditsPerImage!);
       if(!shot.assetId && !code && kinds[index]==="VIDEO")add("VIDEO",shot.id,prompt,policy.creditsPerVideoSecond!*4,4);
