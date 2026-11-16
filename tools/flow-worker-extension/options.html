@@ -1,0 +1,9 @@
+<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><title>AIFekr Flow Worker</title>
+<link rel="stylesheet" href="options.css"><main><h1>Worker تصاویر AIFekr</h1>
+<p>این تب Flow را فقط برای صف AIFekr استفاده کنید؛ هم‌زمان از ابزارهای تولید دیگر در آن استفاده نکنید.</p>
+<form id="form"><label>کلید اختصاصی Worker AIFekr<input id="token" type="password" autocomplete="off" minlength="32" required></label>
+<label>آدرس پروژهٔ اختصاصی Flow<input id="projectUrl" type="url" required dir="ltr"></label>
+<label>سقف کردیت Flow برای هر تصویر<input id="maxCredits" type="number" min="0" max="100" value="0" required></label>
+<label><input id="enabled" type="checkbox"> فعال‌کردن دریافت و تولید سفارش‌ها</label>
+<button>ذخیره</button></form><p id="status" role="status"></p>
+<p>کلید ورود گوگل یا کوکی وارد نکنید. این افزونه از صفحهٔ باز Flow استفاده می‌کند. در صورت نامشخص بودن نتیجه، تولید متوقف می‌شود تا خروجی قبلی بررسی شود.</p></main><script src="options.js"></script></html>

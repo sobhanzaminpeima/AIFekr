@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "AIFekr Flow Worker",
+  "version": "0.1.0",
+  "minimum_chrome_version": "120",
+  "description": "Processes one AIFekr image scene at a time in the owner's Google Flow tab.",
+  "permissions": ["storage", "alarms", "tabs"],
+  "host_permissions": ["https://aifekr.com/*", "https://flow.google.com/*", "https://flow-content.google/*"],
+  "background": {"service_worker": "worker.js", "type": "module"},
+  "content_scripts": [{"matches": ["https://flow.google.com/project/*"], "js": ["driver.js"], "run_at": "document_idle"}],
+  "options_page": "options.html",
+  "action": {"default_title": "AIFekr Flow Worker"}
+}

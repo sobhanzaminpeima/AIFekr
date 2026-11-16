@@ -14,6 +14,7 @@ import type {TimelineShot} from "./domain";
 import {productionCaptions} from "./alignedCaptions";
 import {renderRemotion} from "./remotion";
 import {youtubeMetadata} from "./youtubeMeta";
+import {checkFinalMedia} from "./finalMediaCheck";
 import {getChannelProfile} from "./channelProfile";
 
 export function artifactDirectory(jobId: string) {
@@ -141,7 +142,7 @@ export async function assemble(jobId: string, manifest: Manifest, configuration:
   }
   await mediaCommand("ffmpeg",["-y","-f","concat","-safe","1","-i",path.join(directory,"concat.txt"),...input,...(filters.length?["-filter_complex",filters.join(";"),"-map","0:v:0","-map","[a]","-c:v","copy","-c:a","aac","-t",String(configuration.durationSeconds)]:["-c","copy"]),"-movflags","+faststart",path.join(directory,"film.mp4"),...stemFiles.flatMap(([label,file])=>["-map",`[${label}]`,"-c:a","aac","-t",String(configuration.durationSeconds),path.join(directory,file)])],signal);
   const info = JSON.parse(await mediaCommand("ffprobe", ["-v", "error", "-show_entries", "format=duration:stream=codec_type,width,height", "-of", "json", path.join(directory, "film.mp4")], signal));
-  if (Math.abs(Number(info.format?.duration) - configuration.durationSeconds) > 0.1 || !info.streams?.some((s: { codec_type: string }) => s.codec_type === "video")) throw new FactoryError("QC_DURATION_FAILED", 503);
+  checkFinalMedia(info,configuration.durationSeconds,configuration.mediaMode==="MULTIMEDIA" && configuration.narration && edit.shots.some(s=>s.narration.trim()));
   const cues=await productionCaptions(edit,configuration,plan,userId);
   await writeFile(path.join(directory, "manifest.json"), JSON.stringify({ output: configuration.mediaMode==="MULTIMEDIA"?"multimedia_film":"silent_storyboard_film", configuration, manifest, timeline: edit, qc: info,captions:cues,captionTiming:configuration.forcedAlignment?"forced-aligned words, adjusted by narration playback speed":"estimated phrase timing; not forced-aligned words" }, null, 2));
   await writeFile(path.join(directory, "captions.srt"), subtitles(edit, "srt", configuration.language,cues));

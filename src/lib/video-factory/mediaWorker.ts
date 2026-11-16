@@ -13,6 +13,8 @@ import { rateLimit } from "@/lib/utils/rateLimit";
 import {assetBytes} from "./assets";
 import {requireVoiceConsent} from "./voiceConsent";
 import {cloneVoice,alignSpeech,transcribeSpeech,generateSfx,verifyClonedVoice} from "./advancedAdapters";
+import { enqueueFlowTask } from "./flowBridge";
+import { flowTaskSchema } from "./flowProtocol";
 
 async function mediaFileExists(asset:{storageKey:string;bytes:number}){
   try {
@@ -119,6 +121,12 @@ export async function produceMedia(job:{id:string;userId:string;projectId:string
     const timing=task.kind==="TTS" && task.shotId && typeof originalFingerprint==="string"?await prisma.videoFactoryAsset.findFirst({where:{userId:job.userId,projectId:job.projectId,status:"READY",kind:"ALIGNMENT",metadata:{contains:fingerprint({alignmentOf:originalFingerprint})}},orderBy:{createdAt:"desc"},select:{id:true}}):null;
     const validTiming=timing && await prisma.videoFactoryAsset.findFirst({where:{id:timing.id,status:"READY",OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]},select:{storageKey:true,bytes:true}});
     return {pending:false,plan:{...plan,assetIds:{...plan.assetIds,[task.key]:reused.id,...(validTiming && await mediaFileExists(validTiming)?{[`alignment-${task.shotId}`]:timing!.id}:{})}}};
+  }
+  if(provider.adapter==="GOOGLE_FLOW_IMAGE"){
+    if(task.kind!=="IMAGE")throw new FactoryError("FLOW_IMAGE_ONLY",400);
+    await enqueueFlowTask(job,task.key,task.fingerprint,provider,flowTaskSchema.parse({transport:"GOOGLE_FLOW",state:"QUEUED",prompt:task.prompt,ratio:plan.configuration.ratio,model:provider.model,credits:task.credits,
+      fingerprint:effectiveFingerprint,reuseFingerprint,referenceAssetId:plan.configuration.characterReferenceAssetId || null}));
+    return {pending:true,plan};
   }
   if(existing?.status==="SUBMITTED" && !polling)throw new FactoryError("PROVIDER_OUTCOME_UNCERTAIN");
   if(!rateLimit(`vf-provider:${provider.id}`,provider.settings.requestsPerMinute,60000).allowed)return {pending:true,plan};

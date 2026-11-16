@@ -39,6 +39,8 @@ import {renderShot} from "./render";
 import {produceMedia} from "./mediaWorker";
 import {storagePath} from "./assets";
 import {unlink} from "node:fs/promises";
+import {claimFlowTask,startFlowTask,completeFlowTask} from "./flowBridge";
+import {POST as flowWorkerRoute} from "@/app/api/video-factory/flow-worker/route";
 
 describe("Video Factory isolated durable workflow", () => {
   let userId: string, otherId: string;
@@ -282,6 +284,40 @@ describe("Video Factory isolated durable workflow", () => {
     expect(plan.assetIds[`alignment-${plan.tasks[0].shotId}`]).toBeTruthy();
     if(changeVoice)expect(String(request.mock.calls[0][0])).toContain("voice-new");
     await controlJob(userId,p.id,"cancel");
+  });
+  it("queues Flow images durably, fences workers and accepts duplicate delivery without a second debit",async()=>{
+    process.env.VIDEO_FACTORY_FLOW_WORKER_TOKEN="test-only-flow-worker-token-at-least-32-characters";
+    const denied=await flowWorkerRoute(new NextRequest("https://aifekr.test/api/video-factory/flow-worker?action=claim",{method:"POST",body:JSON.stringify({workerId:"windows-test"})}));
+    expect(denied.status).toBe(401);
+    const beforeHealth=await prisma.videoFactoryResource.findUnique({where:{id:"internal-flow-worker"}});
+    const health=await flowWorkerRoute(new NextRequest("https://aifekr.test/api/video-factory/flow-worker?action=health",{method:"POST",headers:{authorization:`Bearer ${process.env.VIDEO_FACTORY_FLOW_WORKER_TOKEN}`}}));
+    expect(health.status).toBe(200);
+    expect(await health.json()).toEqual({ok:true,protocol:1,generationStarted:false});
+    expect(await prisma.videoFactoryResource.findUnique({where:{id:"internal-flow-worker"}})).toEqual(beforeHealth);
+    const providerId="test-flow-image";
+    await saveMediaProvider(userId,{id:providerId,name:"TEST ONLY Flow",kind:"IMAGE",adapter:"GOOGLE_FLOW_IMAGE",model:"flow-image",enabled:true,settings:{commercialApproved:true,safetyReviewed:true},pricing:{unitUsd:null,unit:"image",verifiedAt:null}});
+    const policy=await savePolicy(userId,{enabled:true,approvedModelId:"test-only",creditsPerChapter:3,creditsPerRenderMinute:2,providers:{image:providerId},creditsPerImage:2,presets:{SMART:{imagePercent:100,videoPercent:0}}});
+    const configuration=configurationSchema.parse({...config,mode:"AUTOPILOT",mediaMode:"MULTIMEDIA",shotsPerChapter:1,narration:false});
+    const p=await createProject(userId,{title:"Flow queue test",brief:"One synthetic image without external generation",configuration});
+    const job=await startProject(userId,p.id,"flow-queue-test",quote(configuration,policy).credits);
+    await processFactoryTick();await processFactoryTick();
+    expect((await prisma.videoFactoryJob.findUniqueOrThrow({where:{id:job.id}})).spentCredits).toBe(3);
+    const first=await claimFlowTask("windows-test");expect(first?.action).toBe("GENERATE");
+    await expect(claimFlowTask("other-machine")).rejects.toThrow("FLOW_WORKER_BUSY");
+    await startFlowTask(first!.id,"windows-test",first!.leaseToken!);
+    await startFlowTask(first!.id,"windows-test",first!.leaseToken!);
+    expect((await prisma.videoFactoryJob.findUniqueOrThrow({where:{id:job.id}})).spentCredits).toBe(5);
+    expect((await claimFlowTask("windows-test"))?.action).toBe("RECOVER_OUTPUT");
+    const bytes=await (await import("sharp")).default({create:{width:16,height:9,channels:3,background:"#f80"}}).png().toBuffer();
+    await expect(completeFlowTask(first!.id,"other-machine",first!.leaseToken!,bytes)).rejects.toThrow("FLOW_STALE_CLAIM");
+    const result=await completeFlowTask(first!.id,"windows-test",first!.leaseToken!,bytes);
+    expect(await completeFlowTask(first!.id,"windows-test",first!.leaseToken!,bytes)).toEqual(result);
+    expect(await prisma.videoFactoryAsset.count({where:{jobId:job.id,kind:"IMAGE"}})).toBe(1);
+    await prisma.videoFactoryJob.update({where:{id:job.id},data:{nextAttemptAt:null}});
+    await processFactoryTick();
+    expect(await prisma.videoFactoryJob.findUnique({where:{id:job.id}})).toMatchObject({stage:"SHOT_RENDERING",spentCredits:5});
+    await controlJob(userId,p.id,"cancel");
+    delete process.env.VIDEO_FACTORY_FLOW_WORKER_TOKEN;
   });
   it("does not debit a known rejected media call and schedules a bounded retry",async()=>{
     const policy=await savePolicy(userId,{enabled:true,longFormEnabled:true,approvedModelId:"test-only",creditsPerChapter:3,creditsPerRenderMinute:2,providers:{image:"test-image"},creditsPerImage:2,presets:{SMART:{imagePercent:100,videoPercent:0}}});
