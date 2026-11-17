@@ -16,6 +16,10 @@
     try{const u=new URL(url);return u.protocol==='https:' && u.hostname==='flow-content.google' && u.pathname.startsWith('/image/');}catch{return false;}
   }))];
   const selected = el => el.getAttribute('aria-checked') === 'true' || el.getAttribute('aria-pressed') === 'true';
+  // Flow may renew a signed URL without changing the underlying image.
+  const imageKey = url => {
+    try { return new URL(url).pathname; } catch { return null; }
+  };
   async function select(label){
     const el=one('[role="radio"]',label);
     if(!selected(el))el.click();
@@ -29,7 +33,9 @@
   async function prepare(task,maxCredits){
     if(task.reference)throw Error('REFERENCE_REQUIRED');
     if(task.model!=='flow-image')throw Error('UI_CHANGED');
-    if(!document.querySelector('[role="radio"]'))one('button','Settings trigger').click();
+    const settings = one('button','Settings trigger');
+    if (!settings.innerText.includes('Nano Banana 2 Lite')) throw Error('UI_CHANGED');
+    if (![...document.querySelectorAll('[role="radio"]')].some(el => visible(el) && text(el)==='Image')) settings.click();
     await wait(()=>[...document.querySelectorAll('[role="radio"]')].some(el=>visible(el) && text(el)==='Image'));
     await select('Image');await select(task.ratio);await select('x1');
     const costs=[...document.querySelectorAll('a')].filter(el=>visible(el) && /^\d+ credits?$/.test(text(el)));
@@ -58,7 +64,8 @@
       if(message.action==='prepare')return prepare(message.task,Number(message.maxCredits)||0);
       if(message.action==='generate')return generate(message.task);
       if(message.action==='recover'){
-        const urls=imageUrls().filter(url=>!message.baseline.includes(url));
+        const previous = new Set(message.baseline.map(imageKey));
+        const urls = [...new Map(imageUrls().filter(url => !previous.has(imageKey(url))).map(url => [imageKey(url), url])).values()];
         if(urls.length>1)throw Error('OUTPUT_UNCERTAIN');
         return {url:urls[0] || null};
       }
