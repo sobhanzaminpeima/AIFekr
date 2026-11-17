@@ -6,6 +6,7 @@ import { rateLimit } from "@/lib/utils/rateLimit";
 import { boundedJson } from "@/lib/video-factory/http";
 import { assetBytes } from "@/lib/video-factory/assets";
 import { FactoryError } from "@/lib/video-factory/errors";
+import { flowJobFilter } from "@/lib/video-factory/flowScope";
 import { claimFlowTask, completeFlowTask, flagFlowTask, flowWorkerConfigured, startFlowTask } from "@/lib/video-factory/flowBridge";
 import { flowTaskSchema, requireFlowClaim } from "@/lib/video-factory/flowProtocol";
 
@@ -37,7 +38,7 @@ export async function POST(req:NextRequest){
     const raw=await boundedJson(req);
     if(action==="receipt"){
       const body=claim.parse(raw);
-      const step=await prisma.videoFactoryStep.findUnique({where:{id:body.stepId},select:{status:true,output:true,providerJobId:true}});
+      const step=await prisma.videoFactoryStep.findUnique({where:{id:body.stepId,...flowJobFilter()},select:{status:true,output:true,providerJobId:true}});
       if(!step?.providerJobId?.startsWith("flow:"))throw new FactoryError("FLOW_TASK_NOT_FOUND",404);
       const task=flowTaskSchema.parse(JSON.parse(step.output || "{}"));
       requireFlowClaim(task,body.workerId,body.leaseToken);
@@ -55,7 +56,7 @@ export async function POST(req:NextRequest){
       return NextResponse.json(await flagFlowTask(body.stepId,body.workerId,body.leaseToken,body.code));
     }
     if(action==="reference"){
-      const body=claim.parse(raw),step=await prisma.videoFactoryStep.findUnique({where:{id:body.stepId},include:{job:true}});
+      const body=claim.parse(raw),step=await prisma.videoFactoryStep.findUnique({where:{id:body.stepId,...flowJobFilter()},include:{job:true}});
       if(!step?.providerJobId?.startsWith("flow:"))throw new FactoryError("FLOW_TASK_NOT_FOUND",404);
       const task=flowTaskSchema.parse(JSON.parse(step.output || "{}"));requireFlowClaim(task,body.workerId,body.leaseToken);
       if(task.state!=="CLAIMED" || task.leaseUntil<=Date.now() || !["QUEUED","RUNNING"].includes(step.job.status) || step.job.stage!=="ASSET_GENERATION"){

@@ -4,6 +4,7 @@ import sharp from "sharp";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { FactoryError } from "./errors";
+import { flowJobFilter } from "./flowScope";
 import { saveAsset, storagePath } from "./assets";
 import { claimFlowState, flowRecoveryAction, flowTaskSchema, requireFlowClaim, submitFlowState, type FlowTask } from "./flowProtocol";
 
@@ -15,7 +16,7 @@ async function lock(tx:Prisma.TransactionClient){
   await tx.videoFactoryResource.upsert({where:{id:LOCK},create:{id:LOCK,kind:"INTERNAL",name:"Flow worker lock",configuration:"{}"},update:{version:{increment:1}}});
 }
 async function taskFor(tx:Prisma.TransactionClient,id:string,workerId:string,token:string){
-  const row=await tx.videoFactoryStep.findUnique({where:{id},include:{job:true}});
+  const row=await tx.videoFactoryStep.findUnique({where:{id,...flowJobFilter()},include:{job:true}});
   if(!row?.providerJobId?.startsWith("flow:"))throw new FactoryError("FLOW_TASK_NOT_FOUND",404);
   const task=parse(row.output);requireFlowClaim(task,workerId,token);
   return {row,task};
@@ -45,7 +46,7 @@ export async function claimFlowTask(workerId:string){
   return prisma.$transaction(async tx=>{
     await lock(tx);
     await tx.videoFactoryResource.update({where:{id:LOCK},data:{configuration:JSON.stringify({workerId,lastSeen:Date.now()})}});
-    const rows=await tx.videoFactoryStep.findMany({where:{status:"SUBMITTED",providerJobId:{startsWith:"flow:"}},include:{job:true},orderBy:{startedAt:"asc"}});
+    const rows=await tx.videoFactoryStep.findMany({where:{...flowJobFilter(),status:"SUBMITTED",providerJobId:{startsWith:"flow:"}},include:{job:true},orderBy:{startedAt:"asc"}});
     // A submitted scene holds the account even if its parent was cancelled. Recover it first.
     const held=rows.find(row=>{const t=parse(row.output);return ["SUBMITTED","UPLOADING","NEEDS_REVIEW"].includes(t.state) || (t.state==="CLAIMED" && t.leaseUntil>Date.now());});
     const row=held || rows.find(row=>ACTIVE.includes(row.job.status) && row.job.stage==="ASSET_GENERATION");

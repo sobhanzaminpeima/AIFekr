@@ -47,7 +47,7 @@ export async function retentionSweep(actorId:string){
   return {examined:stale.length,deleted,purgedJobs};
 }
 export async function expireHolds(){
-  const cutoff=new Date(Date.now()-72*3600000),jobs=await prisma.videoFactoryJob.findMany({where:{settledAt:null,createdAt:{lt:cutoff},status:{in:["QUEUED","PAUSED","AWAITING_APPROVAL"]}},take:50});
+  const cutoff=new Date(Date.now()-72*3600000),jobs=await prisma.videoFactoryJob.findMany({where:{...factoryQueueFilter(),settledAt:null,createdAt:{lt:cutoff},status:{in:["QUEUED","PAUSED","AWAITING_APPROVAL"]}},take:50});
   for(const job of jobs)await prisma.$transaction(tx=>settleJob(tx,job.id,"FAILED","AUTHORIZATION_HOLD_EXPIRED"));return jobs.length;
 }
 export async function adminAnalytics(){
@@ -72,3 +72,4 @@ export async function adminAnalytics(){
   return {windowDays:30,limitedTo:1000,summary:{totalJobs:jobs.length,queued:jobs.filter(j=>j.status==="QUEUED").length,running:jobs.filter(j=>j.status==="RUNNING").length,delivered:finished.length,failed:jobs.filter(j=>j.status==="FAILED").length,spentCredits:jobs.reduce((n,j)=>n+j.spentCredits,0),heldCredits:jobs.filter(j=>!j.settledAt).reduce((n,j)=>n+j.credits-j.spentCredits,0),measuredProviderCostUsd:measured.length?measured.reduce((n,j)=>n+(j.actualCostUsd || 0),0):null,costCoverage:jobs.length?measured.length/jobs.length:null,averageJobSeconds:finished.length?finished.reduce((n,j)=>n+(j.settledAt!.getTime()-j.createdAt.getTime())/1000,0)/finished.length:null,storageBytes:storage._sum.usedBytes || 0},providers:providers.map(publicProvider),resources,assets,quality,users,audit,errors,publish,alerts};
 }
 
+import {factoryQueueFilter} from "./flowScope";

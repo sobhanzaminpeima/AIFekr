@@ -16,12 +16,14 @@ import {checkContinuity,inspectRenderedShot} from "./quality";
 import {reviewSemanticShot} from "./semanticWorker";
 import {requireVoiceConsent} from "./voiceConsent";
 import {syncToNarration} from "./narrationSync";
+import {factoryQueueFilter} from "./flowScope";
 
 /** Sweep uncertain leases without ever repeating an ambiguous paid provider request. */
-export async function sweepJobs() {
-  const stale = await prisma.videoFactoryJob.findMany({ where: { status: { in: ["RUNNING", "PAUSING", "CANCELLING"] }, leaseUntil: { lt: new Date() } }, take: 50 });
+export async function sweepJobs(fixtureJobId?:string) {
+  const fixture = factoryQueueFilter(fixtureJobId);
+  const stale = await prisma.videoFactoryJob.findMany({ where: { ...fixture, status: { in: ["RUNNING", "PAUSING", "CANCELLING"] }, leaseUntil: { lt: new Date() } }, take: 50 });
   for (const job of stale) await prisma.$transaction(async tx => {
-    const changed = await tx.videoFactoryJob.updateMany({ where: { id: job.id, leaseToken: job.leaseToken, leaseUntil: { lt: new Date() } }, data: { leaseToken: null, leaseUntil: null } });
+    const changed = await tx.videoFactoryJob.updateMany({ where: { id: job.id, AND:fixture, leaseToken: job.leaseToken, leaseUntil: { lt: new Date() } }, data: { leaseToken: null, leaseUntil: null } });
     if (!changed.count) return;
     if (job.status === "CANCELLING") await settleJob(tx, job.id, "CANCELLED");
     else if (["PLANNING","SCRIPTING"].includes(job.stage) || (["ASSET_GENERATION","SEMANTIC_QC"].includes(job.stage) && await tx.videoFactoryStep.count({where:{jobId:job.id,status:"SUBMITTED",providerJobId:null}}))) await settleJob(tx, job.id, "FAILED", "PROVIDER_OUTCOME_UNCERTAIN");
@@ -29,18 +31,19 @@ export async function sweepJobs() {
   });
 }
 /** One bounded checkpoint per tick. No hour-long production runs in an HTTP request. */
-export async function processFactoryTick() {
-  await sweepJobs();
+export async function processFactoryTick(fixtureJobId?:string) {
+  await sweepJobs(fixtureJobId);
   const livePolicy=await getPolicy();
   if(livePolicy.commercial.mode==="DURATION_RETAIL" && livePolicy.commercial.status!=="APPROVED")return null;
   if (process.env.VIDEO_FACTORY_SALES_APPROVED!=="true" || !livePolicy.enabled || !await isFeatureEnabled("video")) return null;
-  const queued = await prisma.videoFactoryJob.findFirst({ where: { status: "QUEUED", OR:[{nextAttemptAt:null},{nextAttemptAt:{lte:new Date()}}] }, orderBy: [{priority:"desc"},{createdAt:"asc"}], include: { project: true } });
+  const fixture = factoryQueueFilter(fixtureJobId);
+  const queued = await prisma.videoFactoryJob.findFirst({ where: { ...fixture,status: "QUEUED", OR:[{nextAttemptAt:null},{nextAttemptAt:{lte:new Date()}}] }, orderBy: [{priority:"desc"},{createdAt:"asc"}], include: { project: true } });
   if (!queued) return null;
   const token = randomUUID(), leaseUntil = new Date(Date.now() + 180000);
   const claimed = await prisma.$transaction(async tx=>{
     await tx.videoFactoryResource.upsert({where:{id:"scheduler-global"},create:{id:"scheduler-global",kind:"INTERNAL",name:"Worker slot lock",configuration:"{}"},update:{version:{increment:1}}});
     if(await tx.videoFactoryJob.count({where:{status:{in:["RUNNING","PAUSING","CANCELLING"]},leaseUntil:{gt:new Date()}}})>=livePolicy.maxWorkers)return {count:0};
-    return tx.videoFactoryJob.updateMany({ where: { id: queued.id, status: "QUEUED", leaseToken: null }, data: { status: "RUNNING", leaseToken: token, leaseUntil } });
+    return tx.videoFactoryJob.updateMany({ where: { AND:fixture,id: queued.id, status: "QUEUED", leaseToken: null }, data: { status: "RUNNING", leaseToken: token, leaseUntil } });
   });
   if (!claimed.count) return null;
   const owner = await prisma.user.findUnique({ where: { id: queued.userId }, include: { teamMembership: { include: { team: { include: { owner: { select: { planExpiry: true } } } } } } } });
