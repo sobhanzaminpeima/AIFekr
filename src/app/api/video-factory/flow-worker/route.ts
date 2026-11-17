@@ -35,6 +35,14 @@ export async function POST(req:NextRequest){
       return NextResponse.json(await completeFlowTask(body.stepId,body.workerId,body.leaseToken,Buffer.concat(chunks)));
     }
     const raw=await boundedJson(req);
+    if(action==="receipt"){
+      const body=claim.parse(raw);
+      const step=await prisma.videoFactoryStep.findUnique({where:{id:body.stepId},select:{status:true,output:true,providerJobId:true}});
+      if(!step?.providerJobId?.startsWith("flow:"))throw new FactoryError("FLOW_TASK_NOT_FOUND",404);
+      const task=flowTaskSchema.parse(JSON.parse(step.output || "{}"));
+      requireFlowClaim(task,body.workerId,body.leaseToken);
+      return NextResponse.json({delivered:step.status==="COMPLETED" && !!task.assetId},{headers:{"Cache-Control":"no-store"}});
+    }
     if(action==="claim"){
       const {workerId}=z.object({workerId:identity}).strict().parse(raw);
       return NextResponse.json({task:await claimFlowTask(workerId)},{headers:{"Cache-Control":"no-store"}});
@@ -50,6 +58,9 @@ export async function POST(req:NextRequest){
       const body=claim.parse(raw),step=await prisma.videoFactoryStep.findUnique({where:{id:body.stepId},include:{job:true}});
       if(!step?.providerJobId?.startsWith("flow:"))throw new FactoryError("FLOW_TASK_NOT_FOUND",404);
       const task=flowTaskSchema.parse(JSON.parse(step.output || "{}"));requireFlowClaim(task,body.workerId,body.leaseToken);
+      if(task.state!=="CLAIMED" || task.leaseUntil<=Date.now() || !["QUEUED","RUNNING"].includes(step.job.status) || step.job.stage!=="ASSET_GENERATION"){
+        throw new FactoryError("FLOW_STALE_CLAIM",409);
+      }
       if(!task.referenceAssetId)throw new FactoryError("ASSET_NOT_FOUND",404);
       const asset=await assetBytes(step.job.userId,task.referenceAssetId);
       if(asset.asset.kind!=="IMAGE")throw new FactoryError("MEDIA_TYPE_MISMATCH",400);

@@ -9,6 +9,13 @@ async function api(config,action,data,raw){
   if(raw){Object.assign(headers,{'Content-Type':'application/octet-stream','x-worker-id':config.workerId,'x-step-id':data.stepId,'x-lease-token':data.leaseToken});}
   else headers['Content-Type']='application/json';
   const response=await fetch(`${ENDPOINT}?action=${action}`,{method:'POST',headers,body:raw || JSON.stringify(data),redirect:'error',signal:AbortSignal.timeout(60000)});
+  if(action==='reference'){
+    const mime=(response.headers.get('content-type') || '').split(';')[0];
+    if(!response.ok || !['image/png','image/jpeg','image/webp'].includes(mime))throw Error('REFERENCE_REQUIRED');
+    const buffer=await response.arrayBuffer();
+    if(!buffer.byteLength || buffer.byteLength>10_000_000)throw Error('REFERENCE_REQUIRED');
+    return {mime,bytes:Array.from(new Uint8Array(buffer))};
+  }
   const result=await response.json();if(!response.ok)throw Error(result.code || 'SERVER_UNAVAILABLE');return result;
 }
 async function message(tab,action,payload){
@@ -21,18 +28,37 @@ async function tick(){
   try{
     await ready;
     config=await settings();if(!config?.enabled)return;
+    const journal=(await chrome.storage.local.get('journal')).journal || {};
+    for(const [stepId,entry] of Object.entries(journal)){
+      if(entry.delivery?.workerId!==config.workerId)continue;
+      let receipt;
+      try{
+        receipt=await api(config,'receipt',{stepId,...entry.delivery});
+      }catch(error){
+        if(!['FLOW_TASK_NOT_FOUND','FLOW_STALE_CLAIM'].includes(error.message))throw error;
+        // Preserve the local generation guard when the server retires a claim.
+        delete entry.delivery;
+        await chrome.storage.local.set({journal});
+        continue;
+      }
+      if(receipt.delivered){
+        delete journal[stepId];
+        await chrome.storage.local.set({journal});
+        await status('DELIVERED');return;
+      }
+    }
     const tabs=await chrome.tabs.query({url:'https://flow.google.com/project/*'});
     const candidates=tabs.filter(t=>t.url===config.projectUrl);
     if(candidates.length!==1){await status('OPEN_CONFIGURED_FLOW_PROJECT');return;}
     const tab=candidates[0];
     ({task}=await api(config,'claim',{workerId:config.workerId}));
     if(!task){await status('READY');return;}
-    const journal=(await chrome.storage.local.get('journal')).journal || {};
     const claim={workerId:config.workerId,stepId:task.id,leaseToken:task.leaseToken};
     if(task.action==='GENERATE'){
       // A previous local START is never followed by another click, even if server state changed.
       if(journal[task.id]?.started)throw Error('OUTPUT_UNCERTAIN');
-      const prepared=await message(tab,'prepare',{task,maxCredits:config.maxCredits || 0});
+      const reference=task.reference?await api(config,'reference',claim):null;
+      const prepared=await message(tab,'prepare',{task,reference,maxCredits:config.maxCredits || 0});
       journal[task.id]={baseline:prepared.baseline,started:true,at:Date.now()};
       await chrome.storage.local.set({journal});
       await api(config,'start',claim);
@@ -52,6 +78,8 @@ async function tick(){
     const reader=response.body.getReader(),chunks=[];let size=0;
     while(true){const part=await reader.read();if(part.done)break;size+=part.value.byteLength;if(size>20000000){await reader.cancel();throw Error('DOWNLOAD_FAILED');}chunks.push(part.value);}
     const bytes=new Blob(chunks,{type:'application/octet-stream'});
+    journal[task.id].delivery={workerId:config.workerId,leaseToken:task.leaseToken};
+    await chrome.storage.local.set({journal});
     await api(config,'complete',claim,bytes);
     delete journal[task.id];await chrome.storage.local.set({journal});await status('DELIVERED');
   }catch(error){

@@ -8,7 +8,7 @@ Google endpoints or export Google session credentials. No database migration is 
 - One IMAGE scene at a time, model identifier `flow-image`.
 - English Flow controls, aspect ratios 16:9, 9:16 and 1:1, one output.
 - Dedicated Flow project tab; do not generate manually or run other automation in it.
-- Character-reference uploads are not implemented: these stop with `REFERENCE_REQUIRED`.
+- Character references are fetched from AIFekr for the active claim and attached through Flow's file input. If the upload control or preview cannot be verified, the worker stops with `REFERENCE_REQUIRED`. This path still needs live acceptance.
 - Generation and download against the live Flow UI have **not** passed acceptance.
   Do not enable this provider for customers yet.
 

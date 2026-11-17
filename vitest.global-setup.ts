@@ -1,6 +1,7 @@
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import { rmSync } from "fs";
 import path from "path";
+import Database from "better-sqlite3";
 
 /**
  * Rebuilds the isolated test database from the migration history before every
@@ -14,6 +15,13 @@ export default function setup() {
   // The generated client stores the schema location it was generated from and
   // resolves `file:./vitest.db` against it; a client generated in another
   // checkout silently points tests at that checkout's database.
-  execSync("npx prisma generate", { stdio: "inherit" });
-  execSync("npx prisma migrate deploy", { stdio: "inherit", env: { ...process.env, DATABASE_URL: "file:./vitest.db" } });
+  const cli = path.join(__dirname, "node_modules", "prisma", "build", "index.js");
+  const schema = path.join(__dirname, "prisma", "schema.prisma");
+  execFileSync(process.execPath, [cli, "generate", "--schema", schema], { stdio: "inherit" });
+  const databasePath = path.join(__dirname, "prisma", "vitest.db").replace(/\\/g, "/");
+  new Database(databasePath).close();
+  execFileSync(process.execPath, [cli, "migrate", "deploy", "--schema", schema], {
+    stdio: "inherit",
+    env: { ...process.env, DATABASE_URL: `file:${databasePath}` },
+  });
 }
