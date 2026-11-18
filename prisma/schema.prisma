@@ -1285,6 +1285,29 @@ model ErrorLog {
   @@index([level, createdAt])
 }
 
+model EconomyVideoOrder {
+  id String @id
+  userId String
+  idempotencyKey String
+  topic String
+  channel String
+  credits Int
+  standardCredits Int
+  durationSeconds Int
+  discountPercent Int
+  status String @default("PENDING")
+  createdAt DateTime @default(now())
+  deliveredAt DateTime?
+  deliveredBy String?
+  title String?
+  description String?
+  tags String @default("[]")
+  deliveryKey String?
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
 model SiteSetting {
   key       String   @id
   value     String

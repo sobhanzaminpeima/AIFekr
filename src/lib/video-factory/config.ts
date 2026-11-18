@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/db/prisma";
+import type { Prisma } from "@prisma/client";
 import { policySchema } from "./domain";
 export const POLICY_KEY = "videoFactoryPolicy";
-export async function getPolicy() {
-  const row = await prisma.siteSetting.findUnique({ where: { key: POLICY_KEY } });
+export async function getPolicy(db: Prisma.TransactionClient = prisma) {
+  const row = await db.siteSetting.findUnique({ where: { key: POLICY_KEY } });
   const policy=policySchema.parse(row ? JSON.parse(row.value) : {});
-  const plan=policy.commercial.mode==="DURATION_RETAIL"?await prisma.package.findFirst({where:{planCode:policy.commercial.referencePlanCode,isActive:true},select:{planCode:true,priceUsd:true,credits:true}}):null;
+  const plan=policy.commercial.mode==="DURATION_RETAIL"?await db.package.findFirst({where:{planCode:policy.commercial.referencePlanCode,isActive:true},select:{planCode:true,priceUsd:true,credits:true}}):null;
   policy.commercial.creditRate=plan?.priceUsd && plan.credits>0?{planCode:plan.planCode,usdCents:plan.priceUsd,credits:plan.credits}:null;
   return policy;
 }

@@ -16,6 +16,8 @@ vi.mock("./providers", () => ({ generateSceneMotion:vi.fn(async(_id,chapter)=>({
 import { prisma } from "@/lib/db/prisma";
 import { createProject, deleteProject, getProject, startProject, controlJob, settleJob, editManifest } from "./service";
 import { savePolicy } from "./config";
+import { economyQuote, placeOrder, setDiscount } from "./economyOrders";
+import { deliverOrder, downloadDelivery } from "./economyDelivery";
 import { processFactoryTick, sweepJobs } from "./worker";
 import { generateChapter,generateSceneMotion } from "./providers";
 import { chapterSchema, configurationSchema } from "./domain";
@@ -50,6 +52,8 @@ describe("Video Factory isolated durable workflow", () => {
     mkdirSync(path.join(process.cwd(), "tmp"), { recursive: true });
     const sql = execFileSync(process.execPath, [path.join(process.cwd(), "node_modules/prisma/build/index.js"), "migrate", "diff", "--from-empty", "--to-schema-datamodel", "prisma/schema.prisma", "--script"], { env: process.env, stdio: "pipe", timeout: 60000 }).toString();
     const database = new Database(process.env.DATABASE_URL!.slice(5)); database.exec(sql);
+    database.exec('DROP TABLE "EconomyVideoOrder"');
+    database.exec(readFileSync("prisma/migrations/20261118090000_economy_video_order/migration.sql", "utf8"));
     // Exercise the actual additive migration, not just the current ORM schema.
     for (const table of ["VideoFactoryAsset","VideoFactoryStorageQuota","VideoFactoryProvider","VideoFactoryResource","VideoFactoryConfigVersion","VideoFactoryApproval","VideoFactoryQualityReport","VideoFactoryPublishJob","VideoFactoryChannel","VideoFactoryWebhookEvent","VideoFactoryArtifact", "VideoFactoryStep", "VideoFactoryJob", "VideoFactoryVersion", "VideoFactoryProject"]) database.exec(`DROP TABLE "${table}"`);
     database.exec(readFileSync("prisma/migrations/20261016090000_video_factory/migration.sql", "utf8"));
@@ -59,6 +63,30 @@ describe("Video Factory isolated durable workflow", () => {
     await savePolicy(userId, { enabled: true, longFormEnabled: true, approvedModelId: "test-only", creditsPerChapter: 3, creditsPerRenderMinute: 2 });
     await prisma.siteSetting.upsert({where:{key:"planLimits"},create:{key:"planLimits",value:JSON.stringify({PRO:{monthlyVideos:-1}})},update:{value:JSON.stringify({PRO:{monthlyVideos:-1}})}});
   }, 90000);
+  it("charges an economy order once, rejects stale prices and restricts delivered files to the buyer", async () => {
+    const buyer = await prisma.user.create({data:{email:`economy-${Date.now()}@test.invalid`,plan:"PRO",credits:1000,mediaCredits:1000}});
+    await savePolicy(userId,{enabled:true,longFormEnabled:true,approvedModelId:"test-only",creditsPerChapter:3,creditsPerRenderMinute:2,
+      creditsPerImage:2,presets:{SMART:{imagePercent:100,videoPercent:0}}});
+    const initial = (await economyQuote(buyer.id))!;
+    await setDiscount(userId,{discountPercent:50});
+    const input = {topic:"Solar energy",channel:"@education",expectedCredits:initial.credits,idempotencyKey:"economy-order-test"};
+    await expect(placeOrder(buyer.id,input)).rejects.toThrow("COST_CHANGED");
+    input.expectedCredits = (await economyQuote(buyer.id))!.credits;
+    const order = await placeOrder(buyer.id,input);
+    expect((await placeOrder(buyer.id,input)).id).toBe(order.id);
+    expect(await prisma.usageLog.count({where:{requestId:order.id}})).toBe(1);
+    expect((await prisma.user.findUniqueOrThrow({where:{id:buyer.id}})).credits).toBe(1000-input.expectedCredits);
+    await expect(downloadDelivery(buyer.id,order.id,"video")).rejects.toThrow("FILE_NOT_FOUND");
+    const form = new FormData();
+    for (const [key,value] of Object.entries({orderId:order.id,title:"Solar film",description:"A short film",tags:'["solar"]'})) form.append(key,value);
+    form.append("video",new Blob([new Uint8Array([0,0,0,16,102,116,121,112,105,115,111,109])]),"film.mp4");
+    const png = await (await import("sharp")).default({create:{width:1,height:1,channels:3,background:"#fff"}}).png().toBuffer();
+    form.append("thumbnail",new Blob([new Uint8Array(png)]),"thumb.png");
+    const uploaded = await deliverOrder(userId,new NextRequest("http://localhost",{method:"POST",body:form}));
+    expect(uploaded.tags).toEqual(["solar"]);
+    await expect(downloadDelivery(otherId,order.id,"video")).rejects.toThrow("FILE_NOT_FOUND");
+    expect((await (await downloadDelivery(buyer.id,order.id,"video")).arrayBuffer()).byteLength).toBe(12);
+  });
   beforeEach(async() => { vi.clearAllMocks();vi.unstubAllGlobals();await savePolicy(userId,{enabled:true,longFormEnabled:true,approvedModelId:"test-only",creditsPerChapter:3,creditsPerRenderMinute:2}); });
   afterAll(async () => { await prisma.$disconnect(); const file = process.env.DATABASE_URL!.slice(5); rmSync(file, { force: true }); rmSync(file + "-journal", { force: true });const storage=path.resolve(process.env.VIDEO_FACTORY_STORAGE_DIR!);if(!storage.startsWith(path.resolve("tmp")+path.sep))throw Error("Unexpected test storage path");rmSync(storage,{recursive:true,force:true}); });
   const project = () => createProject(userId, { title: "Test-only film", brief: "Synthetic brief for isolated tests", configuration: config });
