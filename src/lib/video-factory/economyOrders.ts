@@ -72,7 +72,38 @@ export async function placeOrder(userId: string, input: unknown) {
     const charge = await reserveLoggedCredits(tx, userId, price.credits, { type: "video_factory", requestId: id,
       metadata: { feature: "economy_video", orderId: id, standardCredits: price.standardCredits, discountPercent: price.discountPercent } });
     if (!charge) throw new FactoryError("INSUFFICIENT_CREDITS", 402);
-    return orderView(await tx.economyVideoOrder.create({ data: { id, userId, topic, channel, idempotencyKey,
-      credits: price.credits, standardCredits: price.standardCredits, durationSeconds: price.durationSeconds, discountPercent: price.discountPercent } }));
+    const order = await tx.economyVideoOrder.create({ data: { id, userId, topic, channel, idempotencyKey,
+      credits: price.credits, standardCredits: price.standardCredits, durationSeconds: price.durationSeconds, discountPercent: price.discountPercent } });
+    const admins = await tx.user.findMany({where:{role:{in:["ADMIN","SUPER_ADMIN"]},isBlocked:false}, select:{id:true}});
+    if (admins.length) await tx.notification.createMany({data:admins.map(admin => ({
+      userId:admin.id,type:"economy_order_new",title:"درخواست جدید ویدیوی اقتصادی",
+      body:topic,link:"/admin/users/requests",emailPending:true,
+    }))});
+    return orderView(order);
+  });
+}
+
+const actionSchema = z.object({ action: z.enum(["APPROVE","NOTIFY_DELIVERY"]), orderId: z.string().uuid() }).strict();
+export async function updateEconomyOrder(actorId: string, input: unknown) {
+  const { action, orderId } = actionSchema.parse(input);
+  const approve = action === "APPROVE";
+  return prisma.$transaction(async tx => {
+    const now = new Date();
+    const changed = await tx.economyVideoOrder.updateMany({
+      where: approve ? { id:orderId, status:"PENDING" } : { id:orderId, status:"DELIVERED", deliveryNotificationQueuedAt:null },
+      data: approve ? { status:"APPROVED", approvedAt:now } : { deliveryNotificationQueuedAt:now },
+    });
+    const order = await tx.economyVideoOrder.findUnique({where:{id:orderId}});
+    if (!order) throw new FactoryError("ORDER_NOT_FOUND",404);
+    if (!approve && order.status !== "DELIVERED") throw new FactoryError("ORDER_NOT_DELIVERED",409);
+    if (changed.count) {
+      await tx.notification.create({data:{userId:order.userId, emailPending:true, type:approve?"economy_order_approved":"economy_order_ready",
+        title:approve?"سفارش ویدیوی اقتصادی شما تأیید شد":"ویدیوی اقتصادی شما آماده است",
+        body:approve?`موضوع: ${order.topic}. می‌توانید وضعیت سفارش را در پروفایل خود ببینید.`:`ویدیو، تصویر بندانگشتی و اطلاعات انتشار «${order.title || order.topic}» را از پروفایل خود دریافت کنید.`,
+        link:"/settings?tab=economy",
+      }});
+      await tx.auditLog.create({data:{actorId,targetId:orderId,action:approve?"video_factory.economy_approved":"video_factory.economy_delivery_notified"}});
+    }
+    return orderView(order);
   });
 }

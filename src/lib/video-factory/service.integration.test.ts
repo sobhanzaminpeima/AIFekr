@@ -16,7 +16,7 @@ vi.mock("./providers", () => ({ generateSceneMotion:vi.fn(async(_id,chapter)=>({
 import { prisma } from "@/lib/db/prisma";
 import { createProject, deleteProject, getProject, startProject, controlJob, settleJob, editManifest } from "./service";
 import { savePolicy } from "./config";
-import { economyQuote, placeOrder, setDiscount } from "./economyOrders";
+import { economyQuote, placeOrder, setDiscount, updateEconomyOrder } from "./economyOrders";
 import { deliverOrder, downloadDelivery } from "./economyDelivery";
 import { processFactoryTick, sweepJobs } from "./worker";
 import { generateChapter,generateSceneMotion } from "./providers";
@@ -54,6 +54,7 @@ describe("Video Factory isolated durable workflow", () => {
     const database = new Database(process.env.DATABASE_URL!.slice(5)); database.exec(sql);
     database.exec('DROP TABLE "EconomyVideoOrder"');
     database.exec(readFileSync("prisma/migrations/20261118090000_economy_video_order/migration.sql", "utf8"));
+    database.exec(readFileSync("prisma/migrations/20261118130000_economy_order_notifications/migration.sql", "utf8"));
     // Exercise the actual additive migration, not just the current ORM schema.
     for (const table of ["VideoFactoryAsset","VideoFactoryStorageQuota","VideoFactoryProvider","VideoFactoryResource","VideoFactoryConfigVersion","VideoFactoryApproval","VideoFactoryQualityReport","VideoFactoryPublishJob","VideoFactoryChannel","VideoFactoryWebhookEvent","VideoFactoryArtifact", "VideoFactoryStep", "VideoFactoryJob", "VideoFactoryVersion", "VideoFactoryProject"]) database.exec(`DROP TABLE "${table}"`);
     database.exec(readFileSync("prisma/migrations/20261016090000_video_factory/migration.sql", "utf8"));
@@ -72,8 +73,10 @@ describe("Video Factory isolated durable workflow", () => {
     const input = {topic:"Solar energy",channel:"@education",expectedCredits:initial.credits,idempotencyKey:"economy-order-test"};
     await expect(placeOrder(buyer.id,input)).rejects.toThrow("COST_CHANGED");
     input.expectedCredits = (await economyQuote(buyer.id))!.credits;
+    const admin = await prisma.user.create({data:{email:"economy-admin@test.invalid",role:"ADMIN"}});
     const order = await placeOrder(buyer.id,input);
     expect((await placeOrder(buyer.id,input)).id).toBe(order.id);
+    expect(await prisma.notification.count({where:{userId:admin.id,type:"economy_order_new",emailPending:true}})).toBe(1);
     expect(await prisma.usageLog.count({where:{requestId:order.id}})).toBe(1);
     expect((await prisma.user.findUniqueOrThrow({where:{id:buyer.id}})).credits).toBe(1000-input.expectedCredits);
     await expect(downloadDelivery(buyer.id,order.id,"video")).rejects.toThrow("FILE_NOT_FOUND");
@@ -82,10 +85,21 @@ describe("Video Factory isolated durable workflow", () => {
     form.append("video",new Blob([new Uint8Array([0,0,0,16,102,116,121,112,105,115,111,109])]),"film.mp4");
     const png = await (await import("sharp")).default({create:{width:1,height:1,channels:3,background:"#fff"}}).png().toBuffer();
     form.append("thumbnail",new Blob([new Uint8Array(png)]),"thumb.png");
+    await expect(deliverOrder(admin.id,new NextRequest("http://localhost",{method:"POST",body:form}))).rejects.toThrow("ORDER_APPROVAL_REQUIRED");
+    await expect(updateEconomyOrder(admin.id,{orderId:order.id,action:"NOTIFY_DELIVERY"})).rejects.toThrow("ORDER_NOT_DELIVERED");
+    for(let i=0;i<2;i++) await updateEconomyOrder(admin.id,{orderId:order.id,action:"APPROVE"});
+    expect(await prisma.notification.count({where:{userId:buyer.id,type:"economy_order_approved",emailPending:true}})).toBe(1);
     const uploaded = await deliverOrder(userId,new NextRequest("http://localhost",{method:"POST",body:form}));
     expect(uploaded.tags).toEqual(["solar"]);
+    expect(uploaded.deliveryNotificationQueuedAt).toBeNull();
+    for(let i=0;i<2;i++) await updateEconomyOrder(admin.id,{orderId:order.id,action:"NOTIFY_DELIVERY"});
+    expect(await prisma.notification.count({where:{userId:buyer.id,type:"economy_order_ready",link:"/settings?tab=economy",emailPending:true}})).toBe(1);
     await expect(downloadDelivery(otherId,order.id,"video")).rejects.toThrow("FILE_NOT_FOUND");
     expect((await (await downloadDelivery(buyer.id,order.id,"video")).arrayBuffer()).byteLength).toBe(12);
+    const preview = await downloadDelivery(buyer.id,order.id,"video",new NextRequest("http://localhost?preview=1",{headers:{range:"bytes=4-7"}}));
+    expect(preview.status).toBe(206);
+    expect(preview.headers.get("content-disposition")).toContain("inline");
+    expect(await preview.text()).toBe("ftyp");
   });
   beforeEach(async() => { vi.clearAllMocks();vi.unstubAllGlobals();await savePolicy(userId,{enabled:true,longFormEnabled:true,approvedModelId:"test-only",creditsPerChapter:3,creditsPerRenderMinute:2}); });
   afterAll(async () => { await prisma.$disconnect(); const file = process.env.DATABASE_URL!.slice(5); rmSync(file, { force: true }); rmSync(file + "-journal", { force: true });const storage=path.resolve(process.env.VIDEO_FACTORY_STORAGE_DIR!);if(!storage.startsWith(path.resolve("tmp")+path.sep))throw Error("Unexpected test storage path");rmSync(storage,{recursive:true,force:true}); });

@@ -1303,6 +1303,8 @@ model EconomyVideoOrder {
   description String?
   tags String @default("[]")
   deliveryKey String?
+  approvedAt DateTime?
+  deliveryNotificationQueuedAt DateTime?
   @@unique([userId, idempotencyKey])
   @@index([userId, createdAt])
   @@index([status, createdAt])

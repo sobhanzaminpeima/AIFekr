@@ -44,7 +44,8 @@ export async function deliverOrder(actorId: string, req: NextRequest) {
     description: form.get("description"), tags: JSON.parse(String(form.get("tags") || "[]")) });
   const order = await prisma.economyVideoOrder.findUnique({ where: { id: orderId } });
   if (!order) throw new FactoryError("ORDER_NOT_FOUND", 404);
-  if (order.status !== "PENDING") throw new FactoryError("ORDER_ALREADY_DELIVERED", 409);
+  if (order.status === "PENDING") throw new FactoryError("ORDER_APPROVAL_REQUIRED", 409);
+  if (order.status !== "APPROVED") throw new FactoryError("ORDER_ALREADY_DELIVERED", 409);
   const video = filePart(form, "video", maxVideo);
   const header = Buffer.from(await video.slice(0, 12).arrayBuffer());
   if (header.toString("ascii", 4, 8) !== "ftyp") throw new FactoryError("INVALID_VIDEO", 400);
@@ -62,7 +63,7 @@ export async function deliverOrder(actorId: string, req: NextRequest) {
     await writeFile(path.join(directory, "film.mp4"), Readable.fromWeb(video.stream() as Parameters<typeof Readable.fromWeb>[0]), { flag: "wx" });
     await writeFile(path.join(directory, "thumbnail.png"), png, { flag: "wx" });
     return await prisma.$transaction(async tx => {
-      const updated = await tx.economyVideoOrder.updateMany({ where: { id: orderId, status: "PENDING" }, data: {
+      const updated = await tx.economyVideoOrder.updateMany({ where: { id: orderId, status: "APPROVED" }, data: {
         status: "DELIVERED", deliveredAt: new Date(), deliveredBy: actorId, title, description, tags: JSON.stringify(tags), deliveryKey,
       } });
       if (!updated.count) throw new FactoryError("ORDER_ALREADY_DELIVERED", 409);
@@ -70,15 +71,30 @@ export async function deliverOrder(actorId: string, req: NextRequest) {
     });
   } catch (error) { await rm(directory, { force: true, recursive: true }); throw error; }
 }
-export async function downloadDelivery(userId: string, id: string, kind: string) {
+export async function downloadDelivery(userId: string, id: string, kind: string, req?: NextRequest) {
   if (!["video", "thumbnail"].includes(kind)) throw new FactoryError("FILE_NOT_FOUND", 404);
   const order = await prisma.economyVideoOrder.findFirst({ where: { id, userId, status: "DELIVERED" }, select: { deliveryKey: true } });
   if (!order?.deliveryKey) throw new FactoryError("FILE_NOT_FOUND", 404);
   const name = kind === "video" ? "film.mp4" : "thumbnail.png";
   const file = path.join(artifactDirectory(order.deliveryKey), name);
   const size = (await stat(file)).size;
-  return new NextResponse(Readable.toWeb(createReadStream(file)) as ReadableStream<Uint8Array>, { headers: {
-    "Content-Type": kind === "video" ? "video/mp4" : "image/png", "Content-Length": String(size),
-    "Content-Disposition": 'attachment; filename="' + name + '"', "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
-  } });
+  const disposition = req?.nextUrl.searchParams.get("preview") === "1" ? "inline" : "attachment";
+  const headers: Record<string,string> = {
+    "Content-Type": kind === "video" ? "video/mp4" : "image/png", "Accept-Ranges":"bytes",
+    "Content-Disposition": disposition + '; filename="' + name + '"', "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
+  };
+  let start = 0, end = size - 1;
+  const range = req?.headers.get("range");
+  if (range) {
+    const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+    const invalid = () => new NextResponse(null,{status:416,headers:{...headers,"Content-Range":`bytes */${size}`}});
+    if (!match || (!match[1] && !match[2])) return invalid();
+    start = match[1] ? Number(match[1]) : Math.max(0,size - Number(match[2]));
+    end = match[1] && match[2] ? Math.min(end,Number(match[2])) : end;
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start > end) return invalid();
+    headers["Content-Range"] = `bytes ${start}-${end}/${size}`;
+  }
+  headers["Content-Length"] = String(end - start + 1);
+  return new NextResponse(Readable.toWeb(createReadStream(file,{start,end})) as ReadableStream<Uint8Array>,
+    {status:range ? 206 : 200,headers});
 }

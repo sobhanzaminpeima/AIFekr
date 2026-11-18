@@ -3,7 +3,8 @@ import { Resend } from "resend";
 import { publicAppUrl } from "@/lib/utils/publicAppUrl";
 import { tri } from "@/lib/i18n/tri";
 import type { Lang } from "@/lib/i18n";
-export const escapeEmail = (value: string) => value.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]!));
+import { deliverNotificationEmails, escapeEmail } from "@/lib/notifications/deliverEmail";
+export { escapeEmail };
 export async function notifySeoActivities() {
  const now=new Date();const stale=new Date(Date.now()-300000);
  const jobs=await prisma.seoResearchJob.findMany({where:{status:{in:["SUCCEEDED","FAILED"]},notificationSentAt:null,notificationAttempts:{lt:12},OR:[{notificationClaimedAt:null},{notificationClaimedAt:{lt:stale}}]},orderBy:{completedAt:"asc"},take:10});
@@ -24,9 +25,4 @@ export async function notifySeoActivities() {
  }
 }
 
-export async function deliverSeoNotifications(){
- const stale=new Date(Date.now()-300000);const rows=await prisma.notification.findMany({where:{type:{startsWith:"seo_"},emailPending:true,emailSentAt:null,emailAttempts:{lt:12},OR:[{emailClaimedAt:null},{emailClaimedAt:{lt:stale}}]},take:10,orderBy:{createdAt:"asc"}});
- for(const row of rows){const claim=await prisma.notification.updateMany({where:{id:row.id,emailSentAt:null,OR:[{emailClaimedAt:null},{emailClaimedAt:{lt:stale}}]},data:{emailClaimedAt:new Date(),emailAttempts:{increment:1}}});if(!claim.count)continue;
- try{const user=await prisma.user.findUnique({where:{id:row.userId},select:{email:true,isBlocked:true,language:true}});if(!user?.email||user.isBlocked||!process.env.RESEND_API_KEY||!process.env.RESEND_FROM)throw Error();const url=new URL(row.link||"/seo/intelligence",publicAppUrl());if(url.origin!==publicAppUrl())throw Error();const sent=await new Resend(process.env.RESEND_API_KEY).emails.send({from:process.env.RESEND_FROM,to:user.email,subject:`AIFekr · ${row.title}`,html:`<div dir="${user.language==="fa"?"rtl":"ltr"}" style="font-family:Arial;padding:28px"><h2>${escapeEmail(row.title)}</h2><p>${escapeEmail(row.body||"")}</p><a href="${escapeEmail(url.toString())}">AIFekr SEO</a></div>`},{idempotencyKey:`seo-notification-${row.id}`});if(sent.error||!sent.data?.id)throw Error();await prisma.notification.update({where:{id:row.id},data:{emailSentAt:new Date(),emailPending:false,emailError:null}});}catch{await prisma.notification.update({where:{id:row.id},data:{emailError:"Email delivery pending; check provider and recipient"}});}
- }
-}
+export function deliverSeoNotifications() { return deliverNotificationEmails("seo"); }

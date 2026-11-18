@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
       yesterdayRequests,
       planDistribution,
       recentActivity,
+      pendingEconomyOrders,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.user.count({ where: { createdAt: { gte: todayStart } } }),
@@ -40,6 +41,7 @@ export async function GET(req: NextRequest) {
       // include throws for the whole query in that case (see logs route for
       // the same issue). Fetch separately and join in JS instead.
       prisma.usageLog.findMany({ take: 10, orderBy: { createdAt: "desc" } }),
+      prisma.economyVideoOrder.count({where:{status:"PENDING"}}),
     ]);
 
     const activityUserIds = Array.from(new Set(recentActivity.map((l) => l.userId)));
@@ -75,6 +77,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       stats: {
+        pendingEconomyOrders,
         totalUsers,
         todayUsers,
         activeSubscriptions,
