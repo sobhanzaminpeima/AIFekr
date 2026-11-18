@@ -23,12 +23,20 @@ export async function GET(req: NextRequest) {
   const appUrl = publicAppUrl();
   const resultPath=(p:{plan:string;entitlementSnapshot?:string|null})=>{try{const path=JSON.parse(p.entitlementSnapshot||"{}").returnPath;if(["/chat","/fitness/credits","/fitness/marketplace","/video-factory"].includes(path))return path;const mod=GROWTH_MODULES.find(m=>m.paths[0]===path||moduleEntry(m)===path);if(mod)return moduleEntry(mod);}catch{}return p.plan.startsWith("CREDITS_")?"/credits":"/plans";};
 
+  function resultUrl(p:{plan:string;entitlementSnapshot?:string|null}, status:string, ref?:string){
+    const dedicated = ["VF_AUTO_10","VF_ECONOMY_10"].includes(p.plan);
+    const url = new URL(dedicated ? "/video-factory" : resultPath(p),appUrl);
+    url.searchParams.set("payment",status);
+    if(dedicated)url.searchParams.set("plan",p.plan);
+    if(ref)url.searchParams.set("ref",ref);
+    return url.toString();
+  }
   // Credit top-ups redirect back to /credits instead of /plans -- resolved
   // up front from paymentId (works even for the early failure paths, before
   // the row's own `plan` field has been loaded below).
   const failureRedirect = async () => {
     const p = paymentId ? await findPaymentById(paymentId).catch(() => null) : null;
-    return `${appUrl}${p?resultPath(p):"/plans"}?payment=failed`;
+    return p?resultUrl(p,"failed"):`${appUrl}/plans?payment=failed`;
   };
 
   if (status !== "OK" || !authority || !paymentId) {
@@ -43,7 +51,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(await failureRedirect());
   }
 
-  if(payment.status==="SUCCESS")return NextResponse.redirect(`${appUrl}${resultPath(payment)}?payment=success`);
+  if(payment.status==="SUCCESS")return NextResponse.redirect(resultUrl(payment,"success"));
 
   const result = await verifyPayment({ authority, amount: payment.amount });
 
@@ -57,7 +65,7 @@ export async function GET(req: NextRequest) {
   if(snapshot.credits!=null){
     const applied=await settleVerifiedPayment(payment.id,authority,result.refId||"");
     if(applied&&payment.user.email)sendPaymentConfirmEmail(payment.user.email,payment.user.name||"کاربر",payment.plan,payment.amount,result.refId||"").catch(err=>logError({source:"/api/payment/verify",error:err,userId:payment.userId}));
-    return NextResponse.redirect(`${appUrl}${resultPath(payment)}?payment=success&ref=${result.refId}`);
+    return NextResponse.redirect(resultUrl(payment,"success",String(result.refId||"")));
   }
 
   // Success — activate plan. TEAM credits are pooled on a Team row, not on
@@ -97,5 +105,5 @@ export async function GET(req: NextRequest) {
     ).catch((err) => logError({ source: "/api/payment/verify (confirmation email)", error: err, level: "warn", userId: payment.userId }));
   }
 
-  return NextResponse.redirect(`${appUrl}${resultPath(payment)}?payment=success&ref=${result.refId}`);
+  return NextResponse.redirect(resultUrl(payment,"success",String(result.refId||"")));
 }

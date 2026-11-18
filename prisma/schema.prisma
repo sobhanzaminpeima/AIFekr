@@ -1305,6 +1305,7 @@ model EconomyVideoOrder {
   deliveryKey String?
   approvedAt DateTime?
   deliveryNotificationQueuedAt DateTime?
+  paymentId String? @unique
   @@unique([userId, idempotencyKey])
   @@index([userId, createdAt])
   @@index([status, createdAt])

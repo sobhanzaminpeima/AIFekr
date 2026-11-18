@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { boundedJson, factoryRoute } from "@/lib/video-factory/http";
-import { listOrders, economyQuote, placeOrder } from "@/lib/video-factory/economyOrders";
+import { listOrders, economyQuote, manualEntitlement, placeOrder } from "@/lib/video-factory/economyOrders";
 
 export const dynamic = "force-dynamic";
 export function GET(req: NextRequest) {
   return factoryRoute(req, false, async userId => {
-    const [orders, quote] = await Promise.all([listOrders(userId), economyQuote(userId)]);
-    return NextResponse.json({ orders, quote }, { headers: { "Cache-Control": "private, no-store" } });
+    const [orders, quote, entitlement] = await Promise.all([listOrders(userId), economyQuote(userId), manualEntitlement(userId)]);
+    return NextResponse.json({ orders, quote, manualEntitlement:entitlement }, { headers: { "Cache-Control": "private, no-store" } });
   });
 }
 export function POST(req: NextRequest) {

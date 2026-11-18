@@ -4,6 +4,10 @@ import type {Prisma} from '@prisma/client';
 import {FactoryError} from './errors';
 /** Package-specific action rates keep five 60-second narrated films within 500 credits. */
 export async function policyForBundle(db:Prisma.TransactionClient,userId:string,seconds:number,policy:Policy):Promise<Policy>{
+ if(seconds===600){
+  try { const packageUsage=await claimPackage(db,userId,seconds,new Date(),'VF_AUTO_10');return {...policy,packageRequired:true,packageUsage,prepaidFilm:true,narratedBundlesOnly:false}; }
+  catch(error){if(!(error instanceof FactoryError && error.message==='VIDEO_PACKAGE_REQUIRED_OR_EXHAUSTED'))throw error;}
+ }
  if(!policy.packageRequired)return policy;
  let usage;
  try{usage=await claimPackage(db,userId,seconds);}catch(error){if(error instanceof FactoryError && error.message==='VIDEO_PACKAGE_REQUIRED_OR_EXHAUSTED')return policy;throw error;}

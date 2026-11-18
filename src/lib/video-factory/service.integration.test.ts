@@ -14,9 +14,9 @@ vi.mock("./assets",async original=>({...await original<typeof import("./assets")
 vi.mock("./quality",async original=>({...await original<typeof import("./quality")>(),inspectRenderedShot:vi.fn(async()=>({status:"PASSED",findings:[]}))}));
 vi.mock("./providers", () => ({ generateSceneMotion:vi.fn(async(_id,chapter)=>({chapter,usage:{inputTokens:10,outputTokens:5},model:"test-motion"})), prepareCreativeRoles:vi.fn(async()=>"TEST ONLY"), approvedProvider: vi.fn(async () => ({ id: "test-only", model: "test-only" })),generateIdeas:vi.fn(async()=>({value:{titles:["TEST A","TEST B"],hooks:["TEST A","TEST B"],outline:["Synthetic outline"],audienceStrategy:"Test only",evidence:[],uncertainties:["Synthetic test"]},provider:"test-only",model:"test-only",usage:null})), generateChapter: vi.fn(async () => ({ chapter: { title: "Synthetic chapter", continuity: "test-only", shots: [{ id: "s1", title: "Synthetic shot", narration: "روایت", visualPrompt: "TEST ONLY" }] }, provider: "test-only", model: "test-only", usage: null })) }));
 import { prisma } from "@/lib/db/prisma";
-import { createProject, deleteProject, getProject, startProject, controlJob, settleJob, editManifest } from "./service";
+import { estimateProject, createProject, deleteProject, getProject, startProject, controlJob, settleJob, editManifest } from "./service";
 import { savePolicy } from "./config";
-import { economyQuote, placeOrder, setDiscount, updateEconomyOrder } from "./economyOrders";
+import { manualEntitlement, economyQuote, placeOrder, setDiscount, updateEconomyOrder } from "./economyOrders";
 import { deliverOrder, downloadDelivery } from "./economyDelivery";
 import { processFactoryTick, sweepJobs } from "./worker";
 import { generateChapter,generateSceneMotion } from "./providers";
@@ -55,6 +55,7 @@ describe("Video Factory isolated durable workflow", () => {
     database.exec('DROP TABLE "EconomyVideoOrder"');
     database.exec(readFileSync("prisma/migrations/20261118090000_economy_video_order/migration.sql", "utf8"));
     database.exec(readFileSync("prisma/migrations/20261118130000_economy_order_notifications/migration.sql", "utf8"));
+    database.exec(readFileSync("prisma/migrations/20261119020000_economy_paid_order/migration.sql", "utf8"));
     // Exercise the actual additive migration, not just the current ORM schema.
     for (const table of ["VideoFactoryAsset","VideoFactoryStorageQuota","VideoFactoryProvider","VideoFactoryResource","VideoFactoryConfigVersion","VideoFactoryApproval","VideoFactoryQualityReport","VideoFactoryPublishJob","VideoFactoryChannel","VideoFactoryWebhookEvent","VideoFactoryArtifact", "VideoFactoryStep", "VideoFactoryJob", "VideoFactoryVersion", "VideoFactoryProject"]) database.exec(`DROP TABLE "${table}"`);
     database.exec(readFileSync("prisma/migrations/20261016090000_video_factory/migration.sql", "utf8"));
@@ -133,6 +134,38 @@ describe("Video Factory isolated durable workflow", () => {
     const failed=await startProject(userId,p2.id,"gemini-motion-failure",credits);await processFactoryTick();
     expect((await prisma.videoFactoryJob.findUniqueOrThrow({where:{id:failed.id}})).status).toBe("FAILED");
     expect((await prisma.user.findUniqueOrThrow({where:{id:userId}})).credits).toBe(before);
+  });
+  it("redeems a dedicated manual film once without consuming credits or automatic quota",async()=>{
+    const buyer=await prisma.user.create({data:{email:"manualfilm@test.invalid",credits:0}});
+    const limits={videoCount:1,videoSeconds:600,videoMaxSeconds:600,manualDelivery:1};
+    const payment=await prisma.payment.create({data:{userId:buyer.id,plan:"VF_ECONOMY_10",status:"PENDING",amount:9990000,
+      entitlementSnapshot:JSON.stringify({category:"VIDEO_FACTORY",days:30,entitlements:{limits}})}});
+    expect(await manualEntitlement(buyer.id)).toBeNull();
+    await prisma.payment.update({where:{id:payment.id},data:{status:"SUCCESS"}});
+    const input={paymentId:payment.id,topic:"Test manual film",channel:"Test channel",idempotencyKey:"testmanualorder"};
+    await expect(placeOrder(userId,input)).rejects.toThrow("MANUAL_PACKAGE");
+    const order=await placeOrder(buyer.id,input);
+    expect(order).toMatchObject({credits:0,durationSeconds:600,paymentId:payment.id});
+    expect((await placeOrder(buyer.id,input)).id).toBe(order.id);
+    await expect(placeOrder(buyer.id,{...input,idempotencyKey:"testmanualagain"})).rejects.toThrow("MANUAL_PACKAGE");
+    expect(await manualEntitlement(buyer.id)).toBeNull();
+    const {claimPackage}=await import("./packages");
+    await expect(claimPackage(prisma,buyer.id,600)).rejects.toThrow("VIDEO_PACKAGE_REQUIRED");
+  });
+
+  it("reserves a dedicated automatic ten-minute purchase with an empty wallet",async()=>{
+    const buyer=await prisma.user.create({data:{email:"automaticfilm@test.invalid",plan:"PRO",credits:0}});
+    const payment=await prisma.payment.create({data:{userId:buyer.id,plan:"VF_AUTO_10",status:"SUCCESS",amount:12490000,
+      entitlementSnapshot:JSON.stringify({category:"VIDEO_FACTORY",days:30,entitlements:{limits:{videoCount:1,videoSeconds:600,videoMaxSeconds:600}}})}});
+    const project=await createProject(buyer.id,{title:"Automatic film",brief:"Synthetic prepaid production",configuration:{...config,durationSeconds:600,budgetCap:100000}});
+    const estimate=await estimateProject(buyer.id,project.id);
+    expect(estimate.prepaidFilm).toBe(true);
+    const started=await startProject(buyer.id,project.id,"paid-automatic-film",estimate.credits);
+    const job=await prisma.videoFactoryJob.findUniqueOrThrow({where:{id:started.id}});
+    expect(JSON.parse(job.policy).packageUsage.paymentId).toBe(payment.id);
+    expect((await prisma.usageLog.findUniqueOrThrow({where:{id:job.usageLogId}})).credits).toBe(0);
+    await controlJob(buyer.id,project.id,"cancel");
+    expect((await prisma.user.findUniqueOrThrow({where:{id:buyer.id}})).credits).toBe(0);
   });
   it("enforces paid package count and restores quota and credits exactly once on failure",async()=>{
     await savePolicy(userId,{enabled:true,longFormEnabled:true,packageRequired:true,approvedModelId:"test-only",creditsPerChapter:3,creditsPerRenderMinute:2});

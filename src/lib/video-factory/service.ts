@@ -84,7 +84,7 @@ export async function estimateProject(userId: string, id: string) {
   const project = await getProject(userId, id), policy = await getPolicy();
   const configuration=configurationSchema.parse(JSON.parse(project.configuration));
   const effective=await policyForBundle(prisma,userId,configuration.durationSeconds,policy);
-  return quote(configuration, effective,{rerenderShare:await rerenderShare(userId,id,project.manifest,configuration,effective)});
+  return {...quote(configuration, effective,{rerenderShare:await rerenderShare(userId,id,project.manifest,configuration,effective)}),prepaidFilm:!!effective.prepaidFilm};
 }
 export async function startProject(userId: string, id: string, key: string, expectedCredits: number) {
   const fingerprint = hash({ id, expectedCredits });
@@ -122,8 +122,8 @@ export async function startProject(userId: string, id: string, key: string, expe
     return await prisma.$transaction(async tx => {
       // Serialize quota authorizations for this account before establishing the read snapshot.
       await tx.videoFactoryStorageQuota.upsert({where:{userId},create:{userId},update:{usedBytes:{increment:0}}});
-      if(policy.packageRequired){const lockedPolicy=await policyForBundle(tx,userId,configuration.durationSeconds,await getPolicy());if(quote(configuration,lockedPolicy,{rerenderShare:share}).credits!==estimate.credits)throw new FactoryError("COST_CHANGED");}
-      if(policy.packageRequired)policy.packageUsage=await claimPackage(tx,userId,configuration.durationSeconds);
+      if(policy.packageRequired){const lockedPolicy=await policyForBundle(tx,userId,configuration.durationSeconds,await getPolicy());if(Boolean(lockedPolicy.prepaidFilm)!==Boolean(policy.prepaidFilm)||quote(configuration,lockedPolicy,{rerenderShare:share}).credits!==estimate.credits)throw new FactoryError("COST_CHANGED");}
+      if(policy.packageRequired)policy.packageUsage=await claimPackage(tx,userId,configuration.durationSeconds,new Date(),policy.prepaidFilm?'VF_AUTO_10':undefined);
       const current = await tx.videoFactoryProject.findFirst({ where: { id, userId, version: project.version } });
       if (!current) throw new FactoryError("VERSION_CONFLICT");
       const [busy, userActive, globalActive] = await Promise.all([
@@ -147,7 +147,7 @@ export async function startProject(userId: string, id: string, key: string, expe
       const jobId = randomUUID();
       const projectLock = await tx.videoFactoryProject.updateMany({ where: { id, userId, version: current.version, activeJobId: null }, data: { activeJobId: jobId } });
       if (!projectLock.count) throw new FactoryError("PROJECT_BUSY");
-      const reservation = await reserveLoggedCredits(tx, userId, estimate.credits, { type: "video_factory", requestId: jobId, metadata: { feature: "video_factory", projectId: id, jobId, status: "RESERVED", estimate } },policy.packageRequired?"VIDEO_PACKAGE":"DEFAULT");
+      const reservation = await reserveLoggedCredits(tx, userId, policy.prepaidFilm ? 0 : estimate.credits, { type: "video_factory", requestId: jobId, metadata: { feature: "video_factory", projectId: id, jobId, status: "RESERVED", estimate } },policy.packageRequired?"VIDEO_PACKAGE":"DEFAULT");
       if (!reservation) throw new FactoryError("INSUFFICIENT_CREDITS", 402);
       const hasManifest = manifestSchema.safeParse(JSON.parse(current.manifest)).success;
       const previous = hasManifest ? null : await tx.videoFactoryJob.findFirst({ where: { projectId: id, userId, projectVersion: current.version, status: { in: ["FAILED", "CANCELLED"] }, stage: "SCRIPTING" }, orderBy: { createdAt: "desc" } });
@@ -172,7 +172,8 @@ export async function settleJob(tx: Prisma.TransactionClient, id: string, status
   const claim = await tx.videoFactoryJob.updateMany({ where: { id, settledAt: null }, data: { status, errorCode,spentCredits:job.spentCredits, settledAt: new Date(), leaseToken: null, leaseUntil: null } });
   if (!claim.count) return;
   await tx.videoFactoryProject.updateMany({ where: { id: job.projectId, activeJobId: job.id }, data: { activeJobId: null } });
-  const {charged,refund}=settlementCredits(status,job.credits,job.spentCredits);
+  const prepaid = policySchema.parse(JSON.parse(job.policy)).prepaidFilm;
+  const {charged,refund}=settlementCredits(status,prepaid ? 0 : job.credits,job.spentCredits);
   if(charged!==job.spentCredits)await tx.videoFactoryJob.update({where:{id},data:{spentCredits:charged}});
   const external=await tx.videoFactoryStep.findMany({where:{jobId:id,provider:{not:null},credits:{gt:0}},select:{costUsd:true}});
   if(external.length && external.every(s=>s.costUsd!==null))await tx.videoFactoryJob.update({where:{id},data:{actualCostUsd:external.reduce((sum,s)=>sum+(s.costUsd || 0),0)}});

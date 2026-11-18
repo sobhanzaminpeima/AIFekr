@@ -5,13 +5,13 @@ export const VIDEO_PACKAGE_CATEGORY="VIDEO_FACTORY";
 export const videoLimitsSchema=z.object({videoCount:z.number().int().min(1).max(1000),videoSeconds:z.number().int().min(60).max(600000),videoMaxSeconds:z.number().int().min(60).max(600)});
 export type PackageUsage={paymentId:string;seconds:number};
 /** Called under the account quota write lock; quotas use immutable paid snapshots. */
-export async function claimPackage(tx:Prisma.TransactionClient,userId:string,seconds:number,now=new Date()):Promise<PackageUsage>{
+export async function claimPackage(tx:Prisma.TransactionClient,userId:string,seconds:number,now=new Date(),onlyPlan?:string):Promise<PackageUsage>{
  if(!Number.isInteger(seconds)||seconds<15||seconds>600)throw new FactoryError("VIDEO_MAXIMUM_10_MINUTES",400);
- const payments=await tx.payment.findMany({where:{userId,status:"SUCCESS"},orderBy:{createdAt:"asc"},select:{id:true,entitlementSnapshot:true,reviewAt:true,createdAt:true}});
+ const payments=await tx.payment.findMany({where:{userId,status:"SUCCESS",plan:onlyPlan??{notIn:["VF_ECONOMY_10","VF_AUTO_10"]}},orderBy:{createdAt:"asc"},select:{id:true,entitlementSnapshot:true,reviewAt:true,createdAt:true}});
  const jobs=await tx.videoFactoryJob.findMany({where:{userId,status:{notIn:["FAILED","CANCELLED"]}},select:{policy:true}});
  for(const payment of payments){
   let snapshot;try{snapshot=JSON.parse(payment.entitlementSnapshot);}catch{continue;}
-  if(snapshot.category!==VIDEO_PACKAGE_CATEGORY)continue;
+  if(snapshot.category!==VIDEO_PACKAGE_CATEGORY || snapshot.entitlements?.limits?.manualDelivery===1)continue;
   const limits=videoLimitsSchema.safeParse(snapshot.entitlements?.limits);
   if(!limits.success||!Number.isInteger(snapshot.days)||new Date(payment.reviewAt||payment.createdAt).getTime()+snapshot.days*86400000<=now.getTime())continue;
   const used=jobs.map(j=>JSON.parse(j.policy).packageUsage as PackageUsage|undefined).filter((u):u is PackageUsage=>u?.paymentId===payment.id);

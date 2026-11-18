@@ -72,6 +72,7 @@ export type Manifest = z.infer<typeof manifestSchema>;
 export const policySchema = z.object({
   silentOnly:z.boolean().default(false),
   packageUsage:z.object({paymentId:z.string(),seconds:z.number().int().positive().max(600)}).optional(),
+  prepaidFilm:z.boolean().optional(),
   packageRequired:z.boolean().default(false),
   commercial:commercialSchema.default(commercialSchema.parse({})),
   enabled: z.boolean().default(false),

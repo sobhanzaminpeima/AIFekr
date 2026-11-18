@@ -13,9 +13,10 @@ export const discountSchema = z.object({ discountPercent: z.number().int().min(1
 const orderInput = z.object({
   topic: z.string().trim().min(1).max(2000),
   channel: z.string().trim().min(1).max(500),
-  expectedCredits: z.number().int().positive(),
+  expectedCredits: z.number().int().positive().optional(),
+  paymentId: z.string().min(1).max(150).optional(),
   idempotencyKey: z.string().min(8).max(100),
-}).strict();
+}).strict().refine(v => Boolean(v.paymentId) !== (v.expectedCredits !== undefined));
 const standard = configurationSchema.parse({
   durationSeconds: 300, language: "fa", ratio: "16:9", mode: "AUTOPILOT",
   quality: "SMART", budgetCap: 1_000_000, mediaMode: "MULTIMEDIA",
@@ -56,23 +57,39 @@ export async function listOrders(userId?: string) {
   const rows = await prisma.economyVideoOrder.findMany({ where: { userId }, orderBy: { createdAt: "desc" } });
   return rows.map(orderView);
 }
+export async function manualEntitlement(userId: string, db: Prisma.TransactionClient = prisma, paymentId?: string) {
+  const redeemed = await db.economyVideoOrder.findMany({where:{userId,paymentId:{not:null}},select:{paymentId:true}});
+  const payments = await db.payment.findMany({where:{userId,plan:"VF_ECONOMY_10",status:"SUCCESS",
+    id:{equals:paymentId,notIn:redeemed.flatMap(r=>r.paymentId?[r.paymentId]:[])}},orderBy:{createdAt:"asc"},
+    select:{id:true,createdAt:true,reviewAt:true,entitlementSnapshot:true}});
+  for(const payment of payments){
+    const snapshot=JSON.parse(payment.entitlementSnapshot);
+    if(snapshot.category==="VIDEO_FACTORY" && snapshot.entitlements?.limits?.manualDelivery===1 &&
+      Number.isInteger(snapshot.days) && (payment.reviewAt??payment.createdAt).getTime()+snapshot.days*86400000>Date.now()){
+      return {paymentId:payment.id,durationSeconds:600};
+    }
+  }
+  return null;
+}
 export async function placeOrder(userId: string, input: unknown) {
-  const { topic, channel, expectedCredits, idempotencyKey } = orderInput.parse(input);
+  const { topic, channel, expectedCredits, idempotencyKey, paymentId } = orderInput.parse(input);
   return prisma.$transaction(async tx => {
     await tx.videoFactoryStorageQuota.upsert({ where: { userId }, create: { userId }, update: { usedBytes: { increment: 0 } } });
     const previous = await tx.economyVideoOrder.findUnique({ where: { userId_idempotencyKey: { userId, idempotencyKey } } });
     if (previous) {
-      if (previous.topic !== topic || previous.channel !== channel || previous.credits !== expectedCredits) throw new FactoryError("IDEMPOTENCY_CONFLICT", 409);
+      if (previous.topic !== topic || previous.channel !== channel || previous.paymentId !== (paymentId??null) || (!paymentId && previous.credits !== expectedCredits)) throw new FactoryError("IDEMPOTENCY_CONFLICT", 409);
       return orderView(previous);
     }
-    const price = await economyQuote(userId, tx);
+    const entitlement = paymentId ? await manualEntitlement(userId,tx,paymentId) : null;
+    if(paymentId && !entitlement) throw new FactoryError("MANUAL_PACKAGE_REQUIRED_OR_EXHAUSTED",402);
+    const price = entitlement ? {credits:0,standardCredits:0,discountPercent:0,durationSeconds:600} : await economyQuote(userId, tx);
     if (!price) throw new FactoryError("PRICING_NOT_CONFIGURED", 503);
-    if (price.credits !== expectedCredits) throw new FactoryError("COST_CHANGED", 409);
+    if (!paymentId && price.credits !== expectedCredits) throw new FactoryError("COST_CHANGED", 409);
     const id = randomUUID();
-    const charge = await reserveLoggedCredits(tx, userId, price.credits, { type: "video_factory", requestId: id,
+    const charge = paymentId || await reserveLoggedCredits(tx, userId, price.credits, { type: "video_factory", requestId: id,
       metadata: { feature: "economy_video", orderId: id, standardCredits: price.standardCredits, discountPercent: price.discountPercent } });
     if (!charge) throw new FactoryError("INSUFFICIENT_CREDITS", 402);
-    const order = await tx.economyVideoOrder.create({ data: { id, userId, topic, channel, idempotencyKey,
+    const order = await tx.economyVideoOrder.create({ data: { id, userId, topic, channel, idempotencyKey, paymentId,
       credits: price.credits, standardCredits: price.standardCredits, durationSeconds: price.durationSeconds, discountPercent: price.discountPercent } });
     const admins = await tx.user.findMany({where:{role:{in:["ADMIN","SUPER_ADMIN"]},isBlocked:false}, select:{id:true}});
     if (admins.length) await tx.notification.createMany({data:admins.map(admin => ({
