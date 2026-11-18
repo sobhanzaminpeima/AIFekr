@@ -86,8 +86,8 @@ export async function estimateProject(userId: string, id: string) {
   const effective=await policyForBundle(prisma,userId,configuration.durationSeconds,policy);
   return {...quote(configuration, effective,{rerenderShare:await rerenderShare(userId,id,project.manifest,configuration,effective)}),prepaidFilm:!!effective.prepaidFilm};
 }
-export async function startProject(userId: string, id: string, key: string, expectedCredits: number) {
-  const fingerprint = hash({ id, expectedCredits });
+export async function startProject(userId: string, id: string, key: string, expectedCredits: number, expectedPrepaid?: boolean) {
+  const fingerprint = hash({ id, expectedCredits, ...(expectedPrepaid ? {expectedPrepaid} : {}) });
   const existing = await prisma.videoFactoryJob.findUnique({ where: { userId_idempotencyKey: { userId, idempotencyKey: key } } });
   if (existing) {
     if (existing.requestHash !== fingerprint) throw new FactoryError("IDEMPOTENCY_CONFLICT");
@@ -102,7 +102,7 @@ export async function startProject(userId: string, id: string, key: string, expe
   const share=await rerenderShare(userId,id,project.manifest,configuration,policy);
   const estimate = quote(configuration, policy,{rerenderShare:share});
   await validateAdvancedReferences(userId,id,configuration);
-  if (estimate.credits !== expectedCredits) throw new FactoryError("COST_CHANGED");
+  if ((expectedPrepaid !== undefined && expectedPrepaid !== !!policy.prepaidFilm) || estimate.credits !== expectedCredits) throw new FactoryError("COST_CHANGED");
   await approvedProvider(policy.approvedModelId);
   if(configuration.mediaMode==="MULTIMEDIA"){
     const mix=policy.presets[configuration.quality];
