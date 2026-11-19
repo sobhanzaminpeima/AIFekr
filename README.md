@@ -6,7 +6,7 @@
 
 ### Chat • Image • Video • Music • Business AI Tools
 
-[![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)](https://nextjs.org)
+[![Next.js](https://img.shields.io/badge/Next.js-16.4.6-black?logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)](https://typescriptlang.org)
 [![Prisma](https://img.shields.io/badge/Prisma-5-2D3748?logo=prisma)](https://prisma.io)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-38bdf8?logo=tailwindcss)](https://tailwindcss.com)
@@ -18,29 +18,22 @@
 
 ---
 
-## Demo Accounts
+## Video Factory
 
-Production runs at **https://aifekr.com** (VPS `194.59.171.82`).
+The [YouTube campaign](https://aifekr.com/youtube) offers two single-film purchases. The landing page reads the current toman prices from the package catalog. Both plans cover a ten-minute film with a 30-day redemption window.
 
-> The old demo box `185.81.96.229` is no longer the live environment — do not deploy there.
+| Package | Launch price | Customer workflow |
+| --- | ---: | --- |
+| `VF_AUTO_10` | 12,490,000 toman | Start a project, review its script and scenes, then generate and download the film. |
+| `VF_ECONOMY_10` | 9,990,000 toman | Submit a topic and YouTube channel. The team delivers the video, thumbnail and publishing metadata within the advertised 1–2 days. |
 
-### Regular Users
+The payment callback uses the verified purchase to select the workflow. Redeeming either one-film package does not require a second wallet payment. Administrators review manual orders under `/admin/users/requests`, approve them, upload the files, and explicitly notify the customer. The customer can preview and download their delivery at `/settings?tab=economy`. Email delivery uses the notification queue and Resend.
 
-| Name | Email | Password | Plan | Credits |
-|------|-------|----------|------|---------|
-| Ali Rezaei | `ali@test.com` | `test1234` | Free | 500 |
-| Sara Mohammadi | `sara@test.com` | `test1234` | Basic | 1,000 |
+Campaign attribution uses the registered identifiers `youtube_factory`, `instagram_aifekr_live_launch` and `instagram_aifekr_voice_launch`. Review their status and tracked visits in the [growth dashboard](https://aifekr.com/admin/customer-growth#campaigns).
 
-### Admin & Super Admin
+**Verification as of November 19, 2026.** Package pricing, redemption and callback handling passed automated tests. The public YouTube landing and both sign-in redirects were checked in production. A real bank payment through to final delivery, receipt of customer email, and a ten-minute Google Flow render with character references and interruption recovery still require end-to-end verification. See the [Flow worker guide](tools/flow-worker-extension/README.md) for setup.
 
-| Role | Email | Password | Plan |
-|------|-------|----------|------|
-| Admin | `admin@test.com` | `admin1234` | Pro |
-| Super Admin | `super@aifekr.com` | `super1234` | Pro |
-
-> Admin panel is accessible at `/admin` — only ADMIN and SUPER_ADMIN roles can access it.
-
----
+The [AIFekr UI repository](https://github.com/sobhanzaminpeima/AIFekr_UI) contains the customer and admin interfaces. Administrator access requires an authorized account.
 
 ## About
 
@@ -163,7 +156,7 @@ A full growth toolkit built on Meta's **Instagram API with Instagram Login** (`s
 ## Tech Stack
 
 ```
-Frontend:    Next.js 14 (App Router) + TypeScript + Tailwind CSS
+Frontend:    Next.js 16.4.6 (App Router) + TypeScript + Tailwind CSS
 Backend:     Next.js API Routes (Edge + Node.js)
 Database:    SQLite (better-sqlite3) via Prisma ORM
 AI:          Multi-provider router (Claude / OpenAI GPT / Google Gemini / DeepSeek)
