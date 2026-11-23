@@ -23,6 +23,8 @@ The complete source is hashed after upload and inspected with FFprobe. Each chun
 
 Approval and explicit delivery notifications reuse the existing notification table and Resend outbox. Inbox receipt requires a live test with an accessible recipient.
 
+Large admin delivery endpoints bypass Next's 10 MiB proxy body clone while retaining route-level authentication, origin checks and rate limits. A real local Next HTTP test delivered a 12,584,391-byte archive intact, rejected an unauthenticated request and left order state unchanged for invalid media. The focused suite passes 21 tests, including routing, resumable chunks, single redemption and private delivery. These checks do not certify a real bank payment or email inbox receipt.
+
 ## Delivery ZIP contract
 
 The administrator uploads a ZIP no larger than 150 MiB containing exactly:

@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { requireAuth, requireAdmin, unauthorizedResponse } from "@/lib/auth/middleware";
 import { isFeatureEnabled } from "@/lib/utils/featureToggles";
-import { rateLimit } from "@/lib/utils/rateLimit";
+import { getClientIp, rateLimit } from "@/lib/utils/rateLimit";
 import { FactoryError } from "./domain";
 
 export async function factoryRoute(req: NextRequest, admin: boolean, handler: (userId: string) => Promise<NextResponse>, requestLimit = 30) {
+  // These two bulk routes bypass proxy cloning, so preserve its IP budget here.
+  if (admin && ["/api/admin/video-factory/economy", "/api/admin/video-factory/gaming"].includes(req.nextUrl.pathname.replace(/\/$/, "")) &&
+      !rateLimit(`video-factory-upload:ip:${getClientIp(req.headers)}`, 120, 60000).allowed) {
+    return NextResponse.json({ code: "RATE_LIMITED" }, { status: 429, headers: { "Retry-After": "60" } });
+  }
   const user = await (admin ? requireAdmin(req) : requireAuth(req));
   if (!user) return unauthorizedResponse(req);
   if (req.method !== "GET") {

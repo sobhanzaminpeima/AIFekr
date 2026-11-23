@@ -209,5 +209,7 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/:path*", "/_v2/:path*", "/((?!api|_next|_v2|.*\\..*).*)"],
+  // Bulk deliveries are streamed by their authenticated route handlers.
+  // Proxy body cloning truncates them at Next's default 10 MiB.
+  matcher: ["/api/((?!admin/video-factory/(?:economy|gaming)/?$).*)", "/_v2/:path*", "/((?!api|_next|_v2|.*\\..*).*)"],
 };
