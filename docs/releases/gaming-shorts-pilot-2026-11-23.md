@@ -72,3 +72,13 @@ Draft copy: “ویدیوی گیم‌پلی خودت را بفرست؛ سه شو
 After owner approval, introduce the offer to ten relevant creators. Record source length, edit minutes, processing cost, delivery turnaround, revisions, paid conversion and net contribution. The initial experiment target is three paid deliveries. Contacting creators, publishing ads, approving the final price and promising delivery capacity remain owner decisions.
 
 Proceed to automation after reviewed deliveries establish quality and labor cost. A public sample and payment-to-private-download acceptance run are required before paid advertising.
+
+## Server rollout and native acceptance — 2026-11-24
+
+Backend build `5920e1d0` and UI build `6b91bf80` are deployed. The previous backend/UI remain available for rollback. A checked SQLite backup was taken before migration; the migration also passed on a separate database copy. The generated Linux Prisma client belongs to this release, without replacing the previous release's client. The exact gaming admin upload endpoint now permits 160 MiB at nginx. Public package listings preserve the existing offers and exclude the inactive Gaming Shorts draft.
+
+A separate, fresh test database on the server passed real production HTTP requests and native FFprobe/FFmpeg checks: source upload, stale-offset rejection and resumed state, idempotent draft/submission, single fixture entitlement redemption, administrator approval, delivery of three actual MP4s/covers/SRTs, owner-only download, 206 byte-range streaming and unique notification/email-outbox entries. User credits stayed unchanged. The payment was explicitly a fixture in the isolated database. No bank payment was made and no email was sent by this test.
+
+Production checks: health returns 200; anonymous customer/admin gaming API access returns 401; the customer page redirects anonymous visitors to authentication. Email sender configuration exists and the existing video-factory cron drains the `economy_` notification scope, including gaming notifications. Actual inbox receipt is unverified.
+
+Commercial launch remains disabled. Outstanding gates are a customer-owned high-resolution public sample with verified speech captions, owner price approval, sufficient upload/render storage, actual bank checkout and email inbox acceptance. Post-rollout free server disk space is approximately 1.6 GiB, insufficient for the advertised maximum 2 GB source plus assembly and safety reserve. Do not activate this offer under the current storage limit. Do not represent the three internal 360p-derived clips as commercial-quality examples.
