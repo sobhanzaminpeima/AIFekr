@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { mkdir, open, rm, stat, writeFile } from "node:fs/promises";
+import { link, mkdir, open, readFile, rm, stat, statfs, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { NextRequest, NextResponse } from "next/server";
@@ -27,6 +27,21 @@ const metadataSchema = z.array(z.object({
   description: z.string().trim().min(1).max(5000),
   tags: z.array(z.string().trim().min(1).max(100)).max(30),
 }).strict()).length(3);
+function validateCaptions(srt: string, duration: number) {
+  let previous = -1;
+  for (const block of srt.trim().replace(/\r/g, "").split(/\n\s*\n/)) {
+    const lines = block.split("\n");
+    const times = /^(\d{2}):(\d{2}):(\d{2}),(\d{3}) --> (\d{2}):(\d{2}):(\d{2}),(\d{3})$/.exec(lines[1] || "");
+    if (!/^\d+$/.test(lines[0]) || !times || !lines.slice(2).join("\n").trim()) throw new FactoryError("INVALID_CAPTIONS", 400);
+    const values = times.slice(1).map(Number);
+    const start = values[0] * 3600 + values[1] * 60 + values[2] + values[3] / 1000;
+    const end = values[4] * 3600 + values[5] * 60 + values[6] + values[7] / 1000;
+    if ([values[1], values[2], values[5], values[6]].some(n => n > 59) || start < previous || start >= end || end > duration + 0.25) {
+      throw new FactoryError("INVALID_CAPTIONS", 400);
+    }
+    previous = start;
+  }
+}
 const sourceFile = (key: string) => path.join(artifactDirectory(key), "source.mp4");
 function view<T extends { sourceKey: string; uploadLease: string | null; uploadLeaseUntil: Date | null; deliveryKey: string | null }>(order: T) {
   const { sourceKey, uploadLease, uploadLeaseUntil, deliveryKey, ...safe } = order;
@@ -50,6 +65,8 @@ export async function gamingCatalog(userId: string) {
 }
 export async function createGamingDraft(userId: string, raw: unknown) {
   const input = inputSchema.parse(raw);
+  const storageRoot = path.dirname(artifactDirectory(randomUUID()));
+  await mkdir(storageRoot, { recursive: true });
   const access = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
   const plan = await prisma.package.findUnique({ where: { planCode: GAMING_PLAN } });
   const purchase = await prisma.payment.findFirst({ where: { userId, status: "SUCCESS", plan: GAMING_PLAN }, select: { id: true } });
@@ -70,6 +87,11 @@ export async function createGamingDraft(userId: string, raw: unknown) {
     if (drafts.length >= 2 || drafts.reduce((n, o) => n + o.sourceBytes, 0) + input.sourceBytes > 4_000_000_000) {
       throw new FactoryError("UPLOAD_QUOTA_EXCEEDED", 413);
     }
+    const reserved = await tx.gamingShortsOrder.aggregate({ where: { status: "DRAFT" },
+      _sum: { sourceBytes: true, uploadedBytes: true } });
+    const remaining = 2 * (reserved._sum.sourceBytes || 0) - (reserved._sum.uploadedBytes || 0);
+    const disk = await statfs(storageRoot);
+    if (disk.bavail * disk.bsize - remaining - 2 * input.sourceBytes < 1_000_000_000) throw new FactoryError("STORAGE_FULL", 503);
     return view(await tx.gamingShortsOrder.create({ data: { userId, requestKey: input.requestKey,
       sourceName: input.sourceName, sourceBytes: input.sourceBytes, sourceKey: randomUUID(),
       sourceFingerprint: input.sourceFingerprint,
@@ -91,69 +113,103 @@ async function boundedBytes(req: NextRequest, max: number) {
   if (!size) throw new FactoryError("INVALID_INPUT", 400);
   return Buffer.concat(parts);
 }
-/** The acknowledged offset is authoritative. An expired partial write is truncated on retry. */
+/** Fixed-size immutable chunks survive lost acknowledgements without shared-file writes. */
 export async function uploadGamingChunk(userId: string, id: string, req: NextRequest) {
   const offset = Number(req.headers.get("x-upload-offset"));
   if (!req.headers.has("x-upload-offset") || !Number.isSafeInteger(offset) || offset < 0) throw new FactoryError("INVALID_INPUT", 400);
   const order = await owned(userId, id);
   if (order.status !== "DRAFT") throw new FactoryError("UPLOAD_ALREADY_COMPLETE", 409);
-  if (offset !== order.uploadedBytes) throw new FactoryError("UPLOAD_OFFSET_CHANGED", 409);
-  const bytes = await boundedBytes(req, Math.min(GAMING_CHUNK, order.sourceBytes - offset));
+  if (offset !== order.uploadedBytes || offset % GAMING_CHUNK !== 0) throw new FactoryError("UPLOAD_OFFSET_CHANGED", 409);
+  const expected = Math.min(GAMING_CHUNK, order.sourceBytes - offset);
+  const bytes = await boundedBytes(req, expected);
+  if (bytes.length !== expected) throw new FactoryError("UPLOAD_CHUNK_INCOMPLETE", 400);
   const token = randomUUID();
   const claim = await prisma.gamingShortsOrder.updateMany({ where: { id, userId, status: "DRAFT", uploadedBytes: offset,
     OR: [{ uploadLease: null }, { uploadLeaseUntil: { lt: new Date() } }] },
     data: { uploadLease: token, uploadLeaseUntil: new Date(Date.now() + 120_000) } });
   if (!claim.count) throw new FactoryError("UPLOAD_BUSY", 409);
+  const directory = artifactDirectory(order.sourceKey);
+  const temporary = path.join(directory, token + ".part");
   try {
-    const file = sourceFile(order.sourceKey);
-    await mkdir(path.dirname(file), { recursive: true });
-    const handle = await open(file, offset === 0 ? "w+" : "r+");
-    try {
-      await handle.truncate(offset);
-      let written = 0;
-      while (written < bytes.length) {
-        const result = await handle.write(bytes, written, bytes.length - written, offset + written);
-        if (!result.bytesWritten) throw new Error("Upload write failed");
-        written += result.bytesWritten;
-      }
-      await handle.sync();
-    } finally { await handle.close(); }
+    await mkdir(directory, { recursive: true });
+    const handle = await open(temporary, "wx");
+    try { await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
+    const chunk = path.join(directory, "chunk-" + offset);
+    try { await link(temporary, chunk); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      // A previous process may have persisted this exact chunk before its DB
+      // commit. Never overwrite a committed file, even after a lease expires.
+      const existing = await readFile(chunk);
+      if (!existing.equals(bytes)) throw new FactoryError("FILE_CHANGED", 409);
+    }
     const saved = await prisma.gamingShortsOrder.updateMany({ where: { id, userId, uploadLease: token, uploadedBytes: offset },
       data: { uploadedBytes: offset + bytes.length, uploadLease: null, uploadLeaseUntil: null } });
     if (!saved.count) throw new FactoryError("UPLOAD_OFFSET_CHANGED", 409);
     return { uploadedBytes: offset + bytes.length };
   } finally {
+    await rm(temporary, { force: true });
     await prisma.gamingShortsOrder.updateMany({ where: { id, uploadLease: token }, data: { uploadLease: null, uploadLeaseUntil: null } });
   }
 }
 export async function finishGamingUpload(userId: string, id: string) {
   const order = await owned(userId, id);
   if (order.status !== "DRAFT") return view(order);
-  if (order.uploadedBytes !== order.sourceBytes || order.uploadLease) throw new FactoryError("UPLOAD_INCOMPLETE", 409);
-  const file = sourceFile(order.sourceKey);
-  const fileInfo = await stat(file);
-  if (fileInfo.size !== order.sourceBytes) throw new FactoryError("UPLOAD_INCOMPLETE", 409);
-  const header = await open(file, "r");
+  if (order.uploadedBytes !== order.sourceBytes) throw new FactoryError("UPLOAD_INCOMPLETE", 409);
+  const token = randomUUID();
+  const claim = await prisma.gamingShortsOrder.updateMany({ where: { id, userId, status: "DRAFT", uploadedBytes: order.sourceBytes,
+    OR: [{ uploadLease: null }, { uploadLeaseUntil: { lt: new Date() } }] },
+    data: { uploadLease: token, uploadLeaseUntil: new Date(Date.now() + 300_000) } });
+  if (!claim.count) throw new FactoryError("UPLOAD_BUSY", 409);
+  const directory = artifactDirectory(order.sourceKey);
+  const file = path.join(directory, token + ".assembling.mp4");
   try {
-    const bytes = Buffer.alloc(12);
-    await header.read(bytes, 0, 12, 0);
-    if (bytes.toString("ascii", 4, 8) !== "ftyp") throw new FactoryError("INVALID_VIDEO", 400);
-  } finally { await header.close(); }
-  const probe = JSON.parse(await mediaCommand("ffprobe", ["-v", "error", "-protocol_whitelist", "file",
-    "-show_entries", "format=duration:stream=codec_type,width,height", "-of", "json", file]));
-  const duration = Number(probe.format?.duration);
-  if (!Number.isFinite(duration) || duration <= 0 || duration > GAMING_MAX_SECONDS || !probe.streams?.some((s: { codec_type: string }) => s.codec_type === "video")) {
-    throw new FactoryError("SOURCE_LIMIT_EXCEEDED", 400);
+    const disk = await statfs(directory);
+    if (disk.bavail * disk.bsize < order.sourceBytes + 500_000_000) throw new FactoryError("STORAGE_FULL", 503);
+    const output = await open(file, "wx");
+    try {
+      for (let offset = 0; offset < order.sourceBytes; offset += GAMING_CHUNK) {
+        const bytes = await readFile(path.join(directory, "chunk-" + offset));
+        if (bytes.length !== Math.min(GAMING_CHUNK, order.sourceBytes - offset)) throw new FactoryError("UPLOAD_INCOMPLETE", 409);
+        await output.writeFile(bytes);
+      }
+      await output.sync();
+    } finally { await output.close(); }
+    const header = await open(file, "r");
+    try {
+      const bytes = Buffer.alloc(12);
+      await header.read(bytes, 0, 12, 0);
+      if (bytes.toString("ascii", 4, 8) !== "ftyp") throw new FactoryError("INVALID_VIDEO", 400);
+    } finally { await header.close(); }
+    const probe = JSON.parse(await mediaCommand("ffprobe", ["-v", "error", "-protocol_whitelist", "file",
+      "-show_entries", "format=duration:stream=codec_type,width,height", "-of", "json", file]));
+    const duration = Number(probe.format?.duration);
+    if (!Number.isFinite(duration) || duration <= 0 || duration > GAMING_MAX_SECONDS || !probe.streams?.some((s: { codec_type: string }) => s.codec_type === "video")) {
+      throw new FactoryError("SOURCE_LIMIT_EXCEEDED", 400);
+    }
+    if (!probe.streams.some((s: { codec_type: string; width?: number; height?: number }) =>
+      s.codec_type === "video" && Math.min(s.width || 0, s.height || 0) >= 720)) {
+      throw new FactoryError("SOURCE_RESOLUTION_TOO_LOW", 400);
+    }
+    const hash = createHash("sha256");
+    for await (const chunk of createReadStream(file)) hash.update(chunk);
+    const digest = hash.digest("hex");
+    try { await link(file, sourceFile(order.sourceKey)); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      const previous = createHash("sha256");
+      for await (const chunk of createReadStream(sourceFile(order.sourceKey))) previous.update(chunk);
+      if (previous.digest("hex") !== digest) throw new FactoryError("FILE_CHANGED", 409);
+    }
+    const completed = await prisma.gamingShortsOrder.updateMany({ where: { id, userId, status: "DRAFT", uploadedBytes: order.sourceBytes, uploadLease: token },
+      data: { status: "UPLOADED", sourceSeconds: duration, sourceSha256: digest, uploadLease: null, uploadLeaseUntil: null } });
+    if (!completed.count) throw new FactoryError("UPLOAD_BUSY", 409);
+    for (let offset = 0; offset < order.sourceBytes; offset += GAMING_CHUNK) await rm(path.join(directory, "chunk-" + offset), { force: true });
+    return view(await owned(userId, id));
+  } finally {
+    await rm(file, { force: true });
+    await prisma.gamingShortsOrder.updateMany({ where: { id, uploadLease: token }, data: { uploadLease: null, uploadLeaseUntil: null } });
   }
-  if (!probe.streams.some((s: { codec_type: string; width?: number; height?: number }) =>
-    s.codec_type === "video" && Math.min(s.width || 0, s.height || 0) >= 720)) {
-    throw new FactoryError("SOURCE_RESOLUTION_TOO_LOW", 400);
-  }
-  const hash = createHash("sha256");
-  for await (const chunk of createReadStream(file)) hash.update(chunk);
-  await prisma.gamingShortsOrder.updateMany({ where: { id, userId, status: "DRAFT", uploadedBytes: order.sourceBytes, uploadLease: null },
-    data: { status: "UPLOADED", sourceSeconds: duration, sourceSha256: hash.digest("hex") } });
-  return view(await owned(userId, id));
 }
 export async function deleteGamingDraft(userId: string, id: string) {
   const order = await owned(userId, id);
@@ -246,6 +302,11 @@ export async function deliverGamingOrder(actorId: string, id: string, req: NextR
   const metadata = metadataSchema.parse(JSON.parse((await entryBytes("publishing.json", 100_000)).toString("utf8")));
   const key = randomUUID(), directory = artifactDirectory(key);
   await mkdir(directory, { recursive: true });
+  const disk = await statfs(directory);
+  if (disk.bavail * disk.bsize < 850 * 1024 * 1024) {
+    await rm(directory, { recursive: true, force: true });
+    throw new FactoryError("STORAGE_FULL", 503);
+  }
   try {
     const normalized = new JSZip();
     normalized.file("publishing.json", JSON.stringify(metadata, null, 2));
@@ -255,16 +316,17 @@ export async function deliverGamingOrder(actorId: string, id: string, req: NextR
       const file = path.join(directory, `clip-${n}.mp4`);
       await writeFile(file, video);
       const probe = JSON.parse(await mediaCommand("ffprobe", ["-v", "error", "-protocol_whitelist", "file",
-        "-show_entries", "format=duration:stream=codec_type,width,height", "-of", "json", file]));
+        "-show_entries", "format=duration:stream=codec_type,codec_name,width,height", "-of", "json", file]));
       const duration = Number(probe.format?.duration);
-      if (!Number.isFinite(duration) || duration < 15 || duration > 90 || !probe.streams.some((s: { codec_type: string }) => s.codec_type === "audio") ||
-          !probe.streams.some((s: { codec_type: string; width: number; height: number }) => s.codec_type === "video" && s.width * 16 === s.height * 9)) {
+      if (!Number.isFinite(duration) || duration < 15 || duration > 90 || !probe.streams.some((s: { codec_type: string; codec_name: string }) => s.codec_type === "audio" && s.codec_name === "aac") ||
+          !probe.streams.some((s: { codec_type: string; codec_name: string; width: number; height: number }) => s.codec_type === "video" && s.codec_name === "h264" && s.width >= 720 && s.width * 16 === s.height * 9)) {
         throw new FactoryError("INVALID_VIDEO", 400);
       }
+      await mediaCommand("ffmpeg", ["-v", "error", "-protocol_whitelist", "file", "-i", file, "-f", "null", "-"], AbortSignal.timeout(30000));
       const png = await sharp(await entryBytes(`cover-${n}.png`, 8 * 1024 * 1024), { limitInputPixels: 8_000_000 }).png().toBuffer();
       await writeFile(path.join(directory, `cover-${n}.png`), png);
       const srt = (await entryBytes(`captions-${n}.srt`, 500_000)).toString("utf8");
-      if (srt.length > 500_000 || !/\d\d:\d\d:\d\d,\d{3} --> \d\d:\d\d:\d\d,\d{3}/.test(srt)) throw new FactoryError("INVALID_CAPTIONS", 400);
+      validateCaptions(srt, duration);
       await writeFile(path.join(directory, `captions-${n}.srt`), srt);
       normalized.file(`clip-${n}.mp4`, video);
       normalized.file(`cover-${n}.png`, png);

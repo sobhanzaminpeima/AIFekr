@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
-import { open, stat } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import Database from "better-sqlite3";
 import JSZip from "jszip";
@@ -15,17 +15,17 @@ vi.hoisted(() => {
 vi.mock("./render", async original => ({
   ...await original<typeof import("./render")>(),
   mediaCommand: vi.fn(async () => JSON.stringify({ format: { duration: "30" }, streams: [
-    { codec_type: "video", width: 720, height: 1280 }, { codec_type: "audio" },
+    { codec_type: "video", codec_name: "h264", width: 720, height: 1280 }, { codec_type: "audio", codec_name: "aac" },
   ] })),
 }));
 import { prisma } from "@/lib/db/prisma";
 import { artifactDirectory } from "./render";
 import { createGamingDraft, deliverGamingOrder, finishGamingUpload, gamingAdminAction,
-  gamingCatalog, gamingDownload, GAMING_PLAN, submitGamingOrder, uploadGamingChunk } from "./gamingShorts";
+  gamingCatalog, gamingDownload, GAMING_CHUNK, GAMING_PLAN, submitGamingOrder, uploadGamingChunk } from "./gamingShorts";
 
 describe("Gaming Shorts isolated order", () => {
   let owner: string, other: string, id: string;
-  const video = Buffer.concat([Buffer.from([0, 0, 0, 20]), Buffer.from("ftypisom"), Buffer.alloc(100)]);
+  const video = Buffer.concat([Buffer.from([0, 0, 0, 20]), Buffer.from("ftypisom"), Buffer.alloc(GAMING_CHUNK + 100)]);
   const upload = (offset: number, bytes: Buffer) => new NextRequest("http://localhost/api/video-factory/gaming", {
     method: "PUT", headers: { "x-upload-offset": String(offset) }, body: new Uint8Array(bytes),
   });
@@ -50,17 +50,17 @@ describe("Gaming Shorts isolated order", () => {
     await expect(createGamingDraft(owner, { ...input, sourceFingerprint: "b".repeat(64) })).rejects.toThrow("IDEMPOTENCY_CONFLICT");
     await expect(createGamingDraft(other, { ...input, requestKey: randomUUID() })).rejects.toThrow("GAMING_SALES_NOT_OPEN");
   });
-  it("recovers an unacknowledged partial write and uses server offsets", async () => {
+  it("recovers an unacknowledged chunk and uses server offsets", async () => {
     await expect(uploadGamingChunk(other, id, upload(0, video))).rejects.toThrow("ORDER_NOT_FOUND");
-    expect((await uploadGamingChunk(owner, id, upload(0, video.subarray(0, 40)))).uploadedBytes).toBe(40);
-    await expect(uploadGamingChunk(owner, id, upload(0, video.subarray(0, 40)))).rejects.toThrow("UPLOAD_OFFSET_CHANGED");
+    expect((await uploadGamingChunk(owner, id, upload(0, video.subarray(0, GAMING_CHUNK)))).uploadedBytes).toBe(GAMING_CHUNK);
+    await expect(uploadGamingChunk(owner, id, upload(0, video.subarray(0, GAMING_CHUNK)))).rejects.toThrow("UPLOAD_OFFSET_CHANGED");
     const row = await prisma.gamingShortsOrder.findUniqueOrThrow({ where: { id } });
     const file = path.join(artifactDirectory(row.sourceKey), "source.mp4");
-    const handle = await open(file, "a");
-    await handle.write(Buffer.from("uncertain partial write")); await handle.close();
-    await uploadGamingChunk(owner, id, upload(40, video.subarray(40)));
-    expect((await stat(file)).size).toBe(video.length);
+    await writeFile(path.join(artifactDirectory(row.sourceKey), "chunk-" + GAMING_CHUNK), video.subarray(GAMING_CHUNK));
+    await uploadGamingChunk(owner, id, upload(GAMING_CHUNK, video.subarray(GAMING_CHUNK)));
     expect((await finishGamingUpload(owner, id)).status).toBe("UPLOADED");
+    expect((await stat(file)).size).toBe(video.length);
+    expect((await readFile(file)).equals(video)).toBe(true);
   });
   it("consumes exactly one owned payment, with no wallet charge or duplicate notification", async () => {
     await expect(submitGamingOrder(owner, id)).rejects.toThrow("GAMING_PACKAGE_REQUIRED");

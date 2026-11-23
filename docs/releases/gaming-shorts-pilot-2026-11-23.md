@@ -19,7 +19,7 @@ Proposed launch price for owner review is **690,000 toman per three-clip order**
 - `/api/admin/video-factory/gaming` lists requests, approves them, accepts reviewed deliveries and separately queues the delivery email.
 - Protected source and delivery downloads are authorized on every request. Video downloads support byte ranges.
 
-The complete source is hashed after upload and inspected with FFprobe. A crashed partial write is truncated to the last committed offset before resuming. A unique payment reference prevents duplicate package redemption. Gaming purchases are excluded from automatic film quotas and do not debit the credit wallet. Existing economy orders keep their workflow.
+The complete source is hashed after upload and inspected with FFprobe. Each chunk is persisted as an immutable file before its offset is acknowledged. A lost acknowledgement resumes from the server offset without overwriting previous chunks. Assembly uses a separate temporary file. Disk reservations include space for both chunks and the assembled source. A unique payment reference prevents duplicate package redemption. Gaming purchases are excluded from automatic film quotas and do not debit the credit wallet. Existing economy orders keep their workflow.
 
 Approval and explicit delivery notifications reuse the existing notification table and Resend outbox. Inbox receipt requires a live test with an accessible recipient.
 
