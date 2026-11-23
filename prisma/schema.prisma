@@ -1285,6 +1285,36 @@ model ErrorLog {
   @@index([level, createdAt])
 }
 
+model GamingShortsOrder {
+  id                String @id @default(uuid())
+  userId            String
+  requestKey        String
+  paymentId         String? @unique
+  status            String @default("DRAFT")
+  sourceName        String
+  sourceFingerprint String
+  sourceBytes       Int
+  uploadedBytes     Int @default(0)
+  sourceSeconds     Float?
+  sourceSha256      String?
+  sourceKey         String
+  channel           String
+  language          String
+  rightsConfirmedAt DateTime
+  uploadLease       String?
+  uploadLeaseUntil  DateTime?
+  delivery          String @default("[]")
+  deliveryKey       String?
+  approvedAt        DateTime?
+  deliveredAt       DateTime?
+  notifiedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  @@unique([userId, requestKey])
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
 model EconomyVideoOrder {
   id String @id
   userId String

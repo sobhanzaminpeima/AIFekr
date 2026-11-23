@@ -11,7 +11,7 @@ export async function claimPackage(tx:Prisma.TransactionClient,userId:string,sec
  const jobs=await tx.videoFactoryJob.findMany({where:{userId,status:{notIn:["FAILED","CANCELLED"]}},select:{policy:true}});
  for(const payment of payments){
   let snapshot;try{snapshot=JSON.parse(payment.entitlementSnapshot);}catch{continue;}
-  if(snapshot.category!==VIDEO_PACKAGE_CATEGORY || snapshot.entitlements?.limits?.manualDelivery===1)continue;
+  if(snapshot.category!==VIDEO_PACKAGE_CATEGORY || snapshot.entitlements?.limits?.manualDelivery===1 || snapshot.entitlements?.limits?.gamingShorts)continue;
   const limits=videoLimitsSchema.safeParse(snapshot.entitlements?.limits);
   if(!limits.success||!Number.isInteger(snapshot.days)||new Date(payment.reviewAt||payment.createdAt).getTime()+snapshot.days*86400000<=now.getTime())continue;
   const used=jobs.map(j=>JSON.parse(j.policy).packageUsage as PackageUsage|undefined).filter((u):u is PackageUsage=>u?.paymentId===payment.id);

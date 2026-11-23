@@ -20,6 +20,8 @@
 
 ## Video Factory
 
+The [Gaming Shorts pilot](docs/releases/gaming-shorts-pilot-2026-11-23.md) adds a separate request type for three team-reviewed vertical clips from an owned gameplay file. It includes resumable uploads, single-use paid entitlements and private multi-file delivery. The preparation script leaves its offer inactive and unpriced pending approval of the price and public sample.
+
 The [YouTube campaign](https://aifekr.com/youtube) offers two single-film purchases. The landing page reads the current toman prices from the package catalog. Both plans cover a ten-minute film with a 30-day redemption window.
 
 | Package | Launch price | Customer workflow |

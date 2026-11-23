@@ -10,10 +10,11 @@ import {GET} from "./route";
 const callback=()=>new NextRequest("http://localhost/api/payment/verify?paymentId=p1&Authority=A1&Status=OK");
 beforeEach(()=>{vi.clearAllMocks();mocks.find.mockResolvedValue({id:"p1",userId:"u1",gateway:"zarinpal",authority:"A1",status:"PENDING",amount:8000,plan:"STUDENT_FIRST_THREE_MONTHS",entitlementSnapshot:JSON.stringify({credits:1000,days:90}),user:{email:null}});mocks.verify.mockResolvedValue({ok:true,refId:"123"});mocks.settle.mockResolvedValue(true);});
 describe("Zarinpal callback",()=>{
- it.each(["VF_AUTO_10","VF_ECONOMY_10"])("returns the purchased film SKU %s after verification",async plan=>{
+ it.each(["VF_AUTO_10","VF_ECONOMY_10","GAMING_SHORTS_3"])("returns the purchased film SKU %s after verification",async plan=>{
    mocks.find.mockResolvedValue({id:"p1",gateway:"zarinpal",authority:"A1",status:"PENDING",plan,amount:9990000,entitlementSnapshot:JSON.stringify({credits:0}),user:{email:null}});
    const target=new URL((await GET(callback())).headers.get("location")!);
    expect(target.pathname).toBe("/video-factory");expect(target.searchParams.get("plan")).toBe(plan);expect(target.searchParams.get("payment")).toBe("success");
+   if(plan==="GAMING_SHORTS_3")expect(target.searchParams.get("service")).toBe("gaming");
  });
  it("returns FIT credit purchases to their own wallet",async()=>{mocks.find.mockResolvedValue({id:"p1",userId:"u1",gateway:"zarinpal",authority:"A1",status:"PENDING",amount:8000,plan:"CREDITS_test",entitlementSnapshot:JSON.stringify({credits:100,days:30,returnPath:"/fitness/credits"}),user:{email:null}});expect((await GET(callback())).headers.get("location")).toContain("/fitness/credits?payment=success");});
  it("returns credit purchases started in the Video Factory to the factory",async()=>{mocks.find.mockResolvedValue({id:"p1",userId:"u1",gateway:"zarinpal",authority:"A1",status:"PENDING",amount:8000,plan:"CREDITS_test",entitlementSnapshot:JSON.stringify({credits:100,days:30,returnPath:"/video-factory"}),user:{email:null}});expect((await GET(callback())).headers.get("location")).toContain("/video-factory?payment=success");});

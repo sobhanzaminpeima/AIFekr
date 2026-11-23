@@ -5,7 +5,7 @@ import { isFeatureEnabled } from "@/lib/utils/featureToggles";
 import { rateLimit } from "@/lib/utils/rateLimit";
 import { FactoryError } from "./domain";
 
-export async function factoryRoute(req: NextRequest, admin: boolean, handler: (userId: string) => Promise<NextResponse>) {
+export async function factoryRoute(req: NextRequest, admin: boolean, handler: (userId: string) => Promise<NextResponse>, requestLimit = 30) {
   const user = await (admin ? requireAdmin(req) : requireAuth(req));
   if (!user) return unauthorizedResponse(req);
   if (req.method !== "GET") {
@@ -16,7 +16,7 @@ export async function factoryRoute(req: NextRequest, admin: boolean, handler: (u
     const host=req.headers.get("host");
     const requestOrigin=host && /^[a-zA-Z0-9.:[\]-]+$/.test(host)?`${req.nextUrl.protocol}//${host}`:req.nextUrl.origin;
     if (origin && origin !== req.nextUrl.origin && origin!==requestOrigin) return NextResponse.json({ code: "ORIGIN_FORBIDDEN" }, { status: 403 });
-    if (!rateLimit(`video-factory:${user.id}`, 30, 60000).allowed) return NextResponse.json({ code: "RATE_LIMITED" }, { status: 429 });
+    if (!rateLimit(`video-factory:${requestLimit}:${user.id}`, requestLimit, 60000).allowed) return NextResponse.json({ code: "RATE_LIMITED" }, { status: 429, headers: { "Retry-After": "60" } });
   }
   if (!admin && (user.trialLimited || !await isFeatureEnabled("video"))) return NextResponse.json({ code: "VIDEO_ACCESS_DISABLED" }, { status: 403 });
   try { return await handler(user.id); }
