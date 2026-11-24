@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
+import { withDbRetry } from "@/lib/db/retry";
 import { requireAuth, unauthorizedResponse } from "@/lib/auth/middleware";
 import { prisma } from "@/lib/db/prisma";
 import { routedStreamChat } from "@/lib/ai/router";
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
 
     if (action === "ask") {
       const cost = selectedProvider.current?.creditCost ?? provider.creditCost ?? MAX_PROVIDER_COST;
-      const savedNote = await prisma.studentNote.create({ data: { userId: user.id, courseId, title: `AI: ${prompt.slice(0, 170)}`, content: `Question\n${prompt}\n\nAnswer\n${output.trim()}` } });
+      const savedNote = await withDbRetry(() => prisma.studentNote.create({ data: { userId: user.id, courseId, title: `AI: ${prompt.slice(0, 170)}`, content: `Question\n${prompt}\n\nAnswer\n${output.trim()}` } }));
       const charged = await chargeAndLog(user.id, cost, { type: "chat", model: provider.model, provider: provider.id, metadata: { feature: "student", action } });
       if (!charged) { await prisma.studentNote.deleteMany({ where: { id: savedNote.id, userId: user.id } }); return NextResponse.json({ error: "اعتبار شما هنگام اجرای درخواست تغییر کرد؛ پاسخ ذخیره نشد" }, { status: 402 }); }
       return NextResponse.json({ answer: output.trim(), savedNoteId: savedNote.id, creditsUsed: cost, provider: provider.name, sources: materials.map((m) => m.title) });
@@ -87,7 +88,7 @@ export async function POST(req: NextRequest) {
       if (cards.length !== requestedCount) return NextResponse.json({ error: "فلش‌کارت‌های خروجی معتبر نیستند؛ اعتباری کسر نشد" }, { status: 502 });
       const cost = selectedProvider.current?.creditCost ?? provider.creditCost ?? MAX_PROVIDER_COST;
       const ids = cards.map(() => crypto.randomUUID());
-      await prisma.studentFlashcard.createMany({ data: cards.map((card, index) => ({ id: ids[index], userId: user.id, courseId, question: card.question.slice(0, 1000), answer: card.answer.slice(0, 2000) })) });
+      await withDbRetry(() => prisma.studentFlashcard.createMany({ data: cards.map((card, index) => ({ id: ids[index], userId: user.id, courseId, question: card.question.slice(0, 1000), answer: card.answer.slice(0, 2000) })) }));
       const charged = await chargeAndLog(user.id, cost, { type: "chat", model: provider.model, provider: provider.id, metadata: { feature: "student", action, count: cards.length } });
       if (!charged) {
         await prisma.studentFlashcard.deleteMany({ where: { id: { in: ids }, userId: user.id } });
@@ -105,7 +106,7 @@ export async function POST(req: NextRequest) {
     const cost = selectedProvider.current?.creditCost ?? provider.creditCost ?? MAX_PROVIDER_COST;
     const quizId = crypto.randomUUID();
     const timeLimitSeconds = Number.isInteger(body.timeLimitSeconds) ? Math.max(60, Math.min(7200, body.timeLimitSeconds!)) : null;
-    const result = await prisma.studentQuiz.create({ data: { id: quizId, courseId, title: prompt.slice(0, 120), questions: JSON.stringify(questions), timeLimitSeconds } });
+    const result = await withDbRetry(() => prisma.studentQuiz.create({ data: { id: quizId, courseId, title: prompt.slice(0, 120), questions: JSON.stringify(questions), timeLimitSeconds } }));
     const charged = await chargeAndLog(user.id, cost, { type: "chat", model: provider.model, provider: provider.id, metadata: { feature: "student", action, count: questions.length } });
     if (!charged) {
       await prisma.studentQuiz.deleteMany({ where: { id: quizId, course: { userId: user.id } } });
