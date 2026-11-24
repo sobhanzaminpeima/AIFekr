@@ -57,7 +57,10 @@ export async function gamingCatalog(userId: string) {
   const plan = await prisma.package.findUnique({ where: { planCode: GAMING_PLAN }, select: { isActive: true, publicationStatus: true, publicVisible: true } });
   const actor = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
   const purchase = await prisma.payment.findFirst({ where: { userId, status: "SUCCESS", plan: GAMING_PLAN }, select: { id: true } });
-  return { orders: orders.map(view), planCode: GAMING_PLAN,
+  const used = orders.flatMap(o => o.paymentId ? [o.paymentId] : []);
+  const unusedPurchases = await prisma.payment.count({ where: { userId, status: "SUCCESS", plan: GAMING_PLAN, id: { notIn: used } } });
+  const pending = await prisma.payment.findMany({ where: { userId, plan: GAMING_PLAN, status: "PENDING" }, select: { id: true, entitlementSnapshot: true } });
+  return { orders: orders.map(o => ({ ...view(o), pendingPaymentId: pending.find(p => { try { return JSON.parse(p.entitlementSnapshot).gamingOrderId === o.id; } catch { return false; } })?.id || null })), unusedPurchases, planCode: GAMING_PLAN,
     salesEnabled: !!plan?.isActive && plan.publicationStatus === "PUBLISHED" && plan.publicVisible,
     uploadAllowed: !!purchase || ["ADMIN", "SUPER_ADMIN"].includes(actor?.role || "") ||
       !!plan?.isActive && plan.publicationStatus === "PUBLISHED" && plan.publicVisible,
@@ -215,8 +218,13 @@ export async function finishGamingUpload(userId: string, id: string) {
 export async function deleteGamingDraft(userId: string, id: string) {
   const order = await owned(userId, id);
   if (!["DRAFT", "UPLOADED"].includes(order.status)) throw new FactoryError("ORDER_IN_USE", 409);
-  const removed = await prisma.gamingShortsOrder.deleteMany({ where: { id, userId, status: { in: ["DRAFT", "UPLOADED"] }, paymentId: null,
-    OR: [{ uploadLease: null }, { uploadLeaseUntil: { lt: new Date() } }] } });
+  const removed = await prisma.$transaction(async tx => {
+    await tx.siteSetting.upsert({ where: { key: "gamingIntakeLock" }, create: { key: "gamingIntakeLock", value: "1" }, update: { value: "1" } });
+    const payments = await tx.payment.findMany({ where: { userId, plan: GAMING_PLAN, status: { in: ["PENDING", "SUCCESS"] } }, select: { entitlementSnapshot: true } });
+    if (payments.some(p => { try { return JSON.parse(p.entitlementSnapshot).gamingOrderId === id; } catch { return false; } })) throw new FactoryError("ORDER_PAYMENT_PENDING", 409);
+    return tx.gamingShortsOrder.deleteMany({ where: { id, userId, status: { in: ["DRAFT", "UPLOADED"] }, paymentId: null,
+      OR: [{ uploadLease: null }, { uploadLeaseUntil: { lt: new Date() } }] } });
+  });
   if (!removed.count) throw new FactoryError("ORDER_IN_USE", 409);
   await rm(artifactDirectory(order.sourceKey), { recursive: true, force: true });
   return { deleted: true };

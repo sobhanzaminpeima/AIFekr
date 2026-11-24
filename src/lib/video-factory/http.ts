@@ -23,7 +23,8 @@ export async function factoryRoute(req: NextRequest, admin: boolean, handler: (u
     if (origin && origin !== req.nextUrl.origin && origin!==requestOrigin) return NextResponse.json({ code: "ORIGIN_FORBIDDEN" }, { status: 403 });
     if (!rateLimit(`video-factory:${requestLimit}:${user.id}`, requestLimit, 60000).allowed) return NextResponse.json({ code: "RATE_LIMITED" }, { status: 429, headers: { "Retry-After": "60" } });
   }
-  if (!admin && (user.trialLimited || !await isFeatureEnabled("video"))) return NextResponse.json({ code: "VIDEO_ACCESS_DISABLED" }, { status: 403 });
+  const gamingIntake = req.nextUrl.pathname === "/api/video-factory/gaming" || req.nextUrl.pathname.startsWith("/api/video-factory/gaming/");
+  if (!admin && (user.trialLimited && !gamingIntake || !await isFeatureEnabled("video"))) return NextResponse.json({ code: "VIDEO_ACCESS_DISABLED" }, { status: 403 });
   try { return await handler(user.id); }
   catch (error) {
     const code = error instanceof FactoryError ? error.code : error instanceof ZodError || error instanceof SyntaxError ? "INVALID_INPUT" : "VIDEO_FACTORY_UNAVAILABLE";

@@ -21,8 +21,9 @@ vi.mock("./render", async original => ({
 import { prisma } from "@/lib/db/prisma";
 import { artifactDirectory } from "./render";
 import { assertGamingCapacity } from "./gamingCapacity";
-import { createGamingDraft, deliverGamingOrder, finishGamingUpload, gamingAdminAction,
+import { createGamingDraft, deleteGamingDraft, deliverGamingOrder, finishGamingUpload, gamingAdminAction,
   gamingCatalog, gamingDownload, gamingCustomerAction, GAMING_CHUNK, GAMING_PLAN, submitGamingOrder, uploadGamingChunk } from "./gamingShorts";
+import { settleVerifiedPayment } from "@/lib/payment/reviewBankPayment";
 
 describe("Gaming Shorts isolated order", () => {
   let owner: string, other: string, id: string;
@@ -137,5 +138,17 @@ describe("Gaming Shorts isolated order", () => {
     await prisma.payment.update({ where: { id: payment.id }, data: { status: "FAILED" } });
     await prisma.payment.createMany({ data: [1, 2].map(() => ({ userId: other, amount: 690000, plan: GAMING_PLAN, status: "PENDING", gateway: "local-test" })) });
     await expect(prisma.$transaction(tx => assertGamingCapacity(tx, owner, true))).rejects.toThrow("GAMING_CAPACITY_FULL");
+  });
+  it("atomically submits the checked file only after verified payment, without credits, exactly once", async () => {
+    await prisma.payment.updateMany({where:{status:"PENDING"},data:{status:"FAILED"}});
+    const row=await prisma.gamingShortsOrder.create({data:{userId:owner,requestKey:randomUUID(),status:"UPLOADED",sourceName:"bound.mp4",sourceFingerprint:"e".repeat(64),sourceSha256:"f".repeat(64),sourceSeconds:30,sourceBytes:100,uploadedBytes:100,sourceKey:randomUUID(),channel:"@test",language:"en",rightsConfirmedAt:new Date()}});
+    const p=await prisma.payment.create({data:{userId:owner,amount:690000,plan:GAMING_PLAN,status:"PENDING",gateway:"zarinpal",authority:"ISOLATED_BOUND_AUTH",entitlementSnapshot:JSON.stringify({gamingOrderId:row.id,category:"VIDEO_FACTORY",credits:0,days:30,entitlements:{limits:{gamingShorts:3}}})}});
+    const credits=(await prisma.user.findUniqueOrThrow({where:{id:owner}})).credits;
+    await expect(deleteGamingDraft(owner,row.id)).rejects.toThrow("ORDER_PAYMENT_PENDING");
+    expect((await prisma.gamingShortsOrder.findUniqueOrThrow({where:{id:row.id}})).status).toBe("UPLOADED");
+    await settleVerifiedPayment(p.id,"ISOLATED_BOUND_AUTH","ISOLATED_REF");await settleVerifiedPayment(p.id,"ISOLATED_BOUND_AUTH","ISOLATED_REF");
+    expect(await prisma.gamingShortsOrder.findUnique({where:{id:row.id}})).toMatchObject({status:"PENDING",paymentId:p.id});
+    expect((await prisma.user.findUniqueOrThrow({where:{id:owner}})).credits).toBe(credits);
+    expect(await prisma.auditLog.count({where:{targetId:p.id,action:"gaming_shorts.payment_activated"}})).toBe(1);
   });
 });

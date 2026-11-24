@@ -5,6 +5,7 @@ import { isBusinessBundle, businessIncludesVoice } from "@/lib/plans/business";
 import {standaloneVoiceExpiry} from "./voiceEntitlement";
 import { prisma } from "@/lib/db/prisma";
 import { renewedExpiry } from "./term";
+import { attachPaidGamingOrder } from "@/lib/video-factory/gamingCheckout";
 export async function reviewBankPayment(id:string,adminId:string,approve:boolean,note:string){
  return settlePayment(id,{adminId,approve,note});
 }
@@ -33,6 +34,13 @@ async function settlePayment(id:string,review:{adminId?:string;approve:boolean;n
  await tx.user.update({where:{id:u.id},data:{chatPlanExpiry:expiry,credits:{increment:entitlement.credits},aiCredits:{increment:entitlement.credits}}});
  await purchase();
  await tx.auditLog.create({data:{actorId:adminId||u.id,action:"chat_starter.activated",targetId:p.id,metadata:JSON.stringify({credits:entitlement.credits,expiresAt:expiry})}});
+ }else if(p.plan==="GAMING_SHORTS_3"){
+ const limits=(entitlement.entitlements as {limits?:{gamingShorts?:number}})?.limits;
+ if(entitlement.category!=="VIDEO_FACTORY"||limits?.gamingShorts!==3||entitlement.credits!==0)throw Error("INVALID_GAMING_ENTITLEMENT");
+ await attachPaidGamingOrder(tx,u.id,p.id,p.entitlementSnapshot);
+ await tx.user.update({where:{id:u.id},data:{trialLimited:false}});
+ await tx.userModuleOverride.upsert({where:{userId_moduleKey:{userId:u.id,moduleKey:"video-factory"}},create:{userId:u.id,moduleKey:"video-factory",enabled:true},update:{enabled:true}});
+ await tx.auditLog.create({data:{actorId:adminId||u.id,action:"gaming_shorts.payment_activated",targetId:p.id,metadata:JSON.stringify({credits:0})}});
  }else if(entitlement.category==="VIDEO_FACTORY"){
  const {videoLimitsSchema}=await import("@/lib/video-factory/packages");videoLimitsSchema.parse((entitlement.entitlements as {limits?:unknown})?.limits);
  await tx.user.update({where:{id:u.id},data:{trialLimited:false,credits:{increment:entitlement.credits},aiCredits:{increment:entitlement.credits}}});
