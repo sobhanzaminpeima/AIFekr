@@ -11,9 +11,9 @@ import { prisma } from "@/lib/db/prisma";
 import { artifactDirectory, mediaCommand } from "./render";
 import { FactoryError } from "./errors";
 
-export const GAMING_PLAN = "GAMING_SHORTS_3";
+import { assertGamingCapacity, GAMING_PLAN, GAMING_MAX_BYTES } from "./gamingCapacity";
+export { GAMING_PLAN, GAMING_MAX_BYTES } from "./gamingCapacity";
 export const GAMING_CHUNK = 8 * 1024 * 1024;
-export const GAMING_MAX_BYTES = 2_000_000_000;
 export const GAMING_MAX_SECONDS = 1800;
 const inputSchema = z.object({
   requestKey: z.string().uuid(), sourceName: z.string().trim().min(1).max(200),
@@ -83,6 +83,7 @@ export async function createGamingDraft(userId: string, raw: unknown) {
       }
       return view(existing);
     }
+    await assertGamingCapacity(tx, userId);
     const drafts = await tx.gamingShortsOrder.findMany({ where: { userId, status: { in: ["DRAFT", "UPLOADED"] } }, select: { sourceBytes: true } });
     if (drafts.length >= 2 || drafts.reduce((n, o) => n + o.sourceBytes, 0) + input.sourceBytes > 4_000_000_000) {
       throw new FactoryError("UPLOAD_QUOTA_EXCEEDED", 413);
@@ -246,18 +247,26 @@ export async function submitGamingOrder(userId: string, id: string) {
   });
 }
 export async function gamingAdminOrders() {
-  return (await prisma.gamingShortsOrder.findMany({ where: { status: { in: ["PENDING", "APPROVED", "DELIVERED"] } },
-    orderBy: { createdAt: "desc" }, take: 100 })).map(view);
+  const orders = await prisma.gamingShortsOrder.findMany({ where: { status: { in: ["PENDING", "APPROVED", "DELIVERED", "REVISION_REQUESTED", "CANCEL_REQUESTED"] } }, orderBy: { createdAt: "desc" }, take: 100 });
+  return Promise.all(orders.map(async order => ({ ...view(order), requests: await prisma.auditLog.findMany({ where: { targetId: order.id, action: { in: ["gaming_shorts.revision_requested", "gaming_shorts.cancel_requested"] } }, select: { action: true, metadata: true, createdAt: true }, orderBy: { createdAt: "desc" } }) })));
 }
 export async function gamingAdminAction(actorId: string, raw: unknown) {
-  const { id, action } = z.object({ id: z.string().uuid(), action: z.enum(["APPROVE", "NOTIFY"]) }).strict().parse(raw);
+    const { id, action, note } = z.object({ id: z.string().uuid(), action: z.enum(["APPROVE", "NOTIFY", "RESOLVE_CANCEL", "RESUME"]), note: z.string().trim().min(10).max(2000).optional() }).strict().parse(raw);
   return prisma.$transaction(async tx => {
     const order = await tx.gamingShortsOrder.findUnique({ where: { id } });
     if (!order) throw new FactoryError("ORDER_NOT_FOUND", 404);
+    if (action === "RESOLVE_CANCEL" || action === "RESUME") {
+      if (!note || order.status !== "CANCEL_REQUESTED") throw new FactoryError("CANCELLATION_REVIEW_REQUIRED", 409);
+      const resolved = await tx.gamingShortsOrder.updateMany({ where: { id, status: "CANCEL_REQUESTED" }, data: { status: action === "RESOLVE_CANCEL" ? "CANCELLED" : "PENDING" } });
+      if (!resolved.count) throw new FactoryError("ORDER_CHANGED", 409);
+      await tx.auditLog.create({ data: { actorId, targetId: id, action: "gaming_shorts." + action.toLowerCase(), metadata: JSON.stringify({ note, paymentId: order.paymentId, automaticRefund: false }) } });
+      await tx.notification.create({ data: { userId: order.userId, type: "economy_gaming_cancel_resolution", title: action === "RESOLVE_CANCEL" ? "نتیجهٔ بررسی لغو سفارش" : "سفارش برای ادامه باز شد", body: note, link: "/video-factory?service=gaming", emailPending: true } });
+      return view(await tx.gamingShortsOrder.findUniqueOrThrow({ where: { id } }));
+    }
     const approve = action === "APPROVE";
-    if (approve && !["PENDING", "APPROVED", "DELIVERED"].includes(order.status)) throw new FactoryError("ORDER_NOT_PAID", 409);
+    if (approve && !["PENDING", "APPROVED", "DELIVERED", "REVISION_REQUESTED"].includes(order.status)) throw new FactoryError("ORDER_NOT_PAID", 409);
     if (!approve && order.status !== "DELIVERED") throw new FactoryError("ORDER_NOT_DELIVERED", 409);
-    const changed = await tx.gamingShortsOrder.updateMany({ where: approve ? { id, status: "PENDING" } : { id, status: "DELIVERED", notifiedAt: null },
+    const changed = await tx.gamingShortsOrder.updateMany({ where: approve ? { id, status: { in: ["PENDING", "REVISION_REQUESTED"] } } : { id, status: "DELIVERED", notifiedAt: null },
       data: approve ? { status: "APPROVED", approvedAt: new Date() } : { notifiedAt: new Date() } });
     if (changed.count) {
       await tx.notification.create({ data: { userId: order.userId, type: approve ? "economy_gaming_approved" : "economy_gaming_ready",
@@ -318,7 +327,7 @@ export async function deliverGamingOrder(actorId: string, id: string, req: NextR
       const probe = JSON.parse(await mediaCommand("ffprobe", ["-v", "error", "-protocol_whitelist", "file",
         "-show_entries", "format=duration:stream=codec_type,codec_name,width,height", "-of", "json", file]));
       const duration = Number(probe.format?.duration);
-      if (!Number.isFinite(duration) || duration < 15 || duration > 90 || !probe.streams.some((s: { codec_type: string; codec_name: string }) => s.codec_type === "audio" && s.codec_name === "aac") ||
+      if (!Number.isFinite(duration) || duration < 30 || duration > 60 || !probe.streams.some((s: { codec_type: string; codec_name: string }) => s.codec_type === "audio" && s.codec_name === "aac") ||
           !probe.streams.some((s: { codec_type: string; codec_name: string; width: number; height: number }) => s.codec_type === "video" && s.codec_name === "h264" && s.width >= 720 && s.width * 16 === s.height * 9)) {
         throw new FactoryError("INVALID_VIDEO", 400);
       }
@@ -335,12 +344,33 @@ export async function deliverGamingOrder(actorId: string, id: string, req: NextR
     await writeFile(path.join(directory, "delivery.zip"), await normalized.generateAsync({ type: "nodebuffer", compression: "STORE" }));
     return await prisma.$transaction(async tx => {
       const changed = await tx.gamingShortsOrder.updateMany({ where: { id, status: "APPROVED" }, data: {
-        status: "DELIVERED", deliveryKey: key, delivery: JSON.stringify(metadata), deliveredAt: new Date() } });
+        status: "DELIVERED", deliveryKey: key, delivery: JSON.stringify(metadata), deliveredAt: new Date(), notifiedAt: null } });
       if (!changed.count) throw new FactoryError("ORDER_ALREADY_DELIVERED", 409);
       await tx.auditLog.create({ data: { actorId, targetId: id, action: "gaming_shorts.delivered" } });
       return view(await tx.gamingShortsOrder.findUniqueOrThrow({ where: { id } }));
     });
   } catch (error) { await rm(directory, { recursive: true, force: true }); throw error; }
+}
+export async function gamingCustomerAction(userId: string, id: string, raw: unknown) {
+  const { action, message } = z.object({ action: z.enum(["REQUEST_REVISION", "REQUEST_CANCEL"]), message: z.string().trim().min(10).max(2000) }).strict().parse(raw);
+  return prisma.$transaction(async tx => {
+    const order = await tx.gamingShortsOrder.findFirst({ where: { id, userId } });
+    if (!order) throw new FactoryError("ORDER_NOT_FOUND", 404);
+    const revision = action === "REQUEST_REVISION";
+    const target = revision ? "REVISION_REQUESTED" : "CANCEL_REQUESTED";
+    if (order.status === target) return view(order);
+    if (revision) {
+      if (order.status !== "DELIVERED") throw new FactoryError("ORDER_NOT_DELIVERED", 409);
+      if (!order.deliveredAt || Date.now() - order.deliveredAt.getTime() > 7 * 86400000) throw new FactoryError("REVISION_WINDOW_CLOSED", 409);
+      if (await tx.auditLog.count({ where: { targetId: id, action: "gaming_shorts.revision_requested" } })) throw new FactoryError("REVISION_ALREADY_USED", 409);
+    } else if (order.status !== "PENDING") throw new FactoryError("CANCELLATION_REQUIRES_SUPPORT", 409);
+    const changed = await tx.gamingShortsOrder.updateMany({ where: { id, userId, status: order.status }, data: { status: target } });
+    if (!changed.count) throw new FactoryError("ORDER_CHANGED", 409);
+    await tx.auditLog.create({ data: { actorId: userId, targetId: id, action: revision ? "gaming_shorts.revision_requested" : "gaming_shorts.cancel_requested", metadata: JSON.stringify({ message }) } });
+    const admins = await tx.user.findMany({ where: { role: { in: ["ADMIN", "SUPER_ADMIN"] }, isBlocked: false }, select: { id: true } });
+    await tx.notification.createMany({ data: admins.map(a => ({ userId: a.id, type: "economy_gaming_action", title: revision ? "درخواست اصلاح شورت" : "درخواست لغو سفارش شورت", body: message, link: "/admin/users/requests?type=gaming", emailPending: true })) });
+    return view(await tx.gamingShortsOrder.findUniqueOrThrow({ where: { id } }));
+  });
 }
 export async function gamingDownload(userId: string, id: string, name: string, req: NextRequest, admin = false) {
   const order = admin ? await prisma.gamingShortsOrder.findUnique({ where: { id } }) : await owned(userId, id);

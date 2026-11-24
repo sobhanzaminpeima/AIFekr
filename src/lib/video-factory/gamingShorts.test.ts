@@ -21,7 +21,7 @@ vi.mock("./render", async original => ({
 import { prisma } from "@/lib/db/prisma";
 import { artifactDirectory } from "./render";
 import { createGamingDraft, deliverGamingOrder, finishGamingUpload, gamingAdminAction,
-  gamingCatalog, gamingDownload, GAMING_CHUNK, GAMING_PLAN, submitGamingOrder, uploadGamingChunk } from "./gamingShorts";
+  gamingCatalog, gamingDownload, gamingCustomerAction, GAMING_CHUNK, GAMING_PLAN, submitGamingOrder, uploadGamingChunk } from "./gamingShorts";
 
 describe("Gaming Shorts isolated order", () => {
   let owner: string, other: string, id: string;
@@ -100,5 +100,33 @@ describe("Gaming Shorts isolated order", () => {
     await gamingAdminAction(owner, { id, action: "NOTIFY" });
     expect(await prisma.notification.count({ where: { type: "economy_gaming_ready" } })).toBe(1);
     expect((await gamingCatalog(owner)).orders[0]).not.toHaveProperty("sourceKey");
+  });
+  it("allows one owned revision, preserves payment and restarts delivery notification", async () => {
+    const before = await prisma.gamingShortsOrder.findUniqueOrThrow({ where: { id } });
+    await expect(gamingCustomerAction(other, id, { action: "REQUEST_REVISION", message: "Please correct the captions" })).rejects.toThrow("ORDER_NOT_FOUND");
+    expect((await gamingCustomerAction(owner, id, { action: "REQUEST_REVISION", message: "Please correct the captions" })).status).toBe("REVISION_REQUESTED");
+    await gamingCustomerAction(owner, id, { action: "REQUEST_REVISION", message: "Please correct the captions" });
+    expect(await prisma.auditLog.count({ where: { targetId: id, action: "gaming_shorts.revision_requested" } })).toBe(1);
+    await gamingAdminAction(owner, { id, action: "APPROVE" });
+    await prisma.gamingShortsOrder.update({ where: { id }, data: { status: "DELIVERED", deliveredAt: new Date() } });
+    await expect(gamingCustomerAction(owner, id, { action: "REQUEST_REVISION", message: "Another change request" })).rejects.toThrow("REVISION_ALREADY_USED");
+    expect((await prisma.gamingShortsOrder.findUniqueOrThrow({ where: { id } })).paymentId).toBe(before.paymentId);
+  });
+  it("does not exceed global intake capacity", async () => {
+    const input = { sourceName: "capacity.mp4", sourceFingerprint: "d".repeat(64), sourceBytes: video.length, channel: "@test", language: "en", rightsConfirmed: true };
+    await prisma.gamingShortsOrder.updateMany({ where: { status: { in: ["DRAFT", "UPLOADED"] } }, data: { status: "DELIVERED" } });
+    await createGamingDraft(owner, { ...input, requestKey: randomUUID() });
+    await createGamingDraft(owner, { ...input, requestKey: randomUUID() });
+    await expect(createGamingDraft(owner, { ...input, requestKey: randomUUID() })).rejects.toThrow("GAMING_CAPACITY_FULL");
+  });
+  it("records a cancellation once, blocks editing, and closes only with a resolution note", async () => {
+    const row = await prisma.gamingShortsOrder.findFirstOrThrow({ where: { userId: owner, status: "DRAFT" } });
+    await prisma.gamingShortsOrder.update({ where: { id: row.id }, data: { status: "PENDING" } });
+    const action = { action: "REQUEST_CANCEL", message: "Please cancel before editing starts" };
+    await gamingCustomerAction(owner, row.id, action);await gamingCustomerAction(owner, row.id, action);
+    expect(await prisma.auditLog.count({ where: { targetId: row.id, action: "gaming_shorts.cancel_requested" } })).toBe(1);
+    await expect(gamingAdminAction(owner, { id: row.id, action: "APPROVE" })).rejects.toThrow("ORDER_NOT_PAID");
+    await expect(gamingAdminAction(owner, { id: row.id, action: "RESOLVE_CANCEL" })).rejects.toThrow("CANCELLATION_REVIEW_REQUIRED");
+    expect((await gamingAdminAction(owner, { id: row.id, action: "RESOLVE_CANCEL", note: "Isolated test resolution; no bank transfer" })).status).toBe("CANCELLED");
   });
 });

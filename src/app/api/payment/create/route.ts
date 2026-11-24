@@ -21,6 +21,7 @@ import { rateLimit } from "@/lib/utils/rateLimit";
 import { closeAbandonedGatewayOrder } from "@/lib/payment/adminLifecycle";
 import { mainPlanConflict } from "@/lib/payment/planConflict";
 import { RETIRED_PUBLIC_PLAN_CODES } from "@/lib/billing/packageCategories";
+import { assertGamingCapacity, GAMING_PLAN } from "@/lib/video-factory/gamingCapacity";
 /** A module the buyer upgraded from; payment/verify sends them back there (see resultPath). */
 /** Credit top-ups started from a tool return there after payment. */
 const CREDIT_RETURN_PATHS = ["/video-factory"];
@@ -41,7 +42,6 @@ export async function POST(req: NextRequest) {
  const pkg=tier?{isActive:tier.isActive,price:tier.priceToman*10,priceUsd:null,credits:tier.creditsAmount,duration:30,crmSeatLimit:null,teamSeatLimit:null}:await prisma.package.findUnique({where:{planCode:plan}});
  // Same purchasability as the quote and the public pages: hidden and retired offers are never sold, even without a quote.
  if(!pkg?.isActive || ("publicationStatus" in pkg && pkg.publicationStatus!=="PUBLISHED") || ("publicVisible" in pkg && pkg.publicVisible===false) || RETIRED_PUBLIC_PLAN_CODES.includes(plan))return bankError(req,"Invalid plan",400);
- if("category" in pkg&&pkg.category==="VIDEO_FACTORY"&&process.env.VIDEO_FACTORY_SALES_APPROVED!=="true")return bankError(req,"OWNER_SALES_APPROVAL_REQUIRED",403);
  if("category" in pkg&&pkg.category==="VIDEO_FACTORY"&&process.env.VIDEO_FACTORY_SALES_APPROVED!=="true")return bankError(req,"OWNER_SALES_APPROVAL_REQUIRED",403);
  if(mainPlanConflict(user,plan,"category" in pkg?pkg.category:null))return bankError(req,"ACTIVE_PLAN_CONFLICT",409);
  if("category" in pkg&&pkg.category==="FITNESS"){const profile=await prisma.fitnessProfile.findUnique({where:{userId:user.id}});if(!profile?.goal.trim())return bankError(req,"FITNESS_ONBOARDING_REQUIRED",409);}
@@ -92,6 +92,7 @@ export async function POST(req: NextRequest) {
   const pending=await tx.payment.findFirst({where:{userId:user.id,plan,...(rial?{amount}:{}),periodMonths:months,transferCurrency:currency,transferMinor:rial?undefined:minor,status:"PENDING",gateway}});
   if(pending&&(!rial||pending.authority)){if(quote)await tx.billingQuote.update({where:{id:quote.id},data:{paymentId:pending.id}});return pending;}
   if(pending)throw new Error("PAYMENT_PROCESSING");
+  if(plan===GAMING_PLAN)await assertGamingCapacity(tx,user.id,true);
   if((quoteSnapshot?.promo?.percent??promo.percent)>0&&await tx.payment.findFirst({where:{userId:user.id,status:"SUCCESS"}}))throw Error("PROMOTION_NO_LONGER_ELIGIBLE");
   if((quoteSnapshot?.promo?.percent??promo.percent)>0 && await tx.payment.findFirst({where:{userId:user.id,status:"PENDING",promoPercent:{gt:0}}}))throw new Error("PROMO_ORDER_PENDING");
   if(intro&&await tx.payment.findFirst({where:{userId:user.id,plan:{startsWith:"STUDENT_"},status:{in:["PENDING","SUCCESS"]}}}))throw new Error("OFFER_USED");
@@ -116,5 +117,5 @@ export async function POST(req: NextRequest) {
   }
  }
  return NextResponse.json({paymentId:payment.id,paymentUrl:`${("category" in pkg&&pkg.category==="FITNESS")||body.context==="FITNESS"?"/fitness/checkout":"/checkout"}/${payment.id}`});
- }catch(e){if(e instanceof Error&&["QUOTE_ALREADY_USED","PROMOTION_NO_LONGER_ELIGIBLE","PROMOTION_ORDER_PENDING"].includes(e.message))return bankError(req,e.message,409);if(e instanceof Error&&e.message==="PROMO_ORDER_PENDING")return bankError(req,"Complete or cancel the existing discounted order first",409);if(e instanceof Error&&e.message==="PAYMENT_PROCESSING")return bankError(req,"Payment is processing",409);if(e instanceof Error&&e.message==="OFFER_USED")return bankError(req,"Student welcome offer already used",409);throw e;}
+ }catch(e){if(e instanceof Error&&["GAMING_CAPACITY_FULL","GAMING_UNUSED_PACKAGE","STORAGE_FULL"].includes(e.message))return bankError(req,e.message,409);if(e instanceof Error&&["QUOTE_ALREADY_USED","PROMOTION_NO_LONGER_ELIGIBLE","PROMOTION_ORDER_PENDING"].includes(e.message))return bankError(req,e.message,409);if(e instanceof Error&&e.message==="PROMO_ORDER_PENDING")return bankError(req,"Complete or cancel the existing discounted order first",409);if(e instanceof Error&&e.message==="PAYMENT_PROCESSING")return bankError(req,"Payment is processing",409);if(e instanceof Error&&e.message==="OFFER_USED")return bankError(req,"Student welcome offer already used",409);throw e;}
 }

@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { boundedJson, factoryRoute } from "@/lib/video-factory/http";
-import { deleteGamingDraft, finishGamingUpload, submitGamingOrder, uploadGamingChunk } from "@/lib/video-factory/gamingShorts";
+import { deleteGamingDraft, finishGamingUpload, submitGamingOrder, uploadGamingChunk, gamingCustomerAction } from "@/lib/video-factory/gamingShorts";
 export const dynamic = "force-dynamic";
 export const maxDuration = 150;
 type Context = { params: Promise<{ id: string }> };
+export function PATCH(req: NextRequest, context: Context) {
+  return factoryRoute(req, false, async userId => NextResponse.json({ order: await gamingCustomerAction(userId, z.string().uuid().parse((await context.params).id), await boundedJson(req)) }));
+}
 export function DELETE(req: NextRequest, context: Context) {
   return factoryRoute(req, false, async userId => NextResponse.json(await deleteGamingDraft(userId, z.string().uuid().parse((await context.params).id))));
 }

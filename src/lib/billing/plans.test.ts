@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { priceForPeriod } from "./plans";
+import { priceForPeriod, packageSchema } from "./plans";
 
 const pkg = (planCode: string, duration: number, termPrices: string) => ({ planCode, duration, termPrices, price: 0, baseCurrency: "TRY" });
 
 describe("priceForPeriod term", () => {
+  it("accepts a distinct gaming service without automatic video credits", () => {
+    const data = { planCode: "GAMING_SHORTS_3", name: "Gaming", nameEn: "Gaming", category: "VIDEO_FACTORY", credits: 0,
+      baseCurrency: "IRT", termPrices: { monthly: 690000 }, entitlements: { limits: { gamingShorts: 3, inputMaxSeconds: 1800 } } };
+    expect(packageSchema.safeParse(data).success).toBe(true);
+    expect(packageSchema.safeParse({ ...data, planCode: "VF_AUTO_10" }).success).toBe(false);
+  });
   it("gives the three-month Student package its three months, though its price sits under the monthly key", () => {
     expect(priceForPeriod(pkg("STUDENT_QUARTERLY", 90, '{"monthly":279999}'), "monthly")).toMatchObject({ minor: 279999, months: 3, days: 90 });
   });
