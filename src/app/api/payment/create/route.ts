@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
  const usd=packageUsdPrice(pkg,rates);
  const promo=tier?{percent:0,code:null}:await referralDiscount(user.id);
  // A credit pack paid in toman has its own toman price: it needs no exchange rate (an expired rate used to block it).
- const originalTotal=tier&&rial?tier.priceToman/Math.max(1,rates.usdToToman||1):configured?configured.minor/(configured.currency==="IRT"?1:100)/(configured.currency==="TRY"?rates.usdToTry:configured.currency==="IRT"?rates.usdToToman:1):usd*priceMultiplier*(1-discount);
+ const originalTotal=body.quoteId?0:tier&&rial?tier.priceToman/Math.max(1,rates.usdToToman||1):configured?configured.minor/(configured.currency==="IRT"?1:100)/(configured.currency==="TRY"?rates.usdToTry:configured.currency==="IRT"?rates.usdToToman:1):usd*priceMultiplier*(1-discount);
  // Prices in other currencies are converted with the stored FX rates; if the
  // rate sync has not run (or failed) the total is NaN and applyPromo threw,
  // which surfaced to the customer as a bare 500 at checkout.

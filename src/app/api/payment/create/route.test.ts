@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({
-  promo:vi.fn(), findPending: vi.fn(), create: vi.fn(), auth: vi.fn(), findPackage: vi.fn(), membership:vi.fn(), memberCount:vi.fn(), gateway:vi.fn(),fx:vi.fn(), update:vi.fn(), updateMany:vi.fn(), stale:vi.fn(), closeStale:vi.fn(),
+  promo:vi.fn(), quote:vi.fn(), findPending: vi.fn(), create: vi.fn(), auth: vi.fn(), findPackage: vi.fn(), membership:vi.fn(), memberCount:vi.fn(), gateway:vi.fn(),fx:vi.fn(), update:vi.fn(), updateMany:vi.fn(), stale:vi.fn(), closeStale:vi.fn(),
 }));
 vi.mock("@/lib/payment/zarinpal",()=>({createPayment:mocks.gateway}));
 // Payment routing has its own tests (lib/payment/routing.test.ts); here every currency is open.
@@ -18,8 +18,9 @@ vi.mock("@/lib/payment/bankErrors", () => ({ bankError: (_req: unknown, error: s
 vi.mock("@/lib/db/prisma", () => ({ prisma: {
   payment:{update:mocks.update,updateMany:mocks.updateMany,findMany:mocks.stale},
   package: { findUnique: mocks.findPackage },
+  billingQuote:{findFirst:mocks.quote},
   teamMember:{findUnique:mocks.membership,count:mocks.memberCount},
-  $transaction: (fn: (tx: unknown) => unknown) => fn({ payment: { findFirst: mocks.findPending, create: mocks.create } }),
+  $transaction: (fn: (tx: unknown) => unknown) => fn({ payment: { findFirst: mocks.findPending, create: mocks.create },billingQuote:{updateMany:async()=>({count:1}),update:async()=>({})} }),
 } }));
 import { POST } from "./route";
 
@@ -37,6 +38,13 @@ beforeEach(() => {
   mocks.create.mockResolvedValue({ id: "new-payment" });
 });
 describe("bank checkout period selection", () => {
+  it("uses a verified fixed-toman quote even when legacy FX rates are missing",async()=>{
+    mocks.fx.mockResolvedValue({usdToToman:NaN,usdToTry:NaN,usdToEur:NaN,rateDate:""});
+    mocks.findPackage.mockResolvedValue({isActive:true,price:6900000,priceUsd:null,credits:0,duration:30,termPrices:'{"monthly":690000}',baseCurrency:"IRT"});
+    mocks.quote.mockResolvedValue({id:"fixed-quote",expiresAt:new Date(Date.now()+60000),paymentId:null,currency:"IRT",amountToman:690000,amountMinor:690000,snapshot:JSON.stringify({credits:0,days:30,base:{months:1},promo:{percent:0,code:null},originalAmountToman:690000})});
+    const r=await POST(new NextRequest("http://localhost/api/payment/create",{method:"POST",body:JSON.stringify({plan:"FIXED_SERVICE",period:"monthly",currency:"IRR",quoteId:"fixed-quote"})}));
+    expect(r.status).toBe(200);expect(mocks.gateway.mock.calls[0][0].amount).toBe(690000);expect(mocks.create.mock.calls[0][0].data.amount).toBe(690000);
+  });
   it("charges only 80 USD for the new 90-day student offer", async () => {
     expect((await POST(request("STUDENT_FIRST_THREE_MONTHS", "monthly", "EUR"))).status).toBe(200);
     const data = mocks.create.mock.calls[0][0].data;
