@@ -27,6 +27,6 @@ export async function GET() {
   // Each term priced in the visitor's currency by the landing's own resolver; a term without a valid price is absent.
   const lang=await getServerLang();
   const offers=await Promise.all(packages.map(async p=>Object.fromEntries((await Promise.all(packagePeriods(p.termPrices).map(async k=>[k,await resolveOffer(p,k,lang)] as const))).filter(([,o])=>o))));
-  return NextResponse.json({ promo, fxRates:rates, packages:packages.map((p,i)=>({...p,offers:offers[i],purchaseAvailable:p.category!=="VIDEO_FACTORY"||videoAvailable})) });
+  return NextResponse.json({ promo, fxRates:rates, packages:packages.map((p,i)=>({...p,offers:offers[i],purchaseAvailable:p.category!=="VIDEO_FACTORY"||(p.planCode==="GAMING_SHORTS_3"?process.env.VIDEO_FACTORY_SALES_APPROVED==="true":videoAvailable)})) });
 }
 
