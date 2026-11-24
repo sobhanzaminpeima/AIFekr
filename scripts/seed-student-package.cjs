@@ -7,7 +7,7 @@ async function main() {
   if (!response.ok) throw Error("FX unavailable; prices not changed");
   const rates = await response.json();
   if (rates.result !== "success" || !(rates.rates?.TRY > 0) || !(rates.rates?.IRR > 0)) throw Error("Invalid FX response");
-  const plans = [{code:"STUDENT_MONTHLY",priceTry:119999,days:30,name:"دانشجویی — یک ماه",nameEn:"Student — one month",sortOrder:15},{code:"STUDENT_QUARTERLY",priceTry:279999,days:90,name:"دانشجویی — سه ماه (۲۲٪ تخفیف)",nameEn:"Student — three months (22% off)",sortOrder:16}];
+  const plans = [{code:"STUDENT_MONTHLY",priceTry:98286,days:30,name:"دانشجویی — یک ماه",nameEn:"Student — one month",sortOrder:15},{code:"STUDENT_QUARTERLY",priceTry:271151,days:90,name:"دانشجویی — سه ماه (۸٪ تخفیف)",nameEn:"Student — three months (8% off)",sortOrder:16}];
   const legacy = await prisma.package.findFirst({where:{planCode:{in:["STUDENT_FIRST_THREE_MONTHS","STUDENT_FIRST_TWO_MONTHS"]}}});
   const proposed=[];
   for(const plan of plans){

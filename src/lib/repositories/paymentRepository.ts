@@ -70,6 +70,11 @@ export async function activatePlanForPayment(
         const current = await tx.user.findUniqueOrThrow({ where: { id: payment.userId }, select: { planExpiry: true } });
         return current.planExpiry || expiry;
       }
+      // Early renewal of an active student plan extends from the current
+      // expiry (same policy as the bank-transfer path) instead of discarding
+      // the remaining paid days.
+      const owner = await tx.user.findUniqueOrThrow({ where: { id: payment.userId }, select: { plan: true, planExpiry: true } });
+      if (owner.plan.startsWith("STUDENT_") && owner.planExpiry && owner.planExpiry.getTime() > Date.now()) expiry.setTime(owner.planExpiry.getTime() + days * 24 * 60 * 60 * 1000);
       await tx.user.update({ where: { id: payment.userId }, data: { plan: payment.plan, accountType: "STUDENT", planExpiry: expiry, credits: { increment: planInfo?.credits || 0 }, trialLimited: false } });
       await ledgerPurchase(tx, payment, planInfo?.credits);
       const education=await tx.industryPack.findUnique({where:{slug:"university"},select:{id:true}});if(!education)throw new Error("STUDENT_INDUSTRY_NOT_CONFIGURED");await tx.user.update({where:{id:payment.userId},data:{industryPackId:education.id}});

@@ -68,7 +68,7 @@ describe("activatePlanForPayment billing term", () => {
     expect(await prisma.payment.count({ where: { userId, plan: "STUDENT_FIRST_TWO_MONTHS" } })).toBe(1);
   });
   it("activates the regular student subscription for 30 days once", async () => {
-    await prisma.user.update({ where: { id: USER_ID }, data: { credits: 0 } });
+    await prisma.user.update({ where: { id: USER_ID }, data: { credits: 0, plan: "FREE", planExpiry: null } });
     const pending = await createPendingPayment({ userId: USER_ID, amount: 13071970, plan: "STUDENT_MONTHLY", gateway: "zarinpal", periodMonths: 1 });
     const payment = await findPaymentById(pending.id);
     const expiry = await activatePlanForPayment(payment!, "monthly-ref", `auth-${pending.id}`, { credits: 1000, days: 30 });
@@ -77,13 +77,19 @@ describe("activatePlanForPayment billing term", () => {
     expect((await prisma.user.findUniqueOrThrow({ where: { id: USER_ID } })).credits).toBe(1000);
   });
   it("activates a renewable quarterly student plan for 90 days with credits only once", async () => {
-    await prisma.user.update({where:{id:USER_ID},data:{credits:0}});
+    await prisma.user.update({where:{id:USER_ID},data:{credits:0,plan:"FREE",planExpiry:null}});
     const pending=await createPendingPayment({userId:USER_ID,amount:1000,plan:"STUDENT_QUARTERLY",gateway:"zarinpal",periodMonths:3});
     const payment=await findPaymentById(pending.id);
     const expiry=await activatePlanForPayment(payment!,"quarterly-ref",`auth-${pending.id}`,{credits:1000,days:90});
     await activatePlanForPayment(payment!,"quarterly-ref",`auth-${pending.id}`,{credits:1000,days:90});
     expect(Math.round((expiry.getTime()-Date.now())/DAY_MS)).toBe(90);
     expect((await prisma.user.findUniqueOrThrow({where:{id:USER_ID}})).credits).toBe(1000);
+  });
+  it("extends an active student plan on early renewal instead of resetting it", async () => {
+    await prisma.user.update({ where: { id: USER_ID }, data: { plan: "STUDENT_MONTHLY", planExpiry: new Date(Date.now() + 10 * DAY_MS) } });
+    const pending = await createPendingPayment({ userId: USER_ID, amount: 1000, plan: "STUDENT_MONTHLY", gateway: "zarinpal", periodMonths: 1 });
+    const expiry = await activatePlanForPayment((await findPaymentById(pending.id))!, "renew-ref", `auth-${pending.id}`, { credits: 0, days: 30 });
+    expect(Math.round((expiry.getTime() - Date.now()) / DAY_MS)).toBe(40);
   });
   it("grants one package duration for a monthly payment", async () => {
     const expiry = await activate(undefined);

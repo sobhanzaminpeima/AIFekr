@@ -2,7 +2,7 @@
 export const STUDENT_PLAN_CODE = "STUDENT_QUARTERLY";
 export const LEGACY_STUDENT_PLAN_CODE = "STUDENT_FIRST_TWO_MONTHS";
 export const STUDENT_MONTHLY_CODE = "STUDENT_MONTHLY";
-export const STUDENT_OFFER = { liraPrice: 2799.99, monthlyLiraPrice: 1199.99, originalLiraPrice: 3599.97, discountPercent: 22, months: 3, days: 90 };
+export const STUDENT_OFFER = { liraPrice: 2711.51, monthlyLiraPrice: 982.86, originalLiraPrice: 2948.58, discountPercent: 8, months: 3, days: 90 };
 export const isStudentIntroPlan = (plan: string) => ["STUDENT_FIRST_THREE_MONTHS", LEGACY_STUDENT_PLAN_CODE].includes(plan);
 export function studentOfferPrices(usdToToman: number, usdToTry: number, usdCents = 8000) {
   return { usdCents, toman: Math.round(usdCents / 100 * usdToToman), lira: Math.round(usdCents / 100 * usdToTry * 100) / 100 };
