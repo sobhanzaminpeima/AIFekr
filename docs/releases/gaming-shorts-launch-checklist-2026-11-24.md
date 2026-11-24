@@ -19,3 +19,11 @@ Three explicitly labelled test notifications were sent to the owner's supplied a
 ## Public launch gates
 
 Keep the offer unpublished until a source with actual 720p+ quality is reviewed and a real bank checkout-to-delivery is completed. The existing internal 360p-derived outputs are transport/render fixtures, not advertising samples. Bank credentials must be entered by the owner, never requested in chat. A successful mocked callback is not bank settlement. Retain a release backup and test private mobile downloads after deploying these changes.
+
+## Deployment acceptance
+
+Backend `207dfcd2` and UI `5a57eeb` deployed successfully with a verified database backup and rollback versions preserved. The production package remains inactive, hidden and DRAFT, now with a fixed monthly-key service price of 690,000 toman and consistent 500 MB source limits. This is a one-time service entitlement, not a subscription renewal or wallet top-up.
+
+The focused suite passes eight gaming lifecycle/capacity tests, ten automatic-package separation tests, and 46 pricing/payment/email tests. Interactive component checks pass at 390 and 1366 pixels, including revision and cancellation forms. An isolated database on the actual server passed native HTTP upload/resume, one entitlement redemption, FFmpeg-validated delivery, private file and ZIP downloads, a single revision, redelivery, and cancellation hold/resolution. No real bank settlement was performed by these tests. The owner separately confirmed that all three actual notification test emails arrived in Inbox.
+
+The supplied footage directory was checked again: its only source is `videoplayback.mp4`, 640×360, 30:42.64. It cannot satisfy the public sample's quality gate and exceeds the advertised input duration. Do not relabel enlarged output as native 720p footage.

@@ -20,6 +20,7 @@ vi.mock("./render", async original => ({
 }));
 import { prisma } from "@/lib/db/prisma";
 import { artifactDirectory } from "./render";
+import { assertGamingCapacity } from "./gamingCapacity";
 import { createGamingDraft, deliverGamingOrder, finishGamingUpload, gamingAdminAction,
   gamingCatalog, gamingDownload, gamingCustomerAction, GAMING_CHUNK, GAMING_PLAN, submitGamingOrder, uploadGamingChunk } from "./gamingShorts";
 
@@ -128,5 +129,13 @@ describe("Gaming Shorts isolated order", () => {
     await expect(gamingAdminAction(owner, { id: row.id, action: "APPROVE" })).rejects.toThrow("ORDER_NOT_PAID");
     await expect(gamingAdminAction(owner, { id: row.id, action: "RESOLVE_CANCEL" })).rejects.toThrow("CANCELLATION_REVIEW_REQUIRED");
     expect((await gamingAdminAction(owner, { id: row.id, action: "RESOLVE_CANCEL", note: "Isolated test resolution; no bank transfer" })).status).toBe("CANCELLED");
+  });
+  it("blocks duplicate unused purchases and reserves other buyers' checkout slots", async () => {
+    await prisma.gamingShortsOrder.updateMany({ where: { status: { in: ["DRAFT", "UPLOADED"] } }, data: { status: "CANCELLED" } });
+    const payment = await prisma.payment.create({ data: { userId: owner, amount: 690000, plan: GAMING_PLAN, status: "SUCCESS", gateway: "local-test" } });
+    await expect(prisma.$transaction(tx => assertGamingCapacity(tx, owner, true))).rejects.toThrow("GAMING_UNUSED_PACKAGE");
+    await prisma.payment.update({ where: { id: payment.id }, data: { status: "FAILED" } });
+    await prisma.payment.createMany({ data: [1, 2].map(() => ({ userId: other, amount: 690000, plan: GAMING_PLAN, status: "PENDING", gateway: "local-test" })) });
+    await expect(prisma.$transaction(tx => assertGamingCapacity(tx, owner, true))).rejects.toThrow("GAMING_CAPACITY_FULL");
   });
 });
