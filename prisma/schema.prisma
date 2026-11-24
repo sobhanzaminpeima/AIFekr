@@ -3995,6 +3995,8 @@ model StudentMaterial {
   title     String
   content   String
   source    String   @default("text")
+  /// Optional student-chosen folder name for organising sources (null = unfiled).
+  folder    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
