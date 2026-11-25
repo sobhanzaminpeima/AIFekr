@@ -25,7 +25,7 @@ import { assertGamingCapacity, GAMING_PLAN } from "@/lib/video-factory/gamingCap
 import { validateGamingCheckout } from "@/lib/video-factory/gamingCheckout";
 /** A module the buyer upgraded from; payment/verify sends them back there (see resultPath). */
 /** Credit top-ups started from a tool return there after payment. */
-const CREDIT_RETURN_PATHS = ["/video-factory"];
+const CREDIT_RETURN_PATHS = ["/video-factory", "/voice-studio"];
 const MODULE_RETURN_PATHS: unknown[] = [...GROWTH_MODULES.flatMap(m => [m.paths[0], moduleEntry(m)]), ...CREDIT_RETURN_PATHS];
 export async function POST(req: NextRequest) {
  const user=await requireAuth(req); if(!user)return unauthorizedResponse(req);

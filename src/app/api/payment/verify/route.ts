@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   const paymentId = searchParams.get("paymentId");
 
   const appUrl = publicAppUrl();
-  const resultPath=(p:{plan:string;entitlementSnapshot?:string|null})=>{try{const path=JSON.parse(p.entitlementSnapshot||"{}").returnPath;if(["/chat","/fitness/credits","/fitness/marketplace","/video-factory"].includes(path))return path;const mod=GROWTH_MODULES.find(m=>m.paths[0]===path||moduleEntry(m)===path);if(mod)return moduleEntry(mod);}catch{}return p.plan.startsWith("CREDITS_")?"/credits":"/plans";};
+  const resultPath=(p:{plan:string;entitlementSnapshot?:string|null})=>{try{const path=JSON.parse(p.entitlementSnapshot||"{}").returnPath;if(["/chat","/fitness/credits","/fitness/marketplace","/video-factory","/voice-studio"].includes(path))return path;const mod=GROWTH_MODULES.find(m=>m.paths[0]===path||moduleEntry(m)===path);if(mod)return moduleEntry(mod);}catch{}return p.plan.startsWith("CREDITS_")?"/credits":"/plans";};
 
   function resultUrl(p:{plan:string;entitlementSnapshot?:string|null}, status:string, ref?:string){
     const dedicated = ["VF_AUTO_10","VF_ECONOMY_10","GAMING_SHORTS_3"].includes(p.plan);

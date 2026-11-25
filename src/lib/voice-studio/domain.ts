@@ -6,13 +6,17 @@ export const settingsSchema = z.object({ enabled: z.boolean().default(false), ve
     /** Short sample generations for accounts outside allowedPlans, paid from their own credits through the normal ledger. 0 = off. */
     /** Also open the studio to any account with a successful purchase (any package or credit top-up), paying per use from its credits. */
     paidAccess: z.boolean().default(false),
+    /** Optional per-model price (credits per billing interval); models not listed use creditsPerInterval. */
+    modelCreditsPerInterval: z.record(z.string().max(100), z.number().int().min(1).max(10000)).default({}),
     trialFree: z.boolean().default(false), trialGenerations: z.number().int().min(0).max(3).default(0), trialMaxSeconds: z.number().int().min(10).max(60).default(30) }).strict();
 export type VoicePolicy = z.infer<typeof settingsSchema>;
 export const defaults = settingsSchema.parse({});
 export function graphemes(text: string) { return [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text)].length; }
 export function estimatedSeconds(text: string, language: string) { const words = text.trim().split(/\s+/u).filter(Boolean).length; return Math.max(1, words * 60 / (language === "fa" ? 95 : 110), graphemes(text) / (language === "fa" ? 9 : 12)); }
-export function creditsFor(seconds: number, policy: Pick<VoicePolicy, "creditsPerInterval" | "billingInterval">) { if (!Number.isFinite(seconds) || seconds <= 0)
-    throw new VoiceError("INVALID_DURATION"); return Math.ceil(seconds / policy.billingInterval) * policy.creditsPerInterval; }
+export function creditsPerIntervalFor(policy: Pick<VoicePolicy, "creditsPerInterval"> & { modelCreditsPerInterval?: Record<string, number> }, modelId?: string) {
+    return (modelId && policy.modelCreditsPerInterval?.[modelId]) || policy.creditsPerInterval; }
+export function creditsFor(seconds: number, policy: Pick<VoicePolicy, "creditsPerInterval" | "billingInterval"> & { modelCreditsPerInterval?: Record<string, number> }, modelId?: string) { if (!Number.isFinite(seconds) || seconds <= 0)
+    throw new VoiceError("INVALID_DURATION"); return Math.ceil(seconds / policy.billingInterval) * creditsPerIntervalFor(policy, modelId); }
 /** Conservative segmentation is a preview, never a guarantee of the synthesized duration. */
 export function splitProject(text: string, language: string, maxSeconds: number, maxProviderChars = 5000) {
     if (!text.trim())

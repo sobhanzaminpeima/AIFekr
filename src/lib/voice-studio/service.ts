@@ -66,7 +66,7 @@ export async function bootstrap(userId: string, device?: string | null) { const 
 }
 catch (e) {
     catalogError = e instanceof VoiceError ? e.code : "CATALOG_UNAVAILABLE";
-} return { access, policy: { enabled: policy.enabled, paidAccess: policy.paidAccess, version: policy.version, maxCharacters: policy.maxCharacters, maxDurationSeconds: effectivePolicy(policy, trialLeft > 0).maxDurationSeconds, trialFree: policy.trialFree, creditsPerInterval: policy.creditsPerInterval, billingInterval: policy.billingInterval, allowedModels: policy.allowedModels, allowedVoices: policy.allowedVoices }, catalog, catalogError, presets: await presetsFor(userId), credits: await getAvailableCredits(userId), projects: await prisma.voiceStudioProject.findMany({ where: { ...await voiceScope(userId), deletedAt: null }, orderBy: { updatedAt: "desc" }, take: 100 }) }; }
+} return { access, policy: { enabled: policy.enabled, paidAccess: policy.paidAccess, version: policy.version, maxCharacters: policy.maxCharacters, maxDurationSeconds: effectivePolicy(policy, trialLeft > 0).maxDurationSeconds, trialFree: policy.trialFree, creditsPerInterval: policy.creditsPerInterval, modelCreditsPerInterval: policy.modelCreditsPerInterval, billingInterval: policy.billingInterval, allowedModels: policy.allowedModels, allowedVoices: policy.allowedVoices }, catalog, catalogError, presets: await presetsFor(userId), credits: await getAvailableCredits(userId), projects: await prisma.voiceStudioProject.findMany({ where: { ...await voiceScope(userId), deletedAt: null }, orderBy: { updatedAt: "desc" }, take: 100 }) }; }
 export async function saveProject(userId: string, input: {
     id?: string;
     name: string;
@@ -119,7 +119,7 @@ export async function enqueueSpeech(userId: string, input: GenerationInput, devi
     const segments = splitProject(project.text, project.language, policy.maxDurationSeconds, model.maxCharacters), text = segments[input.segmentIndex];
     if (!text)
         throw new VoiceError("INVALID_SEGMENT", 400);
-    const inputHash = createHash("sha256").update(JSON.stringify({ text, voice: voice.id, model: model.id, language: project.language, settings, segment: input.segmentIndex, project: project.id })).digest("hex"), id = randomUUID(), reserved = !planOk && policy.trialFree ? 0 : creditsFor(policy.maxDurationSeconds, policy);
+    const inputHash = createHash("sha256").update(JSON.stringify({ text, voice: voice.id, model: model.id, language: project.language, settings, segment: input.segmentIndex, project: project.id })).digest("hex"), id = randomUUID(), reserved = !planOk && policy.trialFree ? 0 : creditsFor(policy.maxDurationSeconds, policy, model.id);
     return prisma.$transaction(async (tx) => {
         // Acquire SQLite's write lock before checking the shared lifetime allowance.
         await tx.user.update({where:{id:userId},data:{credits:{increment:0}}});
@@ -166,7 +166,7 @@ export async function finishGeneration(id: string, status: "READY" | "FAILED" | 
         if (status === "READY" && (!details.storageKey || !details.durationMs || details.durationMs > policy.maxDurationSeconds * 1000))
             throw new VoiceError("INVALID_FINAL_AUDIO");
         const snapshot = JSON.parse(row.pricingSnapshot) as VoicePolicy & {trialSample?: boolean};
-        const charged = status === "READY" && !(snapshot.trialSample && snapshot.trialFree) ? creditsFor(details.durationMs! / 1000, policy) : 0;
+        const charged = status === "READY" && !(snapshot.trialSample && snapshot.trialFree) ? creditsFor(details.durationMs! / 1000, policy, row.modelId) : 0;
         if (charged > row.reservedCredits)
             throw new VoiceError("RESERVATION_EXCEEDED");
         const changed = await tx.voiceStudioGeneration.updateMany({ where: { id, status: row.status }, data: { status, chargedCredits: charged, refundedCredits: row.reservedCredits - charged, durationMs: details.durationMs, storageKey: details.storageKey, bytes: details.bytes, waveform: details.waveform ? JSON.stringify(details.waveform) : undefined, errorCode: details.errorCode, completedAt: new Date(), expiresAt: status === "READY" ? new Date(Date.now() + policy.retentionDays * 86400000) : null } });
